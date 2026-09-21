@@ -22,7 +22,7 @@ committed with the run-tests change
 
 ## Decisions and open items
 
-Decisions: `factory/scripts/run-tests` MUST defer to a pre-existing project test configuration because Factory assists consumer projects and does not own
+Decisions: `.agent-factory/factory/scripts/run-tests` MUST defer to a pre-existing project test configuration because Factory assists consumer projects and does not own
 their runtime topology. A project-declared test entrypoint takes precedence over framework inference. Framework auto-detection remains a fallback only when
 no project entrypoint exists.
 
@@ -34,7 +34,7 @@ during the session migration fixture before tests execute.
 
 The change must:
 
-- Be developed test-first through the public `factory/scripts/run-tests` CLI.
+- Be developed test-first through the public `.agent-factory/factory/scripts/run-tests` CLI.
 - Preserve selected command exit codes.
 - Preserve the documented JSON summary contract.
 - Update [UC-09](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../adr/0003-test-execution-via-hooks.md) where their documented precedence
@@ -57,9 +57,9 @@ Open items:
 ## Artifacts
 
 - docs/handoffs/run-tests-project-entrypoint-2026-08-28.md
-- factory/scripts/run-tests
-- factory/config/pre-commit-config.yaml
-- factory/README.md
+- .agent-factory/factory/scripts/run-tests
+- .agent-factory/factory/config/pre-commit-config.yaml
+- .agent-factory/factory/README.md
 - docs/spec/use_cases/UC-09-run-tests-via-hook.md
 - docs/adr/0003-test-execution-via-hooks.md
 

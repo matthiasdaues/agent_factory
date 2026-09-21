@@ -23,6 +23,7 @@ from dispatch_lib import glob_match
 
 
 READ_ALLOWED_PREFIXES = (
+    ".agent-factory/factory/",
     "factory/",
     ".claude/",
     ".github/",

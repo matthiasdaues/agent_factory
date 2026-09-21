@@ -12,8 +12,8 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/playbooks/research-topic.md
-    - factory/rulebooks/schemas/research-brief.schema.json
+    - .agent-factory/factory/playbooks/research-topic.md
+    - .agent-factory/factory/rulebooks/schemas/research-brief.schema.json
 
 governance:
   assurance: high

@@ -1,7 +1,7 @@
 ---
 title: Reconciliation — Factory Self-Documentation (Repeat Pass)
 date: 2026-08-06
-scope: factory self-documentation (root README + referenced docs, factory/, orchestrator/)
+scope: factory self-documentation (root README + referenced docs, .agent-factory/factory/, orchestrator/)
 source: reconcile
 baseline: 50b307f (chore/reconcile-docs checkout, post RECON-0017)
 reviewer: reconciliation-agent (separate session)
@@ -12,7 +12,7 @@ reviewer: reconciliation-agent (separate session)
 **Scope.** A repeat-pass reconciliation of the Factory's *own*
 self-documentation against the code-as-built. Same target set as the
 2026-08-06 self-docs pass, run fresh per
-[review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md):
+[review-loop-discipline.md](../../.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md):
 re-verify every open `RECON` finding *and* rebuild the truth-map diff from
 scratch to catch drift the prior pass or its fixes introduced. The
 `docs/spec` and `docs/adr` flow-control specification surface was left alone
@@ -22,15 +22,15 @@ Targets re-reconciled:
 
 1. Root `README.md` and root-level docs it references (`docs/arc42/concepts.md`,
    `docs/arc42/beginner-intro.md`, `docs/arc42/CONTEXT-MAP.md`).
-2. `factory/` self-documentation (`factory/README.md`, `factory/docs/`).
+2. `.agent-factory/factory/` self-documentation (`.agent-factory/factory/README.md`, `.agent-factory/factory/docs/`).
 3. `orchestrator/` self-documentation (`orchestrator/README.md`,
    `orchestrator/docs/**`, `orchestrator/docs/adr/`). `orchestrator/CONTEXT.md`
    was checked for again — it still does not exist, which matches
    `docs/arc42/CONTEXT-MAP.md`'s current (post-prior-pass) entry that links
    `orchestrator/README.md` instead.
 
-**Method.** Rebuilt truth maps from code (`factory/scripts/`,
-`factory/config/`, `factory/playbooks/*.fsm.yml`, `orchestrator/src/`,
+**Method.** Rebuilt truth maps from code (`.agent-factory/factory/scripts/`,
+`.agent-factory/factory/config/`, `.agent-factory/factory/playbooks/*.fsm.yml`, `orchestrator/src/`,
 `orchestrator/pyproject.toml`, `.pre-commit-config.yaml`) and diffed against
 the prose claims in the in-scope docs. Re-verified file paths/existence,
 command names and flags, behaviour claims, and architecture/ownership
@@ -39,21 +39,21 @@ them and to confirm the documented invocation forms.
 
 ## Prior open finding — re-verified
 
-| Finding                                                                                                                                                                                             | Status this pass | Action                                                                                                                                                                                                                                                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/findings/RECON-0017.md` — pre-push full-suite test gate documented (ADR-0003 + `factory/README.md`) but never wired into `factory/config/pre-commit-config.yaml` or `.pre-commit-config.yaml` | **Still open**   | Re-verified: `grep -n 'pre-push\|stages' factory/config/pre-commit-config.yaml .pre-commit-config.yaml` returns no `pre-push`-stage entry and no `run-tests --full` entry. The code defect is unfixed. Finding left `status: open`; handed back to the implementation agent. |
+| Finding                                                                                                                                                                                                                           | Status this pass | Action                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/findings/RECON-0017.md` — pre-push full-suite test gate documented (ADR-0003 + `.agent-factory/factory/README.md`) but never wired into `.agent-factory/factory/config/pre-commit-config.yaml` or `.pre-commit-config.yaml` | **Still open**   | Re-verified: `grep -n 'pre-push\|stages' .agent-factory/factory/config/pre-commit-config.yaml .pre-commit-config.yaml` returns no `pre-push`-stage entry and no `run-tests --full` entry. The code defect is unfixed. Finding left `status: open`; handed back to the implementation agent. |
 
 ## Discrepancy table (this pass)
 
-| #   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Artifact                                            | Category | Severity | Disposition                                                                                                                                                        |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | `factory/README.md` § Test execution hooks, point 3 said FSM entry conditions check `tests_pass` "before advancing to QA or DONE states." As-built, `tests_pass` gates the Implementation→Gate/QA transition only — neither `greenfield-development.fsm.yml` nor `bug-fix.fsm.yml` lists `tests_pass` in `DONE`'s `entry_conditions`. The "DONE" clause is a behaviour-claim drift. (The prior pass recorded this as an observation and left it; this pass corrects it.) | `factory/README.md` (Test execution hooks, point 3) | Defect   | Minor    | **Fixed** — point 3 now reads "before advancing to the QA phase," matching the FSM comments ("before advancing to QA", "before QA starts") and both playbook FSMs. |
+| #   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Artifact                                                           | Category | Severity | Disposition                                                                                                                                                        |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `.agent-factory/factory/README.md` § Test execution hooks, point 3 said FSM entry conditions check `tests_pass` "before advancing to QA or DONE states." As-built, `tests_pass` gates the Implementation→Gate/QA transition only — neither `greenfield-development.fsm.yml` nor `bug-fix.fsm.yml` lists `tests_pass` in `DONE`'s `entry_conditions`. The "DONE" clause is a behaviour-claim drift. (The prior pass recorded this as an observation and left it; this pass corrects it.) | `.agent-factory/factory/README.md` (Test execution hooks, point 3) | Defect   | Minor    | **Fixed** — point 3 now reads "before advancing to the QA phase," matching the FSM comments ("before advancing to QA", "before QA starts") and both playbook FSMs. |
 
 No new code defects found this pass; no new `RECON` finding filed.
 
 ## Spec files updated
 
-- `factory/README.md` — § Test execution hooks point 3: dropped the incorrect
+- `.agent-factory/factory/README.md` — § Test execution hooks point 3: dropped the incorrect
   "or DONE states" clause so the phase-advance-gate description matches the
   `tests_pass` gating actually declared in `greenfield-development.fsm.yml`
   (PHASE_4_IMPLEMENTATION exit → PHASE_4_GATE; PHASE_5_QUALITY entry) and
@@ -75,7 +75,7 @@ implementation agent.
   intentionally tolerant of missing chapters). Not edited, consistent with
   the prior pass. Reconciling it means writing architecture chapters, which
   is out of scope for a documentation-reconciliation pass.
-- **`factory/playbooks/greenfield-development.fsm.yml`** still declares
+- **`.agent-factory/factory/playbooks/greenfield-development.fsm.yml`** still declares
   `audit.output_file: .orchestrator/audit.log`, while the orchestrator
   (`orchestrator/src/agent_factory_orchestrator/cli.py`, `AUDIT_LOG = Path(".current-work/audit.log")`) and `orchestrator/README.md` both use
   `.current-work/audit.log`. The FSM's declarative `audit` block is stale
@@ -91,30 +91,30 @@ implementation agent.
 
 Re-confirmed against code-as-built; no edits needed:
 
-- Root `README.md` — repo-layout claims, links to `factory/`,
+- Root `README.md` — repo-layout claims, links to `.agent-factory/factory/`,
   `orchestrator/`, `docs/arc42/concepts.md`, `docs/arc42/beginner-intro.md`, the
   workflow-diagram asset (`docs/assets/images/workflow-diagram.svg` exists).
 - `docs/arc42/concepts.md` — phase chain, research-workflow description,
-  `update-factory` mention, `factory/config/` template labelling,
+  `update-factory` mention, `.agent-factory/factory/config/` template labelling,
   orchestrator `.fsm.yml` description. (Project tree arc42 claim excepted
   above.)
 - `docs/arc42/beginner-intro.md` — all six playbook references resolve
   (`poc-spike`, `bug-fix`, `documentation-update`, `greenfield-development`,
   `brownfield-onboarding`, `feature-addition` all exist in
-  `factory/playbooks/`); `INDEX.yaml` catalogue reference; two-modes framing;
+  `.agent-factory/factory/playbooks/`); `INDEX.yaml` catalogue reference; two-modes framing;
   orchestrator `.fsm.yml` description.
 - `docs/arc42/CONTEXT-MAP.md` — Usage Accounting (`usage/` absent, no code) and
   Factory API ("vision-stub only", `factory_api/` absent) claims accurate;
   orchestrator entry links `orchestrator/README.md` + `orchestrator/docs/adr/`
   and no longer mentions the dead `ai_tooling` term or
   `orchestrator/CONTEXT.md`.
-- `factory/README.md` — `init-factory` footprint (8-step list),
+- `.agent-factory/factory/README.md` — `init-factory` footprint (8-step list),
   `update-factory` top-line (prior fix intact), `run-playbook`
   `AF_ORCHESTRATOR_SOURCE` / `orchestrator-v0.1.0` default source (verified
-  in `factory/scripts/run-playbook`), `--cli claude|copilot` backends,
+  in `.agent-factory/factory/scripts/run-playbook`), `--cli claude|copilot` backends,
   `run-tests --staged` agent loop, framework auto-detection, ADR-0003/UC-09
   links, Pi `run_agent`/`dispatch_wave` extensions.
-- `factory/docs/factory-guide.md` — agents/skills/playbooks listings, all
+- `.agent-factory/factory/docs/factory-guide.md` — agents/skills/playbooks listings, all
   six beginner/full-chain playbook links resolve, `run_agent`/`dispatch_wave`
   Pi extensions, runtime usage-capture pipeline, research validators
   (`schema-validate <artifact> <schema>` positional form;
@@ -144,7 +144,7 @@ Re-confirmed against code-as-built; no edits needed:
 - `arch-lint --docs-dir docs/` → 0 errors, 2 warnings (pre-existing DSL parse).
 - `backlog-lint --backlog-dir backlog/` → 0 errors, 1 warning.
 - `matrix-lint --matrix config/model.conf` → 0 errors.
-- `mdformat --number factory/README.md` → clean (no reformatting beyond the
+- `mdformat --number .agent-factory/factory/README.md` → clean (no reformatting beyond the
   one-line edit).
 
 ## Prior findings checked

@@ -9,7 +9,7 @@ repeat-pass-of: docs/reviews/proposal-review-2026-08-18.md
 # Proposal Review — Project Charter (Repeat Pass v2)
 
 Repeat pass over [capture-project-constraints.md](../proposals/implemented/capture-project-constraints.md)
-per [review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md):
+per [review-loop-discipline.md](../../.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md):
 every prior finding verified individually (Part 1), then the full eight-check
 inspection re-run fresh against the current text (Part 2). First pass:
 [proposal-review-2026-08-18.md](proposal-review-2026-08-18.md).
@@ -26,19 +26,19 @@ acceptance at feature-addition Decision Point 0.2.
 
 ## Part 1 — Prior-findings verification
 
-| Finding                                                               | Result   | Evidence in current text                                                                                                                                                                                                                                                                                                                                      |
-| --------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [PROP-0001](../findings/PROP-0001.md) — `tests:` timing/ownership     | resolved | New "Timing and ownership" paragraph: humans write the tests before planning begins when house-rules mandate manual test-first; the planning-agent populates `tests:` at story creation; the orchestrating session amends stories after backlog approval, before implementation dispatch. Who, when, and who-populates are all stated.                        |
-| [PROP-0002](../findings/PROP-0002.md) — development.md reconciliation | resolved | "Two-phase nature" now derives an explicit Epic 0 story "Update development.md with actual commands and paths", depending on all other Epic 0 stories, last in Epic 0; feature stories carry `deps:` on it (§ Epic 0); Completion Criterion 4 names it.                                                                                                       |
-| [PROP-0003](../findings/PROP-0003.md) — impact.boundaries             | resolved | `impact.boundaries` now lists all 13 modified artifacts: three playbooks, five agents (planning, developer, implementation, architecture, requirements), create-backlog, validate, story template, rules.md, backlog-lint. Creation targets were optional per the original fix direction.                                                                     |
-| [PROP-0004](../findings/PROP-0004.md) — update-charter vehicle        | resolved | Scope now includes "requirements-agent.md updated: `update-charter` added to `skills:`" and the same for architecture-agent.md; both appear in `impact.boundaries`.                                                                                                                                                                                           |
-| Minor 1 — brownfield planning-gate anchor                             | resolved | Body now anchors `--init --scan` "after the Phase 5 ATAM architecture review passes" and the planning gate "before any specification or planning work that follows onboarding". Phase 5 Step 5.1 is the ATAM review in [brownfield-onboarding.md](../../factory/playbooks/brownfield-onboarding.md). (Residual wording mismatch in Scope: new Minor 2 below.) |
-| Minor 2 — Epic 0 sequencing enforcement                               | resolved | Feature stories now carry `deps:` on the final Epic 0 story, enforced mechanically by the implementation-agent's existing dependency resolution (verified: `deps:` drives readiness in [implementation-agent.md](../../factory/agents/implementation-agent.md) and referential integrity/acyclicity in `factory/scripts/backlog-lint`).                       |
-| Minor 3 — domain-modeling precedent path                              | resolved | Now reads "same pattern as `domain-modeling` maintains `docs/CONTEXT.md`" — correct path.                                                                                                                                                                                                                                                                     |
-| Minor 4 — estimated_consumption asymmetric multiplier                 | resolved | `estimated_consumption.min` is now 200000 = 25 × 8000; max 375000 = 25 × 15000. Symmetric at the declared multiplier.                                                                                                                                                                                                                                         |
-| Minor 5 — greenfield "vision capture" anchor                          | resolved | Workflow insertion now names the playbook step: "New Step 1.0 (before current Step 1.1)". Current Step 1.1 is "Run Requirements Agent" in [greenfield-development.md](../../factory/playbooks/greenfield-development.md); the playbook starts at Phase 1, so a new Step 1.0 is a well-formed insertion.                                                       |
-| Minor 6 — update-charter commit-ID rule                               | resolved | Commit message format now stated: `docs: update charter <document> — <section> (<ID>)` with `<ID>` the triggering story/finding/phase context (SPEC-0003, ATAM-0001), and an explicit no-ID fallback for initial vision capture. Consistent with [commit-conventions.md](../../factory/rulebooks/conventions/commit-conventions.md).                          |
-| Minor 7 — ST-NNNN ID ownership                                        | resolved | Rule now stated: capture-charter takes the lowest available ST numbers (from ST-0001); the planning-agent runs after the completeness sweep and allocates subsequent numbers by reading the existing backlog. Ownership is unambiguous.                                                                                                                       |
+| Finding                                                               | Result   | Evidence in current text                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PROP-0001](../findings/PROP-0001.md) — `tests:` timing/ownership     | resolved | New "Timing and ownership" paragraph: humans write the tests before planning begins when house-rules mandate manual test-first; the planning-agent populates `tests:` at story creation; the orchestrating session amends stories after backlog approval, before implementation dispatch. Who, when, and who-populates are all stated.                                       |
+| [PROP-0002](../findings/PROP-0002.md) — development.md reconciliation | resolved | "Two-phase nature" now derives an explicit Epic 0 story "Update development.md with actual commands and paths", depending on all other Epic 0 stories, last in Epic 0; feature stories carry `deps:` on it (§ Epic 0); Completion Criterion 4 names it.                                                                                                                      |
+| [PROP-0003](../findings/PROP-0003.md) — impact.boundaries             | resolved | `impact.boundaries` now lists all 13 modified artifacts: three playbooks, five agents (planning, developer, implementation, architecture, requirements), create-backlog, validate, story template, rules.md, backlog-lint. Creation targets were optional per the original fix direction.                                                                                    |
+| [PROP-0004](../findings/PROP-0004.md) — update-charter vehicle        | resolved | Scope now includes "requirements-agent.md updated: `update-charter` added to `skills:`" and the same for architecture-agent.md; both appear in `impact.boundaries`.                                                                                                                                                                                                          |
+| Minor 1 — brownfield planning-gate anchor                             | resolved | Body now anchors `--init --scan` "after the Phase 5 ATAM architecture review passes" and the planning gate "before any specification or planning work that follows onboarding". Phase 5 Step 5.1 is the ATAM review in [brownfield-onboarding.md](../../.agent-factory/factory/playbooks/brownfield-onboarding.md). (Residual wording mismatch in Scope: new Minor 2 below.) |
+| Minor 2 — Epic 0 sequencing enforcement                               | resolved | Feature stories now carry `deps:` on the final Epic 0 story, enforced mechanically by the implementation-agent's existing dependency resolution (verified: `deps:` drives readiness in [implementation-agent.md](../../.agent-factory/factory/agents/implementation-agent.md) and referential integrity/acyclicity in `factory/scripts/backlog-lint`).                       |
+| Minor 3 — domain-modeling precedent path                              | resolved | Now reads "same pattern as `domain-modeling` maintains `docs/CONTEXT.md`" — correct path.                                                                                                                                                                                                                                                                                    |
+| Minor 4 — estimated_consumption asymmetric multiplier                 | resolved | `estimated_consumption.min` is now 200000 = 25 × 8000; max 375000 = 25 × 15000. Symmetric at the declared multiplier.                                                                                                                                                                                                                                                        |
+| Minor 5 — greenfield "vision capture" anchor                          | resolved | Workflow insertion now names the playbook step: "New Step 1.0 (before current Step 1.1)". Current Step 1.1 is "Run Requirements Agent" in [greenfield-development.md](../../.agent-factory/factory/playbooks/greenfield-development.md); the playbook starts at Phase 1, so a new Step 1.0 is a well-formed insertion.                                                       |
+| Minor 6 — update-charter commit-ID rule                               | resolved | Commit message format now stated: `docs: update charter <document> — <section> (<ID>)` with `<ID>` the triggering story/finding/phase context (SPEC-0003, ATAM-0001), and an explicit no-ID fallback for initial vision capture. Consistent with [commit-conventions.md](../../.agent-factory/factory/rulebooks/conventions/commit-conventions.md).                          |
+| Minor 7 — ST-NNNN ID ownership                                        | resolved | Rule now stated: capture-charter takes the lowest available ST numbers (from ST-0001); the planning-agent runs after the completeness sweep and allocates subsequent numbers by reading the existing backlog. Ownership is unambiguous.                                                                                                                                      |
 
 Resolution summary: 4 of 4 Major verified fixed; 7 of 7 Minor verified fixed.
 No prior finding remains open.
@@ -48,7 +48,7 @@ No prior finding remains open.
 ### 1. Template compliance
 
 All required frontmatter fields present and well-formed against the
-[proposal template](../../factory/rulebooks/templates/proposal.md):
+[proposal template](../../.agent-factory/factory/rulebooks/templates/proposal.md):
 `schema_version: 2`, `title`, `status: open`, `owner`, `created`/`updated`,
 `supersedes: null`, `impact`, `governance`, `estimate`. Estimate satisfies
 `0 <= min <= max` on all ranges; consumption now applies the declared 25×
@@ -81,39 +81,39 @@ brownfield anchor that the body already corrected.
 
 Re-verified against current text:
 
-- [greenfield-development.md](../../factory/playbooks/greenfield-development.md)
+- [greenfield-development.md](../../.agent-factory/factory/playbooks/greenfield-development.md)
   Step 3.3 is "Confirm Backlog — manual approval required" — the approval
   analogy holds; Step 1.1 is "Run Requirements Agent", so "New Step 1.0"
   inserts cleanly.
-- [feature-addition.md](../../factory/playbooks/feature-addition.md) Step 0.1
+- [feature-addition.md](../../.agent-factory/factory/playbooks/feature-addition.md) Step 0.1
   is "Clarify" (proposal intake) — holds.
-- [brownfield-onboarding.md](../../factory/playbooks/brownfield-onboarding.md)
+- [brownfield-onboarding.md](../../.agent-factory/factory/playbooks/brownfield-onboarding.md)
   Phase 5 Step 5.1 is the ATAM review — the new anchor holds.
-- [planning-agent.md](../../factory/agents/planning-agent.md),
-  [developer-agent.md](../../factory/agents/developer-agent.md),
-  [implementation-agent.md](../../factory/agents/implementation-agent.md),
-  [architecture-agent.md](../../factory/agents/architecture-agent.md),
-  [requirements-agent.md](../../factory/agents/requirements-agent.md),
-  [create-backlog](../../factory/skills/create-backlog/SKILL.md),
-  [story.md](../../factory/rulebooks/templates/story.md), and
-  `factory/scripts/backlog-lint` all exist and behave as the proposal assumes:
+- [planning-agent.md](../../.agent-factory/factory/agents/planning-agent.md),
+  [developer-agent.md](../../.agent-factory/factory/agents/developer-agent.md),
+  [implementation-agent.md](../../.agent-factory/factory/agents/implementation-agent.md),
+  [architecture-agent.md](../../.agent-factory/factory/agents/architecture-agent.md),
+  [requirements-agent.md](../../.agent-factory/factory/agents/requirements-agent.md),
+  [create-backlog](../../.agent-factory/factory/skills/create-backlog/SKILL.md),
+  [story.md](../../.agent-factory/factory/rulebooks/templates/story.md), and
+  `.agent-factory/factory/scripts/backlog-lint` all exist and behave as the proposal assumes:
   the story frontmatter schema is closed (so the paired `backlog-lint` update
   for `tests:` is correctly in Scope), `deps:` is the story template's blocking
   mechanism, and the implementation-agent resolves the dependency graph for
   wave readiness.
-- [rules.md](../../factory/rulebooks/rules.md) Coding section is still a
+- [rules.md](../../.agent-factory/factory/rulebooks/rules.md) Coding section is still a
   placeholder; extending it fits.
-- No contradiction with [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md),
-  [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md),
-  [cross-reference-format.md](../../factory/rulebooks/conventions/cross-reference-format.md)
+- No contradiction with [testing-strategy.md](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md),
+  [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md),
+  [cross-reference-format.md](../../.agent-factory/factory/rulebooks/conventions/cross-reference-format.md)
   (bare code-span artifact references match existing proposal house style),
-  [commit-conventions.md](../../factory/rulebooks/conventions/commit-conventions.md)
+  [commit-conventions.md](../../.agent-factory/factory/rulebooks/conventions/commit-conventions.md)
   (the update-charter commit format follows `<type>: <description> (<ID>)`),
   or the rule against proposals in shipped agents' `inputs:` (charter paths
   are shipped artifacts).
 - One embellishment, not a defect: the claim that the planning-agent allocates
   the next ST number "same as it does today when stories already exist" is not
-  spelled out in [create-backlog](../../factory/skills/create-backlog/SKILL.md),
+  spelled out in [create-backlog](../../.agent-factory/factory/skills/create-backlog/SKILL.md),
   though feature-addition planning re-runs over existing backlogs make the
   behavior necessary in practice. The stated allocation rule itself is sound.
 
@@ -155,13 +155,13 @@ Consumption is now symmetric at the declared 25×.
 
 ## New findings (this pass)
 
-All Minor; per [finding-format.md](../../factory/rulebooks/conventions/finding-format.md)
+All Minor; per [finding-format.md](../../.agent-factory/factory/rulebooks/conventions/finding-format.md)
 they stay in this report — no new finding files filed. No Critical or Major.
 
 | Finding                                                                                                                                                                                                                                                                                                                                                                                                    | Artifact                                                                       | Category | Severity |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | -------- |
 | Greenfield insertion table row "Planning" says the planning-agent "schedules Epic 0 as wave 1", but Downstream consumers, Scope ("implementation-agent.md updated: … schedule Epic 0 as wave 1"), and Completion Criterion 9 all assign wave scheduling to the implementation-agent. Reword the Planning row to planning's actual lever — e.g. "marks feature stories' `deps:` on the final Epic 0 story". | docs/proposals/implemented/capture-project-constraints.md § Workflow insertion | Defect   | Minor    |
-| Scope line says brownfield `--init --scan` runs "after architecture deepening review", while the body anchors it "after the Phase 5 ATAM architecture review passes"; [brownfield-onboarding.md](../../factory/playbooks/brownfield-onboarding.md) lists "Architecture deepening" and "Review" as distinct steps. Align the Scope wording with the body's Phase 5 ATAM anchor.                             | docs/proposals/implemented/capture-project-constraints.md § Scope              | Defect   | Minor    |
+| Scope line says brownfield `--init --scan` runs "after architecture deepening review", while the body anchors it "after the Phase 5 ATAM architecture review passes"; [brownfield-onboarding.md](../../.agent-factory/factory/playbooks/brownfield-onboarding.md) lists "Architecture deepening" and "Review" as distinct steps. Align the Scope wording with the body's Phase 5 ATAM anchor.              | docs/proposals/implemented/capture-project-constraints.md § Scope              | Defect   | Minor    |
 | Design says `charter-lint` is "Integrated into the `validate` skill and pre-commit", but Scope lists only the `validate` skill and no Completion Criterion covers pre-commit. Either add pre-commit integration to Scope with a matching criterion, or drop "and pre-commit" from the Design sentence.                                                                                                     | docs/proposals/implemented/capture-project-constraints.md § Deterministic gate | Defect   | Minor    |
 
 ## Disposition

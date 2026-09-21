@@ -10,19 +10,16 @@ steps:
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'docs/agent-context/**/*.yaml'
-      - 'docs/charter/**/*.md'
+      - 'docs/agent-context.md'
     outputs:
       - 'docs/proposals/**/*.md'
     max_input_tokens: 40000
   - name: context-amendment-check
     inputs:
       - 'docs/proposals/**/*.md'
-      - 'docs/agent-context/**/*.yaml'
-      - 'docs/charter/**/*.md'
+      - 'docs/agent-context.md'
     outputs:
-      - 'docs/agent-context/**/*.yaml'
-      - 'docs/charter/**/*.md'
+      - 'docs/agent-context.md'
       - 'backlog/ST-0*.md'
     max_input_tokens: 40000
   - name: accept-proposal
@@ -117,13 +114,11 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'factory/**/*.py'
-      - 'orchestrator/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
-      - 'factory/**/*.py'
-      - 'orchestrator/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
       - 'docs/**/*.md'
@@ -134,8 +129,7 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'factory/**/*.py'
-      - 'orchestrator/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
@@ -152,13 +146,11 @@ steps:
       - 'backlog/ST-*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
-      - 'factory/**/*.py'
-      - 'orchestrator/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
     outputs:
-      - 'factory/**/*.py'
-      - 'orchestrator/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'tests/**/*.py'
       - 'config/**/*.json'
       - 'docs/**/*.md'
@@ -171,8 +163,7 @@ steps:
     max_input_tokens: 20000
   - name: qa
     inputs:
-      - 'factory/**/*.py'
-      - 'orchestrator/**/*.py'
+      - '.agent-factory/factory/**/*.py'
       - 'tests/**/*.py'
       - 'docs/**/*.md'
       - 'config/**/*.json'
@@ -288,24 +279,19 @@ multiplies cost by the number of questions asked.
 
 **Manual decision**: Does this feature require charter amendments?
 
-Read project context from [`docs/agent-context/`](../../docs/agent-context/) (falls back to [`docs/charter/`](../../docs/charter/) for legacy projects) to understand current declarations
+Read project context from [`docs/agent-context.md`](../../../docs/agent-context.md) to understand current declarations
 for tech stack, development practices, and house rules.
 
 **If no amendments needed** → Skip to Step 0.2.
 
 **If amendments needed**:
 
-1. Invoke [`update-charter`](../skills/update-charter/SKILL.md) to update the
-   relevant section(s) of `docs/agent-context/stack.yaml`,
-   `docs/agent-context/workflow.yaml`, or `docs/agent-context/governance.yaml`
-   (falls back to `docs/charter/tech-stack.md`, `docs/charter/development.md`,
-   or `docs/charter/house-rules.md` for legacy projects).
-2. Run `factory/scripts/charter-lint --planning-gate` on changed documents to
+1. Invoke [`capture-context`](../skills/capture-context/SKILL.md) with `--update --scan` to update
+   the relevant sections of `docs/agent-context.md`.
+2. Run `.agent-factory/factory/scripts/concern-lint` on the changed document to
    ensure completeness.
 3. If new decisions emerge that imply infrastructure, setup, or configuration
-   artifacts not already in the repository, derive corresponding Epic 0 stories
-   (using the [`capture-charter`](../skills/capture-charter/SKILL.md) Step 3
-   workflow as reference).
+   artifacts not already in the repository, derive corresponding Epic 0 stories.
 4. Proceed to Step 0.2.
 
 ### Decision Point 0.2 — Accept
@@ -379,8 +365,7 @@ reads only the findings and the affected files, cutting the fix-cycle cost by
 ### Step 1.1 — Update Specification
 
 ```bash
-orchestrator run-phase requirements
-# OR manual: Start new session, activate requirements-agent
+# Start new session, activate requirements-agent
 ```
 
 **Agent**: `requirements-agent`
@@ -391,7 +376,7 @@ orchestrator run-phase requirements
 ### Step 1.2 — Spec Review
 
 ```bash
-orchestrator run-phase spec-review
+# Start NEW session, activate spec-review-agent
 ```
 
 **Agent**: `spec-review-agent`
@@ -416,7 +401,7 @@ Run the mechanical module-graph check to verify whether the feature's Phase 1
 outputs declare architectural changes:
 
 ```bash
-factory/scripts/module-graph-check
+.agent-factory/factory/scripts/module-graph-check
 ```
 
 **What the check does:**
@@ -467,7 +452,7 @@ continuing.
 ### Step 2.1 — Update Architecture
 
 ```bash
-orchestrator run-phase architecture
+# Start new session, activate architecture-agent
 ```
 
 **Agent**: `architecture-agent`
@@ -476,7 +461,7 @@ orchestrator run-phase architecture
 ### Step 2.2 — Architecture Review
 
 ```bash
-orchestrator run-phase architecture-review
+# Start NEW session, activate architecture-review-agent
 ```
 
 **Agent**: `architecture-review-agent`
@@ -497,7 +482,7 @@ grep -l "status: open" docs/findings/ATAM-*.md
 ### Step 3.1 — Create Stories
 
 ```bash
-orchestrator run-phase planning
+# Start new session, activate planning-agent
 ```
 
 **Agent**: `planning-agent`
@@ -508,7 +493,7 @@ orchestrator run-phase planning
 ### Step 3.2 — Validate
 
 ```bash
-factory/scripts/backlog-lint --backlog-dir backlog
+.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog
 ```
 
 **If errors** → Fix and return to Step 3.1
@@ -536,7 +521,7 @@ deferred scope, and applies the declared governance and risk domains.
 ### Step 4.1 — Implement Stories
 
 ```bash
-orchestrator run-phase implementation
+# Start new session, activate implementation-agent
 ```
 
 **Agent**: `implementation-agent`
@@ -544,8 +529,7 @@ orchestrator run-phase implementation
 ### Step 4.2 — Code Review (Separate Session)
 
 ```bash
-orchestrator run-phase code-review
-# OR manual: Start NEW session, activate code-review-agent
+# Start NEW session, activate code-review-agent
 ```
 
 **Agent**: `code-review-agent`
@@ -565,7 +549,7 @@ grep -l "status: open" docs/findings/IMPL-*.md
 ### Step 4.4 — Reconcile
 
 ```bash
-orchestrator run-phase reconciliation
+# Start NEW session, activate reconciliation-agent
 ```
 
 **Agent**: `reconciliation-agent`
@@ -586,7 +570,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 ### Step 5.1 — QA
 
 ```bash
-orchestrator run-phase qa
+# Start new session, activate qa-agent
 ```
 
 **Agent**: `qa-agent`

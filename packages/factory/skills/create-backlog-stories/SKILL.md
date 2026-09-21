@@ -3,8 +3,8 @@ name: create-backlog-stories
 description: "Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence."
 category: planning
 inputs:
-  - docs/testing.yaml
-disable-model-invocation: false
+  context:
+    - docs/testing.yaml
 ---
 
 # Create Backlog — Phase 4: Write Stories
@@ -30,7 +30,7 @@ For each story, fill the 13-section body using these 11 instructions:
 
 02. **Domain Rule extraction.** Read domain concerns from `docs/agent-context.md`, follow `Read:` paths to supplementary specs and glossary. Extract entity lifecycle rules and invariants relevant to this story — the constraints the implementation must honor.
 
-03. **Demo as numbered steps.** Write the Demo section as a numbered step list with concrete values, not 2–4 sentence paragraphs. Each step should name the actor, the action, and the expected observable result.
+03. **Demo as numbered steps.** Write the Demo section as a numbered step list with concrete values, not 2–4 sentence paragraphs. Each step should name the actor, the action, and the expected observable result. The demo must use the shipped interface — the command, menu option, API, or trigger the actor would use in production. Tests verify a story; test output is not the capability the story delivers. If the demo cannot be performed without reading source code or running a test suite, the story is not a vertical slice — recut it.
 
 04. **Affected Paths from codebase survey.** Extend the current Status Quo section survey. For each system layer (schema, backend, frontend, deployment, etc.), list specific files that exist and will change, and new files to create. Reference actual files in the codebase, not spec abstractions.
 
@@ -66,7 +66,7 @@ For each story, fill the 13-section body using these 11 instructions:
 
 See the [story template](../../rulebooks/templates/story.md) for the complete 13-section structure. Reference the [parent skill composition rules](../create-backlog/SKILL.md#story-composition-rules) for section-ordering and depth guidance.
 
-Format each story file via `factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format each story file via `.agent-factory/factory/scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Step 3 — Prioritise with MoSCoW
 
@@ -74,7 +74,7 @@ Record each story's **MoSCoW** priority in its body: `**Priority:** must-have | 
 
 ## Step 4 — Mark dependencies
 
-List blocking stories in `deps` (by `ST-NNNN` id). Run `factory/scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
+List blocking stories in `deps` (by `ST-NNNN` id). Run `.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog` — it checks acyclicity — and fix any errors.
 
 ## Quality gate
 

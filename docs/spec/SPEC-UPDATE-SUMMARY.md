@@ -76,8 +76,8 @@ PRD G9 → AG-09 → UC-09
 
 Per docs/proposals/implemented/test-execution-via-hooks.md:
 
-1. Create factory/scripts/run-tests with framework detection
-2. Add pre-commit hook to factory/config/pre-commit-config.yaml
+1. Create .agent-factory/factory/scripts/run-tests with framework detection
+2. Add pre-commit hook to .agent-factory/factory/config/pre-commit-config.yaml
 3. Add pre-push hook
 4. Enable script_exit_zero in FSM (resolves T-03)
 5. Add test command patterns to block-dangerous-git.sh

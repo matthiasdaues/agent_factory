@@ -2,8 +2,6 @@
 name: implementation-agent
 title: Implementation Agent (Dispatcher)
 tier: standard
-phase: 4
-phase-name: Implementation
 description: >-
   Dispatch backlog stories to parallel developer-agent subagents, maximising
   concurrency within dependency AND file-overlap constraints in autonomous
@@ -13,24 +11,40 @@ description: >-
 skills:
   - handoff
 inputs:
-  - backlog/ST-*.md
-  - config/model.conf
-  - docs/spec/prd.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
-  - docs/CONTEXT.md
-  - docs/agent-context.md (shared registry; concern resolution implicit in CLI orientation)
-  - factory/rulebooks/conventions/branching-policy.md
-  - factory/rulebooks/conventions/dispatch-contract.md
-  - factory/scripts/crap-score
-  - factory/scripts/dependency-check
-  - factory/scripts/test-design-verify
+  required:
+    - type: story
+      path_pattern: "backlog/ST-*.md"
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+    - type: supplementary-spec
+      path_pattern: "docs/spec/supplementary_specs/*.md"
+  context:
+    - .agent-factory/config/model.conf
+    - docs/spec/prd.md
+    - docs/CONTEXT.md
+    - docs/agent-context.md
+    - .agent-factory/factory/rulebooks/conventions/branching-policy.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/scripts/crap-score
+    - .agent-factory/factory/scripts/dependency-check
+    - .agent-factory/factory/scripts/test-design-verify
 outputs:
-  - src/**/*
-  - tests/**/*
-  - docs/spec/**/*.md
-  - docs/adr/*.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "src/**/*"
+      validator:
+      required: true
+    - path_pattern: "tests/**/*"
+      validator:
+      required: true
+    - path_pattern: "docs/spec/**/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/adr/*.md"
+      validator:
+      required: false
 triggers:
   - "implement backlog"
   - "start implementation"
@@ -50,11 +64,11 @@ Resolve dependency graph and dispatch stories to **parallel developer-agent suba
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Branching model
 
-Per [branching-policy.md](../rulebooks/conventions/branching-policy.md) and [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md): the invocation branch is `feature/<proposal-title>` cut from `dev`. Autonomous stories get worktrees; review mode uses the script-owned primary-checkout exception. `factory/scripts/dispatch` owns branch/worktree creation, base recording, scope checks, cleanup, and the ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` / `init-review` and **branch head** from `dispatch close-wave` / `review-close`, then hand off with `--base <branch-root> --head <branch-head>`.
+Per [branching-policy.md](../rulebooks/conventions/branching-policy.md) and [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md): the invocation branch is `feature/<proposal-title>` cut from `dev`. Autonomous stories get worktrees; review mode uses the script-owned primary-checkout exception. `.agent-factory/factory/scripts/dispatch` owns branch/worktree creation, base recording, scope checks, cleanup, and the ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Record **branch root** from `dispatch init` / `init-review` and **branch head** from `dispatch close-wave` / `review-close`, then hand off with `--base <branch-root> --head <branch-head>`.
 
 Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wave large enough to risk a long-running, hard-to-verify dispatch must be split into smaller, independently mergeable dispatches rather than run as one.
 
@@ -86,23 +100,23 @@ For Pi: `review` mode uses `run_agent` (serial), never `dispatch_wave`.
 ## Workflow
 
 1. **Load backlog + initialise** — Parse all `backlog/ST-*.md`: `id`, `status`, `deps`, `tier`, `touches`. Build the dependency graph; identify ready stories (`status: pending`, all `deps` done). Read `docs/agent-context.md` for model selection. Concern resolution is implicit via the CLI include chain. **Autonomous:** `dispatch init --base <base-branch> --feature-branch feature/<proposal-title> --stories <ids>`. **Review:** `dispatch init-review --base dev --feature-branch <branch> --stories <ids>`. If the initializer fails, stop. If resuming, recover from the ledger.
-2. **Plan wave** — Call `factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `touches:` overlap (in addition to dependency-readiness, not instead of it):
+2. **Plan wave** — Call `.agent-factory/factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `touches:` overlap (in addition to dependency-readiness, not instead of it):
    - **Epic 0 scheduling**: Stories with `epic: "Epic 0 — Project Setup"` go to **wave 1** with highest priority. No feature story dispatches until all must-have Epic 0 stories reach terminal state. Feature stories carry `deps:` on the final Epic 0 story, which chains from all others — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
    - **Serial chain(s)**: stories sharing a touched directory → prepare, dispatch, verify, and merge one at a time, in dependency order.
      Never substitute EPIC for this grouping. Per [dispatch-contract.md § Wave Boundary As Hard Gate](../rulebooks/conventions/dispatch-contract.md#wave-boundary-as-hard-gate), every story in the **prior** wave must reach terminal state before this wave launches. Assign each story a model from its `tier` field, looked up in `model.conf` (`economy | standard | strong`). Developer sub-agents have no tier of their own — the story's `tier` is their sole axis. In `review` mode, wave planning still runs for ordering, but stories dispatch one at a time.
 3. **Prepare and dispatch** — **Autonomous:** `dispatch prepare-wave <wave>` for parallel-safe stories and serial-chain heads; `dispatch prepare-story <id>` for later serial links after predecessor merge. Call `mark-dispatching` before launch, `mark-dispatched` after. **Review:** `dispatch review-dispatch <id>` (requires clean index/worktree, HEAD matches last accepted). Spawn one developer with `--no-stage --no-commit`, then `mark-dispatched`.
-4. **Verify, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. **Review mode:** present the changed-file summary and a brief description. The human reviews in their IDE, sets the story to `status: done`, and commits with the story ID in the subject. Call `factory/scripts/dispatch review-accept <story-id> --sha <full-HEAD-SHA>`. The command verifies ancestry, commit subjects, story status, declared output scope, clean checkout, and tests before recording `done`. Wait for acceptance before proceeding. **Autonomous mode**, for each completed story:
-   a. **SHA verification**: call `factory/scripts/dispatch verify-story <story-id> --sha <reported-commit-sha>` on every commit SHA the subagent reported.
+4. **Verify, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. **Review mode:** present the changed-file summary and a brief description. The human reviews in their IDE, sets the story to `status: done`, and commits with the story ID in the subject. Call `.agent-factory/factory/scripts/dispatch review-accept <story-id> --sha <full-HEAD-SHA>`. The command verifies ancestry, commit subjects, story status, declared output scope, clean checkout, and tests before recording `done`. Wait for acceptance before proceeding. **Autonomous mode**, for each completed story:
+   a. **SHA verification**: call `.agent-factory/factory/scripts/dispatch verify-story <story-id> --sha <reported-commit-sha>` on every commit SHA the subagent reported.
    b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, iteration cap, escalation, and fix-iteration prompt template.
-   c. **Merge**: when all gates pass, call `factory/scripts/dispatch merge-story <story-id>`. The script owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
+   c. **Merge**: when all gates pass, call `.agent-factory/factory/scripts/dispatch merge-story <story-id>`. The script owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
    d. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
-5. **Closeout** — In autonomous mode, call `factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal. In review mode, continue serially until all stories are terminal, then call `factory/scripts/dispatch review-close`. The review branch remains checked out for the human; the command records closure but does not merge or switch branches.
+5. **Closeout** — In autonomous mode, call `.agent-factory/factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal. In review mode, continue serially until all stories are terminal, then call `.agent-factory/factory/scripts/dispatch review-close`. The review branch remains checked out for the human; the command records closure but does not merge or switch branches.
 6. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
 
 **Prompt template for subagents (autonomous mode):**
 
-> You are a developer-agent. Your worktree was prepared by `factory/scripts/dispatch`, which already created the story workspace, recorded the declared base SHA, and ran the pre-spawn verify-base check.
+> You are a developer-agent. Your worktree was prepared by `.agent-factory/factory/scripts/dispatch`, which already created the story workspace, recorded the declared base SHA, and ran the pre-spawn verify-base check.
 >
 > Implement story `ST-NNNN` on branch `<feature-branch>` following workflow: Analyse → Agree seams → Red-green TDD → Commit → Spec feedback. Story: `backlog/ST-NNNN.md`
 
@@ -135,9 +149,9 @@ The story's `quality-gates` frontmatter field is the primary source. The planner
 For each gate in the resolved list, call its CLI script directly from the story's worktree. The dispatcher passes gate-specific parameters from `testing.yaml` to each script:
 
 ```
-factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold>
-factory/scripts/dependency-check   <source-files> --story-id <story-id>
-factory/scripts/test-design-verify <story-file>   --story-id <story-id>
+.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold>
+.agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id>
+.agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id>
 ```
 
 The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Failure scenarios or Prior Tests section; the dispatcher skips it otherwise.
@@ -159,8 +173,8 @@ Maximum fix iterations per tier: **3**. Iteration 1 is the original implementati
 
 When the cap is hit at the current tier:
 
-1. Mark the story as failed: `factory/scripts/dispatch mark-failed <story-id> --class acceptance_unmet`.
-2. Attempt tier escalation: `factory/scripts/dispatch escalate <story-id>`. The escalation follows the evidence-gated predicate from [cost-aware-agent-delegation.md](../../docs/proposals/superseded/cost-aware-agent-delegation.md) — the dispatch script enforces all six escalation conditions.
+1. Mark the story as failed: `.agent-factory/factory/scripts/dispatch mark-failed <story-id> --class acceptance_unmet`.
+2. Attempt tier escalation: `.agent-factory/factory/scripts/dispatch escalate <story-id>`. The escalation follows the evidence-gated predicate from [cost-aware-agent-delegation.md](../../../docs/proposals/superseded/cost-aware-agent-delegation.md) — the dispatch script enforces all six escalation conditions.
 3. If escalation succeeds, the story is re-dispatched at tier+1 with a fresh 3-iteration cap.
 4. If escalation fails (already at `strong`, wave escalation slot taken, or scope violation), the story is terminal.
 
@@ -172,7 +186,7 @@ The gate-check loop and `premerge-check` are independent, sequential gates. The 
 
 **Fix-iteration prompt template:**
 
-> You are a developer-agent. Your worktree was prepared by `factory/scripts/dispatch`. A prior developer iteration committed code that failed the following quality gates.
+> You are a developer-agent. Your worktree was prepared by `.agent-factory/factory/scripts/dispatch`. A prior developer iteration committed code that failed the following quality gates.
 >
 > **Gate reports:**
 > `<list of .current-work/<gate-name>/<story-id>.json paths>`

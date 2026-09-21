@@ -2,8 +2,6 @@
 name: reconciliation-agent
 title: Reconciliation Agent
 tier: strong
-phase: 4
-phase-name: Implementation
 description: >-
   After implementation and QA, reconcile the specification and architecture
   documentation against the code-as-built. The inverse of spec-review — finds
@@ -14,31 +12,54 @@ skills:
   - capture-context
   - handoff
 inputs:
-  - docs/CONTEXT.md
-  - docs/spec/prd.md
-  - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
-  - docs/spec/*.feature
-  - docs/*.md
-  - docs/adr/*.md
-  - docs/agent-context.md
-  - src/**/*
-  - tests/**/*
-  - factory/rulebooks/conventions/finding-format.md
-  - factory/rulebooks/conventions/report-format.md
-  - factory/rulebooks/conventions/commit-conventions.md
-  - factory/rulebooks/conventions/review-loop-discipline.md
-  - factory/rulebooks/conventions/dispatch-contract.md
-  - factory/rulebooks/conventions/cross-reference-format.md
+  required:
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+    - type: supplementary-spec
+      path_pattern: "docs/spec/supplementary_specs/*.md"
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+  context:
+    - docs/CONTEXT.md
+    - docs/spec/prd.md
+    - docs/*.md
+    - docs/adr/*.md
+    - docs/agent-context.md
+    - src/**/*
+    - tests/**/*
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
 outputs:
-  - docs/reviews/reconciliation-*.md
-  - docs/spec/supplementary_specs/*.md (updated)
-  - docs/spec/*.feature (updated — @-ref backfill)
-  - docs/spec/scope-map.md (updated — discovery and drift reconciliation)
-  - docs/*.md (updated)
-  - docs/adr/*.md (new ADRs if decisions changed)
-  - docs/CONTEXT.md (updated if terminology drifted)
-  - docs/findings/RECON-*.md (code defects, missing @-refs, scope-map discovery/drift found during reconciliation)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/reviews/reconciliation-*.md"
+      validator:
+      required: true
+    - path_pattern: "docs/spec/supplementary_specs/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/spec/*.feature"
+      validator:
+      required: false
+    - path_pattern: docs/spec/scope-map.md
+      validator:
+      required: false
+    - path_pattern: "docs/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/adr/*.md"
+      validator:
+      required: false
+    - path_pattern: docs/CONTEXT.md
+      validator:
+      required: false
+    - path_pattern: "docs/findings/RECON-*.md"
+      validator:
+      required: false
 triggers:
   - "reconcile spec"
   - "spec back sync"
@@ -66,7 +87,7 @@ Ask the inverse of spec-review: **"Does the spec still match the code?"** Make t
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 
@@ -80,7 +101,7 @@ Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycl
    - For each Scenario without an `@`-ref, inspect the step definitions and code, then add `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`).
    - After backfill, every Rule MUST have at least one `@`-ref (its own or from a Scenario). A Rule with none is filed as a `RECON` finding.
    - A Scenario still without an `@`-ref means no implementing code was found — file as a separate `RECON` finding.
-4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
+4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
    - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
    - **Skip migration rows**: rows pointing at `UC-XX-*.md` (old-format entries from the pre-Gherkin scope-map migration) are exempt — they have no `.feature` file to compare against.
    - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Add it as `implemented` with its `.feature` link, and file a `RECON` finding.

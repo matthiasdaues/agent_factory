@@ -102,4 +102,4 @@ Feature: Block a dangerous git command
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)
-- [factory/config/hooks/block-dangerous-git.sh](../../../factory/config/hooks/block-dangerous-git.sh)
+- [factory/config/hooks/block-dangerous-git.sh](../../../.agent-factory/factory/config/hooks/block-dangerous-git.sh)

@@ -1,9 +1,11 @@
+# scope: global
 Feature: Test Gate Presence over Test Execution
 
   Factory ensures test gates exist; the project decides what runs inside them.
   Testing is project-owned infrastructure declared in docs/testing.yaml.
-  Factory's guardrails and FSM gates read that declaration. Factory never owns
-  test execution, framework detection, or structured test output.
+  Factory's guardrails and eligibility preconditions read that declaration.
+  Factory never owns test execution, framework detection, or structured
+  test output.
 
   Rule: User declares project test commands via charter
     # actor: User
@@ -12,70 +14,69 @@ Feature: Test Gate Presence over Test Execution
     Scenario: Project declares test commands in testing.yaml
       Given a project at the repository root
       When the user creates docs/testing.yaml with test_command
-      Then Factory's FSM gates can resolve the test command
+      Then Factory's eligibility preconditions can resolve the test command
       And block-dangerous-git.sh can read the agent allowlist
 
     Scenario: Project declares optional mode commands
       Given docs/testing.yaml exists with test_command
       When the user adds test_staged_command and test_changed_command
-      Then all three commands are available to FSM gates and guardrails
+      Then all three commands are available to eligibility preconditions and guardrails
       And each command is a project-defined shell command, not a framework name
 
     Scenario: Factory's own repository uses the same mechanism
       Given the Factory repository
       When docs/testing.yaml is created for Factory
       Then it declares test_command as the Factory test suite command
-      And Factory's gates resolve test_command the same way any consumer project would
+      And Factory's preconditions resolve test_command the same way any consumer project would
 
-  Rule: FSM gate conditions resolve test command from charter
-    # actor: User, Orchestrator-as-Trigger
-    # @factory/playbooks/greenfield-development.fsm.yml
-    # @factory/playbooks/bug-fix.fsm.yml
+  Rule: Precondition evaluator resolves test command from testing declaration
+    # actor: User
+    # @.agent-factory/factory/engine/eligibility.py
 
-    Scenario: Phase advance resolves test command from charter
-      Given a playbook FSM declares a script_exit_zero entry condition
+    Scenario: Precondition evaluator resolves test command from declaration
+      Given an agent declares test_command as a required input
       And docs/testing.yaml declares test_command
-      When phase advance evaluates the gate
-      Then it resolves test_command from the charter
+      When the precondition evaluator assesses eligibility
+      Then it resolves test_command from the declaration
       And executes it from the repository root
       And reads only the exit code
 
-    Scenario: Phase advance blocks when charter is absent
-      Given a playbook FSM declares a script_exit_zero entry condition
+    Scenario: Precondition evaluator blocks when declaration is absent
+      Given an agent declares test_command as a required input
       And docs/testing.yaml does not exist
-      When phase advance evaluates the gate
-      Then it reports the missing charter
-      And blocks advancement
+      When the precondition evaluator assesses eligibility
+      Then it reports the missing declaration
+      And blocks the agent
 
-    Scenario: Phase advance blocks when test_command is missing
+    Scenario: Precondition evaluator blocks when test_command is missing
       Given docs/testing.yaml exists but lacks test_command
-      When phase advance evaluates the gate
+      When the precondition evaluator assesses eligibility
       Then it reports the missing test_command field
-      And blocks advancement
+      And blocks the agent
 
     Scenario: Gate passes on exit code zero
       Given docs/testing.yaml declares test_command
       And the declared command exits 0
-      When phase advance evaluates the gate
+      When the precondition evaluator assesses eligibility
       Then the gate passes
-      And phase advance proceeds
+      And the agent is eligible
 
     Scenario: Gate blocks on nonzero exit code
       Given docs/testing.yaml declares test_command
       And the declared command exits 1
-      When phase advance evaluates the gate
+      When the precondition evaluator assesses eligibility
       Then the gate reports test_command as unmet
-      And phase advance is blocked
+      And the agent is blocked
 
   Rule: Guardrail allowlists charter-declared test commands for agents
     # actor: CLI-Invoked Agent
-    # @factory/config/hooks/block-dangerous-git.sh
+    # @.agent-factory/factory/config/hooks/block-dangerous-git.sh
 
     Scenario: Agent runs a charter-declared test command
       Given docs/testing.yaml declares test_staged_command
       When an agent runs the exact declared command string
       Then block-dangerous-git.sh allows the command
-      # @factory/config/hooks/block-dangerous-git.sh
+      # @.agent-factory/factory/config/hooks/block-dangerous-git.sh
 
     Scenario: Agent blocked from bare test command
       Given an agent session
@@ -103,7 +104,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Factory does not inject test hooks into pre-commit config
     # actor: User
-    # @factory/config/pre-commit-config.yaml
+    # @.agent-factory/factory/config/pre-commit-config.yaml
 
     Scenario: Pre-commit config contains no test-related hooks
       Given Factory's pre-commit configuration
@@ -118,22 +119,22 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Factory deletes run-tests and mutation-analysis scripts
     # actor: User
-    # @factory/scripts/run-tests (deleted)
-    # @factory/scripts/mutation-analysis (deleted)
+    # @.agent-factory/factory/scripts/run-tests (deleted)
+    # @.agent-factory/factory/scripts/mutation-analysis (deleted)
 
     Scenario: run-tests script is deleted from repository
       Given the Factory repository
-      Then factory/scripts/run-tests does not exist
-      And no consumer project receives it through the factory/scripts symlink
+      Then .agent-factory/factory/scripts/run-tests does not exist
+      And no consumer project receives it through the .agent-factory/factory/scripts symlink
 
     Scenario: mutation-analysis script is deleted from repository
       Given the Factory repository
-      Then factory/scripts/mutation-analysis does not exist
+      Then .agent-factory/factory/scripts/mutation-analysis does not exist
       And mutation testing is entirely the project's responsibility
 
   Rule: Detect-test-regime skill discovers test entrypoints during onboarding
     # actor: User
-    # @factory/skills/detect-test-regime/SKILL.md
+    # @.agent-factory/factory/skills/detect-test-regime/SKILL.md
     # @factory/scripts/init-factory
 
     Scenario: Single test entrypoint detected
@@ -156,7 +157,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Dispatcher gate sequence reduces from three to two
     # actor: User, CLI-Invoked Agent
-    # @factory/agents/implementation-agent.md
+    # @.agent-factory/factory/agents/implementation-agent.md
     # @docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
     Scenario: Dispatcher runs two quality gates after developer commit
@@ -179,13 +180,13 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Mutation-analysis skill provides setup guidance
     # actor: User
-    # @factory/skills/mutation-analysis/SKILL.md
+    # @.agent-factory/factory/skills/mutation-analysis/SKILL.md
 
     Scenario: Mutation-analysis skill describes setup process
       Given the mutation-analysis skill document
       Then it describes how to set up project-owned mutation testing
       And it does not prescribe a specific tool chain
-      And it does not reference factory/scripts/mutation-analysis
+      And it does not reference .agent-factory/factory/scripts/mutation-analysis
 
   Rule: Remove-factory leaves project test infrastructure intact
     # actor: User
@@ -205,12 +206,12 @@ Feature: Test Gate Presence over Test Execution
       And bare test commands become available again
 
   Rule: Gate contract is exit-code-only
-    # actor: User, Orchestrator-as-Trigger
-    # @factory/scripts/phase
+    # actor: User
+    # @.agent-factory/factory/engine/eligibility.py
 
     Scenario: Factory does not parse structured test output
       Given a charter-declared test command that outputs JSON results
-      When the FSM gate evaluates the command
+      When the precondition evaluator evaluates the command
       Then it reads only the exit code
       And ignores all stdout and stderr content for the pass/fail decision
 
@@ -255,7 +256,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: QA strategy grounds contract-owner assignments in charter
     # actor: CLI-Invoked Agent
-    # @factory/skills/qa-strategy-from-spec/SKILL.md
+    # @.agent-factory/factory/skills/qa-strategy-from-spec/SKILL.md
 
     Scenario: QA strategy reads charter layer bindings
       Given docs/testing.yaml declares a layers section
@@ -305,7 +306,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Developer-agent feeds back test-harness mismatches
     # actor: CLI-Invoked Agent
-    # @factory/agents/developer-agent.md
+    # @.agent-factory/factory/agents/developer-agent.md
 
     Scenario: Developer-agent detects harness mismatch during implementation
       Given a QA strategy prescribes a layer and tooling for a contract
@@ -321,7 +322,7 @@ Feature: Test Gate Presence over Test Execution
 
   Rule: Mutation-analysis skill classifies survivors by contract ownership
     # actor: CLI-Invoked Agent
-    # @factory/skills/mutation-analysis/SKILL.md
+    # @.agent-factory/factory/skills/mutation-analysis/SKILL.md
 
     Scenario: Mutation analysis with contract-owner table classifies owner_held
       Given a per-feature QA strategy with a contract-owner table

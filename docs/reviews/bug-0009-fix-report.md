@@ -11,7 +11,7 @@ status: resolved
 ## Summary
 
 Fixed stale `_SURVEY_DESIGN` path in `orchestrator/tests/test_research_survey_playbook.py`
-(line 13). The design document was relocated from `factory/docs/design/research-survey-mode.md`
+(line 13). The design document was relocated from `.agent-factory/factory/docs/design/research-survey-mode.md`
 to `docs/proposals/implemented/research-survey-mode.md` (commits 5f92617 / e620890),
 but the test path was not updated.
 

@@ -3,7 +3,7 @@ id: FAGAN-0016
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/config/extensions/run-agent.ts:160
+artifact: .agent-factory/factory/config/extensions/run-agent.ts:160
 status: resolved
 traces: [BUG-0008, UC-10, BR-040]
 ---
@@ -41,10 +41,10 @@ commits.
 
 ## Verification Evidence
 
-- Read `factory/config/extensions/run-agent.ts` at HEAD (477518d): only the
+- Read `.agent-factory/factory/config/extensions/run-agent.ts` at HEAD (477518d): only the
   `decoded.error` branch calls `childCommitsSince`; the
   `status !== 0 || !parsed` and `cancelled` branches do not.
-- `git show 477518d -- factory/config/extensions/run-agent.ts` confirms the
+- `git show 477518d -- .agent-factory/factory/config/extensions/run-agent.ts` confirms the
   BUG-0008 delta adds disclosure to the `decoded.error` branch only.
 
 ## Re-validation Evidence (2026-08-06)

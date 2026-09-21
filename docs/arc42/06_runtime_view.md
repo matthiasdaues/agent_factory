@@ -4,54 +4,77 @@
 
 ## 6.1 Overview
 
-This chapter describes key interaction sequences for Factory gates and local
-usage analysis. Dynamic views in [`architecture.dsl`](architecture.dsl) own
-the canonical step order.
+This chapter describes key interaction sequences for Factory gates,
+eligibility evaluation, and local usage analysis. Dynamic views in
+[`architecture.dsl`](architecture.dsl) own the canonical step order.
 
-## 6.2 Test Gate Presence
+## 6.2 Agent Selection
 
-Derived from dynamic view `TestGatePresence` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `AgentSelection` in [`architecture.dsl`](architecture.dsl).
 
-Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/charter/testing.yaml`. Factory's guardrails and FSM gates read that declaration. Factory does not own test execution, framework detection, or structured test output.
+Agent selection is the primary routing operation. The `intent select` command loads agent definitions, evaluates each agent's declared preconditions against the repository, and presents per-agent eligibility evidence. The eligibility engine never writes state.
 
-### 6.2.1 Sequence: Charter Declaration and Phase Advance Gate
+### 6.2.1 Sequence: Human Runs `intent select`
 
 ```mermaid
 sequenceDiagram
-    participant H as User
-    participant PA as phase advance
-    participant FSM as FSM + Marker
-    participant C as docs/charter/testing.yaml
+    participant H as Human Operator
+    participant I as intent select
+    participant AL as Agent Loader
+    participant PE as Precondition Evaluator
+    participant RE as Readiness Evaluator
 
-    H->>C: Declare test_command in testing.yaml
-    H->>PA: factory/scripts/phase advance
-    PA->>FSM: Read current state, resolve target state entry_conditions
-    FSM-->>PA: Entry condition: script_exit_zero (charter:test_command)
-    PA->>C: Read test_command from testing.yaml
-    C-->>PA: test_command: "uv run pytest --tb=short --quiet"
-    PA->>PA: Execute resolved command from repository root
-    alt Exit 0
-        PA->>FSM: Write marker: state=next, iteration=1
-        PA->>H: Phase advanced
-    else Exit nonzero
-        PA-->>H: Refuse: tests_pass unmet (exit code only)
-    end
+    H->>I: 1. Invokes intent select [--workstream ID]
+    I->>AL: 2. load_agent_definitions(agents_dir)
+    AL-->>I: List of agent dicts (from YAML frontmatter)
+    I->>PE: 3. evaluate_all(agents, workstream_id)
+    PE->>PE: 4. Per agent: resolve path patterns, check frontmatter conditions, run validator scripts
+    PE-->>I: Per-agent evidence (satisfied/unsatisfied per requirement)
+    I-->>H: Agent evidence table (eligible/ineligible with reasons)
 ```
 
 **Key Points**:
 
-- **Charter-driven**: FSM gate resolves `test_command` from `docs/charter/testing.yaml`, not a hardcoded script
-- **Exit-code-only contract**: Factory reads only the exit code; structured test output is the project's concern (BR-027)
-- **Blocks on missing charter**: When `testing.yaml` is absent or `test_command` is missing, the gate blocks with a clear message
-- **Exhaustive reporting**: All unmet conditions listed (not short-circuited)
+- **Precondition-based**: Each agent declares `inputs.required` in its YAML frontmatter. The evaluator resolves each requirement's `path_pattern` against the filesystem, optionally filtering by workstream scope and checking frontmatter conditions or validator scripts.
+- **Engine is read-only**: The eligibility engine reads agent definitions and the repository. It returns immutable evidence. It does not write state, acquire locks, or produce side effects.
+- **Workstream scoping**: When `--workstream` is passed, candidates are filtered by the `scope` field in their frontmatter (matching the workstream ID or `"global"`). Files without a scope declaration are included.
+- **Readiness derivation**: `derive_readiness()` accepts evaluation results and produces `AgentReadiness` dataclasses with `eligible`, `unsatisfied`, and `warnings` fields.
 
-### 6.2.2 Sequence: Agent Uses Charter-Declared Test Command
+## 6.3 Test Gate Presence
+
+Factory ensures test gates exist; the project decides what runs inside them. Testing is project-owned infrastructure declared in `docs/testing.yaml`. Factory's guardrails and eligibility preconditions read that declaration. Factory does not own test execution, framework detection, or structured test output.
+
+### 6.3.1 Sequence: Precondition Evaluation with Test Gate
+
+```mermaid
+sequenceDiagram
+    participant H as User
+    participant I as intent select
+    participant PE as Precondition Evaluator
+    participant C as docs/testing.yaml
+
+    H->>C: Declare test_command in testing.yaml
+    H->>I: Invokes intent select
+    I->>PE: Evaluates agent preconditions
+    PE->>C: Resolves test_command from testing.yaml
+    C-->>PE: test_command: "uv run pytest --tb=short --quiet"
+    PE->>PE: Checks inputs.required declarations against filesystem
+    alt Preconditions met
+        PE-->>I: Agent eligible
+        I-->>H: Agent listed with evidence
+    else Preconditions unmet
+        PE-->>I: Agent blocked (unsatisfied requirements)
+        I-->>H: Agent listed with blocking reasons
+    end
+```
+
+### 6.3.2 Sequence: Agent Uses Charter-Declared Test Command
 
 ```mermaid
 sequenceDiagram
     participant A as CLI-Invoked Agent
     participant BDG as block-dangerous-git.sh
-    participant C as docs/charter/testing.yaml
+    participant C as docs/testing.yaml
 
     A->>BDG: Attempt: uv run pytest --tb=short --quiet
     BDG->>C: Read test_command, test_staged_command, test_changed_command
@@ -61,13 +84,13 @@ sequenceDiagram
     Note over A: Command executes normally
 ```
 
-### 6.2.3 Sequence: Agent Blocked from Bare Test Command
+### 6.3.3 Sequence: Agent Blocked from Bare Test Command
 
 ```mermaid
 sequenceDiagram
     participant A as CLI-Invoked Agent
     participant BDG as block-dangerous-git.sh
-    participant C as docs/charter/testing.yaml
+    participant C as docs/testing.yaml
     participant CLI as Claude Code / Copilot CLI / Codex
 
     A->>CLI: Attempt: pytest .
@@ -86,15 +109,15 @@ sequenceDiagram
 - **Exact match only**: Charter-declared commands are allowlisted with exact-string matching; no prefix matching (BR-024)
 - **Three native-hook CLIs**: Claude Code, Copilot CLI, and Codex invoke the shared shell guardrail; Pi enforces the same deny list through its project-local extension
 - **No charter means no agent test commands**: When `testing.yaml` does not exist, no agent test commands are allowlisted; bare test commands remain blocked
-- **Deny patterns (BR-024)**: The canonical list is maintained in `factory/config/hooks/block-dangerous-git.sh`; representative entries include `pytest`, package-manager test scripts, `jest`, `vitest`, `go test`, `cargo test`, and Python/uv pytest invocations
+- **Deny patterns (BR-024)**: The canonical list is maintained in `.agent-factory/factory/config/hooks/block-dangerous-git.sh`; representative entries include `pytest`, package-manager test scripts, `jest`, `vitest`, `go test`, `cargo test`, and Python/uv pytest invocations
 
-## 6.3 Semantic Gate Loop
+## 6.4 Semantic Gate Loop
 
 Derived from dynamic view `SemanticGateLoop` in [`architecture.dsl`](architecture.dsl).
 
 The semantic gate loop runs after each developer-agent commit, before merge. The implementation-agent dispatcher owns execution. The developer agent never runs the gates; it only receives gate reports when a fix iteration is needed. See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md).
 
-### 6.3.1 Sequence: Gate Pass (All Gates Succeed)
+### 6.4.1 Sequence: Gate Pass (All Gates Succeed)
 
 ```mermaid
 sequenceDiagram
@@ -115,7 +138,7 @@ sequenceDiagram
     IA->>IA: Merge story branch
 ```
 
-### 6.3.2 Sequence: Gate Failure with Fix Iteration
+### 6.4.2 Sequence: Gate Failure with Fix Iteration
 
 ```mermaid
 sequenceDiagram
@@ -146,90 +169,66 @@ sequenceDiagram
 - The two gates run in sequence: CRAP, dependency. All must pass before `premerge-check`. Mutation testing is project-owned infrastructure that Factory encourages via the `mutation-analysis` skill.
 - Gate reports are written to `.current-work/<gate-name>/<story-id>.json` for traceability.
 
-### 6.3.3 Sequence: Module-Graph Check (Phase Routing)
+### 6.4.3 Sequence: Module-Graph Check (Architecture Routing)
 
 ```mermaid
 sequenceDiagram
     participant S as Orchestrating Session
     participant MG as module-graph-check
     participant DSL as architecture.dsl
-    participant P1 as Phase 1 Outputs
+    participant CO as Concept Outputs
 
-    S->>MG: Run at end of Phase 1
+    S->>MG: Run at architecture boundary
     MG->>DSL: Read current module map
-    MG->>P1: Read interface-contracts.md, entity-model.md
+    MG->>CO: Read interface-contracts.md, entity-model.md
     MG->>MG: Compare feature outputs against module map
     alt No module-graph change
-        MG-->>S: Exit 0 — skip Phase 2, go to Phase 3
+        MG-->>S: Exit 0 — skip architecture
     else Module boundary changed
-        MG-->>S: Exit 1 — enter Phase 2 (Architecture)
+        MG-->>S: Exit 1 — enter architecture
         MG->>MG: Update proposal frontmatter: architecture_change: true
     end
 ```
 
 **Key Points:**
 
-- Runs once per feature, at the Phase 1 / Phase 3 boundary. Not per story, not per commit.
-- Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger Phase 2.
-- The orchestrating session (hosting the `feature-addition` playbook) owns the check. It is not a hook or a dispatcher gate.
+- Runs once per feature, at the architecture boundary. Not per story, not per commit.
+- Tests module-graph topology only: new modules, changed public interfaces, inverted dependency directions. A new entity in an existing module does not trigger the architecture check.
+- The orchestrating session owns the check. It is not a hook or a dispatcher gate.
 
-## 6.4 Agent Context Mode Transition
+## 6.5 Agent Context Validation
 
-The agent-context index files have a two-mode lifecycle: `mode: primary` (greenfield, values written directly) and `mode: index` (mature, every non-null, non-deferred leaf has a `source:` pointer). The transition is one-directional and atomic. See [ADR-0014](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md) and [state-machines.md § Concern Registry Lifecycle](../spec/supplementary_specs/state-machines.md#concern-registry-lifecycle).
+The concern-oriented agent context (`docs/agent-context.md`) is a single markdown file that replaced the four-file YAML model in 0.9.0. The team maintains the file directly; `update-context` is retired. See [section 8.11](08_crosscutting_concepts.md#811-agent-context-as-cross-cutting-concern).
 
-### 6.4.1 Sequence: Mode Transition via update-context
-
-```mermaid
-sequenceDiagram
-    participant H as User
-    participant UC as update-context skill
-    participant IF as Index Files (stack/workflow/governance)
-    participant CL as context-lint
-
-    H->>UC: Write source pointer for last uncovered field
-    UC->>IF: Write name + source to index file
-    UC->>IF: Check transition condition across all three files
-    IF-->>UC: Every non-null, non-deferred leaf has source pointer
-    UC->>H: "All fields have sources. Switch to index mode?"
-    alt User confirms
-        UC->>IF: Set mode: index in all three files (single commit)
-        UC->>IF: Strip inline values to names only, preserve source pointers
-        UC->>CL: Validate updated files
-        CL-->>UC: CX-MODE: index (info), no CX-SRC findings
-    else User declines
-        UC-->>H: Files remain in mode: primary
-    end
-```
-
-### 6.4.2 Sequence: context-lint Validates Mode Compliance
+### 6.5.1 Sequence: concern-lint Validates Agent Context
 
 ```mermaid
 sequenceDiagram
     participant G as Git / pre-commit
-    participant CL as context-lint
-    participant IF as Index Files
-    participant RG as reading-guides.yaml
+    participant CL as concern-lint
+    participant AC as docs/agent-context.md
+    participant ST as backlog/ST-*.md
 
     G->>CL: Pre-commit fires
-    CL->>CL: Format detection (agent-context vs. legacy charter)
-    CL->>IF: Parse YAML, check required keys (CX-PARSE, CX-KEYS)
-    CL->>IF: Check mode field (CX-MODE / CX-MODE-INVALID)
-    alt mode: index
-        CL->>IF: Check every non-null, non-deferred leaf has source (CX-SRC)
-        CL->>IF: Check each source pointer resolves to existing file (CX-SRC-EXIST)
-        CL->>RG: Check reading-guide exists (CX-FILE)
+    CL->>AC: Parse markdown, check category headings (CTX-SECTIONS)
+    CL->>AC: Verify each concern has description and Read path (CTX-SECTIONS)
+    CL->>AC: Resolve every Read/Boundary path against repo (CTX-PATHS)
+    CL->>CL: Check for legacy YAML files or docs/charter/ (CTX-LEGACY)
+    opt Story files exist
+        CL->>ST: Read concerns from story frontmatter
+        CL->>AC: Match each concern name to a heading (CTX-REFS)
     end
-    CL->>RG: Validate key-path references resolve to index-file keys (CX-GUIDE-REF)
     CL-->>G: Exit code = count of error-severity findings
 ```
 
 **Key Points:**
 
-- The transition condition is mechanically testable: `context-lint` reports `CX-SRC` findings for fields missing source pointers when mode is index.
-- `testing.yaml` is exempt from mode checks -- it receives `CX-PARSE` validation only.
-- Format detection routes to either `CX-*` codes (YAML agent-context) or `CH-*` codes (legacy markdown charter), never both.
+- All `CTX-*` findings are errors. A single finding fails the gate.
+- The three required categories are `## Always (cross-cutting)`, `## Technical concerns`, and `## Domain concerns`.
+- `docs/testing.yaml` is the only accepted test-configuration path and is not validated by `concern-lint`.
+- `CTX-LEGACY` rejects mixed formats: the concern-oriented file must not coexist with YAML agent-context files or a `docs/charter/` directory.
 
-## 6.5 Local Usage Query
+## 6.6 Local Usage Query
 
 Derived from dynamic view `UsageQuery` in
 [`architecture.dsl`](architecture.dsl).
@@ -260,7 +259,7 @@ row or a structured failure. `capture_health` remains queryable when failures
 exist; all other stable views refuse partial output. Empty input is valid and
 returns each view's declared typed empty result.
 
-## 6.6 Explicit Parquet Export
+## 6.7 Explicit Parquet Export
 
 Derived from dynamic view `UsageParquetExport` in
 [`architecture.dsl`](architecture.dsl).
@@ -281,19 +280,15 @@ The exporter writes a temporary sibling, verifies logical rows and schema, and
 records query-model and input-set provenance before replacement. Any failure
 leaves an existing destination unchanged. No scheduled refresh exists.
 
-## 6.7 Other Runtime Scenarios (Summary)
+## 6.8 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 
-- **Phase advance with multiple entry conditions** → [UC-01](../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
-- **Retry loop with iteration cap** → [UC-03](../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
-- **Agent dispatch (interactive vs. background)** → [UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
-- **Resume after interruption** → [UC-05](../~archive/spec/use_cases/UC-05-resume-an-interrupted-playbook-run.md)
-- **Transition-lint blocking out-of-phase commit** → [UC-02](../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md)
+- **Agent dispatch (interactive vs. background)** -- [UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
 
 ## Referenced from
 
-- [05_building_block_view.md § 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
-- [05_building_block_view.md § 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
-- [08_crosscutting_concepts.md § 8.1](08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
+- [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
+- [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
+- [08_crosscutting_concepts.md section 8.1](08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

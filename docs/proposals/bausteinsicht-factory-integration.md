@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Bausteinsicht Factory Integration"
 status: accepted
 owner: agent-factory
 created: 2026-08-17
@@ -12,20 +12,20 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/scripts/structurizr
-    - factory/scripts/arch-lint
-    - factory/skills/scaffold-arc42/SKILL.md
-    - factory/skills/maintain-architecture/SKILL.md
-    - factory/skills/model-structurizr-slice/SKILL.md
-    - factory/skills/validate/SKILL.md
-    - factory/skills/atam-review/SKILL.md
-    - factory/agents/architecture-agent.md
-    - factory/agents/architecture-review-agent.md
-    - factory/agents/reconciliation-agent.md
-    - factory/playbooks/greenfield-development.md
-    - factory/playbooks/brownfield-onboarding.md
-    - factory/playbooks/architecture-review.md
-    - factory/config/pre-commit-config.yaml
+    - .agent-factory/factory/scripts/structurizr
+    - .agent-factory/factory/scripts/arch-lint
+    - .agent-factory/factory/skills/scaffold-arc42/SKILL.md
+    - .agent-factory/factory/skills/maintain-architecture/SKILL.md
+    - .agent-factory/factory/skills/model-structurizr-slice/SKILL.md
+    - .agent-factory/factory/skills/validate/SKILL.md
+    - .agent-factory/factory/skills/atam-review/SKILL.md
+    - .agent-factory/factory/agents/architecture-agent.md
+    - .agent-factory/factory/agents/architecture-review-agent.md
+    - .agent-factory/factory/agents/reconciliation-agent.md
+    - .agent-factory/factory/playbooks/greenfield-development.md
+    - .agent-factory/factory/playbooks/brownfield-onboarding.md
+    - .agent-factory/factory/playbooks/architecture-review.md
+    - .agent-factory/factory/config/pre-commit-config.yaml
 
 governance:
   assurance: high
@@ -118,7 +118,7 @@ tooling.
 
 Sync runs at two points:
 
-1. **After model edits** — skills and agents run `factory/scripts/bausteinsicht sync` after touching the JSONC (forward pass).
+1. **After model edits** — skills and agents run `.agent-factory/factory/scripts/bausteinsicht sync` after touching the JSONC (forward pass).
 2. **Before commit (safety net)** — a pre-commit hook fires conditionally when
    `.jsonc` or `.drawio` files are staged. It runs `bausteinsicht validate` to
    verify consistency. The hook also enforces co-staging: if one of
@@ -154,10 +154,10 @@ The Factory builds its own Docker image containing:
 - draw.io Desktop (`.deb`, headless via xvfb)
 - xvfb, dbus, and Electron dependencies
 
-The image is built from a Dockerfile in `factory/`. The Bausteinsicht project
+The image is built from a Dockerfile in `.agent-factory/factory/`. The Bausteinsicht project
 does not publish a container image; the Factory owns the image lifecycle.
 
-`factory/scripts/bausteinsicht` is a thin wrapper that calls `docker run` with
+`.agent-factory/factory/scripts/bausteinsicht` is a thin wrapper that calls `docker run` with
 volume-mounted `docs/`. It delegates to the Bausteinsicht binary inside the
 container for all operations.
 
@@ -183,7 +183,7 @@ environment setup (dbus, xvfb) inside the container.
 ### Agent and review workflow
 
 - **Architecture agent** writes and updates `architecture.jsonc`. Runs
-  `factory/scripts/bausteinsicht sync` and `factory/scripts/bausteinsicht export-all` after model changes.
+  `.agent-factory/factory/scripts/bausteinsicht sync` and `.agent-factory/factory/scripts/bausteinsicht export-all` after model changes.
 - **Architecture-review agent** reads the JSONC model and exported images.
   Proposes structural changes by patching the JSONC directly, then syncs.
 - **Human reviewers** open `architecture.drawio` in draw.io (desktop or VS
@@ -213,7 +213,7 @@ image staleness).
 Existing Factory projects migrate with a one-time import:
 
 ```bash
-factory/scripts/bausteinsicht import docs/arc42/architecture.dsl
+.agent-factory/factory/scripts/bausteinsicht import docs/arc42/architecture.dsl
 ```
 
 This produces `architecture.jsonc` and an initial `architecture.drawio`. After
@@ -241,7 +241,7 @@ the starter specification, and wrapper script commands.
 
 **In the first release:**
 
-- Replace `factory/scripts/structurizr` with `factory/scripts/bausteinsicht`
+- Replace `.agent-factory/factory/scripts/structurizr` with `.agent-factory/factory/scripts/bausteinsicht`
   (Docker wrapper).
 - Create the Dockerfile for the Bausteinsicht container image.
 - Rewrite `scaffold-arc42` skill for JSONC + sync + export workflow.
@@ -259,10 +259,10 @@ the starter specification, and wrapper script commands.
 - Update `greenfield-development`, `brownfield-onboarding`, and
   `architecture-review` playbooks.
 - Update `greenfield-development.fsm.yml`.
-- Update `factory/config/pre-commit-config.yaml`.
-- Update `factory/docs/factory-guide.md`.
+- Update `.agent-factory/factory/config/pre-commit-config.yaml`.
+- Update `.agent-factory/factory/docs/factory-guide.md`.
 - Update `caveman` skill asset list reference.
-- Regenerate `factory/INDEX.yaml` via `index-lint`.
+- Regenerate `.agent-factory/factory/INDEX.yaml` via `index-lint`.
 - Add `.drawio` binary marker to `.gitattributes`.
 - Create `docs/arc42/assets/styles/.gitkeep` in scaffold output.
 - Pre-commit hook: conditional validation and co-staging enforcement for
@@ -287,9 +287,9 @@ the starter specification, and wrapper script commands.
 
 ## Completion Criteria
 
-- `factory/scripts/structurizr` is deleted; `factory/scripts/bausteinsicht`
+- `.agent-factory/factory/scripts/structurizr` is deleted; `.agent-factory/factory/scripts/bausteinsicht`
   handles all architecture modeling operations via Docker.
-- A Dockerfile in `factory/` builds a working image with Bausteinsicht,
+- A Dockerfile in `.agent-factory/factory/` builds a working image with Bausteinsicht,
   draw.io, xvfb, and dbus.
 - `scaffold-arc42` produces `architecture.jsonc`, `architecture.drawio`, and
   exported images in a new project.
@@ -301,7 +301,7 @@ the starter specification, and wrapper script commands.
   `bausteinsicht lint`.
 - Pre-commit hook validates and enforces co-staging of `.jsonc` and `.drawio`.
 - An existing project with `architecture.dsl` can migrate via
-  `factory/scripts/bausteinsicht import` and produce a valid, synced model.
+  `.agent-factory/factory/scripts/bausteinsicht import` and produce a valid, synced model.
 - All Structurizr references are removed from Factory skills, agents,
   playbooks, scripts, and documentation.
 - `index-lint --check` passes after all changes.

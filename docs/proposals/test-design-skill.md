@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Test Design Skill"
 status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-01
@@ -13,16 +13,16 @@ impact:
   architecture_change: false  # manual override — no boundary change despite new gate script and YAML schema extension; mechanical detection flagged pre-existing architecture.dsl gaps
   external_contract_change: true
   boundaries:
-    - factory/skills/create-backlog/SKILL.md
-    - factory/skills/create-backlog-stories/SKILL.md
-    - factory/skills/create-backlog-write-epics/SKILL.md
-    - factory/agents/developer-agent.md
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-stories/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-write-epics/SKILL.md
+    - .agent-factory/factory/agents/developer-agent.md
     - docs/charter/testing.yaml
-    - factory/rulebooks/conventions/testing-strategy.md
-    - factory/rulebooks/templates/charter-testing.yaml
-    - factory/skills/crap-score/SKILL.md
-    - factory/scripts/crap-score
-    - factory/agents/implementation-agent.md
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    - .agent-factory/factory/rulebooks/templates/charter-testing.yaml
+    - .agent-factory/factory/skills/crap-score/SKILL.md
+    - .agent-factory/factory/scripts/crap-score
+    - .agent-factory/factory/agents/implementation-agent.md
     - docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
 
 governance:
@@ -70,7 +70,7 @@ The test-design skill closes this gap. It reads the `.feature` contracts and sco
 
 ### 1. New `test-design` skill
 
-A new skill at `factory/skills/test-design/SKILL.md` in the planning category. It runs after `create-backlog-write-epics` (step 2 of the create-backlog sequence) and before `create-backlog-story-slices` (step 3). It is also invocable standalone on an existing backlog that already has `backlog/epics.md`.
+A new skill at `.agent-factory/factory/skills/test-design/SKILL.md` in the planning category. It runs after `create-backlog-write-epics` (step 2 of the create-backlog sequence) and before `create-backlog-story-slices` (step 3). It is also invocable standalone on an existing backlog that already has `backlog/epics.md`.
 
 **Inputs:**
 
@@ -143,7 +143,7 @@ Mutation testing is disabled by default. The `enabled` flag flips to `true` when
 
 ### 5. `test-design-verify` gate script
 
-A new gate script at `factory/scripts/test-design-verify` that validates test-design completeness.
+A new gate script at `.agent-factory/factory/scripts/test-design-verify` that validates test-design completeness.
 
 **Resolution path:** The gate resolves each story's contract coverage through a multi-step chain:
 
@@ -194,14 +194,14 @@ The dispatcher (implementation-agent) currently hardcodes its gate list. This pr
 
 **In the first release:**
 
-- The `test-design` skill at `factory/skills/test-design/SKILL.md`, with the procedure described in Design section 1.
+- The `test-design` skill at `.agent-factory/factory/skills/test-design/SKILL.md`, with the procedure described in Design section 1.
 - The `create-backlog` parent skill updated with the test-design step in its operational sequence table.
 - The `create-backlog-write-epics` skill (step 2) updated to surface the test-design option before the user proceeds to step 3.
 - The `create-backlog-stories` skill updated to carry test-design sections from `epics.md` into story files (Design section 2).
-- The testing strategy at `factory/rulebooks/conventions/testing-strategy.md` extended with risk-class definitions (`critical`, `standard`, `structural`), their failure-scenario formats, and budget rules.
-- The `gates` section added to `docs/charter/testing.yaml` and the template at `factory/rulebooks/templates/charter-testing.yaml`, including an optional `risk_classes:` override section.
+- The testing strategy at `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` extended with risk-class definitions (`critical`, `standard`, `structural`), their failure-scenario formats, and budget rules.
+- The `gates` section added to `docs/charter/testing.yaml` and the template at `.agent-factory/factory/rulebooks/templates/charter-testing.yaml`, including an optional `risk_classes:` override section.
 - The `crap-score` skill and script updated to read the threshold from `testing.yaml`'s `gates.crap_score.threshold`, replacing the dead-code `read_threshold_from_house_rules()` path.
-- The `test-design-verify` gate script at `factory/scripts/test-design-verify`.
+- The `test-design-verify` gate script at `.agent-factory/factory/scripts/test-design-verify`.
 - The developer-agent updated to consume test-design output as its RED phase (Design section 6).
 - The implementation-agent (dispatcher) updated to read `testing.yaml`'s `gates` section for per-gate enabled/threshold configuration instead of hardcoding the gate list.
 - ADR-0012 amended to document `test_design_verify` as a conditional gate in the dispatcher's sequence.
@@ -219,7 +219,7 @@ The dispatcher (implementation-agent) currently hardcodes its gate list. This pr
 
 Risk classes group contracts by failure-mode complexity to determine the test-design treatment. They are orthogonal to layers: a layer says *where* the test lives; the risk class says *how thorough* the test design must be.
 
-This proposal adds three default risk classes to `factory/rulebooks/conventions/testing-strategy.md`. Projects can override or extend them in `testing.yaml`'s `risk_classes:` section. Precedence: `testing.yaml` inline > project-linked strategy document > Factory convention defaults.
+This proposal adds three default risk classes to `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`. Projects can override or extend them in `testing.yaml`'s `risk_classes:` section. Precedence: `testing.yaml` inline > project-linked strategy document > Factory convention defaults.
 
 | Risk class   | Characteristics                                                               | Test-design treatment                                                    |
 | ------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -296,14 +296,14 @@ None. The design resolves the key questions:
 
 ## Completion Criteria
 
-- The `test-design` skill exists at `factory/skills/test-design/SKILL.md` with the procedure described in Design section 1, including the `detect-test-regime` prerequisite guard.
-- The testing strategy at `factory/rulebooks/conventions/testing-strategy.md` defines three default risk classes (`critical`, `standard`, `structural`) with their failure-scenario formats and budget rules.
+- The `test-design` skill exists at `.agent-factory/factory/skills/test-design/SKILL.md` with the procedure described in Design section 1, including the `detect-test-regime` prerequisite guard.
+- The testing strategy at `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` defines three default risk classes (`critical`, `standard`, `structural`) with their failure-scenario formats and budget rules.
 - The `create-backlog` parent skill's operational sequence table includes the test-design step between phases 2 and 3.
 - The `create-backlog-write-epics` skill (step 2) surfaces the test-design option before the user proceeds to step 3.
 - The `create-backlog-stories` skill carries `tests:`, `#### Test Design`, and `#### Prior Tests` from `epics.md` into story files when those sections exist.
-- `docs/charter/testing.yaml` and the template at `factory/rulebooks/templates/charter-testing.yaml` include a `gates` section with `crap_score` (enabled, threshold) and `mutation_testing` (enabled), and an optional `risk_classes:` override section.
+- `docs/charter/testing.yaml` and the template at `.agent-factory/factory/rulebooks/templates/charter-testing.yaml` include a `gates` section with `crap_score` (enabled, threshold) and `mutation_testing` (enabled), and an optional `risk_classes:` override section.
 - The `crap-score` skill and script read the threshold from `testing.yaml`'s `gates.crap_score.threshold`, replacing the dead-code `read_threshold_from_house_rules()` path.
-- The `test-design-verify` gate script exists at `factory/scripts/test-design-verify`, resolves the trace → scope-map → `.feature` → Scenario chain, and validates that owned contracts have assertions, waivers (blockquote format with owner path) reference passing owners, and non-owning stories have `#### Prior Tests` entries.
+- The `test-design-verify` gate script exists at `.agent-factory/factory/scripts/test-design-verify`, resolves the trace → scope-map → `.feature` → Scenario chain, and validates that owned contracts have assertions, waivers (blockquote format with owner path) reference passing owners, and non-owning stories have `#### Prior Tests` entries.
 - The developer-agent's step 3 consumes `#### Test Design` as its RED phase when present, runs `#### Prior Tests` first when present, and falls back to existing behavior when neither exists.
 - Every `.feature` scenario reachable through an epic's traces has exactly one test owner across the backlog — no contract tested twice at the same layer.
 - Every non-owning story that traces a contract has a `#### Prior Tests` entry pointing to the owner's test.
@@ -324,10 +324,10 @@ Reviewed commit: 898abfa85485c2577ff5faf1dc3e46cfc820708f
 ### Observations
 
 **1. Missing boundaries: crap-score skill and script.**
-The proposal explicitly changes where the crap-score gate reads its threshold — from `docs/charter/house-rules.md` to `testing.yaml`'s `gates.crap_score.threshold`. But neither `factory/skills/crap-score/SKILL.md` nor `factory/scripts/crap-score` appears in `impact.boundaries`. Both will need modification: the skill's documentation says "Threshold overrides from `docs/charter/house-rules.md`" and the script's `read_threshold_from_house_rules()` function implements that lookup. A planning agent reading this proposal would not generate a story for updating those files unless they are declared as boundaries.
+The proposal explicitly changes where the crap-score gate reads its threshold — from `docs/charter/house-rules.md` to `testing.yaml`'s `gates.crap_score.threshold`. But neither `.agent-factory/factory/skills/crap-score/SKILL.md` nor `.agent-factory/factory/scripts/crap-score` appears in `impact.boundaries`. Both will need modification: the skill's documentation says "Threshold overrides from `docs/charter/house-rules.md`" and the script's `read_threshold_from_house_rules()` function implements that lookup. A planning agent reading this proposal would not generate a story for updating those files unless they are declared as boundaries.
 
 **2. Cluster A/B definitions do not exist in the testing strategy.**
-The test-design skill's procedure says "Classify each contract as Cluster A or Cluster B, using the testing strategy's cluster definitions" (step 5). The testing strategy at `factory/rulebooks/conventions/testing-strategy.md` defines five layers, the one-contract-one-owner principle, and the admit-a-test gate, but it does not define "Cluster A" or "Cluster B" by those names or by the risk characteristics described in the Design Details section. The same applies to the Given/When/Then/Forbidden failure-scenario format — it is original to this proposal, not existing vocabulary from the testing strategy. Consider one of two approaches: (a) add the cluster definitions and failure-scenario format to the testing strategy document first, then reference them from the skill, which means `testing-strategy.md` becomes a modified boundary; or (b) define them as original work in the test-design skill itself and remove the claim that the skill "uses the testing strategy's cluster definitions." Either way, a planning agent currently cannot implement step 5 because the referenced definitions do not exist at the referenced location.
+The test-design skill's procedure says "Classify each contract as Cluster A or Cluster B, using the testing strategy's cluster definitions" (step 5). The testing strategy at `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` defines five layers, the one-contract-one-owner principle, and the admit-a-test gate, but it does not define "Cluster A" or "Cluster B" by those names or by the risk characteristics described in the Design Details section. The same applies to the Given/When/Then/Forbidden failure-scenario format — it is original to this proposal, not existing vocabulary from the testing strategy. Consider one of two approaches: (a) add the cluster definitions and failure-scenario format to the testing strategy document first, then reference them from the skill, which means `testing-strategy.md` becomes a modified boundary; or (b) define them as original work in the test-design skill itself and remove the claim that the skill "uses the testing strategy's cluster definitions." Either way, a planning agent currently cannot implement step 5 because the referenced definitions do not exist at the referenced location.
 
 **3. The test-design skill assumes `testing.yaml` fields that do not yet exist.**
 The current `docs/charter/testing.yaml` has three fields: `test_command`, `test_staged_command`, and `layers.contract_test`. The test-design skill's procedure reads the testing strategy document "linked from `testing_strategy:` in `testing.yaml`" (step 1) and reads suites, runners, and markers from it. None of these fields exist in the current testing.yaml. The `testing_strategy:` and `suites:` fields are introduced by the `detect-test-regime` skill, and the `gates:` section is introduced by this proposal itself. This creates an implicit dependency chain: detect-test-regime must run before test-design can read its inputs. The proposal should either (a) list this dependency explicitly, (b) specify fallback behavior when `testing_strategy:` or `suites:` are absent, or (c) add detect-test-regime as a prerequisite step in the procedure.
@@ -375,10 +375,10 @@ Disposition: clean
 
 ### Prior findings
 
-| ID      | Severity | Check | Status   | Resolution                                                                                                                                                                                                                                                                                                         |
-| ------- | -------- | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PROP-01 | minor    | 03    | resolved | `factory/agents/implementation-agent.md` and `docs/adr/0012-dispatcher-owned-semantic-gate-loop.md` added to boundaries. Scope includes implementation-agent update and ADR-0012 amendment. Design section 7 clarifies that `testing.yaml` provides per-gate configuration while ADR-0012 owns execution ordering. |
-| PROP-02 | minor    | 03    | resolved | Design Details now includes a concrete YAML example with `format`, `budget`, and optional `requires` fields, plus field-level documentation. Completion criteria require the schema-by-example in the template.                                                                                                    |
+| ID      | Severity | Check | Status   | Resolution                                                                                                                                                                                                                                                                                                                        |
+| ------- | -------- | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | minor    | 03    | resolved | `.agent-factory/factory/agents/implementation-agent.md` and `docs/adr/0012-dispatcher-owned-semantic-gate-loop.md` added to boundaries. Scope includes implementation-agent update and ADR-0012 amendment. Design section 7 clarifies that `testing.yaml` provides per-gate configuration while ADR-0012 owns execution ordering. |
+| PROP-02 | minor    | 03    | resolved | Design Details now includes a concrete YAML example with `format`, `budget`, and optional `requires` fields, plus field-level documentation. Completion criteria require the schema-by-example in the template.                                                                                                                   |
 
 ### Eight checks
 

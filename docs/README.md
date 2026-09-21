@@ -29,5 +29,4 @@ This documentation derives from the specification in [`spec/`](spec/prd.md). The
 
 ## See also
 
-- [factory/README.md](../factory/README.md) — the toolset (agents, skills, playbooks)
-- [packages/orchestrator/README.md](../packages/orchestrator/README.md) — optional CLI for automated playbook execution (work in progress — not yet operational)
+- [factory/README.md](../.agent-factory/factory/README.md) — the toolset (agents, skills, playbooks)

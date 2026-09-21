@@ -144,7 +144,7 @@ def generate(agents_dir: Path, output_dir: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate .codex/agents/*.toml from factory/agents/*.md."
+        description="Generate .codex/agents/*.toml from .agent-factory/factory/agents/*.md."
     )
     parser.add_argument(
         "--agents-dir", type=Path, default=_REPO_ROOT / "factory" / "agents"

@@ -3,14 +3,14 @@ name: test-design
 description: "Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files."
 category: implementation
 inputs:
-  - backlog/ST-NNNN.md (the story being implemented)
-  - backlog/epics.md (ownership assignments from testability-probe)
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - testing.yaml (at docs/testing.yaml)
+  context:
+    - backlog/ST-NNNN.md
+    - backlog/epics.md
+    - "docs/spec/*.feature"
+    - docs/spec/scope-map.md
+    - docs/testing.yaml
 outputs:
   - tests/**/* (authored test files)
-disable-model-invocation: false
 ---
 
 # Test Design
@@ -25,8 +25,8 @@ This skill is the implementation-time complement to the planning-time
 *who* owns each contract's tests; this skill designs and writes those tests
 with the actual code in hand.
 
-Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/test-design-layer-redistribution.md).
-Prior skill trace: [test-design-skill.md](../../../docs/proposals/test-design-skill.md).
+Proposal trace: [test-design-layer-redistribution.md](../../../../docs/proposals/implemented/test-design-layer-redistribution.md).
+Prior skill trace: [test-design-skill.md](../../../../docs/proposals/test-design-skill.md).
 
 ## Prerequisite guard
 

@@ -41,7 +41,7 @@ Right: `See the [QA Agent § Handoff](../../agents/qa-agent.md#handoff) for how 
 
 Wrong: `Tracked in docs/spec/todo.md#T-0001.`
 
-Right: `Tracked in [T-0001](../../../docs/spec/todo.md#t-0001-cursor-mdc-adapter-for-configagentsmd).`
+Right: `Tracked in [T-0001](../../../../docs/spec/todo.md#t-0001-cursor-mdc-adapter-for-configagentsmd).`
 
 ## Why
 

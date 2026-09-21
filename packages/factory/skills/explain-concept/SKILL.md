@@ -13,11 +13,11 @@ Explain a Factory concept at the right depth for the person asking.
 
 Search for the concept in this order:
 
-1. `factory/docs/factory-guide.md` — the canonical guide.
-2. `factory/INDEX.yaml` — index of all agents, skills, playbooks, and
+1. `.agent-factory/factory/docs/factory-guide.md` — the canonical guide.
+2. `.agent-factory/factory/INDEX.yaml` — index of all agents, skills, playbooks, and
    rulebooks.
-3. `factory/rulebooks/rules.md` and convention files under
-   `factory/rulebooks/conventions/`.
+3. `.agent-factory/factory/rulebooks/rules.md` and convention files under
+   `.agent-factory/factory/rulebooks/conventions/`.
 4. `factory/README.md` and other top-level factory documentation.
 
 If the concept does not exist in any source, say so. Offer the closest

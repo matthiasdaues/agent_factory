@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Run Playbook"
 status: open
 owner: agent-factory
 created: 2026-07-12
@@ -12,9 +12,9 @@ impact:
   architecture_change: true
   external_contract_change: false
   boundaries:
-    - factory/playbooks/greenfield-development.fsm.yml
-    - factory/scripts/phase
-    - factory/scripts/trigger
+    - .agent-factory/factory/playbooks/greenfield-development.fsm.yml
+    - .agent-factory/factory/scripts/phase
+    - .agent-factory/factory/scripts/trigger
 
 governance:
   assurance: high
@@ -136,7 +136,7 @@ Nothing else. No new gate types. No new condition evaluators. No new state
 persistence. The rails already exist. The signals already work. The module
 just rides them.
 
-## The proposed module: `factory/scripts/run-playbook`
+## The proposed module: `.agent-factory/factory/scripts/run-playbook`
 
 ```
 Usage:
@@ -191,8 +191,8 @@ def run_one_step(playbook, cli):
 ```
 
 That's it. Every `phase_advance()` call is literally
-`subprocess.run(["factory/scripts/phase", "advance"])`. Every `trigger()` call
-is literally `subprocess.run(["factory/scripts/trigger", "agent", name, ...])`.
+`subprocess.run([".agent-factory/factory/scripts/phase", "advance"])`. Every `trigger()` call
+is literally `subprocess.run([".agent-factory/factory/scripts/trigger", "agent", name, ...])`.
 No reimplementation. No new logic. Just glue.
 
 ### Walk-through: bug-fix playbook
@@ -202,15 +202,15 @@ $ run-playbook --playbook bug-fix --from-state IMPLEMENT_FIX --cli claude
 
 [1] State: IMPLEMENT_FIX
     Agent: developer-agent
-    Dispatching: factory/scripts/trigger agent developer-agent --background --cli claude
+    Dispatching: .agent-factory/factory/scripts/trigger agent developer-agent --background --cli claude
     ... (agent runs TDD, commits fix) ...
     Agent exited 0.
-    Out-gate: tests_pass → checking factory/scripts/run-tests ... passed ✓
+    Out-gate: tests_pass → checking .agent-factory/factory/scripts/run-tests ... passed ✓
     Advancing: IMPLEMENT_FIX → QA_VALIDATION
 
 [2] State: QA_VALIDATION
     Agent: qa-agent
-    Dispatching: factory/scripts/trigger agent qa-agent --background --cli claude
+    Dispatching: .agent-factory/factory/scripts/trigger agent qa-agent --background --cli claude
     ... (agent runs Fagan review, security review) ...
     Agent exited 0.
     Out-gate: no_new_qa_findings → checking docs/findings/{FAGAN,SEC,BUG}-*.md ... 0 open ✓
@@ -289,11 +289,11 @@ starts after specs exist.
 
 ## What's needed to build this
 
-| Deliverable                         | Scope                                                                                                                                                                     |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/scripts/run-playbook`      | ~120 lines Python. Calls `phase advance`, `phase retry`, and `trigger` as subprocesses. Reads FSM for agent resolution and human-gate detection. Self-calls for chaining. |
-| `--dry-run` flag on `phase advance` | ~10 lines in `factory/scripts/phase`. Check conditions, print result, don't write marker.                                                                                 |
-| README section                      | "Running a playbook from the command line" in `factory/README.md`                                                                                                         |
+| Deliverable                                   | Scope                                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agent-factory/factory/scripts/run-playbook` | ~120 lines Python. Calls `phase advance`, `phase retry`, and `trigger` as subprocesses. Reads FSM for agent resolution and human-gate detection. Self-calls for chaining. |
+| `--dry-run` flag on `phase advance`           | ~10 lines in `.agent-factory/factory/scripts/phase`. Check conditions, print result, don't write marker.                                                                  |
+| README section                                | "Running a playbook from the command line" in `.agent-factory/factory/README.md`                                                                                          |
 
 No changes to `trigger`, the FSMs, the gate conditions, or the marker format.
 The rails are already laid. This lays the train on them.

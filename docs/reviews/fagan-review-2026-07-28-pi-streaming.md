@@ -7,9 +7,9 @@ All six changed files were inspected for correctness, Clean Architecture,
 SOLID, maintainability, consistency, YAGNI, and alignment with UC-10 and its
 interface contract.
 
-| Finding                                                                                                                                                                                                      | Artifact                                     | Category | Severity |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | -------- | -------- |
-| Cancellation waits forever when a spawned child ignores `SIGTERM`; add bounded escalation, pipe teardown, staging cleanup, and a non-cooperative-child regression ([FAGAN-0010](../findings/FAGAN-0010.md)). | `factory/config/extensions/run-agent.ts:275` | Defect   | Major    |
+| Finding                                                                                                                                                                                                      | Artifact                                                    | Category | Severity |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | -------- | -------- |
+| Cancellation waits forever when a spawned child ignores `SIGTERM`; add bounded escalation, pipe teardown, staging cleanup, and a non-cooperative-child regression ([FAGAN-0010](../findings/FAGAN-0010.md)). | `.agent-factory/factory/config/extensions/run-agent.ts:275` | Defect   | Major    |
 
 The incremental JSONL parser handles arbitrary normal chunk boundaries,
 ignores malformed and oversized events with bounded retained parser state,

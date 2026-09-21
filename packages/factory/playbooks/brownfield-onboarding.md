@@ -99,14 +99,14 @@ The workspace property `"arc42.projected"` defaults to `"false"` and is set to `
 ### Step 2.3 — Validate and Export Structurizr Model
 
 ```bash
-factory/scripts/structurizr validate
-factory/scripts/structurizr export-all
+.agent-factory/factory/scripts/structurizr validate
+.agent-factory/factory/scripts/structurizr export-all
 ```
 
 ### Step 2.4 — Validate Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix and re-validate
@@ -210,9 +210,9 @@ Second architecture pass: deepen the baseline architecture using domain knowledg
 ### Step 4.2 — Validate and Export Updated Model
 
 ```bash
-factory/scripts/structurizr validate
-factory/scripts/structurizr export-all
-factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/structurizr validate
+.agent-factory/factory/scripts/structurizr export-all
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix and re-validate
@@ -236,9 +236,9 @@ Fix findings from the ATAM review. Re-validate architecture after fixes.
 
 ### Step 5.3 — Capture Project Charter
 
-**Manual**: Invoke `capture-charter --init --scan` to scan the codebase and bootstrap the project charter.
+**Manual**: Invoke `capture-context` to scan the codebase and bootstrap the agent context.
 
-The charter records foundational decisions the team has already made: languages,
+The agent context records foundational decisions the team has already made: languages,
 frameworks, databases, testing practices, CI/CD, and team rules. Brownfield
 onboarding surfaces these from the code and infrastructure-as-code.
 
@@ -246,18 +246,15 @@ The skill:
 
 1. Scans for signals (package manifests, test configs, linter configs, IaC, CI/CD
    pipelines)
-2. Pre-populates the three context files (`docs/agent-context/stack.yaml`,
-   `docs/agent-context/workflow.yaml`, `docs/agent-context/governance.yaml`;
-   falls back to `docs/charter/*.md` for legacy projects)
+2. Populates `docs/agent-context.md` with concern sections and `Read:` paths
 3. Presents findings to the stakeholder for confirmation
 
 **⚠️ No Epic 0 derivation in brownfield** — the mise en place (infrastructure,
 setup scripts, configurations) already exists in the scanned codebase. Unlike
 greenfield, which must *create* those artifacts, brownfield *documents* them.
-The charter records reality as it stands.
+The agent context records reality as it stands.
 
-**Expected output**: `docs/agent-context/` (three index files; falls back to `docs/charter/` for legacy projects), confirmed by
-stakeholder
+**Expected output**: `docs/agent-context.md`, confirmed by stakeholder
 
 **If scan incomplete** → Stakeholder corrects or adds findings
 **If complete** → Proceed to Step 5.4
@@ -270,7 +267,7 @@ Present the completed charter to the stakeholder. Run the planning gate to
 verify no `To be decided.` entries remain in tech-stack.md or development.md:
 
 ```bash
-factory/scripts/charter-lint --planning-gate
+.agent-factory/factory/scripts/charter-lint --planning-gate
 ```
 
 This gate must pass before any specification work or planning decisions that
@@ -319,7 +316,7 @@ The playbook ends when the following terminal artifacts exist:
 - [ ] `docs/spec/supplementary_specs/*.md` (entity model, state machines, validation rules, interface contracts)
 - [ ] `docs/spec/prd.md` (reverse-engineered product requirements)
 - [ ] `docs/spec/todos.md` (identified specification gaps and technical debt)
-- [ ] `docs/agent-context/*.yaml` or `docs/charter/*.md` (project context: stack, workflow, governance)
+- [ ] `docs/agent-context.md` (project context: concerns, paths, boundaries)
 - [ ] `docs/reviews/atam-review.md` (architecture review findings — all addressed)
 
 **Next Phase:**

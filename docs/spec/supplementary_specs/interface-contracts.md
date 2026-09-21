@@ -2,57 +2,21 @@
 
 Command-line contract for every script this specification covers: inputs, flags, outputs, and exit codes. All scripts are stdlib-only Python 3.8+; none requires a virtualenv.
 
-## `factory/scripts/transition-lint`
+## `.agent-factory/factory/scripts/trigger`
 
-|               |                                                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `transition-lint [--repo-root DIR] [--marker PATH] [--playbooks-dir DIR] [--format text\|json] [--report-only]`                    |
-| Reads         | `.current-work/playbook-state.yml` (or `--marker`); `git diff --cached --name-only`; the marker's playbook `.fsm.yml`              |
-| Writes        | Nothing — read-only                                                                                                                |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                |
-| Finding codes | `TL-NOMARKER` (info), `TL-MARKER` (error — missing `playbook`/`state`), `TL-NOFSM` (error), `TL-STATE` (error), `TL-ORDER` (error) |
-
-See [UC-02](../../~archive/spec/use_cases/UC-02-block-an-out-of-phase-commit.md).
-
-## `factory/scripts/phase advance`
-
-|               |                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------ |
-| Usage         | `phase advance [--by NAME] [--repo-root DIR] [--marker PATH] [--playbooks-dir DIR] [--playbook NAME]`  |
-| Reads         | The marker (if present); the target `.fsm.yml`; `docs/findings/**` (for `no_open_findings` conditions) |
-| Writes        | The marker, only on success                                                                            |
-| Exit code     | `0` on success; `1` on refusal (unmet conditions, terminal state, missing FSM)                         |
-| stdout/stderr | Success message to stdout; refusal message (with every unmet condition) to stderr                      |
-
-See [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md).
-
-## `factory/scripts/phase retry`
-
-|               |                                                                                                    |
-| ------------- | -------------------------------------------------------------------------------------------------- |
-| Usage         | `phase retry [--repo-root DIR] [--marker PATH] [--playbooks-dir DIR] [--default-max-iterations N]` |
-| Reads         | The marker (required — errors if absent); the target `.fsm.yml`'s `halt_conditions`                |
-| Writes        | The marker, only when the retry is allowed                                                         |
-| Exit code     | `0` allowed; `1` no marker; `2` cap exceeded                                                       |
-| stdout/stderr | Success message to stdout; refusal (with cap and any declared `message`) to stderr                 |
-
-See [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md).
-
-## `factory/scripts/trigger`
-
-|                 |                                                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage           | `trigger agent <name> [--background\|--interactive] [--cli claude\|copilot] [--cwd DIR]`                                                                |
-|                 | `trigger playbook <name> --step <agent-name-or-index> [--background\|--interactive] [...]`                                                              |
-|                 | `trigger list`                                                                                                                                          |
-| Reads           | `factory/INDEX.yaml`'s source data (via `index-lint`'s loaders); `config/model.conf` (via `matrix-lint`'s parser); the resolved agent's definition file |
-| Writes          | Nothing of its own — the dispatched CLI subprocess writes whatever its own session produces                                                             |
-| Exit code       | The invoked CLI's own exit code (`--background`); `0` after printing launch instructions (`--interactive`); `2` on a resolution error                   |
-| Default `--cli` | `claude`                                                                                                                                                |
+|                 |                                                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage           | `trigger agent <name> [--background\|--interactive] [--cli claude\|copilot] [--cwd DIR]`                                                                               |
+|                 | `trigger playbook <name> --step <agent-name-or-index> [--background\|--interactive] [...]`                                                                             |
+|                 | `trigger list`                                                                                                                                                         |
+| Reads           | `.agent-factory/factory/INDEX.yaml`'s source data (via `index-lint`'s loaders); `config/model.conf` (via `matrix-lint`'s parser); the resolved agent's definition file |
+| Writes          | Nothing of its own — the dispatched CLI subprocess writes whatever its own session produces                                                                            |
+| Exit code       | The invoked CLI's own exit code (`--background`); `0` after printing launch instructions (`--interactive`); `2` on a resolution error                                  |
+| Default `--cli` | `claude`                                                                                                                                                               |
 
 See [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md).
 
-## `factory/scripts/dispatch`
+## `.agent-factory/factory/scripts/dispatch`
 
 |               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -64,7 +28,7 @@ See [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md
 
 `dispatch` is the script-owned implementation dispatch state machine. `prepare-wave` / `prepare-story` establish the `prepared` state by creating the story branch/worktree, recording the declared base, writing the step manifest, and running `verify-base` before any developer-agent spawns. `escalate` performs a read-only check of the ledger, branch verification, and scope boundaries before granting a one-tier promotion or blocking the story when the wave slot is exhausted. `merge-story` runs `premerge-check --scope`/`--scope-glob` with `--max-files` scaled from the story's declared `outputs` count (`max(20, len(outputs) * 2)`, so the pre-existing default of 20 holds for small stories), performs the merge, updates the story file status in the merge commit, runs post-merge tests, and records the terminal outcome in the ledger. `close-wave` succeeds only when every story in the requested wave is terminal, and it records a wave closeout entry with completed, blocked, failed, next_ready, and branch_head fields. `suggest-merge-args` reads the ledger and sums each story's declared `outputs` count to print a recommended `--max-files` value (floored at 20) for the final feature-branch-to-dev merge, which routinely exceeds any single story's per-story threshold.
 
-## `factory/scripts/step-guard`
+## `.agent-factory/factory/scripts/step-guard`
 
 |             |                                                                                                                                                                                                                                                                              |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -78,19 +42,19 @@ See [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md
 
 See [UC-12](../../~archive/spec/use_cases/UC-12-audit-dispatch-safeguards.md).
 
-## `factory/scripts/index-lint`
+## `.agent-factory/factory/scripts/index-lint`
 
-|           |                                                                                                                                        |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `index-lint [--agents-dir DIR] [--skills-dir DIR] [--playbooks-dir DIR] [--rulebooks-dir DIR] [--out PATH] [--check]`                  |
-| Reads     | `factory/agents/*.md`, `factory/skills/*/SKILL.md`, `factory/playbooks/*.md`, `factory/rulebooks/**/*.md` (excluding templates)        |
-| Writes    | `factory/INDEX.yaml` (or `--out`), unless `--check` or content is unchanged                                                            |
-| Exit code | `0` if up to date (now or already); `1` in `--check` mode if it was stale                                                              |
-| stderr    | One `[WARNING]` per: agent missing `phase-name`, skill missing `category`, agent `total_tokens` exceeding 20 000, tiktoken unavailable |
+|           |                                                                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `index-lint [--agents-dir DIR] [--skills-dir DIR] [--playbooks-dir DIR] [--rulebooks-dir DIR] [--out PATH] [--check]`                                                                       |
+| Reads     | `.agent-factory/factory/agents/*.md`, `.agent-factory/factory/skills/*/SKILL.md`, `.agent-factory/factory/playbooks/*.md`, `.agent-factory/factory/rulebooks/**/*.md` (excluding templates) |
+| Writes    | `.agent-factory/factory/INDEX.yaml` (or `--out`), unless `--check` or content is unchanged                                                                                                  |
+| Exit code | `0` if up to date (now or already); `1` in `--check` mode if it was stale                                                                                                                   |
+| stderr    | One `[WARNING]` per: agent missing `phase-name`, skill missing `category`, agent `total_tokens` exceeding 20 000, tiktoken unavailable                                                      |
 
 See [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md).
 
-## `factory/config/hooks/block-dangerous-git.sh`
+## `.agent-factory/factory/config/hooks/block-dangerous-git.sh`
 
 |            |                                                                                                                                                                                           |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,12 +65,12 @@ See [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md).
 
 See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md).
 
-## `factory/config/extensions/run-agent.ts` — the `run_agent` tool
+## `.agent-factory/factory/config/extensions/run-agent.ts` — the `run_agent` tool
 
 |            |                                                                                                                                                                                                                                                                                                             |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Invocation | Pi model-callable tool `run_agent(agent: string, task: string, model?: string)`, registered by the project-local extension when Pi trusts the project                                                                                                                                                       |
-| Reads      | `factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var                                                                                                                                              |
+| Reads      | `.agent-factory/factory/agents/<agent>.md` (persona and `tier` frontmatter); `config/model.conf` `pi.<tier>` (via the shared tier resolver); the `PI_RUN_AGENT_DEPTH` env var                                                                                                                               |
 | Spawns     | `pi --no-session -a --mode json --model <m> --append-system-prompt <agent.md> -p <task>` in the project directory, with `PI_RUN_AGENT_DEPTH` incremented                                                                                                                                                    |
 | Streaming  | Asynchronously spools complete stdout to protected capture staging, incrementally parses arbitrarily chunked JSONL with bounded non-result state, and emits bounded progress updates                                                                                                                        |
 | Returns    | A BR-040 bounded result envelope plus `{ usage, exitCode }` parsed from the child's final assistant `message_end`; an error result on unknown agent, unresolved model, exceeded depth, spawn failure, non-zero/no-result exit, or cancellation                                                              |
@@ -115,7 +79,7 @@ See [UC-07](../../~archive/spec/use_cases/UC-07-block-a-dangerous-git-command.md
 
 See [UC-10](../../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md).
 
-## `factory/scripts/usage-capture`
+## `.agent-factory/factory/scripts/usage-capture`
 
 |                   |                                                                                                                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -133,7 +97,7 @@ See [system-use-cases.md § Usage capture attribution](../../~archive/spec/use_c
 
 - **BR-036**: usage capture applies model attribution in this order: explicit invocation context, latest non-empty CLI-native transcript model, then null; registry-complete contract coverage is mandatory.
 
-## `factory/scripts/handoff-lint`
+## `.agent-factory/factory/scripts/handoff-lint`
 
 |           |                                                                                                                                                                         |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -161,17 +125,17 @@ The envelope applies to native subagents, `run_agent`, and `dispatch_wave`; runt
 
 ## `factory/scripts/init-factory`
 
-|               |                                                                                                                                                                                                           |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                              |
-| Reads         | The source checkout's `factory/`; the target's existing `.gitignore`, runtime hook/settings files, `.pre-commit-config.yaml`, and `config/model.conf`, if present                                         |
-| Writes        | `factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.codex/`, `.agents/`, and `.pi/` runtime surfaces, `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
-| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                        |
-| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                          |
+|               |                                                                                                                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage         | `init-factory [--source DIR] [--target DIR]`                                                                                                                                                                             |
+| Reads         | The source checkout's `.agent-factory/factory/`; the target's existing `.gitignore`, runtime hook/settings files, `.pre-commit-config.yaml`, and `config/model.conf`, if present                                         |
+| Writes        | `.agent-factory/factory/` (copy, once), `.gitignore` (merge), `.claude/`, `.github/`, `.codex/`, `.agents/`, and `.pi/` runtime surfaces, `config/model.conf` (copy, once), `.pre-commit-config.yaml` (symlink or merge) |
+| Exit code     | `0` on success, including a clean no-op re-run; `1` on any collision or unsupported existing state                                                                                                                       |
+| stdout/stderr | One `init-factory: <line>` report line per step; `init-factory: STOPPED — <reason>` on collision                                                                                                                         |
 
 See [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md).
 
-## `factory/scripts/backlog-lint`
+## `.agent-factory/factory/scripts/backlog-lint`
 
 |               |                                                                                                                                                                                    |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -226,7 +190,7 @@ All stories must have YAML frontmatter with the following fields:
 - `concerns` must be a mapping with only `domain` and `technical` keys (both optional); each value must be a list of strings
 - `quality-gates` is a closed enum (`crap-score`, `mutation-analysis`, `dependency-check`); omitting a factory-default gate requires justification in `notes`
 
-## `factory/scripts/module-graph-check`
+## `.agent-factory/factory/scripts/module-graph-check`
 
 |           |                                                                                                                                                                                     |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -238,7 +202,7 @@ All stories must have YAML frontmatter with the following fields:
 
 The script derives the module map from `architecture.dsl` (containers, components, relationships), compares it against Phase 1 outputs, and checks three conditions: (a) new module not in DSL, (b) changed public interface, (c) new or inverted dependency direction. Override semantics: `false`→`true` machine wins (annotated `# mechanical detection`); `true`→`false` prior human declaration respected conservatively. A new entity in an existing module does not trigger `architecture_change=true`.
 
-## `factory/scripts/test-design-verify`
+## `.agent-factory/factory/scripts/test-design-verify`
 
 |               |                                                                                                                                                                                                                                                      |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -323,7 +287,7 @@ risk_classes:
 | `budget`             | string         | yes      | `unbounded` or `equivalence`                   |
 | `requires`           | list of string | no       | Named invariants the contract must demonstrate |
 
-## `factory/scripts/concern-lint`
+## `.agent-factory/factory/scripts/concern-lint`
 
 |               |                                                       |
 | ------------- | ----------------------------------------------------- |
@@ -361,27 +325,27 @@ The [feature specification](../local-usage-processing-and-analysis.feature) adds
 | Schema dialect       | JSON Schema Draft 2020-12                                                                  |
 | Installed projection | `.agent-factory/usage-analysis/contract/`                                                  |
 | Consumer rule        | Usage Analysis reads only the installed projection and declares its accepted version range |
-| CLI enum             | Exactly `claude-code`, `copilot`, `codex`, and `pi`                                        |
+| Known CLI values     | `claude-code`, `copilot`, `codex`, and `pi` (registry, not schema-enforced)                |
 | Gate                 | `packages/usage/scripts/usage-contract-check`                                              |
 
 The YAML manifest declares owner, current version, compatibility policy, and accepted consumer range. The schema owns field names, types, nullability, and nested structure. The gate additionally owns cross-field invariants and producer/consumer version agreement. A failure identifies source file, line number, field, and stable failure code.
 
 ### `usage-query`
 
-| Property                      | Contract                                                                                                                             |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Invocation                    | `uv run --project .agent-factory/usage-analysis usage-query <published-view> [options]`                                              |
-| Default input                 | Top-level `*.jsonl` files beneath `.agent-factory/usage/`, sorted at query start                                                     |
-| Input override                | `--usage-dir <path>`                                                                                                                 |
-| Published views               | `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, `capture_health` |
-| Required presentation outputs | Table and JSON                                                                                                                       |
-| Required programmatic outputs | DuckDB relation and PyArrow table                                                                                                    |
-| Parquet export                | `--format parquet --output <path>`                                                                                                   |
-| Dimension selection           | `--dimensions <comma-list>` and `--time-granularity none\|hour\|day\|week\|month`                                                    |
-| Direct runtime dependencies   | Compatible DuckDB and PyArrow versions, both declared in `pyproject.toml` and pinned by the installed `uv.lock`                      |
-| Reads                         | Selected top-level JSONL files, installed contract, bundled SQL and accounting registry                                              |
-| Writes                        | Only the explicit output path through a temporary sibling; optional private UI state is outside stable output                        |
-| Network                       | None after dependencies are cached; deterministic gates never require the UI                                                         |
+| Property                      | Contract                                                                                                                   |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Invocation                    | `uv run --project .agent-factory/usage-analysis usage-query <published-view> [options]`                                    |
+| Default input                 | Top-level `*.jsonl` files beneath `.agent-factory/usage/`, sorted at query start                                           |
+| Input override                | `--usage-dir <path>`                                                                                                       |
+| Published views               | `raw_usage_snapshots`, `latest_run_snapshots`, `session_usage`, `usage_by_dimension`, `cache_efficiency`, `capture_health` |
+| Required presentation outputs | Table and JSON                                                                                                             |
+| Required programmatic outputs | DuckDB relation and PyArrow table                                                                                          |
+| Parquet export                | `--format parquet --output <path>`                                                                                         |
+| Dimension selection           | `--dimensions <comma-list>` and `--time-granularity none\|hour\|day\|week\|month`                                          |
+| Direct runtime dependencies   | Compatible DuckDB and PyArrow versions, both declared in `pyproject.toml` and pinned by the installed `uv.lock`            |
+| Reads                         | Selected top-level JSONL files, installed contract, bundled SQL and accounting registry                                    |
+| Writes                        | Only the explicit output path through a temporary sibling; optional private UI state is outside stable output              |
+| Network                       | None after dependencies are cached; deterministic gates never require the UI                                               |
 
 #### Query-model-v1 schema contract
 
@@ -442,7 +406,7 @@ Key: `(normalized_source_path, source_line)`. Order: that key ascending.
 
 Key and order: `(cli, session_id, run_id)` ascending.
 
-##### `canonical_session_usage`
+##### `session_usage`
 
 | Column                | DuckDB type                | Constraint                         |
 | --------------------- | -------------------------- | ---------------------------------- |
@@ -565,3 +529,76 @@ All component operations are idempotent. An update whose consumer range excludes
 | DuckDB UI launch documentation and six-view bootstrap      | UI documentation smoke test     |
 
 Non-owning layers may exercise a journey but must not duplicate the owner's assertions.
+
+## Eligibility and Orchestration Commands
+
+All scripts are stdlib-only Python 3.10+.
+
+Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph-orchestration.md)
+
+### `.agent-factory/factory/scripts/intent select`
+
+|           |                                                                                                                                            |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage     | `intent select [--workstream ID]`                                                                                                          |
+| Reads     | Agent definitions under `.agent-factory/factory/agents/`, the repository filesystem, the session binding                                   |
+| Writes    | Nothing — read-only                                                                                                                        |
+| Exit code | `0` on success; `2` on invalid input                                                                                                       |
+| stdout    | Every agent listed with its name, description, and each required input marked satisfied or unsatisfied with evidence (matched path or gap) |
+| Behavior  | Calls the precondition evaluator for all agents, applies scope filtering when a workstream is bound, and formats the result for the human  |
+
+### `.agent-factory/factory/scripts/intent assess`
+
+|           |                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `intent assess [--workstream ID] [--format text\|json]`                                                                   |
+| Reads     | Agent definitions, governed artifacts, the repository filesystem                                                          |
+| Writes    | Nothing — read-only                                                                                                       |
+| Exit code | `0` on success; `2` on invalid input                                                                                      |
+| stdout    | Per-artifact validator results in the shared format: artifact type, artifact reference, assessed commit, checks, warnings |
+| Behavior  | Runs all applicable validators (mechanical and, when triggered, semantic) and reports results per the shared format       |
+
+### Precondition evaluator (engine API)
+
+|                 |                                                                                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module          | `packages/factory/engine/eligibility.py` (tracked source); `.agent-factory/factory/engine/eligibility.py` (installed)                                                 |
+| Input           | All agent definitions with `inputs.required` declarations, the repository filesystem, the bound workstream identifier (or null for Open Stage)                        |
+| Output          | Per-agent, per-requirement evidence: each required input marked satisfied or unsatisfied, with matched path, condition result, and validator output where applicable  |
+| Side effects    | None — the evaluator never writes repository state                                                                                                                    |
+| Path resolution | Four ordered steps: glob expansion (placeholders → `*`), scope filtering (match bound workstream or `global`; skipped in Open Stage), condition checking, cardinality |
+| Cardinality     | Zero survivors = unsatisfied; one = satisfied; multiple = reported for human or orchestrator selection                                                                |
+
+### Fence runner (engine API)
+
+|                   |                                                                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module            | `packages/factory/engine/fence.py` (tracked source); `.agent-factory/factory/engine/fence.py` (installed)                                                       |
+| Input             | The agent's output declarations, pre-activity and post-activity filesystem state                                                                                |
+| Output            | Per-output validator results and an aggregate pass/fail result                                                                                                  |
+| Storage           | `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`                                                                                                |
+| Aggregate rule    | Passes when every required output changed, `declarations_changed >= minimum_changed`, and every invoked validator passed                                        |
+| Required output   | Must have a created or modified match; missing match fails the fence                                                                                            |
+| Optional output   | No match → skipped; changed → validator runs                                                                                                                    |
+| Human sessions    | Fence result is informational — no enforcement, no warning for missing or unexpected outputs                                                                    |
+| External chaining | The caller (implementation-agent dispatcher, script, or human) inspects the fence result and evaluator evidence to decide whether to dispatch the next activity |
+
+## Usage Record v1 Schema — Deferred Additions
+
+The following fields were planned as v1-additive additions. They are deferred to a future proposal that addresses usage record enrichment, capture-hook integration, and workstream-dimension analysis in bulk:
+
+| Field               | Type               | Description                                    | Status   |
+| ------------------- | ------------------ | ---------------------------------------------- | -------- |
+| `workstream_id`     | `string` or `null` | Workstream identifier from the session binding | deferred |
+| `workstream_origin` | `string` or `null` | Path to the workstream's origin artifact       | deferred |
+| `skills_invoked`    | `array` or `null`  | Skill names called during the session          | deferred |
+
+## Research Brief Schema
+
+The precondition graph handles routing: a research agent's output is an artifact, and any agent that declares that artifact as a required input sees the requirement become satisfied when the research completes.
+
+| Field             | Type               | Description                                              |
+| ----------------- | ------------------ | -------------------------------------------------------- |
+| `decision_needed` | `string` or `null` | The decision the research result must inform (unchanged) |
+
+Standalone research omits this field. The existing survey and falsification routes remain unchanged.

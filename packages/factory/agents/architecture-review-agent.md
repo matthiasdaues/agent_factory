@@ -2,8 +2,6 @@
 name: architecture-review-agent
 title: Architecture Review Agent
 tier: strong
-phase: 2
-phase-name: Architecture
 description: >-
   Review architecture against quality attributes using ATAM in a separate session from the architecture author.
 skills:
@@ -11,20 +9,31 @@ skills:
   - model-structurizr-slice
   - handoff
 inputs:
-  - docs/arc42/CONTEXT.md
-  - docs/spec/prd.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/*.md
-  - docs/arc42/architecture.dsl
-  - docs/assets/images/*
-  - docs/agent-context.md
-  - factory/rulebooks/conventions/report-format.md
-  - factory/rulebooks/conventions/finding-format.md
-  - factory/rulebooks/conventions/review-loop-discipline.md
+  required:
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+    - type: architecture
+      path_pattern: docs/arc42/architecture.dsl
+  context:
+    - docs/CONTEXT.md
+    - docs/spec/prd.md
+    - docs/*.md
+    - docs/assets/images/*
+    - docs/agent-context.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
 outputs:
-  - docs/reviews/atam-review.md
-  - docs/findings/ATAM-*.md (risks)
+  minimum_changed: 1
+  declarations:
+    - path_pattern: docs/reviews/atam-review.md
+      validator:
+      required: true
+    - path_pattern: "docs/findings/ATAM-*.md"
+      validator:
+      required: false
 triggers:
   - "review architecture"
   - "ATAM review"
@@ -47,14 +56,14 @@ Evaluate an architecture you did not create. Find sensitivity points, trade-offs
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 
 **Invoke skill:** `atam-review`
 
 1. **Read** — arc42 docs, ADRs, spec. Understand what was built and why.
-2. **ATAM Review** — Deterministic: `factory/scripts/arch-lint --docs-dir docs/arc42`. Semantic: evaluate each quality scenario from `docs/arc42/10_quality_requirements.md` (sensitivity points, tradeoff points, risks, non-risks). YAGNI pass: flag artificial complexity.
+2. **ATAM Review** — Deterministic: `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42`. Semantic: evaluate each quality scenario from `docs/arc42/10_quality_requirements.md` (sensitivity points, tradeoff points, risks, non-risks). YAGNI pass: flag artificial complexity.
 3. **Report** — Save `docs/reviews/atam-review.md` per [report-format.md](../rulebooks/conventions/report-format.md), file Medium+ risks per [finding-format.md](../rulebooks/conventions/finding-format.md).
 4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `ATAM` finding, **and** re-run the full evaluation fresh.
 

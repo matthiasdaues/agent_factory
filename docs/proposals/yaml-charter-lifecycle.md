@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Agent Context: Two-Layer Routing with Two-Mode Lifecycle"
 status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-02
@@ -498,7 +498,7 @@ treats `testing.yaml` independently — it does not trigger the "mixed formats" 
 
 ### Convention: agent-context composition
 
-**Location:** `factory/rulebooks/conventions/agent-context-composition.md`
+**Location:** `.agent-factory/factory/rulebooks/conventions/agent-context-composition.md`
 
 **Binding rules:**
 
@@ -514,7 +514,7 @@ treats `testing.yaml` independently — it does not trigger the "mixed formats" 
 - A project uses one context format (agent-context YAML or legacy markdown charter), not both.
 - `source:` pointers prefer project-local conventions over factory rulebook defaults.
 
-**Entry in `factory/rulebooks/rules.md`:**
+**Entry in `.agent-factory/factory/rulebooks/rules.md`:**
 
 ```markdown
 ## Agent context composition
@@ -544,81 +544,81 @@ Derived from `rg 'docs/charter'` across the factory tree. Grouped by change type
 
 ### Rename + full rewrite
 
-| Artifact                | Current path                              | New path                                  | Notes                                                                |
-| ----------------------- | ----------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
-| `capture-charter` skill | `factory/skills/capture-charter/SKILL.md` | `factory/skills/capture-context/SKILL.md` | YAML support, concern-based brownfield, format detection             |
-| `update-charter` skill  | `factory/skills/update-charter/SKILL.md`  | `factory/skills/update-context/SKILL.md`  | YAML support, mode transition, reading-guide creation                |
-| `charter-lint` script   | `factory/scripts/charter-lint`            | `factory/scripts/context-lint`            | `CX-` codes, YAML validation, `CX-GUIDE-REF`, testing.yaml carve-out |
+| Artifact                | Current path                                             | New path                                                 | Notes                                                                |
+| ----------------------- | -------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------- |
+| `capture-charter` skill | `.agent-factory/factory/skills/capture-charter/SKILL.md` | `.agent-factory/factory/skills/capture-context/SKILL.md` | YAML support, concern-based brownfield, format detection             |
+| `update-charter` skill  | `.agent-factory/factory/skills/update-charter/SKILL.md`  | `.agent-factory/factory/skills/update-context/SKILL.md`  | YAML support, mode transition, reading-guide creation                |
+| `charter-lint` script   | `.agent-factory/factory/scripts/charter-lint`            | `.agent-factory/factory/scripts/context-lint`            | `CX-` codes, YAML validation, `CX-GUIDE-REF`, testing.yaml carve-out |
 
 ### Path update + format detection
 
 These read charter files and need both path updates and format-detection logic to handle YAML vs.
 markdown:
 
-| Artifact                                             | Change                                                                        |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `factory/agents/virgil.md`                           | `inputs:`, `skills:`, `outputs:`, `triggers:`, `description`, body references |
-| `factory/agents/developer-agent.md`                  | `inputs:`, body references                                                    |
-| `factory/agents/implementation-agent.md`             | `inputs:`, body references                                                    |
-| `factory/agents/planning-agent.md`                   | `inputs:`, body references                                                    |
-| `factory/agents/architecture-agent.md`               | `skills:` frontmatter (`update-charter` → `update-context`)                   |
-| `factory/agents/requirements-agent.md`               | `skills:` frontmatter (`update-charter` → `update-context`)                   |
-| `factory/playbooks/feature-addition.md`              | Charter update steps                                                          |
-| `factory/playbooks/greenfield-development.md`        | Charter as expected output                                                    |
-| `factory/playbooks/greenfield-development.fsm.yml`   | `testing.yaml` path                                                           |
-| `factory/playbooks/brownfield-onboarding.md`         | Charter onboarding step                                                       |
-| `factory/playbooks/bug-fix.fsm.yml`                  | `testing.yaml` path                                                           |
-| `factory/skills/create-backlog-epics/SKILL.md`       | Reads charter for Epic 0                                                      |
-| `factory/skills/create-backlog/SKILL.md`             | References charter                                                            |
-| `factory/skills/create-backlog-stories/SKILL.md`     | Reads `testing.yaml`                                                          |
-| `factory/skills/create-backlog-write-epics/SKILL.md` | References charter for Epic 0                                                 |
-| `factory/skills/implement-issue/SKILL.md`            | Reads `testing.yaml`                                                          |
-| `factory/skills/crap-score/SKILL.md`                 | Reads `testing.yaml`                                                          |
-| `factory/skills/test-design/SKILL.md`                | Reads `testing.yaml`                                                          |
-| `factory/skills/qa-strategy-from-spec/SKILL.md`      | Reads charter/testing                                                         |
-| `factory/skills/process-transcript/SKILL.md`         | References charter                                                            |
-| `factory/skills/newcomer-tour/SKILL.md`              | References charter                                                            |
-| `factory/skills/validate/SKILL.md`                   | Runs `charter-lint` → `context-lint`                                          |
-| `factory/skills/detect-test-regime/SKILL.md`         | Writes `testing.yaml` path                                                    |
+| Artifact                                                            | Change                                                                        |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `.agent-factory/factory/agents/virgil.md`                           | `inputs:`, `skills:`, `outputs:`, `triggers:`, `description`, body references |
+| `.agent-factory/factory/agents/developer-agent.md`                  | `inputs:`, body references                                                    |
+| `.agent-factory/factory/agents/implementation-agent.md`             | `inputs:`, body references                                                    |
+| `.agent-factory/factory/agents/planning-agent.md`                   | `inputs:`, body references                                                    |
+| `.agent-factory/factory/agents/architecture-agent.md`               | `skills:` frontmatter (`update-charter` → `update-context`)                   |
+| `.agent-factory/factory/agents/requirements-agent.md`               | `skills:` frontmatter (`update-charter` → `update-context`)                   |
+| `.agent-factory/factory/playbooks/feature-addition.md`              | Charter update steps                                                          |
+| `.agent-factory/factory/playbooks/greenfield-development.md`        | Charter as expected output                                                    |
+| `.agent-factory/factory/playbooks/greenfield-development.fsm.yml`   | `testing.yaml` path                                                           |
+| `.agent-factory/factory/playbooks/brownfield-onboarding.md`         | Charter onboarding step                                                       |
+| `.agent-factory/factory/playbooks/bug-fix.fsm.yml`                  | `testing.yaml` path                                                           |
+| `.agent-factory/factory/skills/create-backlog-epics/SKILL.md`       | Reads charter for Epic 0                                                      |
+| `.agent-factory/factory/skills/create-backlog/SKILL.md`             | References charter                                                            |
+| `.agent-factory/factory/skills/create-backlog-stories/SKILL.md`     | Reads `testing.yaml`                                                          |
+| `.agent-factory/factory/skills/create-backlog-write-epics/SKILL.md` | References charter for Epic 0                                                 |
+| `.agent-factory/factory/skills/implement-issue/SKILL.md`            | Reads `testing.yaml`                                                          |
+| `.agent-factory/factory/skills/crap-score/SKILL.md`                 | Reads `testing.yaml`                                                          |
+| `.agent-factory/factory/skills/test-design/SKILL.md`                | Reads `testing.yaml`                                                          |
+| `.agent-factory/factory/skills/qa-strategy-from-spec/SKILL.md`      | Reads charter/testing                                                         |
+| `.agent-factory/factory/skills/process-transcript/SKILL.md`         | References charter                                                            |
+| `.agent-factory/factory/skills/newcomer-tour/SKILL.md`              | References charter                                                            |
+| `.agent-factory/factory/skills/validate/SKILL.md`                   | Runs `charter-lint` → `context-lint`                                          |
+| `.agent-factory/factory/skills/detect-test-regime/SKILL.md`         | Writes `testing.yaml` path                                                    |
 
 ### Path update only (no format detection needed)
 
 These reference charter paths in strings, commands, or config — simple find-replace:
 
-| Artifact                                            | Change                                        |
-| --------------------------------------------------- | --------------------------------------------- |
-| `factory/scripts/init-factory`                      | Creates `testing.yaml` at new path            |
-| `factory/scripts/crap-score`                        | Walks tree for `testing.yaml`                 |
-| `factory/scripts/phase`                             | Charter path reference                        |
-| `factory/scripts/premerge-check`                    | Charter path reference                        |
-| `factory/config/hooks/block-dangerous-git.sh`       | `testing.yaml` path                           |
-| `factory/config/extensions/block-dangerous-git.ts`  | `testing.yaml` path                           |
-| `.pre-commit-config.yaml`                           | `charter-lint` → `context-lint` hook id       |
-| `factory/rulebooks/rules.md`                        | "charter" → "agent context" in existing rules |
-| `factory/rulebooks/conventions/testing-strategy.md` | `docs/charter/testing.yaml` path              |
-| `factory/rulebooks/templates/story.md`              | Charter file references                       |
-| `factory/INDEX.yaml`                                | Skill descriptions mentioning charter         |
-| `factory/README.md`                                 | Charter references                            |
-| `factory/docs/factory-guide.md`                     | Charter references                            |
+| Artifact                                                           | Change                                        |
+| ------------------------------------------------------------------ | --------------------------------------------- |
+| `factory/scripts/init-factory`                                     | Creates `testing.yaml` at new path            |
+| `.agent-factory/factory/scripts/crap-score`                        | Walks tree for `testing.yaml`                 |
+| `.agent-factory/factory/scripts/phase`                             | Charter path reference                        |
+| `.agent-factory/factory/scripts/premerge-check`                    | Charter path reference                        |
+| `.agent-factory/factory/config/hooks/block-dangerous-git.sh`       | `testing.yaml` path                           |
+| `.agent-factory/factory/config/extensions/block-dangerous-git.ts`  | `testing.yaml` path                           |
+| `.pre-commit-config.yaml`                                          | `charter-lint` → `context-lint` hook id       |
+| `.agent-factory/factory/rulebooks/rules.md`                        | "charter" → "agent context" in existing rules |
+| `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` | `docs/charter/testing.yaml` path              |
+| `.agent-factory/factory/rulebooks/templates/story.md`              | Charter file references                       |
+| `.agent-factory/factory/INDEX.yaml`                                | Skill descriptions mentioning charter         |
+| `.agent-factory/factory/README.md`                                 | Charter references                            |
+| `.agent-factory/factory/docs/factory-guide.md`                     | Charter references                            |
 
 ### New files
 
-| Artifact                                                     | Notes                             |
-| ------------------------------------------------------------ | --------------------------------- |
-| `factory/rulebooks/templates/context-stack.yaml`             | Template with `null` placeholders |
-| `factory/rulebooks/templates/context-workflow.yaml`          | Template with `null` placeholders |
-| `factory/rulebooks/templates/context-governance.yaml`        | Template with `null` placeholders |
-| `factory/rulebooks/templates/context-reading-guides.yaml`    | Template with common concerns     |
-| `factory/rulebooks/conventions/agent-context-composition.md` | Binding rules                     |
+| Artifact                                                                    | Notes                             |
+| --------------------------------------------------------------------------- | --------------------------------- |
+| `.agent-factory/factory/rulebooks/templates/context-stack.yaml`             | Template with `null` placeholders |
+| `.agent-factory/factory/rulebooks/templates/context-workflow.yaml`          | Template with `null` placeholders |
+| `.agent-factory/factory/rulebooks/templates/context-governance.yaml`        | Template with `null` placeholders |
+| `.agent-factory/factory/rulebooks/templates/context-reading-guides.yaml`    | Template with common concerns     |
+| `.agent-factory/factory/rulebooks/conventions/agent-context-composition.md` | Binding rules                     |
 
 ### Retained for legacy backward compatibility
 
-| Artifact                                             | Notes                                                                                                                                             |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `factory/rulebooks/templates/charter-tech-stack.md`  | Markdown charter template — kept for legacy projects                                                                                              |
-| `factory/rulebooks/templates/charter-development.md` | Markdown charter template — kept for legacy projects                                                                                              |
-| `factory/rulebooks/templates/charter-house-rules.md` | Markdown charter template — kept for legacy projects                                                                                              |
-| `factory/rulebooks/templates/charter-testing.yaml`   | Testing template — path referenced by `init-factory`; retained as-is, `init-factory` copies to `docs/agent-context/testing.yaml` for new projects |
+| Artifact                                                            | Notes                                                                                                                                             |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agent-factory/factory/rulebooks/templates/charter-tech-stack.md`  | Markdown charter template — kept for legacy projects                                                                                              |
+| `.agent-factory/factory/rulebooks/templates/charter-development.md` | Markdown charter template — kept for legacy projects                                                                                              |
+| `.agent-factory/factory/rulebooks/templates/charter-house-rules.md` | Markdown charter template — kept for legacy projects                                                                                              |
+| `.agent-factory/factory/rulebooks/templates/charter-testing.yaml`   | Testing template — path referenced by `init-factory`; retained as-is, `init-factory` copies to `docs/agent-context/testing.yaml` for new projects |
 
 ### `context-lint` validation codes
 
@@ -701,7 +701,7 @@ Gigacron has these files today, which map to the new structure:
 
 ## Testing the changes
 
-**In-repo test fixtures.** Create `factory/tests/fixtures/agent-context/` with synthetic files
+**In-repo test fixtures.** Create `.agent-factory/factory/tests/fixtures/agent-context/` with synthetic files
 covering both modes, all four file types, and the `testing.yaml` peer.
 
 - `context-lint` on fixtures passes in default and `--planning-gate` modes.
@@ -783,7 +783,7 @@ the reason, and the planning gate accepts it. No file-level behavioral differenc
 Templates serve one purpose: file skeletons with top-level keys only. They do not carry
 second-level keys with `null` placeholders, and they do not structure the interview.
 
-A separate interview guide (`factory/rulebooks/templates/context-interview-guide.yaml`) structures
+A separate interview guide (`.agent-factory/factory/rulebooks/templates/context-interview-guide.yaml`) structures
 VIRGIL's conversation: what to ask, in what order, and what the answers map to. VIRGIL reads the
 guide, asks the questions, and creates only the keys you confirms. This eliminates the
 double-duty problem where templates were both file skeleton and interview script.

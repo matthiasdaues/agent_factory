@@ -8,7 +8,7 @@ Disposition: **Fail** — one open Major defect blocks Architecture. One previou
 
 ## Reviewed specification
 
-The final repeat review inspected the accepted [Local Usage Processing and Analysis proposal](../proposals/usage-processing-and-storage.md) and the proposal/specification artifacts named by the requirements-remediation handoff:
+The final repeat review inspected the accepted [Local Usage Processing and Analysis proposal](../proposals/implemented/usage-processing-and-storage.md) and the proposal/specification artifacts named by the requirements-remediation handoff:
 
 - [agent-context.feature](../spec/agent-context.feature)
 - [local-usage-processing-and-analysis.feature](../spec/local-usage-processing-and-analysis.feature)
@@ -24,7 +24,7 @@ The final repeat review inspected the accepted [Local Usage Processing and Analy
 - [validation-rules.md](../spec/supplementary_specs/validation-rules.md)
 - [todos.md](../spec/todos.md)
 
-`factory/scripts/spec-lint --spec-dir docs/spec` reported 0 errors, 0 warnings, and 27 information findings across 18 files.
+`.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` reported 0 errors, 0 warnings, and 27 information findings across 18 files.
 
 ## Deterministic findings
 
@@ -50,10 +50,10 @@ Verified status changes and the newly filed Major finding are committed canonica
 
 ## Fresh semantic inspection
 
-| Finding                                                                                                                              | Artifact                                                                                            | Category | Severity | Characteristic                   |
-| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | -------- | -------- | -------------------------------- |
-| [SPEC-0022](https://github.com/matthiasdaues/agent_factory/blob/7e88a413264bcc2de5540b02888a217ccabe6eed/docs/findings/SPEC-0022.md) | [usage-processing-and-storage.md](../proposals/usage-processing-and-storage.md#completion-criteria) | Defect   | Major    | Consistent, complete, verifiable |
-| [SPEC-0021](../findings/SPEC-0021.md)                                                                                                | [entity-model.md](../spec/supplementary_specs/entity-model.md#local-usage-analysis-entities)        | Defect   | Minor    | Consistent, terminology          |
+| Finding                                                                                                                              | Artifact                                                                                                        | Category | Severity | Characteristic                   |
+| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | -------- | -------- | -------------------------------- |
+| [SPEC-0022](https://github.com/matthiasdaues/agent_factory/blob/7e88a413264bcc2de5540b02888a217ccabe6eed/docs/findings/SPEC-0022.md) | [usage-processing-and-storage.md](../proposals/implemented/usage-processing-and-storage.md#completion-criteria) | Defect   | Major    | Consistent, complete, verifiable |
+| [SPEC-0021](../findings/SPEC-0021.md)                                                                                                | [entity-model.md](../spec/supplementary_specs/entity-model.md#local-usage-analysis-entities)                    | Defect   | Minor    | Consistent, terminology          |
 
 [SPEC-0022](https://github.com/matthiasdaues/agent_factory/blob/7e88a413264bcc2de5540b02888a217ccabe6eed/docs/findings/SPEC-0022.md) records that the accepted proposal defines six ancestry failure codes but completion criterion 04 still requires fixture coverage for “all five,” and the operational-preflight gate's required proof omits `USAGE_ANCESTRY_PARENT_CONFLICT`. The feature and QA strategy assign the conflict to LU-05, so the accepted design origin and executable owner disagree on required deterministic coverage.
 

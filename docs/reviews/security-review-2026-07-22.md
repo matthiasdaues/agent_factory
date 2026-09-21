@@ -14,11 +14,11 @@
 
 ## Finding table
 
-| Finding                                                                                                                                                        | Artifact                            | OWASP category                                         | Severity |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------ | -------- |
-| Hook-supplied session IDs can traverse outside the usage root; encode IDs and enforce canonical containment with symlink rejection.                            | `factory/scripts/usage-capture:274` | A01 — Broken Access Control                            | High     |
-| Full prompts, reasoning, and tool results are stored with group/world-readable file modes; restrict directories/files and define retention/redaction controls. | `factory/scripts/usage-capture:274` | A02 — Cryptographic Failures / Sensitive Data Exposure | Medium   |
-| Automatic hooks execute a floating `tiktoken` dependency; pin and integrity-protect the reviewed artifact at a trusted installation boundary.                  | `factory/scripts/usage-capture:4`   | A06 — Vulnerable and Outdated Components               | Medium   |
+| Finding                                                                                                                                                        | Artifact                                           | OWASP category                                         | Severity |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------ | -------- |
+| Hook-supplied session IDs can traverse outside the usage root; encode IDs and enforce canonical containment with symlink rejection.                            | `.agent-factory/factory/scripts/usage-capture:274` | A01 — Broken Access Control                            | High     |
+| Full prompts, reasoning, and tool results are stored with group/world-readable file modes; restrict directories/files and define retention/redaction controls. | `.agent-factory/factory/scripts/usage-capture:274` | A02 — Cryptographic Failures / Sensitive Data Exposure | Medium   |
+| Automatic hooks execute a floating `tiktoken` dependency; pin and integrity-protect the reviewed artifact at a trusted installation boundary.                  | `.agent-factory/factory/scripts/usage-capture:4`   | A06 — Vulnerable and Outdated Components               | Medium   |
 
 Filed as `SEC-0001`, `SEC-0002`, and `SEC-0003`.
 

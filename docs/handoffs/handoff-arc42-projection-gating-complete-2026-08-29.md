@@ -25,18 +25,18 @@ Merged to dev via fast-forward from `impl/arc42-projected-gating`.
 
 ## Files changed (24)
 
-- `factory/scripts/arch-lint` — `dsl_workspace_property()` parser + gating logic
+- `.agent-factory/factory/scripts/arch-lint` — `dsl_workspace_property()` parser + gating logic
 - `tests/factory/test_arch_lint.py` — 10 new tests (parser + behavior)
 - `docs/arc42/architecture.dsl` — `"arc42.projected" "true"`
 - `orchestrator/docs/architecture.dsl` — `"arc42.projected" "true"`
-- `factory/fixtures/.../architecture.dsl` — `"arc42.projected" "false"`
-- `factory/agents/architecture-agent.md` — provisioning + flip semantics
-- `factory/skills/scaffold-arc42/STRUCTURIZR.md` — default property in template
-- `factory/skills/scaffold-arc42/SKILL.md` — Step 2 note
-- `factory/playbooks/brownfield-onboarding.md` — Step 2.2 note
-- `factory/playbooks/greenfield-development.md` — Step 2.1 note
-- `factory/rulebooks/rules.md` — MUST rule for provisioning
-- `factory/skills/maintain-architecture/SKILL.md` — flip-on-projection note
+- `.agent-factory/factory/fixtures/.../architecture.dsl` — `"arc42.projected" "false"`
+- `.agent-factory/factory/agents/architecture-agent.md` — provisioning + flip semantics
+- `.agent-factory/factory/skills/scaffold-arc42/STRUCTURIZR.md` — default property in template
+- `.agent-factory/factory/skills/scaffold-arc42/SKILL.md` — Step 2 note
+- `.agent-factory/factory/playbooks/brownfield-onboarding.md` — Step 2.2 note
+- `.agent-factory/factory/playbooks/greenfield-development.md` — Step 2.1 note
+- `.agent-factory/factory/rulebooks/rules.md` — MUST rule for provisioning
+- `.agent-factory/factory/skills/maintain-architecture/SKILL.md` — flip-on-projection note
 - `backlog/ST-0163.md` — tier fix (simple → economy, pre-existing lint error)
 - `backlog/ST-0164.md` through `ST-0168.md` — story files
 - SVGs and INDEX.yaml — regenerated

@@ -50,7 +50,7 @@ Old worktrees (under `retrospective-dispatch-qa-robustness`) removed.
 
 The developer-agent completed the implementation in the story worktree but could not commit due to a platform conflict (see Blocker below). All changes are on disk:
 
-**`factory/scripts/arch-lint`** (the only declared output):
+**`.agent-factory/factory/scripts/arch-lint`** (the only declared output):
 
 - Added `dsl_workspace_property(dsl, key)` function: extracts workspace-level properties from DSL preamble (before `model {`), uses existing `_block` helper, regex-matches key-value pairs. Returns `"true"`, `"false"`, or `None`.
 - Gated missing-ch5 check: `projected=true` -> ERROR (unchanged); `projected=false/absent` -> INFO.
@@ -73,9 +73,9 @@ The developer-agent completed the implementation in the story worktree but could
 From the story worktree (`...story-ST-0159`):
 
 1. Set `status: done` in `backlog/ST-0159.md`
-2. `git add factory/scripts/arch-lint backlog/ST-0159.md`
+2. `git add .agent-factory/factory/scripts/arch-lint backlog/ST-0159.md`
 3. `git commit -m "feat: gate arch-lint staleness/ch5 checks on arc42.projected property (ST-0159)"`
-4. Run quality gate: `factory/scripts/arch-lint --docs-dir docs/arc42` from the worktree
+4. Run quality gate: `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42` from the worktree
 5. Call `dispatch verify-story ST-0159 --sha <commit-sha>` with the ledger path
 6. Call `dispatch merge-story ST-0159` with the ledger path
 7. Call `dispatch close-wave 1` with the ledger path

@@ -2,7 +2,6 @@
 name: qa-strategy-from-spec
 description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
 category: requirements
-disable-model-invocation: false
 ---
 
 # QA Strategy From Spec
@@ -15,7 +14,7 @@ boundaries, and risk profile.
 
 Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 This skill is **not** a rewrite of
-`factory/rulebooks/conventions/testing-strategy.md`. That rulebook stays
+`.agent-factory/factory/rulebooks/conventions/testing-strategy.md`. That rulebook stays
 generic policy and provides shared vocabulary and the overlap-deletion
 protocol. This skill produces a feature-specific plan grounded in the
 project charter for `docs/spec/<feature-name>-qa-strategy.md`.

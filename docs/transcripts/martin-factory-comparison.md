@@ -22,11 +22,11 @@ middle are gone. Steering by instruction is unreliable.
 principle, enforced across:
 
 - Every `agent` frontmatter declares creation-only outputs; no agent self-validates.
-- `factory/scripts/validate` runs linting, type checks, and test gates
+- `.agent-factory/factory/scripts/validate` runs linting, type checks, and test gates
   mechanically after agent creation.
 - `transition-lint` pre-commit hook blocks commits that violate format,
   frontmatter, or naming rules.
-- `factory/scripts/premerge-check` blocks merges on diff scope and stale base.
+- `.agent-factory/factory/scripts/premerge-check` blocks merges on diff scope and stale base.
 
 ### Verdict
 
@@ -259,7 +259,7 @@ and their output is what the human trusts.
 | Integration test      | Boundaries: installation, persistence, subprocesses |
 | End-to-end smoke test | Representative CLI/workflow journey                 |
 
-Plus `factory/scripts/premerge-check` (stale base, diff scope), `handoff-lint`
+Plus `.agent-factory/factory/scripts/premerge-check` (stale base, diff scope), `handoff-lint`
 (current state accuracy), `backlog-lint` (story format), `charter-lint` (charter
 completeness).
 
@@ -408,4 +408,4 @@ standard.
 
 ______________________________________________________________________
 
-*Comparison produced by reading factory/rulebooks/rules.md, factory/rulebooks/conventions/foundational-principles.md, factory/rulebooks/conventions/review-loop-discipline.md, factory/rulebooks/conventions/testing-strategy.md, factory/rulebooks/conventions/dispatch-contract.md, factory/playbooks/feature-addition.md, factory/agents/implementation-agent.md, factory/agents/reconciliation-agent.md, and the transcript docs/transcripts/2026-08-20_pocock_martin_agentic_coding.txt.*
+*Comparison produced by reading .agent-factory/factory/rulebooks/rules.md, .agent-factory/factory/rulebooks/conventions/foundational-principles.md, .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md, .agent-factory/factory/rulebooks/conventions/testing-strategy.md, .agent-factory/factory/rulebooks/conventions/dispatch-contract.md, .agent-factory/factory/playbooks/feature-addition.md, .agent-factory/factory/agents/implementation-agent.md, .agent-factory/factory/agents/reconciliation-agent.md, and the transcript docs/transcripts/2026-08-20_pocock_martin_agentic_coding.txt.*

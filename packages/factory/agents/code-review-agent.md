@@ -2,8 +2,6 @@
 name: code-review-agent
 title: Code Review Agent
 tier: strong
-phase: 4
-phase-name: Implementation
 description: >-
   Bounded code review on the implementation diff — correctness, architecture
   compliance, and maintainability — before the reconciliation run. Narrower
@@ -12,20 +10,32 @@ skills:
   - fagan-review
   - handoff
 inputs:
-  - backlog/ST-*.md
-  - docs/spec/<feature-name>.feature
-  - docs/spec/<feature-name>-qa-strategy.md
-  - docs/spec/scope-map.md
-  - docs/CONTEXT.md
-  - docs/agent-context.md
-  - docs/testing.yaml
-  - factory/rulebooks/conventions/finding-format.md
-  - factory/rulebooks/conventions/report-format.md
-  - factory/rulebooks/conventions/review-loop-discipline.md
-  - factory/rulebooks/conventions/cross-reference-format.md
+  required:
+    - type: story
+      path_pattern: "backlog/ST-*.md"
+    - type: feature
+      path_pattern: "docs/spec/{name}.feature"
+    - type: qa-strategy
+      path_pattern: "docs/spec/{name}-qa-strategy.md"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+  context:
+    - docs/CONTEXT.md
+    - docs/agent-context.md
+    - docs/testing.yaml
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
 outputs:
-  - docs/reviews/code-review-*.md
-  - docs/findings/IMPL-*.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/reviews/code-review-*.md"
+      validator:
+      required: true
+    - path_pattern: "docs/findings/IMPL-*.md"
+      validator:
+      required: false
 triggers:
   - "review implementation"
   - "code review"
@@ -50,11 +60,11 @@ not the full QA phase.
 
 ## Review gates
 
-Every finding must pass the [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) before it is filed.
+Every finding must pass the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) before it is filed.
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 

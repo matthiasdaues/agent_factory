@@ -1,31 +1,30 @@
 # Todos — Factory Flow Control
 
-Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [../~archive/spec/use_cases/](../~archive/spec/use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
+Deferred decisions and named gaps found while reverse-engineering this specification from `factory/`'s code, per [rules.md § Todos](../../.agent-factory/factory/rulebooks/rules.md#todos). None of these block the mechanisms documented in [../~archive/spec/use_cases/](../~archive/spec/use_cases/) — each is a known, intentional gap in the current implementation, not a defect this spec papers over.
 
 ## T-01: No CLI-failure classification in `trigger`
 
-`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure, the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, `orchestrator` ADR-0002). A non-zero exit today means: read the output, do not auto-retry. Named in [`factory/skills/run-step/SKILL.md` § What this deliberately does not do (yet)](../../factory/skills/run-step/SKILL.md#what-this-deliberately-does-not-do-yet). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
+`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure, the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, `orchestrator` ADR-0002). A non-zero exit today means: read the output, do not auto-retry. Named in `factory/skills/run-step/SKILL.md` (section removed during rewrite). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
 
 - [ ] Decide whether `trigger` should classify failures itself, or whether that stays a caller-side concern.
 
 ## T-02: No concurrent-user lock on the marker
 
-`.current-work/playbook-state.yml` is a single flat file with no locking. Two users (human and `orchestrator/`, or two humans) racing an advance/retry against the same marker can interleave incorrectly. Out of scope for the current single-user-at-a-time usage pattern.
+- status: resolved
 
-- [ ] Decide whether a lock file (or an atomic compare-and-swap on `recorded_at`) is worth adding, or whether this stays a documented usage constraint.
+Workstream state uses immutable identity records under `.agent-factory/workstreams/`. No mutable marker file exists; concurrency is handled by the filesystem.
 
-## T-03: `script_exit_zero` condition type ~~is stubbed~~ — partially resolved
+## T-03: `script_exit_zero` condition type — resolved
 
-`factory/scripts/phase`'s `evaluate_condition` now executes the named script and checks its exit code (lines 259-288). The basic subprocess-run behavior is implemented. However, the `charter:test_command` notation introduced by the test-gate-presence feature (FSM YAML `script: "charter:test_command"` with `charter_file: docs/testing.yaml`) is not yet resolved at runtime — see [RECON-0020](../../docs/findings/RECON-0020.md).
+- status: resolved
 
-- [x] Implement the real subprocess run + exit-code check.
-- [ ] Implement charter resolution for the `charter:<field>` notation ([RECON-0020](../../docs/findings/RECON-0020.md)).
+The precondition evaluator in `engine/eligibility.py` resolves `test_command` from `docs/testing.yaml` directly. Exit-code-only contract: zero passes, nonzero fails.
 
 ## T-04: `halt_conditions` types other than `max_iterations` are unenforced
 
-`greenfield-development.fsm.yml` declares `script_failure` and `circular_dependency` halt conditions. `phase retry` only reads and enforces `max_iterations`; the other two types are parsed nowhere.
+- status: resolved
 
-- [ ] Implement enforcement for `script_failure` and `circular_dependency`, or remove the declarations if they remain aspirational.
+No halt conditions exist in the current model. The eligibility engine uses precondition evaluation, not iteration-capped retry loops.
 
 ## T-05: Copilot CLI's three-word `shell(...)` wildcard syntax unconfirmed
 
@@ -37,17 +36,17 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 - status: superseded
 
-Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
+Superseded by the Test Gate Presence over Test Execution feature ([proposal](../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `.agent-factory/factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
 
 ## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
 
 - status: resolved
 
-`factory/scripts/verify-base` and `factory/scripts/premerge-check` now write a marker file on success; `block-dangerous-git.sh` denies `git commit` in a marker-less worktree and `git merge <branch>` without a matching `premerge-check-ok` marker. Mechanical enforcement, not a prompt instruction. Still open: `Edit`/`Write` inside a marker-less worktree aren't gated, only `git commit` — a subagent can still read/edit before verifying, just can't persist a commit.
+`.agent-factory/factory/scripts/verify-base` and `.agent-factory/factory/scripts/premerge-check` now write a marker file on success; `block-dangerous-git.sh` denies `git commit` in a marker-less worktree and `git merge <branch>` without a matching `premerge-check-ok` marker. Mechanical enforcement, not a prompt instruction. Still open: `Edit`/`Write` inside a marker-less worktree aren't gated, only `git commit` — a subagent can still read/edit before verifying, just can't persist a commit.
 
 ## T-08: Pi guardrail is an extension, weaker than the native hook path
 
-Under Pi the git-safety guardrail is a project-local extension loaded only after project trust resolves, not a native `PreToolUse` hook. A non-interactive run that has not saved trust (or is not launched with `-a`) can skip it. `run_agent` passes `-a` on every spawn so its children load the guardrail, but the parent Pi session's own guardrail still depends on trust. Documented in [factory/docs/factory-guide.md § CLI safety guardrails](../../factory/docs/factory-guide.md#cli-safety-guardrails).
+Under Pi the git-safety guardrail is a project-local extension loaded only after project trust resolves, not a native `PreToolUse` hook. A non-interactive run that has not saved trust (or is not launched with `-a`) can skip it. `run_agent` passes `-a` on every spawn so its children load the guardrail, but the parent Pi session's own guardrail still depends on trust. Documented in [factory/docs/factory-guide.md § CLI safety guardrails](../../.agent-factory/factory/docs/factory-guide.md#cli-safety-guardrails).
 
 - [ ] Decide whether to recommend the global `~/.pi/agent/extensions/` install or a container as the stronger default for Pi.
 

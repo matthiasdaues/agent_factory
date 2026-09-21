@@ -23,10 +23,10 @@ the implementation commit changes files outside the story's declared outputs.
 
 - Reviewed commit: `56a5407c7a5ecb778c67bd63713d7cb3e27dd184`.
 - Declared base: `bb6849e7600dc7974031128cdcc7f0a343fc082f`.
-- `factory/scripts/run-tests`: 47 tests passed.
+- `.agent-factory/factory/scripts/run-tests`: 47 tests passed.
 - `git diff --check`: passed before this document was added.
 - Worktree residue: one uncommitted dead-code repair in
-  `factory/scripts/dispatch_lib.py` and one untracked `uv.lock`.
+  `.agent-factory/factory/scripts/dispatch_lib.py` and one untracked `uv.lock`.
 
 Passing tests do not establish conformance because the missing cases are not
 exercised by the current suite.
@@ -126,11 +126,11 @@ the pure state-machine assertions.
 **Severity:** Major
 
 **What is wrong:** [ST-0086 frontmatter](../../backlog/ST-0086.md) declares only
-`factory/scripts/dispatch` and `tests/test_dispatch_lifecycle.py` as outputs.
+`.agent-factory/factory/scripts/dispatch` and `tests/test_dispatch_lifecycle.py` as outputs.
 The implementation commit also changes:
 
-- `factory/scripts/dispatch_lib.py`
-- `factory/playbooks/greenfield-development.fsm.yml`
+- `.agent-factory/factory/scripts/dispatch_lib.py`
+- `.agent-factory/factory/playbooks/greenfield-development.fsm.yml`
 - `pyproject.toml`
 - `backlog/ST-0086.md`
 
@@ -159,5 +159,5 @@ worktree, and the full suite still passes. The repair is currently uncommitted.
   generated untracked file before pre-merge verification.
 - Commit the dead-code repair together with the substantive ST-0086
   remediation, following the required story-ID commit convention.
-- Re-run the complete test suite and `factory/scripts/premerge-check` after all
+- Re-run the complete test suite and `.agent-factory/factory/scripts/premerge-check` after all
   fixes and scope declarations are settled.

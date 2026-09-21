@@ -2,8 +2,6 @@
 name: qa-agent
 title: QA Agent
 tier: strong
-phase: 5
-phase-name: Quality
 description: >-
   Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
 skills:
@@ -12,23 +10,38 @@ skills:
   - bug-hunt
   - handoff
 inputs:
-  - docs/spec/<feature-name>.feature
-  - docs/spec/<feature-name>-qa-strategy.md
-  - docs/spec/prd.md
-  - docs/spec/scope-map.md
-  - docs/*.md
-  - docs/arc42/CONTEXT.md
-  - docs/agent-context.md
-  - factory/rulebooks/conventions/testing-strategy.md
-  - factory/rulebooks/conventions/cross-reference-format.md
-  - factory/rulebooks/conventions/report-format.md
-  - factory/rulebooks/conventions/finding-format.md
-  - factory/rulebooks/conventions/commit-conventions.md
+  required:
+    - type: feature
+      path_pattern: "docs/spec/{name}.feature"
+    - type: qa-strategy
+      path_pattern: "docs/spec/{name}-qa-strategy.md"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+  context:
+    - docs/spec/prd.md
+    - docs/*.md
+    - docs/CONTEXT.md
+    - docs/agent-context.md
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
+    - .agent-factory/factory/rulebooks/conventions/report-format.md
+    - .agent-factory/factory/rulebooks/conventions/finding-format.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
 outputs:
-  - docs/reviews/fagan-review-*.md
-  - docs/reviews/security-review-*.md
-  - tests/**/*
-  - docs/findings/FAGAN-*.md, docs/findings/SEC-*.md, docs/findings/BUG-*.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "docs/reviews/fagan-review-*.md"
+      validator:
+      required: true
+    - path_pattern: "docs/reviews/security-review-*.md"
+      validator:
+      required: false
+    - path_pattern: "tests/**/*"
+      validator:
+      required: false
+    - path_pattern: "docs/findings/*.md"
+      validator:
+      required: false
 triggers:
   - "review the code"
   - "QA"
@@ -52,7 +65,7 @@ Review code for correctness, security, robustness. Hunt bugs through exploratory
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 

@@ -48,7 +48,7 @@ function validate(values, command) {
   if (!isAbsolute(values.root) || normalize(resolve(values.root)) !== values.root || root !== values.root) {
     fail("invalid root");
   }
-  const control = join(root, ".agent-factory", "usage-control");
+  const control = join(root, ".agent-factory", "usage", "control");
   const pending = join(control, "pending");
   const scratch = join(root, ".agent-factory", "usage", ".capture");
   if (realpathSync(control) !== control || realpathSync(pending) !== pending || realpathSync(scratch) !== scratch) {

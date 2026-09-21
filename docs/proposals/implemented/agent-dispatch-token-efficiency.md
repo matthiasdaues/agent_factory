@@ -12,16 +12,16 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - factory/rulebooks/conventions/dispatch-contract.md
-    - factory/rulebooks/conventions/branching-policy.md
-    - factory/rulebooks/rules.md
-    - factory/agents/implementation-agent.md
-    - factory/agents/reconciliation-agent.md
-    - factory/scripts/verify-base
-    - factory/scripts/premerge-check
-    - factory/scripts/trigger
-    - factory/config/hooks/block-dangerous-git.sh
-    - factory/config/extensions/dispatch-wave.ts
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/rulebooks/conventions/branching-policy.md
+    - .agent-factory/factory/rulebooks/rules.md
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/agents/reconciliation-agent.md
+    - .agent-factory/factory/scripts/verify-base
+    - .agent-factory/factory/scripts/premerge-check
+    - .agent-factory/factory/scripts/trigger
+    - .agent-factory/factory/config/hooks/block-dangerous-git.sh
+    - .agent-factory/factory/config/extensions/dispatch-wave.ts
     - orchestrator/tests/
 
 governance:
@@ -56,14 +56,14 @@ The fix is to make base-verification, reply-addressing, and pre-merge diffing **
 
 ## Existing implementation baseline
 
-| Mechanism                               | Existing evidence                                                                                | Planning disposition                                         |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Verify base before work                 | `factory/scripts/verify-base`, `branching-policy.md`, commit-blocking hooks, dispatcher preamble | Preserve; audit negative-path coverage                       |
-| Declared base SHA                       | `verify-base --expect-base`, dispatch-wave prompt, implementation-agent workflow                 | Preserve; audit full-SHA enforcement                         |
-| Resolvable sub-agent addressing         | `dispatch-contract.md`, reconciliation-agent workflow                                            | Preserve; add contract coverage where absent                 |
-| Pre-merge diff against target           | `factory/scripts/premerge-check`, merge-blocking hooks, dispatch-wave integration                | Preserve; audit file-blowout, scope, and revert coverage     |
-| Evidence-derived unattended permissions | Scoped Claude/Copilot background allowlists in `factory/scripts/trigger`                         | Preserve; add direct argv/deny-list regression tests         |
-| Dispatch scope cap and checkpoints      | `dispatch-contract.md`, `rules.md`, implementation-agent workflow                                | Preserve; add enforceable acceptance coverage where feasible |
+| Mechanism                               | Existing evidence                                                                                               | Planning disposition                                         |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Verify base before work                 | `.agent-factory/factory/scripts/verify-base`, `branching-policy.md`, commit-blocking hooks, dispatcher preamble | Preserve; audit negative-path coverage                       |
+| Declared base SHA                       | `verify-base --expect-base`, dispatch-wave prompt, implementation-agent workflow                                | Preserve; audit full-SHA enforcement                         |
+| Resolvable sub-agent addressing         | `dispatch-contract.md`, reconciliation-agent workflow                                                           | Preserve; add contract coverage where absent                 |
+| Pre-merge diff against target           | `.agent-factory/factory/scripts/premerge-check`, merge-blocking hooks, dispatch-wave integration                | Preserve; audit file-blowout, scope, and revert coverage     |
+| Evidence-derived unattended permissions | Scoped Claude/Copilot background allowlists in `.agent-factory/factory/scripts/trigger`                         | Preserve; add direct argv/deny-list regression tests         |
+| Dispatch scope cap and checkpoints      | `dispatch-contract.md`, `rules.md`, implementation-agent workflow                                               | Preserve; add enforceable acceptance coverage where feasible |
 
 The baseline audit must not create retrospective implementation stories merely to relabel delivered behavior.
 
@@ -84,7 +84,7 @@ Every worktree-isolated dispatch prompt carries a fixed preamble. The agent must
 
 `<TARGET_BRANCH>` is filled in by the dispatcher (normally `dev`). The `merge-base --is-ancestor` check proves the target is fully contained in HEAD; the `rev-list --left-right --count` left number is how many target commits HEAD is missing. Either failing means the base is stale. This is the exact check the orchestrating session ran by hand this session to certify its own retro branch as safe — the proposal is only to move it from the end of the process to the start, and from the human to the agent.
 
-The implemented form is `factory/scripts/verify-base <target> [--expect-base <SHA>]`, which exits non-zero and prints the diagnosis.
+The implemented form is `.agent-factory/factory/scripts/verify-base <target> [--expect-base <SHA>]`, which exits non-zero and prints the diagnosis.
 
 ### 2. A declared base SHA in the dispatch contract
 
@@ -106,7 +106,7 @@ This addresses two distinct failures from the reconciliation agent: replies addr
 
 ### 4. A required pre-merge diff-against-target check
 
-Diffing a finished branch against its target before merge caught both contaminated diffs this session. It must stop being a thing the orchestrating session remembers and become a scripted, non-optional step: `factory/scripts/premerge-check <target> <branch>`.
+Diffing a finished branch against its target before merge caught both contaminated diffs this session. It must stop being a thing the orchestrating session remembers and become a scripted, non-optional step: `.agent-factory/factory/scripts/premerge-check <target> <branch>`.
 
 It runs the diff the orchestrating session ran by hand and flags, deterministically:
 

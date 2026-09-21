@@ -10,21 +10,36 @@ skills:
   - handoff
   - vue-best-practices
 inputs:
-  - docs/spec/prd.md
-  - docs/spec/*.feature
-  - docs/spec/scope-map.md
-  - docs/spec/supplementary_specs/*.md
-  - docs/CONTEXT.md
-  - docs/agent-context.md (story concerns drive reading via matching sections)
-  - docs/testing.yaml
-  - backlog/ST-NNNN.md
-  - factory/rulebooks/conventions/commit-conventions.md
+  required:
+    - type: feature
+      path_pattern: "docs/spec/*.feature"
+    - type: scope-map
+      path_pattern: docs/spec/scope-map.md
+    - type: supplementary-spec
+      path_pattern: "docs/spec/supplementary_specs/*.md"
+    - type: story
+      path_pattern: "backlog/ST-{id}.md"
+  context:
+    - docs/spec/prd.md
+    - docs/CONTEXT.md
+    - docs/agent-context.md
+    - docs/testing.yaml
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
 outputs:
-  - src/**/*
-  - tests/**/*
-  - tests/features/steps/**/*
-  - docs/spec/**/*.md
-  - docs/adr/*.md
+  minimum_changed: 1
+  declarations:
+    - path_pattern: "src/**/*"
+      validator:
+      required: true
+    - path_pattern: "tests/**/*"
+      validator:
+      required: true
+    - path_pattern: "docs/spec/**/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/adr/*.md"
+      validator:
+      required: false
 triggers:
   - "implement story"
   - "TDD"
@@ -45,7 +60,7 @@ reading.
 
 ## Lifecycle
 
-Follow the [agent lifecycle protocol](../../rulebooks/conventions/agent-lifecycle-protocol.md).
+Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
 ## Workflow
 

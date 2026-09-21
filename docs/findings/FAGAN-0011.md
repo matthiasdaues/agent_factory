@@ -3,7 +3,7 @@ id: FAGAN-0011
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/config/extensions/dispatch-wave.ts:442
+artifact: .agent-factory/factory/config/extensions/dispatch-wave.ts:442
 status: resolved
 traces: [ST-0067, UC-10, FR-K4, BR-040]
 ---
@@ -33,15 +33,15 @@ shape plus a non-empty list of canonical, existing, Git-tracked artifacts.
 Blocked waves will write their bounded per-item diagnostics to the fixed,
 tracked Factory wave-report artifact and append that path to any valid child
 artifact paths already aggregated. The implementation and regression modify
-`factory/config/extensions/dispatch-wave.ts`,
-`factory/reports/dispatch-wave-blocked.md`, and
+`.agent-factory/factory/config/extensions/dispatch-wave.ts`,
+`.agent-factory/factory/reports/dispatch-wave-blocked.md`, and
 `orchestrator/tests/test_child_result_envelope.py`. No interface or business
 rule changes are expected: this closes the existing error path under BR-040.
 
 ## Resolution
 
 Blocked waves now persist their per-item transport diagnostics in
-`factory/reports/dispatch-wave-blocked.md`, force-track the report when an
+`.agent-factory/factory/reports/dispatch-wave-blocked.md`, force-track the report when an
 installed Factory directory is ignored, and include its path in the aggregate
 envelope. The negative-path tracer validates the aggregate's exact BR-040
 shape and proves every listed artifact is canonical, present, and Git-tracked.

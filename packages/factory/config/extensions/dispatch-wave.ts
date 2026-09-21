@@ -62,7 +62,7 @@ const DEFAULT_AGENT = "developer-agent";
 /** Where per-item worktrees are cut, under the project's git-ignored dir. */
 const WORKTREE_DIR = join(".current-work", "worktrees");
 /** Canonical tracked report that closes blocked waves under BR-040. */
-const BLOCKED_WAVE_REPORT = "factory/reports/dispatch-wave-blocked.md";
+const BLOCKED_WAVE_REPORT = ".agent-factory/factory/reports/dispatch-wave-blocked.md";
 
 interface ItemResult {
   branch: string;
@@ -171,9 +171,9 @@ export default function (pi: ExtensionAPI) {
         const item = params.items[i];
         const r = results[i];
 
-        const agentFile = join(cwd, "factory", "agents", `${r.agent}.md`);
+        const agentFile = join(cwd, ".agent-factory", "factory", "agents", `${r.agent}.md`);
         if (!existsSync(agentFile)) {
-          r.error = `agent file not found: factory/agents/${r.agent}.md`;
+          r.error = `agent file not found: .agent-factory/factory/agents/${r.agent}.md`;
           continue;
         }
 
@@ -199,7 +199,7 @@ export default function (pi: ExtensionAPI) {
           const r = results[i];
           if (!r.worktree) return; // Phase A errored for this item.
 
-          const persona = readFileSync(join(cwd, "factory", "agents", `${r.agent}.md`), "utf-8");
+          const persona = readFileSync(join(cwd, ".agent-factory", "factory", "agents", `${r.agent}.md`), "utf-8");
           const task = childTask(verifyBasePreamble(params.target, item.base) + item.task);
           const resolved = resolveModel(cwd, item.model, item.tier, r.agent);
           const model = resolved.model; // already validated in Phase A
@@ -319,7 +319,7 @@ export default function (pi: ExtensionAPI) {
 /** The verify-base preamble every worktree-isolated dispatch must open with. */
 function verifyBasePreamble(target: string, base: string): string {
   return (
-    `Before any other work, run \`factory/scripts/verify-base ${target} --expect-base ${base}\`. ` +
+    `Before any other work, run \`.agent-factory/factory/scripts/verify-base ${target} --expect-base ${base}\`. ` +
     `If it exits non-zero, stop: do not read, edit, or commit — report the printed diagnosis. ` +
     `Only once it passes, proceed with the task below.\n\n`
   );
@@ -333,11 +333,11 @@ function resolveModel(
   agent: string,
 ): { model: string; error?: string } {
   if (model) return { model };
-  const script = join(cwd, "factory", "scripts", "resolve-model");
+  const script = join(cwd, ".agent-factory", "factory", "scripts", "resolve-model");
   const args = tier
     ? ["--tier", tier, "--cli", "pi"]
-    : ["--agent", agent, "--cli", "pi", "--agents-dir", join(cwd, "factory", "agents")];
-  args.push("--model-conf", join(cwd, "config", "model.conf"));
+    : ["--agent", agent, "--cli", "pi", "--agents-dir", join(cwd, ".agent-factory", "factory", "agents")];
+  args.push("--model-conf", join(cwd, ".agent-factory", "config", "model.conf"));
   try {
     const out = execFileSync(script, args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
     return { model: out.trim() };
@@ -510,7 +510,7 @@ function parseFinalMessage(stdout: string): FinalMessage | null {
 
 /** Run a factory script synchronously, returning status and captured output. */
 function runScript(cwd: string, name: string, args: string[]) {
-  const script = join(cwd, "factory", "scripts", name);
+  const script = join(cwd, ".agent-factory", "factory", "scripts", name);
   try {
     const stdout = execFileSync(script, args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
     return { status: 0, stdout, stderr: "" };

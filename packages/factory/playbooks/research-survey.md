@@ -18,6 +18,14 @@ policy where applicable, and semantic review before progression. A failed
 stage blocks progression and the gate restarts at schema validation after the
 artifact is corrected.
 
+## Working Root
+
+All artifact paths in this playbook are relative to a per-topic slug
+directory: `docs/research/<slug>/`. The slug is the kebab-case topic name
+(e.g. `agent-zero`, `opencode-cli-integration`). Every agent and skill
+invocation receives this directory as its working root. See
+[research-directory-layout.md](../rulebooks/conventions/research-directory-layout.md).
+
 ## Inputs
 
 - `research-brief.md` — a shared research brief whose mode is omitted or

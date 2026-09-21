@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Planning Agent Subsession Phases
 status: draft
 owner: Matthias Daues
 created: 2026-09-08
@@ -12,12 +12,12 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - factory/agents/planning-agent.md
-    - factory/skills/create-backlog/SKILL.md
-    - factory/skills/create-backlog-epics/SKILL.md
-    - factory/skills/create-backlog-write-epics/SKILL.md
-    - factory/skills/create-backlog-story-slices/SKILL.md
-    - factory/skills/create-backlog-stories/SKILL.md
+    - .agent-factory/factory/agents/planning-agent.md
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-epics/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-write-epics/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-story-slices/SKILL.md
+    - .agent-factory/factory/skills/create-backlog-stories/SKILL.md
 
 governance:
   assurance: routine

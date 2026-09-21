@@ -43,7 +43,7 @@ WRITE_DENIED_PATHS = {
 
 ### ✅ **Read Guard Prefix Allow-List**
 
-**Finding:** The read guard allows only specific prefixes (`factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`) in addition to declared input globs.
+**Finding:** The read guard allows only specific prefixes (`.agent-factory/factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`) in addition to declared input globs.
 
 **OWASP Mapping:** A01:2021 – Broken Access Control\
 **Severity:** ✅ **PASS** — Prefix allow-list is correctly implemented.
@@ -52,7 +52,7 @@ WRITE_DENIED_PATHS = {
 
 ```python
 READ_ALLOWED_PREFIXES = (
-    "factory/",
+    ".agent-factory/factory/",
     ".claude/",
     ".github/",
     ".pi/",

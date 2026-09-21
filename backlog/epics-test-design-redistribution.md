@@ -1,3 +1,7 @@
+---
+scope: global
+---
+
 # EPICs — Test-Design Layer Redistribution
 
 Proposal trace: [test-design-layer-redistribution.md](../docs/proposals/implemented/test-design-layer-redistribution.md)
@@ -29,7 +33,7 @@ Without a lightweight testability check at planning time, untestable epic scopin
 
 **In:**
 
-- `testability-probe` skill at `factory/skills/testability-probe/SKILL.md` — new skill with four concerns: testability assessment (observable outcomes), instrumentation boundary identification (naming seams), testability red-flag detection (scoping defects), and backlog-wide contract ownership resolution (topological sort, one owner per contract)
+- `testability-probe` skill at `.agent-factory/factory/skills/testability-probe/SKILL.md` — new skill with four concerns: testability assessment (observable outcomes), instrumentation boundary identification (naming seams), testability red-flag detection (scoping defects), and backlog-wide contract ownership resolution (topological sort, one owner per contract)
 - Testability-probe output format — a short section per EPIC in `backlog/epics.md` containing a testability paragraph plus an ownership table, not a scenario catalog
 - `create-backlog` parent skill sequence table — phase 2.5 row changes from `test-design` to `testability-probe`
 - `create-backlog-write-epics` skill — the "Optional: Invoke test-design" section becomes "Invoke testability-probe" (mandatory, per resolved open question)
@@ -48,11 +52,11 @@ None. This is the foundational EPIC.
 
 ### Boundaries
 
-- Skill: `factory/skills/testability-probe/SKILL.md` (new)
-- Skill: `factory/skills/create-backlog/SKILL.md` (sequence table edit)
-- Skill: `factory/skills/create-backlog-write-epics/SKILL.md` (probe invocation section)
-- Skill: `factory/skills/create-backlog-stories/SKILL.md` (ownership propagation)
-- Planning agent: `factory/agents/planning-agent.md` (skill list update)
+- Skill: `.agent-factory/factory/skills/testability-probe/SKILL.md` (new)
+- Skill: `.agent-factory/factory/skills/create-backlog/SKILL.md` (sequence table edit)
+- Skill: `.agent-factory/factory/skills/create-backlog-write-epics/SKILL.md` (probe invocation section)
+- Skill: `.agent-factory/factory/skills/create-backlog-stories/SKILL.md` (ownership propagation)
+- Planning agent: `.agent-factory/factory/agents/planning-agent.md` (skill list update)
 
 ### Size
 
@@ -87,17 +91,17 @@ With testability assessment moved to the probe (EPIC A), the `test-design` skill
 5. The developer agent writes `tests: [tests/unit/test_foo.py, tests/integration/test_foo_seam.py]` and `test-design-pass: done` into the story file's frontmatter at commit time.
 6. A second developer agent picks up a `.feature`-governed story and completes RED-GREEN-REFACTOR.
 7. The developer agent skips the `test-design` invocation and writes `test-design-pass: skipped-feature-governed` into the story file.
-8. The story template at `factory/rulebooks/templates/story.md` shows `tests:` and `test-design-pass` field documentation alongside existing frontmatter fields.
+8. The story template at `.agent-factory/factory/rulebooks/templates/story.md` shows `tests:` and `test-design-pass` field documentation alongside existing frontmatter fields.
 
 ### Scope
 
 **In:**
 
-- `test-design` skill refactoring — the procedure at `factory/skills/test-design/SKILL.md` rewrites to the story-level procedure described in the proposal's Change 2: reads implemented code, reads ownership assignments from `epics.md`, classifies contracts by risk class, identifies untested integration paths, and authors test files in the project's test suite
+- `test-design` skill refactoring — the procedure at `.agent-factory/factory/skills/test-design/SKILL.md` rewrites to the story-level procedure described in the proposal's Change 2: reads implemented code, reads ownership assignments from `epics.md`, classifies contracts by risk class, identifies untested integration paths, and authors test files in the project's test suite
 - `test-design` skill boundaries — does not resolve ownership (the probe did that), does not write into `epics.md`, does not run for `.feature`-governed stories
-- Developer agent workflow update at `factory/agents/developer-agent.md` — adds `test-design` to skill list, two-pass TDD model (pass 1: acceptance criteria, pass 2: test-design post-GREEN), conditional skip for `.feature`-governed stories
+- Developer agent workflow update at `.agent-factory/factory/agents/developer-agent.md` — adds `test-design` to skill list, two-pass TDD model (pass 1: acceptance criteria, pass 2: test-design post-GREEN), conditional skip for `.feature`-governed stories
 - Developer agent commit-time fields — writes `tests:` and `test-design-pass` into story frontmatter
-- Story template update at `factory/rulebooks/templates/story.md` — documents the two new fields
+- Story template update at `.agent-factory/factory/rulebooks/templates/story.md` — documents the two new fields
 
 **Out:**
 
@@ -113,9 +117,9 @@ EPIC A (the developer agent's `test-design` invocation reads ownership assignmen
 
 ### Boundaries
 
-- Skill: `factory/skills/test-design/SKILL.md` (rewrite)
-- Agent: `factory/agents/developer-agent.md` (skill list, workflow, commit-time fields)
-- Template: `factory/rulebooks/templates/story.md` (field documentation)
+- Skill: `.agent-factory/factory/skills/test-design/SKILL.md` (rewrite)
+- Agent: `.agent-factory/factory/agents/developer-agent.md` (skill list, workflow, commit-time fields)
+- Template: `.agent-factory/factory/rulebooks/templates/story.md` (field documentation)
 
 ### Size
 
@@ -156,10 +160,10 @@ The probe (EPIC A) and the narrowed test-design skill (EPIC B) create test artif
 
 **In:**
 
-- QA agent Fagan criteria at `factory/agents/qa-agent.md` — add review criteria for `test-design-pass` field validation, contract-to-test cross-referencing, and testability-flag follow-up
-- Reconciliation agent test traceability audit at `factory/agents/reconciliation-agent.md` — new audit step verifying `tests:` fields against actual test files, backfilling missing entries, and filing `RECON` findings for unresolved ownership-without-coverage gaps
-- `test-design-verify` gate adaptation at `factory/scripts/test-design-verify` — dual-model validation: new-model stories (identified by `test-design-pass` presence) checked for `tests:` and `test-design-pass`; old-model stories checked for `#### Failure scenarios` / `#### Prior Tests` per existing logic; backward compatibility for pre-existing old-model stories (completion criterion 12)
-- `testing-strategy.md` convention at `factory/rulebooks/conventions/testing-strategy.md` — new section documenting the two-pass test authoring model (pass 1: TDD from acceptance criteria, pass 2: test-design for integration gaps), when each runs, and why
+- QA agent Fagan criteria at `.agent-factory/factory/agents/qa-agent.md` — add review criteria for `test-design-pass` field validation, contract-to-test cross-referencing, and testability-flag follow-up
+- Reconciliation agent test traceability audit at `.agent-factory/factory/agents/reconciliation-agent.md` — new audit step verifying `tests:` fields against actual test files, backfilling missing entries, and filing `RECON` findings for unresolved ownership-without-coverage gaps
+- `test-design-verify` gate adaptation at `.agent-factory/factory/scripts/test-design-verify` — dual-model validation: new-model stories (identified by `test-design-pass` presence) checked for `tests:` and `test-design-pass`; old-model stories checked for `#### Failure scenarios` / `#### Prior Tests` per existing logic; backward compatibility for pre-existing old-model stories (completion criterion 12)
+- `testing-strategy.md` convention at `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` — new section documenting the two-pass test authoring model (pass 1: TDD from acceptance criteria, pass 2: test-design for integration gaps), when each runs, and why
 
 **Out:**
 
@@ -173,10 +177,10 @@ EPIC B (QA and reconciliation audit the `tests:` and `test-design-pass` fields t
 
 ### Boundaries
 
-- Agent: `factory/agents/qa-agent.md` (Fagan criteria expansion)
-- Agent: `factory/agents/reconciliation-agent.md` (new audit step)
-- Script: `factory/scripts/test-design-verify` (dual-model validation)
-- Convention: `factory/rulebooks/conventions/testing-strategy.md` (two-pass model section)
+- Agent: `.agent-factory/factory/agents/qa-agent.md` (Fagan criteria expansion)
+- Agent: `.agent-factory/factory/agents/reconciliation-agent.md` (new audit step)
+- Script: `.agent-factory/factory/scripts/test-design-verify` (dual-model validation)
+- Convention: `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` (two-pass model section)
 
 ### Size
 

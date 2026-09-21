@@ -14,17 +14,17 @@ Human Operator (or Orchestrator-as-Trigger, acting on its behalf)
 
 ## Trigger
 
-The actor runs `factory/scripts/trigger agent <name>` or `factory/scripts/trigger playbook <name> --step <agent-name-or-index>`, with `--background` or `--interactive`.
+The actor runs `.agent-factory/factory/scripts/trigger agent <name>` or `.agent-factory/factory/scripts/trigger playbook <name> --step <agent-name-or-index>`, with `--background` or `--interactive`.
 
 ## Preconditions
 
-- The named agent exists in `factory/agents/`, or the named playbook exists in `factory/playbooks/` and its derived agent sequence contains the requested step.
+- The named agent exists in `.agent-factory/factory/agents/`, or the named playbook exists in `.agent-factory/factory/playbooks/` and its derived agent sequence contains the requested step.
 - `config/model.conf` declares a model for the agent's tier under the target CLI, or `on_missing` permits proceeding without one.
 
 ## Main Success Scenario
 
-1. Actor runs `factory/scripts/trigger agent <name> --background --cli claude --cwd <project-root>`.
-2. `trigger` resolves the agent from `factory/INDEX.yaml`'s own source data (reusing `index-lint`'s `load_agents()`).
+1. Actor runs `.agent-factory/factory/scripts/trigger agent <name> --background --cli claude --cwd <project-root>`.
+2. `trigger` resolves the agent from `.agent-factory/factory/INDEX.yaml`'s own source data (reusing `index-lint`'s `load_agents()`).
 3. `trigger` resolves the agent's declared `tier` to a concrete model via `config/model.conf` (reusing `matrix-lint`'s `parse_matrix()`).
 4. `trigger` composes the prompt: the full agent definition file, plus a standalone call-to-action section.
 5. `trigger` builds the background CLI invocation under the hardcoded, scoped permission allowlist for the target CLI (BR-011, BR-012).
@@ -52,10 +52,10 @@ The actor runs `factory/scripts/trigger agent <name>` or `factory/scripts/trigge
 ## Business Rules
 
 - **BR-011**: `trigger`'s background-mode permission allowlist is hardcoded and scoped — never `--dangerously-skip-permissions` / `--allow-all-tools`, and never a bare interpreter wildcard (`Bash(python3 *)` and similar), since scoping the outer command while leaving the interpreter open is not scoping at all.
-- **BR-012**: every entry in the background-mode allowlist is derived from a command literally observed in this repo's own playbooks, skills, agents, or config — never guessed ahead of a real invocation, per [YAGNI](../../../factory/rulebooks/conventions/foundational-principles.md#yagni). The allowlist's `factory/scripts/mdformat *` entry exists because [markdown-formatting.md § Rule](../../../factory/rulebooks/conventions/markdown-formatting.md#rule) requires every markdown-writing agent to run it, and its `git commit *` entry presumes the resulting message still follows [commit-conventions.md § Story/Bug ID Required](../../../factory/rulebooks/conventions/commit-conventions.md#storybug-id-required).
+- **BR-012**: every entry in the background-mode allowlist is derived from a command literally observed in this repo's own playbooks, skills, agents, or config — never guessed ahead of a real invocation, per [YAGNI](../../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#yagni). The allowlist's `factory/scripts/mdformat *` entry exists because [markdown-formatting.md § Rule](../../../.agent-factory/factory/rulebooks/conventions/markdown-formatting.md#rule) requires every markdown-writing agent to run it, and its `git commit *` entry presumes the resulting message still follows [commit-conventions.md § Story/Bug ID Required](../../../.agent-factory/factory/rulebooks/conventions/commit-conventions.md#storybug-id-required).
 - **BR-013**: `--interactive` mode never seeds a first message programmatically; it prints the composed prompt for the actor to paste, because neither supported CLI is known to support "seed a message but stay interactive" from the command line.
-- **BR-014**: `trigger` resolves a playbook step by agent name, not list position, so a state-name/list-position mismatch never misdispatches (see [run-step § Step 4](../../../factory/skills/run-step/SKILL.md#step-4--dispatch)).
-- Neither allowlist includes `git worktree add` — worktree creation happens through the calling CLI's own isolation mechanism, not a raw git command; see [branching-policy.md § Worktree Isolation](../../../factory/rulebooks/conventions/branching-policy.md#worktree-isolation).
+- **BR-014**: `trigger` resolves a playbook step by agent name, not list position, so a state-name/list-position mismatch never misdispatches (see [run-step § Step 4](../../../.agent-factory/factory/skills/run-step/SKILL.md#step-4--dispatch)).
+- Neither allowlist includes `git worktree add` — worktree creation happens through the calling CLI's own isolation mechanism, not a raw git command; see [branching-policy.md § Worktree Isolation](../../../.agent-factory/factory/rulebooks/conventions/branching-policy.md#worktree-isolation).
 
 ## Activity Diagram
 
@@ -81,7 +81,7 @@ flowchart TD
 Feature: Dispatch an agent via trigger
 
   Scenario: Background dispatch of a known agent
-    Given "requirements-agent" exists in factory/agents/
+    Given "requirements-agent" exists in .agent-factory/factory/agents/
     And config/model.conf declares a model for its tier under claude
     When the actor runs trigger agent requirements-agent --background --cli claude
     Then trigger runs the claude CLI under the scoped allowlist
@@ -109,4 +109,4 @@ Feature: Dispatch an agent via trigger
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)
-- [factory/scripts/trigger](../../../factory/scripts/trigger)
+- [factory/scripts/trigger](../../../.agent-factory/factory/scripts/trigger)

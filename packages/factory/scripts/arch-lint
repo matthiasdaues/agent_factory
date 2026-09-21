@@ -18,7 +18,7 @@ only on error-severity findings, runnable as a pre-commit hook.
 
 Checks
   1. Staleness   — architecture.dsl newer than an exported image => auto-export via
-                   factory/scripts/structurizr export-all (deterministic validation).
+                   .agent-factory/factory/scripts/structurizr export-all (deterministic validation).
   2. Coupling    — the core components and the ports named in chapter 5
                    (05_building_block_view.md) must match the model, both ways.
   3. Validate    — run `structurizr validate` when Docker is available; skip otherwise.
@@ -255,8 +255,9 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
         needs_export = True
     else:
         dsl_mtime = dsl_path.stat().st_mtime
-        stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
-        if stale:
+        newest_svg_mtime = max(p.stat().st_mtime for p in images)
+        if dsl_mtime > newest_svg_mtime:
+            stale = [p for p in images if p.stat().st_mtime < dsl_mtime]
             names = ", ".join(sorted(p.name for p in stale))
             rep.info(
                 "ARCH-STALE",
@@ -267,7 +268,7 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
     if needs_export:
         # Auto-export via structurizr script (deterministic validation principle)
         docs_root = dsl_path.parent.parent
-        structurizr_script = Path("factory/scripts/structurizr").resolve()
+        structurizr_script = Path(".agent-factory/factory/scripts/structurizr").resolve()
 
         if not structurizr_script.exists():
             rep.error(

@@ -3,7 +3,7 @@ id: RECON-0006
 source: reconcile-spec
 severity: major
 category: defect
-artifact: factory/config/extensions/capture-usage.ts
+artifact: .agent-factory/factory/config/extensions/capture-usage.ts
 status: resolved
 traces: [ST-0044]
 ---
@@ -40,10 +40,10 @@ at tool execution and the eventual human-root id are identical.
 
 Modify:
 
-- `factory/config/extensions/pi-usage.ts`
-- `factory/config/extensions/capture-usage.ts`
-- `factory/config/extensions/run-agent.ts`
-- `factory/config/extensions/dispatch-wave.ts`
+- `.agent-factory/factory/config/extensions/pi-usage.ts`
+- `.agent-factory/factory/config/extensions/capture-usage.ts`
+- `.agent-factory/factory/config/extensions/run-agent.ts`
+- `.agent-factory/factory/config/extensions/dispatch-wave.ts`
 - `orchestrator/tests/test_usage_capture_pi_e2e.py`
 
 The regression tests will install Factory into temporary consumer projects,

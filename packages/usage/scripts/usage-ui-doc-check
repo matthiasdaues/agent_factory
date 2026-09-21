@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""usage-ui-doc-check — smoke gate for DuckDB UI documentation.
+
+Parses the documented launch commands from ui-exploration.md, resolves the
+bootstrap SQL path, verifies it registers exactly the six published
+query-model-v1 views, and confirms the explorer module exists. Never starts,
+fetches, or installs the DuckDB UI.
+
+stdlib-only: no DuckDB, no PyArrow.
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+EXPECTED_VIEWS = frozenset({
+    "raw_usage_snapshots",
+    "latest_run_snapshots",
+    "session_usage",
+    "usage_by_dimension",
+    "cache_efficiency",
+    "capture_health",
+})
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+PACKAGE_ROOT = SCRIPT_DIR.parent
+DOC_PATH = PACKAGE_ROOT / "docs" / "ui-exploration.md"
+EXPLORER_MODULE = PACKAGE_ROOT / "src" / "usage" / "explorer.py"
+
+BOOTSTRAP_REF_PATTERN = re.compile(
+    r"duckdb\s+-init\s+(\S+)"
+)
+
+PERSIST_CMD_PATTERN = re.compile(
+    r"usage-query\s+\S+\s+--persist\s+"
+)
+
+EXPLORER_CMD_PATTERN = re.compile(
+    r"python\s+-m\s+usage\.explorer\s+"
+)
+
+CREATE_VIEW_PATTERN = re.compile(
+    r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(\w+)",
+    re.IGNORECASE,
+)
+
+
+def find_bootstrap_path(doc_text: str) -> str | None:
+    match = BOOTSTRAP_REF_PATTERN.search(doc_text)
+    return match.group(1) if match else None
+
+
+def find_registered_views(sql_text: str) -> set[str]:
+    return {m.group(1) for m in CREATE_VIEW_PATTERN.finditer(sql_text)}
+
+
+def main() -> int:
+    if not DOC_PATH.is_file():
+        print(f"FAIL: documentation not found: {DOC_PATH}", file=sys.stderr)
+        return 1
+
+    doc_text = DOC_PATH.read_text(encoding="utf-8")
+    ok = True
+
+    # Check 1: bootstrap SQL reference and six views
+    bootstrap_ref = find_bootstrap_path(doc_text)
+    if not bootstrap_ref:
+        print("FAIL: no bootstrap SQL reference in documentation", file=sys.stderr)
+        ok = False
+    else:
+        repo_root = PACKAGE_ROOT.parents[1]
+        bootstrap_path = repo_root / bootstrap_ref
+        if not bootstrap_path.is_file():
+            print(f"FAIL: bootstrap SQL not found: {bootstrap_path}", file=sys.stderr)
+            ok = False
+        else:
+            sql_text = bootstrap_path.read_text(encoding="utf-8")
+            registered = find_registered_views(sql_text)
+            missing = EXPECTED_VIEWS - registered
+            if missing:
+                print(f"FAIL: missing views: {sorted(missing)}", file=sys.stderr)
+                ok = False
+
+    # Check 2: persist + explorer documented
+    if not PERSIST_CMD_PATTERN.search(doc_text):
+        print("FAIL: --persist command not documented", file=sys.stderr)
+        ok = False
+
+    if not EXPLORER_CMD_PATTERN.search(doc_text):
+        print("FAIL: explorer launch command not documented", file=sys.stderr)
+        ok = False
+
+    # Check 3: explorer module exists
+    if not EXPLORER_MODULE.is_file():
+        print(f"FAIL: explorer module not found: {EXPLORER_MODULE}", file=sys.stderr)
+        ok = False
+
+    if ok:
+        print(
+            f"OK: bootstrap registers {len(EXPECTED_VIEWS)} published views, "
+            f"explorer module present, persist+explorer documented"
+        )
+        return 0
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

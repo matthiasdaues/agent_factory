@@ -5,7 +5,7 @@
 - **Reviewed range:** base `3cd1f35e3cb884f7a99fabba06a9659f14652333`
   through QA-final head `5d73a5108f3a21225079e346445886296dfefba9` on
   branch `dev`, followed by this documentation-only reconciliation pass.
-- **Code compared:** `factory/` (scripts, agents, skills, playbooks,
+- **Code compared:** `.agent-factory/factory/` (scripts, agents, skills, playbooks,
   `config/extensions`, `config/hooks`), `orchestrator/`, `config/`, and the
   installed `.pi/extensions/`, `.codex/hooks/`, `.claude/hooks/`,
   `.github/hooks/` wiring produced by `init-factory`.
@@ -13,7 +13,7 @@
   `06_runtime_view.md`, `08_crosscutting_concepts.md`,
   `09_architecture_decisions.md`, `12_glossary.md`, `README.md`,
   `beginner-intro.md`, `concepts.md`; ADRs `0001`–`0007`;
-  `factory/docs/factory-guide.md` and the `docs/proposals/` and
+  `.agent-factory/factory/docs/factory-guide.md` and the `docs/proposals/` and
   `docs/proposals/implemented/` guides; repo-root `README.md` and `AGENTS.md`; and the
   `backlog/` stories referenced by docs.
 - **Repeat pass.** This is a fresh full truth-map rebuild, not only a check of
@@ -42,9 +42,9 @@ fixes that closed them.
   than the hardcoded `id: index-lint`. The bidirectional splice ADR-0001
   documents is now true of the code.
 - **RECON-0002 through RECON-0008 — resolved.** Re-confirmed: no broken
-  `../factory/rulebooks/` links remain in `factory/agents/`; the
+  `../factory/rulebooks/` links remain in `.agent-factory/factory/agents/`; the
   cross-reference-format violation in `branching-policy.md` is fixed; the
-  orchestrator test collection paths point at `factory/scripts`; the
+  orchestrator test collection paths point at `.agent-factory/factory/scripts`; the
   `technical-poc.md` anchors resolve; Pi child parent-correlation, Codex
   trust activation, Claude child conservation, the installer/remover
   ownership, the usage schema, and the four-CLI accounting rules all hold.
@@ -73,7 +73,7 @@ fixes that closed them.
   deny-list wording.
 - `docs/arc42/08_crosscutting_concepts.md` and `docs/arc42/12_glossary.md` — runtime input
   shapes and canonical four-CLI vocabulary.
-- `factory/docs/factory-guide.md` — installation and guardrail wiring for all
+- `.agent-factory/factory/docs/factory-guide.md` — installation and guardrail wiring for all
   four runtimes.
 - `docs/spec/prd.md`, UC-07, UC-08, and `interface-contracts.md` — aligned the
   normative installation and guardrail contracts.
@@ -99,4 +99,4 @@ their proposed remediation is a documentation update, not a code change.
 - `arch-lint --docs-dir docs/`: exit 0; 0 errors, 2 pre-existing
   `ARCH-PARSE` warnings, 0 info.
 - Every updated Markdown file was formatted with
-  `factory/scripts/mdformat --number`; `git diff --check` passed.
+  `.agent-factory/factory/scripts/mdformat --number`; `git diff --check` passed.

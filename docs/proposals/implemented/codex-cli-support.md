@@ -12,8 +12,8 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - factory/scripts/init-factory
-    - factory/config/hooks/capture-codex-usage.sh
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/config/hooks/capture-codex-usage.sh
 
 governance:
   assurance: high
@@ -33,7 +33,7 @@ estimate:
 # Feature Request — Codex CLI Support
 
 **Status:** Implemented
-**Scope:** Contained to the `factory/` subproject. It adds Codex as a fourth
+**Scope:** Contained to the `.agent-factory/factory/` subproject. It adds Codex as a fourth
 supported conversational coding CLI alongside Claude Code, GitHub Copilot CLI,
 and Pi. It does not add a new headless orchestrator backend.
 **Scope size:** Large — Codex uses different discovery formats for skills and
@@ -137,25 +137,25 @@ CLIs. `remove-factory` must restore the target to its exact pre-install state.
 
 ### 4.1 Treat Codex as an adapter, not another `DOT_DIRS` entry
 
-Keep the shared canonical content under `factory/`, but add a dedicated
+Keep the shared canonical content under `.agent-factory/factory/`, but add a dedicated
 `install_codex(...)` path in `init-factory`. The Codex layout crosses two root
 directories and mixes links with generated files:
 
 ```text
-AGENTS.md                         -> factory/config/AGENTS.md, if root file absent
-.agents/skills/<name>            -> factory/skills/<name>
-.codex/agents/<name>.toml        generated adapter for factory/agents/<name>.md
-.codex/playbooks                 -> factory/playbooks
-.codex/rulebooks                 -> factory/rulebooks
-.codex/scripts                   -> factory/scripts
-.codex/INDEX.yaml                -> factory/INDEX.yaml
+AGENTS.md                         -> .agent-factory/factory/config/AGENTS.md, if root file absent
+.agents/skills/<name>            -> .agent-factory/factory/skills/<name>
+.codex/agents/<name>.toml        generated adapter for .agent-factory/factory/agents/<name>.md
+.codex/playbooks                 -> .agent-factory/factory/playbooks
+.codex/rulebooks                 -> .agent-factory/factory/rulebooks
+.codex/scripts                   -> .agent-factory/factory/scripts
+.codex/INDEX.yaml                -> .agent-factory/factory/INDEX.yaml
 .codex/hooks/block-dangerous-git.sh -> shared or Codex-adapted hook script
 .codex/hooks/capture-usage.sh    -> shared or Codex-adapted capture script
 .codex/hooks.json                merge-safe Codex hook declarations
 ```
 
 Whether aliases for playbooks, rulebooks, scripts, and `INDEX.yaml` belong
-under `.codex/` or should be referenced directly as `factory/...` is a
+under `.codex/` or should be referenced directly as `.agent-factory/factory/...` is a
 Requirements decision. The orientation must name the final paths accurately.
 
 ### 4.2 Install skills at `.agents/skills`
@@ -176,8 +176,8 @@ traceless removal possible.
 ### 4.3 Generate Codex custom-agent TOML
 
 Add a deterministic adapter script, for example
-`factory/scripts/generate-codex-agents`, that reads each canonical
-`factory/agents/*.md` file and emits `.codex/agents/<name>.toml`.
+`.agent-factory/factory/scripts/generate-codex-agents`, that reads each canonical
+`.agent-factory/factory/agents/*.md` file and emits `.codex/agents/<name>.toml`.
 
 Initial mapping:
 
@@ -229,7 +229,7 @@ Continue using the root `AGENTS.md` as Codex's orientation file. If a real root
 project with its own `AGENTS.md` learns the local-first Factory rule; silently
 shadowing or appending to that file violates non-interference.
 
-Update `factory/config/AGENTS.md` so its CLI table includes Codex paths and
+Update `.agent-factory/factory/config/AGENTS.md` so its CLI table includes Codex paths and
 states that Codex agents are native generated TOML definitions, not Markdown
 files to role-play in the parent session.
 
@@ -266,11 +266,11 @@ The removal manifest must retain enough information to:
 **Out of scope**
 
 - A `--cli codex` backend for `orchestrator/run_playbook.py` or
-  `factory/scripts/trigger`.
+  `.agent-factory/factory/scripts/trigger`.
 - Codex cloud task orchestration.
 - Packaging Agent Factory as a distributable Codex plugin or marketplace item.
 - Changing canonical factory agent Markdown into Codex TOML for all CLIs.
-- Refresh/update semantics for an already copied `factory/` payload, unless the
+- Refresh/update semantics for an already copied `.agent-factory/factory/` payload, unless the
   feature-addition process explicitly expands scope.
 
 ## 6. Constraints and interactions
@@ -347,7 +347,7 @@ These decisions were checked against the current official Codex manual on
 2026-07-24. Custom-agent authoring remains an evolving surface, so TOML
 generation and hook payload handling stay behind focused adapter tests.
 7\. Do playbooks, rulebooks, scripts, and `INDEX.yaml` need `.codex` aliases, or
-should Codex orientation reference `factory/...` directly?
+should Codex orientation reference `.agent-factory/factory/...` directly?
 8\. How should the implementation dispatcher obtain worktree isolation under
 Codex native subagents? Shared-workspace parallelism alone is insufficient
 for file-overlapping stories.
@@ -422,9 +422,9 @@ you must still review and trust current hook definitions in Codex.
 
 ## 11. References
 
-- Install/remove precedent: [`factory/scripts/init-factory`](../../../factory/scripts/init-factory)
-  and [`factory/scripts/remove-factory`](../../../factory/scripts/remove-factory).
-- Factory orientation: [`factory/config/AGENTS.md`](../../../factory/config/AGENTS.md).
+- Install/remove precedent: [`factory/scripts/init-factory`](../../../.agent-factory/factory/scripts/init-factory)
+  and [`factory/scripts/remove-factory`](../../../.agent-factory/factory/scripts/remove-factory).
+- Factory orientation: [`factory/config/AGENTS.md`](../../../.agent-factory/factory/config/AGENTS.md).
 - Pi adapter precedent: [`pi-invocation-layer.md`](pi-invocation-layer.md).
 - Official Codex documentation:
   [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md),

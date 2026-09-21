@@ -2,7 +2,6 @@
 name: research-synthesis
 description: Build a cited survey report from recorded source records while preserving uncertainty and evidence bounds.
 category: research
-disable-model-invocation: false
 ---
 
 # Research Synthesis
@@ -37,6 +36,6 @@ The report must include:
 
 ## Validation
 
-Validate the completed report with `factory/scripts/schema-validate` against
+Validate the completed report with `.agent-factory/factory/scripts/schema-validate` against
 the survey-report schema. Check that every finding cites at least one recorded
 source record and that uncertainty, gaps, and limitations remain explicit.

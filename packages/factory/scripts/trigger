@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""trigger — resolve an agent or playbook step from factory/INDEX.yaml's
+"""trigger — resolve an agent or playbook step from .agent-factory/factory/INDEX.yaml's
 source data and invoke it via a CLI, interactive or background.
 
 What: Resolves what to run (agent, or one playbook step) and its model
@@ -17,12 +17,12 @@ job (blocks staged files from a future phase) and phase-advance's job
 (checks entry_conditions before moving the marker). trigger only dispatches
 what it's told to; sequencing and resumability live in those gates plus
 whatever skill drives this script, not here (deliberately no persisted
-run-state of its own — see factory/skills/run-step/SKILL.md).
+run-state of its own — see .agent-factory/factory/skills/run-step/SKILL.md).
 
 Reuses, not reimplements: agent/playbook lookup imports index-lint's own
-load_agents()/load_playbooks() (the same data factory/INDEX.yaml is
+load_agents()/load_playbooks() (the same data .agent-factory/factory/INDEX.yaml is
 generated from); tier resolution imports matrix-lint's own parse_matrix().
-Zero-dependency stdlib Python, same spirit as every other factory/scripts/
+Zero-dependency stdlib Python, same spirit as every other .agent-factory/factory/scripts/
 tool.
 
 Usage
@@ -143,7 +143,7 @@ def compose_prompt(agent_path: Path) -> str:
     """Minimal composition: full agent definition plus a call to action.
     Deliberately simpler than orchestrator's FilePromptComposer — no
     findings-injection or iteration-aware phrasing yet; that's a known gap,
-    not an oversight (see factory/skills/run-step/SKILL.md for the plan)."""
+    not an oversight (see .agent-factory/factory/skills/run-step/SKILL.md for the plan)."""
     definition = agent_path.read_text(encoding="utf-8").rstrip()
     return (
         f"# Agent Definition\n{definition}\n\n"
@@ -161,8 +161,8 @@ def compose_prompt(agent_path: Path) -> str:
 #
 # Every entry below is derived from what this repo actually runs, not
 # guessed:
-#   - git subcommands: grep for `git <word>` across factory/playbooks/,
-#     factory/skills/, factory/agents/, factory/rulebooks/conventions/ —
+#   - git subcommands: grep for `git <word>` across .agent-factory/factory/playbooks/,
+#     .agent-factory/factory/skills/, .agent-factory/factory/agents/, .agent-factory/factory/rulebooks/conventions/ —
 #     only add, commit, status, diff, revert, tag, and `worktree list`
 #     (read-only) are ever literally invoked. Worktree *creation* happens
 #     through the Agent tool's own isolation:"worktree" parameter, not a
@@ -179,7 +179,7 @@ def compose_prompt(agent_path: Path) -> str:
 #     gating), so a target project's own test command isn't something
 #     this factory-level default can honestly hardcode.
 #
-# The DENY list mirrors factory/config/hooks/block-dangerous-git.sh's own
+# The DENY list mirrors .agent-factory/factory/config/hooks/block-dangerous-git.sh's own
 # DANGEROUS_PATTERNS exactly — a second, independent layer on top of that
 # hook (both CLIs confirm PreToolUse/preToolUse hooks fire even under
 # permissive modes; this means the agent never sees the verb as available
@@ -188,12 +188,12 @@ CLAUDE_ALLOWED_TOOLS = (
     "Read,Write,Edit,Grep,Glob,"
     "Bash(git add *),Bash(git commit *),Bash(git status *),Bash(git diff *),"
     "Bash(git revert *),Bash(git tag *),Bash(git worktree list),"
-    "Bash(factory/scripts/spec-lint *),Bash(factory/scripts/arch-lint *),"
-    "Bash(factory/scripts/backlog-lint *),Bash(factory/scripts/matrix-lint *),"
-    "Bash(factory/scripts/statemachine-lint *),Bash(factory/scripts/mermaid-lint *),"
-    "Bash(factory/scripts/index-lint *),"
-    "Bash(factory/scripts/transition-lint *),Bash(factory/scripts/mdformat *),"
-    "Bash(factory/scripts/phase *),"
+    "Bash(.agent-factory/factory/scripts/spec-lint *),Bash(.agent-factory/factory/scripts/arch-lint *),"
+    "Bash(.agent-factory/factory/scripts/backlog-lint *),Bash(.agent-factory/factory/scripts/matrix-lint *),"
+    "Bash(.agent-factory/factory/scripts/statemachine-lint *),Bash(.agent-factory/factory/scripts/mermaid-lint *),"
+    "Bash(.agent-factory/factory/scripts/index-lint *),"
+    "Bash(.agent-factory/factory/scripts/transition-lint *),Bash(.agent-factory/factory/scripts/mdformat *),"
+    "Bash(.agent-factory/factory/scripts/phase *),"
     "Bash(uvx ruff check *),Bash(uvx ruff format *),"
     "Bash(uv run mdformat *),Bash(uv run ruff check *),Bash(uv run ruff format *),"
     "Bash(uv run pytest *)"
@@ -214,12 +214,12 @@ COPILOT_AVAILABLE_TOOLS = "bash,edit,view,grep,glob"
 COPILOT_ALLOW_TOOLS = (
     "shell(git add:*),shell(git commit:*),shell(git status:*),shell(git diff:*),"
     "shell(git revert:*),shell(git tag:*),shell(git worktree list),"
-    "shell(factory/scripts/spec-lint:*),shell(factory/scripts/arch-lint:*),"
-    "shell(factory/scripts/backlog-lint:*),shell(factory/scripts/matrix-lint:*),"
-    "shell(factory/scripts/statemachine-lint:*),shell(factory/scripts/mermaid-lint:*),"
-    "shell(factory/scripts/index-lint:*),"
-    "shell(factory/scripts/transition-lint:*),shell(factory/scripts/mdformat:*),"
-    "shell(factory/scripts/phase:*),"
+    "shell(.agent-factory/factory/scripts/spec-lint:*),shell(.agent-factory/factory/scripts/arch-lint:*),"
+    "shell(.agent-factory/factory/scripts/backlog-lint:*),shell(.agent-factory/factory/scripts/matrix-lint:*),"
+    "shell(.agent-factory/factory/scripts/statemachine-lint:*),shell(.agent-factory/factory/scripts/mermaid-lint:*),"
+    "shell(.agent-factory/factory/scripts/index-lint:*),"
+    "shell(.agent-factory/factory/scripts/transition-lint:*),shell(.agent-factory/factory/scripts/mdformat:*),"
+    "shell(.agent-factory/factory/scripts/phase:*),"
     "shell(uvx ruff check:*),shell(uvx ruff format:*),"
     "shell(uv run mdformat:*),shell(uv run ruff check:*),shell(uv run ruff format:*),"
     "shell(uv run pytest:*)"

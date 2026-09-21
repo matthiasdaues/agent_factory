@@ -13,7 +13,7 @@ impact:
   external_contract_change: false
   boundaries:
     - docs/spec/supplementary_specs/entity-model.md
-    - factory/scripts/structurizr
+    - .agent-factory/factory/scripts/structurizr
 
 governance:
   assurance: elevated
@@ -37,7 +37,7 @@ estimate:
 
 ## Summary
 
-Settle by observation which text-based data-modeling meta-language can hold the Gigacron entity model as a validatable documentation-as-code artifact. The completed survey answered what the candidates' documentation claims; it could not answer what their tools actually do, because no candidate was installed or executed. This proposal opens a bake-off under [technical-poc.md](../../factory/playbooks/technical-poc.md) that ports one fixed slice of the real entity model to four candidates and runs each one. The first release ends at four comparison notes and a Pugh Matrix; it does not adopt a language.
+Settle by observation which text-based data-modeling meta-language can hold the Gigacron entity model as a validatable documentation-as-code artifact. The completed survey answered what the candidates' documentation claims; it could not answer what their tools actually do, because no candidate was installed or executed. This proposal opens a bake-off under [technical-poc.md](../../.agent-factory/factory/playbooks/technical-poc.md) that ports one fixed slice of the real entity model to four candidates and runs each one. The first release ends at four comparison notes and a Pugh Matrix; it does not adopt a language.
 
 ## Motivation
 
@@ -53,7 +53,7 @@ Deciding without running them would mean adopting a source of truth for the whol
 
 - **One fixed slice, ported identically.** Every candidate models the same nine entities. A candidate does not get to choose the example that flatters it.
 - **Observation outranks documentation.** Every claim in a comparison note comes from a command that was run and an output that was seen. Where the survey already recorded a documented claim, the note records whether observation confirmed or contradicted it.
-- **Docker or it does not count.** Every candidate is exercised only through `docker run --rm`, mirroring [structurizr](../../factory/scripts/structurizr). A capability reachable only after a local install fails the MUST it claims to satisfy.
+- **Docker or it does not count.** Every candidate is exercised only through `docker run --rm`, mirroring [structurizr](../../.agent-factory/factory/scripts/structurizr). A capability reachable only after a local install fails the MUST it claims to satisfy.
 - **A ruled-out candidate is a result.** A candidate that cannot meet its Definition of Done is recorded as answered, not as failed, and does not get more time than the others got.
 - **The PoC decides nothing by itself.** It produces comparison notes. The Pugh Matrix and the ADR are separate, later, and human-approved.
 
@@ -81,7 +81,7 @@ Two artifacts are authored once and reused by every story: `acid-slice.md`, the 
 
 ### One story per candidate
 
-Each story is a plain markdown file under `poc/data_model_from_dsl/stories/`, per [technical-poc.md § Step 1](../../factory/playbooks/technical-poc.md). Each states its goal, the risk it tests, what to build, a mechanical Definition of Done, and the instruction to write a comparison note.
+Each story is a plain markdown file under `poc/data_model_from_dsl/stories/`, per [technical-poc.md § Step 1](../../.agent-factory/factory/playbooks/technical-poc.md). Each states its goal, the risk it tests, what to build, a mechanical Definition of Done, and the instruction to write a comparison note.
 
 The four candidate stories and the specific question each exists to settle:
 
@@ -110,7 +110,7 @@ Mechanical, identical in shape across candidates:
 - The `acid-slice.md` specification and one broken-model variant per candidate.
 - Four candidate stories: DBML, LinkML, Atlas HCL, Mermaid erDiagram.
 - Four comparison notes, each answering the eight Definition-of-Done items.
-- A Pugh Matrix over the four, scored from the comparison notes, via [pugh-matrix](../../factory/skills/pugh-matrix/SKILL.md).
+- A Pugh Matrix over the four, scored from the comparison notes, via [pugh-matrix](../../.agent-factory/factory/skills/pugh-matrix/SKILL.md).
 - A written recommendation, or an explicit deferral with a stated reason.
 - All prototype material confined to `poc/data_model_from_dsl/`.
 
@@ -119,17 +119,17 @@ Mechanical, identical in shape across candidates:
 - **Prisma, PlantUML IE, and D2.** Each is excluded on recorded survey evidence, not on preference. Prisma has no official Docker image, cannot express CHECK constraints, mandates a single provider from a closed enum against ADR-0001's open product choice, and its only Python generator is archived. PlantUML degrades composite keys, multi-column UNIQUE, and value constraints to free-text notes, which makes the model unvalidatable in exactly the places that matter. D2 cannot express six of the ten constructs, and its maintainers state it cannot represent multi-column foreign keys at all. Any of the three may be revived if a story turns up evidence that overturns its exclusion.
 - Porting the full 25-entity model. The slice is the experiment; the full port belongs to adoption.
 - Writing the ADR, or amending `entity-model.md`.
-- Building the `factory/scripts/<candidate>` Docker wrapper as shipped tooling. Throwaway container invocations only.
+- Building the `.agent-factory/factory/scripts/<candidate>` Docker wrapper as shipped tooling. Throwaway container invocations only.
 - Choosing the relational database product. ADR-0001 leaves it open and this PoC does not close it.
 - Migration tooling, CI integration, and pre-commit gating.
 
 ## Design Details
 
-Prototype material lives under `poc/data_model_from_dsl/` and stays marked as spike code, per [technical-poc.md § DONE](../../factory/playbooks/technical-poc.md). Nothing is promoted into the specification or the Factory scripts by this proposal.
+Prototype material lives under `poc/data_model_from_dsl/` and stays marked as spike code, per [technical-poc.md § DONE](../../.agent-factory/factory/playbooks/technical-poc.md). Nothing is promoted into the specification or the Factory scripts by this proposal.
 
-Candidates are independent, so their stories may run in parallel, one worktree per candidate, per [branching-policy.md § Every Branch Has A Worktree](../../factory/rulebooks/conventions/branching-policy.md#every-branch-has-a-worktree). Note that the Factory install is gitignored, so a freshly created worktree contains no `factory/` and no CLI agent directory. Symlink both from the primary checkout before dispatching anything into such a worktree, and leave `.current-work/` per-worktree so the gate markers do not collide.
+Candidates are independent, so their stories may run in parallel, one worktree per candidate, per [branching-policy.md § Every Branch Has A Worktree](../../.agent-factory/factory/rulebooks/conventions/branching-policy.md#every-branch-has-a-worktree). Note that the Factory install is gitignored, so a freshly created worktree contains no `factory/` and no CLI agent directory. Symlink both from the primary checkout before dispatching anything into such a worktree, and leave `.current-work/` per-worktree so the gate markers do not collide.
 
-No agent builds the candidates. The builds are done directly, per [technical-poc.md § Step 2](../../factory/playbooks/technical-poc.md).
+No agent builds the candidates. The builds are done directly, per [technical-poc.md § Step 2](../../.agent-factory/factory/playbooks/technical-poc.md).
 
 Comparison notes cite the survey's source records by filename wherever they confirm or contradict a documented claim, so the PoC's evidence chain joins the survey's rather than starting over.
 

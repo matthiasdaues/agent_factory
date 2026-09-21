@@ -1,10 +1,15 @@
 ---
 id: "0014"
-status: proposed
+status: superseded by ADR-0016
 evaluation: none
 ---
 
 # Two-layer routing with two-mode lifecycle
+
+> **Superseded.** The two-layer routing and two-mode lifecycle were replaced
+> in 0.9.0 by concern-oriented agent context — a single markdown file
+> (`docs/agent-context.md`). The four YAML index files no longer exist.
+> See the [concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
 
 ## Context
 

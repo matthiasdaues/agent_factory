@@ -10,24 +10,24 @@ Reorient the user at any point in a session. Answer "where am I?", "what do I do
 
 ## When invoked
 
-### Inside an active playbook
+### Inside an active workstream
 
-Read `.current-work/playbook-state.yml` (if it exists) to determine the current phase and state.
+Read workstream state under `.agent-factory/workstreams/` to determine the current context.
 
 Present three things:
 
-1. **Where you are.** Name the playbook, current phase, and current state in plain language. Example: "You're in the greenfield-development playbook, in the Requirements phase. The requirements-agent has finished and the spec-review-agent is about to run."
-2. **What you can do next.** List the immediate next actions — the gate that needs to pass, the agent that runs next, or the decision the user needs to make.
-3. **What's relevant.** Name the factory concepts involved (the current agent's role, the skills it uses, the gate it must pass) with one-sentence plain-language explanations.
+1. **Where you are.** Name the playbook and workstream topic in plain language. Example: "You're working on the feature-addition playbook for the search-indexing workstream."
+2. **What you can do next.** List the immediate next actions — run `intent select` to see eligible agents, invoke `run-step` to determine the next step, or the decision the user needs to make.
+3. **What's relevant.** Name the factory concepts involved (the current agent's role, the skills it uses, the preconditions it must satisfy) with one-sentence plain-language explanations.
 
 ### Outside an active playbook
 
 No playbook-state marker exists. Present the session entrypoint options with explanations of what each leads to:
 
-- **A — I'm new here — show me around.** Adopts VIRGIL and loads the `newcomer-tour` skill, which walks through the Getting Started section of `factory/docs/factory-guide.md` conversationally.
-- **B — I want to start something.** Opens the intention tree: spike, PoC, greenfield, brownfield, feature, bug fix, refactoring, docs sync, review, or research.
-- **C — I want to run an agent or playbook directly.** Lists available agents and playbooks from INDEX.yaml.
-- **D — I just want to talk something through.** Adopts VIRGIL for open-ended conversation.
+- **H — Help: I'm new here or need orientation.** Adopts VIRGIL and loads the `newcomer-tour` skill, which walks through the Getting Started section of `.agent-factory/factory/docs/factory-guide.md` conversationally.
+- **K — Housekeeping: project setup and maintenance.** Check factory state, re-fit, update the factory, or refresh agent context.
+- **P — Project Work: start or continue a workstream.** Opens the intention tree: spike, PoC, greenfield, brownfield, feature, bug fix, refactoring, docs sync, review, or research.
+- **O — Open Stage: let's just talk.** Adopts VIRGIL for open-ended conversation.
 
 Explain each option in one sentence of plain language — no factory jargon.
 

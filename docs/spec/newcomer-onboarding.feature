@@ -1,3 +1,4 @@
+# scope: global
 Feature: Newcomer onboarding and incremental brownfield
 
   The factory presents rigour as a ramp, not a wall. A newcomer walks
@@ -7,18 +8,18 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Newcomer walks through a guided tour before choosing a workflow
     # actor: Newcomer
-    # @docs/arc42/beginner-intro.md
-    # @factory/config/AGENTS.md
+    # @.agent-factory/factory/docs/factory-guide.md
+    # @.agent-factory/factory/config/AGENTS.md
 
     Scenario: Newcomer selects the guided tour from the session entrypoint
-      Given the session entrypoint presents option A "I'm new here — show me around"
-      When the newcomer selects option A
-      Then the CLI reads docs/arc42/beginner-intro.md
+      Given the session entrypoint presents lane H "Help: I'm new here or need orientation"
+      When the newcomer selects lane H
+      Then the CLI invokes the newcomer-tour skill which reads .agent-factory/factory/docs/factory-guide.md
       And walks the user through it conversationally, one section at a time
       And pauses for questions after each section
 
     Scenario: Guided tour checks for prior work before starting
-      Given the newcomer selects option A
+      Given the newcomer selects lane H
       And a completed poc-spike or charter exists in the project
       When the tour begins
       Then the CLI acknowledges what the user has done
@@ -37,7 +38,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: User reorients mid-session via the guided-tour skill
     # actor: Returning User
-    # @factory/skills/guided-tour/SKILL.md
+    # @.agent-factory/factory/skills/guided-tour/SKILL.md
 
     Scenario: User invokes guided-tour skill for orientation
       Given the user is in an active session
@@ -54,42 +55,34 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Session entrypoint presents four options including newcomer path
     # actor: Newcomer, Returning User
-    # @factory/config/AGENTS.md
+    # @.agent-factory/factory/config/AGENTS.md
 
-    Scenario: Session entrypoint shows the four-option menu
+    Scenario: Session entrypoint shows the four-lane menu
       Given a new session starts
       When the CLI presents the session entrypoint
-      Then option A is "I'm new here — show me around"
-      And option B is "I want to start something"
-      And option C is "I want to run an agent or playbook directly"
-      And option D is "I just want to talk something through"
+      Then lane H is "Help: I'm new here or need orientation"
+      And lane K is "Housekeeping: project setup and maintenance"
+      And lane P is "Project Work: start or continue a workstream"
+      And lane O is "Open Stage: let's just talk"
 
-    Scenario: Existing option B content is preserved under new letter
-      Given the user selects option B
-      When the intention tree expands
-      Then it contains the same choices as the former option A
+    Scenario: Project Work lane contains workstream management
+      Given the user selects lane P
+      When the workstream options expand
+      Then the user can start a new workstream or continue an existing one
       And all playbook routing is unchanged
 
   Rule: In-session agents are adopted, not spawned as subagents
     # actor: Newcomer, Returning User
-    # @factory/agents/chat-agent.md
-    # @factory/agents/kit-manager.md
-    # @factory/agents/coaching-agent.md
+    # @.agent-factory/factory/agents/virgil.md
+    # @.agent-factory/factory/agents/coaching-agent.md
 
-    Scenario: Chat-agent is adopted in the current session
-      Given the user selects option D "I just want to talk something through"
-      When the CLI activates the chat-agent
-      Then it reads the chat-agent definition from the path resolved via INDEX.yaml
-      And adopts the chat-agent's role, boundaries, and workflow as its own
+    Scenario: VIRGIL is adopted in Open Stage
+      Given the user selects lane O "Open Stage: let's just talk"
+      When the CLI activates VIRGIL
+      Then it reads the VIRGIL agent definition from the path resolved via INDEX.yaml
+      And adopts VIRGIL's role, boundaries, and workflow as its own
       And no subagent is spawned
       And the conversation is direct with the stakeholder
-
-    Scenario: Kit-manager is adopted when invoked by a playbook step
-      Given a playbook step invokes the kit-manager
-      When the CLI activates the kit-manager
-      Then it reads the kit-manager definition and adopts its role
-      And the stakeholder interview happens in the current session
-      And no subagent is spawned
 
     Scenario: Coaching-agent is adopted when invoked
       Given the user or a playbook step invokes the coaching-agent
@@ -100,7 +93,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Brownfield onboarding exits after three anchor files
     # actor: Brownfield User
-    # @factory/playbooks/brownfield-onboarding.md
+    # @.agent-factory/factory/playbooks/brownfield-onboarding.md
 
     Scenario: Stage 1 completes with three anchor files
       Given the brownfield-onboarding playbook is running
@@ -130,7 +123,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Reverse-map skill populates scope map from forensic evidence
     # actor: Brownfield User
-    # @factory/skills/reverse-map/SKILL.md
+    # @.agent-factory/factory/skills/reverse-map/SKILL.md
 
     Scenario: Reverse-map sweeps tests first as primary evidence
       Given the reverse-map skill is invoked during Stage 1
@@ -177,7 +170,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Feature-addition deepens anchor files incrementally
     # actor: Feature Developer
-    # @factory/playbooks/feature-addition.md
+    # @.agent-factory/factory/playbooks/feature-addition.md
 
     Scenario: Feature-addition adds a Rule to the scope map
       Given a feature-addition runs against a brownfield-lite baseline
@@ -206,7 +199,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   Rule: Feature-addition prerequisite checks anchor file presence, not a gate marker
     # actor: Feature Developer
-    # @factory/playbooks/feature-addition.md
+    # @.agent-factory/factory/playbooks/feature-addition.md
 
     Scenario: Feature-addition detects brownfield-lite readiness from anchor files
       Given the user starts a feature-addition

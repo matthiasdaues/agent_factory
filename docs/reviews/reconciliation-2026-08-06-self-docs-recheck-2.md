@@ -1,7 +1,7 @@
 ---
 title: Reconciliation — Factory Self-Documentation (Second Repeat Pass)
 date: 2026-08-06
-scope: factory self-documentation (root README + referenced docs, factory/, orchestrator/)
+scope: factory self-documentation (root README + referenced docs, .agent-factory/factory/, orchestrator/)
 source: reconcile
 baseline: 8abf5cd (chore/reconcile-docs checkout, post RECON-0018)
 reviewer: reconciliation-agent (separate session)
@@ -11,7 +11,7 @@ reviewer: reconciliation-agent (separate session)
 
 **Scope.** A second repeat-pass reconciliation of the Factory's *own*
 self-documentation against the code-as-built, run fresh per
-[review-loop-discipline.md](../../factory/rulebooks/conventions/review-loop-discipline.md):
+[review-loop-discipline.md](../../.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md):
 re-verify every open `RECON` finding *and* rebuild the truth-map diff from
 scratch to catch drift a prior pass or its fixes introduced. The
 `docs/spec` and `docs/adr` flow-control specification surface was left alone
@@ -21,18 +21,18 @@ Targets reconciled:
 
 1. Root `README.md` and root-level docs it references (`docs/arc42/concepts.md`,
    `docs/arc42/beginner-intro.md`, `docs/arc42/CONTEXT-MAP.md`).
-2. `factory/` self-documentation (`factory/README.md`, `factory/docs/`).
+2. `.agent-factory/factory/` self-documentation (`.agent-factory/factory/README.md`, `.agent-factory/factory/docs/`).
 3. `orchestrator/` self-documentation (`orchestrator/README.md`,
    `orchestrator/docs/**`, `orchestrator/docs/adr/`). `orchestrator/CONTEXT.md`
    was checked for again — it still does not exist, which matches
    `docs/arc42/CONTEXT-MAP.md`'s entry that links `orchestrator/README.md` instead.
 
 **Method.** Rebuilt truth maps from code
-(`factory/scripts/run-playbook`, `run-tests`, `schema-validate`,
+(`.agent-factory/factory/scripts/run-playbook`, `run-tests`, `schema-validate`,
 `policy-validate`, `spec-lint`, `arch-lint`, `backlog-lint`, `matrix-lint`,
-`update-factory`; `factory/config/pre-commit-config.yaml`;
+`update-factory`; `.agent-factory/factory/config/pre-commit-config.yaml`;
 `.pre-commit-config.yaml`; `orchestrator/src/agent_factory_orchestrator/cli.py`;
-`orchestrator/pyproject.toml`; `factory/playbooks/*.md`) and diffed against
+`orchestrator/pyproject.toml`; `.agent-factory/factory/playbooks/*.md`) and diffed against
 the prose claims in the in-scope docs. Re-verified file paths/existence,
 command names and flags, behaviour claims, and architecture/ownership
 statements. Re-ran the deterministic gates both to check the docs *about*
@@ -40,9 +40,9 @@ them and to confirm the documented invocation forms.
 
 ## Prior open finding — re-verified
 
-| Finding                                                                                                                                                                                                                            | Status this pass | Action                                                                                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/findings/RECON-0017.md` — pre-push full-suite test gate documented (ADR-0003 + `factory/README.md` § Test execution hooks point 2) but never wired into `factory/config/pre-commit-config.yaml` or `.pre-commit-config.yaml` | **Still open**   | Re-verified: `grep -rn 'pre-push' .pre-commit-config.yaml factory/config/` returns nothing; no `stages: [pre-push]` entry and no `run-tests --full` entry exist in either config. `.pre-commit-config.yaml` has only a `pre-commit`-stage `run-tests --changed-only` hook. The code defect is unfixed. Finding left `status: open`; handed back to the implementation agent. |
+| Finding                                                                                                                                                                                                                                                          | Status this pass | Action                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/findings/RECON-0017.md` — pre-push full-suite test gate documented (ADR-0003 + `.agent-factory/factory/README.md` § Test execution hooks point 2) but never wired into `.agent-factory/factory/config/pre-commit-config.yaml` or `.pre-commit-config.yaml` | **Still open**   | Re-verified: `grep -rn 'pre-push' .pre-commit-config.yaml .agent-factory/factory/config/` returns nothing; no `stages: [pre-push]` entry and no `run-tests --full` entry exist in either config. `.pre-commit-config.yaml` has only a `pre-commit`-stage `run-tests --changed-only` hook. The code defect is unfixed. Finding left `status: open`; handed back to the implementation agent. |
 
 ## Discrepancy table (this pass)
 
@@ -71,7 +71,7 @@ for a documentation-reconciliation pass:
   scope, and is a known intentional partial state (`arch-lint` is
   intentionally tolerant of missing chapters). Not edited. Reconciling it
   means writing architecture chapters, which is out of scope here.
-- **`factory/playbooks/greenfield-development.fsm.yml`** still declares
+- **`.agent-factory/factory/playbooks/greenfield-development.fsm.yml`** still declares
   `audit.output_file: .orchestrator/audit.log`, while the orchestrator
   (`cli.py`, `AUDIT_LOG = Path(".current-work/audit.log")`) and
   `orchestrator/README.md` both use `.current-work/audit.log`. The FSM's
@@ -86,27 +86,27 @@ for a documentation-reconciliation pass:
 
 Re-confirmed against code-as-built; no edits needed:
 
-- Root `README.md` — repo-layout claims, links to `factory/`,
+- Root `README.md` — repo-layout claims, links to `.agent-factory/factory/`,
   `orchestrator/`, `docs/arc42/concepts.md`, `docs/arc42/beginner-intro.md`,
   `docs/README.md`, the workflow-diagram asset
   (`docs/assets/images/workflow-diagram.svg` exists).
 - `docs/arc42/concepts.md` — phase chain, research-workflow description,
-  `update-factory` mention, `factory/config/` template labelling,
+  `update-factory` mention, `.agent-factory/factory/config/` template labelling,
   orchestrator `.fsm.yml` description, project directory tree structure.
   (Project tree arc42 "01…through 12" claim excepted above.)
 - `docs/arc42/beginner-intro.md` — all six playbook references resolve
   (`poc-spike`, `bug-fix`, `documentation-update`, `greenfield-development`,
   `brownfield-onboarding`, `feature-addition` all exist in
-  `factory/playbooks/`); `INDEX.yaml` catalogue reference; two-modes framing;
+  `.agent-factory/factory/playbooks/`); `INDEX.yaml` catalogue reference; two-modes framing;
   orchestrator `.fsm.yml` description.
 - `docs/arc42/CONTEXT-MAP.md` — Usage Accounting (`usage/` absent, no code) and
   Factory API ("vision-stub only", `factory_api/` absent) claims accurate;
   orchestrator entry links `orchestrator/README.md` + `orchestrator/docs/adr/`
   and does not mention the absent `orchestrator/CONTEXT.md`.
-- `factory/README.md` — `init-factory` footprint (8-step list),
+- `.agent-factory/factory/README.md` — `init-factory` footprint (8-step list),
   `update-factory` top-line, `run-playbook` `AF_ORCHESTRATOR_SOURCE` /
   `orchestrator-v0.1.0` default source (verified in
-  `factory/scripts/run-playbook`: `DEFAULT_SOURCE` pinned to
+  `.agent-factory/factory/scripts/run-playbook`: `DEFAULT_SOURCE` pinned to
   `git+...@orchestrator-v0.1.0#subdirectory=orchestrator`; console script
   `agent-factory-orchestrate` matches `pyproject.toml`
   `[project.scripts]`), `--cli claude|copilot` backends (verified in
@@ -114,10 +114,10 @@ Re-confirmed against code-as-built; no edits needed:
   (verified: `--staged` is `dest=mode`, default `--full`),
   framework auto-detection, ADR-0003/UC-09 links, Pi `run_agent` /
   `dispatch_wave` extensions.
-- `factory/README.md` § Test execution hooks — point 3 ("before advancing to
+- `.agent-factory/factory/README.md` § Test execution hooks — point 3 ("before advancing to
   the QA phase") matches both playbook FSMs; point 2 (pre-push full suite)
   restates ADR-0003 correctly and is the subject of open `RECON-0017`.
-- `factory/docs/factory-guide.md` — agents/skills/playbooks listings, all
+- `.agent-factory/factory/docs/factory-guide.md` — agents/skills/playbooks listings, all
   eleven `playbooks/*.md` links resolve, `run_agent`/`dispatch_wave` Pi
   extensions, runtime usage-capture pipeline, research validators
   (`schema-validate <artifact-file> <schema-file>` positional form verified

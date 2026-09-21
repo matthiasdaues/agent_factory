@@ -47,7 +47,7 @@ class TestParseInlineList:
 
 class TestReadAllowed:
     def test_factory_prefix_always_allowed(self):
-        assert sg._read_allowed("factory/scripts/lint", []) is True
+        assert sg._read_allowed(".agent-factory/factory/scripts/lint", []) is True
 
     def test_claude_prefix_always_allowed(self):
         assert sg._read_allowed(".claude/settings.json", []) is True
@@ -150,7 +150,7 @@ class TestMainRoundTrip:
         manifest.write_text("inputs:\n  - docs/*.md\noutputs:\n  - src/*.py\n")
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(
-            "sys.stdin", io.StringIO(json.dumps({"path": "factory/scripts/lint"}))
+            "sys.stdin", io.StringIO(json.dumps({"path": ".agent-factory/factory/scripts/lint"}))
         )
         rc = sg.main(["--guard-type", "read"])
         assert rc == 0
@@ -238,7 +238,7 @@ class TestMainRoundTrip:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(
             "sys.stdin",
-            io.StringIO(json.dumps({"command": "cat factory/scripts/lint"})),
+            io.StringIO(json.dumps({"command": "cat .agent-factory/factory/scripts/lint"})),
         )
         rc = sg.main(["--guard-type", "bash"])
         assert rc == 0

@@ -37,10 +37,10 @@ Foundation story. Must complete before any Wave 2 story launches.
 
 **File-overlap analysis yields two serial chains that run in parallel:**
 
-| Chain | Stories          | Shared file                    | Order         |
-| ----- | ---------------- | ------------------------------ | ------------- |
-| A     | ST-0191, ST-0192 | `factory/scripts/context-lint` | ST-0191 first |
-| B     | ST-0193, ST-0195 | `factory/INDEX.yaml`           | ST-0193 first |
+| Chain | Stories          | Shared file                                   | Order         |
+| ----- | ---------------- | --------------------------------------------- | ------------- |
+| A     | ST-0191, ST-0192 | `.agent-factory/factory/scripts/context-lint` | ST-0191 first |
+| B     | ST-0193, ST-0195 | `.agent-factory/factory/INDEX.yaml`           | ST-0193 first |
 
 Chains A and B are file-disjoint and dispatch in parallel. Within each chain, stories merge serially in the listed order.
 
@@ -64,7 +64,7 @@ Chains A and B are file-disjoint and dispatch in parallel. Within each chain, st
 
 ## Model selection
 
-From `factory/config/model.conf` -- Claude Code has no explicit entries, so the dispatcher uses Claude Code's native model routing:
+From `.agent-factory/factory/config/model.conf` -- Claude Code has no explicit entries, so the dispatcher uses Claude Code's native model routing:
 
 | Tier     | Model  | Stories                                              |
 | -------- | ------ | ---------------------------------------------------- |
@@ -111,14 +111,14 @@ From `factory/config/model.conf` -- Claude Code has no explicit entries, so the 
 - Story branches: `story/ST-NNNN` (cut from `feature/agent-context`)
 - Worktrees: `.current-work/worktrees/story-ST-NNNN/`
 - Dispatch ledger: `.current-work/dispatch-ledger.yaml`
-- Scripts: `factory/scripts/dispatch` (init, plan, prepare-wave, mark-dispatching, mark-dispatched, verify-story, merge-story, close-wave)
-- Pre-spawn: `factory/scripts/verify-base`
-- Pre-merge: `factory/scripts/premerge-check`
-- Gate scripts: `factory/scripts/crap-score`, `factory/scripts/dependency-check`
+- Scripts: `.agent-factory/factory/scripts/dispatch` (init, plan, prepare-wave, mark-dispatching, mark-dispatched, verify-story, merge-story, close-wave)
+- Pre-spawn: `.agent-factory/factory/scripts/verify-base`
+- Pre-merge: `.agent-factory/factory/scripts/premerge-check`
+- Gate scripts: `.agent-factory/factory/scripts/crap-score`, `.agent-factory/factory/scripts/dependency-check`
 
 ## Suggested skills
 
-- The fresh session should invoke `factory/rulebooks/rules.md` (read first, per CLAUDE.md MUST).
+- The fresh session should invoke `.agent-factory/factory/rulebooks/rules.md` (read first, per CLAUDE.md MUST).
 - The implementation-agent dispatcher (`.claude/agents/implementation-agent.md`) should be spawned or adopted.
 - Developer-agent subagents (`.claude/agents/developer-agent.md`) are spawned per story.
 - `spec-feedback` skill for each completed story (developer-agent workflow).
@@ -126,8 +126,8 @@ From `factory/config/model.conf` -- Claude Code has no explicit entries, so the 
 
 ## What the next session does
 
-1. Read `factory/rulebooks/rules.md`.
-2. Create invocation branch `feature/agent-context` from `dev` with `factory/scripts/dispatch init`.
+1. Read `.agent-factory/factory/rulebooks/rules.md`.
+2. Create invocation branch `feature/agent-context` from `dev` with `.agent-factory/factory/scripts/dispatch init`.
 3. Dispatch Wave 1 (ST-0190), verify, gate-check, merge.
 4. Dispatch Wave 2 (two parallel serial chains: A=[ST-0191, ST-0192], B=[ST-0193, ST-0195]), verify, gate-check, merge each.
 5. Dispatch Wave 3 (four parallel stories: ST-0194, ST-0196, ST-0197, ST-0198), verify, gate-check, merge each.

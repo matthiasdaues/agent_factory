@@ -2,7 +2,7 @@
 
 Generated: 2026-09-13
 
-Source: [accepted proposal](../proposals/usage-processing-and-storage.md)
+Source: [accepted proposal](../proposals/implemented/usage-processing-and-storage.md)
 
 ## Actor-Goal Matrix
 
@@ -43,4 +43,4 @@ Finding status remains owned by the independent repeat specification reviewer.
 
 ## Explicit Deferrals
 
-The specification does not create actor goals for PostgreSQL, SQLite, a persistent authoritative DuckDB database, automatic Parquet materialization, Marimo, Jupyter, Grafana, dashboards, the community `dash` extension, containers, services, HTTP APIs, authentication, TLS, remote or cloud resources, centralized collection, access control, price catalogs, transcript-content indexing, raw-evidence retention automation, Pandas, or Polars. These remain deferred by the [proposal scope](../proposals/usage-processing-and-storage.md#scope).
+The specification does not create actor goals for PostgreSQL, SQLite, a persistent authoritative DuckDB database, automatic Parquet materialization, Marimo, Jupyter, Grafana, dashboards, the community `dash` extension, containers, services, HTTP APIs, authentication, TLS, remote or cloud resources, centralized collection, access control, price catalogs, transcript-content indexing, raw-evidence retention automation, Pandas, or Polars. These remain deferred by the [proposal scope](../proposals/implemented/usage-processing-and-storage.md#scope).

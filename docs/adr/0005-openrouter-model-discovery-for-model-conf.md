@@ -18,7 +18,7 @@ The tempting move is to resolve tiers live — query OpenRouter at spawn time an
 
 **Runtime resolution stays static and offline.** Pi tiers are curated into `model.conf` as ordinary rows — `pi.economy`, `pi.standard`, `pi.strong` — resolved by the same `matrix-lint` parser, under the same `on_missing = halt`, that already serves `copilot.*` and `trigger`. No agent spawn ever calls the network to pick a model. This is the direct application of two standing principles: `model.conf` is an *user-curated* router (not an auto-selector), and the project resolves flow-control state deterministically from files, never from a live external source.
 
-**Discovery is a separate user tool, off the hot path.** A stdlib-only script, `factory/scripts/openrouter-discover`, queries the OpenRouter catalog to *assist* curation. It:
+**Discovery is a separate user tool, off the hot path.** A stdlib-only script, `.agent-factory/factory/scripts/openrouter-discover`, queries the OpenRouter catalog to *assist* curation. It:
 
 - lists models sorted by price, filterable by max price and minimum context length, so an user can see the field;
 - suggests a tier mapping — a cheap model for `economy`, a mid-tier for `standard`, a frontier model for `strong` — as a starting point the user edits, never an auto-commit;
@@ -50,6 +50,6 @@ There is no genuine third contender once "runtime must stay deterministic and of
 ## Referenced from
 
 - [09_architecture_decisions.md](../arc42/09_architecture_decisions.md)
-- [config/model.conf](../../config/model.conf)
+- [config/model.conf](../../.agent-factory/config/model.conf)
 - [docs/spec/prd.md § FR-J](../spec/prd.md#4-functional-requirements)
 - [docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md](0004-pi-subagent-invocation-via-subprocess-spawn.md)

@@ -20,31 +20,31 @@ Every file in the implementation range was inspected against correctness,
 Clean Architecture, SOLID, maintainability, and consistency:
 
 - Stories: `backlog/ST-0060.md` through `backlog/ST-0064.md`.
-- Discovery and roles: `factory/INDEX.yaml`,
-  `factory/agents/research-orchestrator.md`, and
-  `factory/agents/research-synthesizer.md`.
+- Discovery and roles: `.agent-factory/factory/INDEX.yaml`,
+  `.agent-factory/factory/agents/research-orchestrator.md`, and
+  `.agent-factory/factory/agents/research-synthesizer.md`.
 - Design and guidance:
   `docs/proposals/implemented/research-cli-portability-audit.md`,
   `docs/proposals/implemented/research-survey-mode.md`,
-  `factory/docs/factory-guide.md`, and
+  `.agent-factory/factory/docs/factory-guide.md`, and
   `docs/proposals/implemented/research-workflow-efficiency-and-atomicity.md`.
-- Workflow contracts: `factory/playbooks/research-survey.md`,
-  `factory/playbooks/research-topic.md`, and
-  `factory/rulebooks/conventions/dispatch-contract.md`.
+- Workflow contracts: `.agent-factory/factory/playbooks/research-survey.md`,
+  `.agent-factory/factory/playbooks/research-topic.md`, and
+  `.agent-factory/factory/rulebooks/conventions/dispatch-contract.md`.
 - Schemas and templates: the changed research brief contract and the new survey
   plan and report schemas and templates.
-- Skills: `factory/skills/research-planning/SKILL.md` and
-  `factory/skills/research-synthesis/SKILL.md`.
+- Skills: `.agent-factory/factory/skills/research-planning/SKILL.md` and
+  `.agent-factory/factory/skills/research-synthesis/SKILL.md`.
 - Acceptance tests: all five changed `test_research_*survey*` and
   `test_research_cli_portability.py` files.
 
 ## Finding table
 
-| Finding                                                                                                                                                                                                                 | Artifact                                               | Category | Severity |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------- | -------- |
-| The mode-aware Orchestrator omitted survey outputs, the synthesizer handoff, and survey completion criteria; declare those contracts while preserving the falsification-only register requirements.                     | `factory/agents/research-orchestrator.md:17`           | Defect   | Major    |
-| The implemented survey design still said "not yet implemented" and claimed reuse of the falsification final-report schema; record the dedicated survey contracts and unchanged falsification boundary.                  | `docs/proposals/implemented/research-survey-mode.md:3` | Defect   | Major    |
-| The end-to-end resolver accepted traversal, absolute, and symlink references outside the survey run; canonically contain every reference below this run's `source-records/` directory and cover all three escape forms. | `orchestrator/tests/test_research_survey_e2e.py`       | Defect   | Major    |
+| Finding                                                                                                                                                                                                                 | Artifact                                                    | Category | Severity |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------- | -------- |
+| The mode-aware Orchestrator omitted survey outputs, the synthesizer handoff, and survey completion criteria; declare those contracts while preserving the falsification-only register requirements.                     | `.agent-factory/factory/agents/research-orchestrator.md:17` | Defect   | Major    |
+| The implemented survey design still said "not yet implemented" and claimed reuse of the falsification final-report schema; record the dedicated survey contracts and unchanged falsification boundary.                  | `docs/proposals/implemented/research-survey-mode.md:3`      | Defect   | Major    |
+| The end-to-end resolver accepted traversal, absolute, and symlink references outside the survey run; canonically contain every reference below this run's `source-records/` directory and cover all three escape forms. | `orchestrator/tests/test_research_survey_e2e.py`            | Defect   | Major    |
 
 Filed as `FAGAN-0008`, `FAGAN-0009`, and `BUG-0001`; all are resolved and
 verified.

@@ -3,7 +3,7 @@
 **Date:** 2026-09-03\
 **From:** Architecture phase (architecture-agent + architecture-review-agent)\
 **To:** Planning phase (planning-agent)\
-**Playbook:** [feature-addition.md](../../factory/playbooks/feature-addition.md)\
+**Playbook:** [feature-addition.md](../../.agent-factory/factory/playbooks/feature-addition.md)\
 **Proposal:** [yaml-charter-lifecycle.md](../proposals/yaml-charter-lifecycle.md)
 
 ## Current State
@@ -26,10 +26,10 @@
 
 ### Phase 2 gate result
 
-- `factory/scripts/arch-lint` — pass (0 errors, 1 pre-existing ARCH-PARSE warning)
+- `.agent-factory/factory/scripts/arch-lint` — pass (0 errors, 1 pre-existing ARCH-PARSE warning)
 - Architecture review — **pass** (2 Medium findings + 2 Low observations, all resolved)
 - Open `ATAM-*` findings — none
-- `factory/scripts/validate` — pass (0 errors)
+- `.agent-factory/factory/scripts/validate` — pass (0 errors)
 
 ## What was produced
 
@@ -56,7 +56,7 @@
 
 ### Concurrent documentation improvement
 
-The factory guide (`factory/docs/factory-guide.md`) received a new "Pre-commit hooks" subsection explaining the bash guard, zero-install uvx pattern, existing-hook preservation, and first-commit behavior. The README was updated with a cross-reference. This is not architecture work but was committed during this phase.
+The factory guide (`.agent-factory/factory/docs/factory-guide.md`) received a new "Pre-commit hooks" subsection explaining the bash guard, zero-install uvx pattern, existing-hook preservation, and first-commit behavior. The README was updated with a cross-reference. This is not architecture work but was committed during this phase.
 
 ## What the planning-agent should do
 

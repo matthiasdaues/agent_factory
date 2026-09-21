@@ -10,7 +10,7 @@ Canonical finding-status commit on `dev`: `fa5dd94bf49bb12fa238d48144f2e11d2bff5
 
 ## Reviewed Specification
 
-- [Accepted proposal](../proposals/usage-processing-and-storage.md)
+- [Accepted proposal](../proposals/implemented/usage-processing-and-storage.md)
 - [Feature specification](../spec/local-usage-processing-and-analysis.feature)
 - [Gaps report](../spec/local-usage-processing-and-analysis-gaps.md)
 - [QA strategy](../spec/local-usage-processing-and-analysis-qa-strategy.md)
@@ -19,11 +19,11 @@ Canonical finding-status commit on `dev`: `fa5dd94bf49bb12fa238d48144f2e11d2bff5
 - [Validation rules § Local usage processing and analysis](../spec/supplementary_specs/validation-rules.md#local-usage-processing-and-analysis)
 - Directly referenced context, PRD, scope-map, test-configuration, and concern-oriented contracts needed to verify prior findings
 
-`factory/scripts/spec-lint --spec-dir docs/spec` passed with 0 errors, 0 warnings, and 27 informational notices across 18 specification files.
+`.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` passed with 0 errors, 0 warnings, and 27 informational notices across 18 specification files.
 
 ## Handoff Validation
 
-`factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation-repeat.md --repo-root .` passed. Independent semantic comparison confirmed the declared feature HEAD, branch, absent upstream, working-tree contents, retained worktrees, pre-review `dev` HEAD, committed remediation, open-item list, gate evidence, and bounded next action. The handoff is structurally and semantically valid for this review entry.
+`.agent-factory/factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation-repeat.md --repo-root .` passed. Independent semantic comparison confirmed the declared feature HEAD, branch, absent upstream, working-tree contents, retained worktrees, pre-review `dev` HEAD, committed remediation, open-item list, gate evidence, and bounded next action. The handoff is structurally and semantically valid for this review entry.
 
 ## Deterministic Findings
 

@@ -10,11 +10,11 @@ Human Operator (or Orchestrator-as-Trigger, acting on its behalf)
 
 - **Human Operator** — wants a stuck review loop to stop and escalate, not churn forever, while still allowing enough genuine attempts to converge.
 - **Orchestrator-as-Trigger** — wants the identical cap enforced when it drives the loop programmatically, without maintaining its own counter.
-- **The playbook's `.fsm.yml` author** — wants a per-state `halt_conditions` declaration to actually take effect, not sit unenforced (the exact gap this mechanism closes — see [factory-guide.md § Playbook phase gates](../../../factory/docs/factory-guide.md#playbook-phase-gates)).
+- **The playbook's `.fsm.yml` author** — wants a per-state `halt_conditions` declaration to actually take effect, not sit unenforced (the exact gap this mechanism closes — see [factory-guide.md § Playbook phase gates](../../../.agent-factory/factory/docs/factory-guide.md#playbook-phase-gates)).
 
 ## Trigger
 
-The actor is about to re-dispatch the same state's author agent because its gate reported open findings, and runs `factory/scripts/phase retry` first.
+The actor is about to re-dispatch the same state's author agent because its gate reported open findings, and runs `.agent-factory/factory/scripts/phase retry` first.
 
 ## Preconditions
 
@@ -23,20 +23,20 @@ The actor is about to re-dispatch the same state's author agent because its gate
 
 ## Main Success Scenario
 
-1. Actor runs `factory/scripts/phase retry`.
+1. Actor runs `.agent-factory/factory/scripts/phase retry`.
 2. `phase retry` reads the marker and resolves the loop-back target: the current state's `else` transition target if one exists, otherwise the current state itself (BR-008).
 3. `phase retry` resolves the iteration limit for that target state: the FSM's `halt_conditions` entry of type `max_iterations` naming it, if one exists; otherwise `--default-max-iterations` (default `5`) (BR-009).
 4. `phase retry` increments the marker's `iteration` count.
 5. The incremented count does not exceed the limit.
 6. `phase retry` writes the marker with the new `iteration` and a fresh `recorded_at`, exits `0`, and reports `<state>: retry <n>/<limit> recorded`.
-7. The actor re-dispatches the same state's author agent, which reads the open findings and addresses them — this is the loop the [review loop discipline rulebook](../../../factory/rulebooks/conventions/review-loop-discipline.md) requires: re-run the deterministic check, and re-run the full inspection fresh, on every repeat pass.
+7. The actor re-dispatches the same state's author agent, which reads the open findings and addresses them — this is the loop the [review loop discipline rulebook](../../../.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md) requires: re-run the deterministic check, and re-run the full inspection fresh, on every repeat pass.
 
 ## Extensions
 
 - **5a. The incremented count exceeds the limit**
   - 5a1. `phase retry` refuses: exits `2`, reports the state has reached its cap, includes the FSM's own `message` if one was declared (BR-010).
   - 5a2. The marker is **not** written — the iteration count that triggered the refusal is not persisted twice.
-  - 5a3. The actor stops re-dispatching and escalates to a human, per [run-step § Iteration cap](../../../factory/skills/run-step/SKILL.md#iteration-cap).
+  - 5a3. The actor stops re-dispatching and escalates to a human, per [run-step § Iteration cap](../../../.agent-factory/factory/skills/run-step/SKILL.md#iteration-cap).
 - **1a. No marker exists**
   - 1a1. `phase retry` exits `1`, reports that `phase advance` must run first.
 
@@ -94,5 +94,5 @@ Feature: Retry a phase within the iteration cap
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)
-- [factory/scripts/phase](../../../factory/scripts/phase)
-- [review-loop-discipline.md § Rule](../../../factory/rulebooks/conventions/review-loop-discipline.md#rule)
+- [factory/scripts/phase](../../../.agent-factory/factory/scripts/phase)
+- [review-loop-discipline.md § Rule](../../../.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md#rule)

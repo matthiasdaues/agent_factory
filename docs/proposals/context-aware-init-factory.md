@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Context-Aware Init-Factory
 status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-04
@@ -74,7 +74,7 @@ All detection lives in `factory/scripts/init-factory`:
 
 6. **Existing `config/model.conf`**: left untouched (BR-022).
 
-7. **Existing `factory/` directory**: skipped entirely (Extension 3a) —
+7. **Existing `.agent-factory/factory/` directory**: skipped entirely (Extension 3a) —
    refreshing is `update-factory`'s job.
 
 That is everything. No language detection, no framework fingerprinting, no
@@ -84,7 +84,7 @@ CI/CD identification, no "what do you want from the factory" interaction.
 
 ### capture-charter `--init --scan` (Mode 2)
 
-`factory/skills/capture-charter/SKILL.md` Step 1 has a full detection table:
+`.agent-factory/factory/skills/capture-charter/SKILL.md` Step 1 has a full detection table:
 
 | Signal                                                                  | Charter section                                                               |
 | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -108,7 +108,7 @@ dependency lists, CI pipeline analysis).
 
 ### detect-test-regime skill
 
-`factory/skills/detect-test-regime/SKILL.md` — the AI-augmented version of
+`.agent-factory/factory/skills/detect-test-regime/SKILL.md` — the AI-augmented version of
 init-factory's `_scan_test_entrypoints`. Handles multiple test suites,
 discovers testing strategy documents, populates the full
 `docs/charter/testing.yaml` with multi-suite entries and strategy reference.
@@ -328,7 +328,7 @@ simultaneously the factory toolset, the factory's own development project,
 and a documentation archive. A newcomer clones this and sees `backlog/`,
 `docs/proposals/`, `docs/findings/`, `docs/reviews/`, 197 story files, 119
 findings, 72 reviews, 39 proposals — none of which are theirs. The thing
-they actually want (`factory/`) is one directory among many, sitting next to
+they actually want (`.agent-factory/factory/`) is one directory among many, sitting next to
 `orchestrator/` (not yet operational), `poc/`, `sys/`, and
 `session-scratchpad.md`.
 
@@ -363,7 +363,7 @@ and it immediately changed my files.
 
 **Internal project artifacts leak into the consumer story.** `docs/` contains
 arc42, ADRs, specs, findings, handoffs — all about Agent Factory itself. When
-init-factory copies `factory/` into a consumer project, that's clean. But the
+init-factory copies `.agent-factory/factory/` into a consumer project, that's clean. But the
 repo the consumer cloned also has `backlog/ST-0001.md` through `ST-0206.md`.
 There's no `.gitattributes` marking these as development-only. A consumer
 browsing the repo for guidance sees the factory's own 200-story backlog
@@ -378,7 +378,7 @@ suffix. `capture-context` vs `update-context` vs
 
 **The factory guide is good but buried.** It's the single best document in
 the repo — explains concepts clearly, builds from simple to complex. But it
-lives at `factory/docs/factory-guide.md`, two levels deep, behind a README
+lives at `.agent-factory/factory/docs/factory-guide.md`, two levels deep, behind a README
 that already told you a lot. By the time someone reaches it they've either
 figured things out or given up.
 
@@ -428,12 +428,12 @@ Greenfield:   init ────────────────────�
 Brownfield:   init ──► unfitted ──► fitting ──► fitted
 ```
 
-| State        | What exists                                                        | Factory knows the project? | Project reflects the factory? |
-| ------------ | ------------------------------------------------------------------ | -------------------------- | ----------------------------- |
-| **init**     | `factory/`, selected CLIs wired, pre-commit if absent              | No                         | No                            |
-| **unfitted** | Code, tests, CI — a real project the factory just met              | No                         | No                            |
-| **fitting**  | Partial agent-context, some hooks, fingerprint partial             | Partially                  | Partially                     |
-| **fitted**   | Full agent-context, hooks wired or declined, fingerprint confirmed | Yes                        | Yes                           |
+| State        | What exists                                                          | Factory knows the project? | Project reflects the factory? |
+| ------------ | -------------------------------------------------------------------- | -------------------------- | ----------------------------- |
+| **init**     | `.agent-factory/factory/`, selected CLIs wired, pre-commit if absent | No                         | No                            |
+| **unfitted** | Code, tests, CI — a real project the factory just met                | No                         | No                            |
+| **fitting**  | Partial agent-context, some hooks, fingerprint partial               | Partially                  | Partially                     |
+| **fitted**   | Full agent-context, hooks wired or declined, fingerprint confirmed   | Yes                        | Yes                           |
 
 **Greenfield** skips unfitted and fitting. There is no pre-existing project
 to learn about, so init produces an empty project that the first playbook
@@ -455,7 +455,7 @@ chosen ecosystems. No questions beyond the project name and CLI selection.
 
 What init does:
 
-- Copy `factory/` into the project.
+- Copy `.agent-factory/factory/` into the project.
 - Wire up the selected CLIs' dot-directories (`.claude/`, `.github/`,
   `.pi/`, `.codex/`). Only the chosen ones — not all four.
 - Create `config/project.json` (name, UUID).
@@ -670,9 +670,9 @@ section. No explanation of what it does or whether the user should care.
 
 ### 5. Factory directory layout
 
-After install, the user has `factory/` containing agents/, skills/,
+After install, the user has `.agent-factory/factory/` containing agents/, skills/,
 playbooks/, rulebooks/, scripts/, config/, docs/, fixtures/, reports/. No
-map. The factory README says "The script copies a `factory/` directory" and
+map. The factory README says "The script copies a `.agent-factory/factory/` directory" and
 stops. The guide introduces each concept but never shows the directory tree.
 
 ### 6. Factory README "How it works" section
@@ -728,10 +728,10 @@ the fitting lifecycle.
 
 - **`2d8ff9c`** — Three bugs in the init-factory / merge-precommit-config
   pipeline:
-  1. `_tools_in_target` matched `factory/scripts/mdformat` in the dev
+  1. `_tools_in_target` matched `.agent-factory/factory/scripts/mdformat` in the dev
      repo's development section, triggering the dedup filter and silently
      dropping the factory's mdformat hook. Fixed: entries using
-     `factory/scripts/` are excluded from the dedup check.
+     `.agent-factory/factory/scripts/` are excluded from the dedup check.
   2. If `_strip_factory_block` failed silently, the merge would splice a
      new copy on top of the old one, duplicating the entire block. Fixed:
      post-strip marker check raises instead of splicing.
@@ -745,7 +745,7 @@ the fitting lifecycle.
 ### Monorepo restructure
 
 - **`eb22486`** — Product source moved to `packages/factory/`. Root
-  `init-factory` is a thin wrapper. `factory/` at root is the installed
+  `init-factory` is a thin wrapper. `.agent-factory/factory/` at root is the installed
   copy (git-ignored), synced by `update-factory`.
 
 ### What this changes for the proposal
@@ -792,12 +792,12 @@ top of it.
 
 ### What init-factory does, by case
 
-| What's at the orientation path             | What init does                                                                                                   |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| Nothing                                    | Creates a symlink to `factory/config/AGENTS.md`. The factory owns the file.                                      |
-| A symlink pointing at our `AGENTS.md`      | Skips — already wired from a prior run.                                                                          |
-| A symlink pointing somewhere else          | Leaves it untouched. Logs advice: add an include of `factory/rulebooks/rules.md` to your own file.               |
-| A regular file (the project's own content) | Prepends a marker-fenced block containing the factory orientation. The project's content stays below, unchanged. |
+| What's at the orientation path             | What init does                                                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Nothing                                    | Creates a symlink to `.agent-factory/factory/config/AGENTS.md`. The factory owns the file.                        |
+| A symlink pointing at our `AGENTS.md`      | Skips — already wired from a prior run.                                                                           |
+| A symlink pointing somewhere else          | Leaves it untouched. Logs advice: add an include of `.agent-factory/factory/rulebooks/rules.md` to your own file. |
+| A regular file (the project's own content) | Prepends a marker-fenced block containing the factory orientation. The project's content stays below, unchanged.  |
 
 For Claude Code, the prepended block is a single `@include` directive
 (`@../factory/config/AGENTS.md`), not the full orientation text. For
@@ -815,7 +815,7 @@ The orientation file — whatever lands at `.claude/CLAUDE.md`,
 `.github/copilot-instructions.md`, or `AGENTS.md` — is self-contained
 for the model's first turn. It carries:
 
-1. A directive to read `factory/rulebooks/rules.md` (binding session rules).
+1. A directive to read `.agent-factory/factory/rulebooks/rules.md` (binding session rules).
 2. A directive to read the local `INDEX.yaml` (skill/agent/playbook registry).
 3. The fitting-state check (read `config/project-context.json`, fork on
    `fitting.status`).
@@ -827,7 +827,7 @@ state, presents the menu, acts on the user's choice.
 
 ### VIRGIL as optional enrichment
 
-The `virgil` agent definition (`factory/agents/virgil.md`) carries richer
+The `virgil` agent definition (`.agent-factory/factory/agents/virgil.md`) carries richer
 guidance: the three-step fitting procedure, skill routing table,
 behavioural anchors (Virgil / Vimes / Jeeves), and boundary rules. The
 orientation file's "Deeper guidance" section points models there, but does
@@ -873,8 +873,8 @@ proposed lifecycle: `init → fitted` for greenfield, no fitting detour.
 
 ### Step-guard graceful degradation
 
-`factory/config/hooks/step-guard.sh` now exits 0 when
-`factory/scripts/step-guard` is absent. factory/ is git-ignored, so on a
+`.agent-factory/factory/config/hooks/step-guard.sh` now exits 0 when
+`.agent-factory/factory/scripts/step-guard` is absent. .agent-factory/factory/ is git-ignored, so on a
 fresh clone or partial install the hook is inert rather than blocking every
 tool call. Same pattern the usage-capture hooks already use.
 

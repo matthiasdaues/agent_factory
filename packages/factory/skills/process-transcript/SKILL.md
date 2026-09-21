@@ -7,7 +7,6 @@ description: >-
   to compare a discussion against the spec.
 category: utility
 version: 1.0.0
-disable-model-invocation: false
 ---
 
 # Process Transcript
@@ -169,7 +168,7 @@ filed).
 
 ## Step 5 — Format
 
-MUST run `factory/scripts/mdformat --number` on both files per
+MUST run `.agent-factory/factory/scripts/mdformat --number` on both files per
 [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Step 6 — Present for review

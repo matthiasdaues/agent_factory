@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Charter Source Linking for LLM Depth Access
 status: draft
 owner: matthiasdaues
 created: 2026-08-25

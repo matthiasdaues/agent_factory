@@ -14,7 +14,7 @@ reviewer: qa-agent
 
 Realistic attack vectors only, across the diff `04256d9…HEAD`. Attack surface:
 the `run_agent` child-result envelope parser and git disclosure
-(`factory/config/extensions/run-agent.ts`), `dispatch-wave.ts`, `trigger`,
+(`.agent-factory/factory/config/extensions/run-agent.ts`), `dispatch-wave.ts`, `trigger`,
 `init-factory` (pre-push hook install + project identity), `update-factory`,
 `handoff-lint`, and `orchestrator/src/agent_factory_orchestrator/cli.py`.
 
@@ -38,7 +38,7 @@ the `run_agent` child-result envelope parser and git disclosure
   or expose child reasoning. Disclosed `freshChildCommits` are short oneline
   git log lines (≤10), attacker-controlled only by a child that can already
   commit to the repo. No new trust boundary.
-- **A05 Security Misconfiguration.** ST-0073 pre-push `entry: factory/scripts/run-tests --full` with `pass_filenames: false` and `language: system` — fixed string, no filename interpolation, no shell metachar surface. `init-factory` installs both hook types with an explicit, asserted argv.
+- **A05 Security Misconfiguration.** ST-0073 pre-push `entry: .agent-factory/factory/scripts/run-tests --full` with `pass_filenames: false` and `language: system` — fixed string, no filename interpolation, no shell metachar surface. `init-factory` installs both hook types with an explicit, asserted argv.
 - **A06 Vulnerable Components.** ADR-0004 pins Pi 0.80.8; the local env has
   0.84.0. This is an environment/CI pinning concern, not a branch defect.
 - **A07 Auth Failures.** N/A — no auth in scope.

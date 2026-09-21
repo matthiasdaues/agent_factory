@@ -13,7 +13,7 @@ Each concern carries a description and file references that tell an agent
 where to read, never what it will find there. This document states the
 binding rules that keep that interface honest as a project matures.
 
-Design origin: [factory-concern-oriented-agent-context.md](../../../docs/proposals/factory-concern-oriented-agent-context.md).
+Design origin: [factory-concern-oriented-agent-context.md](../../../../docs/proposals/factory-concern-oriented-agent-context.md).
 
 ## The concern model
 

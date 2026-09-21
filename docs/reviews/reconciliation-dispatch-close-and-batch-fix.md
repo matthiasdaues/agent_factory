@@ -12,7 +12,7 @@ Proposal: `docs/proposals/factory-dispatch-close-and-batch-fix.md`
 | 2   | branching-policy.md references the dispatch close for worktree removal                                           | Met    | `branching-policy.md` Enforcement section: "see [dispatch-contract.md SS Close]... for the authoritative procedure for removing worktrees and branches at dispatch close time" |
 | 3   | commit-conventions.md contains batch-fix guidance                                                                | Met    | `commit-conventions.md` lines 43-44: "### Batch Fix" subsection with preference and rationale                                                                                  |
 | 4   | rules.md contains a MUST rule requiring dispatch close on completion or abandonment                              | Met    | `rules.md` line 119: "MUST close every dispatch as completed or abandoned"                                                                                                     |
-| 5   | implementation-agent.md contains a MUST requiring `dispatch init` before story branches                          | Met    | `implementation-agent.md` Step 1: "MUST call `factory/scripts/dispatch init ...` as the first action before creating any story branches"                                       |
+| 5   | implementation-agent.md contains a MUST requiring `dispatch init` before story branches                          | Met    | `implementation-agent.md` Step 1: "MUST call `.agent-factory/factory/scripts/dispatch init ...` as the first action before creating any story branches"                        |
 | 6   | block-dangerous-git.sh denies commits on `story/*` branches without a dispatch ledger                            | Met    | `block-dangerous-git.sh` lines 63-76: resolves main checkout via `--git-common-dir`, globs `.current-work/*/dispatch-ledger.yaml`, denies on miss                              |
 | 7   | The stale-factory chain is broken so `update-factory` runs without `--force` after hook-modified files           | Met    | `HOOK_REGENERATED_PATHS = ("INDEX.yaml",)` in both scripts; `_should_checksum` excludes them; 7 test cases in `test_update_factory.py` confirm                                 |
 | 8   | dispatch-contract.md or qa-agent.md documents that QA in a worktree does not validate the installed factory copy | Met    | `dispatch-contract.md` lines 246-252: "## QA-in-Worktree Divergence" names path pair and mitigation                                                                            |
@@ -49,13 +49,13 @@ Proposal: `docs/proposals/factory-dispatch-close-and-batch-fix.md`
 
 ### ST-0215 -- Exclude hook-regenerated files from update-factory checksums
 
-| #   | Criterion                                                            | Status | Evidence                                                                                                              |
-| --- | -------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
-| 1   | update-factory does not flag INDEX.yaml as user modification         | Met    | Test `test_index_yaml_change_alone_is_not_detected`                                                                   |
-| 2   | Named constant in both scripts                                       | Met    | `HOOK_REGENERATED_PATHS = ("INDEX.yaml",)` in update-factory line 91 and init-factory line 264                        |
-| 3   | `_should_checksum` in update-factory excludes hook-regenerated paths | Met    | Lines 119-125                                                                                                         |
-| 4   | `compute_factory_checksums` in init-factory excludes same paths      | Met    | init-factory lines 267-275                                                                                            |
-| 5   | Excluded paths overwritten unconditionally (no `--force` needed)     | Met    | Full `factory/` replace architecture handles this; test `test_index_yaml_only_change_proceeds_without_force` confirms |
+| #   | Criterion                                                            | Status | Evidence                                                                                                                             |
+| --- | -------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | update-factory does not flag INDEX.yaml as user modification         | Met    | Test `test_index_yaml_change_alone_is_not_detected`                                                                                  |
+| 2   | Named constant in both scripts                                       | Met    | `HOOK_REGENERATED_PATHS = ("INDEX.yaml",)` in update-factory line 91 and init-factory line 264                                       |
+| 3   | `_should_checksum` in update-factory excludes hook-regenerated paths | Met    | Lines 119-125                                                                                                                        |
+| 4   | `compute_factory_checksums` in init-factory excludes same paths      | Met    | init-factory lines 267-275                                                                                                           |
+| 5   | Excluded paths overwritten unconditionally (no `--force` needed)     | Met    | Full `.agent-factory/factory/` replace architecture handles this; test `test_index_yaml_only_change_proceeds_without_force` confirms |
 
 ### ST-0216 -- Document QA-in-worktree vs installed-copy divergence
 

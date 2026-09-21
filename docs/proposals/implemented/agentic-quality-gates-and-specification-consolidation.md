@@ -12,19 +12,19 @@ impact:
   architecture_change: true
   external_contract_change: false
   boundaries:
-    - factory/rulebooks/conventions/testing-strategy.md (amended)
-    - factory/rulebooks/conventions/cross-reference-format.md (amended — @-reference notation)
-    - factory/skills/derive-spec/SKILL.md (superseded by derive-feature)
-    - factory/agents/requirements-agent.md
-    - factory/agents/qa-agent.md
-    - factory/agents/developer-agent.md
-    - factory/agents/implementation-agent.md
-    - factory/agents/reconciliation-agent.md
-    - factory/scripts/premerge-check
-    - factory/playbooks/feature-addition.md
-    - factory/playbooks/greenfield-development.md (updated terminal condition)
-    - factory/playbooks/brownfield-onboarding.md (updated terminal condition)
-    - factory/rulebooks/templates/story.md
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md (amended)
+    - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md (amended — @-reference notation)
+    - .agent-factory/factory/skills/derive-spec/SKILL.md (superseded by derive-feature)
+    - .agent-factory/factory/agents/requirements-agent.md
+    - .agent-factory/factory/agents/qa-agent.md
+    - .agent-factory/factory/agents/developer-agent.md
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/agents/reconciliation-agent.md
+    - .agent-factory/factory/scripts/premerge-check
+    - .agent-factory/factory/playbooks/feature-addition.md
+    - .agent-factory/factory/playbooks/greenfield-development.md (updated terminal condition)
+    - .agent-factory/factory/playbooks/brownfield-onboarding.md (updated terminal condition)
+    - .agent-factory/factory/rulebooks/templates/story.md
 
 governance:
   assurance: elevated
@@ -62,7 +62,7 @@ Close two gaps in the Factory's process model: (1) add **semantic deterministic 
 
 The Factory's `validate` skill and `transition-lint` pre-commit hook run **syntactic** checks — formatting, frontmatter schema, naming conventions. They catch cosmetic violations. They do not catch code that is syntactically valid but semantically degraded: high cyclomatic complexity, shallow modules, missing test coverage, surviving mutants. These are the defects that matter most in agentic workflows, where code is produced faster than any human reviewer can inspect it.
 
-The operational principle: agents are fast enough to run **CRAP analysis** (cyclomatic complexity weighted against coverage), **mutation testing** (flip every `<` to `>`, every `==` to `!=`, expect the test suite to fail), and **dependency-rule checking** (module A must not import module B — enforced mechanically) at machine speed. The Factory's current gate model trusts agents to self-report on these qualities. The sub-agent self-report is not reliable; the Factory has the [dispatch contract](../../../factory/rulebooks/conventions/dispatch-contract.md) to prevent false reports, but it lacks the semantic checks that would make a false report detectable.
+The operational principle: agents are fast enough to run **CRAP analysis** (cyclomatic complexity weighted against coverage), **mutation testing** (flip every `<` to `>`, every `==` to `!=`, expect the test suite to fail), and **dependency-rule checking** (module A must not import module B — enforced mechanically) at machine speed. The Factory's current gate model trusts agents to self-report on these qualities. The sub-agent self-report is not reliable; the Factory has the [dispatch contract](../../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md) to prevent false reports, but it lacks the semantic checks that would make a false report detectable.
 
 The practical consequence: without semantic gates, the reconciliation-agent and qa-agent carry the entire semantic quality burden. Each review cycle burns tokens on findings that a deterministic gate could have caught and flagged automatically, or that the coder's own workflow could have been forced to fix before committing.
 
@@ -102,7 +102,7 @@ CRAP scoring combines cyclomatic complexity with test coverage into a single ris
 
 |                      |                                                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Skill file**       | `factory/skills/crap-score/SKILL.md`                                                                                      |
+| **Skill file**       | `.agent-factory/factory/skills/crap-score/SKILL.md`                                                                       |
 | **Tool candidates**  | `radon` + `coverage` (Python), `gjstest` (Go), composite script                                                           |
 | **What it enforces** | CRAP ≤ threshold per function; threshold tunable per project (`house-rules.md` when charter exists, else Factory default) |
 | **Inputs**           | Source files, coverage data                                                                                               |
@@ -114,13 +114,13 @@ Verifies that test coverage is real — not just line-hit but behaviorally meani
 
 |                      |                                                                                                                                |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Skill file**       | `factory/skills/mutation-analysis/SKILL.md`                                                                                    |
+| **Skill file**       | `.agent-factory/factory/skills/mutation-analysis/SKILL.md`                                                                     |
 | **Tool candidates**  | `mutmut` (Python; reference implementation for first release). Other languages (`mutant` for Rust, `pitest` for Java) deferred |
 | **What it enforces** | Every surviving mutant resolved: dead code removed, missing contract tested, or finding filed for QA. Zero survivors to pass   |
 | **Inputs**           | Source files (diff-scoped — see below), test suite                                                                             |
 | **Outputs**          | JSON report per mutant (killed/survived, resolution action), logged to `.current-work/mutation-analysis/<story-id>.json`       |
 
-**Diff-scoping contract:** The CLI wrapper `factory/scripts/mutation-analysis` accepts a `--diff-base <ref>` argument. The dispatcher supplies the story branch's merge-base commit (the point where the feature branch diverged from its target). The script runs `git diff --name-only --diff-filter=ACMR <ref> HEAD` to obtain the changed file set, then filters to **production files** — files that are not test files. A file is a test file if it matches any of: `test_*.py`, `*_test.py`, `*_test.go`, `*.test.ts`, `*.test.js`, `*.spec.ts`, `*.spec.js`, or lives under a directory named `tests/` or `__tests__/`. Everything else in the diff is a production file and is passed to the mutation engine. When `--diff-base` is omitted, the script falls back to the full module (the pre-proposal behavior) so the gate remains usable outside the dispatcher loop.
+**Diff-scoping contract:** The CLI wrapper `.agent-factory/factory/scripts/mutation-analysis` accepts a `--diff-base <ref>` argument. The dispatcher supplies the story branch's merge-base commit (the point where the feature branch diverged from its target). The script runs `git diff --name-only --diff-filter=ACMR <ref> HEAD` to obtain the changed file set, then filters to **production files** — files that are not test files. A file is a test file if it matches any of: `test_*.py`, `*_test.py`, `*_test.go`, `*.test.ts`, `*.test.js`, `*.spec.ts`, `*.spec.js`, or lives under a directory named `tests/` or `__tests__/`. Everything else in the diff is a production file and is passed to the mutation engine. When `--diff-base` is omitted, the script falls back to the full module (the pre-proposal behavior) so the gate remains usable outside the dispatcher loop.
 
 #### `dependency-check` — Architectural integrity
 
@@ -128,7 +128,7 @@ Enforces module dependency directions declared in `architecture.dsl`. Neither TD
 
 |                      |                                                                                                                |
 | -------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Skill file**       | `factory/skills/dependency-check/SKILL.md`                                                                     |
+| **Skill file**       | `.agent-factory/factory/skills/dependency-check/SKILL.md`                                                      |
 | **Tool candidates**  | `deptrack` (general), `dependency-cruiser` (JS/TS), `arch-pkg` (Go)                                            |
 | **What it enforces** | Module dependency directions match `architecture.dsl` declarations                                             |
 | **Inputs**           | `docs/arc42/architecture.dsl`, source files                                                                    |
@@ -144,11 +144,11 @@ The three gate skills are deterministic scripts that run on committed artifacts.
 4. The fresh developer fixes, commits. Back to step 2.
 5. When all gates pass, the dispatcher proceeds to `premerge-check` and merge.
 
-**Dispatcher extension:** The `implementation-agent` already owns wave scheduling, branch/merge ordering, and completion tracking. This proposal extends its per-story loop with a gate-check step between the developer's commit and the merge. The extension is internal to the dispatcher's existing per-story workflow — it does not add a new container or component to `architecture.dsl`. The dispatcher calls the gate scripts directly (they are CLI scripts under `factory/scripts/`), reads their JSON output, and decides whether to spawn a fix iteration or proceed to merge. The maximum number of fix iterations before the story is marked as blocked is a tunable default (3), overridable in `house-rules.md`.
+**Dispatcher extension:** The `implementation-agent` already owns wave scheduling, branch/merge ordering, and completion tracking. This proposal extends its per-story loop with a gate-check step between the developer's commit and the merge. The extension is internal to the dispatcher's existing per-story workflow — it does not add a new container or component to `architecture.dsl`. The dispatcher calls the gate scripts directly (they are CLI scripts under `.agent-factory/factory/scripts/`), reads their JSON output, and decides whether to spawn a fix iteration or proceed to merge. The maximum number of fix iterations before the story is marked as blocked is a tunable default (3), overridable in `house-rules.md`.
 
 Each developer iteration starts with a clean context. The `premerge-check` script lists all three as independent hard gates before merge.
 
-**Coherence with [testing-strategy.md](../../../factory/rulebooks/conventions/testing-strategy.md):** The Factory's testing strategy says *"Test count and coverage percentage are diagnostics, not quality targets."* This proposal amends that convention to clarify that composite structural risk scores — such as CRAP — that use coverage as one input to a risk metric are not coverage targets and are admissible as acceptance gates. The three skills respect the amended convention:
+**Coherence with [testing-strategy.md](../../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md):** The Factory's testing strategy says *"Test count and coverage percentage are diagnostics, not quality targets."* This proposal amends that convention to clarify that composite structural risk scores — such as CRAP — that use coverage as one input to a risk metric are not coverage targets and are admissible as acceptance gates. The three skills respect the amended convention:
 
 - **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the gate threshold is on the composite score, not on coverage itself. The pressure it applies is toward smaller code, not higher coverage numbers.
 - **Mutation analysis** is a code-smell gate, not a coverage target. A surviving mutant means code does something no test observes. The response is investigation (remove dead code or add the missing contract test), not unconditional test creation. When the developer agent cannot resolve a survivor through either action, it files a finding for the QA agent — the developer does not self-suppress.
@@ -243,7 +243,7 @@ The scope map is the persistent artifact that survives across slices.
 
 **Migration from `derive-spec` projects:** Projects with existing UC-XX documents from `derive-spec` adopt the scope map via a one-time backfill.
 
-**Migration skill:** `factory/skills/scope-map-migration/SKILL.md`
+**Migration skill:** `.agent-factory/factory/skills/scope-map-migration/SKILL.md`
 
 **Trigger:** Invoked once per existing project adopting `derive-feature`, before the first new feature is specified via `derive-feature`. The `requirements-agent` checks for an existing `docs/spec/scope-map.md` before running `derive-feature`; if the scope map does not exist but `derive-spec` output artifacts are present (any `UC-XX-*.md` file under `docs/spec/`), it runs `scope-map-migration` first.
 
@@ -261,7 +261,7 @@ The skill populates the scope map with `implemented` entries. The source column 
 
 ### 3. QA Strategy Document — `qa-strategy-from-spec`
 
-**Skill file:** `factory/skills/qa-strategy-from-spec/SKILL.md`
+**Skill file:** `.agent-factory/factory/skills/qa-strategy-from-spec/SKILL.md`
 
 A new document produced by the `requirements-agent` at the end of Phase 1, alongside the consolidated Gherkin file.
 
@@ -356,47 +356,47 @@ This check uses Phase 1 outputs only — it does not depend on story files or im
 
 **In the first release:**
 
-- `factory/skills/crap-score/SKILL.md` — CRAP scoring skill (cyclomatic complexity × coverage)
-- `factory/skills/mutation-analysis/SKILL.md` — mutation analysis skill (mutant generation, test execution, survivor classification)
-- `factory/skills/dependency-check/SKILL.md` — dependency-rule enforcement skill
-- `factory/scripts/crap-score` — CLI wrapper for the CRAP skill, callable from premerge-check
-- `factory/scripts/mutation-analysis` — CLI wrapper for the mutation skill, callable from premerge-check
-- `factory/scripts/dependency-check` — CLI wrapper for the dependency skill, callable from premerge-check
-- `factory/skills/derive-feature/SKILL.md` — new skill superseding `derive-spec`; uses Cockburn reasoning as internal process, outputs Gherkin directly with Rule-per-actor-goal structure
+- `.agent-factory/factory/skills/crap-score/SKILL.md` — CRAP scoring skill (cyclomatic complexity × coverage)
+- `.agent-factory/factory/skills/mutation-analysis/SKILL.md` — mutation analysis skill (mutant generation, test execution, survivor classification)
+- `.agent-factory/factory/skills/dependency-check/SKILL.md` — dependency-rule enforcement skill
+- `.agent-factory/factory/scripts/crap-score` — CLI wrapper for the CRAP skill, callable from premerge-check
+- `.agent-factory/factory/scripts/mutation-analysis` — CLI wrapper for the mutation skill, callable from premerge-check
+- `.agent-factory/factory/scripts/dependency-check` — CLI wrapper for the dependency skill, callable from premerge-check
+- `.agent-factory/factory/skills/derive-feature/SKILL.md` — new skill superseding `derive-spec`; uses Cockburn reasoning as internal process, outputs Gherkin directly with Rule-per-actor-goal structure
 - `docs/spec/scope-map.md` — persistent scope map tracking all Rules across slices (status, slice assignment, feature file link)
 - `docs/spec/<feature-name>.feature` — per-slice Gherkin feature file, structured by Cockburn Rules; transient (archived after implementation)
 - `docs/spec/<feature-name>-gaps.md` — completeness report: actor-goal matrix, missing Rules, empty Rules, ambiguous wording (invoke via requirements-agent)
-- `factory/skills/qa-strategy-from-spec/SKILL.md` — QA strategy skill; produces per-feature QA plan from `.feature` file and supplementary specs
+- `.agent-factory/factory/skills/qa-strategy-from-spec/SKILL.md` — QA strategy skill; produces per-feature QA plan from `.feature` file and supplementary specs
 - `docs/spec/<feature-name>-qa-strategy.md` — per-feature QA strategy output (invoke via requirements-agent)
-- Updated `factory/agents/requirements-agent.md`: replace `derive-spec` invocation with `derive-feature`; add scope map, `.feature` file, gaps report, and QA strategy to the outputs list
-- Updated `factory/agents/developer-agent.md` workflow: developer reads `.feature` file as acceptance spec, writes step definitions that wire to `@`-referenced code, runs `.feature` through test framework as TDD cycle; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
-- Updated `factory/agents/reconciliation-agent.md` workflow: fills missing `@`-references in `.feature` file after implementation; every Rule must have at least one `@`-ref after reconciliation
-- Updated `factory/agents/qa-agent.md` workflow: runs `.feature` file through test framework as acceptance test; uses `@`-references to locate code for inspection
-- Updated `factory/scripts/premerge-check`: add `crap-score`, `mutation-analysis`, and `dependency-check` as independent hard gates
-- Updated `factory/rulebooks/templates/story.md`: add `quality-gates` field (which gates apply to this story's outputs)
+- Updated `.agent-factory/factory/agents/requirements-agent.md`: replace `derive-spec` invocation with `derive-feature`; add scope map, `.feature` file, gaps report, and QA strategy to the outputs list
+- Updated `.agent-factory/factory/agents/developer-agent.md` workflow: developer reads `.feature` file as acceptance spec, writes step definitions that wire to `@`-referenced code, runs `.feature` through test framework as TDD cycle; gate scripts run on committed artifacts; dispatcher spawns fresh developer for fixes
+- Updated `.agent-factory/factory/agents/reconciliation-agent.md` workflow: fills missing `@`-references in `.feature` file after implementation; every Rule must have at least one `@`-ref after reconciliation
+- Updated `.agent-factory/factory/agents/qa-agent.md` workflow: runs `.feature` file through test framework as acceptance test; uses `@`-references to locate code for inspection
+- Updated `.agent-factory/factory/scripts/premerge-check`: add `crap-score`, `mutation-analysis`, and `dependency-check` as independent hard gates
+- Updated `.agent-factory/factory/rulebooks/templates/story.md`: add `quality-gates` field (which gates apply to this story's outputs)
 - Updated `feature-addition.md` Step 0.3: mechanical module-graph check before Phase 2 routing
-- Updated `factory/playbooks/greenfield-development.md`: terminal condition is scope-map + `architecture.dsl` + arc42 prose; all feature work enters through `feature-addition`
-- Updated `factory/playbooks/brownfield-onboarding.md`: terminal condition is scope-map (backfilled) + `architecture.dsl` (reverse-engineered) + arc42 prose; all feature work enters through `feature-addition`
-- Amended [testing-strategy.md](../../../factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates; recognise `.feature` file execution as the acceptance test layer
-- Amended [cross-reference-format.md](../../../factory/rulebooks/conventions/cross-reference-format.md): document `@`-reference notation for `.feature` files (path + optional `::Symbol.member` qualifier)
-- Updated `factory/scripts/validate`: reject `@`-ref syntax (`# @<path>`) in `.md` files; enforce `.feature`-only scope for `@`-references
-- `factory/skills/scope-map-migration/SKILL.md` — one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
+- Updated `.agent-factory/factory/playbooks/greenfield-development.md`: terminal condition is scope-map + `architecture.dsl` + arc42 prose; all feature work enters through `feature-addition`
+- Updated `.agent-factory/factory/playbooks/brownfield-onboarding.md`: terminal condition is scope-map (backfilled) + `architecture.dsl` (reverse-engineered) + arc42 prose; all feature work enters through `feature-addition`
+- Amended [testing-strategy.md](../../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md): clarify that composite structural risk scores using coverage as one input are admissible as acceptance gates; recognise `.feature` file execution as the acceptance test layer
+- Amended [cross-reference-format.md](../../../.agent-factory/factory/rulebooks/conventions/cross-reference-format.md): document `@`-reference notation for `.feature` files (path + optional `::Symbol.member` qualifier)
+- Updated `.agent-factory/factory/scripts/validate`: reject `@`-ref syntax (`# @<path>`) in `.md` files; enforce `.feature`-only scope for `@`-references
+- `.agent-factory/factory/skills/scope-map-migration/SKILL.md` — one-time backfill from `derive-spec` output artifacts for existing projects adopting `derive-feature`
 
 ### Test Fixtures
 
-Each gate script ships with a minimal fixture project under `factory/fixtures/quality-gates/` that exercises the known-defect baseline. The `validate` skill treats these as implementation artifacts alongside the scripts themselves.
+Each gate script ships with a minimal fixture project under `.agent-factory/factory/fixtures/quality-gates/` that exercises the known-defect baseline. The `validate` skill treats these as implementation artifacts alongside the scripts themselves.
 
-| Fixture                                                | Known defect                                                                                                                                     | Expected gate output                                                                                 |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `factory/fixtures/quality-gates/high-crap/`            | One function with cyclomatic complexity ≥ 10 and 0 % test coverage (CRAP > 100). One function with complexity 2 and full coverage (CRAP < 6)     | `crap-score` reports the first function as FAIL (CRAP > 30), the second as PASS                      |
-| `factory/fixtures/quality-gates/surviving-mutant/`     | One arithmetic operator (`+`) whose mutation (`-`) is not detected by any test. One operator whose mutation is killed by the test suite          | `mutation-analysis` reports one surviving mutant on the first operator, zero survivors on the second |
-| `factory/fixtures/quality-gates/dependency-violation/` | Module A imports module B; the fixture's `architecture.dsl` declares A must not depend on B. A second import that conforms to the declared rules | `dependency-check` reports one violation for the illegal import, zero violations for the legal one   |
+| Fixture                                                               | Known defect                                                                                                                                     | Expected gate output                                                                                 |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `.agent-factory/factory/fixtures/quality-gates/high-crap/`            | One function with cyclomatic complexity ≥ 10 and 0 % test coverage (CRAP > 100). One function with complexity 2 and full coverage (CRAP < 6)     | `crap-score` reports the first function as FAIL (CRAP > 30), the second as PASS                      |
+| `.agent-factory/factory/fixtures/quality-gates/surviving-mutant/`     | One arithmetic operator (`+`) whose mutation (`-`) is not detected by any test. One operator whose mutation is killed by the test suite          | `mutation-analysis` reports one surviving mutant on the first operator, zero survivors on the second |
+| `.agent-factory/factory/fixtures/quality-gates/dependency-violation/` | Module A imports module B; the fixture's `architecture.dsl` declares A must not depend on B. A second import that conforms to the declared rules | `dependency-check` reports one violation for the illegal import, zero violations for the legal one   |
 
 Each fixture directory is a self-contained project with source files, a test suite, and (where needed) a coverage report and dependency-rules declaration. The completion criteria "runs against a test project" refer to these fixture directories.
 
 ### Archive Path Convention
 
-The `~archive/` directory referenced by the scope map and the [handoff convention](../../../factory/rulebooks/rules.md#handoffs) lives under `docs/`: `docs/~archive/`. Archived artifacts preserve their original path relative to `docs/` — for example, `docs/spec/slice-1.feature` archives to `docs/~archive/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
+The `~archive/` directory referenced by the scope map and the [handoff convention](../../../.agent-factory/factory/rulebooks/rules.md#handoffs) lives under `docs/`: `docs/~archive/`. Archived artifacts preserve their original path relative to `docs/` — for example, `docs/spec/slice-1.feature` archives to `docs/~archive/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
 
 **Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
 
@@ -449,7 +449,7 @@ Mitigations for larger codebases (all deferred to collect real usage data first)
 
 ### 7. Quality-Gates Story Field
 
-The `quality-gates` field in [story.md](../../../factory/rulebooks/templates/story.md) declares which semantic gates apply to the story's outputs. It is a list of gate names; each name corresponds to a CLI script under `factory/scripts/`.
+The `quality-gates` field in [story.md](../../../.agent-factory/factory/rulebooks/templates/story.md) declares which semantic gates apply to the story's outputs. It is a list of gate names; each name corresponds to a CLI script under `factory/scripts/`.
 
 ```yaml
 quality-gates:
@@ -488,7 +488,7 @@ Examples: `# @src/auth/sso.py::SSOHandler`, `# @src/auth/sso.py::SSOHandler.auth
 
 **Absence semantics:** A Scenario without an `@`-ref in the Phase 1 `.feature` file means "this behavior does not exist yet — it will be implemented." After reconciliation, a Scenario without an `@`-ref means "this behavior was specified but no code was found that implements it" — a finding.
 
-**Convention home:** The `@`-reference notation is documented in [cross-reference-format.md](../../../factory/rulebooks/conventions/cross-reference-format.md) alongside the existing markdown link convention. The `@`-ref is scoped to `.feature` files only — it is not a general cross-reference format for prose documents, which continue to use full markdown links.
+**Convention home:** The `@`-reference notation is documented in [cross-reference-format.md](../../../.agent-factory/factory/rulebooks/conventions/cross-reference-format.md) alongside the existing markdown link convention. The `@`-ref is scoped to `.feature` files only — it is not a general cross-reference format for prose documents, which continue to use full markdown links.
 
 ### 9. Executable Specification — `.feature` as Test Input
 
@@ -557,14 +557,14 @@ Both the `greenfield-development` and `brownfield-onboarding` playbooks produce 
 
 ## Completion Criteria
 
-- [ ] `factory/skills/crap-score/SKILL.md` exists and documents the CRAP scoring gate
-- [ ] `factory/scripts/crap-score` runs against a test project with known high-CRAP functions and detects all of them
-- [ ] `factory/skills/mutation-analysis/SKILL.md` exists and documents the mutation analysis gate
-- [ ] `factory/scripts/mutation-analysis` runs against a test project, mutates every operator, and blocks until zero mutants survive — each survivor resolved by the developer (dead code removed or test added) or by QA (finding adjudicated); unresolved mutation findings block the merge
-- [ ] `factory/skills/dependency-check/SKILL.md` exists and documents the dependency-rule gate
-- [ ] `factory/scripts/dependency-check` runs against a project with a known dependency violation and flags it
+- [ ] `.agent-factory/factory/skills/crap-score/SKILL.md` exists and documents the CRAP scoring gate
+- [ ] `.agent-factory/factory/scripts/crap-score` runs against a test project with known high-CRAP functions and detects all of them
+- [ ] `.agent-factory/factory/skills/mutation-analysis/SKILL.md` exists and documents the mutation analysis gate
+- [ ] `.agent-factory/factory/scripts/mutation-analysis` runs against a test project, mutates every operator, and blocks until zero mutants survive — each survivor resolved by the developer (dead code removed or test added) or by QA (finding adjudicated); unresolved mutation findings block the merge
+- [ ] `.agent-factory/factory/skills/dependency-check/SKILL.md` exists and documents the dependency-rule gate
+- [ ] `.agent-factory/factory/scripts/dependency-check` runs against a project with a known dependency violation and flags it
 - [ ] `premerge-check` blocks a merge when any of the three gate scripts fails independently
-- [ ] `factory/skills/derive-feature/SKILL.md` exists and documents the Cockburn-as-Rules reasoning process, code-scan step, `@`-reference annotation, scope map lifecycle, and slice workflow
+- [ ] `.agent-factory/factory/skills/derive-feature/SKILL.md` exists and documents the Cockburn-as-Rules reasoning process, code-scan step, `@`-reference annotation, scope map lifecycle, and slice workflow
 - [ ] `derive-feature` scans `src/` against the proposal's `impact.boundaries` and annotates existing code with `@`-references in the `.feature` output
 - [ ] Scenarios for new behavior carry no `@`-reference; absence means "to be implemented"
 - [ ] `requirements-agent` produces `docs/spec/scope-map.md` with all Rules from the accepted proposal, each with status, slice, and feature-file link
@@ -594,7 +594,7 @@ Both the `greenfield-development` and `brownfield-onboarding` playbooks produce 
 - [ ] `quality-gates` precedence resolves as: story field > `house-rules.md` default > Factory hardcoded default (all three)
 - [ ] `greenfield-development.md` terminal condition: playbook ends when `scope-map.md` + `architecture.dsl` + arc42 prose exist; all feature work enters through `feature-addition`
 - [ ] `brownfield-onboarding.md` terminal condition: playbook ends when `scope-map.md` (backfilled) + `architecture.dsl` (reverse-engineered) + arc42 prose exist; all feature work enters through `feature-addition`
-- [ ] All new artifacts pass `factory/scripts/validate`
+- [ ] All new artifacts pass `.agent-factory/factory/scripts/validate`
 
 ## Guiding Rule
 

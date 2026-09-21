@@ -28,11 +28,11 @@ All 9 implementation stories (ST-0190 through ST-0198) dispatched across 3 waves
 
 ### Key artifacts produced
 
-- `factory/rulebooks/templates/context-*.yaml` — YAML templates for stack, workflow, governance, reading-guides
-- `factory/rulebooks/conventions/agent-context-composition.md` — composition convention
-- `factory/scripts/context-lint` — extended with FORMAT_CHAIN, detect_format(), resolve_testing_yaml(), CX-FORMAT
-- `factory/skills/capture-context/SKILL.md` — v1.1.0 with Mode 2 brownfield onboarding
-- `factory/skills/update-context/SKILL.md` — renamed from update-charter; mode-aware writes + transition logic
+- `.agent-factory/factory/rulebooks/templates/context-*.yaml` — YAML templates for stack, workflow, governance, reading-guides
+- `.agent-factory/factory/rulebooks/conventions/agent-context-composition.md` — composition convention
+- `.agent-factory/factory/scripts/context-lint` — extended with FORMAT_CHAIN, detect_format(), resolve_testing_yaml(), CX-FORMAT
+- `.agent-factory/factory/skills/capture-context/SKILL.md` — v1.1.0 with Mode 2 brownfield onboarding
+- `.agent-factory/factory/skills/update-context/SKILL.md` — renamed from update-charter; mode-aware writes + transition logic
 - `tests/factory/test_*.py` — 8 new/extended test modules, 12 fixture directories
 - 6 agent files, ~10 skill SKILL.md files, 3 playbook files — updated from hardcoded `docs/charter/` to `docs/agent-context/`
 

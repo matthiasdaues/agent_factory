@@ -155,11 +155,15 @@ def _story_declared_tier(project_root: Path, story_id: str) -> str | None:
 
 
 def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
-    """Return the backlog-declared output globs for *story_id*."""
+    """Return the backlog-declared output globs for *story_id*.
+
+    Falls back to ``touches`` when ``outputs`` is absent, consistent
+    with how wave planning resolves scope.
+    """
     frontmatter = _story_frontmatter(project_root, story_id)
     if not frontmatter:
         return []
-    outputs = frontmatter.get("outputs") or []
+    outputs = frontmatter.get("outputs") or frontmatter.get("touches") or []
     return outputs if isinstance(outputs, list) else []
 
 
@@ -2016,9 +2020,9 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
     # Monorepo sync: if packages/factory/ exists, sync it to the installed
     # factory/ copy so post-merge tests load the merged code (tests import
-    # from factory/scripts/, not packages/factory/scripts/).
+    # from .agent-factory/factory/scripts/, not packages/factory/scripts/).
     pkg_factory = project_root / "packages" / "factory"
-    installed_factory = project_root / "factory"
+    installed_factory = project_root / ".agent-factory" / "factory"
     if pkg_factory.is_dir() and installed_factory.is_dir():
         import shutil
 

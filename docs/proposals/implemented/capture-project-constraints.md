@@ -12,19 +12,19 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - factory/playbooks/greenfield-development.md
-    - factory/playbooks/feature-addition.md
-    - factory/playbooks/brownfield-onboarding.md
-    - factory/agents/planning-agent.md
-    - factory/agents/developer-agent.md
-    - factory/agents/implementation-agent.md
-    - factory/agents/architecture-agent.md
-    - factory/agents/requirements-agent.md
-    - factory/skills/create-backlog/SKILL.md
-    - factory/skills/validate/SKILL.md
-    - factory/rulebooks/templates/story.md
-    - factory/rulebooks/rules.md
-    - factory/scripts/backlog-lint
+    - .agent-factory/factory/playbooks/greenfield-development.md
+    - .agent-factory/factory/playbooks/feature-addition.md
+    - .agent-factory/factory/playbooks/brownfield-onboarding.md
+    - .agent-factory/factory/agents/planning-agent.md
+    - .agent-factory/factory/agents/developer-agent.md
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/agents/architecture-agent.md
+    - .agent-factory/factory/agents/requirements-agent.md
+    - .agent-factory/factory/skills/create-backlog/SKILL.md
+    - .agent-factory/factory/skills/validate/SKILL.md
+    - .agent-factory/factory/rulebooks/templates/story.md
+    - .agent-factory/factory/rulebooks/rules.md
+    - .agent-factory/factory/scripts/backlog-lint
 
 governance:
   assurance: routine
@@ -206,7 +206,7 @@ This is the same approval pattern as backlog approval in the greenfield playbook
 
 ### Deterministic gate: `charter-lint`
 
-Script at `factory/scripts/charter-lint`. Two modes:
+Script at `.agent-factory/factory/scripts/charter-lint`. Two modes:
 
 **Default mode** — structural validation:
 
@@ -230,9 +230,9 @@ Minimal for the first release. Grow from practice — if specific mechanical che
 
 Three templates at:
 
-- `factory/rulebooks/templates/charter-tech-stack.md`
-- `factory/rulebooks/templates/charter-development.md`
-- `factory/rulebooks/templates/charter-house-rules.md`
+- `.agent-factory/factory/rulebooks/templates/charter-tech-stack.md`
+- `.agent-factory/factory/rulebooks/templates/charter-development.md`
+- `.agent-factory/factory/rulebooks/templates/charter-house-rules.md`
 
 Each is the skeleton of its document — headings with one-line comment prompts describing what belongs there. The prompts are HTML comments so they disappear from the finished document.
 
@@ -283,10 +283,10 @@ No mechanical versioning or amendment tracking for the first release. Git histor
 **In the first release:**
 
 - `docs/charter/` folder with three documents
-- Three templates at `factory/rulebooks/templates/charter-*.md`
+- Three templates at `.agent-factory/factory/rulebooks/templates/charter-*.md`
 - Skill `capture-charter` with three modes: `--init`, `--init --scan`, completeness sweep
 - Skill `update-charter` as shared skill invokable by any agent
-- Script `factory/scripts/charter-lint` with default and `--planning-gate` modes
+- Script `.agent-factory/factory/scripts/charter-lint` with default and `--planning-gate` modes
 - Story template updated: optional `tests:` field added to frontmatter
 - `backlog-lint` updated: validates `tests:` is an array when present, verifies listed files exist
 - `requirements-agent.md` updated: `update-charter` added to `skills:`

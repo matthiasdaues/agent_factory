@@ -4,11 +4,14 @@ Three mandatory boundaries every phase agent observes.
 
 ## Phase entry
 
-When arriving from a workflow boundary, begin in a fresh session. Read the
-handoff first and verify its Git claims. Read referenced artifacts through
-initial bounded chunks, expanding further only on demand for the current
-task. Do not replay the prior transcript. Use no in-place transcript compaction
-and no prose-only cache-restabilisation turn.
+When a playbook crosses a phase boundary, the receiving phase agent begins in
+a fresh session. Direct interactive selection from the session menu may adopt
+the role in the current session unless that session contains work from which
+the selected agent must remain independent. Read the handoff first and verify
+its Git claims. Read referenced artifacts through initial bounded chunks,
+expanding further only on demand for the current task. Do not replay the prior
+transcript. Use no in-place transcript compaction and no prose-only
+cache-restabilisation turn.
 
 ## Child return
 

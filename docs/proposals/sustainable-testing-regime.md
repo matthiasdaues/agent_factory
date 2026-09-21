@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "Sustainable Testing Regime"
 status: open
 owner: agent-factory
 created: 2026-07-22
@@ -12,8 +12,8 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - factory/rulebooks/conventions/testing-strategy.md
-    - factory/scripts/run-tests
+    - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    - .agent-factory/factory/scripts/run-tests
 
 governance:
   assurance: elevated
@@ -252,7 +252,7 @@ Disposition: findings
 |    02 | Scope boundary sharp             | PASS   | In-scope items name domains with function counts; deferred items are concrete exclusions. Partition is clean.                                                     |
 |    03 | Design decomposable              | FAIL   | Consolidation rules and verification steps are concrete. Four-layer portfolio contradicts five-layer boundary convention (PROP-01). Planner cannot assign layers. |
 |    04 | Impact classification consistent | PASS   | cross_component, no architecture change, no external contract change — all match the design.                                                                      |
-|    05 | Boundary references exist        | PASS   | Both `factory/rulebooks/conventions/testing-strategy.md` and `factory/scripts/run-tests` resolve at the reviewed commit.                                          |
+|    05 | Boundary references exist        | PASS   | Both `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` and `.agent-factory/factory/scripts/run-tests` resolve at the reviewed commit.            |
 |    06 | Open questions genuine           | PASS   | "None" with conservative resolution principle is defensible, though the layer discrepancy (PROP-01) is functionally an unresolved question.                       |
 |    07 | Motivation justifies timing      | PASS   | Concrete data (785 functions, 76 files, 21,650 lines) with named growth patterns justifies proactive consolidation.                                               |
 |    08 | Estimate plausible               | FAIL   | `unknown` values acceptable at low confidence. `estimated_consumption` block still absent (PROP-03).                                                              |
@@ -283,7 +283,7 @@ Disposition: clean
 |    02 | Scope boundary sharp             | PASS   | In-scope names four domains with function counts and file counts. Deferred items are five concrete exclusions. Partition is clean.                                                                                                                  |
 |    03 | Design decomposable              | PASS   | Five-layer portfolio matches boundary convention. Seven consolidation rules are concrete. Five verification steps are specific. Planning can decompose into INVEST stories without re-deriving the design.                                          |
 |    04 | Impact classification consistent | PASS   | `cross_component` fits multi-domain test consolidation. `architecture_change: false` and `external_contract_change: false` both match the design — this is internal test reorganization with no structural or API changes.                          |
-|    05 | Boundary references exist        | PASS   | Both `factory/rulebooks/conventions/testing-strategy.md` and `factory/scripts/run-tests` resolve at the reviewed commit.                                                                                                                            |
+|    05 | Boundary references exist        | PASS   | Both `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` and `.agent-factory/factory/scripts/run-tests` resolve at the reviewed commit.                                                                                              |
 |    06 | Open questions genuine           | PASS   | "None" with conservative retention principle is defensible now that the layer discrepancy is resolved. No padding disguised as questions.                                                                                                           |
 |    07 | Motivation justifies timing      | PASS   | Concrete data (785 functions, 76 files, 21,650 lines) with named additive growth patterns justifies proactive consolidation over backlog deferral.                                                                                                  |
 |    08 | Estimate plausible               | PASS   | All values `unknown` at `confidence: low` with `judgment` basis. `estimated_consumption` field present. Template-conformant.                                                                                                                        |

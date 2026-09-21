@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: "OpenRouter Usage Integration"
 status: draft
 owner: matthias
 created: 2026-08-07
@@ -12,12 +12,12 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/config/extensions/openrouter-session.ts
-    - factory/config/extensions/pi-usage.ts
-    - factory/scripts/openrouter-provision
-    - factory/scripts/openrouter-usage
-    - factory/scripts/init-factory
-    - factory/scripts/remove-factory
+    - .agent-factory/factory/config/extensions/openrouter-session.ts
+    - .agent-factory/factory/config/extensions/pi-usage.ts
+    - .agent-factory/factory/scripts/openrouter-provision
+    - .agent-factory/factory/scripts/openrouter-usage
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/scripts/remove-factory
 
 governance:
   assurance: elevated
@@ -145,7 +145,7 @@ A factory-owned Pi extension that injects `session_id` into every
 OpenRouter-routed request, using the factory's session identity with project
 context.
 
-**Extension:** `factory/config/extensions/openrouter-session.ts`. Hooks two
+**Extension:** `.agent-factory/factory/config/extensions/openrouter-session.ts`. Hooks two
 Pi events:
 
 - `session_start`: captures the factory session ID via `activeSessionId()`
@@ -184,7 +184,7 @@ beta APIs.
 
 ### Phase 2 — Per-Project API Key Provisioning
 
-A separate curation tool, `factory/scripts/openrouter-provision`, following
+A separate curation tool, `.agent-factory/factory/scripts/openrouter-provision`, following
 the same pattern as `openrouter-discover`: you aid, off the runtime
 path, stdlib-only, optional. Requires `OPENROUTER_MANAGEMENT_KEY` in the
 environment.
@@ -241,7 +241,7 @@ project is a single query filtered by `api_key_id`.
 
 ### Phase 3 — Usage Query Tool (Deferred)
 
-`factory/scripts/openrouter-usage` — a query tool against OpenRouter's
+`.agent-factory/factory/scripts/openrouter-usage` — a query tool against OpenRouter's
 analytics API, filtered by the project's key hash. Deferred until:
 
 1. The analytics API exits beta (OpenRouter labels it `beta.Analytics`;
@@ -268,11 +268,11 @@ When built, the tool's authority partition is:
 **In the first release (Phases 0–2):**
 
 - V-1 and V-2 verification experiments and their documented findings.
-- `factory/config/extensions/openrouter-session.ts`: the `before_provider_request`
+- `.agent-factory/factory/config/extensions/openrouter-session.ts`: the `before_provider_request`
   session injection extension.
 - `init-factory` and `remove-factory` updated to install/remove the extension
   symlink into `.pi/extensions/`.
-- `factory/scripts/openrouter-provision`: the per-project key lifecycle tool
+- `.agent-factory/factory/scripts/openrouter-provision`: the per-project key lifecycle tool
   (create, check, rotate, revoke).
 - `config/project.json` schema extended with `openrouter_key_hash` and
   `openrouter_key_status`.
@@ -417,13 +417,13 @@ a provisioning command.
   `session_id` round-trip with a reproducible procedure and result.
 - V-2 finding documents Pi's authentication resolution order for OpenRouter
   with a reproducible procedure and result.
-- `factory/config/extensions/openrouter-session.ts` injects a composite
+- `.agent-factory/factory/config/extensions/openrouter-session.ts` injects a composite
   `session_id` into every OpenRouter-routed request, with project context
   from `config/project.json` and session identity from `activeSessionId()`.
 - `init-factory` installs the session extension symlink into
   `.pi/extensions/`; `remove-factory` removes it. Both are idempotent. No
   network call is added to either.
-- `factory/scripts/openrouter-provision` implements create, check, rotate,
+- `.agent-factory/factory/scripts/openrouter-provision` implements create, check, rotate,
   and revoke. Each mode is tested against a fixture or mock (no live
   OpenRouter calls in automated tests).
 - `config/project.json` accepts `openrouter_key_hash` and

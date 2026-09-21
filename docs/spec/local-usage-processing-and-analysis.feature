@@ -1,9 +1,11 @@
+# scope: global
 Feature: Local usage processing and analysis
 The local operator derives reproducible usage answers from retained JSONL evidence
 without operating a database service, reading transcripts, or changing capture.
 
 Rule: Local operator queries only published views over a fixed local input set
 \# actor: Local operator
+\# @packages/usage/src/usage/input_snapshot.py
 
 ```
 Scenario: Default input selection is local and deterministic
@@ -22,7 +24,7 @@ Scenario: Explicit input directory overrides the default
 Scenario: Six views form the stable query surface
   Given the selected input set passes preflight
   When the operator lists the stable query surface
-  Then it contains exactly "raw_usage_snapshots", "latest_run_snapshots", "canonical_session_usage", "usage_by_dimension", "cache_efficiency", and "capture_health"
+  Then it contains exactly "raw_usage_snapshots", "latest_run_snapshots", "session_usage", "usage_by_dimension", "cache_efficiency", and "capture_health"
   And stable table, JSON, and export outputs read only those published views
   And each view exposes its query-model-v1 column, type, key, nullability, and row-order contract
 
@@ -39,6 +41,7 @@ Scenario: File enumeration order does not affect results
 
 Rule: Local operator obtains conservative canonical usage without duplication
 \# actor: Local operator
+\# @packages/usage/src/usage/accounting.py
 
 ```
 Scenario: Logical-run identity is CLI-specific and source-independent
@@ -66,23 +69,23 @@ Scenario: Latest run snapshot uses deterministic evidence identity
 
 Scenario: Claude Code conserves root and distinct children
   Given a Claude Code session has repeated root snapshots and duplicate child evidence
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it adds the latest root snapshot and each distinct child run exactly once
 
 Scenario: Pi conserves root and distinct descendants
   Given a Pi session has a root record and nested descendant runs
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it adds the root record and each distinct descendant run exactly once
 
 Scenario: Codex uses the inclusive root total
   Given a Codex session has an inclusive root snapshot and child attribution records
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it uses the latest inclusive root snapshot as the session total
   And it does not add child attribution records to that total
 
 Scenario: GitHub Copilot CLI uses the inclusive root total
   Given a GitHub Copilot CLI session has an inclusive root snapshot and child attribution records
-  When "canonical_session_usage" computes the session total
+  When "session_usage" computes the session total
   Then it uses the latest inclusive root snapshot as the session total
   And it does not add child attribution records to that total
 
@@ -107,6 +110,7 @@ Scenario: Cache signals preserve unavailable states
 
 Rule: Local operator diagnoses all invalid evidence before accounting
 \# actor: Local operator
+\# @packages/usage/src/usage/preflight.py
 
 ```
 Scenario: Preflight classifies every selected line
@@ -150,6 +154,7 @@ Scenario: Diagnostic mode labels incomplete evidence
 
 Rule: Local analyst consumes typed table, JSON, relation, and Arrow results
 \# actor: Local analyst
+\# @packages/usage/src/usage/adapters.py
 
 ```
 Scenario: Table and JSON preserve the selected view
@@ -176,6 +181,7 @@ Scenario: Deferred dataframe formats are unavailable
 
 Rule: Local operator exports attributable Parquet without damaging prior output
 \# actor: Local operator
+\# @packages/usage/src/usage/parquet_exporter.py
 
 ```
 Scenario: Successful export round-trips the published view
@@ -199,6 +205,7 @@ Scenario: Parquet remains an explicit rebuildable export
 
 Rule: Local analyst receives a verified DuckDB UI exploration path
 \# actor: Local analyst
+\# @packages/usage/src/usage/explorer.py
 
 ```
     Scenario: UI documentation targets the same published query model
@@ -316,6 +323,7 @@ Scenario: Analysis remains transcript-blind
 
 Rule: Quality maintainer assigns one deterministic owner to each observable contract
 \# actor: Quality maintainer
+\# @packages/usage/src/usage/registry.py
 
 ```
 Scenario: Contract and accounting gates have distinct ownership

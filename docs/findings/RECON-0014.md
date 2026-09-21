@@ -19,20 +19,20 @@ decision that is implemented and load-bearing for the running system is
 codebase.
 
 - **ADR-0004** (`proposed`) — "Pi runs a factory agent by spawning a separate
-  `pi` subprocess." Implemented and in active use: `factory/config/extensions/ run-agent.ts` and `dispatch-wave.ts` are installed by `init-factory` into
+  `pi` subprocess." Implemented and in active use: `.agent-factory/factory/config/extensions/ run-agent.ts` and `dispatch-wave.ts` are installed by `init-factory` into
   `.pi/extensions/`, register the `run_agent` and `dispatch_wave` tools, and
   are the documented dispatch path under Pi (factory-guide § Running an agent
   in a separate session; UC-10).
 - **ADR-0005** (`proposed`) — "OpenRouter tiers curated into `model.conf`;
-  discovery is a separate offline aid." Implemented: `factory/scripts/ openrouter-discover` ships with `--list`/`--suggest`/`--check`, and
+  discovery is a separate offline aid." Implemented: `.agent-factory/factory/scripts/ openrouter-discover` ships with `--list`/`--suggest`/`--check`, and
   `config/model.conf` carries the curated `pi.*` tier rows the ADR describes.
 - **ADR-0006** (`proposed`) — "Research: flat prefixed rulebook storage and a
   schema → policy → semantic validation pipeline." Implemented: flat
-  `research-*` files exist across `factory/rulebooks/{conventions,templates, schemas}/`, and `factory/scripts/schema-validate` and `policy-validate`
+  `research-*` files exist across `.agent-factory/factory/rulebooks/{conventions,templates, schemas}/`, and `.agent-factory/factory/scripts/schema-validate` and `policy-validate`
   (with `--pipeline`) implement stages 1 and 2.
 - **ADR-0007** (`proposed`) — "Normalize runtime usage through CLI adapters
   into local append-only records." Implemented and reconciled across four
-  prior RECON passes: `factory/scripts/usage-capture` plus the Claude, Copilot,
+  prior RECON passes: `.agent-factory/factory/scripts/usage-capture` plus the Claude, Copilot,
   Codex, and Pi adapters are installed and tested (RECON-0006 through
   RECON-0012, all resolved).
 

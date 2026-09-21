@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+"""intent — precondition-based agent selection and assessment.
+
+Usage:
+  intent select [--workstream ID] [--agents-dir DIR]
+  intent assess [--workstream ID] [--format text|json]
+
+Exit codes: 0 (success), 2 (invalid input).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+PACKAGES_DIR = Path(__file__).resolve().parent.parent
+
+if str(PACKAGES_DIR) not in sys.path:
+    sys.path.insert(0, str(PACKAGES_DIR))
+
+from engine.agent_loader import load_agent_definitions, _parse_frontmatter
+from engine.eligibility import evaluate_all
+
+SCRIPTS_DIR = PACKAGES_DIR / "scripts"
+
+GOVERNED_ARTIFACT_GLOBS: list[tuple[str, str]] = [
+    ("proposal", "docs/proposals/*.md"),
+    ("feature", "docs/spec/*.feature"),
+    ("scope-map", "docs/spec/scope-map.md"),
+    ("epic", "backlog/epics-*.md"),
+    ("story", "backlog/ST-*.md"),
+    ("arc42-chapter", "docs/arc42/*.md"),
+    ("adr", "docs/adr/*.md"),
+    ("qa-strategy", "docs/spec/*-qa-strategy.md"),
+]
+
+ARTIFACT_VALIDATORS: dict[str, list[str]] = {
+    "proposal": ["proposal_lint"],
+    "feature": ["spec-lint"],
+    "story": ["backlog-lint"],
+    "epic": ["backlog-lint"],
+    "arc42-chapter": ["arch-lint"],
+    "adr": ["arch-lint"],
+}
+
+
+def _current_commit() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return result.stdout.strip() if result.returncode == 0 else "unknown"
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return "unknown"
+
+
+def _read_frontmatter(path: Path) -> dict:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    return _parse_frontmatter(text)
+
+
+def _run_lint_script(script_name: str, target_path: str) -> tuple[bool, str]:
+    script = SCRIPTS_DIR / script_name
+    if not script.exists():
+        return True, f"validator {script_name} not found (skipped)"
+    try:
+        result = subprocess.run(
+            [str(script), "--check", str(target_path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        return result.returncode == 0, (result.stdout + result.stderr).strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return False, str(exc)
+
+
+def _validate_proposal_inline(path: Path, commit: str) -> dict:
+    from engine.validators.proposal import validate_proposal
+    result = validate_proposal(path, assessed_commit=commit)
+    return {
+        "artifact_type": result.artifact_type,
+        "artifact_ref": result.artifact_ref,
+        "assessed_commit": result.assessed_commit,
+        "checks": [
+            {"name": c.name, "passed": c.passed, "detail": c.detail}
+            for c in result.checks
+        ],
+        "warnings": list(result.warnings),
+    }
+
+
+def _check_frontmatter(path: Path) -> list[dict]:
+    checks = []
+    fm = _read_frontmatter(path)
+    checks.append({
+        "name": "frontmatter_present",
+        "passed": bool(fm),
+    })
+    if fm:
+        for field in ("title", "status", "scope"):
+            checks.append({
+                "name": f"{field}_present",
+                "passed": field in fm and fm[field] is not None,
+            })
+    return checks
+
+
+def _discover_artifacts(workstream_id: str | None = None) -> list[dict]:
+    artifacts = []
+    for artifact_type, glob_pattern in GOVERNED_ARTIFACT_GLOBS:
+        for path in sorted(Path(".").glob(glob_pattern)):
+            if workstream_id is not None:
+                fm = _read_frontmatter(path)
+                scope = fm.get("scope")
+                if scope is not None and scope != workstream_id and scope != "global":
+                    continue
+            artifacts.append({
+                "artifact_type": artifact_type,
+                "path": str(path),
+            })
+    return artifacts
+
+
+def _assess_artifact(artifact: dict, commit: str) -> dict:
+    path = Path(artifact["path"])
+    artifact_type = artifact["artifact_type"]
+
+    if artifact_type == "proposal":
+        return _validate_proposal_inline(path, commit)
+
+    checks = _check_frontmatter(path)
+    warnings = []
+
+    validator_names = ARTIFACT_VALIDATORS.get(artifact_type, [])
+    for vname in validator_names:
+        passed, detail = _run_lint_script(vname, str(path))
+        checks.append({"name": vname, "passed": passed, "detail": detail})
+        if not passed:
+            warnings.append(f"{vname} failed: {detail[:200]}")
+
+    return {
+        "artifact_type": artifact_type,
+        "artifact_ref": str(path),
+        "assessed_commit": commit,
+        "checks": checks,
+        "warnings": warnings,
+    }
+
+
+def cmd_assess(args: argparse.Namespace) -> int:
+    workstream_id = args.workstream if args.workstream else None
+    commit = _current_commit()
+
+    artifacts = _discover_artifacts(workstream_id)
+    if not artifacts:
+        print("no governed artifacts found")
+        return 0
+
+    results = [_assess_artifact(a, commit) for a in artifacts]
+
+    if args.format == "json":
+        print(json.dumps(results, indent=2))
+    else:
+        _print_assessment(results)
+    return 0
+
+
+def _print_assessment(results: list[dict]) -> None:
+    print("\n─── Artifact Assessment ───\n")
+    for r in results:
+        ref = r["artifact_ref"]
+        atype = r["artifact_type"]
+        commit = r["assessed_commit"]
+        checks = r.get("checks", [])
+        warnings = r.get("warnings", [])
+
+        print(f"{ref} ({atype})")
+        print(f"  Assessed at: {commit}")
+
+        for check in checks:
+            marker = "✓" if check["passed"] else "✗"
+            print(f"  {marker} {check['name']}")
+
+        for w in warnings:
+            print(f"  ⚠ {w}")
+        print()
+
+
+def cmd_select(args: argparse.Namespace) -> int:
+    agents_dir = Path(args.agents_dir) if args.agents_dir else None
+    agents = load_agent_definitions(agents_dir)
+
+    if not agents:
+        print("no agent definitions found")
+        return 0
+
+    workstream_id = args.workstream if args.workstream else None
+    results = evaluate_all(agents, workstream_id)
+
+    descriptions = {a["name"]: a.get("description", "") for a in agents}
+    _print_evidence(results, descriptions)
+    return 0
+
+
+def _print_evidence(
+    results: list[dict], descriptions: dict[str, str],
+) -> None:
+    print("\n─── Agent Evidence ───\n")
+
+    for r in results:
+        name = r["agent_name"]
+        reqs = r["requirements"]
+        eligible = r["eligible"]
+        warnings = r.get("warnings", [])
+        desc = descriptions.get(name, "")
+
+        if not reqs:
+            header = f"○ {name}"
+            if desc:
+                header += f" — {desc}"
+            print(header)
+            print("  (no required inputs — always eligible)\n")
+            continue
+
+        marker = "✓" if eligible else "✗"
+        header = f"{marker} {name}"
+        if desc:
+            header += f" — {desc}"
+        print(header)
+
+        print("  Required inputs:")
+        for req in reqs:
+            req_type = req.get("type", "unknown")
+            satisfied = req["satisfied"]
+            candidates = req.get("candidates", [])
+            condition = req.get("condition")
+            pattern = req.get("path_pattern", "")
+
+            if satisfied:
+                matched = candidates[0] if candidates else pattern
+                detail = f"✓ {req_type}: {matched}"
+                if condition and "field" in condition:
+                    field = condition.get("field", "")
+                    value = condition.get("value", condition.get("one_of", ""))
+                    detail += f" ({field}={value})"
+            else:
+                detail = f"✗ {req_type}: no file matching {pattern}"
+                if condition and "field" in condition:
+                    field = condition.get("field", "")
+                    value = condition.get("value", condition.get("one_of", ""))
+                    detail += f" with {field}={value}"
+
+            print(f"    {detail}")
+
+        for w in warnings:
+            print(f"  [warning] {w}")
+        print()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="intent", description="Precondition-based agent selection."
+    )
+    sub = parser.add_subparsers(dest="subcommand", required=True)
+
+    p_select = sub.add_parser("select", help="List agents with precondition evidence.")
+    p_select.add_argument(
+        "--workstream", default=None,
+        help="Workstream ID for scope filtering",
+    )
+    p_select.add_argument(
+        "--agents-dir", default=None,
+        help="Path to agents directory (default: .agent-factory/factory/agents)",
+    )
+
+    p_assess = sub.add_parser("assess", help="Validate artifacts and report results.")
+    p_assess.add_argument(
+        "--workstream", default=None,
+        help="Workstream ID — filter to artifacts matching this scope",
+    )
+    p_assess.add_argument(
+        "--format", choices=["text", "json"], default="text",
+        help="Output format (default: text)",
+    )
+
+    parsed = parser.parse_args(argv)
+    if parsed.subcommand == "select":
+        return cmd_select(parsed)
+    if parsed.subcommand == "assess":
+        return cmd_assess(parsed)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

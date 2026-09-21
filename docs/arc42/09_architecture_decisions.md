@@ -17,32 +17,35 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0007 | [Normalize runtime usage through CLI adapters into local append-only records](../adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | superseded by ADR-0009 | none        |
 | 0008 | [Separate proposal impact, governance, estimates, and actuals](../adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
 | 0009 | [CLI-prefixed usage record filenames when filesystem-safe](../adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
-| 0010 | [Refresh an installed factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                                     | accepted               | none        |
+| 0010 | [Refresh an installed .agent-factory/factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                      | accepted               | none        |
 | 0011 | [Gherkin .feature as consolidated specification format](../adr/0011-gherkin-feature-as-consolidated-specification-format.md)                                  | proposed               | pugh-matrix |
 | 0012 | [Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)                                                                     | proposed               | pugh-matrix |
 | 0013 | [YAML agent context replaces markdown charter](../adr/0013-yaml-agent-context-replaces-markdown-charter.md)                                                   | proposed               | pugh-matrix |
 | 0014 | [Two-layer routing with two-mode lifecycle](../adr/0014-two-layer-routing-with-two-mode-lifecycle.md)                                                         | proposed               | none        |
 | 0015 | [Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)                                 | accepted               | pugh-matrix |
+| 0016 | [Concern-oriented agent context replaces YAML index](../adr/0016-concern-oriented-agent-context-replaces-yaml-index.md)                                       | accepted               | none        |
+| 0017 | [Cycle-based orchestration supersedes linear playbook FSM](../adr/0017-cycle-based-orchestration-supersedes-linear-playbook-fsm.md)                           | accepted               | pugh-matrix |
+| 0018 | [CONCEPT internal sequence is agent-owned](../adr/0018-concept-internal-sequence-is-agent-owned.md)                                                           | accepted               | none        |
 
 ## Key Decisions
 
 ### Ownership and Control
 
-**ADR-0002** establishes that `factory/scripts/{transition-lint,phase,trigger}` and the `run-step` skill own flow control state (the marker, FSM, gates). `orchestrator/` is one possible trigger among peers (you at the terminal, orchestrator CLI). This inversion makes playbook runs CLI-agnostic and resume-from-observable-state by design.
+**ADR-0002** establishes that Factory scripts own flow control. A human at the terminal or an automated script can trigger these mechanisms. This separation makes playbook runs CLI-agnostic and resume-from-observable-state by design.
 
 ### Validation Strategy
 
 **ADR-0001** and **ADR-0003** establish the hook-triggered validation pattern:
 
-- **Pre-commit hooks** gate which files may be staged (`transition-lint`).
+- **Pre-commit hooks** gate commits via linters (`concern-lint`, `index-lint`, etc.).
 - **PreToolUse hooks** block destructive git commands and bare test commands before they execute (`block-dangerous-git.sh`); charter-declared test commands are allowlisted with exact-string matching.
-- **FSM gates** (`script_exit_zero`) resolve `charter:test_command` from `docs/charter/testing.yaml` and integrate test execution into phase advance entry conditions.
+- **Precondition evaluation** checks agent `inputs.required` declarations against the filesystem, including test configuration presence via `docs/testing.yaml`.
 
 All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation. Testing is project-owned infrastructure declared in the charter; Factory ensures test gates exist but does not own test execution or framework detection.
 
 ### Monorepo Scoping
 
-**ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced (e.g., `-orchestrator` suffix) and path-scoped (`files: ^orchestrator/`). `factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.
+**ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced and path-scoped. `.agent-factory/factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.
 
 ### Pi Invocation Layer
 
@@ -59,8 +62,7 @@ establishes one CLI-agnostic runtime usage pipeline with per-CLI transcript
 normalizers and native lifecycle adapters. Fixed `cl100k_base` counts
 provide the cross-CLI comparison metric, while nullable provider counts
 support cost reconciliation. Append-only local JSONL and linked transcript
-copies are the MVP backend; the orchestrator does not duplicate CLI-owned
-capture. Root and child records follow each platform's conservation
+copies are the MVP backend. Root and child records follow each platform's conservation
 semantics so attribution is not added twice to an inclusive root. **ADR-0009**
 revises the storage-naming decision: the session-level key is
 `<cli>_<session_id>` (record file and transcript directory), so a directory
@@ -82,13 +84,13 @@ proposal, preserving the original forecast for calibration.
 ## Factory Install, Update, and Removal
 
 **ADR-0010** gives the one-time install a forward path: `update-factory`
-refreshes an installed `factory/` to the current checkout by remove-and-
+refreshes an installed `.agent-factory/factory/` to the current checkout by remove-and-
 reinstall — a byte-exact replacement followed by a re-run of the sourced
 `init-factory` — rather than a recency-based diff-and-merge, which is
 nondeterministic and rests on unreliable file mtimes. `init-factory` records
 the checkout it copied from (`factory_source`) in the install manifest so
 `update-factory` knows which repo to pull from by default, `--source`
-overriding. `update-factory` replaces only `factory/`; `.agent-factory/` usage
+overriding. `update-factory` replaces only `.agent-factory/factory/`; `.agent-factory/` usage
 transcripts and lifecycle state survive an update.
 
 ### Consolidated Specification Format
@@ -125,25 +127,16 @@ via the `mutation-analysis` skill (see [ADR-0012 § Amended](../adr/0012-dispatc
 
 ### Agent Context Format and Structure
 
-**ADR-0013** replaces the markdown charter (`docs/charter/`) with a YAML-based
-agent context (`docs/agent-context/`). Three format alternatives were evaluated
-via Pugh Matrix: markdown (baseline), YAML, and JSON. YAML dominates on machine
-parseability, staleness resistance, and per-field source pointers while
-maintaining human readability parity with markdown. Format detection provides
-backward compatibility: factory consumers walk a three-step chain and select the
-appropriate validation mode. A new `context-lint` script (replacing
-`charter-lint`) validates the YAML structure with `CX-*` finding codes.
+**ADR-0013** (superseded) replaced the markdown charter (`docs/charter/`) with
+a YAML-based agent context (`docs/agent-context/`). **ADR-0014** (superseded)
+added two-layer routing and a two-mode lifecycle on top of the YAML format.
 
-**ADR-0014** records the two structural mechanisms that sit on top of the format
-decision. Two-layer routing separates concern-based access (Layer 1:
-`reading-guides.yaml`) from decision-domain indexing (Layer 2: `stack.yaml`,
-`workflow.yaml`, `governance.yaml`), keeping source pointers in exactly one
-place. A two-mode lifecycle lets greenfield projects write values directly
-(`mode: primary`) and mature projects maintain a pure link index
-(`mode: index`); the transition is one-directional and atomic. Neither mechanism
-has genuine alternatives: two layers resolve a concrete drift failure from the
-single-layer predecessor, and two modes follow from the greenfield-to-mature
-constraint.
+Both decisions were superseded in 0.9.0 by concern-oriented agent context: a
+single markdown file (`docs/agent-context.md`) where agents discover project
+knowledge through concern sections carrying `Read:` paths. The four YAML index
+files and their format-detection chain no longer exist. `concern-lint` replaced
+`context-lint`, validating structure with `CTX-*` finding codes. See the
+[concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
 
 ### Local Usage Analysis
 
@@ -160,9 +153,14 @@ best meets reproducibility, capture independence, local operation, strict
 accounting, and Clean Architecture dependency direction without introducing a
 freshness or synchronization lifecycle.
 
+### Cycle-Based Orchestration (no longer active)
+
+ADR-0017 and ADR-0018 describe the cycle-based orchestration design that was evaluated and partially implemented. This design is no longer active; the Eligibility Engine with precondition-based agent selection is the current mechanism. The ADRs remain as historical records.
+
 ## Superseded Decisions
 
-None yet.
+ADR-0013 and ADR-0014 are superseded by ADR-0016 (concern-oriented agent
+context). ADR-0017 and ADR-0018 describe designs that are no longer active.
 
 ## Referenced from
 

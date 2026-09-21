@@ -2,7 +2,6 @@
 name: claim-formulation
 description: Produce one precise, testable claim from recorded evidence with scope, assumptions, and content hash.
 category: research
-disable-model-invocation: false
 ---
 
 # Claim Formulation
@@ -35,7 +34,7 @@ Conjecture artifact containing:
 
 1. **Review the evidence.** Read source records in full, noting both supporting and contrary findings. Identify gaps, limitations, and assumptions embedded in the sources themselves.
 
-2. **State one claim — one disposition.** Write a single declarative sentence that captures the core finding. The claim must be testable — it must specify conditions under which it could be disproved. State exactly one disposition: a capability claim *or* a gap claim, never both. A finding of the form "X is covered *whereas* Y is a gap" is two claims; split it into two conjectures at formation. Bundling a capability and a gap into one sentence is the single most common cause of a claim being sent back to be split after its tests, reviews, and votes have already been spent. `factory/scripts/conjecture-lint` flags the bundle at this step, before that cost is incurred.
+2. **State one claim — one disposition.** Write a single declarative sentence that captures the core finding. The claim must be testable — it must specify conditions under which it could be disproved. State exactly one disposition: a capability claim *or* a gap claim, never both. A finding of the form "X is covered *whereas* Y is a gap" is two claims; split it into two conjectures at formation. Bundling a capability and a gap into one sentence is the single most common cause of a claim being sent back to be split after its tests, reviews, and votes have already been spent. `.agent-factory/factory/scripts/conjecture-lint` flags the bundle at this step, before that cost is incurred.
 
 3. **Define scope.** State the boundaries: what populations, places, times, or contexts the claim applies to. Scope binds the claim to the evidence actually collected.
 
@@ -52,7 +51,7 @@ Conjecture artifact containing:
 ## When Formulation Is Complete
 
 - The claim is stated in a single sentence.
-- The claim states exactly one disposition — one capability or one gap, not a bundle. `factory/scripts/conjecture-lint` reports no non-atomic finding.
+- The claim states exactly one disposition — one capability or one gap, not a bundle. `.agent-factory/factory/scripts/conjecture-lint` reports no non-atomic finding.
 - Scope clearly limits applicability.
 - Assumptions are explicit and numbered.
 - Each source citation includes family, author, date, and location.

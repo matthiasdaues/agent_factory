@@ -2,7 +2,6 @@
 name: reconcile-spec
 description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
 category: implementation
-disable-model-invocation: true
 ---
 
 # Reconcile Specification

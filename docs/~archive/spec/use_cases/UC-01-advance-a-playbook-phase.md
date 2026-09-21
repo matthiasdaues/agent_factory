@@ -14,16 +14,16 @@ Human Operator (or Orchestrator-as-Trigger, acting on its behalf)
 
 ## Trigger
 
-The actor runs `factory/scripts/phase advance`, believing the current phase's exit conditions are satisfied.
+The actor runs `.agent-factory/factory/scripts/phase advance`, believing the current phase's exit conditions are satisfied.
 
 ## Preconditions
 
-- The target playbook has a companion `.fsm.yml` in `factory/playbooks/` (only [`greenfield-development.fsm.yml`](../../../factory/playbooks/greenfield-development.fsm.yml) exists today — see [PRD § NG4](../prd.md#non-goals)).
+- The target playbook has a companion `.fsm.yml` in `factory/playbooks/` (only [`greenfield-development.fsm.yml`](../../../.agent-factory/factory/playbooks/greenfield-development.fsm.yml) exists today — see [PRD § NG4](../prd.md#non-goals)).
 - If a marker already exists at `.current-work/playbook-state.yml`, its `state` field names a state defined in that FSM.
 
 ## Main Success Scenario
 
-1. Actor runs `factory/scripts/phase advance`.
+1. Actor runs `.agent-factory/factory/scripts/phase advance`.
 2. `phase advance` reads the marker. No marker → bootstraps at the FSM's root state (the state with no incoming transition) instead of reading `state`.
 3. `phase advance` finds the current state's forward transition — the `if` branch of a conditional transition, or the plain `to:` transition.
 4. `phase advance` evaluates the target state's `entry_conditions` against the `gate_conditions` library (BR-004).
@@ -54,7 +54,7 @@ The actor runs `factory/scripts/phase advance`, believing the current phase's ex
 - **BR-006**: `recorded_at` is taken from the recording script's own process clock, never actor-supplied.
 - **BR-007**: an `if`/`else` transition's `if` branch is the sole forward/progress path; its target's own `entry_conditions` decide pass or fail, not an externally supplied `--result` flag.
 
-`no_open_findings` conditions read finding files' frontmatter `status` field under `docs/findings/`, so every finding this mechanism counts must be filed per [finding-format.md § When to file](../../../factory/rulebooks/conventions/finding-format.md#when-to-file).
+`no_open_findings` conditions read finding files' frontmatter `status` field under `docs/findings/`, so every finding this mechanism counts must be filed per [finding-format.md § When to file](../../../.agent-factory/factory/rulebooks/conventions/finding-format.md#when-to-file).
 
 ## Activity Diagram
 
@@ -101,4 +101,4 @@ Feature: Advance a playbook phase
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)
-- [factory/scripts/phase](../../../factory/scripts/phase)
+- [factory/scripts/phase](../../../.agent-factory/factory/scripts/phase)

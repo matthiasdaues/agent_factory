@@ -892,9 +892,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--template-dir",
-        default="factory/rulebooks/templates",
+        default=".agent-factory/factory/rulebooks/templates",
         type=Path,
-        help="Path to templates, used only with --charter-dir or the legacy-markdown fallback (default: factory/rulebooks/templates)",
+        help="Path to templates, used only with --charter-dir or the legacy-markdown fallback (default: .agent-factory/factory/rulebooks/templates)",
     )
     p.add_argument(
         "--planning-gate",

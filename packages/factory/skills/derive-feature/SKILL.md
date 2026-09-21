@@ -2,7 +2,6 @@
 name: derive-feature
 description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
 category: requirements
-disable-model-invocation: false
 ---
 
 # Derive Feature

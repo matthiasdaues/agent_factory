@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Concern-Oriented Agent Context
 status: implemented
 owner: Matthias Daues
 created: 2026-09-08
@@ -13,31 +13,31 @@ impact:
   external_contract_change: true
   boundaries:
     # Rulebooks and templates
-    - factory/rulebooks/conventions/agent-context-composition.md
-    - factory/rulebooks/templates/context-*.yaml
+    - .agent-factory/factory/rulebooks/conventions/agent-context-composition.md
+    - .agent-factory/factory/rulebooks/templates/context-*.yaml
     # Skills
-    - factory/skills/capture-context/SKILL.md
-    - factory/skills/update-context/SKILL.md
-    - factory/skills/detect-test-regime/SKILL.md
-    - factory/skills/validate/SKILL.md
+    - .agent-factory/factory/skills/capture-context/SKILL.md
+    - .agent-factory/factory/skills/update-context/SKILL.md
+    - .agent-factory/factory/skills/detect-test-regime/SKILL.md
+    - .agent-factory/factory/skills/validate/SKILL.md
     # Scripts and gates
-    - factory/scripts/context-lint
-    - factory/scripts/validate
-    - factory/scripts/init-factory
-    - factory/scripts/crap-score
+    - .agent-factory/factory/scripts/context-lint
+    - .agent-factory/factory/scripts/validate
+    - .agent-factory/factory/scripts/init-factory
+    - .agent-factory/factory/scripts/crap-score
     # Agent definitions
-    - factory/agents/planning-agent.md
-    - factory/agents/implementation-agent.md
-    - factory/agents/developer-agent.md
-    - factory/agents/virgil.md
-    - factory/agents/reconciliation-agent.md
-    - factory/agents/requirements-agent.md
-    - factory/agents/architecture-agent.md
-    - factory/agents/architecture-review-agent.md
-    - factory/agents/qa-agent.md
-    - factory/agents/spec-review-agent.md
+    - .agent-factory/factory/agents/planning-agent.md
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/agents/developer-agent.md
+    - .agent-factory/factory/agents/virgil.md
+    - .agent-factory/factory/agents/reconciliation-agent.md
+    - .agent-factory/factory/agents/requirements-agent.md
+    - .agent-factory/factory/agents/architecture-agent.md
+    - .agent-factory/factory/agents/architecture-review-agent.md
+    - .agent-factory/factory/agents/qa-agent.md
+    - .agent-factory/factory/agents/spec-review-agent.md
     # Config
-    - factory/config/AGENTS.md
+    - .agent-factory/factory/config/AGENTS.md
     # Any additional skill or agent definition carrying project-native
     # paths (docs/handbook/, docs/spec/supplementary_specs/, docs/adr/)
     # discovered during implementation planning.
@@ -147,11 +147,11 @@ Structure:
 
 ### Branching
 Branching policy and worktree discipline.
-Read: factory/rulebooks/conventions/branching-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/branching-policy.md
 
 ### Committing
 Commit message format and hook discipline.
-Read: factory/rulebooks/conventions/commit-conventions.md, .pre-commit-config.yaml
+Read: .agent-factory/factory/rulebooks/conventions/commit-conventions.md, .pre-commit-config.yaml
 
 ### Testing discipline
 Risk-based testing, test admission, layer ownership.
@@ -275,7 +275,7 @@ The current `context-lint` validates seven properties of the YAML files (CX-FILE
 - `docs/agent-context/governance.yaml`
 - `docs/agent-context/reading-guides.yaml`
 - `docs/agent-context/` directory (after `testing.yaml` moves to `docs/`)
-- `factory/rulebooks/templates/context-*.yaml` (YAML templates used by the old `capture-context`)
+- `.agent-factory/factory/rulebooks/templates/context-*.yaml` (YAML templates used by the old `capture-context`)
 
 Their knowledge migrates into `docs/agent-context.md` concern sections during the transition.
 
@@ -383,13 +383,13 @@ Disposition: findings
 
 ### Findings
 
-| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PROP-01 | minor    | 05    | fixed  | Boundary path `factory/scripts/detect-test-regime` does not exist. The actual path is `factory/skills/detect-test-regime/SKILL.md` — detect-test-regime is a skill, not a script.                                                                                                                                                                                                                                                |
-| PROP-02 | major    | 01    | fixed  | Completion criterion 7 says "testing.yaml continues to work as machine config, unchanged" but the Design describes moving it from `docs/agent-context/testing.yaml` to `docs/testing.yaml` and updating the resolution chain in concern-lint, detect-test-regime, gate scripts, and all agent definitions. The criterion contradicts the design.                                                                                 |
-| PROP-03 | major    | 02    | fixed  | Scope's "In the first release" does not list updating the testing.yaml resolution chain in `detect-test-regime`, gate scripts (`crap-score`, etc.), or the five agent definitions that currently hardcode `docs/agent-context/testing.yaml` as a path. The Design describes this work but the Scope omits it, leaving a planning agent to infer the stories.                                                                     |
-| PROP-04 | minor    | 03    | fixed  | Reconciliation-agent Step 6 reads `factory/rulebooks/templates/context-interview-guide.yaml` and compares against YAML index files. The `context-*.yaml` template glob deletes the interview guide. The Scope says "input references updated" but the Design does not describe the replacement reconciliation procedure for agent-context health. A planning agent cannot write a story for this without re-deriving the design. |
-| PROP-05 | major    | 02    | fixed  | context-lint currently validates both YAML agent-context (CX-\* codes) and legacy markdown charter (CH-\* codes) via format detection. The proposal says concern-lint "replaces context-lint" and describes only four CL-\* checks for the concern model. No provision is made for legacy charter validation. Projects using `docs/charter/*.md` would lose their validation gate entirely when context-lint is replaced.        |
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------- | -------- | ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | minor    | 05    | fixed  | Boundary path `.agent-factory/factory/scripts/detect-test-regime` does not exist. The actual path is `.agent-factory/factory/skills/detect-test-regime/SKILL.md` — detect-test-regime is a skill, not a script.                                                                                                                                                                                                                                 |
+| PROP-02 | major    | 01    | fixed  | Completion criterion 7 says "testing.yaml continues to work as machine config, unchanged" but the Design describes moving it from `docs/agent-context/testing.yaml` to `docs/testing.yaml` and updating the resolution chain in concern-lint, detect-test-regime, gate scripts, and all agent definitions. The criterion contradicts the design.                                                                                                |
+| PROP-03 | major    | 02    | fixed  | Scope's "In the first release" does not list updating the testing.yaml resolution chain in `detect-test-regime`, gate scripts (`crap-score`, etc.), or the five agent definitions that currently hardcode `docs/agent-context/testing.yaml` as a path. The Design describes this work but the Scope omits it, leaving a planning agent to infer the stories.                                                                                    |
+| PROP-04 | minor    | 03    | fixed  | Reconciliation-agent Step 6 reads `.agent-factory/factory/rulebooks/templates/context-interview-guide.yaml` and compares against YAML index files. The `context-*.yaml` template glob deletes the interview guide. The Scope says "input references updated" but the Design does not describe the replacement reconciliation procedure for agent-context health. A planning agent cannot write a story for this without re-deriving the design. |
+| PROP-05 | major    | 02    | fixed  | context-lint currently validates both YAML agent-context (CX-\* codes) and legacy markdown charter (CH-\* codes) via format detection. The proposal says concern-lint "replaces context-lint" and describes only four CL-\* checks for the concern model. No provision is made for legacy charter validation. Projects using `docs/charter/*.md` would lose their validation gate entirely when context-lint is replaced.                       |
 
 ### Summary
 

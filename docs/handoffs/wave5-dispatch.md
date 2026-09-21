@@ -21,7 +21,7 @@ ______________________________________________________________________
 | Story   | Title                                                           | Tier     | Code files                                                                          |
 | ------- | --------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------- |
 | ST-0127 | step-guard bash guard and context guard                         | economy  | `tests/test_context_guard.py`, `tests/test_step_guard_integration.py`               |
-| ST-0129 | CLI hook wiring and init-factory step-guard installation        | economy  | `factory/config/hooks/block-dangerous-git.sh`                                       |
+| ST-0129 | CLI hook wiring and init-factory step-guard installation        | economy  | `.agent-factory/factory/config/hooks/block-dangerous-git.sh`                        |
 | ST-0124 | Phase 1 e2e smoke test: two-story two-wave dispatch             | economy  | `tests/test_dispatch_e2e.py`                                                        |
 | ST-0136 | Seams-first strategy: two-session dispatch with tier arithmetic | standard | `tests/test_dispatch_escalation.py`, `tests/test_manifest_lifecycle_integration.py` |
 | ST-0137 | Class-aware re-dispatch disposition logic                       | economy  | `tests/test_dispatch_lifecycle.py`                                                  |

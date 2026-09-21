@@ -2,7 +2,6 @@
 name: retrospective
 description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
 category: utility
-disable-model-invocation: false
 ---
 
 # Retrospective

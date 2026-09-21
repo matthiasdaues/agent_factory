@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Contract-Traced Testing Strategy
 status: superseded
 owner: md@matthiasdaues.de
 created: 2026-08-28

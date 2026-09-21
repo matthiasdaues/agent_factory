@@ -32,7 +32,7 @@ def root_path(value: str) -> Path:
 
 
 def layout(root: Path) -> tuple[Path, Path, Path]:
-    control = root / ".agent-factory/usage-control"
+    control = root / ".agent-factory/usage/control"
     pending = control / "pending"
     scratch = root / ".agent-factory/usage/.capture"
     for path in (control, pending, scratch):
@@ -149,8 +149,8 @@ def register(args) -> int:
         original = Path(args.transcript)
         if not original.is_absolute() or not regular(original):
             raise ValueError("invalid transcript")
-        runtime = root / "factory/scripts/usage-capture-runtime"
-        lifecycle = root / "factory/scripts/usage-capture-lifecycle"
+        runtime = root / ".agent-factory/factory/scripts/usage-capture-runtime"
+        lifecycle = root / ".agent-factory/factory/scripts/usage-capture-lifecycle"
         if not os.access(runtime, os.X_OK) or lifecycle.resolve() != lifecycle:
             raise ValueError("untrusted usage runtime")
         identifier = f"capture-{uuid.uuid4()}"
@@ -263,7 +263,7 @@ def validate_supervisor(args) -> dict:
         "staged_source"
     ) != str(source):
         raise ValueError("registration mismatch")
-    runtime = root / "factory/scripts/usage-capture-runtime"
+    runtime = root / ".agent-factory/factory/scripts/usage-capture-runtime"
     if not args.capture_command or Path(args.capture_command[0]) != runtime:
         raise ValueError("invalid capture command")
     return {

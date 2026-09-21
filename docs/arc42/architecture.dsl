@@ -1,4 +1,5 @@
-workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnostic dispatch, and generated catalog for Agent Factory playbooks" {
+// scope: global
+workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, validation, and usage capture for Agent Factory" {
 
     properties {
         "arc42.projected" "true"
@@ -7,9 +8,8 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
     model {
         # External actors
         humanOperator = person "Human Operator" "Person driving Agent Factory by hand"
-        orchestrator = softwareSystem "Orchestrator CLI" "Python CLI that invokes factory mechanisms programmatically" "External"
         cliAgent = person "CLI-Invoked Agent" "Claude Code, Copilot CLI, or Pi agent session under scoped allowlist; under Pi also the caller of run_agent" "Agent"
-        
+
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
 
@@ -17,63 +17,71 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         parquetFile = softwareSystem "Parquet Export" "Optional, attributable, atomically replaced local export; never authoritative state" "External"
 
         # Factory Flow Control system
-        factoryFlowControl = softwareSystem "Factory Flow Control" "State machine, dispatch, and validation for Agent Factory" {
-            
-            # State management container
-            stateManager = container "State Manager" "Reads/writes playbook state, resolves FSM transitions" "Bash/Python" {
-                phaseAdvance = component "phase advance" "Advances playbook to next state when entry conditions met" "Bash"
-                phaseRetry = component "phase retry" "Retries current phase within iteration cap" "Bash"
-                runStep = component "run-step skill" "Derives what's next from observable state" "Markdown/LLM-executed"
+        factoryFlowControl = softwareSystem "Factory Flow Control" "Precondition-based agent eligibility, dispatch, and validation for Agent Factory" {
+
+            # Eligibility Engine — pure domain logic, returns immutable decisions, never writes state
+            eligibilityEngine = container "Eligibility Engine" "Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility; returns immutable decisions without writing state" "Python 3.10+" {
+                intentCli = component "intent" "CLI entry point with two subcommands: select (list agents with precondition evidence) and assess (validate governed artifacts); calls evaluate_all and load_agent_definitions" "Python"
+                agentLoader = component "Agent Loader" "Loads agent definitions from YAML frontmatter in the agents directory" "Python"
+                preconditionEvaluator = component "Precondition Evaluator" "Evaluates each agent's inputs.required declarations against the filesystem: resolves path patterns, checks frontmatter conditions, runs validator scripts" "Python"
+                readinessEvaluator = component "Readiness Evaluator" "Accepts evaluation evidence from the precondition evaluator and derives per-agent AgentReadiness verdicts with eligible/unsatisfied/warnings" "Python"
+                recommendationClassifier = component "Recommendation Classifier" "Classifies agents by eligibility into eligible and blocked groups from readiness verdicts" "Python"
+                workstreamResolver = component "Workstream Resolver" "Resolves workstream identity from session binding" "Python"
+                sessionBindingManager = component "Session Binding Manager" "Creates and manages session-to-workstream bindings; records session_id, workstream_id, and bound_at" "Python"
             }
-            
-            # Validation container
+
+            # Validator — deterministic gates and validators
             validator = container "Validator" "Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks" "Bash/Python" {
-                transitionLint = component "transition-lint" "Pre-commit hook blocking out-of-phase files" "Python"
                 blockDangerousGit = component "block-dangerous-git.sh" "PreToolUse hook blocking destructive commands and allowlisting project-declared test commands via format-detected testing.yaml" "Bash"
-                contextLint = component "context-lint" "Validates agent-context YAML structure, key presence, mode compliance, source-pointer integrity, and reading-guide references (CX-* codes); falls back to charter-lint CH-* codes for legacy markdown projects" "Python"
+                concernLint = component "concern-lint" "Validates concern-oriented agent context: category headings, Read/Boundary path resolution, story concern vocabulary, and absence of legacy YAML files (CTX-* codes)" "Python"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
                 crapScore = component "crap-score" "CRAP scoring gate: cyclomatic complexity weighted against test coverage, diff-scoped per story" "Bash/Python"
                 dependencyCheck = component "dependency-check" "Dependency-rule enforcement gate: validates imports against architecture.dsl dependency declarations" "Bash/Python"
-                moduleGraphCheck = component "module-graph-check" "Derives module map from architecture.dsl, compares against Phase 1 outputs to determine architecture phase routing" "Bash/Python"
+                moduleGraphCheck = component "module-graph-check" "Derives module map from architecture.dsl, compares against concept outputs to determine architecture routing" "Bash/Python"
+                fenceRunner = component "Fence Runner" "Deterministic output validation after agent activity; snapshots declared output patterns, compares post-activity filesystem state, and stores fence evidence" "Python"
+                proposalValidator = component "Proposal Validator" "Checks proposal file existence, format, and required fields; returns the shared validator result shape" "Python"
             }
-            
-            # Dispatch container
+
+            # Dispatcher — agent and model resolution, CLI session spawning
             dispatcher = container "Dispatcher" "Resolves agents/models and spawns CLI sessions" "Bash/Python" {
                 trigger = component "trigger" "Dispatches named agent or playbook step to CLI" "Bash"
                 indexLint = component "index-lint" "Generates INDEX.yaml from frontmatter" "Python"
                 runAgent = component "run-agent (Pi extension)" "Pi model-callable tool: spawns a separate pi session to run one factory agent" "TypeScript/Pi"
-                dispatchWave = component "dispatch-wave (Pi extension)" "Pi model-callable tool: runs a parallel wave of factory agents, each in its own git worktree, integrating premerge-check before merging (ports implementation-agent)" "TypeScript/Pi"
+                dispatchWave = component "dispatch-wave (Pi extension)" "Pi model-callable tool: runs a parallel wave of factory agents, each in its own git worktree, integrating premerge-check before merging" "TypeScript/Pi"
                 openrouterDiscover = component "openrouter-discover" "Operator aid: queries OpenRouter catalog to curate/validate pi.* tier rows in model.conf (offline of the runtime path)" "Python"
             }
 
-            # Capture and distribution remain independent from analysis
-            usageCaptureContainer = container "Usage Capture" "Normalizes CLI-native transcripts and appends versioned usage records without waiting for analysis" "Python/Shell/TypeScript" {
-                usageCapture = component "usage-capture" "Normalizes one CLI transcript and appends a canonical usage record" "Python"
+            # Usage Capture — with optional workstream context
+            usageCaptureContainer = container "Usage Capture" "Normalizes CLI-native transcripts and appends versioned usage records with optional workstream context" "Python/Shell/TypeScript" {
+                usageCapture = component "usage-capture" "Normalizes one CLI transcript and appends a canonical usage record; adds workstream_id and workstream_origin from the session binding when available" "Python"
             }
 
+            # Distribution — component lifecycle
             distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components" "Bash/Python" {
                 initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest" "Python"
                 updateFactory = component "update-factory" "Updates Factory core and reports installed components without changing them" "Python"
                 removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
             }
-            
-            # Configuration and state storage
-            stateFiles = container "State Files" "Local git-ignored marker and FSM definitions" "YAML files" "Storage"
+
+            # Storage
+            workstreamState = container "Workstream State" "Immutable workstream identity records under .agent-factory/workstreams/; each records schema_version, workstream_id, topic, and origin_ref" "YAML files" "Storage"
+            sessionBindings = container "Session Bindings" "Session-to-workstream mapping under .agent-factory/workstreams/sessions/<session-id>.yaml; records session_id, workstream_id, and bound_at" "YAML files" "Storage"
+            stateFiles = container "State Files" "Local git-ignored dispatch ledgers and quality-gate reports" "YAML/JSON files" "Storage"
             catalog = container "Catalog" "Generated INDEX.yaml of agents/skills/playbooks" "YAML file" "Storage"
-            usageRecordContract = container "Usage Record Contract" "Factory-owned JSON Schema Draft 2020-12 and compatibility manifest" "JSON Schema/YAML" "Storage"
+            usageRecordContract = container "Usage Record Contract" "Factory-owned JSON Schema Draft 2020-12 and compatibility manifest; v1 schema includes optional workstream_id and workstream_origin fields" "JSON Schema/YAML" "Storage"
             rawUsageSpool = container "Raw Usage Spool" "Authoritative append-only top-level JSONL records under .agent-factory/usage/" "JSONL files" "Storage"
             installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
         }
 
         # Separate bounded context: local analytical consumer
-        usageAnalysis = softwareSystem "Usage Analysis" "Opt-in, local, read-only JSONL-to-DuckDB analysis with reproducible published views" {
+        usageAnalysis = softwareSystem "Usage Analysis" "Opt-in, local, read-only JSONL-to-DuckDB analysis with reproducible published views; workstream dimension available" {
             usageAnalysisRuntime = container "Usage Analysis Runtime" "Runs usage-query from the installed, locked Python project and owns the query model" "Python/DuckDB/PyArrow" {
                 inputSnapshot = component "Input Snapshot" "Selects and normalizes a sorted, top-level JSONL input set at query start" "Python"
                 contractCheck = component "Contract Check" "Validates the installed record contract, every selected line, and producer-consumer compatibility" "Python/JSON Schema"
                 operationalPreflight = component "Operational Preflight" "Classifies every line, validates ancestry, and registers valid and failure relations" "Python/DuckDB"
                 accountingRegistry = component "Accounting Registry" "Maps exactly four producer CLI values to their conservation rule" "Python/SQL"
-                queryModel = component "Query Model v1" "Publishes six versioned DuckDB views over query-scoped relations" "DuckDB SQL"
+                queryModel = component "Query Model v1" "Publishes six versioned DuckDB views over query-scoped relations; workstream dimension available in usage_by_dimension" "DuckDB SQL"
                 resultAdapters = component "Result Adapters" "Projects a published view as table, JSON, DuckDB relation, or PyArrow table" "Python"
                 parquetExporter = component "Parquet Exporter" "Stages, verifies, attributes, and atomically replaces an explicit export" "Python/DuckDB"
             }
@@ -82,11 +90,19 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             installedAnalysis = container "Installed Analysis Module" "Versioned SQL, accounting rules, contract copy, lockfile, and executable package under .agent-factory/usage-analysis/" "Files" "Storage"
         }
 
+        # Deployment
         deploymentEnvironment "Release 1" {
             deploymentNode "Operator Workstation" "Single local machine; no container, database server, or remote service" "Linux/macOS" {
                 deploymentNode "Factory Project" "Project checkout with a local .agent-factory directory" "Filesystem/processes" {
+                    containerInstance eligibilityEngine
+                    containerInstance validator
+                    containerInstance dispatcher
                     containerInstance usageCaptureContainer
                     containerInstance distribution
+                    containerInstance workstreamState
+                    containerInstance sessionBindings
+                    containerInstance stateFiles
+                    containerInstance catalog
                     containerInstance usageRecordContract
                     containerInstance rawUsageSpool
                     containerInstance installManifest
@@ -97,42 +113,47 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             }
         }
 
-        # Relationships - Human Operator
+        # ================================================================
+        # Relationships — Human Operator
+        # ================================================================
+        humanOperator -> intentCli "Selects eligible agents via intent select"
         humanOperator -> git "Runs git commit, git push"
-        humanOperator -> phaseAdvance "Invokes via CLI"
-        humanOperator -> phaseRetry "Invokes via CLI"
         humanOperator -> trigger "Invokes via CLI"
         humanOperator -> usageAnalysisRuntime "Runs usage-query locally"
         humanOperator -> inputSnapshot "Starts a stable local query"
         humanOperator -> parquetExporter "Requests an explicit Parquet export"
         humanOperator -> duckdbUi "Optionally explores published views"
         humanOperator -> initFactory "Installs, updates, or removes the usage component"
-        
-        # Relationships - Orchestrator
-        orchestrator -> phaseAdvance "Invokes programmatically"
-        orchestrator -> phaseRetry "Invokes programmatically"
-        orchestrator -> trigger "Invokes programmatically"
-        
-        # Relationships - Git hooks
-        git -> transitionLint "Fires pre-commit"
+
+        # ================================================================
+        # Relationships — Git hooks
+        # ================================================================
         git -> blockDangerousGit "Fires PreToolUse before command execution"
+        git -> concernLint "Fires pre-commit"
 
-        # Relationships - State Manager
-        phaseAdvance -> stateFiles "Reads/writes marker, reads FSM; resolves charter:test_command via testing.yaml"
-        phaseRetry -> stateFiles "Reads/writes marker, resolves iteration cap"
-        runStep -> stateFiles "Reads marker and FSM to derive next action"
-        runStep -> trigger "Dispatches resolved agent"
+        # ================================================================
+        # Relationships — Eligibility Engine internals
+        # ================================================================
+        intentCli -> preconditionEvaluator "Calls evaluate_all for agent selection"
+        intentCli -> agentLoader "Calls load_agent_definitions"
+        preconditionEvaluator -> readinessEvaluator "Passes evaluation evidence"
+        readinessEvaluator -> recommendationClassifier "Passes readiness verdicts"
+        workstreamResolver -> workstreamState "Resolves workstream identity"
+        workstreamResolver -> sessionBindings "Reads session-to-workstream mapping"
+        sessionBindingManager -> sessionBindings "Creates session-to-workstream bindings"
 
-        # Relationships - Validator
-        transitionLint -> stateFiles "Reads marker for current state"
+        # ================================================================
+        # Relationships — Validator
+        # ================================================================
         blockDangerousGit -> cliAgent "Blocks destructive commands before execution"
-        cliAgent -> contextLint "Validate skill or pre-commit hook invokes context-lint on agent-context files"
-        git -> contextLint "Fires pre-commit"
+        cliAgent -> concernLint "Validate skill or pre-commit hook invokes concern-lint on agent-context files"
         cliAgent -> schemaValidate "Research skills/agents validate an artifact against its schema (stage 1)"
         cliAgent -> policyValidate "Research skills/agents validate artifacts against enforceable policy (stage 2)"
         policyValidate -> schemaValidate "Chains stage 1 in --pipeline mode"
-        
-        # Relationships - Dispatcher
+
+        # ================================================================
+        # Relationships — Dispatcher
+        # ================================================================
         trigger -> catalog "Resolves agent/playbook by name"
         trigger -> cliAgent "Spawns CLI session with scoped allowlist"
         indexLint -> catalog "Generates/validates INDEX.yaml"
@@ -143,12 +164,17 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         dispatchWave -> catalog "Resolves each item's agent by name; tier via model.conf"
         dispatchWave -> cliAgent "Spawns parallel pi sessions, one per worktree"
 
-        # Relationships - Usage capture and Factory-owned contract
+        # ================================================================
+        # Relationships — Usage Capture
+        # ================================================================
         cliAgent -> usageCapture "Supplies CLI-native transcript and invocation context"
         usageCapture -> usageRecordContract "Produces records governed by"
         usageCapture -> rawUsageSpool "Appends canonical records"
+        usageCapture -> sessionBindings "Reads workstream context for usage attribution"
 
-        # Relationships - Usage component distribution
+        # ================================================================
+        # Relationships — Distribution
+        # ================================================================
         initFactory -> usageRecordContract "Copies the compatible contract into the component"
         initFactory -> installedAnalysis "Installs, updates, or removes without touching raw data"
         initFactory -> installManifest "Records installed_components.usage"
@@ -156,7 +182,9 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         removeFactory -> installedAnalysis "Removes during complete uninstall"
         removeFactory -> rawUsageSpool "Deletes during complete uninstall"
 
-        # Relationships - Local usage analysis
+        # ================================================================
+        # Relationships — Usage Analysis
+        # ================================================================
         usageAnalysisRuntime -> installedAnalysis "Loads locked code, SQL, accounting rules, and contract copy"
         inputSnapshot -> rawUsageSpool "Snapshots sorted top-level JSONL paths read-only"
         inputSnapshot -> contractCheck "Supplies normalized evidence positions and records"
@@ -169,18 +197,30 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         parquetExporter -> parquetFile "Atomically replaces after round-trip verification"
         duckdbUi -> queryModel "Explores the same published views locally"
 
-        # Relationships - Semantic Quality Gates (dispatcher-invoked, on-demand)
+        # ================================================================
+        # Relationships — Semantic Quality Gates (dispatcher-invoked)
+        # ================================================================
         cliAgent -> crapScore "Implementation-agent dispatcher runs after developer commit"
         cliAgent -> dependencyCheck "Implementation-agent dispatcher runs after developer commit"
         crapScore -> stateFiles "Writes JSON report to .current-work/crap-score/"
         dependencyCheck -> stateFiles "Writes JSON report to .current-work/dependency-check/"
 
-        # Relationships - Module-graph check (orchestrating session, on-demand)
-        cliAgent -> moduleGraphCheck "Orchestrating session runs at Phase 1 / Phase 3 boundary"
+        # ================================================================
+        # Relationships — Fence Runner and Proposal Validator
+        # ================================================================
+        cliAgent -> fenceRunner "Runs after agent activity to validate declared outputs"
+        fenceRunner -> stateFiles "Stores fence evidence"
+        intentCli -> proposalValidator "intent assess validates proposal artifacts"
 
-        # Relationships - CLI Agent
+        # ================================================================
+        # Relationships — Module-graph check
+        # ================================================================
+        cliAgent -> moduleGraphCheck "Orchestrating session runs at architecture boundary"
+
+        # ================================================================
+        # Relationships — CLI Agent hooks
+        # ================================================================
         cliAgent -> blockDangerousGit "Every shell command routed through PreToolUse (or Pi extension)"
-        cliAgent -> transitionLint "Commits trigger pre-commit hooks"
     }
 
     views {
@@ -194,10 +234,16 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             autoLayout lr
         }
 
+        component eligibilityEngine "EligibilityEngineComponents" "Eligibility engine internals: agent loading, precondition evaluation, readiness derivation, and recommendation classification" {
+            include *
+            include workstreamState
+            include sessionBindings
+            autoLayout tb
+        }
+
         component validator "ValidationComponents" "Validation components: hook-triggered gates, on-demand validators, and semantic quality gates" {
             include *
             include git
-            include phaseAdvance
             include cliAgent
             include stateFiles
             autoLayout tb
@@ -213,12 +259,12 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
             autoLayout lr
         }
 
-        dynamic validator "TestGatePresence" "Charter-declared test gate presence and agent allowlist" {
-            humanOperator -> phaseAdvance "1. Invokes phase advance"
-            phaseAdvance -> stateFiles "2. Reads FSM; resolves charter:test_command from testing.yaml"
-            phaseAdvance -> stateFiles "3. Executes resolved command, reads exit code only"
-            cliAgent -> blockDangerousGit "4. Agent attempts a test command"
-            blockDangerousGit -> cliAgent "5. Allows charter-declared, denies bare test commands"
+        dynamic eligibilityEngine "AgentSelection" "Human selects an eligible agent for the current workstream" {
+            humanOperator -> intentCli "1. Invokes intent select"
+            intentCli -> agentLoader "2. Loads agent definitions from agents directory"
+            intentCli -> preconditionEvaluator "3. Evaluates each agent's preconditions against the filesystem"
+            preconditionEvaluator -> readinessEvaluator "4. Passes evaluation evidence for readiness derivation"
+            readinessEvaluator -> recommendationClassifier "5. Classifies agents into eligible and blocked groups"
         }
 
         dynamic validator "SemanticGateLoop" "Dispatcher-owned semantic gate execution after developer commit" {
@@ -251,7 +297,7 @@ workspace "Factory Flow Control" "Deterministic state-machine harness, CLI-agnos
         }
 
         theme default
-        
+
         styles {
             element "Person" {
                 shape Person

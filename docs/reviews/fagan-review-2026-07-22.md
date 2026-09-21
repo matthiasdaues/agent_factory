@@ -13,12 +13,12 @@
 
 ## Finding table
 
-| Finding                                                                                                                                                                      | Artifact                                                                          | Category   | Severity |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ---------- | -------- |
-| Pi capture registration is not atomic with the removal fence; use one shared filesystem exclusion protocol and cover the late-registration interleaving.                     | `factory/config/extensions/pi-usage.ts:122`; `factory/scripts/remove-factory:356` | Defect     | Major    |
-| Concurrent captures for one session can allocate the same record ID and overwrite transcript evidence; make allocation inter-process safe and transcript creation exclusive. | `factory/scripts/usage-capture:965`                                               | Defect     | Major    |
-| Copilot child attribution does not carry parent correlation where the native payload permits it; map a native parent identifier or document the unavailable relationship.    | `factory/config/hooks/capture-copilot-usage.sh:5`                                 | Suggestion | Minor    |
-| Persisted normalized text uses a `.jsonl` suffix despite no longer being an event stream; use an accurate suffix or explicitly document the representation.                  | `factory/scripts/usage-capture:281`                                               | Suggestion | Minor    |
+| Finding                                                                                                                                                                      | Artifact                                                                                         | Category   | Severity |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------- | -------- |
+| Pi capture registration is not atomic with the removal fence; use one shared filesystem exclusion protocol and cover the late-registration interleaving.                     | `.agent-factory/factory/config/extensions/pi-usage.ts:122`; `factory/scripts/remove-factory:356` | Defect     | Major    |
+| Concurrent captures for one session can allocate the same record ID and overwrite transcript evidence; make allocation inter-process safe and transcript creation exclusive. | `.agent-factory/factory/scripts/usage-capture:965`                                               | Defect     | Major    |
+| Copilot child attribution does not carry parent correlation where the native payload permits it; map a native parent identifier or document the unavailable relationship.    | `.agent-factory/factory/config/hooks/capture-copilot-usage.sh:5`                                 | Suggestion | Minor    |
+| Persisted normalized text uses a `.jsonl` suffix despite no longer being an event stream; use an accurate suffix or explicitly document the representation.                  | `.agent-factory/factory/scripts/usage-capture:281`                                               | Suggestion | Minor    |
 
 Defects are filed as `FAGAN-0002` and `FAGAN-0003`.
 

@@ -51,29 +51,6 @@ EOF
 "Implement bug fix for BUG-NNNN using TDD"
 ```
 
-**Orchestrator approach**:
-
-```bash
-# Create temporary story for the bug
-cat > backlog/BUG-NNNN.md << EOF
----
-id: BUG-NNNN
-status: pending
-deps: []
----
-
-Fix BUG-NNNN
-
-**Acceptance Criteria:**
-- [ ] Bug reproduced with failing test
-- [ ] Fix applied
-- [ ] Test passes
-- [ ] No regression in other tests
-EOF
-
-orchestrator run-phase implementation
-```
-
 **Agent**: `developer-agent`
 **Expected**: Commit with message `fix: <description> (BUG-NNNN)`
 
@@ -97,7 +74,7 @@ go test ./...
 ### Step 3.1 — Run QA Agent
 
 ```bash
-orchestrator run-phase qa
+# Start new session, activate qa-agent
 ```
 
 **Agent**: `qa-agent`
@@ -139,7 +116,7 @@ Final checks:
 
 ## Fast-Track: Hotfix
 
-For **critical production bugs**, skip orchestrator:
+For **critical production bugs**, use the fast-track approach:
 
 ```bash
 # 1. Write failing test

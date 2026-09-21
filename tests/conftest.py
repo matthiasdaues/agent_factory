@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = REPO_ROOT / "factory" / "scripts"
+SCRIPTS_DIR = REPO_ROOT / ".agent-factory" / "factory" / "scripts"
 
 # Scripts like spec-lint do `import _session_log` at module scope.
 if str(SCRIPTS_DIR) not in sys.path:

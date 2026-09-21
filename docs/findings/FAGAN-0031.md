@@ -3,7 +3,7 @@ id: FAGAN-0031
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/scripts/crap-score:91-133
+artifact: .agent-factory/factory/scripts/crap-score:91-133
 status: resolved
 traces: [test-design.feature/Rule-15]
 ---

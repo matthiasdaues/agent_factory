@@ -9,14 +9,14 @@ ______________________________________________________________________
 
 ## Summary
 
-`step-guard` hardcodes allowed path prefixes for read operations (`factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`) and write operations (`docs/findings/`) plus specific allowed paths (gate markers). The implementation correctly denies ledger and manifest writes regardless of output globs.
+`step-guard` hardcodes allowed path prefixes for read operations (`.agent-factory/factory/`, `.claude/`, `.github/`, `.pi/`, `.codex/`, `.current-work/`) and write operations (`docs/findings/`) plus specific allowed paths (gate markers). The implementation correctly denies ledger and manifest writes regardless of output globs.
 
 ## Evidence
 
 ```python
-# factory/scripts/step-guard
+# .agent-factory/factory/scripts/step-guard
 READ_ALLOWED_PREFIXES = (
-    "factory/",
+    ".agent-factory/factory/",
     ".claude/",
     ".github/",
     ".pi/",

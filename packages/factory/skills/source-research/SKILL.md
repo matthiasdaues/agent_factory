@@ -2,7 +2,6 @@
 name: source-research
 description: Find sources for one bounded assignment and record them against the source-record artifact.
 category: research
-disable-model-invocation: false
 ---
 
 # Source Research
@@ -27,6 +26,6 @@ Each source record must document:
 
 ## Output
 
-The skill produces source-record artifacts validated against [`factory/rulebooks/schemas/research-source-record.schema.json`](../../rulebooks/schemas/research-source-record.schema.json).
+The skill produces source-record artifacts validated against [`.agent-factory/factory/rulebooks/schemas/research-source-record.schema.json`](../../rulebooks/schemas/research-source-record.schema.json).
 
-Refer to [`factory/rulebooks/templates/research-source-record.md`](../../rulebooks/templates/research-source-record.md) for the template structure.
+Refer to [`.agent-factory/factory/rulebooks/templates/research-source-record.md`](../../rulebooks/templates/research-source-record.md) for the template structure.

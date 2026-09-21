@@ -28,15 +28,15 @@ Branch root: `4e78d3f34a41308146bfeb6031650e0f238379b8`
 
 Commit `174ef750072222d3001516a4fec1db6757f34688` contains:
 
-- `factory/rulebooks/templates/context-{stack,workflow,governance,reading-guides}.yaml` (4 new templates)
-- `factory/rulebooks/conventions/agent-context-composition.md` (new convention)
-- `factory/rulebooks/rules.md` (Agent context composition section added)
-- `factory/scripts/context-lint` (renamed from `charter-lint`, CX-FILE/PARSE/KEYS/NULL/MODE/MODE-INVALID added)
-- `factory/scripts/charter-lint` (deleted via git mv)
+- `.agent-factory/factory/rulebooks/templates/context-{stack,workflow,governance,reading-guides}.yaml` (4 new templates)
+- `.agent-factory/factory/rulebooks/conventions/agent-context-composition.md` (new convention)
+- `.agent-factory/factory/rulebooks/rules.md` (Agent context composition section added)
+- `.agent-factory/factory/scripts/context-lint` (renamed from `charter-lint`, CX-FILE/PARSE/KEYS/NULL/MODE/MODE-INVALID added)
+- `.agent-factory/factory/scripts/charter-lint` (deleted via git mv)
 - `.pre-commit-config.yaml` (context-lint hook added)
 - `backlog/ST-0190.md` (status: done, Analysis section added)
 - `backlog/ST-0075.md` (outputs field corrected for rename)
-- `factory/INDEX.yaml` (updated by index-lint)
+- `.agent-factory/factory/INDEX.yaml` (updated by index-lint)
 
 **Staged but uncommitted** (18 files):
 
@@ -79,13 +79,13 @@ Path: `.current-work/feature/agent-context/dispatch-ledger.yaml`
 ## What the next session does
 
 1. **Resolve the test commit blocker** for ST-0190 (see Resolution options above).
-2. **Verify ST-0190 commit SHA** -- `factory/scripts/dispatch --ledger <ledger-path> verify-story ST-0190 --sha <final-sha>`.
-3. **Run quality gates** -- `factory/scripts/crap-score` and `factory/scripts/dependency-check` on ST-0190 outputs.
-4. **Merge ST-0190** -- `factory/scripts/dispatch --ledger <ledger-path> merge-story ST-0190` from the `feature/agent-context` worktree.
-5. **Close Wave 1** -- `factory/scripts/dispatch --ledger <ledger-path> close-wave 1`.
+2. **Verify ST-0190 commit SHA** -- `.agent-factory/factory/scripts/dispatch --ledger <ledger-path> verify-story ST-0190 --sha <final-sha>`.
+3. **Run quality gates** -- `.agent-factory/factory/scripts/crap-score` and `.agent-factory/factory/scripts/dependency-check` on ST-0190 outputs.
+4. **Merge ST-0190** -- `.agent-factory/factory/scripts/dispatch --ledger <ledger-path> merge-story ST-0190` from the `feature/agent-context` worktree.
+5. **Close Wave 1** -- `.agent-factory/factory/scripts/dispatch --ledger <ledger-path> close-wave 1`.
 6. **Execute Wave 2** -- two parallel serial chains:
-   - Chain A: ST-0191 (sonnet) then ST-0192 (sonnet), sharing `factory/scripts/context-lint`
-   - Chain B: ST-0193 (sonnet) then ST-0195 (sonnet), sharing `factory/INDEX.yaml`
+   - Chain A: ST-0191 (sonnet) then ST-0192 (sonnet), sharing `.agent-factory/factory/scripts/context-lint`
+   - Chain B: ST-0193 (sonnet) then ST-0195 (sonnet), sharing `.agent-factory/factory/INDEX.yaml`
 7. **Execute Wave 3** -- four parallel stories: ST-0194 (sonnet), ST-0196 (opus), ST-0197 (haiku), ST-0198 (haiku).
 8. **Record branch head and report results.**
 
@@ -103,7 +103,7 @@ Path: `.current-work/feature/agent-context/dispatch-ledger.yaml`
 
 ## Suggested skills
 
-- The fresh session should read `factory/rulebooks/rules.md` first (MUST per CLAUDE.md).
+- The fresh session should read `.agent-factory/factory/rulebooks/rules.md` first (MUST per CLAUDE.md).
 - Adopt the implementation-agent dispatcher role (`.claude/agents/implementation-agent.md`).
 - Developer-agent subagents (`.claude/agents/developer-agent.md`) are spawned per story.
 - Use `spec-feedback` skill after each completed story.

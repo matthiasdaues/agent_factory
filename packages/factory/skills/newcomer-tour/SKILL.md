@@ -2,7 +2,7 @@
 name: newcomer-tour
 description: >-
   Give first-time Agent Factory users a short, interactive orientation when
-  they choose option A or ask to be shown around
+  they choose option H or ask to be shown around
 category: onboarding
 version: 1.0.0
 ---
@@ -18,7 +18,7 @@ Orient newcomers warmly and briefly.
 
 02. If yes, offer to skip ahead or start fresh. If no, begin the tour.
 
-03. Read the full Getting Started section of `factory/docs/factory-guide.md`.
+03. Read the full Getting Started section of `.agent-factory/factory/docs/factory-guide.md`.
 
 04. Cover its concepts in order, combining adjacent material when one
     explanation is enough.
@@ -38,9 +38,9 @@ Orient newcomers warmly and briefly.
 07. After the Getting Started walkthrough, cover **what init-factory put
     on their disk** — briefly explain the three configuration artifacts:
 
-    - `config/project.json` — project identity (UUID, name, test command).
+    - `.agent-factory/config/project.json` — project identity (UUID, name, test command).
       Created at install. Rarely edited by hand.
-    - `config/model.conf` — the model matrix. Maps agent tiers (economy,
+    - `.agent-factory/config/model.conf` — the model matrix. Maps agent tiers (economy,
       standard, strong) to AI model ids per CLI. Configured during fitting
       or by editing the file directly.
     - `docs/agent-context.md` — does not exist yet. Created during fitting
@@ -76,4 +76,4 @@ Orient newcomers warmly and briefly.
 ## References
 
 - [Factory Guide — Getting Started section](../../docs/factory-guide.md)
-- [Newcomer Tour Proposal](../../../docs/proposals/newcomer-tour-as-portable-skill.md)
+- [Newcomer Tour Proposal](../../../../docs/proposals/newcomer-tour-as-portable-skill.md)

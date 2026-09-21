@@ -3,7 +3,7 @@ id: RECON-0009
 source: reconcile-spec
 severity: major
 category: defect
-artifact: factory/config/extensions/pi-usage.ts
+artifact: .agent-factory/factory/config/extensions/pi-usage.ts
 status: resolved
 traces: [ST-0044, ADR-0007]
 ---

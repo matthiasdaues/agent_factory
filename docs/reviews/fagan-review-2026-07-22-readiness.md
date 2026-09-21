@@ -12,9 +12,9 @@
 
 ## Finding table
 
-| Finding                                                                                                                                                            | Artifact                                                                                | Category | Severity |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | -------- | -------- |
-| Pi can register before the Python-dependent supervisor has a cleanup owner; add a tiny Node bootstrap that transfers ownership only after an acceptance handshake. | `factory/config/extensions/pi-usage.ts:170`; `factory/scripts/usage-capture-runtime:12` | Defect   | Major    |
+| Finding                                                                                                                                                            | Artifact                                                                                                              | Category | Severity |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------- | -------- |
+| Pi can register before the Python-dependent supervisor has a cleanup owner; add a tiny Node bootstrap that transfers ownership only after an acceptance handshake. | `.agent-factory/factory/config/extensions/pi-usage.ts:170`; `.agent-factory/factory/scripts/usage-capture-runtime:12` | Defect   | Major    |
 
 Filed as `docs/findings/FAGAN-0006.md`.
 

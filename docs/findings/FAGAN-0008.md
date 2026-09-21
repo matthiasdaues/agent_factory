@@ -3,7 +3,7 @@ id: FAGAN-0008
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/agents/research-orchestrator.md:17
+artifact: .agent-factory/factory/agents/research-orchestrator.md:17
 status: resolved
 traces: [ST-0061, ST-0062, Survey Mode]
 ---

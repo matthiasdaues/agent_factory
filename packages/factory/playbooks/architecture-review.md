@@ -55,7 +55,7 @@ ls docs/arc42/01_introduction_and_goals.md \
 ### Step 1.2 — Lint Architecture
 
 ```bash
-factory/scripts/arch-lint --docs-dir docs/arc42
+.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Document in `docs/spec/todos.md`, may need architecture-agent to fix
@@ -66,8 +66,7 @@ factory/scripts/arch-lint --docs-dir docs/arc42
 ### Step 2.1 — Execute ATAM Review
 
 ```bash
-orchestrator run-phase architecture-review
-# OR manual: Start new session, activate architecture-review-agent
+# Start new session, activate architecture-review-agent
 ```
 
 **Agent**: `architecture-review-agent`
@@ -134,7 +133,7 @@ EOF
 ### Step 4.1 — Run Architecture Agent
 
 ```bash
-orchestrator run-phase architecture
+# Start new session, activate architecture-agent
 ```
 
 **Agent**: `architecture-agent`
@@ -143,7 +142,7 @@ orchestrator run-phase architecture
 ### Step 4.2 — Re-review
 
 ```bash
-orchestrator run-phase architecture-review
+# Start NEW session, activate architecture-review-agent
 ```
 
 **Agent**: `architecture-review-agent`

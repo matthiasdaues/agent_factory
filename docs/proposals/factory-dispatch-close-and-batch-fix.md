@@ -1,6 +1,6 @@
 ---
+scope: global
 schema_version: 2
-title: Dispatch Lifecycle Close and Mechanical Enforcement
 status: implemented
 owner: Matthias Daues
 created: 2026-09-08
@@ -12,15 +12,15 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - factory/rulebooks/conventions/dispatch-contract.md
-    - factory/rulebooks/conventions/branching-policy.md
-    - factory/rulebooks/conventions/commit-conventions.md
-    - factory/rulebooks/rules.md
-    - factory/agents/implementation-agent.md
-    - factory/config/hooks/block-dangerous-git.sh
-    - factory/scripts/verify-base
-    - factory/scripts/index-lint
-    - factory/scripts/dispatch
+    - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
+    - .agent-factory/factory/rulebooks/conventions/branching-policy.md
+    - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
+    - .agent-factory/factory/rulebooks/rules.md
+    - .agent-factory/factory/agents/implementation-agent.md
+    - .agent-factory/factory/config/hooks/block-dangerous-git.sh
+    - .agent-factory/factory/scripts/verify-base
+    - .agent-factory/factory/scripts/index-lint
+    - .agent-factory/factory/scripts/dispatch
 
 governance:
   assurance: routine
@@ -149,7 +149,7 @@ guardrail blocks this.
 
 Options:
 
-- Add a `dispatch close` command to `factory/scripts/dispatch` that
+- Add a `dispatch close` command to `.agent-factory/factory/scripts/dispatch` that
   prunes worktrees, deletes merged branches, and force-deletes
   `worktree-agent-*` branches owned by the dispatch.
 - Allowlist `worktree-agent-*` branch deletion in
@@ -159,14 +159,14 @@ Options:
 ### 5. Stale installed factory after merge
 
 When `packages/factory/` changes are merged to dev, the installed
-`factory/` copy goes stale. Tests import from the installed copy, so
+`.agent-factory/factory/` copy goes stale. Tests import from the installed copy, so
 new functions are missing and tests fail at pre-commit time — after QA
 already passed in the worktree where `packages/factory/` was the
 source. The freshness hook warns but does not auto-update when
 `update-factory` would need `--force` (hook-modified files like
 INDEX.yaml).
 
-The root cause is that `init-factory` copies `factory/` with
+The root cause is that `init-factory` copies `.agent-factory/factory/` with
 `shutil.copytree(symlinks=False)`, creating regular files. When
 index-lint writes INDEX.yaml with `Path.write_text()`, the write
 follows the symlink in `.pi/` but creates a regular file in `.claude/`,
@@ -207,7 +207,7 @@ contract should require an `update-factory` step before final merge.
 
 **In a follow-up release:**
 
-- `factory/scripts/dispatch close` command (automated cleanup)
+- `.agent-factory/factory/scripts/dispatch close` command (automated cleanup)
 - Post-merge `update-factory` hook or pre-merge workflow step
 - Allowlist `worktree-agent-*` branch deletion in guardrail
 
@@ -259,7 +259,7 @@ Disposition: findings
 | PROP-04 | minor    | 02    | resolved | Follow-up scope includes "`--check` / `--dry-run` on init-factory" with no corresponding design item. Scope items without design backing are not decomposable.                                                                                                                                                                     |
 | PROP-05 | major    | 03    | resolved | Design item 3 presents an unresolved OR — MUST in implementation-agent vs extending verify-base/block-dangerous-git.sh. Prompt-discipline and mechanical gate are fundamentally different approaches. Planning cannot decompose without resolving the choice.                                                                      |
 | PROP-06 | minor    | 04    | resolved | `external_contract_change: false` but the proposal adds a MUST rule to rules.md and a mandatory Close section to dispatch-contract.md — both are contracts consumed by all factory-adopting projects.                                                                                                                              |
-| PROP-07 | minor    | 05    | resolved | `factory/scripts/verify-base` is referenced as a candidate for modification in design item 3 but is not listed in `impact.boundaries`.                                                                                                                                                                                             |
+| PROP-07 | minor    | 05    | resolved | `.agent-factory/factory/scripts/verify-base` is referenced as a candidate for modification in design item 3 but is not listed in `impact.boundaries`.                                                                                                                                                                              |
 | PROP-08 | minor    | 05    | resolved | The claim that index-lint "overwrites symlinks with regular files" is not supported by the code. `index-lint` uses `Path.write_text()` (follows symlinks) and `init-factory` uses `shutil.copytree(symlinks=False)` (creates regular files). The actual root cause appears to be that index-lint modifies a checksum-tracked file. |
 | PROP-09 | major    | 06    | resolved | Open Questions section is missing entirely. The template requires every section to be filled or removed with justification. Three unresolved design choices (items 3, 4, 5) are embedded as inline ORs in the Design section instead of being surfaced as open questions.                                                          |
 | PROP-10 | minor    | 08    | resolved | `overhead_multiplier: 10` is below the template's stated typical range of 15-25x for feature-addition. Six design items across 8+ boundary files suggest 15-20x is more realistic (estimated_consumption would shift from 40k-120k to approximately 75k-240k).                                                                     |

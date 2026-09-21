@@ -11,9 +11,9 @@
 
 ## Finding table
 
-| Finding                                                                                                                        | Artifact                                       | Category | Severity |
-| ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | -------- | -------- |
-| The accepted Python child remains referenced, so the Pi bootstrap survives ownership transfer; unref it after acknowledgement. | `factory/scripts/pi-capture-bootstrap.mjs:185` | Defect   | Major    |
+| Finding                                                                                                                        | Artifact                                                      | Category | Severity |
+| ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | -------- | -------- |
+| The accepted Python child remains referenced, so the Pi bootstrap survives ownership transfer; unref it after acknowledgement. | `.agent-factory/factory/scripts/pi-capture-bootstrap.mjs:185` | Defect   | Major    |
 
 Filed as `docs/findings/FAGAN-0007.md`.
 

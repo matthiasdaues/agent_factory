@@ -15,7 +15,7 @@ Made `init-factory` and `update-factory` aware of the monorepo layout where
 product source lives at `packages/factory/` (not `factory/`).
 
 **Problem:** `./init-factory --update .` failed because `update-factory`
-moved `factory/` aside, then tried to call `factory/scripts/init-factory` —
+moved `.agent-factory/factory/` aside, then tried to call `factory/scripts/init-factory` —
 which no longer existed. Same issue in `init-factory` itself when called with
 `--source` pointing at this repo.
 
@@ -30,7 +30,7 @@ which no longer existed. Same issue in `init-factory` itself when called with
 
 **Verified:** `./init-factory --update .` completes successfully. The
 consumer hook block gets re-spliced from the template (with factory guards),
-the dev hooks block is preserved, and `factory/` is refreshed from
+the dev hooks block is preserved, and `.agent-factory/factory/` is refreshed from
 `packages/factory/`.
 
 ### Thread 2 — Documentation gap audit
@@ -80,7 +80,7 @@ appropriate doc (factory README, factory guide, or both).
 4. **`config/project.json`** — mentioned in reference table and usage
    capture section but never explained standalone.
 
-5. **Factory directory layout** — no map of what's inside `factory/` after
+5. **Factory directory layout** — no map of what's inside `.agent-factory/factory/` after
    install.
 
 6. **Factory README "How it works" section** — omits agent context, model

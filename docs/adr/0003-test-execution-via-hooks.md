@@ -36,17 +36,17 @@ Test execution happens via three mechanically triggered gates. Agents are blocke
 
 1. **Pre-commit** — `run-tests --changed-only` fires on `git commit`. Fast subset (pytest `--lf`, jest `--onlyChanged`). Human bypass via `--no-verify` is available (discouraged). Agent commits trigger the same hook and the guardrail denies gate-bypassing commands.
 2. **Pre-push** — `run-tests --full` fires on `git push`. Complete test suite, no filtering. It blocks an ordinary push when tests fail. A human who controls the Git client can bypass it explicitly with `git push --no-verify`; this client-side hook is not a server-side security boundary.
-3. **Phase advance FSM gate** — `script_exit_zero: factory/scripts/run-tests --full` evaluated as entry condition. Phase refuses to advance while tests are red.
+3. **Phase advance FSM gate** — `script_exit_zero: .agent-factory/factory/scripts/run-tests --full` evaluated as entry condition. Phase refuses to advance while tests are red.
 
 **Agent iteration mode:**
 
-`run-tests --staged` runs tests on staged files only, without requiring commit completion. Agents can stage test files (`git add test_foo.py`) and run `factory/scripts/run-tests --staged` to verify before committing. This mode is included in the agent allowlist (BR-024 permits `factory/scripts/run-tests --staged` while blocking bare test commands).
+`run-tests --staged` runs tests on staged files only, without requiring commit completion. Agents can stage test files (`git add test_foo.py`) and run `.agent-factory/factory/scripts/run-tests --staged` to verify before committing. This mode is included in the agent allowlist (BR-024 permits `.agent-factory/factory/scripts/run-tests --staged` while blocking bare test commands).
 
 **Agent prohibition (BR-024):**
 
 `block-dangerous-git.sh` deny patterns extended to include bare test commands: `pytest`, `npm test`, `go test`, `cargo test`, `python -m pytest`, `uv run pytest`, `yarn test`. Agent attempts receive exit 2 denial at PreToolUse: "Test execution blocked. Tests run via hooks only."
 
-Agent allowlist includes `factory/scripts/run-tests --staged` for iteration during test development; bare test commands remain blocked.
+Agent allowlist includes `.agent-factory/factory/scripts/run-tests --staged` for iteration during test development; bare test commands remain blocked.
 
 **Framework detection (BR-023):**
 
@@ -67,7 +67,7 @@ Agents can write tests (creation). Agents cannot run tests (validation). The hoo
 
 Post-review changes address two major gaps identified during architecture review:
 
-1. **Agent test iteration friction (ATAM-0001)**: Original design blocked agents from iterating "write test → run test → fix test" without committing. Added `--staged` mode to `run-tests`, allowing agents to verify staged test files before committing. Agent allowlist extended to include `factory/scripts/run-tests --staged` while bare test commands remain blocked. Preserves "tests run via factory mechanisms" principle while unblocking TDD workflows.
+1. **Agent test iteration friction (ATAM-0001)**: Original design blocked agents from iterating "write test → run test → fix test" without committing. Added `--staged` mode to `run-tests`, allowing agents to verify staged test files before committing. Agent allowlist extended to include `.agent-factory/factory/scripts/run-tests --staged` while bare test commands remain blocked. Preserves "tests run via factory mechanisms" principle while unblocking TDD workflows.
 
 2. **Monorepo multi-framework blind spot (ATAM-0002)**: Original first-match framework detection silently skipped additional frameworks in monorepos. Changed to detect ALL framework markers and fail loudly when multiple found, preventing silent partial coverage. Long-term multi-framework orchestration deferred as T-06.
 
@@ -91,13 +91,13 @@ server-side protected-branch or required-CI gate, which is outside this ADR.
 **Date**: 2026-08-28
 **Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/test-gate-presence-over-test-execution.md))
 
-Factory stops owning test execution entirely. The `factory/scripts/run-tests` script is deleted from the repository, along with `factory/scripts/mutation-analysis`. The boundary violation that motivated this change: `run-tests` detects framework markers and constructs host-side test commands, breaking projects with their own test topology (the reproducing case is a project whose tests require a Compose environment with proxied database connections).
+Factory stops owning test execution entirely. The `.agent-factory/factory/scripts/run-tests` script is deleted from the repository, along with `.agent-factory/factory/scripts/mutation-analysis`. The boundary violation that motivated this change: `run-tests` detects framework markers and constructs host-side test commands, breaking projects with their own test topology (the reproducing case is a project whose tests require a Compose environment with proxied database connections).
 
 **What changes:**
 
 1. **Test commands are project-declared, not Factory-detected.** Every project declares its test commands in `docs/charter/testing.yaml` (`test_command`, `test_staged_command`, `test_changed_command`). Factory reads that declaration; it does not guess, detect, or override.
-2. **FSM gate conditions resolve `test_command` from the charter.** The `script_exit_zero` condition no longer references `factory/scripts/run-tests --full`; it resolves `test_command` from `docs/charter/testing.yaml`.
-3. **The agent allowlist reads the charter.** `block-dangerous-git.sh` no longer hardcodes `factory/scripts/run-tests --staged`; it reads all declared command fields from the charter and allowlists them with exact-string matching.
+2. **FSM gate conditions resolve `test_command` from the charter.** The `script_exit_zero` condition no longer references `.agent-factory/factory/scripts/run-tests --full`; it resolves `test_command` from `docs/charter/testing.yaml`.
+3. **The agent allowlist reads the charter.** `block-dangerous-git.sh` no longer hardcodes `.agent-factory/factory/scripts/run-tests --staged`; it reads all declared command fields from the charter and allowlists them with exact-string matching.
 4. **Factory does not inject test hooks.** The `agent_factory_hook-run-tests-full` entry in Factory's pre-commit config is removed. Test hooks are project-owned infrastructure.
 5. **The gate contract is exit-code-only.** Factory does not parse JSON summaries or structured test output. Zero means pass, nonzero means fail.
 6. **A `detect-test-regime` skill scans for existing test entrypoints during onboarding** and populates the charter. When multiple entrypoints are detected, Factory asks for disambiguation.
@@ -128,5 +128,5 @@ Factory stops owning test execution entirely. The `factory/scripts/run-tests` sc
 ## Referenced from
 
 - [UC-09 — Ensure Project-Owned Test Gates Exist](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md)
-- [foundational-principles.md § Agentic Creation, Deterministic Validation](../../factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
+- [foundational-principles.md § Agentic Creation, Deterministic Validation](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
 - [08_crosscutting_concepts.md § 8.1](../arc42/08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)

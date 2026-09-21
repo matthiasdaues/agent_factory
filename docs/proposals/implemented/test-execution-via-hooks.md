@@ -12,8 +12,8 @@ impact:
   architecture_change: true
   external_contract_change: false
   boundaries:
-    - factory/scripts/run-tests
-    - factory/config/pre-commit-config.yaml
+    - .agent-factory/factory/scripts/run-tests
+    - .agent-factory/factory/config/pre-commit-config.yaml
 
 governance:
   assurance: high
@@ -47,9 +47,9 @@ ______________________________________________________________________
 
 ❌ **Missing:**
 
-- No `factory/scripts/run-tests` implementation
+- No `.agent-factory/factory/scripts/run-tests` implementation
 - No test hooks in pre-commit-config.yaml
-- FSM references `script_exit_zero: factory/scripts/run-tests` but it doesn't exist
+- FSM references `script_exit_zero: .agent-factory/factory/scripts/run-tests` but it doesn't exist
 - No detection of project test framework (pytest/jest/go test/etc)
 
 ______________________________________________________________________
@@ -68,7 +68,7 @@ ______________________________________________________________________
 
 ### Phase 1: Test Runner Script (Foundation)
 
-**Create:** `factory/scripts/run-tests`
+**Create:** `.agent-factory/factory/scripts/run-tests`
 
 **Responsibilities:**
 
@@ -121,7 +121,7 @@ Three integration points, each serving a different validation tier:
 ```yaml
 - id: test-changed
   name: test (changed files only)
-  entry: factory/scripts/run-tests --changed-only
+  entry: .agent-factory/factory/scripts/run-tests --changed-only
   language: system
   pass_filenames: false
   stages: [commit]
@@ -139,7 +139,7 @@ Three integration points, each serving a different validation tier:
 ```yaml
 - id: test-full
   name: test (full suite)
-  entry: factory/scripts/run-tests --full
+  entry: .agent-factory/factory/scripts/run-tests --full
   language: system
   pass_filenames: false
   stages: [push]
@@ -157,7 +157,7 @@ Three integration points, each serving a different validation tier:
 ```yaml
 tests_pass:
   type: script_exit_zero
-  script: factory/scripts/run-tests --full
+  script: .agent-factory/factory/scripts/run-tests --full
 ```
 
 **Rationale:** Phase boundary = quality gate. No advancement on red tests.
@@ -191,14 +191,14 @@ ______________________________________________________________________
 
 **Stage 1: Optional (week 1)**
 
-- Create `factory/scripts/run-tests`
+- Create `.agent-factory/factory/scripts/run-tests`
 - Add `--changed-only` and `--full` modes
 - Document in factory-guide.md
-- No pre-commit hook yet (manual `factory/scripts/run-tests` only)
+- No pre-commit hook yet (manual `.agent-factory/factory/scripts/run-tests` only)
 
 **Stage 2: Pre-commit fast subset (week 2)**
 
-- Add `test-changed` pre-commit hook to factory/config/pre-commit-config.yaml
+- Add `test-changed` pre-commit hook to .agent-factory/factory/config/pre-commit-config.yaml
 - Set `stages: [commit]` so it doesn't run on push
 - Announce: "Tests now run on commit (changed files only)"
 
@@ -210,7 +210,7 @@ ______________________________________________________________________
 
 **Stage 4: FSM integration (week 4)**
 
-- Enable `script_exit_zero` condition evaluation in `factory/scripts/phase`
+- Enable `script_exit_zero` condition evaluation in `.agent-factory/factory/scripts/phase`
 - Update bug-fix.fsm.yml and greenfield-development.fsm.yml
 - Announce: "Phase advance now enforces test passage"
 
@@ -221,7 +221,7 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-## factory/scripts/run-tests Implementation Skeleton
+## .agent-factory/factory/scripts/run-tests Implementation Skeleton
 
 ```python
 #!/usr/bin/env python3
@@ -321,17 +321,17 @@ ______________________________________________________________________
 
 ## Documentation Updates
 
-**factory/docs/factory-guide.md § Linting and gating:**
+**.agent-factory/factory/docs/factory-guide.md § Linting and gating:**
 Add row:
 
 ```
-| factory/scripts/run-tests | pre-commit, pre-push, phase advance | Auto-detected test suite |
+| .agent-factory/factory/scripts/run-tests | pre-commit, pre-push, phase advance | Auto-detected test suite |
 ```
 
-**factory/rulebooks/conventions/foundational-principles.md:**
+**.agent-factory/factory/rulebooks/conventions/foundational-principles.md:**
 Already updated with "Agentic Creation, Deterministic Validation" — tests are now the canonical example.
 
-**factory/playbooks/\*.fsm.yml:**
+**.agent-factory/factory/playbooks/\*.fsm.yml:**
 Add `tests_pass` condition to every IMPLEMENTATION phase exit_conditions.
 
 ______________________________________________________________________
@@ -345,7 +345,7 @@ ______________________________________________________________________
 
 **Risk 2: Framework detection fails**
 
-- Mitigation: Exit 2 with clear error, point at manual `factory/scripts/run-tests --detect`
+- Mitigation: Exit 2 with clear error, point at manual `.agent-factory/factory/scripts/run-tests --detect`
 - Fallback: Document override via `.current-work/test-config.yml`
 
 **Risk 3: Existing projects have broken tests**
@@ -362,7 +362,7 @@ ______________________________________________________________________
 
 ## Next Steps
 
-1. Implement `factory/scripts/run-tests` (Phase 1)
+1. Implement `.agent-factory/factory/scripts/run-tests` (Phase 1)
 2. Test against agent_factory (pytest), orchestrator (pytest), example JS/Go projects
 3. Add pre-commit hook as opt-in (Phase 2A)
 4. Gather feedback, iterate on framework detection
@@ -372,6 +372,6 @@ ______________________________________________________________________
 
 ## Referenced from
 
-- factory/playbooks/bug-fix.fsm.yml (tests_pass condition)
-- factory/rulebooks/conventions/foundational-principles.md (validation principle)
+- .agent-factory/factory/playbooks/bug-fix.fsm.yml (tests_pass condition)
+- .agent-factory/factory/rulebooks/conventions/foundational-principles.md (validation principle)
 - docs/spec/supplementary_specs/validation-rules.md (script_exit_zero)

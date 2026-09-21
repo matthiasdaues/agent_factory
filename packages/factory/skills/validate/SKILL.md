@@ -2,7 +2,6 @@
 name: validate
 description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
 category: utility
-disable-model-invocation: false
 ---
 
 # Validate
@@ -13,26 +12,26 @@ Run the same deterministic gates pre-commit runs, callable any time during a ses
 
 Run in this order — cheap and universal first, project-specific last:
 
-| #   | Gate              | Condition to run                                    | Command                                                         |
-| --- | ----------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| 1   | Markdown format   | Always (every project has *some* Markdown)          | `factory/scripts/mdformat --number .`                           |
-| 2   | Ruff check        | `pyproject.toml` or any `*.py` exists               | `ruff check --fix .`                                            |
-| 3   | Ruff format       | Same as above                                       | `ruff format .`                                                 |
-| 4   | link-check        | Always (checks project Markdown links)              | \`git ls-files -z '\*.md' ':!factory/\*\*'                      |
-| 5   | mermaid-lint      | Always                                              | `factory/scripts/mermaid-lint`                                  |
-| 6   | spec-lint         | `docs/spec/` exists                                 | `factory/scripts/spec-lint --spec-dir docs/spec`                |
-| 7   | arch-lint         | `docs/arc42/architecture.dsl` or `docs/adr/` exists | `factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate` |
-| 8   | backlog-lint      | `backlog/` exists                                   | `factory/scripts/backlog-lint --backlog-dir backlog`            |
-| 9   | matrix-lint       | `config/model.conf` exists                          | `factory/scripts/matrix-lint --matrix config/model.conf`        |
-| 10  | statemachine-lint | `docs/spec/` exists                                 | `factory/scripts/statemachine-lint --spec-dir docs/spec`        |
-| 11  | index-lint        | `factory/agents/` or `factory/skills/` exists       | `factory/scripts/index-lint --check`                            |
-| 12  | concern-lint      | `docs/agent-context.md` exists                      | `factory/scripts/concern-lint`                                  |
+| #   | Gate              | Condition to run                                                            | Command                                                                        |
+| --- | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1   | Markdown format   | Always (every project has *some* Markdown)                                  | `.agent-factory/factory/scripts/mdformat --number .`                           |
+| 2   | Ruff check        | `pyproject.toml` or any `*.py` exists                                       | `ruff check --fix .`                                                           |
+| 3   | Ruff format       | Same as above                                                               | `ruff format .`                                                                |
+| 4   | link-check        | Always (checks project Markdown links)                                      | \`git ls-files -z '\*.md' ':!.agent-factory/\*\*'                              |
+| 5   | mermaid-lint      | Always                                                                      | `.agent-factory/factory/scripts/mermaid-lint`                                  |
+| 6   | spec-lint         | `docs/spec/` exists                                                         | `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec`                |
+| 7   | arch-lint         | `docs/arc42/architecture.dsl` or `docs/adr/` exists                         | `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate` |
+| 8   | backlog-lint      | `backlog/` exists                                                           | `.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog`            |
+| 9   | matrix-lint       | `config/model.conf` exists                                                  | `.agent-factory/factory/scripts/matrix-lint --matrix config/model.conf`        |
+| 10  | statemachine-lint | `docs/spec/` exists                                                         | `.agent-factory/factory/scripts/statemachine-lint --spec-dir docs/spec`        |
+| 11  | index-lint        | `.agent-factory/factory/agents/` or `.agent-factory/factory/skills/` exists | `.agent-factory/factory/scripts/index-lint --check`                            |
+| 12  | concern-lint      | `docs/agent-context.md` exists                                              | `.agent-factory/factory/scripts/concern-lint`                                  |
 
 **Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-12) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed. `link-check` is the fast offline counterpart to tools such as lychee: it validates local files and images while deliberately leaving remote URLs to an online crawler. `mermaid-lint` rejects raw semicolons in fenced Mermaid blocks while allowing entity escapes such as `#59;`. `concern-lint` validates the concern-oriented agent context structure (`docs/agent-context.md`).
 
-**index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.yaml` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `factory/scripts/index-lint`.
+**index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.yaml` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `.agent-factory/factory/scripts/index-lint`.
 
-**Path convention.** Every script above lives in `factory/scripts/`; `config/model.conf` is the one exception, copied out to the project root at init time rather than staying inside `factory/` — see the portable `factory/config/pre-commit-config.yaml` template. Run `validate` from the project root.
+**Path convention.** Every script above lives in `.agent-factory/factory/scripts/`; `config/model.conf` is the one exception, copied out to the project root at init time rather than staying inside `.agent-factory/factory/` — see the portable `.agent-factory/factory/config/pre-commit-config.yaml` template. Run `validate` from the project root.
 
 ## Step 1 — Detect applicable gates
 

@@ -12,12 +12,12 @@ reviewer: qa-agent
 
 ## Scope
 
-Primary: the BUG-0008 fix in `factory/config/extensions/run-agent.ts` (tip
+Primary: the BUG-0008 fix in `.agent-factory/factory/config/extensions/run-agent.ts` (tip
 commit `477518d`, +151 lines) — `extractEnvelopeObject`, the unchanged strict
 `parseChildResultEnvelope` validation, `gitLocalHead` / `childCommitsSince`
-commit disclosure, and `factory/config/extensions/__tests__/envelope.test.ts`
+commit disclosure, and `.agent-factory/factory/config/extensions/__tests__/envelope.test.ts`
 (13 cases). Secondary: ST-0073 pre-push gate —
-`factory/config/pre-commit-config.yaml`, `factory/scripts/init-factory`
+`.agent-factory/factory/config/pre-commit-config.yaml`, `factory/scripts/init-factory`
 (`pre_commit_install` hook-type install), and
 `orchestrator/tests/test_init_factory_prepush_hook.py`. Verified against
 `docs/findings/BUG-0008.md`, UC-10, BR-040, and ADR-0004.
@@ -44,16 +44,16 @@ envelope (FAGAN-0017, Minor). ST-0073 is correctly wired and tested.
 
 ## Finding table
 
-| Finding                                                                                                                                                                                                                                                                                                                                                                                                                | Artifact                                                         | Category   | Severity |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------- | -------- |
-| [FAGAN-0016] BUG-0008 commit disclosure is not applied to non-zero-exit, no-message, or cancel paths; extend `childCommitsSince` to those branches.                                                                                                                                                                                                                                                                    | factory/config/extensions/run-agent.ts:160                       | Defect     | Major    |
-| [FAGAN-0017] `extractEnvelopeObject` keeps the rightmost record, not the largest; a valid leading envelope followed by a larger sibling is discarded — prefer an envelope-shaped record or correct the comment + add a regression test.                                                                                                                                                                                | factory/config/extensions/run-agent.ts:336                       | Defect     | Minor    |
-| [FAGAN-0018] `envelope.test.ts` (13 cases) covers happy paths + one field-validation case + git helpers, but skips the recovery heuristic's riskiest edges: unbalanced braces, multiple *valid* objects (sibling mis-selection), UTF-8/emoji, CRLF, and the field-validation branches (bad disposition, non-integer/negative counts, duplicate/empty paths, 4-sentence / unpunctuated `next_action`). Add these cases. | factory/config/extensions/__tests__/envelope.test.ts             | Suggestion | Minor    |
-| [FAGAN-0019] `run-tests --full` detects a framework by a *repo-root* marker (`pyproject.toml`/`package.json`/…). The factory's own repo has no root marker (tests live in `orchestrator/`), so the ST-0073 gate exits 2 ("no framework detected") and is non-functional *here*; consumer repos with a root marker are unaffected. Pre-existing `run-tests` limitation, not a ST-0073 wiring defect.                    | factory/scripts/run-tests; factory/config/pre-commit-config.yaml | Question   | Minor    |
+| Finding                                                                                                                                                                                                                                                                                                                                                                                                                | Artifact                                                                                       | Category   | Severity |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------- | -------- |
+| [FAGAN-0016] BUG-0008 commit disclosure is not applied to non-zero-exit, no-message, or cancel paths; extend `childCommitsSince` to those branches.                                                                                                                                                                                                                                                                    | .agent-factory/factory/config/extensions/run-agent.ts:160                                      | Defect     | Major    |
+| [FAGAN-0017] `extractEnvelopeObject` keeps the rightmost record, not the largest; a valid leading envelope followed by a larger sibling is discarded — prefer an envelope-shaped record or correct the comment + add a regression test.                                                                                                                                                                                | .agent-factory/factory/config/extensions/run-agent.ts:336                                      | Defect     | Minor    |
+| [FAGAN-0018] `envelope.test.ts` (13 cases) covers happy paths + one field-validation case + git helpers, but skips the recovery heuristic's riskiest edges: unbalanced braces, multiple *valid* objects (sibling mis-selection), UTF-8/emoji, CRLF, and the field-validation branches (bad disposition, non-integer/negative counts, duplicate/empty paths, 4-sentence / unpunctuated `next_action`). Add these cases. | .agent-factory/factory/config/extensions/__tests__/envelope.test.ts                            | Suggestion | Minor    |
+| [FAGAN-0019] `run-tests --full` detects a framework by a *repo-root* marker (`pyproject.toml`/`package.json`/…). The factory's own repo has no root marker (tests live in `orchestrator/`), so the ST-0073 gate exits 2 ("no framework detected") and is non-functional *here*; consumer repos with a root marker are unaffected. Pre-existing `run-tests` limitation, not a ST-0073 wiring defect.                    | .agent-factory/factory/scripts/run-tests; .agent-factory/factory/config/pre-commit-config.yaml | Question   | Minor    |
 
 Filed findings: FAGAN-0016 (Major), FAGAN-0017 (Minor). FAGAN-0018 and FAGAN-0019
 are Minor/Suggestion and stay in this report per
-[finding-format.md § When to file](../rulebooks/conventions/finding-format.md#when-to-file).
+[finding-format.md § When to file](../../.agent-factory/factory/rulebooks/conventions/finding-format.md#when-to-file).
 
 ## Focus-area notes
 
@@ -86,6 +86,6 @@ are Minor/Suggestion and stay in this report per
 - Envelope suite: `node --experimental-strip-types --import ./__tests__/envelope-loader.mjs --test ./__tests__/envelope.test.ts` → 13 passed.
 - Probe (`__qa_probe.mjs`, 16 cases): unbalanced braces → error; braces/quotes
   in strings → parsed; sibling mis-selection reproduced; emoji/CRLF/unclosed-fence/nested → correct; field validation (4 sentences, no terminal punctuation, empty counts, duplicate paths, extra field, bad disposition) → all rejected.
-- BUG-0008 validation-body unchanged: confirmed via `git show 477518d -- factory/config/extensions/run-agent.ts` — only the `JSON.parse` → `extractEnvelopeObject` swap; the four-field/disposition/counts/paths/next_action checks are identical.
+- BUG-0008 validation-body unchanged: confirmed via `git show 477518d -- .agent-factory/factory/config/extensions/run-agent.ts` — only the `JSON.parse` → `extractEnvelopeObject` swap; the four-field/disposition/counts/paths/next_action checks are identical.
 - ST-0073: `uv run pytest tests/test_init_factory_prepush_hook.py tests/test_child_result_envelope.py -q` → 10 passed.
-- Probe artifact `factory/config/extensions/__tests__/__qa_probe.mjs` is a throwaway QA instrument, not a tracked test; remove it or fold its cases into `envelope.test.ts` (FAGAN-0018).
+- Probe artifact `.agent-factory/factory/config/extensions/__tests__/__qa_probe.mjs` is a throwaway QA instrument, not a tracked test; remove it or fold its cases into `envelope.test.ts` (FAGAN-0018).

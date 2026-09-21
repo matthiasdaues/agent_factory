@@ -50,10 +50,10 @@ Check also: ST-0157 (depends on ST-0154, ST-0156) and ST-0158 (depends on ST-015
 
 2. **crap-score / premerge-check format mismatch**: The crap-score script writes `[]` (empty JSON array) on pass, but premerge-check's `check_semantic_gates` expects `{"passed": true}`. Worked around by writing the expected format to the result files. This is a bug in either crap-score or premerge-check that should be fixed.
 
-3. **INDEX.yaml hook loop**: When creating new skills or modifying agent definitions, the `index-lint` pre-commit hook regenerates `factory/INDEX.yaml` token counts. On story branches where INDEX.yaml is out of scope, this creates an infinite commit loop. Solution: revert INDEX.yaml on story branches, then regenerate on the feature branch post-merge.
+3. **INDEX.yaml hook loop**: When creating new skills or modifying agent definitions, the `index-lint` pre-commit hook regenerates `.agent-factory/factory/INDEX.yaml` token counts. On story branches where INDEX.yaml is out of scope, this creates an infinite commit loop. Solution: revert INDEX.yaml on story branches, then regenerate on the feature branch post-merge.
 
 ## Suggested skills
 
 - `handoff` — for handing off to the Wave 4 dispatcher
 - `validate` — run after final wave to verify all artifacts
-- `spec-feedback` — consolidated spec reconciliation pass after all stories merge (multiple agents noted spec drift in arc42, ADR-0003, UC documents referencing the old `factory/scripts/run-tests` paths)
+- `spec-feedback` — consolidated spec reconciliation pass after all stories merge (multiple agents noted spec drift in arc42, ADR-0003, UC documents referencing the old `.agent-factory/factory/scripts/run-tests` paths)

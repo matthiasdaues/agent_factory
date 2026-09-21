@@ -19,7 +19,7 @@ cd agent_factory
 ./init-factory /path/to/your-project
 
 # Remove — everything the factory added, nothing else
-your-project/factory/scripts/remove-factory
+your-project/.agent-factory/factory/scripts/remove-factory
 ```
 
 Removal is precise: a manifest records exactly what was created, and `remove-factory` reverses it. Your code, configuration, and git history are never modified by installation.
@@ -29,11 +29,11 @@ The installer asks which AI coding CLI you use and wires up only what you need. 
 - **`.pre-commit-config.yaml`** — factory hooks are added as a `- repo: local` block, prefixed `agent_factory_hook-` so they are easy to identify. If you already have a pre-commit config, your hooks are left untouched and the factory defers hook setup to the first session.
 - **`.gitignore`** — a marker-delimited block is appended, listing the files Agent Factory added.
 
-After installation, open your AI coding CLI in the project directory. **VIRGIL** — the built-in guide — greets you with four options: a newcomer tour, a situation-based playbook picker, direct agent access, or open conversation. If you have an existing codebase, VIRGIL first offers a short **fitting** — a few questions to learn your stack, confirm its guesses, and wire up the right hooks. Skip it if you want; come back to it any time. See the [Getting Started walkthrough](packages/factory/docs/factory-guide.md#getting-started) for a step-by-step account of what your first session looks like.
+After installation, open your AI coding CLI in the project directory. **VIRGIL** — the built-in guide — greets you with four lanes: Help (H) for orientation, Housekeeping (K) for project setup and maintenance, Project Work (P) to start or continue a workstream, or Open Stage (O) for open conversation. If you have an existing codebase, VIRGIL first offers a short **fitting** — a few questions to learn your stack, confirm its guesses, and wire up the right hooks. Skip it if you want; come back to it any time. See the [Getting Started walkthrough](packages/factory/docs/factory-guide.md#getting-started) for a step-by-step account of what your first session looks like.
 
 For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full inventory of what init-factory creates, see the [factory setup guide](packages/factory/README.md).
 
-> **Note on paths.** This is a monorepo — source lives under `packages/factory/`. After installation, your project has `factory/` (a copy). Links in this README point to the source tree; after install, `factory/README.md` and `factory/docs/factory-guide.md` in your project have the same content with paths that work from there.
+> **Note on paths.** This is a monorepo — source lives under `packages/factory/`. After installation, your project has `.agent-factory/factory/` (a copy). Links in this README point to the source tree; after install, `.agent-factory/factory/README.md` and `.agent-factory/factory/docs/factory-guide.md` in your project have the same content with paths that work from there.
 
 ## What is in the box
 
@@ -45,7 +45,7 @@ For prerequisites (Git, Python 3.10+, uv, an AI coding CLI) and the full invento
 
 **Scripts** are deterministic checks: linting, schema validation, traceability gates, architecture consistency, pre-merge verification. They run automatically through git hooks and phase gates. When they fail, the output is specific and actionable.
 
-**Agent context** is a small set of YAML files where your project declares its stack, workflow, and governance decisions. Agents read these instead of guessing or asking. You fill them in once; they stay current as decisions change. See the [factory guide](packages/factory/docs/factory-guide.md#agent-context) for how it works.
+**Agent context** is a single markdown file (`docs/agent-context.md`) where your project declares what agents should read, organized by concern (cross-cutting, technical, domain). Agents follow the routing instead of guessing or scanning. You maintain it once; it stays current as decisions change. See the [factory guide](packages/factory/docs/factory-guide.md#agent-context) for how it works.
 
 **Usage capture** records token consumption per session — input, output, and model — across all supported CLIs. Records are append-only JSONL, keyed by project id, stored locally under `.agent-factory/usage/`. You never configure it; the installer wires it up. See the [factory guide](packages/factory/docs/factory-guide.md#runtime-usage-capture) for details.
 
@@ -61,16 +61,16 @@ cd agent_factory
 ./init-factory .
 ```
 
-This installs a local `factory/` copy (gitignored) so the repo uses its own tooling. Product source lives under `packages/` — the installed `factory/` is the tool, `packages/factory/` is the code you edit. Run `factory/scripts/update-factory` after changes to refresh the installed copy.
+This installs a local `.agent-factory/factory/` copy (gitignored) so the repo uses its own tooling. Product source lives under `packages/` — the installed `.agent-factory/factory/` is the tool, `packages/factory/` is the code you edit. Run `.agent-factory/factory/scripts/update-factory` after changes to refresh the installed copy.
 
 ## Products
 
 This is a monorepo. Each product has its own documentation.
 
-| Product                                                     | What it does                             | Status           |
-| ----------------------------------------------------------- | ---------------------------------------- | ---------------- |
-| [`packages/factory/`](packages/factory/README.md)           | The installable toolset. Start here.     | Usable           |
-| [`packages/orchestrator/`](packages/orchestrator/README.md) | CLI for driving playbooks automatically. | Work in progress |
+| Product                                           | What it does                         | Status |
+| ------------------------------------------------- | ------------------------------------ | ------ |
+| [`packages/factory/`](packages/factory/README.md) | The installable toolset. Start here. | Usable |
+| [`packages/usage/`](packages/usage/)              | Local usage processing and analysis. | Usable |
 
 ## Repository internals
 

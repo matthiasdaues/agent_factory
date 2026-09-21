@@ -54,7 +54,7 @@ Each fix iteration starts a fresh developer context. Gate output from a prior it
 **Date**: 2026-08-28
 **Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/test-gate-presence-over-test-execution.md))
 
-The dispatcher's three-gate quality sequence loses its second gate. `factory/scripts/mutation-analysis` is deleted from the repository because it hardcodes mutmut with pytest internals and assumes the test runner is reachable on the host — the same boundary violation that motivated deleting `factory/scripts/run-tests`.
+The dispatcher's three-gate quality sequence loses its second gate. `.agent-factory/factory/scripts/mutation-analysis` is deleted from the repository because it hardcodes mutmut with pytest internals and assumes the test runner is reachable on the host — the same boundary violation that motivated deleting `.agent-factory/factory/scripts/run-tests`.
 
 **Gate execution sequence (amended):**
 
@@ -108,4 +108,4 @@ After each developer-agent commit:
 
 - [ADR-0003 — Test execution via mechanically triggered gates](0003-test-execution-via-hooks.md)
 - [Proposal: Agentic Quality Gates and Requirements Consolidation](../proposals/implemented/agentic-quality-gates-and-specification-consolidation.md)
-- [foundational-principles.md](../../factory/rulebooks/conventions/foundational-principles.md)
+- [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md)

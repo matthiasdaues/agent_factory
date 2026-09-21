@@ -14,15 +14,15 @@ Human Operator (attempting to stage or commit a file)
 
 ## Trigger
 
-A pre-commit hook (or the actor directly) runs `factory/scripts/transition-lint` against the currently staged files.
+A pre-commit hook (or the actor directly) runs `.agent-factory/factory/scripts/transition-lint` against the currently staged files.
 
 ## Preconditions
 
-- The repository has `factory/playbooks/` available, so any FSM the marker names can be resolved.
+- The repository has `.agent-factory/factory/playbooks/` available, so any FSM the marker names can be resolved.
 
 ## Main Success Scenario
 
-1. Pre-commit invokes `factory/scripts/transition-lint` with no arguments; it reads `git diff --cached --name-only` for the staged file list.
+1. Pre-commit invokes `.agent-factory/factory/scripts/transition-lint` with no arguments; it reads `git diff --cached --name-only` for the staged file list.
 2. `transition-lint` reads the marker at `.current-work/playbook-state.yml`.
 3. `transition-lint` loads the marker's `playbook`'s `.fsm.yml` and computes each state's `outputs:` glob ownership.
 4. For every staged file, `transition-lint` finds which state (if any) owns it.
@@ -102,4 +102,4 @@ Feature: Block an out-of-phase commit
 ## Referenced from
 
 - [actor-goal-list.md](../actor-goal-list.md)
-- [factory/scripts/transition-lint](../../../factory/scripts/transition-lint)
+- [factory/scripts/transition-lint](../../../.agent-factory/factory/scripts/transition-lint)

@@ -2,7 +2,6 @@
 name: dependency-check
 description: Enforce architecture.dsl dependency rules by scanning source imports and writing a JSON gate report.
 category: implementation
-disable-model-invocation: false
 ---
 
 # Dependency Check
@@ -36,7 +35,7 @@ statements:
 
 ```text
 module_a must_not_depend_on module_b
-factory must_not_depend_on orchestrator
+engine must_not_depend_on scripts
 ```
 
 The left-hand side is the importing module boundary. The right-hand side
@@ -48,13 +47,13 @@ segment of a Python module import as the boundary name.
 Run from the repository root:
 
 ```bash
-factory/scripts/dependency-check
+.agent-factory/factory/scripts/dependency-check
 ```
 
 Optional arguments:
 
 ```bash
-factory/scripts/dependency-check   --story-id ST-0103   --dsl-path factory/fixtures/quality-gates/dependency-violation/architecture.dsl   --source-root factory/fixtures/quality-gates/dependency-violation
+.agent-factory/factory/scripts/dependency-check   --story-id ST-0103   --dsl-path factory/fixtures/quality-gates/dependency-violation/architecture.dsl   --source-root factory/fixtures/quality-gates/dependency-violation
 ```
 
 - `--dsl-path` defaults to `docs/arc42/architecture.dsl`

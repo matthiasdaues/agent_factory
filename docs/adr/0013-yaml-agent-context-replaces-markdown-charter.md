@@ -1,10 +1,15 @@
 ---
 id: "0013"
-status: proposed
+status: superseded by ADR-0016
 evaluation: pugh-matrix
 ---
 
 # YAML agent context replaces markdown charter
+
+> **Superseded.** The YAML agent-context format and its four index files were
+> replaced in 0.9.0 by concern-oriented agent context — a single markdown file
+> (`docs/agent-context.md`) with concern sections carrying `Read:` paths.
+> See the [concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
 
 ## Context
 

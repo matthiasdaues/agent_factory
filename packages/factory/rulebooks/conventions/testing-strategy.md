@@ -49,7 +49,7 @@ linter coexist here:
   team already runs) own code quality. When a project already has linting
   and formatting in place, the factory does not duplicate or override it.
 - **Factory linters** (concern-lint, backlog-lint, spec-lint,
-  transition-lint, index-lint) validate factory-specific artifact shapes
+  arch-lint, index-lint) validate factory-specific artifact shapes
   that the team's tools do not know about. They are always additive.
 
 For greenfield projects with no existing toolchain, the factory provides a
@@ -253,10 +253,10 @@ consumes. This separation keeps planning lightweight and grounded: the probe
 asks "who will test what," not "how will they test it." Detailed test design
 waits until the code exists.
 
-Proposal trace: [test-design-layer-redistribution.md](../../../docs/proposals/test-design-layer-redistribution.md).
+Proposal trace: [test-design-layer-redistribution.md](../../../../docs/proposals/implemented/test-design-layer-redistribution.md).
 
 ## References
 
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation)
-- [sustainable-testing-regime.md](../../../docs/proposals/sustainable-testing-regime.md)
+- [sustainable-testing-regime.md](../../../../docs/proposals/sustainable-testing-regime.md)
 - [rules.md § Testing](../rules.md#testing)

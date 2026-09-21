@@ -33,8 +33,8 @@ Open items: none
 - docs/spec/use_cases/
 - docs/spec/supplementary_specs/
 - docs/spec/test-gate-presence.feature
-- factory/rulebooks/conventions/testing-strategy.md
-- factory/rulebooks/templates/charter-testing.yaml
+- .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+- .agent-factory/factory/rulebooks/templates/charter-testing.yaml
 - docs/charter/testing.yaml
 
 ## Gate and verification evidence

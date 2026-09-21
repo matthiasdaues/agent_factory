@@ -15,10 +15,10 @@ All 9 implementation stories (ST-0190 through ST-0198) dispatched, tested, and m
 
 Key artifacts built:
 
-- YAML templates for stack, workflow, governance, reading-guides under `factory/rulebooks/templates/`
-- `factory/scripts/context-lint` — format detection chain, legacy validation, CX-FORMAT
-- `factory/skills/capture-context/SKILL.md` v1.1.0 — brownfield onboarding mode
-- `factory/skills/update-context/SKILL.md` — mode-aware writes, transition logic
+- YAML templates for stack, workflow, governance, reading-guides under `.agent-factory/factory/rulebooks/templates/`
+- `.agent-factory/factory/scripts/context-lint` — format detection chain, legacy validation, CX-FORMAT
+- `.agent-factory/factory/skills/capture-context/SKILL.md` v1.1.0 — brownfield onboarding mode
+- `.agent-factory/factory/skills/update-context/SKILL.md` — mode-aware writes, transition logic
 - All agents, skills, and playbooks updated from hardcoded `docs/charter/` to `docs/agent-context/` with format-detection fallback
 
 ## What is held
@@ -69,7 +69,7 @@ The stakeholder interview (ST-0199) should cover at minimum:
 - `backlog/ST-0199.md` — the story itself
 - `docs/proposals/yaml-charter-lifecycle.md` — the originating proposal
 - `docs/spec/agent-context.feature` — the behavioral spec
-- `factory/rulebooks/conventions/testing-strategy.md` — the reframed testing strategy (on dev)
+- `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` — the reframed testing strategy (on dev)
 - `.current-work/feature/agent-context/dispatch-ledger.yaml` — dispatch completion record
 
 ## Note on agent prose edit

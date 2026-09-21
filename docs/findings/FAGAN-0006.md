@@ -3,7 +3,7 @@ id: FAGAN-0006
 source: fagan-review
 severity: major
 category: defect
-artifact: factory/config/extensions/pi-usage.ts:170
+artifact: .agent-factory/factory/config/extensions/pi-usage.ts:170
 status: resolved
 traces: [ST-0044, ADR-0007, FAGAN-0004]
 ---

@@ -26,9 +26,9 @@ premature optimization, or speculative generality was found.
 
 ## Findings
 
-| Finding                                                                                                                                                     | Artifact                                         | Category | Severity |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------- | -------- |
-| Blocked waves emit an invalid empty artifact list; persist and reference a canonical tracked wave report, then validate the aggregate on the negative path. | `factory/config/extensions/dispatch-wave.ts:442` | Defect   | Major    |
+| Finding                                                                                                                                                     | Artifact                                                        | Category | Severity |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | -------- | -------- |
+| Blocked waves emit an invalid empty artifact list; persist and reference a canonical tracked wave report, then validate the aggregate on the negative path. | `.agent-factory/factory/config/extensions/dispatch-wave.ts:442` | Defect   | Major    |
 
 ## Verification
 
@@ -45,11 +45,11 @@ The full orchestrator run completed with 588 passing tests and the same
 pre-existing timing race plus the independently documented missing survey
 design file described below. `git diff --check` and `index-lint --check` pass.
 The repository-wide Ruff invocation reports its existing modernization and
-mutable-class-attribute backlog in `factory/scripts/usage-capture`; it is not a
+mutable-class-attribute backlog in `.agent-factory/factory/scripts/usage-capture`; it is not a
 clean configured gate for this range.
 
 The repository's separately documented missing
-`factory/docs/design/research-survey-mode.md` is absent at both base and head;
+`.agent-factory/factory/docs/design/research-survey-mode.md` is absent at both base and head;
 the reviewed range neither deletes nor references it from changed production
 code. It remains an independent pre-existing full-suite failure.
 

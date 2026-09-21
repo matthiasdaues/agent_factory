@@ -2,46 +2,28 @@
 
 Field- and behavior-level rules each mechanism enforces, grouped by the entity or mechanism they govern. Business rule IDs (BR-###) are defined here or in the use case that introduces them; this file is the canonical index.
 
-## Marker schema (`PLAYBOOK_STATE_MARKER`)
-
-- `playbook` and `state` are required. `phase advance` and `phase retry` both refuse (non-zero exit) if either is missing from an existing marker file.
-- `state` must name a state defined in the resolved FSM. `transition-lint` reports `TL-STATE` (error) if it does not; `phase advance` and `phase retry` fail resolving the current state's transitions in the same case.
-- `recorded_at` is written in UTC, `%Y-%m-%dT%H:%M:%SZ` format, always from the writing script's own `datetime.now(timezone.utc)` call — never accepted as an input field.
-- `iteration` is an integer, defaulting to `1` when absent or unparseable. `phase advance` always resets it to `1` on a successful advance; `phase retry` is the only mechanism that increments it.
-- The marker is rendered as flat `key: value` lines in a fixed field order (`playbook`, `state`, `gate`, `result`, `open_findings`, `next`, `iteration`, `recorded_by`, `recorded_at`); a value of `None` renders as the literal `null`.
-- The marker file lives at `.current-work/playbook-state.yml` and is git-ignored — local, single-machine state, never committed, never a distributed lock (see [PRD § Constraints](../prd.md#5-constraints)).
-
-## Entry conditions (`GATE_CONDITION`)
+## Precondition types (`eligibility.py`)
 
 - `file_exists`: satisfied if `repo_root.glob(path)` yields at least one match.
 - `files_exist`: satisfied if every path in `paths` yields at least one glob match; the unmet reason lists every missing path by name.
 - `no_open_findings`: satisfied if zero matching finding files (by `pattern` or `patterns`, globbed under `docs/findings/`) have frontmatter `status: open`. A file whose frontmatter cannot be parsed (no leading `---` block) is not counted as open.
 - `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See [UC-09](../../~archive/spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../../adr/0003-test-execution-via-hooks.md).
-- An `entry_conditions` name with no matching entry in `gate_conditions` is treated as unmet, with the reason `"<name> (not defined in gate_conditions)"`.
-- Unmet conditions are collected exhaustively, not short-circuited — a refusal always lists every unmet condition, not just the first.
+- A precondition name with no matching evaluator is treated as unmet, with the reason `"<name> (not defined)"`.
+- Unmet preconditions are collected exhaustively, not short-circuited — a refusal always lists every unmet precondition, not just the first.
 
 ## Glob matching (`outputs:` ownership)
 
 - `*` matches within one path segment; `**` matches across segments (`**/` also consumes a trailing `/`); `?` matches exactly one non-separator character. Every other character is matched literally.
-- A staged (or on-disk) path can match more than one state's globs; `transition-lint` reports the sorted list of matches and treats the first as the file's owner for messaging purposes.
-- A path matching no state's `outputs:` glob is ungoverned: `transition-lint` never reports a finding for it, and `run-step` never treats it as evidence a state's outputs exist.
-
-## Iteration cap resolution (BR-008, BR-009, BR-010)
-
-1. Resolve the loop-back target: the current state's `else` transition target, if the FSM declares one; otherwise the current state itself.
-2. Look up a `halt_conditions` entry of `type: max_iterations` naming that target state. If found, its `limit` (falling back to the default if unparseable) and `message` apply.
-3. If no such entry exists, `--default-max-iterations` (default `5`) applies, with no escalation message.
-4. Increment the marker's `iteration`. If the result exceeds the resolved limit, refuse (exit `2`) and leave the marker unwritten. Otherwise write the marker with the new `iteration` and a fresh `recorded_at`.
-
-This resolution order is why `halt_conditions` must name the **author** state being retried (e.g. `PHASE_1_REQUIREMENTS`), not its gate (`PHASE_1_GATE`) — `greenfield-development.fsm.yml` declares all three review-loop caps this way.
+- A path can match more than one agent's output declarations. The fence runner validates all matching declarations.
+- A path matching no agent's `outputs:` declarations is ungoverned: `run-step` never treats it as evidence an agent's outputs exist.
 
 ## Permission scoping (`trigger`, BR-011, BR-012, BR-013)
 
 - **Never** a blanket bypass: `--dangerously-skip-permissions` (Claude Code) and `--allow-all-tools` (Copilot CLI) are excluded from the background-mode command construction entirely — there is no flag path that reaches them from `trigger agent ... --background`.
 - **Never** a bare interpreter wildcard: an allowlist entry that only scopes the outer command while leaving `python3 *`, `uv *`, `uvx *`, or `npm *` unscoped is treated as equivalent to no scoping, and is excluded on that basis.
-- Every allowlist entry is derived from a command literally observed in this repo's own playbooks, skills, agents, and config files — grep-verified, not guessed ahead of a real need, per [YAGNI](../../../factory/rulebooks/conventions/foundational-principles.md#yagni). Adding a new entry requires the same evidence standard.
+- Every allowlist entry is derived from a command literally observed in this repo's own playbooks, skills, agents, and config files — grep-verified, not guessed ahead of a real need, per [YAGNI](../../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#yagni). Adding a new entry requires the same evidence standard.
 - Claude Code's allow/deny lists use its own `Bash(<cmd> *)` glob syntax; Copilot CLI's use its colon-wildcard `shell(<cmd>:*)` syntax. The two-word-prefix form (`shell(git commit:*)`) is confirmed against GitHub's own documentation; the three-word forms (`shell(uv run pytest:*)`) follow the same pattern but are unconfirmed — see [T-05](../todos.md#t-05-copilot-clis-three-word-shell-wildcard-syntax-unconfirmed).
-- The deny list mirrors [`block-dangerous-git.sh`](../../../factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly — a second, independent layer, not a substitute for it.
+- The deny list mirrors [`block-dangerous-git.sh`](../../../.agent-factory/factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly — a second, independent layer, not a substitute for it.
 - `--interactive` mode constructs no allow/deny list at all; it launches a live session the actor controls directly, after printing the composed prompt (BR-013).
 
 ## Phase handoff and result envelope (BR-037…BR-042)
@@ -92,19 +74,19 @@ This resolution order is why `halt_conditions` must name the **author** state be
 
 - A destination path is safe to proceed past only if it is missing, or already a symlink resolving to the exact expected target. Any other existing state (a real file, a real directory, or a symlink to something else) raises a `Collision`.
 - A `Collision` stops the entire run immediately — steps already completed earlier in the run stay applied; no step later than the collision point runs at all (BR-021).
-- `config/model.conf` is copied only if absent; its presence is checked once, and its content is never diffed or refreshed afterward (BR-022) — the same non-diffing treatment `factory/` itself receives once already present.
+- `config/model.conf` is copied only if absent; its presence is checked once, and its content is never diffed or refreshed afterward (BR-022) — the same non-diffing treatment `.agent-factory/factory/` itself receives once already present.
 
 ## Project-owned test gates (`testing.yaml`, BR-023, BR-024, BR-025, BR-026, BR-027, BR-028, BR-029)
 
 - **BR-023**: Factory does not detect or construct test commands. The project declares its test commands in `docs/testing.yaml`. Factory reads that declaration; it does not guess, detect, or override. The `detect-test-regime` skill scans for existing test entrypoints during onboarding and populates the charter; it is not a runtime detection mechanism.
 - **BR-024**: Bare test commands (`pytest`, `npm test`, `go test`, `cargo test`, and common variants) are blocked for agent execution via `block-dangerous-git.sh` deny patterns. The agent allowlist is populated from `docs/testing.yaml`: all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) are allowlisted with exact-string matching. No prefix matching. A command that differs from the declared string by even one character is denied.
 - **BR-025**: The `test_changed_command` field in `docs/testing.yaml` is optional. When present, it is the command the project uses for fast feedback on changed files. Factory does not engineer mode flags or substitute its own mode logic; the project owns its mode story.
-- **BR-026**: The `test_command` field in `docs/testing.yaml` is required. It is the full test suite command used by FSM `script_exit_zero` gate conditions. Factory calls it as-is from the repository root and reads only its exit code.
+- **BR-026**: The `test_command` field in `docs/testing.yaml` is required. It is the full test suite command used by the `script_exit_zero` precondition evaluator. Factory calls it as-is from the repository root and reads only its exit code.
 - **BR-027**: Factory does not parse structured test output. The gate contract is exit-code-only: zero means pass, nonzero means fail. Structured test counts, JSON summaries, and reporting are the project's concern.
 - **BR-028**: The `test_staged_command` field in `docs/testing.yaml` is optional. When present, it is the command agents may use for TDD iteration on staged files. It is allowlisted in `block-dangerous-git.sh` with exact matching.
 - **BR-029**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure. The project decides when and how tests trigger on commit, push, or other events. The `agent_factory_hook-run-tests-full` entry that previously existed in Factory's pre-commit config is removed.
 
-The `script_exit_zero` condition evaluator resolves `test_command` from `docs/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
+The `script_exit_zero` precondition evaluator resolves `test_command` from `docs/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
 
 ## Anchor-file prerequisite (feature-addition)
 
@@ -144,8 +126,6 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 ## Referenced from
 
 - [entity-model.md](entity-model.md)
-- [UC-01](../../~archive/spec/use_cases/UC-01-advance-a-playbook-phase.md)
-- [UC-03](../../~archive/spec/use_cases/UC-03-retry-a-phase-within-the-iteration-cap.md)
 - [UC-04](../../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
 - [UC-06](../../~archive/spec/use_cases/UC-06-regenerate-the-catalog.md)
 - [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md)
@@ -177,7 +157,7 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 - `update-context` is retired and performs no write. The team maintains `docs/agent-context.md` directly.
 - `detect-test-regime` and test gates own the schema and values in `docs/testing.yaml`; concern validation does not parse test configuration.
 
-See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § concern-lint](interface-contracts.md#factoryscriptsconcern-lint).
+See [agent-context.feature](../agent-context.feature) and [interface-contracts.md § concern-lint](interface-contracts.md#agent-factoryfactoryscriptsconcern-lint).
 
 ## Dispatch ledger (`dispatch`)
 
@@ -221,7 +201,7 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 
 ### Query and export validation
 
-- Publish exactly six stable views: `raw_usage_snapshots`, `latest_run_snapshots`, `canonical_session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`.
+- Publish exactly six stable views: `raw_usage_snapshots`, `latest_run_snapshots`, `session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`.
 - Enforce the complete `query-model-v1` schema, key, nullability, and stable result ordering declared in [interface-contracts.md § Query-model-v1 schema contract](interface-contracts.md#query-model-v1-schema-contract) for non-empty and empty results.
 - Allow `capture_health` for any preflight outcome. Refuse every other stable view and all stable exports when any preflight failure exists.
 - Treat an empty input directory as valid and return each view's typed empty schema.
@@ -246,3 +226,97 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 ### Explicit deferrals
 
 Release 1 excludes persistent analytical databases, automatic Parquet materialization, notebooks, dashboard products, the community `dash` extension, services, containers, remote resources, centralized collection, access control, price catalogs, transcript-content indexing, automatic evidence retention or deletion, Pandas, and Polars.
+
+## Activity-Graph Orchestration Validation Rules
+
+Proposal trace: [activity-graph-orchestration.md](../../proposals/activity-graph-orchestration.md).
+Feature trace: [activity-graph-orchestration.feature](../activity-graph-orchestration.feature).
+
+### Workstream state validation
+
+Rules for `.agent-factory/workstreams/<workstream-id>.yaml`:
+
+1. `schema_version` must be `2`.
+2. `workstream_id` must be a non-empty string matching the filesystem-safe slug pattern `[a-z0-9][a-z0-9_-]*`.
+3. `topic` must be a non-empty string.
+4. `origin_ref` must be null or a valid repository-relative file path.
+5. No other fields may exist. The presence of `cycle`, `attempt`, `revision`, `delegation`, or `work` makes the file invalid.
+6. The file is immutable after creation. Any attempt to modify an existing state file must fail without changing it.
+
+### Session binding validation
+
+Rules for `.agent-factory/workstreams/sessions/<session-id>.yaml`:
+
+1. `session_id` must be a non-empty string.
+2. `workstream_id` must be present as a key. A known workstream identifier means the session is bound. Explicit `null` means Open Stage. A missing key fails validation.
+3. When `workstream_id` is not null, it must reference an existing workstream state file under `.agent-factory/workstreams/`.
+4. `bound_at` must be a valid UTC timestamp in ISO 8601 format.
+5. Selecting a different workstream updates `workstream_id` and `bound_at`. No workstream state file is modified.
+
+### Agent definition structural validation
+
+Rules for agent definition files under `packages/factory/agents/` (tracked source):
+
+1. `inputs` must contain `required` and `context` subkeys. Both may be empty lists.
+2. Each `inputs.required` entry must have `artifact` (string) and `path_pattern` (string). `conditions` is optional.
+3. Each condition must contain exactly one of: `field`+`value`, `field`+`one_of`, or `check`.
+4. `check` must reference a trusted validator by name — resolved to a bash script under `.agent-factory/factory/scripts/` or a Python validator under `.agent-factory/factory/engine/validators/`. Shell commands are rejected.
+5. `inputs.context` entries are plain path strings (no conditions, no artifact type).
+6. `outputs` must contain `minimum_changed` (non-negative integer) and `declarations` (list).
+7. Each output declaration must contain `path_pattern` (string), `validator` (string), and `required` (boolean). Missing fields make the agent definition invalid.
+8. `minimum_changed: 0` is valid and permits a legitimate no-output activity.
+
+### Skill definition structural validation
+
+Rules for skill definition files:
+
+1. Skills may have `inputs.context` (plain paths). They must not have `inputs.required`.
+2. Skills do not appear in the precondition graph.
+3. Skills do not declare `outputs` with validators or `minimum_changed`.
+
+### Scope declaration validation
+
+Rules for governed artifacts in the closed first-release set: proposals, epics, stories, Gherkin feature files, `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`.
+
+1. Every governed artifact must carry a `scope` declaration.
+2. The value must be either `global` or a known workstream identifier (one that has a state file under `.agent-factory/workstreams/`).
+3. Proposals carry `scope` in YAML frontmatter in place of `title`. The display name is in the document heading.
+4. Epics, stories, and `scope-map.md` carry `scope` in YAML frontmatter alongside other fields.
+5. `entity-model.yaml` carries `scope` as a top-level YAML field.
+6. Gherkin feature files carry `scope` as a first-line comment: `# scope: <value>`.
+7. Structurizr DSL (`architecture.dsl`) carries `scope` as a first-line comment: `// scope: global`.
+8. A governed artifact missing the declaration or carrying an unknown value is rejected at artifact creation time.
+9. Non-governed artifacts (ADRs, reviews, findings, research records, etc.) need no scope declaration.
+
+### Fence validation rules
+
+01. The fence runner snapshots the agent's declared output patterns before invocation.
+02. After the activity, each output declaration is checked against files created or modified.
+03. A required output with no created or modified match fails the fence.
+04. An optional output with no match is skipped. If it changed, its validator runs.
+05. The fence fails when fewer than `minimum_changed` declarations have a created or modified match.
+06. When one declaration matches several changed files, its validator receives the resolved file list in one invocation.
+07. When several declarations match, all applicable validators run.
+08. The aggregate fence passes only when every required output changed, the minimum was met, and every invoked validator passed.
+09. Per-output and aggregate evidence is stored at `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`.
+10. Fence failure does not block human action. Fence results are informational in human sessions.
+
+### Artifact precondition validation
+
+For each artifact type, the following mechanical validation checks apply. Semantic assessment (`intent assess`) is a separate, human-triggered layer.
+
+**Proposal.** File exists at the declared path. YAML frontmatter contains `scope` (workstream identifier, replacing `title`), `status`, and `owner`. Required sections exist. The `status` field satisfies the declared condition.
+
+**Scope map.** File exists at `docs/spec/scope-map.md`. Passes scope-map validation (`spec-lint`). Behavior identifiers are unique. Source references resolve to existing artifacts. Feature link references resolve to existing code.
+
+**Entity model.** File exists at `docs/spec/entity-model.yaml`. Passes LinkML metamodel validation. `linkml-lint` reports no errors. Every referenced class and slot resolves.
+
+**Architecture.** File exists at `docs/arc42/architecture.dsl`. Passes Structurizr validation. Passes architecture lint (`arch-lint`). Referenced views resolve.
+
+**Feature specifications.** Every `.feature` file referenced by the scope map exists. Each file parses as valid Gherkin. First-line scope comment is present and valid.
+
+**Gaps report.** Required sections (actor-goal matrix, missing rules, ambiguous wording) exist. Every recorded gap has an identifier and a disposition.
+
+**Research brief.** Passes brief schema validation (`research-brief.schema.json`). `decision_needed` is the only delivery-link field. No `origin_cycle` or `return_cycle` fields exist.
+
+**Research report.** Passes route-specific validation (survey or falsification). References the originating brief. Records evidence disposition for each claim or source.

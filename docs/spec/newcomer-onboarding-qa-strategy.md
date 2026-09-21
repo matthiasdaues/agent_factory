@@ -70,5 +70,5 @@ Generated from:
 
 - Surviving owner per major contract: acceptance test (manual walkthrough) for all behavioral contracts; deterministic linter (`index-lint --check`, `mdformat`) for structural consistency
 - Expected overlap to remove later: none anticipated — this feature introduces no code-level tests, only process artifacts and their deterministic lint
-- Consolidation rule: keep one owner per contract per [testing-strategy.md](../../factory/rulebooks/conventions/testing-strategy.md)
-- Deletion protocol: follow [testing-strategy.md § Delete overlapping tests safely](../../factory/rulebooks/conventions/testing-strategy.md)
+- Consolidation rule: keep one owner per contract per [testing-strategy.md](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md)
+- Deletion protocol: follow [testing-strategy.md § Delete overlapping tests safely](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md)

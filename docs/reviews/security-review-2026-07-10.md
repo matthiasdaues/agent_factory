@@ -5,7 +5,7 @@
 - Branch: `feature/integrate-orchestrator`, full range `e8a8565..0e8fda7` (the entire
   orchestrator-reintegration effort, two reconciliation passes already resolved).
 - Code compared against OWASP Top 10 (A01–A10): `orchestrator/src/orchestrator/cli.py`
-  (path-resolution fixes, `ST-0065`/`RECON-0004`), `factory/scripts/merge-precommit-config`
+  (path-resolution fixes, `ST-0065`/`RECON-0004`), `.agent-factory/factory/scripts/merge-precommit-config`
   (marker-derivation fix, `RECON-0001`), the merged/synced `.pre-commit-config.yaml` files
   (`ST-0067`/`ST-0066`/`RECON-0003`).
 - Excluded per this review's own scope: the bulk `orchestrator/src/` reinstatement
@@ -29,9 +29,9 @@ No `SEC-*` findings filed; nothing met the Medium-or-higher filing threshold.
 ## Analysis
 
 All logic changes in the reviewed range are path-string corrections (bare
-`agents`/`skills` → `factory/agents`/`factory/skills`; stale `scripts/` →
-`factory/scripts/`) and a marker-derivation refactor in the pre-commit config
-splicer (`extract_marker_id()`, `factory/scripts/merge-precommit-config`). None of
+`agents`/`skills` → `.agent-factory/factory/agents`/`.agent-factory/factory/skills`; stale `scripts/` →
+`.agent-factory/factory/scripts/`) and a marker-derivation refactor in the pre-commit config
+splicer (`extract_marker_id()`, `.agent-factory/factory/scripts/merge-precommit-config`). None of
 these:
 
 - Introduce a new subprocess/shell invocation site. The `subprocess.run` call sites

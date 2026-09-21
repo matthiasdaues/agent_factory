@@ -38,16 +38,16 @@
   docs/spec/use_cases/UC-07-block-a-dangerous-git-command.md
   docs/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md
   docs/spec/use_cases/system-use-cases.md
-  factory/config/extensions/pi-usage.ts
-  factory/config/hooks/capture-codex-usage.sh
-  factory/config/hooks/capture-copilot-usage.sh
-  factory/config/hooks/capture-usage.sh
-  factory/docs/factory-guide.md
+  .agent-factory/factory/config/extensions/pi-usage.ts
+  .agent-factory/factory/config/hooks/capture-codex-usage.sh
+  .agent-factory/factory/config/hooks/capture-copilot-usage.sh
+  .agent-factory/factory/config/hooks/capture-usage.sh
+  .agent-factory/factory/docs/factory-guide.md
   docs/proposals/superseded/factory-cli-security-hardening.md
   docs/proposals/implemented/token-usage-tracking.md
   docs/proposals/usage-processing-and-storage.md
-  factory/scripts/usage-capture
-  factory/scripts/usage-capture-lifecycle
+  .agent-factory/factory/scripts/usage-capture
+  .agent-factory/factory/scripts/usage-capture-lifecycle
   orchestrator/tests/test_init_factory_usage_capture.py
   orchestrator/tests/test_usage_capture.py
   orchestrator/tests/test_usage_capture_e2e.py
@@ -68,12 +68,12 @@
 
 | Contract surface           | Code source (delta)                                                                               | Spec source                                                                                      | Result                                                     |
 | -------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Usage record schema        | `factory/scripts/usage-capture` (`UsageRecord`, `NormalizedTranscript`)                           | `entity-model.md`; `token-usage-tracking.md`; `interface-contracts.md`                           | Match (see note on `MODEL_MATRIX_ENTRY` below)             |
+| Usage record schema        | `.agent-factory/factory/scripts/usage-capture` (`UsageRecord`, `NormalizedTranscript`)            | `entity-model.md`; `token-usage-tracking.md`; `interface-contracts.md`                           | Match (see note on `MODEL_MATRIX_ENTRY` below)             |
 | Model attribution (BR-036) | `usage-capture` normalizers + `_capture` (`args.model or transcript.model`)                       | `system-use-cases.md § Usage capture attribution`; `interface-contracts.md`; `traceability.json` | Match                                                      |
 | Git context enrichment     | `usage-capture _git_context`; `pi-usage.ts gitContext`; `capture-*.sh`; `usage-capture-lifecycle` | `token-usage-tracking.md` Outcome table                                                          | Match                                                      |
 | Model tier router          | `config/model.conf` (`copilot.*`, `codex.*`, `pi.*`)                                              | `ADR-0005`; `entity-model.md MODEL_MATRIX_ENTRY`                                                 | **Drift — RECON-0015, RECON-0016**                         |
-| Pi extension-factory       | `factory/config/extensions/pi-usage.ts` (default export)                                          | `test_init_factory_usage_capture.py` (new contract test)                                         | Match                                                      |
-| Four-CLI guardrail         | `factory/config/hooks/block-dangerous-git.sh` (unchanged in delta)                                | `05/06/08/12`, `factory-guide.md`, PRD, UC-07/08, `interface-contracts.md`                       | Match (RECON-0013 holds)                                   |
+| Pi extension-factory       | `.agent-factory/factory/config/extensions/pi-usage.ts` (default export)                           | `test_init_factory_usage_capture.py` (new contract test)                                         | Match                                                      |
+| Four-CLI guardrail         | `.agent-factory/factory/config/hooks/block-dangerous-git.sh` (unchanged in delta)                 | `05/06/08/12`, `factory-guide.md`, PRD, UC-07/08, `interface-contracts.md`                       | Match (RECON-0013 holds)                                   |
 | ADR status                 | `docs/adr/0004..0007` frontmatter + `09_architecture_decisions.md`                                | same                                                                                             | Match (RECON-0014 holds); ADR-0005 body stale — RECON-0015 |
 
 ## Discrepancy table

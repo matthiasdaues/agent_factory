@@ -3,7 +3,7 @@ id: RECON-0013
 source: reconcile-spec
 severity: major
 category: defect
-artifact: docs/arc42/05_building_block_view.md#L27,L123,L129; docs/arc42/06_runtime_view.md#L156; docs/arc42/08_crosscutting_concepts.md#L58; docs/arc42/12_glossary.md#L32,L69; factory/docs/factory-guide.md#cli-safety-guardrails
+artifact: docs/arc42/05_building_block_view.md#L27,L123,L129; docs/arc42/06_runtime_view.md#L156; docs/arc42/08_crosscutting_concepts.md#L58; docs/arc42/12_glossary.md#L32,L69; .agent-factory/factory/docs/factory-guide.md#cli-safety-guardrails
 status: resolved
 traces: [ADR-0004, ADR-0007]
 ---
@@ -31,14 +31,14 @@ Concrete drift locations:
   Code and Copilot CLI support this" (line 32), and the **CLI** acronym reads
   "Command-Line Interface (here: Claude Code, Copilot CLI)" (line 69). The
   **CLI-Invoked Agent** entry likewise names only Claude Code and Copilot CLI.
-- `factory/docs/factory-guide.md` § CLI safety guardrails — "For Claude Code
+- `.agent-factory/factory/docs/factory-guide.md` § CLI safety guardrails — "For Claude Code
   and Copilot CLI this is a native `PreToolUse` hook; for Pi it is a
   project-local extension" and "init-factory symlinks the script into both
   `.claude/hooks/` and `.github/hooks/`". Codex is absent from the guardrail
   description entirely, even though the same guide's Codex-operation and
   usage-capture sections treat Codex as a first-class CLI.
 
-Code reality: `factory/config/hooks/block-dangerous-git.sh` opens with "Shared
+Code reality: `.agent-factory/factory/config/hooks/block-dangerous-git.sh` opens with "Shared
 PreToolUse guardrail for Claude Code, Copilot CLI, and Codex," reading the
 command from `.tool_input.command`, `.toolArgs.command`, or `.tool_input.cmd`
 to cover all three. `factory/scripts/init-factory` symlinks

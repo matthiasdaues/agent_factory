@@ -2,7 +2,6 @@
 name: security-review
 description: Security-focused code review against OWASP Top 10 with minimised false positives.
 category: quality
-disable-model-invocation: true
 ---
 
 # Security Review
