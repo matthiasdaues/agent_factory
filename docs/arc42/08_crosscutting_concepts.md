@@ -20,6 +20,7 @@ Derived from [`factory/rulebooks/conventions/foundational-principles.md`](../../
 | Research artifacts validated | `schema-validate` (stage 1) and `policy-validate` (stage 2), invoked on demand            | Deterministic -- exit codes, no judgment; invoked by the research playbook/agents, not hook-enforced (see section 8.6) |
 | Semantic code quality gated  | `crap-score`, `dependency-check`, invoked by dispatcher                                   | Deterministic -- exit codes; dispatcher-owned, not hook-enforced (see section 8.7)                                     |
 | Architecture routing         | `module-graph-check`, invoked by orchestrating session                                    | Deterministic -- compares module map from DSL against concept outputs (see section 8.8)                                |
+| OpenCode plugin enforcement  | Factory plugin in `.opencode/plugins/` applies V2 hooks                                   | Plugin hooks deny before execution, exit with named recovery action (see section 8.14)                                 |
 
 ### Why It Matters
 
@@ -44,10 +45,11 @@ Test gate presence exemplifies this principle end-to-end:
 
 Factory Flow Control uses **mechanically triggered gates** as the enforcement layer. Three trigger types participate:
 
-| Hook Type                  | Fires When                 | Runs What                                          | Cannot Be Bypassed By         | Exit Codes          |
-| -------------------------- | -------------------------- | -------------------------------------------------- | ----------------------------- | ------------------- |
-| **PreToolUse**             | Before every shell command | `block-dangerous-git.sh` (charter-aware allowlist) | Agent or human (CLI enforces) | 0 (allow), 2 (deny) |
-| **Eligibility evaluation** | `intent select` invocation | Precondition evaluator against agent definitions   | Manual invocation required    | (evidence table)    |
+| Hook Type                  | Fires When                   | Runs What                                                                | Cannot Be Bypassed By         | Exit Codes                      |
+| -------------------------- | ---------------------------- | ------------------------------------------------------------------------ | ----------------------------- | ------------------------------- |
+| **PreToolUse**             | Before every shell command   | `block-dangerous-git.sh` (charter-aware allowlist)                       | Agent or human (CLI enforces) | 0 (allow), 2 (deny)             |
+| **Eligibility evaluation** | `intent select` invocation   | Precondition evaluator against agent definitions                         | Manual invocation required    | (evidence table)                |
+| **OpenCode V2 Plugin**     | Before every tool invocation | Permission Enforcer (`execute.before`), Tool Restrictor (`context` hook) | Agent (plugin enforces)       | allow/deny with recovery action |
 
 ### Zero-Trust Command Execution
 
@@ -58,6 +60,7 @@ Agents do not have unrestricted shell access. Every command passes through a Pre
    tool call and applies the same deny list.
 2. Matches it against a deny list (destructive git commands, test commands).
 3. Exits 0 (allow) or 2 (deny). Exit 2 surfaces as a denial message to the agent; the command never executes.
+4. OpenCode's Factory plugin applies the same deny rules through the V2 `execute.before` hook. The plugin evaluates ordered allow, ask, and deny rules; explicit denials are final.
 
 This is **preventive validation**, not reactive. The agent never sees test output from a run it initiated unless it runs a project-declared command.
 
@@ -219,9 +222,11 @@ client. The optional bundled UI may fetch assets only when the operator starts
 it and is not part of deterministic analysis.
 
 Stable output comes only from the six `query-model-v1` views. Snapshot selection
-and four-CLI conservation remain inside the accounting registry and SQL model;
+and five-CLI conservation remain inside the accounting registry and SQL model;
 table, JSON, relation, Arrow, Parquet, and UI adapters must not reimplement
-them. Strict preflight leaves `capture_health` available for diagnosis but
+them. OpenCode follows the same conservation model as Claude Code: root
+snapshot plus each distinct child run once. Strict preflight leaves
+`capture_health` available for diagnosis but
 blocks every other stable view when any selected line or ancestry is invalid.
 
 See [ADR-0015](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)
@@ -249,6 +254,40 @@ The engine is read-only: it reads agent definitions and the repository, returns 
 ### Workstream concurrency
 
 Multiple workstreams may be active simultaneously within a project. Each workstream has its own immutable identity file under `.agent-factory/workstreams/`. Session bindings under `.agent-factory/workstreams/sessions/` track which workstream each CLI session is observing.
+
+## 8.14 OpenCode Plugin as Enforcement Boundary
+
+The Factory plugin (`packages/factory/config/plugins/agent-factory.ts`) is the enforcement boundary for OpenCode sessions. Factory safety invariants that other CLIs enforce through native hooks (PreToolUse for Claude Code, Copilot CLI, and Codex; project-local extensions for Pi) are enforced through V2 plugin hooks in OpenCode.
+
+### Control Mapping
+
+| Factory Invariant               | Claude Code / Copilot / Codex         | Pi                                  | OpenCode                                      |
+| ------------------------------- | ------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| Dangerous command denial        | `block-dangerous-git.sh` (PreToolUse) | Same deny list via Pi extension     | Permission Enforcer (`execute.before` hook)   |
+| Step-boundary read/write denial | `step-guard` (PreToolUse)             | Same guard via Pi extension         | Permission Enforcer reads step manifest       |
+| Agent tool restriction          | CLI settings (scoped allowlists)      | Extension removes unavailable tools | Tool Restrictor (`session.hook` context)      |
+| Usage capture                   | Native lifecycle adapter              | `session_shutdown` + inline child   | Usage Observer (`execute.after` hook)         |
+| Worktree isolation              | Factory scripts via `dispatch`        | `dispatch-wave` extension           | Worktree Strategy (`ctx.worktree.transform`)  |
+| Orientation injection           | `.claude/CLAUDE.md`                   | Root `AGENTS.md`                    | Orientation Injector (`session.hook` context) |
+
+### Fail-Closed Behavior
+
+The plugin fails closed. Four failure types stop the Factory entry flow:
+
+1. **Initialization failure** -- the plugin's `setup(ctx)` function does not complete.
+2. **Manifest loading failure** -- the step manifest at `.current-work/current-step.yml` cannot be read or parsed.
+3. **Permission evaluation failure** -- the `permission.hook("evaluate")` callback encounters an error.
+4. **Worktree creation failure** -- the worktree strategy cannot create a branch or worktree.
+
+Each failure names the specific control that failed and the recovery action. Usage capture failure does not affect plugin health. Usage capture is best-effort; its failure is reported but does not block the session.
+
+### Enforcement Trust Model
+
+The plugin does not treat prompt instructions, agent visibility, or an OpenCode snapshot as an enforcement boundary. Enforcement belongs to permissions, hooks, Factory gate scripts, and Git worktrees. This follows the same trust model as section 8.1: agents are untrusted channels; mechanical controls own enforcement.
+
+### Model Inheritance Workaround
+
+OpenCode's model inheritance bug (issue #49765) prevents child sessions from inheriting the parent's model. Each generated OpenCode agent definition carries an explicit `model` field derived from its tier mapping in `model.conf`. This workaround becomes removable when OpenCode fixes the inheritance bug. See [ADR-0020](../adr/0020-explicit-model-fields-for-opencode-agent-definitions.md).
 
 ## Referenced from
 

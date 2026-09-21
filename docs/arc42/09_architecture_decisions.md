@@ -26,6 +26,9 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0016 | [Concern-oriented agent context replaces YAML index](../adr/0016-concern-oriented-agent-context-replaces-yaml-index.md)                                       | accepted               | none        |
 | 0017 | [Cycle-based orchestration supersedes linear playbook FSM](../adr/0017-cycle-based-orchestration-supersedes-linear-playbook-fsm.md)                           | accepted               | pugh-matrix |
 | 0018 | [CONCEPT internal sequence is agent-owned](../adr/0018-concept-internal-sequence-is-agent-owned.md)                                                           | accepted               | none        |
+| 0019 | [V2 plugin as OpenCode enforcement boundary](../adr/0019-v2-plugin-as-opencode-enforcement-boundary.md)                                                       | proposed               | pugh-matrix |
+| 0020 | [Explicit model fields for OpenCode agent definitions](../adr/0020-explicit-model-fields-for-opencode-agent-definitions.md)                                   | proposed               | none        |
+| 0021 | [Skill placement at `.agents/skills/`](../adr/0021-skill-placement-at-agents-skills.md)                                                                       | proposed               | pugh-matrix |
 
 ## Key Decisions
 
@@ -152,6 +155,29 @@ DuckDB file, SQLite, and ephemeral DuckDB views over JSONL. The selected design
 best meets reproducibility, capture independence, local operation, strict
 accounting, and Clean Architecture dependency direction without introducing a
 freshness or synchronization lifecycle.
+
+### OpenCode CLI Integration
+
+**ADR-0019** selects the OpenCode V2 Plugin API as the enforcement boundary
+for Factory safety controls in OpenCode sessions. A Pugh Matrix compared the
+plugin against an MCP-based adapter. The plugin scores higher on safety
+(in-process synchronous denial), simplicity (single TypeScript module, no
+separate server process), testability (OpenCode's own test harness), and
+resilience (shared process lifecycle). The MCP adapter scores negatively on
+every differentiating criterion; no weight adjustment flips the result. MCP
+remains a deferred fallback if the V2 API is deprecated.
+
+**ADR-0020** records a workaround for OpenCode issue #49765: each generated
+agent definition carries an explicit `model` field because child sessions
+do not inherit the parent's model. The field resolves from the agent's tier
+mapping in `model.conf`. The workaround becomes removable when OpenCode
+fixes the inheritance bug.
+
+**ADR-0021** places OpenCode skills at `.agents/skills/`, the native
+discovery path, rather than `.opencode/skills/` (not natively discoverable)
+or `.claude/skills/` (depends on compatibility mode). A Pugh Matrix shows the
+baseline wins on the highest-weighted criterion (native discovery) and avoids
+coupling to another CLI's directory structure or to a mode that can be disabled.
 
 ### Cycle-Based Orchestration (no longer active)
 

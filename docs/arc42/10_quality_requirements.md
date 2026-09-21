@@ -78,6 +78,30 @@ References: [architecture.dsl](architecture.dsl), [section 8](08_crosscutting_co
 
 References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
 
+### QS-7: Plugin fails closed on control failure
+
+| Field             | Description                                                                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety                                                                                                                                    |
+| Stimulus          | The OpenCode Factory plugin cannot load the step manifest, evaluate a permission, or create a worktree.                                   |
+| Environment       | An OpenCode session with the Factory plugin active.                                                                                       |
+| Response          | The plugin denies the operation. The error names the failed control and the recovery action.                                              |
+| Response measure  | No tool invocation executes after the failure. The Factory entry flow stops. Usage capture failure does not trigger fail-closed behavior. |
+
+References: [architecture.dsl OpenCode Plugin container](architecture.dsl), [section 8.14](08_crosscutting_concepts.md#814-opencode-plugin-as-enforcement-boundary)
+
+### QS-8: CLI integration preserves existing CLI files
+
+| Field             | Description                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Compatibility                                                                                                                 |
+| Stimulus          | A project with Claude Code and Pi installed adds OpenCode as a third CLI target.                                              |
+| Environment       | `init-factory` runs with `--add opencode`.                                                                                    |
+| Response          | OpenCode files are created under `.opencode/`. Claude Code files under `.claude/` and Pi files under `.pi/` remain unchanged. |
+| Response measure  | Zero modifications to files owned by other CLIs. One root `AGENTS.md` serves all CLIs.                                        |
+
+References: [opencode-cli-integration.feature Rule: Project maintainer runs OpenCode alongside other Factory CLIs](../spec/opencode-cli-integration.feature)
+
 ## 10.2 Quality Attribute Priority
 
 | Priority | Quality attribute                  | Scenarios |
@@ -88,6 +112,8 @@ References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [sec
 | 1        | Resilience (observable resume)     | QS-5      |
 | 2        | Simplicity (immutable state)       | QS-4      |
 | 2        | Safety (deterministic validation)  | QS-6      |
+| 2        | Safety (fail-closed plugin)        | QS-7      |
+| 2        | Compatibility (CLI coexistence)    | QS-8      |
 
 ## Referenced from
 

@@ -280,7 +280,77 @@ The exporter writes a temporary sibling, verifies logical rows and schema, and
 records query-model and input-set provenance before replacement. Any failure
 leaves an existing destination unchanged. No scheduled refresh exists.
 
-## 6.8 Other Runtime Scenarios (Summary)
+## 6.8 OpenCode Permission Enforcement
+
+Derived from dynamic view `OpenCodePermissionEnforcement` in [`architecture.dsl`](architecture.dsl).
+
+The Factory plugin enforces permissions and step boundaries for every tool invocation in an OpenCode session. The permission enforcer evaluates ordered allow, ask, and deny rules. Explicit denials are final and cannot be broadened by the plugin's permission hook.
+
+### 6.8.1 Sequence: Plugin Evaluates a Tool Invocation
+
+```mermaid
+sequenceDiagram
+    participant A as CLI-Invoked Agent (OpenCode)
+    participant PE as Permission Enforcer
+    participant SM as Step Manifest
+    participant P as Plugin Permission Rules
+
+    A->>PE: 1. Tool invocation reaches execute.before hook
+    PE->>SM: 2. Reads active step manifest
+    PE->>P: 3. Evaluates allow/ask/deny rules in order
+    alt Path within step boundary and allowed
+        PE-->>A: Allow invocation
+    else Path outside step boundary or denied
+        PE-->>A: Deny with named failed control and recovery action
+    end
+```
+
+**Key Points:**
+
+- The plugin reads `.current-work/current-step.yml` to determine the active step boundary.
+- Reads outside declared inputs are denied before tool execution.
+- Writes outside declared outputs are denied before tool execution.
+- Shell commands matching denied Git patterns are denied before execution.
+- Review agents whose definitions declare no write outputs receive read-only tool sets. The Tool Restrictor removes write tools from the agent's available set.
+- Permission hooks may narrow an OpenCode decision but never broaden a configured denial.
+
+## 6.9 OpenCode Worktree Isolation
+
+Derived from dynamic view `OpenCodeWorktreeIsolation` in [`architecture.dsl`](architecture.dsl).
+
+The plugin isolates each dispatched child session in a Factory-managed worktree. The worktree strategy delegates branch and path creation to Factory scripts so that the Factory's naming, base, path, and verification rules remain authoritative.
+
+### 6.9.1 Sequence: Plugin Isolates a Child Session
+
+```mermaid
+sequenceDiagram
+    participant IA as Dispatcher (root session)
+    participant WS as Worktree Strategy
+    participant FS as Factory Scripts
+    participant PE as Permission Enforcer
+    participant C as Child Session
+
+    IA->>WS: 1. Request child session workspace
+    WS->>FS: 2. Delegates branch and worktree creation
+    FS-->>WS: Worktree at .current-work/<feature-branch>/
+    WS-->>IA: Child workspace ready
+    PE->>IA: 3. Primary checkout receives session-scoped write denial
+    IA->>C: 4. Child starts in isolated worktree
+    C->>C: 5. Verifies declared base before reading or changing files
+    Note over IA: Primary checkout rejects writes while child is active
+    C-->>IA: Child completes
+    PE-->>IA: Write denial released
+```
+
+**Key Points:**
+
+- Each child receives its own Factory branch and Git worktree under `.current-work/<feature-branch>/`.
+- Each child verifies its declared base commit before reading or changing files.
+- The primary checkout rejects writes through a session-scoped write denial while any child is active.
+- Worktree creation failure fails closed: the dispatch is denied with a named recovery action.
+- The Factory's naming, base, path, and verification rules remain authoritative. OpenCode tracks the resulting location and starts each child session there.
+
+## 6.10 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 
