@@ -4,7 +4,7 @@ Deferred decisions and named gaps found while reverse-engineering this specifica
 
 ## T-01: No CLI-failure classification in `trigger`
 
-`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure, the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, `orchestrator` ADR-0002). A non-zero exit today means: read the output, do not auto-retry. Named in [`factory/skills/run-step/SKILL.md` § What this deliberately does not do (yet)](../../.agent-factory/factory/skills/run-step/SKILL.md#what-this-does-not-read). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
+`factory/scripts/trigger` returns the invoked CLI's raw exit code. It does not distinguish an auth failure from a config error from a genuine task failure, the way `orchestrator`'s `CopilotAdapter` does (regex-matched stderr, `orchestrator` ADR-0002). A non-zero exit today means: read the output, do not auto-retry. Named in `factory/skills/run-step/SKILL.md` (section removed during rewrite). Fold classification in if it turns out to matter in practice — not built ahead of a real case (YAGNI).
 
 - [ ] Decide whether `trigger` should classify failures itself, or whether that stays a caller-side concern.
 
