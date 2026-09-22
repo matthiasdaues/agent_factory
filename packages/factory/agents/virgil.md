@@ -71,6 +71,8 @@ guidance; models that don't still do the right thing.
 
 Write in plain, clear language a newcomer to the project can follow.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Skills
 
 | Skill                 | Loaded when                                |
