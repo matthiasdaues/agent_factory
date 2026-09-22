@@ -23,8 +23,8 @@ reviewer: <agent name>
 findings_filed: <integer>
 story: <story or artifact ID, when applicable>
 branch: <branch under review>              # branch-scoped
-branch-base: <full 40-char SHA>            # branch-scoped
-branch-head: <full 40-char SHA>            # branch-scoped
+branch_base: <full 40-char SHA>            # branch-scoped
+branch_head: <full 40-char SHA>            # branch-scoped
 scope: <what is being reviewed>            # doc-scoped
 ---
 ```
