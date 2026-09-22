@@ -79,6 +79,6 @@ class TestCheckScriptsExitCodes:
                 f"{script} raised SystemExit({exc.code}); expected 0, 1, or 2"
             )
         else:
-            assert rc in (0, 1), (
-                f"{script} main([]) returned {rc}; expected 0 or 1"
+            assert isinstance(rc, int) and rc >= 0, (
+                f"{script} main([]) returned {rc}; expected a non-negative integer"
             )

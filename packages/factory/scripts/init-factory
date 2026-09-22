@@ -3348,6 +3348,18 @@ def _dedup(paths: list[str]) -> list[str]:
 
 
 def pre_commit_install(target: Path, report: list[str]) -> None:
+    import shutil
+
+    if not shutil.which("uvx"):
+        log(
+            report,
+            "uvx pre-commit install: SKIPPED — 'uvx' not found on PATH. "
+            "Install uv (https://docs.astral.sh/uv/getting-started/installation/) "
+            "and ensure 'uvx' is on PATH (restart your shell after installing), "
+            "then run: uvx pre-commit install --hook-type pre-commit --hook-type pre-push",
+        )
+        return
+
     result = subprocess.run(
         [
             "uvx",
