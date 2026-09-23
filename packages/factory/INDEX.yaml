@@ -121,8 +121,8 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 927
-    total_tokens: 5139
+    tokens: 934
+    total_tokens: 5146
     inputs:
       required:
         - type: story
@@ -193,7 +193,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 3863
-    total_tokens: 12059
+    total_tokens: 12078
     inputs:
       required:
         - type: story
@@ -317,7 +317,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2195
-    total_tokens: 18386
+    total_tokens: 18400
     inputs:
       required:
         - type: scope-map
@@ -420,7 +420,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1252
-    total_tokens: 7648
+    total_tokens: 7662
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -664,7 +664,7 @@ skills:
     category: planning
     description: Cut a concrete backlog story into independently implementable slices along contract boundaries. Phase 7 of the create-backlog sequence.
     path: skills/create-backlog-slice-story/SKILL.md
-    tokens: 2319
+    tokens: 2657
   - name: testability-probe
     category: planning
     description: Assess epic testability and resolve contract ownership backlog-wide before stories are cut. Mandatory step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices. Writes a testability paragraph and ownership table per EPIC into backlog/epics.md — no failure scenarios, test paths, or risk classifications.
@@ -864,7 +864,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2957
-    total_tokens: 35144
+    total_tokens: 35158
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -886,7 +886,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 41458
+    total_tokens: 41491
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -903,7 +903,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4610
-    total_tokens: 99897
+    total_tokens: 99937
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -921,7 +921,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2858
-    total_tokens: 99309
+    total_tokens: 99349
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -950,7 +950,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1106
-    total_tokens: 12503
+    total_tokens: 12517
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -971,7 +971,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 16721
+    total_tokens: 16735
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -994,7 +994,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 2975
+    tokens: 2980
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -1014,7 +1014,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 4540
+    tokens: 4554
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
@@ -1026,7 +1026,7 @@ rulebooks:
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 1424
+    tokens: 1425
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md
