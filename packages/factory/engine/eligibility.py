@@ -76,7 +76,8 @@ def _extract_scope(path: Path) -> str | None:
 
 
 def _scope_filter(
-    candidates: list[str], workstream_id: str | None,
+    candidates: list[str],
+    workstream_id: str | None,
 ) -> list[str]:
     if workstream_id is None:
         return candidates
@@ -98,7 +99,11 @@ def _check_condition(path: str, condition: dict | None, warnings: list[str]) -> 
 
     if "check" in condition:
         validator_name = condition["check"]
-        _fr = Path(".agent-factory/factory/scripts") if Path(".agent-factory/factory").is_dir() else Path("factory/scripts")
+        _fr = (
+            Path(".agent-factory/factory/scripts")
+            if Path(".agent-factory/factory").is_dir()
+            else Path("factory/scripts")
+        )
         script_path = _fr / validator_name
         if not script_path.exists():
             warnings.append(f"validator '{validator_name}' not found at {script_path}")
@@ -106,7 +111,10 @@ def _check_condition(path: str, condition: dict | None, warnings: list[str]) -> 
         try:
             result = subprocess.run(
                 [str(script_path), "--check", path],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
             )
             return "pass" if result.returncode == 0 else "fail"
         except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -138,7 +146,9 @@ def _check_condition(path: str, condition: dict | None, warnings: list[str]) -> 
 
 
 def _evaluate_requirement(
-    req: dict, workstream_id: str | None, warnings: list[str],
+    req: dict,
+    workstream_id: str | None,
+    warnings: list[str],
 ) -> dict:
     req_type = req.get("type", "unknown")
     path_pattern = req.get("path_pattern", "")
@@ -169,7 +179,8 @@ def _evaluate_requirement(
 
 
 def evaluate_agent(
-    agent: dict, workstream_id: str | None = None,
+    agent: dict,
+    workstream_id: str | None = None,
 ) -> dict:
     name = agent.get("name", "unknown")
     inputs = agent.get("inputs", {})
@@ -185,8 +196,7 @@ def evaluate_agent(
 
     warnings: list[str] = []
     requirements = [
-        _evaluate_requirement(req, workstream_id, warnings)
-        for req in required
+        _evaluate_requirement(req, workstream_id, warnings) for req in required
     ]
     eligible = all(r["satisfied"] for r in requirements)
 
@@ -199,6 +209,7 @@ def evaluate_agent(
 
 
 def evaluate_all(
-    agents: list[dict], workstream_id: str | None = None,
+    agents: list[dict],
+    workstream_id: str | None = None,
 ) -> list[dict]:
     return [evaluate_agent(a, workstream_id) for a in agents]

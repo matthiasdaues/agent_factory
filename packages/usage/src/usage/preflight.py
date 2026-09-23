@@ -40,19 +40,22 @@ PARENT_MISSING = "USAGE_ANCESTRY_PARENT_MISSING"
 CYCLE = "USAGE_ANCESTRY_CYCLE"
 ROOT_COUNT = "USAGE_ANCESTRY_ROOT_COUNT"
 
-ALL_FAILURE_CODES: frozenset[str] = frozenset({
-    PARENT_CONFLICT,
-    SELF_PARENT,
-    PARENT_BOUNDARY,
-    PARENT_MISSING,
-    CYCLE,
-    ROOT_COUNT,
-})
+ALL_FAILURE_CODES: frozenset[str] = frozenset(
+    {
+        PARENT_CONFLICT,
+        SELF_PARENT,
+        PARENT_BOUNDARY,
+        PARENT_MISSING,
+        CYCLE,
+        ROOT_COUNT,
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class PreflightResult:
@@ -71,6 +74,7 @@ class PreflightResult:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _parse_lines(paths: list[Path]) -> list[dict[str, Any]]:
     """Read every JSONL line from *paths*, annotating with source metadata."""
@@ -110,8 +114,7 @@ def _coerce_nullable_types(conn: duckdb.DuckDBPyConnection) -> None:
         target = _NULLABLE_CASTS.get(name)
         if target and dtype != target:
             alterations.append(
-                f'ALTER TABLE _staging ALTER COLUMN "{name}" '
-                f"SET DATA TYPE {target}"
+                f'ALTER TABLE _staging ALTER COLUMN "{name}" SET DATA TYPE {target}'
             )
     for stmt in alterations:
         conn.execute(stmt)
@@ -135,7 +138,7 @@ def _find_parent_conflicts(
         run_groups[key].append(rec)
 
     conflict_lines: set[LineKey] = set()
-    for _key, recs in run_groups.items():
+    for recs in run_groups.values():
         parents = {r["parent_session_id"] for r in recs}
         if len(parents) > 1:
             for r in recs:
@@ -304,10 +307,7 @@ def _check_root_count(
     components = _find_connected_components(session_parent)
 
     for component in components:
-        root_count = sum(
-            1 for key in component
-            if session_parent.get(key) is None
-        )
+        root_count = sum(1 for key in component if session_parent.get(key) is None)
         if root_count == 1:
             continue
         for key in component:
@@ -318,6 +318,7 @@ def _check_root_count(
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def _check_self_parent(
     session_parent: dict[SessionKey, str | None],
@@ -352,7 +353,8 @@ def _classify_lines(
     conflict_lines = _find_parent_conflicts(records)
 
     non_conflict = [
-        r for r in records
+        r
+        for r in records
         if (r["_source_file"], r["_line_number"]) not in conflict_lines
     ]
     session_parent = _build_session_map(non_conflict)
@@ -397,8 +399,7 @@ def _build_duckdb(
             for rec in all_annotated:
                 fh.write(json.dumps(rec) + "\n")
         conn.execute(
-            "CREATE TABLE _staging AS "
-            f"SELECT * FROM read_json_auto('{tmp_path}')"
+            f"CREATE TABLE _staging AS SELECT * FROM read_json_auto('{tmp_path}')"
         )
     finally:
         os.unlink(tmp_path)
@@ -423,15 +424,17 @@ def _empty_preflight() -> PreflightResult:
     """Return a PreflightResult for an empty input set."""
     conn = duckdb.connect()
     conn.execute(
-        "CREATE TABLE preflight_valid "
-        "(_source_file VARCHAR, _line_number INTEGER)"
+        "CREATE TABLE preflight_valid (_source_file VARCHAR, _line_number INTEGER)"
     )
     conn.execute(
         "CREATE TABLE preflight_failure "
         "(_source_file VARCHAR, _line_number INTEGER, _failure_code VARCHAR)"
     )
     return PreflightResult(
-        conn=conn, has_failures=False, valid_count=0, failure_count=0,
+        conn=conn,
+        has_failures=False,
+        valid_count=0,
+        failure_count=0,
     )
 
 

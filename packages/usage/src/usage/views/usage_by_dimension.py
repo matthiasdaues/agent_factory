@@ -73,11 +73,13 @@ def _aggregate_total(conn) -> list[dict]:
         "FROM session_contributions"
     ).fetchall()
     r = rows[0]
-    return [{
-        "normalized_input": r[0] or 0,
-        "normalized_output": r[1] or 0,
-        "normalized_total": r[2] or 0,
-    }]
+    return [
+        {
+            "normalized_input": r[0] or 0,
+            "normalized_output": r[1] or 0,
+            "normalized_total": r[2] or 0,
+        }
+    ]
 
 
 def _build_dimension_clause(d: str, granularity: str) -> tuple[str, str, str]:
@@ -89,7 +91,9 @@ def _build_dimension_clause(d: str, granularity: str) -> tuple[str, str, str]:
     return f'"{col}"', f'"{col}"', col
 
 
-def _aggregate_grouped(conn, dimensions: list[str], granularity: str) -> tuple[list[str], list[tuple]]:
+def _aggregate_grouped(
+    conn, dimensions: list[str], granularity: str
+) -> tuple[list[str], list[tuple]]:
     """Run a GROUP BY query over the given dimensions and return (col_names, rows)."""
     select_parts: list[str] = []
     group_parts: list[str] = []
@@ -150,9 +154,16 @@ def usage_by_dimension(
 
     if not dimensions:
         result_rows = _aggregate_total(preflight_result.conn)
-        return {"view": "usage_by_dimension", "dimensions": [], "granularity": granularity, "rows": result_rows}
+        return {
+            "view": "usage_by_dimension",
+            "dimensions": [],
+            "granularity": granularity,
+            "rows": result_rows,
+        }
 
-    all_cols, raw_rows = _aggregate_grouped(preflight_result.conn, dimensions, granularity)
+    all_cols, raw_rows = _aggregate_grouped(
+        preflight_result.conn, dimensions, granularity
+    )
     return {
         "view": "usage_by_dimension",
         "dimensions": dimensions,

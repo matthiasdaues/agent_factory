@@ -9,7 +9,6 @@ Usage::
 from __future__ import annotations
 
 import json
-import os
 import sys
 import threading
 import time
@@ -361,7 +360,7 @@ class _EvidenceWatcher:
                 self._rebuild()
 
     def _rebuild(self) -> None:
-        from usage import input_snapshot, preflight, accounting, contract_check
+        from usage import accounting, contract_check, input_snapshot, preflight
         from usage.persist import persist_to_duckdb
 
         paths, _digest = input_snapshot.snapshot(self.usage_dir)
@@ -385,11 +384,12 @@ class _EvidenceWatcher:
             with self._lock:
                 self.version += 1
             print(
-                f"[watch] rebuilt ({self.version}) from "
-                f"{len(paths)} file(s)",
+                f"[watch] rebuilt ({self.version}) from {len(paths)} file(s)",
                 file=sys.stderr,
             )
-        except Exception as exc:
+        # The watcher is a long-running boundary. A failed rebuild must not
+        # terminate later rebuild attempts.
+        except Exception as exc:  # noqa: BLE001
             print(f"[watch] rebuild failed: {exc}", file=sys.stderr)
         finally:
             result.conn.close()
@@ -429,13 +429,13 @@ def _make_handler(db_path, db_name, watcher=None):
                         row_count = conn.execute(
                             f'SELECT count(*) FROM "{name}"'
                         ).fetchone()[0]
-                        result.append({
-                            "name": name,
-                            "columns": [
-                                {"name": c[0], "type": c[1]} for c in cols
-                            ],
-                            "row_count": row_count,
-                        })
+                        result.append(
+                            {
+                                "name": name,
+                                "columns": [{"name": c[0], "type": c[1]} for c in cols],
+                                "row_count": row_count,
+                            }
+                        )
                     payload = json.dumps(
                         {"db_name": db_name, "tables": result}
                     ).encode()
@@ -452,7 +452,9 @@ def _make_handler(db_path, db_name, watcher=None):
                 sql = body.get("sql", "").strip()
                 if not sql:
                     _send(
-                        self, 400, "application/json",
+                        self,
+                        400,
+                        "application/json",
                         json.dumps({"error": "empty query"}).encode(),
                     )
                     return
@@ -467,17 +469,25 @@ def _make_handler(db_path, db_name, watcher=None):
                     )
                     rows = result.fetchall() if columns else []
                     elapsed = round((time.monotonic() - t0) * 1000, 1)
-                    payload = json.dumps({
-                        "columns": columns,
-                        "rows": [list(r) for r in rows],
-                        "time_ms": elapsed,
-                    }, default=str).encode()
+                    payload = json.dumps(
+                        {
+                            "columns": columns,
+                            "rows": [list(r) for r in rows],
+                            "time_ms": elapsed,
+                        },
+                        default=str,
+                    ).encode()
                     _send(self, 200, "application/json", payload)
-                except Exception as exc:
+                # The HTTP boundary returns DuckDB execution failures as a
+                # structured response instead of terminating the server.
+                except Exception as exc:  # noqa: BLE001
                     elapsed = round((time.monotonic() - t0) * 1000, 1)
-                    payload = json.dumps({
-                        "error": str(exc), "time_ms": elapsed,
-                    }).encode()
+                    payload = json.dumps(
+                        {
+                            "error": str(exc),
+                            "time_ms": elapsed,
+                        }
+                    ).encode()
                     _send(self, 200, "application/json", payload)
                 finally:
                     conn.close()

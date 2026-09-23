@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from usage.parquet_exporter import export_parquet
 
 
@@ -36,14 +35,18 @@ def _make_pyarrow_mocks(*, roundtrip_rows=3, roundtrip_schema="test_schema"):
 class TestExportParquet:
     def test_import_error_when_no_pyarrow(self):
         conn = MagicMock()
-        with patch.dict("sys.modules", {"pyarrow": None, "pyarrow.parquet": None}):
-            with pytest.raises(ImportError, match="pyarrow"):
-                export_parquet(conn, "v", Path("/tmp/out.parquet"))
+        with (
+            patch.dict("sys.modules", {"pyarrow": None, "pyarrow.parquet": None}),
+            pytest.raises(ImportError, match="pyarrow"),
+        ):
+            export_parquet(conn, "v", Path("/tmp/out.parquet"))
 
     def test_happy_path(self, tmp_path):
         mock_pa, mock_pq, conn = _make_pyarrow_mocks()
         dest = tmp_path / "out.parquet"
-        with patch.dict("sys.modules", {"pyarrow": mock_pa, "pyarrow.parquet": mock_pq}):
+        with patch.dict(
+            "sys.modules", {"pyarrow": mock_pa, "pyarrow.parquet": mock_pq}
+        ):
             export_parquet(conn, "test_view", dest, input_digest="abc")
         assert dest.exists()
         mock_pq.write_table.assert_called_once()
@@ -52,16 +55,20 @@ class TestExportParquet:
     def test_row_count_mismatch_cleans_up(self, tmp_path):
         mock_pa, mock_pq, conn = _make_pyarrow_mocks(roundtrip_rows=999)
         dest = tmp_path / "out.parquet"
-        with patch.dict("sys.modules", {"pyarrow": mock_pa, "pyarrow.parquet": mock_pq}):
-            with pytest.raises(RuntimeError, match="row count mismatch"):
-                export_parquet(conn, "v", dest)
+        with (
+            patch.dict("sys.modules", {"pyarrow": mock_pa, "pyarrow.parquet": mock_pq}),
+            pytest.raises(RuntimeError, match="row count mismatch"),
+        ):
+            export_parquet(conn, "v", dest)
         assert not dest.exists()
         assert not any(f.suffix == ".tmp" for f in tmp_path.iterdir())
 
     def test_schema_mismatch_cleans_up(self, tmp_path):
         mock_pa, mock_pq, conn = _make_pyarrow_mocks(roundtrip_schema="different")
         dest = tmp_path / "out.parquet"
-        with patch.dict("sys.modules", {"pyarrow": mock_pa, "pyarrow.parquet": mock_pq}):
-            with pytest.raises(RuntimeError, match="schema mismatch"):
-                export_parquet(conn, "v", dest)
+        with (
+            patch.dict("sys.modules", {"pyarrow": mock_pa, "pyarrow.parquet": mock_pq}),
+            pytest.raises(RuntimeError, match="schema mismatch"),
+        ):
+            export_parquet(conn, "v", dest)
         assert not any(f.suffix == ".tmp" for f in tmp_path.iterdir())

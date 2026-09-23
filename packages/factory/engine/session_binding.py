@@ -58,7 +58,9 @@ def create_binding(
     binding_path = base / f"{session_id}.yaml"
     _atomic_write(
         binding_path,
-        yaml.safe_dump(binding, default_flow_style=False, sort_keys=False, allow_unicode=True),
+        yaml.safe_dump(
+            binding, default_flow_style=False, sort_keys=False, allow_unicode=True
+        ),
     )
     return binding_path
 

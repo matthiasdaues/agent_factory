@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import os
 import stat
-from pathlib import Path
 
 import pytest
-
 from conftest import SCRIPTS_DIR, load_script
 
 CHECK_SCRIPTS = [

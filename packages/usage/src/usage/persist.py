@@ -30,7 +30,8 @@ def persist_to_duckdb(conn: duckdb.DuckDBPyConnection, dest: Path) -> int:
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     fd, tmp_path_str = tempfile.mkstemp(
-        suffix=".duckdb.tmp", dir=str(dest.parent),
+        suffix=".duckdb.tmp",
+        dir=str(dest.parent),
     )
     os.close(fd)
     Path(tmp_path_str).unlink()
@@ -49,7 +50,7 @@ def persist_to_duckdb(conn: duckdb.DuckDBPyConnection, dest: Path) -> int:
             exc_clause = f" EXCLUDE {exc}" if exc else ""
             conn.execute(
                 f'CREATE TABLE export_db."{name}" AS '
-                f"SELECT *{exc_clause} FROM main.\"{name}\""
+                f'SELECT *{exc_clause} FROM main."{name}"'
             )
 
         conn.execute("DETACH export_db")

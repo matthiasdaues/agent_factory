@@ -138,9 +138,7 @@ class TestMainSkipsForceGateForIndexYamlOnlyChanges:
         (source / "packages" / "factory").mkdir(parents=True)
         return factory
 
-    def test_index_yaml_only_change_proceeds_without_force(
-        self, tmp_path, monkeypatch
-    ):
+    def test_index_yaml_only_change_proceeds_without_force(self, tmp_path, monkeypatch):
         target = tmp_path / "target"
         target.mkdir()
         source = tmp_path / "source"
