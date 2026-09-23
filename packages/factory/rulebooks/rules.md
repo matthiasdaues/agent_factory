@@ -92,7 +92,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
-- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`; the sole exception is a review-mode invocation branch created in the primary checkout by `factory/scripts/dispatch init-review` after its clean-tree and test preflight. The same command may adopt an existing review branch already checked out there; adoption creates no branch.
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`. **(automated only)** In manual mode, the primary checkout is used directly; no worktrees are created.
 - **MUST** place every worktree under `.current-work/<feature-branch>/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
@@ -109,18 +109,20 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [dispatch-contract.md](conventions/dispatch-contract.md)
 
+Rules in this section apply to both modes unless marked **(automated only)**. In **manual** mode, the human owns all commits, pushes, and gate decisions; dispatch scripts, ledgers, and mechanized verification are not used.
+
 - **MUST** give any sub-agent a resolvable instance ID to report back to, never the parent's agent-type name.
 - **MUST NOT** block indefinitely on a sub-agent's reply — do the work yourself if it declines or doesn't respond.
 - **MUST** split a whole-codebase dispatch into smaller, independently mergeable dispatches rather than run it as one.
 - **MUST** checkpoint a long-running dispatch with commits between rounds.
-- **MUST** verify a sub-agent's reported result against observable state (git, tests, gates) before treating the work as done — the mechanical gates, not the self-report, are authoritative.
-- **MUST** verify every reported commit SHA exists (`git cat-file -e <sha>^{commit}`) and lives on the expected branch (`git branch --contains <sha>`) before accepting a sub-agent's completion claim.
+- **MUST** verify a sub-agent's reported result against observable state (git, tests, gates) before treating the work as done — the mechanical gates, not the self-report, are authoritative. **(automated only)**
+- **MUST** verify every reported commit SHA exists (`git cat-file -e <sha>^{commit}`) and lives on the expected branch (`git branch --contains <sha>`) before accepting a sub-agent's completion claim. **(automated only)**
 - **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
-- **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave.
-- **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
-- **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak.
-- **MUST** maintain a dispatch ledger (`.current-work/<feature-branch>/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status.
-- **MUST** update the story file's `status` field in the same commit that delivers the story's implementation.
+- **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave. **(automated only)**
+- **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed. **(automated only)**
+- **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak. **(automated only)**
+- **MUST** maintain a dispatch ledger (`.current-work/<feature-branch>/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status. **(automated only)**
+- **MUST** update the story file's `status` field in the same commit that delivers the story's implementation. **(automated only)** In manual mode, the human owns this commit.
 
 ## Step boundaries
 
@@ -141,8 +143,8 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 → [git-workflow.md](conventions/git-workflow.md)
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
-- **MUST NOT** switch the current checkout to create a branch except through the script-owned `factory/scripts/dispatch init-review` workflow; autonomous branches use a dedicated linked worktree with `git worktree add -b`. When review work already occupies the primary checkout, **MUST** use `dispatch init-review --adopt-existing` instead of bypassing dispatch initialization.
-- **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker.
+- **MUST NOT** switch the current checkout to create a branch in automated mode; automated branches use a dedicated linked worktree with `git worktree add -b`. In manual mode, the human may create or adopt a branch in the primary checkout directly.
+- **MUST** run `factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker. **(automated only)**
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.

@@ -602,14 +602,7 @@ The `.agent-factory/factory/scripts/dispatch` script owns the git state, ledger,
 - `dispatch merge-story <story-id>` — run `premerge-check`, merge, and run post-merge tests.
 - `dispatch close-wave <wave>` — append a closeout record with completed, blocked, and next-ready stories.
 
-Explicit review mode uses a separate serial path while preserving the ledger:
-
-- `dispatch init-review --base dev --feature-branch feature/<name> --stories <ids>` — preflight a clean primary checkout and passing tests, create the review branch through the script-owned exception, and initialize a review ledger.
-- `dispatch review-dispatch <story-id>` — require a clean checkout at the last accepted head and write the story manifest before spawning the developer.
-- `dispatch review-accept <story-id> --sha <full-HEAD-SHA>` — verify the human commit's ancestry, story ID, `status: done`, output scope, clean checkout, and tests.
-- `dispatch review-close` — record closure after every story becomes terminal; do not merge or switch branches.
-
-Both initialization and acceptance call `.agent-factory/factory/scripts/review-workspace-check`, the reusable clean-checkout and test-suite gate. Direct standalone branch creation remains blocked. Autonomous preparation and merge commands reject review ledgers, so the primary-checkout exception cannot weaken automated dispatch.
+Manual mode (`--manual`) disables the mechanized dispatch infrastructure. No dispatch scripts, no ledger, no worktrees. The implementation-agent dispatches stories serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. A code-review-agent reviews each committed story. When defects are found, the implementation-agent dispatches a fresh developer-agent with the findings. The human commits fixes.
 
 Every story in a wave must reach a terminal state (merged or explicitly blocked/failed) before the next wave launches. The tier rubric in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md) is the single authoritative source for economy/standard/strong tier assignment.
 
