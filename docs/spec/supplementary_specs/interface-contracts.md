@@ -788,6 +788,3 @@ The remote release base exposes `<base>/latest`,
 | Retention                 | Copies separately confirmed artifacts to a named `docs/spikes/` path                                                   |
 | Production handoff        | Requires approval for a normal workstream; never promotes the sandbox                                                  |
 | Ready-host budget         | Inspectable result within ten minutes and five decisions after installation approval                                   |
-| Session start             | Session-start procedure for OpenCode                                                                                   |
-| Does not use              | Legacy `instructions` configuration field                                                                              |
-| Does not replace          | Root `AGENTS.md`                                                                                                       |
