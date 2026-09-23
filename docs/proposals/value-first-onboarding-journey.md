@@ -21,29 +21,17 @@ impact:
     - packages/factory/scripts/init-factory
     - packages/factory/scripts/update-factory
     - packages/factory/scripts/remove-factory
-    - packages/factory/scripts/concern-lint
-    - packages/factory/scripts/backlog-lint
     - packages/factory/config/AGENTS.claude.md
     - packages/factory/config/AGENTS.codex.md
     - packages/factory/config/AGENTS.copilot.md
     - packages/factory/config/AGENTS.pi.md
     - packages/factory/config/session-menu.md
     - packages/factory/agents/virgil.md
-    - packages/factory/agents/planning-agent.md
-    - packages/factory/agents/developer-agent.md
     - packages/factory/skills/capture-context/SKILL.md
-    - packages/factory/skills/create-backlog/SKILL.md
-    - packages/factory/skills/create-backlog-epics/SKILL.md
-    - packages/factory/skills/create-backlog-story-slices/SKILL.md
     - packages/factory/skills/newcomer-tour/SKILL.md
     - packages/factory/playbooks/poc-spike.md
     - packages/factory/docs/factory-guide.md
-    - packages/factory/rulebooks/conventions/agent-context-composition.md
-    - packages/factory/rulebooks/references/story-frontmatter-fields.md
-    - packages/factory/rulebooks/templates/story.md
     - tests/factory/test_init_factory.py
-    - tests/factory/test_concern_lint.py
-    - tests/factory/test_backlog_lint.py
     - tests/factory/test_capture_context_update.py
 
 governance:
@@ -306,43 +294,26 @@ populate agent context." It will explain the activity before invoking the
 The explanation will state that the skill will:
 
 - scan the repository for the stack, test setup, documentation, and scope;
-- propose cross-cutting, technical, and domain areas;
-- show the evidence and ask the user to confirm or adjust each area;
+- identify the project-wide, technical, and domain topics that agents may need;
+- show the evidence and ask the user to confirm or adjust each topic;
 - create one shared routing file at `docs/agent-context.md`;
 - create no legacy agent-context YAML files or `docs/agent-context/` directory;
-- run `area-lint` to validate the confirmed file.
+- validate the confirmed file with `concern-lint`.
 
-The explanation will state who uses the result. Agents read the area map to
+The explanation will state who uses the result. Agents read the routing map to
 find the project knowledge required for a task. Humans read and edit the same
 Markdown file to control those routes. The file points to project knowledge;
 it does not replace or duplicate that knowledge.
 
+Onboarding will then introduce the formal term with this explanation:
+"Agent context groups project knowledge by topic—for example testing, the
+frontend, or payments. The Factory calls each topic a concern. Here, concern
+does not mean a problem or warning."
+
 The user may continue, defer context capture, or cancel before the repository
 scan begins.
 
-### 6. Agent-context area vocabulary
-
-`area` will replace `concern` as the canonical term throughout the
-agent-context format, prompts, documentation, validation messages, and story
-frontmatter. The three categories will be **Always**, **Technical areas**, and
-**Domain areas**. A story will reference relevant entries through an `areas:`
-field. `area-lint` will validate the registry and those references.
-
-Existing fitted projects may contain the old headings, `concerns:` story
-field, and `concern-lint` command. During one documented compatibility release,
-the parser will accept both story fields but reject a story that defines both.
-The update preview will show the exact heading and frontmatter migrations. It
-will rewrite them only after confirmation, preserve entry names and `Read:`
-paths, and run both agent-context and backlog validation afterward.
-
-During that compatibility release, `concern-lint` will remain as a deprecated
-wrapper around `area-lint` with the same exit status and a migration message.
-New installations, generated stories, prompts, menus, documentation, and hook
-configuration will use only the new name. The following major release may
-remove the wrapper and legacy parser after the deprecation is recorded in the
-release notes.
-
-### 7. Early gate demonstration and hook introduction
+### 6. Early gate demonstration and hook introduction
 
 Before fitting asks the user to configure hooks, the Factory will offer a
 one-minute demonstration of one deterministic check. The demonstration will
@@ -379,7 +350,7 @@ pre-commit file trigger. The Agent Factory source repository will retain
 `index-lint` on tracked source inputs and run `matrix-lint` against the tracked
 `packages/factory/config/model.conf` file.
 
-### 8. Isolated first task
+### 7. Isolated first task
 
 The recommended first task will be small, reversible, and time-bounded. It
 will run outside the user's active working tree. Before starting, the Factory
@@ -409,7 +380,7 @@ will verify that the sandbox no longer exists. Retention will copy selected
 artifacts into a named `docs/spikes/` path through a separate confirmation. It
 will not preserve the sandbox as production work.
 
-### 9. Handoff to real work
+### 8. Handoff to real work
 
 After the isolated task, the Factory will summarize the result and ask whether
 to discard it, retain it as reference material, or begin a real workstream.
@@ -435,8 +406,7 @@ task will not silently become production work.
 - Deferred advanced configuration until the selected action needs it.
 - A plain-language preview before context capture that explains the work,
   output, validation, and human and agent use.
-- `area` as the canonical agent-context term, with a bounded migration from
-  `concern` terminology and story frontmatter.
+- A plain-language introduction to `concern` as a routing topic, not a problem.
 - A disposable failure-to-pass gate demonstration before hook configuration.
 - A hook introduction organized by protected outcomes and material trade-offs.
 - Removal of consumer hooks that can match only gitignored runtime paths.
@@ -587,13 +557,10 @@ None.
   it.
 - Before context capture, the user sees what will be scanned, what decisions
   they will make, that `docs/agent-context.md` is the only agent-context file
-  created, how `area-lint` validates it, and how humans and agents use it.
-- New agent-context files, story frontmatter, prompts, documentation, and hook
-  configuration use `area` terminology. A compatibility update accepts and
-  previews migration of legacy headings and `concerns:` fields without losing
-  names or `Read:` paths; mixed `areas:` and `concerns:` fields fail clearly.
-- During the compatibility release, `concern-lint` delegates to `area-lint`
-  with the same result and a deprecation message.
+  created, how `concern-lint` validates it, and how humans and agents use it.
+- Before using `concern` without a paraphrase, onboarding states that agent
+  context groups knowledge by topic, calls each topic a concern, and does not
+  use the word to mean a problem or warning.
 - The user can defer or cancel context capture before scanning starts.
 - Before hook configuration, the user can run or skip a one-minute
   demonstration that exercises a real Factory gate from failure to success.
@@ -632,11 +599,11 @@ Disposition: findings
 
 ### Findings
 
-| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------- | -------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PROP-01 | major    | 05    | open   | Four boundary paths do not resolve at the reviewed commit: `packages/factory/scripts/build-release`, `packages/factory/scripts/install-agent-factory`, `tests/factory/test_install_agent_factory.py`, and `tests/factory/test_build_release.py`. The boundary list must reference files a reviewer can inspect. List planned files separately or remove them from `impact.boundaries` until they are tracked. |
-| PROP-02 | major    | 03    | open   | The scope includes "Explicit local or remote source selection for installation and updates." The Design section covers the update flow in two sentences. A planning agent cannot write update stories from "Updates will use that source by default." Add an update-flow design subsection or move updates to the deferred list with a stated reason.                                                         |
-| PROP-03 | minor    | 01    | open   | Completion criterion "The first session produces a useful project-specific summary" contains the subjective term "useful." The Design section already defines observable content: detected stack, test entry point, missing safety signal. State those observables in the criterion so a tester can verify it without subjective judgment.                                                                    |
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------- | -------- | ----- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 05    | resolved | Four boundary paths do not resolve at the reviewed commit: `packages/factory/scripts/build-release`, `packages/factory/scripts/install-agent-factory`, `tests/factory/test_install_agent_factory.py`, and `tests/factory/test_build_release.py`. The boundary list must reference files a reviewer can inspect. List planned files separately or remove them from `impact.boundaries` until they are tracked. |
+| PROP-02 | major    | 03    | resolved | The scope includes "Explicit local or remote source selection for installation and updates." The Design section covers the update flow in two sentences. A planning agent cannot write update stories from "Updates will use that source by default." Add an update-flow design subsection or move updates to the deferred list with a stated reason.                                                         |
+| PROP-03 | minor    | 01    | resolved | Completion criterion "The first session produces a useful project-specific summary" contains the subjective term "useful." The Design section already defines observable content: detected stack, test entry point, missing safety signal. State those observables in the criterion so a tester can verify it without subjective judgment.                                                                    |
 
 ### Summary
 
@@ -653,3 +620,47 @@ Six of eight checks pass. Two major findings prevent planning readiness. Four bo
   entry point, safety signal, recommendation, and no-change requirement.
 
 The proposal is open for an independent repeat review.
+
+## Review — 2026-09-23 (repeat)
+
+Reviewer: proposal-review-agent
+Reviewed commit: 9818c1615ba01857559aafdee7807c5077f2ad6d
+Disposition: findings
+
+### Prior findings
+
+| ID      | Prior status | New status | Verification                                                                                                                                                                                                                                       |
+| ------- | ------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | open         | resolved   | The four non-existent paths are removed from `impact.boundaries` and listed under **Planned artifacts**. All 34 boundary paths resolve at the reviewed commit.                                                                                     |
+| PROP-02 | open         | resolved   | The **Update flow** subsection now covers source resolution, version queries, `--check` preview, confirmation, staged replacement, rollback, local-change handling, source selector changes, and receipt data. Matching completion criteria added. |
+| PROP-03 | open         | resolved   | The first-session criterion now states detected stack, test entry point, safety signal or its absence, one recommended next action, and no file changes.                                                                                           |
+
+### Fresh inspection
+
+| #   | Check                            | Result | Detail                                                                                                                                                                                      |
+| --- | -------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | Completion criteria testable     | pass   | Each criterion names an observable outcome or measurement. Usability criteria define protocol-recorded evidence.                                                                            |
+| 02  | Scope boundary sharp             | pass   | The In and Deferred lists partition the space. Confirmed fixes versus automatic installation is clean. No item reads as either.                                                             |
+| 03  | Design decomposable              | pass   | All nine design subsections support INVEST story decomposition, including the expanded update flow. One gap in Planned artifacts inventory (see PROP-04).                                   |
+| 04  | Impact classification consistent | pass   | Cross-component scope, architecture change, and external contract change match the design: new distribution system, area vocabulary rename, hook reconfiguration, public install contract.  |
+| 05  | Boundary references exist        | pass   | All 34 paths in `impact.boundaries` resolve at the reviewed commit. Planned artifacts correctly list six files that do not yet exist.                                                       |
+| 06  | Open questions genuine           | pass   | "None" is defensible after grilling and the first review pass. No unresolved questions hide in the design.                                                                                  |
+| 07  | Motivation justifies timing      | pass   | A traceable UX review, a broken install command, a safety-rule contradiction, and a paired-installation finding ([BUG-0029](../findings/BUG-0029.md)) distinguish this from a backlog item. |
+| 08  | Estimate plausible               | pass   | `unknown` at low confidence with judgment basis is honest for a cross-component proposal with 34 boundary files. The template endorses `unknown` over fabricated precision.                 |
+
+### New findings
+
+| ID      | Severity | Check | Status   | Finding                                                                                                                                                                                                                                                                                                               |
+| ------- | -------- | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-04 | minor    | 03    | resolved | Design section 6 introduces `area-lint` as a new validator and describes `concern-lint` as its deprecated wrapper. Neither `packages/factory/scripts/area-lint` nor `tests/factory/test_area_lint.py` appears in the Planned artifacts list. Add both so the inventory of new files is complete for a planning agent. |
+
+### Summary
+
+All three prior findings are resolved. The author removed non-existent paths from boundaries, expanded the update-flow design to support story decomposition, and replaced the subjective first-session criterion with observable outcomes. All eight checks pass. One new minor finding asks the Planned artifacts section to list `area-lint` and its test, which the Design section unambiguously introduces but the inventory omits. The proposal is ready to plan from once that inventory is complete.
+
+### Author response — 2026-09-23
+
+**PROP-04 resolved by design correction:** `concern` remains the canonical
+Factory term. Onboarding now paraphrases it as a routing topic and explicitly
+states that it does not mean a problem or warning. The proposed `area-lint`,
+`areas:` field, compatibility parser, and migration artifacts have been removed.
