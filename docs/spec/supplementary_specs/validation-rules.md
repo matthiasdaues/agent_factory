@@ -388,3 +388,63 @@ Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.fe
 2. Model identifiers follow the `provider/model` format.
 3. A missing required tier halts dispatch with the existing `on_missing = halt` policy.
 4. Each generated OpenCode agent definition carries an explicit `model` field derived from its tier mapping in `model.conf`. This is the workaround for the model inheritance bug (OpenCode issue #49765).
+
+## Value-First Onboarding Validation Rules
+
+Proposal trace: [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md).
+Feature trace: [value-first-onboarding-journey.feature](../value-first-onboarding-journey.feature).
+
+### Release and source validation
+
+- **VFO-001:** A release build emits exactly one bootstrap, Factory archive, and checksum manifest for the requested version.
+- **VFO-002:** Repeated builds from the same source tree and version produce the same archive SHA-256 digest.
+- **VFO-003:** Installation accepts exactly one source selector. `--version` is valid only for a remote source.
+- **VFO-004:** A remote archive is not extracted until its SHA-256 digest matches `SHA256SUMS` from the selected release base.
+- **VFO-005:** An update never changes the recorded source kind or remote URL without an explicit selector and separate confirmation.
+
+### Target and preflight validation
+
+- **VFO-006:** First installation requires `--target`. The target must resolve to an existing Git repository or empty directory.
+- **VFO-007:** The filesystem root, user home, unresolved paths, and unsupported target content are rejected without changes.
+- **VFO-008:** Supported hosts are native macOS and Linux on `x86_64` and `arm64`, plus the Linux path under Windows Subsystem for Linux.
+- **VFO-009:** Preflight produces exactly one readiness value: `Ready`, `Ready with limitations`, or `Blocked`.
+- **VFO-010:** Preflight does not install software or edit host or project files.
+- **VFO-011:** Every offered prerequisite fix identifies its purpose, command, scope, reversal, and verification command.
+- **VFO-012:** A fix runs only after affirmative consent. Blank input, cancellation, and refusal stop the fix sequence.
+- **VFO-013:** The related check must pass after a fix. Failure stops the sequence and produces recovery guidance.
+
+### Installation and instruction-file validation
+
+- **VFO-014:** Installation starts only after approval of a preview that names the source, version, target, interfaces, affected paths, instruction files, and uninstall command.
+- **VFO-015:** Blank interface selection chooses one interface only when one detected active interface is unambiguous. It never means all interfaces.
+- **VFO-016:** The receipt lists only paths changed by the completed installation and gives one exact next command.
+- **VFO-017:** Instruction discovery visits existing regular `AGENTS.md` and `copilot-instructions.md` files outside the documented exclusions.
+- **VFO-018:** Instruction discovery does not follow external symlinks or create missing nested instruction files.
+- **VFO-019:** Each discovered instruction file contains at most one marker-delimited Factory header.
+- **VFO-020:** The manifest records enough original state to update or remove only the Factory header and restore the prior newline state.
+
+### Update validation
+
+- **VFO-021:** `update-factory --check` performs no writes.
+- **VFO-022:** A remote update verifies and stages all replacement content before applying any change.
+- **VFO-023:** An application failure restores the previous Factory tree and instruction headers.
+- **VFO-024:** Modified Factory-owned files stop update unless the user explicitly selects the preservation flow.
+- **VFO-025:** A successful update records the resolved version or local revision, source, remote digest when applicable, and changed paths.
+
+### First-session and configuration validation
+
+- **VFO-026:** The initial project scan distinguishes observations, unknowns, and recommendations and performs no writes.
+- **VFO-027:** Context capture starts only after onboarding explains its scan, decisions, single output, validation, and consumers.
+- **VFO-028:** Onboarding defines `concern` as a routing topic before using the term without a paraphrase.
+- **VFO-029:** Deferring or cancelling context capture before scanning produces no scan and no output file.
+- **VFO-030:** The gate demonstration runs on a Factory-owned disposable fixture, removes the fixture, and leaves the target project unchanged.
+- **VFO-031:** Consumer hook configuration omits `index-lint` and any trigger that can match only ignored Factory runtime paths.
+- **VFO-032:** `matrix-lint` runs after model configuration and before dispatch.
+
+### First-task validation
+
+- **VFO-033:** First-task approval is affirmative and follows a preview of the goal, duration, artifacts, decisions, and cleanup.
+- **VFO-034:** A repository with `HEAD` uses a detached worktree from that commit. A repository without `HEAD` uses a plain sandbox.
+- **VFO-035:** The sandbox path is `.current-work/onboarding-spike/<session-id>/`. The first task creates no branch or commit.
+- **VFO-036:** Retention copies only separately confirmed artifacts to a named path under `docs/spikes/`.
+- **VFO-037:** Discard verifies sandbox removal. Production handoff requires separate approval and never promotes the sandbox.

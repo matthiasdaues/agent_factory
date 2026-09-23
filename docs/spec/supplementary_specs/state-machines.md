@@ -427,3 +427,162 @@ stateDiagram-v2
 - **LOCKED** means one or more child sessions are running in isolated worktrees. Writes to the primary checkout are denied through a session-scoped write denial enforced by the plugin's permission hook.
 - The lock is session-scoped. It does not persist across sessions.
 - The lock applies to the primary checkout only. Each child session writes to its own worktree without restriction (within its step-manifest boundary).
+
+## Value-First Installation Lifecycle
+
+### Pseudocode
+
+```text
+State: START
+On BeginPreflight:
+  if source and target are valid and host is supported
+    ChangeState(PREFLIGHTED)
+  else
+    ChangeState(STOPPED_UNCHANGED)
+
+State: PREFLIGHTED
+On ClassifyReadiness:
+  if result is Ready or ReadyWithLimitations
+    ChangeState(PREVIEWED)
+  else if result is Blocked and a supported fix exists
+    ChangeState(FIX_OFFERED)
+  else
+    ChangeState(STOPPED_UNCHANGED)
+
+State: FIX_OFFERED
+On DecideFix:
+  if fix is confirmed
+    ChangeState(FIX_VERIFYING)
+  else
+    ChangeState(STOPPED_VALID)
+
+State: FIX_VERIFYING
+On VerifyFix:
+  if verification passes
+    ChangeState(PREFLIGHTED)
+  else
+    ChangeState(STOPPED_VALID)
+
+State: PREVIEWED
+On DecideInstallation:
+  if installation is approved and remote assets are verified
+    ChangeState(INSTALLING)
+  else
+    ChangeState(STOPPED_UNCHANGED)
+
+State: INSTALLING
+On VerifyInstallation:
+  if verification passes
+    ChangeState(INSTALLED)
+  else
+    ChangeState(STOPPED_VALID)
+
+State: INSTALLED
+  # terminal — no outbound transitions
+
+State: STOPPED_UNCHANGED
+  # terminal — no outbound transitions
+
+State: STOPPED_VALID
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> START
+    START --> PREFLIGHTED : BeginPreflight (valid source, safe target, supported host)
+    START --> STOPPED_UNCHANGED : BeginPreflight (invalid or unsupported)
+    PREFLIGHTED --> PREVIEWED : ClassifyReadiness (Ready or ReadyWithLimitations)
+    PREFLIGHTED --> FIX_OFFERED : ClassifyReadiness (Blocked with supported fix)
+    PREFLIGHTED --> STOPPED_UNCHANGED : ClassifyReadiness (Blocked without supported fix)
+    FIX_OFFERED --> FIX_VERIFYING : DecideFix (confirmed)
+    FIX_OFFERED --> STOPPED_VALID : DecideFix (declined, cancelled, or blank)
+    FIX_VERIFYING --> PREFLIGHTED : VerifyFix (passes)
+    FIX_VERIFYING --> STOPPED_VALID : VerifyFix (fails)
+    PREVIEWED --> INSTALLING : DecideInstallation (approved and verified)
+    PREVIEWED --> STOPPED_UNCHANGED : DecideInstallation (declined, cancelled, blank, or unverified)
+    INSTALLING --> INSTALLED : VerifyInstallation (passes)
+    INSTALLING --> STOPPED_VALID : VerifyInstallation (fails)
+    INSTALLED --> [*]
+    STOPPED_UNCHANGED --> [*]
+    STOPPED_VALID --> [*]
+```
+
+`STOPPED_UNCHANGED` means the target received no installation change.
+`STOPPED_VALID` permits previously confirmed prerequisite fixes but requires a
+valid target project and reports reversal or recovery guidance.
+
+## First-Task Sandbox Lifecycle
+
+### Pseudocode
+
+```text
+State: ABSENT
+On DecideTask:
+  if task is approved and HEAD exists
+    Create detached worktree from HEAD
+    ChangeState(READY)
+  else if task is approved and HEAD does not exist
+    Create plain sandbox
+    ChangeState(READY)
+  else
+    ChangeState(CANCELLED)
+
+State: READY
+On RunPocSpike:
+  ChangeState(RUNNING)
+
+State: RUNNING
+On FinishTask:
+  Record result or failure evidence
+  ChangeState(COMPLETED)
+
+State: COMPLETED
+On ChooseOutcome:
+  if discard is selected
+    Remove sandbox and verify absence
+    ChangeState(REMOVED)
+  else if reference retention is confirmed
+    Copy selected artifacts to docs/spikes/
+    ChangeState(RETAINED_REFERENCE)
+  else if production work is approved
+    Leave sandbox outside production work
+    ChangeState(HANDED_OFF)
+
+State: CANCELLED
+  # terminal — no outbound transitions
+
+State: REMOVED
+  # terminal — no outbound transitions
+
+State: RETAINED_REFERENCE
+  # terminal — no outbound transitions
+
+State: HANDED_OFF
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> ABSENT
+    ABSENT --> READY : DecideTask (approved, HEAD exists) / Create detached worktree
+    ABSENT --> READY : DecideTask (approved, no HEAD) / Create plain sandbox
+    ABSENT --> CANCELLED : DecideTask (declined, cancelled, or blank)
+    READY --> RUNNING : RunPocSpike
+    RUNNING --> COMPLETED : FinishTask / Record result or failure evidence
+    COMPLETED --> REMOVED : ChooseOutcome (discard) / Remove sandbox and verify absence
+    COMPLETED --> RETAINED_REFERENCE : ChooseOutcome (retain) / Copy selected artifacts to docs/spikes/
+    COMPLETED --> HANDED_OFF : ChooseOutcome (production) / Leave sandbox outside production work
+    CANCELLED --> [*]
+    REMOVED --> [*]
+    RETAINED_REFERENCE --> [*]
+    HANDED_OFF --> [*]
+```
+
+The first-task lifecycle never creates a branch or commit. Retention copies
+reference artifacts after separate consent. Production work begins through a
+normal workstream and does not reuse the sandbox as production state.

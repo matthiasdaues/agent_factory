@@ -695,10 +695,99 @@ Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.fe
 
 ### `AGENTS.opencode.md` — OpenCode orientation
 
-|                  |                                                                    |
-| ---------------- | ------------------------------------------------------------------ |
-| Injected by      | Factory plugin via `session.hook("context")`                       |
-| Describes        | OpenCode tool names, child-session behavior, skill discovery paths |
-| Session start    | Session-start procedure for OpenCode                               |
-| Does not use     | Legacy `instructions` configuration field                          |
-| Does not replace | Root `AGENTS.md`                                                   |
+|             |                                                                    |
+| ----------- | ------------------------------------------------------------------ |
+| Injected by | Factory plugin via `session.hook("context")`                       |
+| Describes   | OpenCode tool names, child-session behavior, skill discovery paths |
+
+## Value-First Onboarding Contracts
+
+Proposal trace: [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md)
+
+### `build-release`
+
+| Property    | Contract                                                                              |
+| ----------- | ------------------------------------------------------------------------------------- |
+| Input       | Versioned Agent Factory source tree and release version                               |
+| Output      | `install-agent-factory`, `agent-factory.tar.gz`, and `SHA256SUMS`                     |
+| Determinism | Repeated builds from the same source tree and version produce the same archive digest |
+| Failure     | Exits non-zero and publishes no partial release set                                   |
+
+### `install-agent-factory`
+
+| Property      | Contract                                                                                                                               |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Source        | Exactly one of `--from-local <relative-path>` and `--from-remote <URL>`                                                                |
+| Version       | `--version <release>` is valid only with `--from-remote`                                                                               |
+| Target        | First installation requires `--target <path>` and rejects root, user home, unresolved paths, and unsupported content                   |
+| Preflight     | Reads host, tools, Git state, network, interfaces, and target; returns `Ready`, `Ready with limitations`, or `Blocked` without changes |
+| Remote assets | Resolves an immutable version URL and verifies `agent-factory.tar.gz` against `SHA256SUMS` before extraction                           |
+| Fixes         | Shows one command, scope, reversal, and verification per supported fix; runs it only after affirmative consent                         |
+| Approval      | Shows source, version, target, interfaces, paths, instruction files, and uninstall command before requesting consent                   |
+| Receipt       | Lists changed paths, interfaces, version, resolved source, uninstall command, and one next command                                     |
+| Cancellation  | Blank input is not consent; cancellation reports completed fixes and reversals and leaves the target valid                             |
+
+The remote release base exposes `<base>/latest`,
+`<base>/releases/<version>/install-agent-factory`,
+`<base>/releases/<version>/agent-factory.tar.gz`, and
+`<base>/releases/<version>/SHA256SUMS` over HTTPS.
+
+### Instruction header management
+
+| Property   | Contract                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| Discovery  | Finds existing regular files named `AGENTS.md` or `copilot-instructions.md` below the target                         |
+| Exclusions | Skips `.git/`, `.agent-factory/`, `.current-work/`, dependency trees, virtual environments, caches, and build output |
+| Symlinks   | Does not follow external symlinks and reports matching symlinks as unchanged                                         |
+| Injection  | Prepends one idempotent marker-delimited Factory block with links relative to the instruction file                   |
+| Manifest   | Records the path, installed block, and original newline state                                                        |
+| Update     | Adds, refreshes, or removes only Factory-owned blocks                                                                |
+| Removal    | Restores original content and newline state without changing user-owned content                                      |
+
+### `update-factory`
+
+| Property       | Contract                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Default source | Reads the source selector and resolved source from `.agent-factory/install.json`                                            |
+| Check mode     | `--check` reports installed and candidate versions, source, digest, local modifications, and header changes without writing |
+| Approval       | A normal update requires confirmation before download or mutation                                                           |
+| Safety         | Downloads, verifies, and stages the complete replacement before application                                                 |
+| Rollback       | Application failure restores the previous Factory tree and instruction headers                                              |
+| Local changes  | Modified Factory-owned files stop update unless the user selects the existing preservation flow                             |
+| Source change  | A different source selector or remote URL requires an explicit option and separate confirmation                             |
+| Receipt        | Records selected source, immutable version or local revision, remote digest when applicable, and changed paths              |
+
+### First-session insight
+
+| Property          | Contract                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| Reads             | Real project files needed to detect stack, test entry point, and one safety signal    |
+| Writes            | None                                                                                  |
+| Output            | Observed facts, explicit unknowns, and one recommended action                         |
+| Configuration     | Requests model, hook, or context decisions only before an action that depends on them |
+| Ready-host budget | Insight within two minutes and three decisions after installation approval            |
+
+### Gate demonstration
+
+| Property  | Contract                                                                           |
+| --------- | ---------------------------------------------------------------------------------- |
+| Input     | One Factory-owned disposable fixture and one real Factory gate                     |
+| Output    | Failing input, specific failure, corrected input, and passing result               |
+| Isolation | Does not change the target project and removes the fixture after the demonstration |
+| Decline   | Skipping the demonstration does not change recommended hook defaults               |
+
+### First-task sandbox
+
+| Property                  | Contract                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Approval                  | Shows goal, duration, artifacts, decisions, and cleanup before creating the sandbox                                    |
+| Repository with `HEAD`    | Creates a detached worktree from `HEAD` at `.current-work/onboarding-spike/<session-id>/`; creates no branch or commit |
+| Repository without `HEAD` | Creates a plain sandbox at the same path pattern                                                                       |
+| Execution                 | Runs the `poc-spike` workflow only inside the sandbox                                                                  |
+| Result                    | Shows inspectable output, check results, and removal instructions                                                      |
+| Retention                 | Copies separately confirmed artifacts to a named `docs/spikes/` path                                                   |
+| Production handoff        | Requires approval for a normal workstream; never promotes the sandbox                                                  |
+| Ready-host budget         | Inspectable result within ten minutes and five decisions after installation approval                                   |
+| Session start             | Session-start procedure for OpenCode                                                                                   |
+| Does not use              | Legacy `instructions` configuration field                                                                              |
+| Does not replace          | Root `AGENTS.md`                                                                                                       |

@@ -567,6 +567,124 @@ erDiagram
 - **STEP_MANIFEST** is the same `.current-work/current-step.yml` used by the existing step-guard. The plugin reads it through the `execute.before` hook and denies reads or writes outside its declared boundary.
 - **WORKTREE_STRATEGY** delegates branch and worktree creation to Factory scripts. OpenCode tracks the resulting location and starts each child session there. The original checkout receives a session-scoped write denial while isolated work is active.
 - **OPENCODE_USAGE_RECORD** follows the existing usage contract. Root and child session usage is reported separately. The child session's usage is not included in the root's record.
+
+## Value-First Onboarding Entities
+
+Proposal trace: [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md)
+
+```mermaid
+erDiagram
+    RELEASE_ASSET_SET ||--|| INSTALL_SOURCE : publishes
+    INSTALL_SOURCE ||--o{ INSTALLATION : supplies
+    INSTALLATION ||--|| PREFLIGHT_RESULT : requires
+    PREFLIGHT_RESULT ||--o{ PREREQUISITE_FIX : proposes
+    INSTALLATION ||--|| INSTALLATION_PREVIEW : requires
+    INSTALLATION ||--|| INSTALLATION_RECEIPT : produces
+    INSTALLATION ||--o{ INSTRUCTION_HEADER : records
+    INSTALLATION ||--o| ONBOARDING_SESSION : opens
+    ONBOARDING_SESSION ||--o| FIRST_TASK_SANDBOX : creates
+    FIRST_TASK_SANDBOX ||--o{ RETAINED_SPIKE_ARTIFACT : copies
+
+    RELEASE_ASSET_SET {
+        string version
+        string bootstrap_path
+        string archive_path
+        string checksum_manifest_path
+        string archive_sha256
+    }
+
+    INSTALL_SOURCE {
+        string selector "local or remote"
+        string requested_value
+        string resolved_value
+        string version "remote only"
+        string archive_sha256 "remote only"
+    }
+
+    PREFLIGHT_RESULT {
+        string readiness "Ready, Ready with limitations, or Blocked"
+        string absolute_target
+        string target_class
+        string platform
+        string architecture
+    }
+
+    PREREQUISITE_FIX {
+        string prerequisite
+        string command
+        string change_scope
+        string reversal_command
+        string verification_command
+        boolean confirmed
+        boolean verified
+    }
+
+    INSTALLATION {
+        string target
+        string version
+        string source_selector
+        string status
+    }
+
+    INSTALLATION_PREVIEW {
+        string target
+        string version
+        string selected_interfaces
+        string affected_paths
+        string uninstall_command
+    }
+
+    INSTALLATION_RECEIPT {
+        string changed_paths
+        string selected_interfaces
+        string installed_version
+        string resolved_source
+        string next_command
+    }
+
+    INSTRUCTION_HEADER {
+        string path
+        string original_newline_state
+        string installed_block_digest
+        string status
+    }
+
+    ONBOARDING_SESSION {
+        string session_id
+        string observed_stack
+        string observed_test_entry_point
+        string observed_safety_signal
+        string recommended_action
+        int decisions_since_install_approval
+    }
+
+    FIRST_TASK_SANDBOX {
+        string session_id
+        string path
+        string kind "detached worktree or plain sandbox"
+        string source_head "nullable"
+        string status
+    }
+
+    RETAINED_SPIKE_ARTIFACT {
+        string source_path
+        string destination_path
+        boolean separately_confirmed
+    }
+```
+
+### Notes
+
+- **RELEASE_ASSET_SET** contains one bootstrap, one Factory archive, and one checksum manifest for a version. Repeated builds from the same source and version have the same archive digest.
+- **INSTALL_SOURCE** has exactly one selector. A local source stores an absolute checkout path. A remote source stores the normalized release base, immutable version URL, version, and archive digest.
+- **PREFLIGHT_RESULT** is read-only. `Ready with limitations` permits installation. `Blocked` prevents installation.
+- **PREREQUISITE_FIX** exists only for a detected missing prerequisite. Each fix carries one command, reversal, verification, and separate consent result.
+- **INSTALLATION_PREVIEW** is immutable input to one approval decision. Blank input is not approval.
+- **INSTALLATION_RECEIPT** records completed effects and one next command. It never reports a path that installation did not change.
+- **INSTRUCTION_HEADER** identifies one marker-delimited Factory block in an existing instruction file. The manifest stores enough state to update or remove only that block.
+- **ONBOARDING_SESSION** separates observed project evidence from the recommended action. The initial scan does not change project files.
+- **FIRST_TASK_SANDBOX** uses a detached worktree when `HEAD` exists. It uses a plain directory otherwise. The sandbox never becomes production work.
+- **RETAINED_SPIKE_ARTIFACT** is created only after separate confirmation and always targets a named path below `docs/spikes/`.
 - **OPENCODE_CATALOG** is the OpenCode-visible catalog surface. Agents live under `.opencode/agents/`. Skills live under `.agents/skills/`, which OpenCode discovers natively. The catalog is linked from `.opencode/INDEX.yaml`.
 - **OPENCODE_AGENT_DEF** carries a `model` field derived from the agent's tier mapping in `model.conf`. This is a workaround for the model inheritance bug (OpenCode issue #49765). Each generated definition has explicit model, mode, and permission fields.
 - **MODEL_MATRIX_ENTRY.cli** gains the value `opencode` alongside the existing `copilot`, `codex`, and `pi`. Claude Code resolves its model outside `model.conf`.
