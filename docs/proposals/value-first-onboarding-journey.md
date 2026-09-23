@@ -14,25 +14,37 @@ impact:
   boundaries:
     - README.md
     - init-factory
+    - .pre-commit-config.yaml
     - packages/factory/README.md
     - packages/factory/VERSION
-    - packages/factory/scripts/build-release
-    - packages/factory/scripts/install-agent-factory
+    - packages/factory/config/pre-commit-config.yaml
     - packages/factory/scripts/init-factory
     - packages/factory/scripts/update-factory
     - packages/factory/scripts/remove-factory
+    - packages/factory/scripts/concern-lint
+    - packages/factory/scripts/backlog-lint
     - packages/factory/config/AGENTS.claude.md
     - packages/factory/config/AGENTS.codex.md
     - packages/factory/config/AGENTS.copilot.md
     - packages/factory/config/AGENTS.pi.md
     - packages/factory/config/session-menu.md
     - packages/factory/agents/virgil.md
+    - packages/factory/agents/planning-agent.md
+    - packages/factory/agents/developer-agent.md
+    - packages/factory/skills/capture-context/SKILL.md
+    - packages/factory/skills/create-backlog/SKILL.md
+    - packages/factory/skills/create-backlog-epics/SKILL.md
+    - packages/factory/skills/create-backlog-story-slices/SKILL.md
     - packages/factory/skills/newcomer-tour/SKILL.md
     - packages/factory/playbooks/poc-spike.md
     - packages/factory/docs/factory-guide.md
-    - tests/factory/test_install_agent_factory.py
+    - packages/factory/rulebooks/conventions/agent-context-composition.md
+    - packages/factory/rulebooks/references/story-frontmatter-fields.md
+    - packages/factory/rulebooks/templates/story.md
     - tests/factory/test_init_factory.py
-    - tests/factory/test_build_release.py
+    - tests/factory/test_concern_lint.py
+    - tests/factory/test_backlog_lint.py
+    - tests/factory/test_capture_context_update.py
 
 governance:
   assurance: high
@@ -79,6 +91,12 @@ receipt.
 The Factory needs one safe path from discovery to use. The path must show what
 the system can do before it asks the user to optimize models or learn internal
 workflow terms.
+
+A paired installation with a new user on 2026-09-23 exposed a second gap. The
+fitting presented a hook inventory before it demonstrated why the hooks matter.
+It also presented two hooks that cannot run because their matching files are
+gitignored. The defect is recorded in
+[`BUG-0029`](../findings/BUG-0029.md).
 
 ## Core Principles
 
@@ -155,8 +173,7 @@ metadata so approved distribution remotes can publish byte-identical assets.
 
 The installation preview will show the resolved local source path or normalized
 remote URL. A remote preview will also show the resolved release URL and
-digest. The receipt will record the resolved source. Updates will use that
-source by default.
+digest. The receipt will record the resolved source.
 
 Changing the distribution remote will require an explicit option and
 confirmation. Automatic fallback will not cross an internal or external trust
@@ -223,6 +240,51 @@ The installer will verify its result. Its receipt will name every changed
 path, the selected interfaces, the installed version, the uninstall command,
 and one exact next command.
 
+Before installation approval, the bootstrap will recursively discover every
+existing regular file named `AGENTS.md` or `copilot-instructions.md` beneath
+the target. Discovery will use a fixed documented exclusion list for Factory
+runtime directories, Git metadata, dependency directories, caches, and
+generated build output. At minimum, it will exclude `.git/`,
+`.agent-factory/`, `.current-work/`, `node_modules/`, virtual environments,
+`vendor/`, `dist/`, `build/`, and language build caches.
+
+The installation preview will list every discovered instruction file. The
+installer will prepend one idempotent, marker-delimited Factory header to each
+file. Repository links in the header will be relative to that file's location.
+The install manifest will record each injection and its original newline state
+so update and uninstall can refresh or remove only the Factory block.
+
+Discovery will not follow external symlinks. The preview will report a
+matching symlink as unchanged. The recursive pass will not create missing
+nested instruction files. Existing root-orientation creation for selected
+command-line interfaces remains separate.
+
+#### Update flow
+
+`update-factory` will read the installed source selector and resolved source
+from the installation manifest. A local installation will resolve its recorded
+local source again. A remote installation will query that recorded release
+base for the latest stable version unless the user requests `--version`.
+
+Update preflight will report the installed and candidate versions, source,
+digest, locally modified Factory files, and instruction headers that would be
+added, refreshed, or removed. `--check` will stop after this report. A normal
+update will require confirmation before downloading or changing files.
+
+The update will download and verify remote assets before changing the
+installation. It will stage the replacement Factory tree, derived CLI files,
+hook configuration, and instruction-header edits before applying them. A
+failure will restore the previous Factory tree and headers. User-modified
+Factory files will continue to stop the update unless the user explicitly
+chooses the existing preservation flow.
+
+Changing between `--from-local` and `--from-remote`, or changing the recorded
+remote URL, will require an explicit source selector. The preview will call
+out the trust-boundary change and require separate confirmation. A successful
+update will record the selected source, immutable resolved version or local
+revision, archive digest when remote, and changed paths in the manifest and
+receipt.
+
 ### 5. Read-only first project interaction
 
 The first Factory session will summarize the project scan before it asks for
@@ -238,7 +300,86 @@ Model-tier selection, hook decisions, and extended context capture will wait
 until the chosen action requires them. A required decision will appear before
 the dependent action, not during general orientation.
 
-### 6. Isolated first task
+When the journey reaches context capture, it will not announce only "Now
+populate agent context." It will explain the activity before invoking the
+[`capture-context` skill](../../packages/factory/skills/capture-context/SKILL.md).
+The explanation will state that the skill will:
+
+- scan the repository for the stack, test setup, documentation, and scope;
+- propose cross-cutting, technical, and domain areas;
+- show the evidence and ask the user to confirm or adjust each area;
+- create one shared routing file at `docs/agent-context.md`;
+- create no legacy agent-context YAML files or `docs/agent-context/` directory;
+- run `area-lint` to validate the confirmed file.
+
+The explanation will state who uses the result. Agents read the area map to
+find the project knowledge required for a task. Humans read and edit the same
+Markdown file to control those routes. The file points to project knowledge;
+it does not replace or duplicate that knowledge.
+
+The user may continue, defer context capture, or cancel before the repository
+scan begins.
+
+### 6. Agent-context area vocabulary
+
+`area` will replace `concern` as the canonical term throughout the
+agent-context format, prompts, documentation, validation messages, and story
+frontmatter. The three categories will be **Always**, **Technical areas**, and
+**Domain areas**. A story will reference relevant entries through an `areas:`
+field. `area-lint` will validate the registry and those references.
+
+Existing fitted projects may contain the old headings, `concerns:` story
+field, and `concern-lint` command. During one documented compatibility release,
+the parser will accept both story fields but reject a story that defines both.
+The update preview will show the exact heading and frontmatter migrations. It
+will rewrite them only after confirmation, preserve entry names and `Read:`
+paths, and run both agent-context and backlog validation afterward.
+
+During that compatibility release, `concern-lint` will remain as a deprecated
+wrapper around `area-lint` with the same exit status and a migration message.
+New installations, generated stories, prompts, menus, documentation, and hook
+configuration will use only the new name. The following major release may
+remove the wrapper and legacy parser after the deprecation is recorded in the
+release notes.
+
+### 7. Early gate demonstration and hook introduction
+
+Before fitting asks the user to configure hooks, the Factory will offer a
+one-minute demonstration of one deterministic check. The demonstration will
+run a real Factory gate against a Factory-owned disposable fixture. It will
+show the failing input, the gate's specific failure, the corrected input, and
+the passing result. It will then remove the fixture and verify that the target
+project did not change.
+
+The demonstration will explain the connection to daily work: the same kind of
+check can run automatically before a commit, so a specific error is corrected
+before review. The user may skip the demonstration without changing hook
+defaults.
+
+After the demonstration, fitting will introduce hooks by the outcomes they
+protect:
+
+- readable and connected documentation;
+- consistent specifications and architecture;
+- valid Factory configuration;
+- project tests and repository-specific checks.
+
+Fitting will show only hooks that can run in the installed project. A hook that
+has no matching artifacts yet will be described as available when those
+artifacts exist, not as an error or a decision. Source-maintenance hooks will
+appear only in the Agent Factory source repository.
+
+Fitting will recommend a default hook set. It will ask the user only about
+material trade-offs, such as automatic file changes or a slow test command. It
+will not ask whether to retain a hook that cannot receive matching files.
+
+The consumer hook set will omit `index-lint`. Model configuration will run
+`matrix-lint` after an edit and before dispatch instead of relying on a
+pre-commit file trigger. The Agent Factory source repository will retain
+`index-lint` on tracked source inputs and run `matrix-lint` against the tracked
+`packages/factory/config/model.conf` file.
+
+### 8. Isolated first task
 
 The recommended first task will be small, reversible, and time-bounded. It
 will run outside the user's active working tree. Before starting, the Factory
@@ -268,7 +409,7 @@ will verify that the sandbox no longer exists. Retention will copy selected
 artifacts into a named `docs/spikes/` path through a separate confirmation. It
 will not preserve the sandbox as production work.
 
-### 7. Handoff to real work
+### 9. Handoff to real work
 
 After the isolated task, the Factory will summarize the result and ask whether
 to discard it, retain it as reference material, or begin a real workstream.
@@ -288,8 +429,17 @@ task will not silently become production work.
 - An installation preview with explicit target, changes, and reversal steps.
 - Safe command-line interface selection without an implicit "all" default.
 - An installation receipt with one exact next action.
+- Recursive Factory-header injection into every existing regular `AGENTS.md`
+  and `copilot-instructions.md` outside excluded trees.
 - A read-only first-session scan summary and contextual recommendation.
 - Deferred advanced configuration until the selected action needs it.
+- A plain-language preview before context capture that explains the work,
+  output, validation, and human and agent use.
+- `area` as the canonical agent-context term, with a bounded migration from
+  `concern` terminology and story frontmatter.
+- A disposable failure-to-pass gate demonstration before hook configuration.
+- A hook introduction organized by protected outcomes and material trade-offs.
+- Removal of consumer hooks that can match only gitignored runtime paths.
 - An isolated, reversible first task with visible outputs and cleanup.
 - A post-task choice to discard, retain, or continue into real work.
 - An automated journey test covering the non-interactive safe path.
@@ -341,6 +491,18 @@ remains the historical baseline. This proposal replaces only its session-start
 fitting sequence. Its other delivered behavior remains in force unless a scope
 item in this proposal changes it explicitly.
 
+### Planned artifacts
+
+The following files do not exist yet and are planned outputs rather than
+inspectable current boundaries:
+
+- `packages/factory/scripts/build-release`
+- `packages/factory/scripts/install-agent-factory`
+- `packages/factory/scripts/hook-demo`
+- `tests/factory/test_build_release.py`
+- `tests/factory/test_install_agent_factory.py`
+- `tests/factory/test_hook_demo.py`
+
 ### Measurement
 
 The journey test will record decisions before the first inspectable result.
@@ -359,7 +521,7 @@ be measured separately.
 
 ## Open Questions
 
-None. The grilling pass resolved the first-release contract.
+None.
 
 ## Completion Criteria
 
@@ -383,6 +545,16 @@ None. The grilling pass resolved the first-release contract.
   remote, and updates use it unless the user confirms a source change.
 - The installer never falls back across internal and external distribution
   remotes without explicit confirmation.
+- `update-factory --check` reports the installed and candidate versions,
+  source, digest, local modifications, and planned header changes without
+  changing files.
+- A normal update verifies all remote assets before changing files. A failed
+  application restores the previous Factory tree and instruction headers.
+- An update stops on modified Factory-owned files unless the user explicitly
+  chooses the preservation flow. Its receipt records the resolved version or
+  local revision, source, remote digest when applicable, and changed paths.
+- Changing the source selector or remote URL requires an explicit option and
+  separate confirmation before the update proceeds.
 - Preflight reports **Ready**, **Ready with limitations**, or **Blocked**
   without changing the host or project.
 - Preflight supports native macOS and Linux on `x86_64` and `arm64`, and the
@@ -398,12 +570,41 @@ None. The grilling pass resolved the first-release contract.
   affected paths, and uninstall command before approval.
 - The installation receipt lists changed paths and gives one command that
   opens the first Factory session.
-- The first session produces a useful project-specific summary without
-  changing project files.
+- The preview lists every existing regular `AGENTS.md` and
+  `copilot-instructions.md` outside the fixed exclusion set.
+- Installation injects one Factory-owned header into every listed file.
+  Reinstallation is idempotent, nested links resolve from their file location,
+  and uninstall restores the original content and newline state.
+- Matching external symlinks and instruction files inside excluded trees remain
+  unchanged and are reported accurately.
+- The first session reports the detected stack and test entry point, or states
+  that either was not detected; it identifies at least one observed safety
+  signal or its absence and recommends one next action without changing
+  project files.
 - On the defined ready-host path, the first project insight appears within two
   minutes and no more than three user decisions after installation approval.
 - Advanced configuration appears only when the selected next action requires
   it.
+- Before context capture, the user sees what will be scanned, what decisions
+  they will make, that `docs/agent-context.md` is the only agent-context file
+  created, how `area-lint` validates it, and how humans and agents use it.
+- New agent-context files, story frontmatter, prompts, documentation, and hook
+  configuration use `area` terminology. A compatibility update accepts and
+  previews migration of legacy headings and `concerns:` fields without losing
+  names or `Read:` paths; mixed `areas:` and `concerns:` fields fail clearly.
+- During the compatibility release, `concern-lint` delegates to `area-lint`
+  with the same result and a deprecation message.
+- The user can defer or cancel context capture before scanning starts.
+- Before hook configuration, the user can run or skip a one-minute
+  demonstration that exercises a real Factory gate from failure to success.
+- The gate demonstration removes its fixture and leaves the target project
+  unchanged.
+- Fitting explains hook value by protected outcome, recommends defaults, and
+  asks only about material behavior or cost trade-offs.
+- No consumer pre-commit hook uses a file filter that can match only ignored
+  Factory runtime paths.
+- `matrix-lint` runs after model configuration and before dispatch. Consumer
+  projects do not receive an `index-lint` pre-commit hook.
 - The first task runs outside the active working tree and provides a cleanup
   action.
 - The first task ends with inspectable output, check results, and a choice to
@@ -422,3 +623,33 @@ None. The grilling pass resolved the first-release contract.
 ## Guiding Rule
 
 Show one safe result before asking the user to configure the Factory.
+
+## Review — 2026-09-23
+
+Reviewer: proposal-review-agent
+Reviewed commit: 628f665b530a08819741722b1a0279ff640ad2bf
+Disposition: findings
+
+### Findings
+
+| ID      | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------- | -------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | major    | 05    | open   | Four boundary paths do not resolve at the reviewed commit: `packages/factory/scripts/build-release`, `packages/factory/scripts/install-agent-factory`, `tests/factory/test_install_agent_factory.py`, and `tests/factory/test_build_release.py`. The boundary list must reference files a reviewer can inspect. List planned files separately or remove them from `impact.boundaries` until they are tracked. |
+| PROP-02 | major    | 03    | open   | The scope includes "Explicit local or remote source selection for installation and updates." The Design section covers the update flow in two sentences. A planning agent cannot write update stories from "Updates will use that source by default." Add an update-flow design subsection or move updates to the deferred list with a stated reason.                                                         |
+| PROP-03 | minor    | 01    | open   | Completion criterion "The first session produces a useful project-specific summary" contains the subjective term "useful." The Design section already defines observable content: detected stack, test entry point, missing safety signal. State those observables in the criterion so a tester can verify it without subjective judgment.                                                                    |
+
+### Summary
+
+Six of eight checks pass. Two major findings prevent planning readiness. Four boundary paths reference files that do not exist at the reviewed commit (PROP-01). The update flow is in scope but the Design section does not support story decomposition for it (PROP-02). One minor finding asks a subjective completion criterion to name the observable content the Design already specifies (PROP-03). Address the two major findings and re-open for a repeat pass.
+
+### Author response — 2026-09-23
+
+- **PROP-01 addressed:** `impact.boundaries` now contains only existing paths.
+  The six new files appear under **Planned artifacts**.
+- **PROP-02 addressed:** **Update flow** now defines source resolution,
+  preview, verification, rollback, local-change handling, source changes, and
+  receipt data. Matching completion criteria cover each behavior.
+- **PROP-03 addressed:** the first-session criterion now names the stack, test
+  entry point, safety signal, recommendation, and no-change requirement.
+
+The proposal is open for an independent repeat review.
