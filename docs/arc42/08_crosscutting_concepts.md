@@ -312,7 +312,24 @@ The bootstrap's read-only preflight is analogous to `intent select`: both inspec
 
 ### Scope
 
-Consent-gated mutation applies to the onboarding journey scripts (`install-agent-factory`, `update-factory` for trust-boundary changes, and `hook-demo` for fixture cleanup verification). It does not apply to hook-triggered validation or dispatcher-owned gates, which use exit-code enforcement.
+Consent-gated mutation applies to the onboarding and lifecycle scripts listed below. It does not apply to hook-triggered validation or dispatcher-owned gates, which use exit-code enforcement.
+
+### Operation-to-Consent Mapping
+
+| Operation              | Script                    | Consent gate                                  | What triggers it                                                        |
+| ---------------------- | ------------------------- | --------------------------------------------- | ----------------------------------------------------------------------- |
+| Prerequisite fix       | `install-agent-factory`   | Per-fix affirmative consent                   | Each host prerequisite fix during preflight                             |
+| First installation     | `install-agent-factory`   | Installation preview with affirmative consent | File operations that create `.agent-factory/`                           |
+| Normal update          | `update-factory`          | Approval after version and effect preview     | Any update invocation without `--check`                                 |
+| Source-boundary change | `update-factory`          | Separate `--source` confirmation              | A different source selector or remote URL                               |
+| Local-change override  | `update-factory`          | Preservation-flow selection                   | Modified Factory-owned files detected before staging                    |
+| Gate demonstration     | `hook-demo`               | Fixture cleanup verification                  | The disposable fixture is created and removed                           |
+| Context capture        | `capture-context` (skill) | Explanation before invocation                 | Agent context file creation during first session                        |
+| Sandbox creation       | Virgil (session agent)    | First-task preview with affirmative consent   | Detached worktree or plain sandbox at `.current-work/onboarding-spike/` |
+| Artifact retention     | Virgil (session agent)    | Per-artifact separate consent                 | Copying confirmed artifacts from sandbox to `docs/spikes/`              |
+| Production handoff     | Virgil (session agent)    | Workstream creation confirmation              | Creating or selecting a production workstream and binding the session   |
+
+The consent pattern is orthogonal to exit-code enforcement. Consent gates protect the human decision boundary; exit-code gates protect the mechanical trust boundary. See [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md) for the update transaction design.
 
 ## Referenced from
 

@@ -1,6 +1,6 @@
 ---
 id: 0022
-status: proposed
+status: superseded by ADR-0023
 evaluation: pugh-matrix
 ---
 

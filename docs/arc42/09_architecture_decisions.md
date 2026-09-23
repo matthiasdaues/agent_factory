@@ -17,7 +17,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0007 | [Normalize runtime usage through CLI adapters into local append-only records](../adr/0007-normalize-runtime-usage-through-cli-adapters.md)                    | superseded by ADR-0009 | none        |
 | 0008 | [Separate proposal impact, governance, estimates, and actuals](../adr/0008-separate-proposal-impact-governance-estimates-and-actuals.md)                      | accepted               | none        |
 | 0009 | [CLI-prefixed usage record filenames when filesystem-safe](../adr/0009-cli-prefixed-usage-record-filenames-when-filesystem-safe.md)                           | accepted               | none        |
-| 0010 | [Refresh an installed .agent-factory/factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                      | accepted               | none        |
+| 0010 | [Refresh an installed .agent-factory/factory/ by remove-and-reinstall](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md)                      | superseded by ADR-0023 | none        |
 | 0011 | [Gherkin .feature as consolidated specification format](../adr/0011-gherkin-feature-as-consolidated-specification-format.md)                                  | proposed               | pugh-matrix |
 | 0012 | [Dispatcher-owned semantic gate loop](../adr/0012-dispatcher-owned-semantic-gate-loop.md)                                                                     | proposed               | pugh-matrix |
 | 0013 | [YAML agent context replaces markdown charter](../adr/0013-yaml-agent-context-replaces-markdown-charter.md)                                                   | proposed               | pugh-matrix |
@@ -29,7 +29,8 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0019 | [V2 plugin as OpenCode enforcement boundary](../adr/0019-v2-plugin-as-opencode-enforcement-boundary.md)                                                       | proposed               | pugh-matrix |
 | 0020 | [Explicit model fields for OpenCode agent definitions](../adr/0020-explicit-model-fields-for-opencode-agent-definitions.md)                                   | proposed               | none        |
 | 0021 | [Skill placement at `.agents/skills/`](../adr/0021-skill-placement-at-agents-skills.md)                                                                       | proposed               | pugh-matrix |
-| 0022 | [Layered installation: bootstrap wraps init-factory](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)                                        | proposed               | pugh-matrix |
+| 0022 | [Layered installation: bootstrap wraps init-factory](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)                                        | superseded by ADR-0023 | pugh-matrix |
+| 0023 | [Update transaction with approval, staging, and rollback](../adr/0023-update-transaction-with-approval-staging-and-rollback.md)                               | proposed               | none        |
 
 ## Key Decisions
 
@@ -87,15 +88,16 @@ proposal, preserving the original forecast for calibration.
 
 ## Factory Install, Update, and Removal
 
-**ADR-0010** gives the one-time install a forward path: `update-factory`
-refreshes an installed `.agent-factory/factory/` to the current checkout by remove-and-
-reinstall — a byte-exact replacement followed by a re-run of the sourced
-`init-factory` — rather than a recency-based diff-and-merge, which is
-nondeterministic and rests on unreliable file mtimes. `init-factory` records
-the checkout it copied from (`factory_source`) in the install manifest so
-`update-factory` knows which repo to pull from by default, `--source`
-overriding. `update-factory` replaces only `.agent-factory/factory/`; `.agent-factory/` usage
-transcripts and lifecycle state survive an update.
+**ADR-0010** (superseded by ADR-0023) introduced `update-factory` as a
+remove-and-reinstall command that called `init-factory` to refresh the
+installed Factory tree. **ADR-0023** supersedes both ADR-0010 and ADR-0022,
+preserving the layered first-install entry point while defining the full
+update transaction: check mode, approval, download and verification, staging,
+atomic application with rollback, local-change policy, source-boundary
+consent, and receipt. `update-factory` no longer delegates to `init-factory`
+for the replacement; it owns the full transaction. `init-factory` retains
+its existing interface for first installation (called by
+`install-agent-factory`) and for component-level operations.
 
 ### Consolidated Specification Format
 
@@ -180,26 +182,27 @@ or `.claude/skills/` (depends on compatibility mode). A Pugh Matrix shows the
 baseline wins on the highest-weighted criterion (native discovery) and avoids
 coupling to another CLI's directory structure or to a mode that can be disabled.
 
-### Layered Installation
+### Layered Installation and Update Transaction
 
-**ADR-0022** selects a layered installation design where a new
-`install-agent-factory` bootstrap script wraps the existing `init-factory`.
-The bootstrap owns host diagnosis, prerequisite resolution, release
-verification (SHA-256), consent gates, and the installation receipt. It
-delegates project-level setup to `init-factory` after consent. A Pugh Matrix
-compared this layered design against absorbing the bootstrap responsibilities
-into `init-factory`. The layered design wins on safety (read-only preflight
-is a separate auditable phase), controllability (consent does not affect the
-`update-factory` path), Clean Architecture (adapter-layer host concerns stay
-out of the use-case-layer setup script), testability (independent test
-surfaces), and compatibility (the existing `update-factory` → `init-factory`
-contract from ADR-0010 remains unchanged).
+**ADR-0022** (superseded by ADR-0023) selected a layered installation design
+where `install-agent-factory` wraps `init-factory`. The layered first-install
+design is preserved in ADR-0023. **ADR-0023** extends the scope to the update
+path: `update-factory` becomes a seven-step transaction (check mode, approval,
+download and verification, staging, application, rollback, receipt) with
+local-change policy and source-boundary consent. The claim in ADR-0022 that
+updates bypass consent is corrected: tools, network, local files, and the
+selected release source can change after installation, so the update
+transaction requires its own approval gate.
 
 ### Cycle-Based Orchestration (no longer active)
 
 ADR-0017 and ADR-0018 describe the cycle-based orchestration design that was evaluated and partially implemented. This design is no longer active; the Eligibility Engine with precondition-based agent selection is the current mechanism. The ADRs remain as historical records.
 
 ## Superseded Decisions
+
+ADR-0010 and ADR-0022 are superseded by ADR-0023 (update transaction with
+approval, staging, and rollback). The layered first-install design from
+ADR-0022 is preserved; the update path is redefined.
 
 ADR-0013 and ADR-0014 are superseded by ADR-0016 (concern-oriented agent
 context). ADR-0017 and ADR-0018 describe designs that are no longer active.

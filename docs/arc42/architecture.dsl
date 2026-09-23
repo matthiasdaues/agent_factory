@@ -65,7 +65,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             # Distribution — component lifecycle and onboarding
             distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components; provides the value-first onboarding bootstrap, release building, and gate demonstration" "Bash/Python" {
                 initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest" "Python"
-                updateFactory = component "update-factory" "Updates Factory core and reports installed components without changing them" "Python"
+                updateFactory = component "update-factory" "Full update transaction: check mode, approval, verified staging, atomic application with rollback, local-change policy, source-boundary consent, and receipt" "Python"
                 removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
                 installAgentFactory = component "install-agent-factory" "Bootstrap script: read-only preflight, confirmed prerequisite fixes, release verification, installation preview, consent, and receipt with one next command" "Bash/Python"
                 buildRelease = component "build-release" "Deterministic release builder: produces install-agent-factory, agent-factory.tar.gz, and SHA256SUMS with reproducible archive digests" "Python"
@@ -147,6 +147,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         humanOperator -> parquetExporter "Requests an explicit Parquet export"
         humanOperator -> duckdbUi "Optionally explores published views"
         humanOperator -> initFactory "Installs, updates, or removes the usage component"
+        humanOperator -> updateFactory "Updates Factory core via the update transaction"
 
         # ================================================================
         # Relationships — Git hooks
@@ -201,8 +202,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         initFactory -> usageRecordContract "Copies the compatible contract into the component"
         initFactory -> installedAnalysis "Installs, updates, or removes without touching raw data"
         initFactory -> installManifest "Records installed_components.usage"
-        updateFactory -> installManifest "Reads source selector, installed version, and component presence"
-        updateFactory -> distributionRemote "Queries the recorded release base for available updates"
+        updateFactory -> installManifest "Reads source and version; writes receipt after update"
+        updateFactory -> distributionRemote "Downloads and verifies release assets for update"
         removeFactory -> installedAnalysis "Removes during complete uninstall"
         removeFactory -> rawUsageSpool "Deletes during complete uninstall"
 
@@ -217,6 +218,16 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         installAgentFactory -> installManifest "Records source selector, resolved source, and installation metadata"
         buildRelease -> distributionRemote "Publishes bootstrap, archive, and checksum manifest"
         hookDemo -> stateFiles "Creates and removes the disposable fixture"
+
+        # ================================================================
+        # Relationships — First-Session and First-Task Lifecycle
+        # ================================================================
+        newcomer -> cliAgent "Opens first Factory session via the installation receipt command"
+        cliAgent -> hookDemo "Runs gate demonstration during first session"
+        cliAgent -> git "Creates or removes detached worktree for the first-task sandbox"
+        cliAgent -> dispatcher "Dispatches poc-spike inside the first-task sandbox"
+        cliAgent -> workstreamState "Creates or selects production workstream for handoff"
+        cliAgent -> sessionBindings "Creates session binding for production workstream"
 
         # ================================================================
         # Relationships — Usage Analysis
@@ -370,14 +381,35 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
 
         dynamic distribution "OnboardingInstallation" "Newcomer installs a verified Factory release through the bootstrap" {
             newcomer -> installAgentFactory "1. Runs the bootstrap with source selector and target"
-            installAgentFactory -> distributionRemote "2. Downloads and verifies release assets"
-            installAgentFactory -> initFactory "3. Delegates installation after preview and approval"
-            initFactory -> installManifest "4. Records installed paths and source metadata"
+            installAgentFactory -> installManifest "2. Reads manifest metadata for installation preview"
+            installAgentFactory -> distributionRemote "3. Downloads and verifies release assets after approval"
+            installAgentFactory -> initFactory "4. Delegates project-level setup after verification"
+            initFactory -> installManifest "5. Records installed paths and source metadata"
         }
 
         dynamic distribution "ReleaseBuild" "Release maintainer produces reproducible installation assets" {
             releaseMaintainer -> buildRelease "1. Runs build-release for a versioned source tree"
             buildRelease -> distributionRemote "2. Publishes bootstrap, archive, and checksum manifest"
+        }
+
+        dynamic distribution "UpdateTransaction" "Project maintainer updates an installation with approval, staging, and rollback" {
+            humanOperator -> updateFactory "1. Runs update-factory (check or normal)"
+            updateFactory -> installManifest "2. Reads source selector and installed version"
+            updateFactory -> distributionRemote "3. Downloads and verifies release assets"
+            updateFactory -> installManifest "4. Writes receipt after successful application"
+        }
+
+        dynamic distribution "FirstSessionInsight" "First session delivers project insight before advanced configuration" {
+            cliAgent -> hookDemo "1. Virgil optionally runs gate demonstration"
+            hookDemo -> stateFiles "2. Creates and removes disposable fixture"
+        }
+
+        dynamic factoryFlowControl "FirstTaskLifecycle" "Newcomer completes one isolated task in a sandbox and chooses its outcome" {
+            cliAgent -> git "1. Creates detached worktree from HEAD at sandbox path"
+            cliAgent -> dispatcher "2. Dispatches poc-spike inside sandbox"
+            cliAgent -> git "3. Removes sandbox on discard or after retention"
+            cliAgent -> workstreamState "4. Creates production workstream on handoff"
+            cliAgent -> sessionBindings "5. Creates session binding for production workstream"
         }
 
         dynamic opencodePlugin "OpenCodePermissionEnforcement" "Plugin enforces permission and step boundaries on tool invocation" {

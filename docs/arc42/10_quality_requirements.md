@@ -138,17 +138,29 @@ References: [architecture.dsl Distribution container](architecture.dsl), [sectio
 
 References: [architecture.dsl install-agent-factory relationships](architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release)
 
-### QS-12: First-result decision budget
+### QS-12: First-session insight budget
 
-| Field             | Description                                                                                                                   |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Usability                                                                                                                     |
-| Stimulus          | A newcomer completes installation and starts a first session.                                                                 |
-| Environment       | The Factory is installed and `init-factory` has run. The session agent (Virgil) starts.                                       |
-| Response          | The session presents a project insight (language, frameworks, test infrastructure, configuration) within the decision budget. |
-| Response measure  | The newcomer sees a useful result within two minutes of session start and five consent decisions after installation approval. |
+| Field             | Description                                                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Usability                                                                                                                               |
+| Stimulus          | A newcomer completes installation and starts a first session.                                                                           |
+| Environment       | The Factory is installed and `init-factory` has run. The session agent (Virgil) starts.                                                 |
+| Response          | The session presents a project insight (language, frameworks, test infrastructure, configuration) within the decision budget.           |
+| Response measure  | The newcomer sees a useful project insight within two minutes of session start and three consent decisions after installation approval. |
 
 References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-delivers-project-insight), [value-first-onboarding-journey.feature Rule 7](../spec/value-first-onboarding-journey.feature)
+
+### QS-13: First-task result budget
+
+| Field             | Description                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Usability                                                                                                                             |
+| Stimulus          | A newcomer completes the first session and approves the first task.                                                                   |
+| Environment       | The Factory is installed, the first session has delivered project insight, and the newcomer has approved the first-task preview.      |
+| Response          | The first task produces an inspectable result in an isolated sandbox. The newcomer can examine the result and choose its disposition. |
+| Response measure  | The newcomer holds an inspectable first-task result within ten minutes and five consent decisions after installation approval.        |
+
+References: [section 6.10.4](06_runtime_view.md#6104-sequence-first-task-runs-in-an-isolated-sandbox), [value-first-onboarding-journey.feature Rule 8](../spec/value-first-onboarding-journey.feature)
 
 ## 10.2 Quality Attribute Priority
 
@@ -165,7 +177,8 @@ References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-deli
 | 1        | Safety (read-only preflight)       | QS-9      |
 | 1        | Controllability (consent gate)     | QS-10     |
 | 2        | Safety (integrity verification)    | QS-11     |
-| 2        | Usability (first-result budget)    | QS-12     |
+| 2        | Usability (first-session insight)  | QS-12     |
+| 2        | Usability (first-task result)      | QS-13     |
 
 ## Referenced from
 
