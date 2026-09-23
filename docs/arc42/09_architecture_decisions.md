@@ -29,6 +29,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0019 | [V2 plugin as OpenCode enforcement boundary](../adr/0019-v2-plugin-as-opencode-enforcement-boundary.md)                                                       | proposed               | pugh-matrix |
 | 0020 | [Explicit model fields for OpenCode agent definitions](../adr/0020-explicit-model-fields-for-opencode-agent-definitions.md)                                   | proposed               | none        |
 | 0021 | [Skill placement at `.agents/skills/`](../adr/0021-skill-placement-at-agents-skills.md)                                                                       | proposed               | pugh-matrix |
+| 0022 | [Layered installation: bootstrap wraps init-factory](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)                                        | proposed               | pugh-matrix |
 
 ## Key Decisions
 
@@ -178,6 +179,21 @@ discovery path, rather than `.opencode/skills/` (not natively discoverable)
 or `.claude/skills/` (depends on compatibility mode). A Pugh Matrix shows the
 baseline wins on the highest-weighted criterion (native discovery) and avoids
 coupling to another CLI's directory structure or to a mode that can be disabled.
+
+### Layered Installation
+
+**ADR-0022** selects a layered installation design where a new
+`install-agent-factory` bootstrap script wraps the existing `init-factory`.
+The bootstrap owns host diagnosis, prerequisite resolution, release
+verification (SHA-256), consent gates, and the installation receipt. It
+delegates project-level setup to `init-factory` after consent. A Pugh Matrix
+compared this layered design against absorbing the bootstrap responsibilities
+into `init-factory`. The layered design wins on safety (read-only preflight
+is a separate auditable phase), controllability (consent does not affect the
+`update-factory` path), Clean Architecture (adapter-layer host concerns stay
+out of the use-case-layer setup script), testability (independent test
+surfaces), and compatibility (the existing `update-factory` → `init-factory`
+contract from ADR-0010 remains unchanged).
 
 ### Cycle-Based Orchestration (no longer active)
 

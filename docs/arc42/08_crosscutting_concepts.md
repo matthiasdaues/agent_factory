@@ -289,6 +289,31 @@ The plugin does not treat prompt instructions, agent visibility, or an OpenCode 
 
 OpenCode's model inheritance bug (issue #49765) prevents child sessions from inheriting the parent's model. Each generated OpenCode agent definition carries an explicit `model` field derived from its tier mapping in `model.conf`. This workaround becomes removable when OpenCode fixes the inheritance bug. See [ADR-0020](../adr/0020-explicit-model-fields-for-opencode-agent-definitions.md).
 
+## 8.15 Consent-Gated Mutation (Value-First Onboarding)
+
+The value-first onboarding journey introduces a consent pattern for all mutating operations during installation and first use. This pattern extends the "Agentic Creation, Deterministic Validation" principle to the installation boundary: the bootstrap diagnoses before changing, and each change requires separate affirmative consent.
+
+### Rules
+
+| Rule                                   | Enforcement                                                                                        |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Preflight is read-only                 | The bootstrap checks host, tools, Git state, network, and target without installing or editing     |
+| Each fix requires separate consent     | One prerequisite fix at a time; affirmative response required; blank input stops the sequence      |
+| Each fix is verified before the next   | The related check repeats after the fix runs; failure stops the sequence with recovery guidance    |
+| Installation requires explicit preview | The preview shows source, version, target, interfaces, paths, and uninstall command before consent |
+| Blank input is never consent           | Declined, cancelled, or blank input leaves the target in its prior valid state                     |
+| Cancellation reports completed effects | Stopping mid-sequence reports all completed changes and their reversal commands                    |
+
+### Relationship to Existing Patterns
+
+The consent pattern is orthogonal to the existing hook-triggered validation. Hooks enforce deterministic validation during development. Consent gates enforce explicit approval during installation and onboarding. Both patterns share the principle that no mechanical process makes irreversible changes without human authority.
+
+The bootstrap's read-only preflight is analogous to `intent select`: both inspect the repository without side effects and present evidence for a human decision. The installation preview is analogous to the dispatch preview: both show planned effects before requesting consent.
+
+### Scope
+
+Consent-gated mutation applies to the onboarding journey scripts (`install-agent-factory`, `update-factory` for trust-boundary changes, and `hook-demo` for fixture cleanup verification). It does not apply to hook-triggered validation or dispatcher-owned gates, which use exit-code enforcement.
+
 ## Referenced from
 
 - [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md)
@@ -299,6 +324,8 @@ OpenCode's model inheritance bug (issue #49765) prevents child sessions from inh
 - [06_runtime_view.md section 6.3](06_runtime_view.md#63-test-gate-presence)
 - [06_runtime_view.md section 6.4](06_runtime_view.md#64-semantic-gate-loop)
 - [06_runtime_view.md section 6.5](06_runtime_view.md#65-agent-context-validation)
+- [06_runtime_view.md section 6.10](06_runtime_view.md#610-value-first-onboarding)
 - [09_architecture_decisions.md](09_architecture_decisions.md)
 - [05_building_block_view.md section 5.7](05_building_block_view.md#57-level-2-component-view----usage-analysis-runtime)
+- [05_building_block_view.md section 5.8](05_building_block_view.md#58-level-2-component-view----distribution)
 - [07_deployment_view.md](07_deployment_view.md)

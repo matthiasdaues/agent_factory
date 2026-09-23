@@ -9,12 +9,17 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # External actors
         humanOperator = person "Human Operator" "Person driving Agent Factory by hand"
         cliAgent = person "CLI-Invoked Agent" "Claude Code, Copilot CLI, Pi, or OpenCode agent session under scoped allowlist; under Pi also the caller of run_agent, under OpenCode controlled by Factory plugin" "Agent"
+        newcomer = person "Newcomer" "Person installing and using Agent Factory for the first time"
+        releaseMaintainer = person "Release Maintainer" "Person who builds and publishes Factory release assets"
 
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
 
         # Local output selected explicitly by the operator
         parquetFile = softwareSystem "Parquet Export" "Optional, attributable, atomically replaced local export; never authoritative state" "External"
+
+        # Distribution remote for verified releases
+        distributionRemote = softwareSystem "Distribution Remote" "HTTPS release base hosting bootstrap scripts, Factory archives, and checksum manifests" "External"
 
         # Factory Flow Control system
         factoryFlowControl = softwareSystem "Factory Flow Control" "Precondition-based agent eligibility, dispatch, and validation for Agent Factory" {
@@ -57,11 +62,14 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 usageCapture = component "usage-capture" "Normalizes one CLI transcript and appends a canonical usage record; adds workstream_id and workstream_origin from the session binding when available" "Python"
             }
 
-            # Distribution — component lifecycle
-            distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components" "Bash/Python" {
+            # Distribution — component lifecycle and onboarding
+            distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components; provides the value-first onboarding bootstrap, release building, and gate demonstration" "Bash/Python" {
                 initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest" "Python"
                 updateFactory = component "update-factory" "Updates Factory core and reports installed components without changing them" "Python"
                 removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
+                installAgentFactory = component "install-agent-factory" "Bootstrap script: read-only preflight, confirmed prerequisite fixes, release verification, installation preview, consent, and receipt with one next command" "Bash/Python"
+                buildRelease = component "build-release" "Deterministic release builder: produces install-agent-factory, agent-factory.tar.gz, and SHA256SUMS with reproducible archive digests" "Python"
+                hookDemo = component "hook-demo" "Gate demonstration: runs a real Factory gate against a disposable fixture, shows one failure-to-pass cycle, and removes the fixture without changing the target project" "Python"
             }
 
             # Storage
@@ -193,9 +201,22 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         initFactory -> usageRecordContract "Copies the compatible contract into the component"
         initFactory -> installedAnalysis "Installs, updates, or removes without touching raw data"
         initFactory -> installManifest "Records installed_components.usage"
-        updateFactory -> installManifest "Reports component presence without changing it"
+        updateFactory -> installManifest "Reads source selector, installed version, and component presence"
+        updateFactory -> distributionRemote "Queries the recorded release base for available updates"
         removeFactory -> installedAnalysis "Removes during complete uninstall"
         removeFactory -> rawUsageSpool "Deletes during complete uninstall"
+
+        # ================================================================
+        # Relationships — Value-First Onboarding
+        # ================================================================
+        newcomer -> installAgentFactory "Downloads and runs the bootstrap with source and target"
+        newcomer -> hookDemo "Optionally runs the gate demonstration before hook configuration"
+        releaseMaintainer -> buildRelease "Builds a deterministic release from a versioned source tree"
+        installAgentFactory -> distributionRemote "Downloads and verifies release assets over HTTPS"
+        installAgentFactory -> initFactory "Delegates installation after release verification and approval"
+        installAgentFactory -> installManifest "Records source selector, resolved source, and installation metadata"
+        buildRelease -> distributionRemote "Publishes bootstrap, archive, and checksum manifest"
+        hookDemo -> stateFiles "Creates and removes the disposable fixture"
 
         # ================================================================
         # Relationships — Usage Analysis
@@ -331,6 +352,32 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             include usageCapture
             include cliAgent
             autoLayout tb
+        }
+
+        component distribution "DistributionComponents" "Distribution internals: bootstrap, release building, installation, update, removal, and gate demonstration" {
+            include *
+            include newcomer
+            include releaseMaintainer
+            include distributionRemote
+            include installManifest
+            include stateFiles
+            include usageRecordContract
+            include installedAnalysis
+            include rawUsageSpool
+            include opencodeCatalog
+            autoLayout tb
+        }
+
+        dynamic distribution "OnboardingInstallation" "Newcomer installs a verified Factory release through the bootstrap" {
+            newcomer -> installAgentFactory "1. Runs the bootstrap with source selector and target"
+            installAgentFactory -> distributionRemote "2. Downloads and verifies release assets"
+            installAgentFactory -> initFactory "3. Delegates installation after preview and approval"
+            initFactory -> installManifest "4. Records installed paths and source metadata"
+        }
+
+        dynamic distribution "ReleaseBuild" "Release maintainer produces reproducible installation assets" {
+            releaseMaintainer -> buildRelease "1. Runs build-release for a versioned source tree"
+            buildRelease -> distributionRemote "2. Publishes bootstrap, archive, and checksum manifest"
         }
 
         dynamic opencodePlugin "OpenCodePermissionEnforcement" "Plugin enforces permission and step boundaries on tool invocation" {

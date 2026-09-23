@@ -350,7 +350,95 @@ sequenceDiagram
 - Worktree creation failure fails closed: the dispatch is denied with a named recovery action.
 - The Factory's naming, base, path, and verification rules remain authoritative. OpenCode tracks the resulting location and starts each child session there.
 
-## 6.10 Other Runtime Scenarios (Summary)
+## 6.10 Value-First Onboarding
+
+The value-first onboarding journey guides a newcomer from diagnosis to one safe result before asking for advanced configuration. Three runtime sequences cover the key interactions.
+
+### 6.10.1 Sequence: Newcomer Installs a Verified Factory Release
+
+Derived from dynamic view `OnboardingInstallation` in [`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant N as Newcomer
+    participant B as install-agent-factory
+    participant DR as Distribution Remote
+    participant IF as init-factory
+    participant IM as Install Manifest
+
+    N->>B: 1. Runs the bootstrap with source selector and target
+    B->>B: 2. Read-only preflight: host, tools, Git state, network, interfaces
+    alt Blocked
+        B-->>N: Incompatibility explanation, exit without changes
+    else Ready or Ready with limitations
+        B->>DR: 3. Downloads and verifies release assets (SHA-256)
+        alt Digest mismatch
+            B-->>N: Refuse extraction, target unchanged
+        else Digest verified
+            B-->>N: 4. Installation preview: source, version, target, interfaces, paths, uninstall
+            N->>B: 5. Affirmative consent (blank input is not consent)
+            B->>IF: 6. Delegates installation after approval
+            IF->>IM: 7. Records installed paths, source selector, and metadata
+            B-->>N: 8. Receipt: changed paths, version, next command
+        end
+    end
+```
+
+**Key Points:**
+
+- Preflight is read-only. No software is installed, no files are edited, and no configuration is changed during diagnosis.
+- Each prerequisite fix requires separate affirmative consent, shows its scope and reversal, and passes verification before the next fix. Blank input stops the sequence.
+- The bootstrap delegates to `init-factory` for the actual file operations. See [ADR-0022](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md).
+- The receipt names one exact command that opens the first Factory session.
+
+### 6.10.2 Sequence: Release Maintainer Builds Reproducible Assets
+
+Derived from dynamic view `ReleaseBuild` in [`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant RM as Release Maintainer
+    participant BR as build-release
+    participant DR as Distribution Remote
+
+    RM->>BR: 1. Runs build-release for a versioned source tree
+    BR->>BR: 2. Normalizes archive metadata for reproducibility
+    BR->>DR: 3. Publishes install-agent-factory, agent-factory.tar.gz, SHA256SUMS
+    Note over BR: Repeated builds from the same source and version produce the same archive digest
+```
+
+### 6.10.3 Sequence: First Session Delivers Project Insight
+
+```mermaid
+sequenceDiagram
+    participant N as Newcomer
+    participant V as Virgil (session agent)
+    participant FS as Project Filesystem
+
+    N->>V: 1. Opens first Factory session (receipt command)
+    V->>FS: 2. Read-only project scan
+    FS-->>V: Detected stack, test entry point, safety signals
+    V-->>N: 3. Reports observed evidence, unknowns, and one recommended action
+    Note over V: No files changed, no advanced configuration requested
+    alt Selected action needs context
+        V-->>N: 4. Explains capture-context before invoking it
+        N->>V: 5. Confirms, defers, or cancels
+    end
+    alt Selected action needs hooks
+        V-->>N: 6. Offers gate demonstration (one-minute failure-to-pass cycle)
+        N->>V: 7. Accepts or skips
+        V-->>N: 8. Hook choices grouped by protected outcome, asks only material trade-offs
+    end
+```
+
+**Key Points:**
+
+- The first session reports what the Factory found, what remains unknown, and one recommended action without changing project files.
+- Model-tier selection, hook decisions, and extended context capture wait until the chosen action requires them.
+- Before context capture, onboarding explains the scan, the output (`docs/agent-context.md`), validation (`concern-lint`), and defines `concern` as a routing topic.
+- The gate demonstration uses a disposable fixture and leaves the target project unchanged.
+
+## 6.11 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 

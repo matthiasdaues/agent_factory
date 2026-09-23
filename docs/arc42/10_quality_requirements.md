@@ -102,6 +102,54 @@ References: [architecture.dsl OpenCode Plugin container](architecture.dsl), [sec
 
 References: [opencode-cli-integration.feature Rule: Project maintainer runs OpenCode alongside other Factory CLIs](../spec/opencode-cli-integration.feature)
 
+### QS-9: Read-only preflight before installation
+
+| Field             | Description                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety                                                                                                                                                      |
+| Stimulus          | A newcomer runs the bootstrap script in a project directory.                                                                                                |
+| Environment       | The target directory may contain existing configuration, uncommitted work, or a prior Factory installation.                                                 |
+| Response          | The bootstrap checks host platform, required tools, Git state, network reachability, and target directory without writing, installing, or editing anything. |
+| Response measure  | Zero filesystem writes during preflight. The preflight result is a data structure available for inspection before any consent prompt appears.               |
+
+References: [architecture.dsl Distribution container](architecture.dsl), [section 5.8](05_building_block_view.md#58-level-2-component-view----distribution), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
+
+### QS-10: Consent-gated installation
+
+| Field             | Description                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Controllability                                                                                                                                              |
+| Stimulus          | The bootstrap reaches the installation step after a clean preflight.                                                                                         |
+| Environment       | The preflight result shows all checks passed. The newcomer sees an installation preview.                                                                     |
+| Response          | The preview lists source, version, target path, interfaces to install, paths to create, and the uninstall command. Installation waits for consent.           |
+| Response measure  | Blank input stops the sequence without installing. Declined consent leaves the target directory unchanged. Only an affirmative response starts installation. |
+
+References: [architecture.dsl Distribution container](architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
+
+### QS-11: Installation integrity verification
+
+| Field             | Description                                                                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety                                                                                                                                                            |
+| Stimulus          | The bootstrap downloads a Factory release archive from the Distribution Remote.                                                                                   |
+| Environment       | The release includes a SHA-256 checksum manifest alongside the archive.                                                                                           |
+| Response          | The bootstrap computes the digest of the downloaded archive and compares it against the manifest entry. A mismatch aborts installation with a diagnostic message. |
+| Response measure  | No archive with a failed digest check is extracted. The abort message names the expected and actual digests.                                                      |
+
+References: [architecture.dsl install-agent-factory relationships](architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release)
+
+### QS-12: First-result decision budget
+
+| Field             | Description                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Usability                                                                                                                     |
+| Stimulus          | A newcomer completes installation and starts a first session.                                                                 |
+| Environment       | The Factory is installed and `init-factory` has run. The session agent (Virgil) starts.                                       |
+| Response          | The session presents a project insight (language, frameworks, test infrastructure, configuration) within the decision budget. |
+| Response measure  | The newcomer sees a useful result within two minutes of session start and five consent decisions after installation approval. |
+
+References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-delivers-project-insight), [value-first-onboarding-journey.feature Rule 7](../spec/value-first-onboarding-journey.feature)
+
 ## 10.2 Quality Attribute Priority
 
 | Priority | Quality attribute                  | Scenarios |
@@ -114,8 +162,12 @@ References: [opencode-cli-integration.feature Rule: Project maintainer runs Open
 | 2        | Safety (deterministic validation)  | QS-6      |
 | 2        | Safety (fail-closed plugin)        | QS-7      |
 | 2        | Compatibility (CLI coexistence)    | QS-8      |
+| 1        | Safety (read-only preflight)       | QS-9      |
+| 1        | Controllability (consent gate)     | QS-10     |
+| 2        | Safety (integrity verification)    | QS-11     |
+| 2        | Usability (first-result budget)    | QS-12     |
 
 ## Referenced from
 
 - [09_architecture_decisions.md](09_architecture_decisions.md) — architecture decisions that underpin these scenarios
-- [08_crosscutting_concepts.md](08_crosscutting_concepts.md) — principles that underpin QS-3 and QS-6
+- [08_crosscutting_concepts.md](08_crosscutting_concepts.md) — principles that underpin QS-3, QS-6, QS-9, and QS-10

@@ -221,8 +221,11 @@ Every building block's entry point, invoked how, and by whom:
 | Fence Runner                 | Post-agent-activity validation         | Python module (`packages/factory/engine/fence.py`)                                 | 0 (pass), 1 (violations)                      |
 | Proposal Validator           | `intent assess`, on-demand             | Python module (`packages/factory/engine/validators/proposal.py`)                   | 0 (pass), 1 (violations)                      |
 | Session Binding Manager      | Session start, workstream binding      | Python module (`packages/factory/engine/session_binding.py`)                       | (internal)                                    |
-| init-factory                 | Human                                  | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
-| update-factory               | Human                                  | `factory/scripts/update-factory`                                                   | 0 (updated), 1+ (error)                       |
+| install-agent-factory        | Newcomer                               | `install-agent-factory --from-local\|--from-remote <src> --target <path>`          | 0 (installed), 1+ (error)                     |
+| build-release                | Release Maintainer                     | `factory/scripts/build-release --version <ver>`                                    | 0 (published), 1+ (error)                     |
+| hook-demo                    | Newcomer (via onboarding)              | `factory/scripts/hook-demo`                                                        | 0 (passed), 1+ (error)                        |
+| init-factory                 | install-agent-factory, Human           | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
+| update-factory               | Project Maintainer                     | `factory/scripts/update-factory [--check]`                                         | 0 (updated), 1+ (error)                       |
 | remove-factory               | Human                                  | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                       |
 | usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)              |
 | Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
@@ -282,11 +285,18 @@ Parquet files, and UI state are disposable.
 
 ## 5.8 Level 2: Component View -- Distribution
 
-| Component          | Responsibility                                                                                                                                                                                                      |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **init-factory**   | Install, update, or remove the usage component and maintain the install manifest. Also generates OpenCode agent definitions, index, and plugin configuration under `.opencode/` and skills under `.agents/skills/`. |
-| **update-factory** | Update Factory core and report installed components without changing them.                                                                                                                                          |
-| **remove-factory** | Perform complete Factory removal, including analysis and raw usage data.                                                                                                                                            |
+![Distribution components](../assets/images/DistributionComponents.svg)
+
+| Component                 | Responsibility                                                                                                                                                                                                                |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **install-agent-factory** | Bootstrap script for first-time installation: read-only preflight diagnosis, confirmed prerequisite fixes, release verification against SHA-256 digest, installation preview with consent, and receipt with one next command. |
+| **build-release**         | Deterministic release builder: produces `install-agent-factory`, `agent-factory.tar.gz`, and `SHA256SUMS` from a versioned source tree. Repeated builds from the same source and version produce the same archive digest.     |
+| **hook-demo**             | Gate demonstration for newcomer onboarding: runs a real Factory gate against a disposable fixture, shows one failure-to-pass cycle, and removes the fixture without changing the target project.                              |
+| **init-factory**          | Install, update, or remove the usage component and maintain the install manifest. Also generates OpenCode agent definitions, index, and plugin configuration under `.opencode/` and skills under `.agents/skills/`.           |
+| **update-factory**        | Update Factory core and report installed components without changing them. Reads the install manifest for source selector and installed version. Queries the recorded release base for available updates.                     |
+| **remove-factory**        | Perform complete Factory removal, including analysis and raw usage data.                                                                                                                                                      |
+
+The bootstrap (`install-agent-factory`) wraps `init-factory` rather than replacing it. The bootstrap owns the newcomer-facing journey: preflight, prerequisites, consent, and release verification. After approval, it delegates the actual file operations to `init-factory`, which retains its existing interface for direct consumers and tests. See [ADR-0022](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md).
 
 ## 5.9 Level 2: Component View -- OpenCode Plugin
 
