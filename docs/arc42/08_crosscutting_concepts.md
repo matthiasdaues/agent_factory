@@ -323,8 +323,8 @@ Consent-gated mutation applies to the onboarding and lifecycle scripts listed be
 | Normal update          | `update-factory`          | Approval after version and effect preview     | Any update invocation without `--check`                                 |
 | Source-boundary change | `update-factory`          | Separate `--source` confirmation              | A different source selector or remote URL                               |
 | Local-change override  | `update-factory`          | Preservation-flow selection                   | Modified Factory-owned files detected before staging                    |
-| Gate demonstration     | `hook-demo`               | Fixture cleanup verification                  | The disposable fixture is created and removed                           |
-| Context capture        | `capture-context` (skill) | Explanation before invocation                 | Agent context file creation during first session                        |
+| Gate demonstration     | `hook-demo`               | Affirmative consent before demonstration      | Newcomer is offered the one-minute gate demonstration                   |
+| Context capture        | `capture-context` (skill) | Affirmative consent before scanning           | Repository scan and file creation during first session                  |
 | Sandbox creation       | Virgil (session agent)    | First-task preview with affirmative consent   | Detached worktree or plain sandbox at `.current-work/onboarding-spike/` |
 | Artifact retention     | Virgil (session agent)    | Per-artifact separate consent                 | Copying confirmed artifacts from sandbox to `docs/spikes/`              |
 | Production handoff     | Virgil (session agent)    | Workstream creation confirmation              | Creating or selecting a production workstream and binding the session   |

@@ -30,7 +30,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0020 | [Explicit model fields for OpenCode agent definitions](../adr/0020-explicit-model-fields-for-opencode-agent-definitions.md)                                   | proposed               | none        |
 | 0021 | [Skill placement at `.agents/skills/`](../adr/0021-skill-placement-at-agents-skills.md)                                                                       | proposed               | pugh-matrix |
 | 0022 | [Layered installation: bootstrap wraps init-factory](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)                                        | superseded by ADR-0023 | pugh-matrix |
-| 0023 | [Update transaction with approval, staging, and rollback](../adr/0023-update-transaction-with-approval-staging-and-rollback.md)                               | proposed               | none        |
+| 0023 | [Update transaction with approval, staging, and rollback](../adr/0023-update-transaction-with-approval-staging-and-rollback.md)                               | accepted               | none        |
 
 ## Key Decisions
 

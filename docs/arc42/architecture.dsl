@@ -80,6 +80,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             usageRecordContract = container "Usage Record Contract" "Factory-owned JSON Schema Draft 2020-12 and compatibility manifest; v1 schema includes optional workstream_id and workstream_origin fields" "JSON Schema/YAML" "Storage"
             rawUsageSpool = container "Raw Usage Spool" "Authoritative append-only top-level JSONL records under .agent-factory/usage/" "JSONL files" "Storage"
             installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
+            projectFilesystem = container "Project Filesystem" "Project-controlled source, configuration, documentation, and transient onboarding paths that Factory reads or changes only through defined contracts and consent gates" "Filesystem" "Storage"
 
             # OpenCode Plugin — V2 plugin adapter for OpenCode CLI
             opencodePlugin = container "OpenCode Plugin" "V2 plugin adapter mapping Factory safety controls to OpenCode session hooks, tool restrictions, and worktree isolation" "TypeScript/OpenCode V2 Plugin API" {
@@ -127,6 +128,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                     containerInstance usageRecordContract
                     containerInstance rawUsageSpool
                     containerInstance installManifest
+                    containerInstance projectFilesystem
                     containerInstance opencodePlugin
                     containerInstance opencodeCatalog
                     containerInstance usageAnalysisRuntime
@@ -204,6 +206,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         initFactory -> installManifest "Records installed_components.usage"
         updateFactory -> installManifest "Reads source and version; writes receipt after update"
         updateFactory -> distributionRemote "Downloads and verifies release assets for update"
+        updateFactory -> humanOperator "Presents update preview for approval"
+        updateFactory -> updateFactory "Stages, applies, and rolls back verified replacement"
         removeFactory -> installedAnalysis "Removes during complete uninstall"
         removeFactory -> rawUsageSpool "Deletes during complete uninstall"
 
@@ -218,6 +222,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         installAgentFactory -> installManifest "Records source selector, resolved source, and installation metadata"
         buildRelease -> distributionRemote "Publishes bootstrap, archive, and checksum manifest"
         hookDemo -> stateFiles "Creates and removes the disposable fixture"
+        installAgentFactory -> newcomer "Presents installation preview and receipt"
 
         # ================================================================
         # Relationships — First-Session and First-Task Lifecycle
@@ -228,6 +233,9 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent -> dispatcher "Dispatches poc-spike inside the first-task sandbox"
         cliAgent -> workstreamState "Creates or selects production workstream for handoff"
         cliAgent -> sessionBindings "Creates session binding for production workstream"
+        cliAgent -> newcomer "Presents evidence, previews, and results during onboarding"
+        cliAgent -> installManifest "Reads installation state during first session"
+        cliAgent -> projectFilesystem "Scans project files and copies retained artifacts to docs/spikes/"
 
         # ================================================================
         # Relationships — Usage Analysis
@@ -371,6 +379,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             include releaseMaintainer
             include distributionRemote
             include installManifest
+            include projectFilesystem
             include stateFiles
             include usageRecordContract
             include installedAnalysis
@@ -381,10 +390,11 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
 
         dynamic distribution "OnboardingInstallation" "Newcomer installs a verified Factory release through the bootstrap" {
             newcomer -> installAgentFactory "1. Runs the bootstrap with source selector and target"
-            installAgentFactory -> installManifest "2. Reads manifest metadata for installation preview"
-            installAgentFactory -> distributionRemote "3. Downloads and verifies release assets after approval"
+            installAgentFactory -> newcomer "2. Presents installation preview from preflight and planned effects"
+            installAgentFactory -> distributionRemote "3. Downloads and verifies release assets after approval (SHA-256)"
             installAgentFactory -> initFactory "4. Delegates project-level setup after verification"
             initFactory -> installManifest "5. Records installed paths and source metadata"
+            installAgentFactory -> installManifest "6. Records source selector and installation metadata"
         }
 
         dynamic distribution "ReleaseBuild" "Release maintainer produces reproducible installation assets" {
@@ -392,24 +402,56 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             buildRelease -> distributionRemote "2. Publishes bootstrap, archive, and checksum manifest"
         }
 
-        dynamic distribution "UpdateTransaction" "Project maintainer updates an installation with approval, staging, and rollback" {
-            humanOperator -> updateFactory "1. Runs update-factory (check or normal)"
+        dynamic distribution "UpdateTransactionCheck" "Check mode reports installed and candidate state without mutation" {
+            humanOperator -> updateFactory "1. Runs update-factory --check"
             updateFactory -> installManifest "2. Reads source selector and installed version"
-            updateFactory -> distributionRemote "3. Downloads and verifies release assets"
-            updateFactory -> installManifest "4. Writes receipt after successful application"
+            updateFactory -> distributionRemote "3. Queries candidate version and digest"
+            updateFactory -> humanOperator "4. Reports installed vs. candidate, local modifications, and planned effects"
+        }
+
+        dynamic distribution "UpdateTransaction" "Normal-update transaction: approval, staging with rollback, and receipt" {
+            humanOperator -> updateFactory "1. Runs update-factory"
+            updateFactory -> installManifest "2. Reads source selector and installed version"
+            updateFactory -> humanOperator "3. Presents update preview"
+            humanOperator -> updateFactory "4. Gives affirmative approval"
+            updateFactory -> humanOperator "5. Presents source-change confirmation when source selector changed"
+            humanOperator -> updateFactory "6. Confirms source change"
+            updateFactory -> distributionRemote "7. Downloads and verifies release assets (SHA-256)"
+            updateFactory -> updateFactory "8. Stages verified replacement alongside current installation"
+            updateFactory -> updateFactory "9. Applies staged replacement; restores prior tree on failure"
+            updateFactory -> installManifest "10. Writes receipt: source, version, digest, changed paths"
         }
 
         dynamic distribution "FirstSessionInsight" "First session delivers project insight before advanced configuration" {
-            cliAgent -> hookDemo "1. Virgil optionally runs gate demonstration"
-            hookDemo -> stateFiles "2. Creates and removes disposable fixture"
+            newcomer -> cliAgent "1. Opens first Factory session via the receipt command"
+            cliAgent -> installManifest "2. Reads installation state"
+            cliAgent -> projectFilesystem "3. Scans project filesystem (read-only)"
+            cliAgent -> newcomer "4. Reports detected stack, test entry point, and safety signals"
+            cliAgent -> newcomer "5. Recommends one next action; defers advanced configuration"
+            cliAgent -> newcomer "6. Explains context capture scope, output, and validation"
+            newcomer -> cliAgent "7. Gives affirmative consent for context capture"
+            cliAgent -> newcomer "8. Runs capture-context and presents results"
+            cliAgent -> newcomer "9. Offers gate demonstration"
+            newcomer -> cliAgent "10. Gives affirmative consent for gate demonstration"
+            cliAgent -> hookDemo "11. Runs gate demonstration on disposable fixture"
+            hookDemo -> stateFiles "12. Creates and removes disposable fixture"
+            cliAgent -> newcomer "13. Presents hook choices grouped by protected outcome"
         }
 
-        dynamic factoryFlowControl "FirstTaskLifecycle" "Newcomer completes one isolated task in a sandbox and chooses its outcome" {
-            cliAgent -> git "1. Creates detached worktree from HEAD at sandbox path"
-            cliAgent -> dispatcher "2. Dispatches poc-spike inside sandbox"
-            cliAgent -> git "3. Removes sandbox on discard or after retention"
-            cliAgent -> workstreamState "4. Creates production workstream on handoff"
-            cliAgent -> sessionBindings "5. Creates session binding for production workstream"
+        dynamic factoryFlowControl "FirstTaskLifecycle" "Newcomer reaches an inspectable result in a detached-worktree sandbox; the first-task state machine owns disposition branching" {
+            cliAgent -> newcomer "1. Presents task preview: goal, duration, artifacts, decisions, cleanup"
+            newcomer -> cliAgent "2. Gives affirmative approval for the first task"
+            cliAgent -> git "3. Creates detached worktree at .current-work/onboarding-spike/"
+            cliAgent -> dispatcher "4. Dispatches poc-spike inside sandbox"
+            cliAgent -> newcomer "5. Shows inspectable result and check evidence"
+        }
+
+        dynamic factoryFlowControl "FirstTaskLifecycleNoHead" "Newcomer reaches an inspectable result in a plain-directory sandbox; the first-task state machine owns disposition branching" {
+            cliAgent -> newcomer "1. Presents task preview: goal, duration, artifacts, decisions, cleanup"
+            newcomer -> cliAgent "2. Gives affirmative approval for the first task"
+            cliAgent -> projectFilesystem "3. Creates plain sandbox directory at .current-work/onboarding-spike/"
+            cliAgent -> dispatcher "4. Dispatches poc-spike inside sandbox"
+            cliAgent -> newcomer "5. Shows inspectable result and check evidence"
         }
 
         dynamic opencodePlugin "OpenCodePermissionEnforcement" "Plugin enforces permission and step boundaries on tool invocation" {

@@ -140,13 +140,13 @@ References: [architecture.dsl install-agent-factory relationships](architecture.
 
 ### QS-12: First-session insight budget
 
-| Field             | Description                                                                                                                             |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Usability                                                                                                                               |
-| Stimulus          | A newcomer completes installation and starts a first session.                                                                           |
-| Environment       | The Factory is installed and `init-factory` has run. The session agent (Virgil) starts.                                                 |
-| Response          | The session presents a project insight (language, frameworks, test infrastructure, configuration) within the decision budget.           |
-| Response measure  | The newcomer sees a useful project insight within two minutes of session start and three consent decisions after installation approval. |
+| Field             | Description                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Usability                                                                                                                            |
+| Stimulus          | A newcomer completes installation and starts a first session.                                                                        |
+| Environment       | The Factory is installed and `init-factory` has run. The session agent (Virgil) starts.                                              |
+| Response          | The session presents a project insight (language, frameworks, test infrastructure, configuration) within the decision budget.        |
+| Response measure  | The newcomer sees a useful project insight within two minutes of session start and three user decisions after installation approval. |
 
 References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-delivers-project-insight), [value-first-onboarding-journey.feature Rule 7](../spec/value-first-onboarding-journey.feature)
 
@@ -158,7 +158,7 @@ References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-deli
 | Stimulus          | A newcomer completes the first session and approves the first task.                                                                   |
 | Environment       | The Factory is installed, the first session has delivered project insight, and the newcomer has approved the first-task preview.      |
 | Response          | The first task produces an inspectable result in an isolated sandbox. The newcomer can examine the result and choose its disposition. |
-| Response measure  | The newcomer holds an inspectable first-task result within ten minutes and five consent decisions after installation approval.        |
+| Response measure  | The newcomer holds an inspectable first-task result within ten minutes and five user decisions after installation approval.           |
 
 References: [section 6.10.4](06_runtime_view.md#6104-sequence-first-task-runs-in-an-isolated-sandbox), [value-first-onboarding-journey.feature Rule 8](../spec/value-first-onboarding-journey.feature)
 

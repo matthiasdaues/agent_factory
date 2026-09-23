@@ -1,6 +1,6 @@
 ---
 id: 0023
-status: proposed
+status: accepted
 evaluation: none
 ---
 
