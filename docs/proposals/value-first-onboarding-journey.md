@@ -97,6 +97,54 @@ gitignored. The defect is recorded in
 - Explain Factory concepts when the user encounters them.
 - Keep cancellation available at every change boundary.
 
+## Journey Overview
+
+1. **Download and inspect the bootstrap.** Save the script locally. Select one
+   local or remote source and an explicit target.
+2. **Run read-only preflight.** Check the host, tools, coding command-line
+   interfaces, and target. Report **Ready**, **Ready with limitations**, or
+   **Blocked** without making changes.
+3. **Resolve prerequisites.** Present one missing prerequisite at a time. Run
+   and verify only fixes that the user confirms.
+4. **Preview installation.** Show the source, version, target, selected
+   interfaces, affected files, instruction headers, and uninstall command.
+5. **Install and verify.** Verify release assets, apply the approved changes,
+   and provide a receipt with one exact next command.
+6. **Deliver immediate project insight.** Scan the real project without
+   changing it. Report detected evidence, unknowns, and one recommended action.
+7. **Introduce configuration when needed.** Explain context capture, concerns,
+   gates, and hooks immediately before they support the selected action.
+8. **Run one isolated task.** After approval, create a disposable worktree or
+   sandbox and produce an inspectable result outside the active working tree.
+9. **Choose what happens next.** Delete the sandbox, retain selected reference
+   artifacts, or enter a normal production workstream.
+
+## Stop Points
+
+| Stop point              | Cause                                                                                 | Result                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Bootstrap validation    | Missing or conflicting source, invalid version use, or missing or unsafe target       | Exit without changes.                                                  |
+| Release verification    | Missing or incorrect SHA-256 digest                                                   | Refuse extraction.                                                     |
+| Unsupported environment | Unsupported platform, architecture, shell, or target content                          | Explain the incompatibility and stop without changes.                  |
+| Blocked preflight       | A required capability is unavailable                                                  | Offer supported fixes or guidance; do not install.                     |
+| Prerequisite fix        | The user declines, cancels, or provides blank input                                   | Stop and report completed fixes and reversal steps.                    |
+| Fix verification        | An accepted fix does not satisfy its check                                            | Stop the fix sequence and show recovery guidance.                      |
+| Interface selection     | The choice remains ambiguous or blank input would select multiple interfaces          | Ask again or stop; never select all implicitly.                        |
+| Installation approval   | The user declines, cancels, or provides blank input                                   | Leave the target unchanged.                                            |
+| Context capture         | The user chooses to defer or cancel before the scan                                   | Do not start the context scan.                                         |
+| Gate demonstration      | The user chooses to skip it                                                           | Continue with the same hook defaults.                                  |
+| First-task approval     | The user does not approve the displayed task, decisions, artifacts, and cleanup       | Do not create or run the sandbox.                                      |
+| Artifact retention      | The user does not separately confirm copying selected artifacts                       | Do not copy artifacts into the project.                                |
+| First-task completion   | The user chooses to discard, retain, or begin real work                               | Apply only the selected outcome; never promote the spike silently.     |
+| Production handoff      | The user does not approve the normal playbook and its required changes                | End onboarding without starting production work.                       |
+| Update safety           | Modified Factory files, failed verification, or an unconfirmed source-boundary change | Stop or restore the prior installation according to the update result. |
+
+**Ready with limitations** is not a stop by itself. The journey may continue
+with the unavailable capabilities named. **Blocked** is a hard stop.
+
+Every mutating boundary requires affirmative consent. Blank input is not
+consent.
+
 ## Design
 
 ### 1. Public bootstrap
