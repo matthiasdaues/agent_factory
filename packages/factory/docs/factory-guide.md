@@ -28,7 +28,7 @@ Agent Factory hands your assistant five kinds of things. Learn these five words 
 | **Gate**     | An *automatic check* that catches mistakes before you waste time reviewing them.                                        | The quality inspector who won't let bad work pass. |
 | **Context**  | A small set of files where your project declares its stack, workflow, and rules. Agents read these instead of guessing. | The project fact sheet pinned to the wall.         |
 
-You never memorise the full list. Your assistant reads a catalogue — [`INDEX.yaml`](../INDEX.yaml) — and picks the right agent or skill for what you asked. Your job is to know *that these things exist* so you understand what the assistant is doing when it says "I'll use the requirements agent now." INDEX.yaml is also useful to you directly: it lists every agent, skill, and playbook with a one-line description, the phase it belongs to, and its token cost — handy when you want to see what is available or estimate how much a playbook run will consume.
+You never memorise the full list. Your assistant reads a catalogue — [`INDEX.yaml`](../INDEX.yaml) — and picks the right agent or skill for what you asked. Your job is to know *that these things exist* so you understand what the assistant is doing when it says "I'll use the requirements agent now." INDEX.yaml is also useful to you directly: it lists every agent, skill, and playbook with a one-line description and its token cost — handy when you want to see what is available or estimate how much a playbook run will consume.
 
 ### How you run it
 
@@ -80,9 +80,12 @@ That back-and-forth *is* Agent Factory. Everything larger is the same loop, with
 
 At any point you can ask the assistant "where am I?" or "what do I do next?" and it will reorient you.
 
-### The bigger picture: five phases
+### The bigger picture: five kinds of work
 
-When you graduate from spikes to real work, Agent Factory drives your assistant through five phases, in order. Think of it as a production line that turns a rough idea into finished code:
+When you graduate from spikes to real work, Agent Factory organizes the work
+into five kinds of activity. The typical dependency chain produces them in
+this order, but the system never prescribes that sequence — it emerges from
+what each agent needs before it can run:
 
 1. **Requirements** — What are we actually building, and for whom? The assistant interviews you, sometimes stubbornly, until the answer is clear and written down.
 2. **Architecture** — How will it be shaped? The big structural decisions, made on purpose and recorded, before any code locks them in.
@@ -90,11 +93,19 @@ When you graduate from spikes to real work, Agent Factory drives your assistant 
 4. **Implementation** — Each story built test-first: the test comes before the code, so the code has something to prove itself against.
 5. **Quality** — Independent review, a security pass, and a hunt for the bugs the earlier steps missed.
 
-Each phase has an author and a reviewer, and you approve the handover between them. You do not have to run all five. Most real tasks — a bug fix, a small feature, a documentation cleanup — use a shorter playbook that touches only the phases it needs.
+Each activity has an author and a reviewer, and you approve the handover
+between them. You do not have to run all five. Most real tasks — a bug fix,
+a small feature, a documentation cleanup — use a shorter playbook that
+touches only the activities it needs. If rework is needed, you fix the
+artifact directly and re-evaluate what agents are eligible — no "returning
+to an earlier phase."
 
 ### Which playbook, when
 
-Once the first spike feels comfortable, pick the recipe that matches your situation. You do not choose the agents yourself; the playbook does. You just choose the playbook.
+Once the first spike feels comfortable, pick the recipe that matches your
+situation. The playbook describes a typical reference path; `intent select`
+shows you which agents are eligible given what artifacts exist, and you choose
+what to do next.
 
 | You want to…                                           | Start with               |
 | ------------------------------------------------------ | ------------------------ |
@@ -133,7 +144,14 @@ After a spike or two, you will want to run a full playbook — `greenfield-devel
 
 **The model matrix.** `.agent-factory/config/model.conf` maps agent tiers — economy, standard, strong — to concrete AI models. If you use multiple coding CLIs (Claude Code, Copilot CLI, Pi, Codex), each one needs its own model ids here. The fitting walk-through configures this interactively. If you are building a greenfield project and skipped the fitting, the defaults work — but open `.agent-factory/config/model.conf` at least once so you know it exists. See [§ Model matrix and tiers](#model-matrix-and-tiers) below.
 
-**The phase chain.** Full playbooks drive work through five phases in order — requirements, architecture, planning, implementation, quality — with a different agent for each. The author/reviewer split described earlier applies at every phase. You do not need to memorize the chain; the playbook tells you what comes next. But knowing the shape helps you understand why the assistant asks for a specification before it writes code, or why it opens a fresh session for a review.
+**The dependency chain.** Full playbooks describe a typical path through five
+kinds of work — requirements, architecture, planning, implementation,
+quality — with a different agent for each. The author/reviewer split described
+earlier applies at every step. You do not need to memorize the chain; run
+`intent select` to see what agents can run given what artifacts exist. But
+knowing the typical shape helps you understand why the assistant asks for a
+specification before it writes code, or why it opens a fresh session for a
+review.
 
 **Everything below is reference material. You don't need it yet.**
 
@@ -148,7 +166,7 @@ After `init-factory` runs, `.agent-factory/factory/` contains the full toolset:
 ├── config/          Session menu, pre-commit config template
 ├── contracts/       Interface contracts between factory components
 ├── docs/            This guide, proposals, and reference material
-├── engine/          Precondition-based agent eligibility engine
+├── engine/          Precondition evaluator and agent eligibility engine
 ├── fixtures/        Sample data for spikes and demos
 ├── INDEX.yaml       Catalog of every agent, skill, playbook, and rulebook
 ├── playbooks/       Workflow recipes (greenfield-development.md, bug-fix.md, etc.)
@@ -200,17 +218,17 @@ Edit `docs/agent-context.md` directly — it is a plain Markdown file with no sp
 
 An agent is one job — "write requirements," "review the architecture," "implement one story." Each agent is a single markdown file in `.agent-factory/factory/agents/`, read by your AI CLI at the start of a session.
 
-Most phases have two agents: an **author** and a **reviewer**. The author produces an artifact (a spec, an architecture doc, code). The reviewer checks it in a separate session, without seeing the author's reasoning — only the artifact itself. This catches mistakes a self-review would miss, the same way a second pair of eyes catches things you can't see in your own pull request.
+Most activities have two agents: an **author** and a **reviewer**. The author produces an artifact (a spec, an architecture doc, code). The reviewer checks it in a separate session, without seeing the author's reasoning — only the artifact itself. This catches mistakes a self-review would miss, the same way a second pair of eyes catches things you can't see in your own pull request.
 
-In addition to the phase-chain agents, several **Phase 0 utility agents** support the work without belonging to a specific phase:
+In addition to the delivery agents, several **utility agents** support the work without belonging to a specific activity:
 
 - **VIRGIL** — introduced in [Your very first session](#your-very-first-session). Helps an idea find its shape, then hands off to the right playbook. Also sets up agent context (`docs/agent-context.md`) through the `capture-context` skill — see [Agent Context](#agent-context).
 - **coaching-agent** — runs retrospectives, extracts action items, and tracks process improvements across sessions.
 - **proposal-review-agent** — reviews a feature proposal for clarity, feasibility, and planning readiness. Consultative on drafts, adversarial on open proposals.
 
-These agents form a natural pipeline from idea to feature delivery. A typical flow: **VIRGIL** explores an idea → the `draft-proposal` skill crystallizes it into a proposal → **proposal-review-agent** pressure-tests the proposal → the `feature-addition` playbook delivers the feature through the phase chain.
+These agents form a natural path from idea to feature delivery. A typical flow: **VIRGIL** explores an idea → the `draft-proposal` skill crystallizes it into a proposal → **proposal-review-agent** pressure-tests the proposal → the `feature-addition` playbook delivers the feature through the dependency chain.
 
-The full list, grouped by phase, is in [`.agent-factory/factory/INDEX.yaml`](../INDEX.yaml). Each entry includes a `tokens` field (tiktoken cl100k_base token count of the agent's prompt text) and a `total_tokens` field (body + referenced skills + referenced rulebooks) for context window budget planning.
+The full list is in [`.agent-factory/factory/INDEX.yaml`](../INDEX.yaml). Each entry includes a `tokens` field (tiktoken cl100k_base token count of the agent's prompt text) and a `total_tokens` field (body + referenced skills + referenced rulebooks) for context window budget planning.
 
 ### Running an agent in a separate session
 
@@ -433,7 +451,7 @@ The full list is also in [`.agent-factory/factory/INDEX.yaml`](../INDEX.yaml), w
 
 ## Playbooks
 
-A playbook is a step-by-step recipe in `.agent-factory/factory/playbooks/` for a specific situation — which agents to run, in what order, with what to check in between. Pick the one that matches what you're doing; don't run the full phase chain when a smaller playbook fits.
+A playbook is a step-by-step recipe in `.agent-factory/factory/playbooks/` for a specific situation — which agents to run, in what order, with what to check in between. Pick the one that matches what you're doing; don't run the full dependency chain when a smaller playbook fits.
 
 ### Beginner playbooks
 
@@ -461,7 +479,7 @@ After either playbook completes (or after brownfield Stage 1), all feature work 
 
 ### Feature delivery and other full-chain playbooks
 
-Once a project has been onboarded, these playbooks drive feature delivery and other structured work through some or all of the five-phase chain (requirements → architecture → planning → implementation → quality — see [docs/arc42/concepts.md § The phase chain](../../../docs/arc42/concepts.md#the-phase-chain)):
+Once a project has been onboarded, these playbooks describe reference paths for feature delivery and other structured work. The typical dependency chain runs requirements → architecture → planning → implementation → quality, but the sequence emerges from each agent's declared preconditions, not from a prescribed order:
 
 | Playbook                                                        | For                                                                                                                                                                                                   |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -485,8 +503,8 @@ the shared brief:
   review, and voting. A surviving claim is not proved; it has only withstood
   the defined tests.
 
-Both modes are driven by the phase-6 **Research** agents and their
-`research-*` skills. Every artifact passes schema validation, policy where
+Both modes are driven by the **Research** agents and their `research-*`
+skills. Every artifact passes schema validation, policy where
 applicable, then semantic review before the next step begins.
 
 A survey can identify claims that deserve stronger scrutiny, but it does not
@@ -498,7 +516,7 @@ that those claims already earned a falsification verdict.
 
 ## Proposals
 
-A proposal is the seed brief that opens a feature-addition — the design origin the Planning phase turns into a backlog. Proposals live in the repository-root `docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its versioned frontmatter records lifecycle, impact, governance, and dated forecasts for active human-review hours and normalized AI tokens. Forecasts remain distinct from append-only actuals and provider billing. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. Clarification and grilling amend this artifact directly: `draft` becomes reviewable `open`, stakeholder acceptance authorizes downstream work, and material planning changes require reacceptance. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for the lifecycle and routing gates.
+A proposal is the seed brief that opens a feature-addition — the design origin the planning-agent turns into a backlog. Proposals live in the repository-root `docs/proposals/`, one markdown file per feature, written to the [proposal template](../rulebooks/templates/proposal.md). Its versioned frontmatter records lifecycle, impact, governance, and dated forecasts for active human-review hours and normalized AI tokens. Forecasts remain distinct from append-only actuals and provider billing. Its body records the summary, motivation, design, explicit in-scope / deferred split, open questions, and completion criteria. Clarification and grilling amend this artifact directly: `draft` becomes reviewable `open`, stakeholder acceptance authorizes downstream work, and material planning changes require reacceptance. A proposal is a design *origin*, not a runtime artifact — a shipped agent's `inputs:` must never reference it. See [feature-addition.md](../playbooks/feature-addition.md) for the lifecycle and routing gates.
 
 The `draft-proposal` skill crystallizes an explored idea into a proposal file. It runs in the current session with the stakeholder present, fills the template from conversation context, pressure-tests the result via `grilling`, and gates on completeness before setting `status: open`. The `proposal-review-agent` then reviews the open proposal in a separate session — consultative on drafts, adversarial on open proposals — using eight structured checks (testable criteria, sharp scope, decomposable design, consistent impact, existing boundaries, genuine questions, justified timing, plausible estimate).
 
@@ -525,13 +543,13 @@ A gate is a deterministic script — no LLM judgement involved — that catches 
 
 | Gate                                          | Fires at                                | What it checks                                                                                                                            |
 | --------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `.agent-factory/factory/scripts/spec-lint`    | Phase 1 → 2 boundary                    | Specification coverage: traceability across PRD, actor-goals, `.feature` files, and supplementary specs; ID uniqueness; required sections |
-| `.agent-factory/factory/scripts/arch-lint`    | Phase 2 → 3 boundary                    | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                              |
-| `.agent-factory/factory/scripts/backlog-lint` | Phase 3 → 4 boundary                    | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                          |
+| `.agent-factory/factory/scripts/spec-lint`    | After specification work completes      | Specification coverage: traceability across PRD, actor-goals, `.feature` files, and supplementary specs; ID uniqueness; required sections |
+| `.agent-factory/factory/scripts/arch-lint`    | After architecture work completes       | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                              |
+| `.agent-factory/factory/scripts/backlog-lint` | After planning completes                | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                          |
 | `.agent-factory/factory/scripts/concern-lint` | `agent-context.md` edit                 | Section structure, `Read:`/`Boundary:` path resolution, concern-reference integrity against story frontmatter, no legacy YAML residue     |
 | `.agent-factory/factory/scripts/matrix-lint`  | `.agent-factory/config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                        |
 
-In manual mode (driving each agent by hand, one session at a time), the reviewer agent for that phase runs its gate as its first step. Run any gate yourself the same way:
+In manual mode (driving each agent by hand, one session at a time), the reviewer agent runs its gate as its first step. Run any gate yourself the same way:
 
 ```bash
 .agent-factory/factory/scripts/spec-lint --spec-dir docs/spec/
@@ -544,7 +562,7 @@ These scripts are stdlib-only Python — no install needed to run them.
 
 ### Research artifact validation
 
-The research workflow adds two more deterministic validators, stdlib-only in the same spirit but invoked on demand by the research skills and agents (and by you), not wired to a phase boundary. They implement the first two stages of a fixed three-stage validation order — **schema → policy → semantic** — that splits validation by whether a machine can decide it:
+The research workflow adds two more deterministic validators, stdlib-only in the same spirit but invoked on demand by the research skills and agents (and by you), not wired to an activity boundary. They implement the first two stages of a fixed three-stage validation order — **schema → policy → semantic** — that splits validation by whether a machine can decide it:
 
 | Stage        | Tool                                             | Checks                                                                                                              |
 | ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
