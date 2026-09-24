@@ -995,3 +995,365 @@ class TestHeaderApplyAndRollback:
 
         assert code != 0
         assert (target / "AGENTS.md").read_text() == original_content
+
+
+# ---------------------------------------------------------------------------
+# ST-0286: source-boundary consent for --from-remote / --from-local
+# ---------------------------------------------------------------------------
+
+
+def _write_remote_manifest(
+    target: Path, resolved_source: str = "https://releases.example.com/releases/1.0.0/",
+) -> dict:
+    return _write_manifest(
+        target, factory_version="1.0.0", source_selector="remote",
+        resolved_source=resolved_source,
+    )
+
+
+class TestDetectSourceBoundaryChange:
+    """VFO-005: a boundary change is a source-kind flip or a different
+    remote base URL. A different local path under the same "local" kind
+    is not a boundary change — that is the pre-existing --source override."""
+
+    def test_no_flags_given_returns_none(self):
+        manifest = {"source_selector": "local", "factory_source": "/a/b"}
+        assert uf._detect_source_boundary_change(manifest, None, None) is None
+
+    def test_remote_to_local_kind_change_is_a_boundary(self, tmp_path):
+        manifest = {
+            "source_selector": "remote",
+            "resolved_source": "https://releases.example.com/releases/1.0.0/",
+        }
+        changed, current_desc, requested_desc = uf._detect_source_boundary_change(
+            manifest, None, tmp_path / "factory-src",
+        )
+        assert changed is True
+        assert current_desc.startswith("remote `https://releases.example.com`")
+        assert requested_desc.startswith("local `")
+
+    def test_local_to_remote_kind_change_is_a_boundary(self):
+        manifest = {"source_selector": "local", "factory_source": "/checkout"}
+        changed, current_desc, requested_desc = uf._detect_source_boundary_change(
+            manifest, "https://other.example.com", None,
+        )
+        assert changed is True
+        assert current_desc == "local `/checkout`"
+        assert requested_desc == "remote `https://other.example.com`"
+
+    def test_same_remote_url_is_not_a_boundary(self):
+        manifest = {
+            "source_selector": "remote",
+            "resolved_source": "https://releases.example.com/releases/1.0.0/",
+        }
+        changed, _current, _requested = uf._detect_source_boundary_change(
+            manifest, "https://releases.example.com", None,
+        )
+        assert changed is False
+
+    def test_different_remote_url_is_a_boundary(self):
+        manifest = {
+            "source_selector": "remote",
+            "resolved_source": "https://releases.example.com/releases/1.0.0/",
+        }
+        changed, _current, requested_desc = uf._detect_source_boundary_change(
+            manifest, "https://other.example.com", None,
+        )
+        assert changed is True
+        assert requested_desc == "remote `https://other.example.com`"
+
+    def test_different_local_path_same_kind_is_not_a_boundary(self, tmp_path):
+        source = tmp_path / "checkout"
+        manifest = {"source_selector": "local", "factory_source": str(source)}
+        other = tmp_path / "other-checkout"
+        changed, _current, _requested = uf._detect_source_boundary_change(
+            manifest, None, other,
+        )
+        assert changed is False
+
+
+class TestGetSourceBoundaryConsent:
+    """Blank, declined, or cancelled input is never treated as consent."""
+
+    def test_blank_input_is_not_consent(self):
+        assert uf.get_source_boundary_consent("msg", input_func=lambda _: "") is False
+
+    def test_declining_input_is_not_consent(self):
+        assert uf.get_source_boundary_consent(
+            "msg", input_func=lambda _: "no",
+        ) is False
+
+    def test_yes_is_consent(self):
+        assert uf.get_source_boundary_consent(
+            "msg", input_func=lambda _: "yes",
+        ) is True
+
+    def test_eof_is_not_consent(self):
+        def _raise(_):
+            raise EOFError
+
+        assert uf.get_source_boundary_consent("msg", input_func=_raise) is False
+
+
+class TestSourceBoundaryConsentInMain:
+    """The source-boundary prompt is separate from the normal update
+    approval; both must pass, and --force never bypasses source consent."""
+
+    def test_from_remote_new_url_triggers_prompt_and_proceeds(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+
+        archive_bytes = _make_archive_bytes({"VERSION": "2.0.0\n", "MARKER": "other\n"})
+
+        monkeypatch.setattr(
+            uf, "_resolve_release_base_url",
+            lambda base_url, timeout=uf.REMOTE_TIMEOUT: (
+                None, "https://other.example.com/releases/2.0.0/"
+            ),
+        )
+        monkeypatch.setattr(
+            uf, "_fetch_candidate_digest",
+            lambda url, timeout=uf.REMOTE_TIMEOUT: (None, "cafebabe"),
+        )
+        monkeypatch.setattr(
+            uf, "_download_and_verify_archive",
+            lambda url, timeout=uf.REMOTE_TIMEOUT: (None, archive_bytes, "cafebabe"),
+        )
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+        seen_messages: list[str] = []
+        monkeypatch.setattr(
+            uf, "get_source_boundary_consent",
+            lambda message, *a, **kw: seen_messages.append(message) or True,
+        )
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+
+        code = uf.main([
+            "--target", str(target), "--from-remote", "https://other.example.com",
+        ])
+        capsys.readouterr()
+
+        assert code == 0
+        assert len(seen_messages) == 1
+        assert "Current source: remote `https://releases.example.com`" in seen_messages[0]
+        assert "Requested source: remote `https://other.example.com`" in seen_messages[0]
+        manifest = json.loads((target / uf.MANIFEST_PATH).read_text())
+        assert manifest["source_selector"] == "remote"
+        assert manifest["resolved_source"] == "https://other.example.com/releases/2.0.0/"
+
+    def test_from_remote_same_url_skips_boundary_prompt(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+
+        calls: list[str] = []
+        monkeypatch.setattr(
+            uf, "get_source_boundary_consent",
+            lambda *a, **kw: calls.append("called") or True,
+        )
+        monkeypatch.setattr(
+            uf, "_resolve_release_base_url",
+            lambda base_url, timeout=uf.REMOTE_TIMEOUT: (
+                None, "https://releases.example.com/releases/1.0.0/"
+            ),
+        )
+        monkeypatch.setattr(
+            uf, "_fetch_candidate_digest",
+            lambda url, timeout=uf.REMOTE_TIMEOUT: (None, "deadbeef"),
+        )
+        monkeypatch.setattr(
+            uf, "_download_and_verify_archive",
+            lambda url, timeout=uf.REMOTE_TIMEOUT: (
+                None, _make_archive_bytes({"VERSION": "1.0.0\n"}), "deadbeef",
+            ),
+        )
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+
+        code = uf.main([
+            "--target", str(target), "--from-remote", "https://releases.example.com",
+        ])
+        capsys.readouterr()
+
+        assert code == 0
+        assert calls == []
+
+    def test_declined_source_boundary_consent_stops_without_changes(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+        manifest_before = (target / uf.MANIFEST_PATH).read_bytes()
+
+        monkeypatch.setattr(uf, "get_source_boundary_consent", lambda *a, **kw: False)
+
+        def _fail_if_called(*_a, **_kw):
+            raise AssertionError("declined source consent must never reach _run_init")
+
+        monkeypatch.setattr(uf, "_run_init", _fail_if_called)
+
+        code = uf.main([
+            "--target", str(target), "--from-remote", "https://other.example.com",
+        ])
+        capsys.readouterr()
+
+        assert code != 0
+        assert (target / uf.MANIFEST_PATH).read_bytes() == manifest_before
+
+    def test_force_does_not_bypass_source_boundary_consent(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+
+        monkeypatch.setattr(uf, "get_source_boundary_consent", lambda *a, **kw: False)
+
+        def _fail_if_called(*_a, **_kw):
+            raise AssertionError("--force must not bypass source-boundary consent")
+
+        monkeypatch.setattr(uf, "_run_init", _fail_if_called)
+
+        code = uf.main([
+            "--target", str(target), "--from-remote", "https://other.example.com",
+            "--force",
+        ])
+        capsys.readouterr()
+
+        assert code != 0
+
+    def test_from_local_kind_change_triggers_prompt_and_proceeds(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+        source = _make_candidate_source(tmp_path)
+
+        seen_messages: list[str] = []
+        monkeypatch.setattr(
+            uf, "get_source_boundary_consent",
+            lambda message, *a, **kw: seen_messages.append(message) or True,
+        )
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        code = uf.main(["--target", str(target), "--from-local", str(source)])
+        capsys.readouterr()
+
+        assert code == 0
+        assert len(seen_messages) == 1
+        assert "Current source: remote" in seen_messages[0]
+        assert "Requested source: local" in seen_messages[0]
+        manifest = json.loads((target / uf.MANIFEST_PATH).read_text())
+        assert manifest["source_selector"] == "local"
+        assert manifest["factory_source"] == str(source.resolve())
+        target_factory = target / ".agent-factory" / "factory"
+        assert (target_factory / "MARKER").read_text() == "candidate\n"
+
+
+class TestCheckReportsSourceBoundary:
+    """--check reports a detected source-boundary change as information,
+    without prompting (VFO-021: check performs no writes and no prompts)."""
+
+    def test_check_reports_detected_source_change(self, tmp_path, capsys, monkeypatch):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+
+        calls: list[str] = []
+        monkeypatch.setattr(
+            uf, "get_source_boundary_consent",
+            lambda *a, **kw: calls.append("called") or True,
+        )
+        monkeypatch.setattr(
+            uf, "_resolve_remote_candidate",
+            lambda resolved_source, timeout=uf.REMOTE_TIMEOUT: (
+                None, "1.0.0", "https://releases.example.com/releases/1.0.0/", "deadbeef"
+            ),
+        )
+
+        code = uf.main([
+            "--target", str(target), "--check",
+            "--from-remote", "https://other.example.com",
+        ])
+        out = capsys.readouterr().out
+
+        assert code == 0
+        assert calls == []
+        assert "Source change detected: current remote" in out
+        assert "requested remote `https://other.example.com`" in out
+        assert "separate source-boundary consent" in out
+
+    def test_check_same_source_reports_no_boundary_change(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+
+        monkeypatch.setattr(
+            uf, "_resolve_remote_candidate",
+            lambda resolved_source, timeout=uf.REMOTE_TIMEOUT: (
+                None, "1.0.0", "https://releases.example.com/releases/1.0.0/", "deadbeef"
+            ),
+        )
+
+        code = uf.main([
+            "--target", str(target), "--check",
+            "--from-remote", "https://releases.example.com",
+        ])
+        out = capsys.readouterr().out
+
+        assert code == 0
+        assert "Source change detected" not in out
+
+    def test_check_without_from_flags_reports_nothing_extra(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        _write_remote_manifest(target)
+
+        monkeypatch.setattr(
+            uf, "_resolve_remote_candidate",
+            lambda resolved_source, timeout=uf.REMOTE_TIMEOUT: (
+                None, "1.0.0", "https://releases.example.com/releases/1.0.0/", "deadbeef"
+            ),
+        )
+
+        code = uf.main(["--target", str(target), "--check"])
+        out = capsys.readouterr().out
+
+        assert code == 0
+        assert "Source change detected" not in out
+
+
+class TestMutuallyExclusiveFromFlags:
+    def test_from_remote_and_from_local_together_is_an_error(self, tmp_path):
+        target = tmp_path / "target"
+        target.mkdir()
+
+        try:
+            uf.main([
+                "--target", str(target),
+                "--from-remote", "https://other.example.com",
+                "--from-local", str(tmp_path / "src"),
+            ])
+        except SystemExit as exc:
+            assert exc.code != 0
+        else:
+            raise AssertionError("expected argparse to reject both flags together")

@@ -72,9 +72,15 @@ The one decision update-factory cannot infer is WHICH checkout or release to
 pull from. init-factory records the source it copied from in the install
 manifest (`factory_source` for local, `source_selector`/`resolved_source`
 for remote); update-factory reads that as its default and `--source`
-overrides it for a local candidate. Installations created before that field
-existed must pass `--source`. Changing source selector or remote URL is out
-of scope here — see ST-0286.
+overrides it for a local candidate of the *same* source kind. Installations
+created before that field existed must pass `--source`.
+
+Source boundary: `--from-remote <URL>` or `--from-local <path>` request a
+source kind change (local<->remote) or a different remote base URL — a
+trust-boundary change (VFO-005, ST-0286). That requires its own separate
+"yes", shown before the normal update approval; declining stops with no
+changes, and `--force` never bypasses it. Same source kind and same URL is
+not a boundary change — no separate prompt, just the normal approval.
 
 Usage
   update-factory --target /path/to/project                 # source from manifest
@@ -82,6 +88,8 @@ Usage
   update-factory --source /path/to/agent_factory           # target = cwd
   update-factory --check                                   # report changes, don't update
   update-factory --force                                   # update despite user changes
+  update-factory --from-remote https://other.example.com   # source-boundary change (remote URL)
+  update-factory --from-local ./factory-src                # source-boundary change (to local)
 
 --check reports installed and candidate versions, source, candidate digest,
 local modifications, and planned instruction header changes, and performs no
@@ -413,6 +421,75 @@ def get_update_consent(input_func=None) -> bool:
     return answer.strip().lower() in ("yes", "y")
 
 
+# ── Source-boundary consent (ST-0286) ────────────────────────────────────
+
+
+def _detect_source_boundary_change(
+    manifest: dict, from_remote: str | None, from_local: Path | None,
+) -> tuple[bool, str, str] | None:
+    """Compare a requested --from-remote/--from-local source against the
+    manifest's recorded source_selector/resolved_source or factory_source.
+
+    Returns None when neither flag was given — no source change was
+    requested, nothing to detect. Otherwise (changed, current_desc,
+    requested_desc): `changed` is True only when the source kind differs
+    (local<->remote) or, for two remote sources, the base URL differs
+    (VFO-005). A different local path under the same "local" kind is not a
+    boundary change — that is the pre-existing --source override, already
+    in scope without separate consent.
+    """
+    if from_remote is None and from_local is None:
+        return None
+
+    current_kind = manifest.get("source_selector", "local")
+    if current_kind == "remote":
+        resolved_source = manifest.get("resolved_source") or ""
+        current_value = (
+            _derive_remote_base_url(resolved_source) or resolved_source or "unknown"
+        )
+    else:
+        current_value = manifest.get("factory_source") or "unknown"
+    current_desc = f"{current_kind} `{current_value}`"
+
+    if from_remote is not None:
+        requested_kind = "remote"
+        requested_value = from_remote.rstrip("/")
+    else:
+        requested_kind = "local"
+        requested_value = str(from_local.resolve())
+    requested_desc = f"{requested_kind} `{requested_value}`"
+
+    if requested_kind != current_kind:
+        changed = True
+    elif requested_kind == "remote":
+        changed = current_value.rstrip("/") != requested_value
+    else:
+        changed = False
+
+    return changed, current_desc, requested_desc
+
+
+def _source_boundary_message(current_desc: str, requested_desc: str) -> str:
+    return f"Current source: {current_desc}. Requested source: {requested_desc}."
+
+
+def get_source_boundary_consent(message: str, input_func=None) -> bool:
+    """Ask separate affirmative consent for a source-boundary change
+    (VFO-005). Blank, declined, or cancelled input is never treated as
+    consent, and this gate is never bypassed by --force — no automatic
+    fallback crosses the source boundary."""
+    if input_func is None:
+        input_func = input
+    print("\nSource-Boundary Change")
+    print("-" * 40)
+    print(f"  {message}")
+    try:
+        answer = input_func("Proceed with source change? (yes to confirm): ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in ("yes", "y")
+
+
 # ── Download, verification, and extraction (remote candidates) ──────────
 
 
@@ -738,6 +815,18 @@ def _resolve_remote_candidate(resolved_source: str, timeout: int = REMOTE_TIMEOU
         return (f"cannot determine the release base URL from the recorded "
                 f"source {resolved_source!r}"), None, None, None
 
+    return _resolve_remote_candidate_from_base(base_url, timeout=timeout)
+
+
+def _resolve_remote_candidate_from_base(base_url: str, timeout: int = REMOTE_TIMEOUT):
+    """Resolve the candidate version, release URL, and digest starting from
+    an explicit remote base URL, rather than one derived from a previously
+    resolved release URL. Used for --from-remote (ST-0286), where the base
+    URL is given directly and may name a different remote host entirely.
+
+    Returns (error, candidate_version, resolved_url, digest), same shape as
+    `_resolve_remote_candidate`.
+    """
     error, resolved_url = _resolve_release_base_url(base_url, timeout=timeout)
     if error:
         return error, None, None, None
@@ -913,6 +1002,18 @@ def _run_check(target: Path, manifest: dict, args: argparse.Namespace) -> int:
     else:
         print("\n  No planned instruction header changes.")
 
+    source_boundary = _detect_source_boundary_change(
+        manifest, args.from_remote, args.from_local,
+    )
+    if source_boundary is not None:
+        changed, current_desc, requested_desc = source_boundary
+        if changed:
+            print(
+                f"\n  Source change detected: current {current_desc}, "
+                f"requested {requested_desc}. This update would require "
+                "separate source-boundary consent."
+            )
+
     print()
     return 0
 
@@ -941,6 +1042,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="report user modifications and exit without updating",
     )
+    source_boundary_group = ap.add_mutually_exclusive_group()
+    source_boundary_group.add_argument(
+        "--from-remote",
+        type=str,
+        default=None,
+        metavar="URL",
+        help="update from a different remote base URL; a source kind or "
+        "URL change requires separate consent (ST-0286)",
+    )
+    source_boundary_group.add_argument(
+        "--from-local",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="update from a local checkout; a source kind change requires "
+        "separate consent (ST-0286)",
+    )
     args = ap.parse_args(argv)
 
     target = args.target.resolve()
@@ -962,6 +1080,27 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check:
         return _run_check(target, manifest, args)
+
+    # ── Source-boundary consent (ST-0286) ────────────────────────────────
+    # A separate gate from the normal update approval below, and never
+    # bypassed by --force (VFO-005). No automatic fallback crosses the
+    # source boundary — only an explicit "yes" here lets the update
+    # proceed with the requested source; blank/declined input stops with
+    # no changes at all, before modification detection even runs.
+
+    source_boundary = _detect_source_boundary_change(
+        manifest, args.from_remote, args.from_local,
+    )
+    if source_boundary is not None:
+        changed, current_desc, requested_desc = source_boundary
+        if changed:
+            message = _source_boundary_message(current_desc, requested_desc)
+            if not get_source_boundary_consent(message):
+                print(
+                    "update-factory: source change cancelled — no changes made",
+                    file=sys.stderr,
+                )
+                return 1
 
     # ── Modification detection ─────────────────────────────────────────
     # Runs before staging or approval: a modified installation stops the
@@ -999,7 +1138,16 @@ def main(argv: list[str] | None = None) -> int:
 
     installed_version = manifest.get("factory_version", "unknown")
     source_selector = manifest.get("source_selector", "local")
-    is_remote = source_selector == "remote" and args.source is None
+    if args.from_remote is not None:
+        source_selector = "remote"
+    elif args.from_local is not None:
+        source_selector = "local"
+
+    # --from-local behaves like --source for the local-candidate branch
+    # below; --from-remote is handled separately since it names a base URL,
+    # not a resolved release URL already recorded in the manifest.
+    local_source_arg = args.from_local if args.from_local is not None else args.source
+    is_remote = source_selector == "remote" and local_source_arg is None
 
     target_factory = target / ".agent-factory" / "factory"
     if target_factory.exists() and not target_factory.is_dir():
@@ -1018,24 +1166,28 @@ def main(argv: list[str] | None = None) -> int:
     source_factory: Path | None = None
 
     if is_remote:
-        resolved_source = manifest.get("resolved_source")
-        if not resolved_source:
-            print(
-                "update-factory: no resolved_source recorded for this "
-                "remote install",
-                file=sys.stderr,
-            )
-            return 1
-        error, candidate_version, resolved_url, digest = \
-            _resolve_remote_candidate(resolved_source)
+        if args.from_remote is not None:
+            error, candidate_version, resolved_url, digest = \
+                _resolve_remote_candidate_from_base(args.from_remote)
+        else:
+            resolved_source = manifest.get("resolved_source")
+            if not resolved_source:
+                print(
+                    "update-factory: no resolved_source recorded for this "
+                    "remote install",
+                    file=sys.stderr,
+                )
+                return 1
+            error, candidate_version, resolved_url, digest = \
+                _resolve_remote_candidate(resolved_source)
         if error:
             print(f"update-factory: {error}", file=sys.stderr)
             return 1
         source_label = resolved_url
         preview_candidate_source = None
     else:
-        if args.source is not None:
-            source = args.source.resolve()
+        if local_source_arg is not None:
+            source = local_source_arg.resolve()
         else:
             recorded = manifest.get("factory_source")
             if not isinstance(recorded, str) or not recorded:
