@@ -1,19 +1,881 @@
 #!/usr/bin/env python3
 """install-agent-factory -- bootstrap installer for Agent Factory.
 
-Stdlib-only Python 3.8+ script. Downloads or copies a verified Factory
-release into a target project.  Full implementation is a separate story;
-this file exists so build-release can bundle it verbatim.
+Stdlib-only Python 3.8+ script.  Diagnoses the host, validates the source
+and target, collects consent, delegates project setup to init-factory, then
+manages instruction headers and produces an installation receipt.
+
+Architecture: ADR-0022 — bootstrap wraps init-factory.
 """
 
 from __future__ import annotations
 
+import argparse
+import hashlib
+import json
+import os
+import platform
+import shutil
+import subprocess
 import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 
-def main() -> int:
-    print("install-agent-factory: not yet implemented", file=sys.stderr)
-    return 1
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+
+ORIENTATION_BEGIN = "<!-- >>> agent_factory orientation >>>"
+ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
+
+ORIENTATION_INCLUDE = {
+    ".claude": "@../../.agent-factory/factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
+}
+
+ORIENTATION_FILE = {
+    ".claude": ".claude/CLAUDE.md",
+    ".github": ".github/copilot-instructions.md",
+    ".pi": "AGENTS.md",
+    ".codex": "AGENTS.md",
+}
+
+CLI_DOT_DIRS = {
+    "claude": [".claude"],
+    "copilot": [".github"],
+    "pi": [".pi"],
+    "codex": [".codex"],
+}
+
+# CLI-specific orientation file for inlining (non-Claude CLIs).
+CLI_ORIENTATION_FILE = {
+    ".claude": "AGENTS.claude.md",
+    ".github": "AGENTS.copilot.md",
+    ".pi": "AGENTS.pi.md",
+    ".codex": "AGENTS.codex.md",
+}
+
+SCAN_SKIP_DIRS = frozenset({
+    ".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", ".nox",
+    "dist", "build", ".eggs", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+    "factory", ".agent-factory", ".current-work", ".claude", ".github", ".pi",
+    ".codex", ".agents",
+})
+
+INSTRUCTION_FILENAMES = frozenset({"AGENTS.md", "copilot-instructions.md"})
+
+MANIFEST_PATH = ".agent-factory/install.json"
+
+READINESS_READY = "Ready"
+READINESS_LIMITED = "Ready with limitations"
+READINESS_BLOCKED = "Blocked"
+
+
+# ---------------------------------------------------------------------------
+# Argument parsing and validation
+# ---------------------------------------------------------------------------
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse and validate CLI arguments."""
+    ap = argparse.ArgumentParser(
+        prog="install-agent-factory",
+        description="Bootstrap installer for Agent Factory.",
+    )
+    ap.add_argument(
+        "--from-local",
+        metavar="PATH",
+        default=None,
+        help="Local Agent Factory source tree to install from.",
+    )
+    ap.add_argument(
+        "--from-remote",
+        metavar="URL",
+        default=None,
+        help="Remote release base URL to download from.",
+    )
+    ap.add_argument(
+        "--target",
+        metavar="PATH",
+        default=None,
+        help="Target project directory.",
+    )
+    ap.add_argument(
+        "--version",
+        metavar="VER",
+        default=None,
+        help="Release version (valid only with --from-remote).",
+    )
+    return ap.parse_args(argv)
+
+
+def validate_args(args: argparse.Namespace) -> Tuple[Optional[str], Optional[str]]:
+    """Validate parsed arguments.  Returns (error_message, None) on failure."""
+    sources = []
+    if args.from_local is not None:
+        sources.append("local")
+    if args.from_remote is not None:
+        sources.append("remote")
+
+    if len(sources) == 0:
+        return ("install-agent-factory: exactly one source selector required "
+                "(--from-local or --from-remote)"), None
+    if len(sources) > 1:
+        return ("install-agent-factory: only one source selector allowed "
+                "(got both --from-local and --from-remote)"), None
+
+    if args.target is None:
+        return ("install-agent-factory: --target is required for "
+                "first installation"), None
+
+    if args.version is not None and args.from_local is not None:
+        return ("install-agent-factory: --version is only valid with "
+                "--from-remote, not --from-local"), None
+
+    return None, sources[0]
+
+
+# ---------------------------------------------------------------------------
+# Target validation
+# ---------------------------------------------------------------------------
+
+def validate_target(target_str: str) -> Tuple[Optional[str], Optional[Path]]:
+    """Validate and resolve the target path.
+
+    Returns (error, resolved_path).
+    """
+    target = Path(target_str).resolve()
+    root = Path("/")
+    home = Path.home().resolve()
+
+    if target == root:
+        return ("install-agent-factory: unsafe target — filesystem root is "
+                "not a valid installation target"), None
+
+    if target == home:
+        return ("install-agent-factory: unsafe target — user home directory "
+                "is not a valid installation target"), None
+
+    if not target.exists():
+        return (f"install-agent-factory: target does not exist: "
+                f"{target}"), None
+
+    if not target.is_dir():
+        return (f"install-agent-factory: target is not a directory: "
+                f"{target}"), None
+
+    return None, target
+
+
+# ---------------------------------------------------------------------------
+# Source validation
+# ---------------------------------------------------------------------------
+
+def validate_local_source(source_str: str) -> Tuple[Optional[str], Optional[Path]]:
+    """Validate and resolve a local source path.
+
+    Returns (error, resolved_path).
+    """
+    source = Path(source_str).resolve()
+
+    if not source.exists():
+        return (f"install-agent-factory: local source does not exist: "
+                f"{source}"), None
+
+    if not source.is_dir():
+        return (f"install-agent-factory: local source is not a directory: "
+                f"{source}"), None
+
+    # Must contain packages/factory/
+    pkg_factory = source / "packages" / "factory"
+    if not pkg_factory.is_dir():
+        return (f"install-agent-factory: local source does not contain an "
+                f"Agent Factory source tree (missing packages/factory/): "
+                f"{source}"), None
+
+    return None, source
+
+
+# ---------------------------------------------------------------------------
+# Preflight diagnosis
+# ---------------------------------------------------------------------------
+
+class PreflightCheck:
+    """One preflight check result."""
+    __slots__ = ("name", "passed", "critical", "message",
+                 "purpose", "fix", "scope", "reversal", "verification")
+
+    def __init__(self, name: str, passed: bool, critical: bool,
+                 message: str, *, purpose: str = "", fix: str = "",
+                 scope: str = "", reversal: str = "",
+                 verification: str = "") -> None:
+        self.name = name
+        self.passed = passed
+        self.critical = critical
+        self.message = message
+        self.purpose = purpose
+        self.fix = fix
+        self.scope = scope
+        self.reversal = reversal
+        self.verification = verification
+
+
+def check_platform() -> PreflightCheck:
+    """Check that the platform and architecture are supported (VFO-008)."""
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    supported_systems = {"linux", "darwin"}
+    supported_machines = {"x86_64", "amd64", "aarch64", "arm64"}
+
+    # Check for WSL
+    is_wsl = False
+    if system == "linux":
+        try:
+            uname_r = platform.release().lower()
+            is_wsl = "microsoft" in uname_r or "wsl" in uname_r
+        except Exception:
+            pass
+
+    if system not in supported_systems:
+        return PreflightCheck(
+            "platform", False, True,
+            f"Unsupported platform: {platform.system()}. "
+            f"Agent Factory supports macOS, Linux, and Windows Subsystem for Linux.",
+        )
+
+    if machine not in supported_machines:
+        return PreflightCheck(
+            "platform", False, True,
+            f"Unsupported architecture: {platform.machine()}. "
+            f"Agent Factory supports x86_64 and arm64.",
+        )
+
+    label = "WSL (Linux)" if is_wsl else platform.system()
+    return PreflightCheck(
+        "platform", True, True,
+        f"Platform: {label} on {platform.machine()}",
+    )
+
+
+def check_shell() -> PreflightCheck:
+    """Check that bash or zsh is available."""
+    for shell in ("bash", "zsh"):
+        if shutil.which(shell):
+            return PreflightCheck(
+                "shell", True, True,
+                f"Shell: {shell} available",
+            )
+    return PreflightCheck(
+        "shell", False, True,
+        "No supported shell found (bash or zsh required).",
+        purpose="Factory scripts and hooks require bash or zsh.",
+        fix="Install bash via your system package manager.",
+        scope="Installs bash for the current user.",
+        reversal="Remove bash via your system package manager.",
+        verification="bash --version",
+    )
+
+
+def check_git() -> PreflightCheck:
+    """Check that git is available."""
+    try:
+        result = subprocess.run(
+            ["git", "--version"], capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            return PreflightCheck(
+                "git", True, True,
+                f"Git: {version}",
+            )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return PreflightCheck(
+        "git", False, True,
+        "Git is not installed.",
+        purpose="Factory requires Git for version control and hooks.",
+        fix="Install git via your system package manager.",
+        scope="Installs git system-wide.",
+        reversal="Uninstall git via your system package manager.",
+        verification="git --version",
+    )
+
+
+def check_python() -> PreflightCheck:
+    """Check that Python 3.8+ is available."""
+    version = sys.version_info
+    if version >= (3, 8):
+        return PreflightCheck(
+            "python", True, True,
+            f"Python: {version.major}.{version.minor}.{version.micro}",
+        )
+    return PreflightCheck(
+        "python", False, True,
+        f"Python {version.major}.{version.minor} found, but 3.8+ required.",
+        purpose="Factory scripts require Python 3.8 or newer.",
+        fix="Install Python 3.8+ from python.org or your package manager.",
+        scope="Installs Python for the current user or system-wide.",
+        reversal="Uninstall the new Python version.",
+        verification="python3 --version",
+    )
+
+
+def check_uv() -> PreflightCheck:
+    """Check that uv is available (optional)."""
+    if shutil.which("uv"):
+        return PreflightCheck(
+            "uv", True, False,
+            "uv: available",
+        )
+    return PreflightCheck(
+        "uv", False, False,
+        "uv is not installed (recommended for dependency management).",
+        purpose="uv provides fast Python dependency management.",
+        fix="curl -LsSf https://astral.sh/uv/install.sh | sh",
+        scope="Installs uv for the current user (~/.cargo/bin/).",
+        reversal="rm ~/.cargo/bin/uv",
+        verification="uv --version",
+    )
+
+
+def run_preflight(source: Path, target: Path) -> Tuple[str, List[PreflightCheck]]:
+    """Run all preflight checks.  Returns (readiness, checks).
+
+    VFO-009: exactly one readiness value.
+    VFO-010: no side effects.
+    """
+    checks = [
+        check_platform(),
+        check_shell(),
+        check_git(),
+        check_python(),
+        check_uv(),
+    ]
+
+    critical_failures = [c for c in checks if c.critical and not c.passed]
+    optional_failures = [c for c in checks if not c.critical and not c.passed]
+
+    if critical_failures:
+        readiness = READINESS_BLOCKED
+    elif optional_failures:
+        readiness = READINESS_LIMITED
+    else:
+        readiness = READINESS_READY
+
+    return readiness, checks
+
+
+# ---------------------------------------------------------------------------
+# Interface detection
+# ---------------------------------------------------------------------------
+
+# Reverse map: dot-dir -> cli name
+_DOTDIR_TO_CLI = {}
+for cli_name, dirs in CLI_DOT_DIRS.items():
+    for d in dirs:
+        _DOTDIR_TO_CLI[d] = cli_name
+
+
+def detect_interfaces(target: Path) -> Dict[str, str]:
+    """Detect CLI interfaces present in the target.
+
+    Returns dict of {dot_dir: cli_name} for detected interfaces.
+    """
+    found = {}
+    for dot_dir, cli_name in _DOTDIR_TO_CLI.items():
+        if (target / dot_dir).is_dir():
+            found[dot_dir] = cli_name
+    return found
+
+
+def select_interface(detected: Dict[str, str],
+                     input_func=None) -> Optional[str]:
+    """Select an interface.  Returns the cli name or None.
+
+    VFO-015: blank on exactly one detected = auto-select.
+    Blank on zero or multiple = ask again or stop, never all.
+    """
+    if input_func is None:
+        input_func = input
+
+    if not detected:
+        print("\nNo CLI interfaces detected in the target directory.")
+        print("Available interfaces: claude, copilot, pi, codex")
+        for attempt in range(3):
+            try:
+                choice = input_func("Select an interface (or press Enter to stop): ")
+            except (EOFError, KeyboardInterrupt):
+                return None
+            choice = choice.strip().lower()
+            if not choice:
+                return None
+            if choice in CLI_DOT_DIRS:
+                return choice
+            print(f"  Unknown interface: {choice}")
+        return None
+
+    if len(detected) == 1:
+        dot_dir, cli_name = next(iter(detected.items()))
+        print(f"\nDetected interface: {cli_name} ({dot_dir}/)")
+        try:
+            choice = input_func(
+                f"Use {cli_name}? (press Enter to confirm, or type another): "
+            )
+        except (EOFError, KeyboardInterrupt):
+            return None
+        choice = choice.strip().lower()
+        if not choice:
+            # Auto-select the single detected interface
+            return cli_name
+        if choice in CLI_DOT_DIRS:
+            return choice
+        return None
+
+    # Multiple detected — ambiguous, must choose explicitly
+    print("\nMultiple CLI interfaces detected:")
+    for dot_dir, cli_name in sorted(detected.items()):
+        print(f"  - {cli_name} ({dot_dir}/)")
+    for attempt in range(3):
+        try:
+            choice = input_func("Select one interface (or press Enter to stop): ")
+        except (EOFError, KeyboardInterrupt):
+            return None
+        choice = choice.strip().lower()
+        if not choice:
+            return None
+        if choice in CLI_DOT_DIRS:
+            return choice
+        print(f"  Unknown interface: {choice}")
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Preview and consent
+# ---------------------------------------------------------------------------
+
+def read_factory_version(source: Path) -> str:
+    """Read the Factory version from the source tree."""
+    version_file = source / "packages" / "factory" / "VERSION"
+    if version_file.is_file():
+        return version_file.read_text().strip()
+    return "unknown"
+
+
+def show_preview(source: Path, target: Path, cli_name: str,
+                 source_selector: str, readiness: str,
+                 instruction_files: List[Path]) -> None:
+    """Display the installation preview.
+
+    VFO-014: shows source, version, target, interfaces, affected paths,
+    instruction files, and uninstall command.
+    """
+    version = read_factory_version(source)
+
+    print("\n" + "=" * 60)
+    print("Installation Preview")
+    print("=" * 60)
+    print(f"  Source:      {source.resolve()} ({source_selector})")
+    print(f"  Version:     {version}")
+    print(f"  Target:      {target}")
+    print(f"  Interface:   {cli_name}")
+    print()
+    print("  Affected paths:")
+    print(f"    {target / '.agent-factory/'}")
+    for dot_dir in CLI_DOT_DIRS.get(cli_name, []):
+        orientation_file = ORIENTATION_FILE.get(dot_dir, "")
+        if orientation_file:
+            print(f"    {target / orientation_file}")
+    if instruction_files:
+        print()
+        print("  Instruction files to update:")
+        for f in instruction_files:
+            rel = f.relative_to(target)
+            print(f"    {rel}")
+    print()
+    print(f"  Uninstall:   .agent-factory/factory/scripts/remove-factory "
+          f"--target {target}")
+    print("=" * 60)
+
+
+def get_consent(input_func=None) -> bool:
+    """Ask for installation consent.
+
+    Blank, declined, or cancelled = stop (VFO-012).
+    """
+    if input_func is None:
+        input_func = input
+    try:
+        answer = input_func("\nProceed with installation? (yes to confirm): ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in ("yes", "y")
+
+
+# ---------------------------------------------------------------------------
+# Instruction header management
+# ---------------------------------------------------------------------------
+
+def discover_instruction_files(target: Path) -> List[Path]:
+    """Walk target for AGENTS.md and copilot-instructions.md files.
+
+    VFO-017: visits regular files outside documented exclusions.
+    VFO-018: does not follow external symlinks or create missing files.
+    """
+    found = []
+    for dirpath, dirnames, filenames in os.walk(target, followlinks=False):
+        # Prune excluded directories
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in SCAN_SKIP_DIRS
+        ]
+        current = Path(dirpath)
+        for fname in filenames:
+            if fname in INSTRUCTION_FILENAMES:
+                fpath = current / fname
+                # Skip symlinks that point outside the target
+                if fpath.is_symlink():
+                    try:
+                        resolved = fpath.resolve()
+                        if not str(resolved).startswith(str(target.resolve())):
+                            continue
+                    except (OSError, ValueError):
+                        continue
+                if fpath.is_file():
+                    found.append(fpath)
+    return sorted(found)
+
+
+def _build_orientation_block(target: Path, filepath: Path,
+                             cli_name: str) -> str:
+    """Build the orientation content for a specific file and CLI."""
+    # Determine the dot-dir for this CLI
+    dot_dirs = CLI_DOT_DIRS.get(cli_name, [])
+    dot_dir = dot_dirs[0] if dot_dirs else ""
+
+    if dot_dir in ORIENTATION_INCLUDE:
+        # CLI supports @-includes — compute relative path
+        content = ORIENTATION_INCLUDE[dot_dir]
+    else:
+        # Inline the CLI-specific orientation content
+        # Read from the source's config directory
+        cli_file = CLI_ORIENTATION_FILE.get(dot_dir, "")
+        if cli_file:
+            config_path = target / ".agent-factory" / "factory" / "config" / cli_file
+            if config_path.is_file():
+                content = config_path.read_text()
+            else:
+                # Fallback: basic reference
+                content = (
+                    f"Read and follow .agent-factory/factory/rulebooks/rules.md "
+                    f"in full.\n"
+                )
+        else:
+            content = (
+                "Read and follow .agent-factory/factory/rulebooks/rules.md "
+                "in full.\n"
+            )
+
+    return f"{ORIENTATION_BEGIN}\n{content}{ORIENTATION_END}\n"
+
+
+def has_orientation_block(content: str) -> bool:
+    """Check whether content already contains the orientation markers."""
+    return ORIENTATION_BEGIN in content
+
+
+def inject_header(filepath: Path, target: Path, cli_name: str) -> Optional[Dict]:
+    """Prepend orientation header to an instruction file.
+
+    VFO-019: at most one marker-delimited header per file.
+    VFO-020: records enough state to update/remove.
+
+    Returns dict with injection metadata, or None if already present.
+    """
+    content = filepath.read_text()
+
+    if has_orientation_block(content):
+        return None  # Already has header, no duplicate
+
+    orig_final_newline = content.endswith("\n") if content else True
+
+    block = _build_orientation_block(target, filepath, cli_name)
+    block_digest = hashlib.sha256(block.encode("utf-8")).hexdigest()
+
+    new_content = block + "\n" + content
+
+    filepath.write_text(new_content)
+
+    rel_path = str(filepath.relative_to(target))
+    return {
+        "path": rel_path,
+        "status": "injected",
+        "block_digest": block_digest,
+        "orig_final_newline": orig_final_newline,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Manifest management
+# ---------------------------------------------------------------------------
+
+def read_manifest(target: Path) -> Optional[Dict]:
+    """Read the install manifest if it exists."""
+    manifest_path = target / MANIFEST_PATH
+    if manifest_path.is_file():
+        return json.loads(manifest_path.read_text())
+    return None
+
+
+def migrate_manifest_v1_to_v2(
+    manifest: Dict,
+    source_selector: str,
+    resolved_source: str,
+    extra_orientations: Optional[Dict] = None,
+) -> Dict:
+    """Migrate a v1 manifest to v2 schema.
+
+    - orientation entries: bare string -> object with status, block_digest,
+      orig_final_newline
+    - New top-level keys: source_selector, resolved_source
+    - Version bumped to 2
+    """
+    orientation = manifest.get("orientation", {})
+    orig_newlines = manifest.get("orientation_orig_final_newline", {})
+
+    new_orientation = {}
+    for path, value in orientation.items():
+        if isinstance(value, str):
+            # v1 format: bare status string
+            new_orientation[path] = {
+                "status": value,
+                "block_digest": "",
+                "orig_final_newline": orig_newlines.get(path, True),
+            }
+        elif isinstance(value, dict):
+            # Already v2 format
+            new_orientation[path] = value
+        else:
+            new_orientation[path] = {
+                "status": str(value),
+                "block_digest": "",
+                "orig_final_newline": orig_newlines.get(path, True),
+            }
+
+    # Add any new orientation entries from bootstrap header injection
+    if extra_orientations:
+        for path, entry in extra_orientations.items():
+            new_orientation[path] = entry
+
+    manifest["orientation"] = new_orientation
+    manifest["source_selector"] = source_selector
+    manifest["resolved_source"] = resolved_source
+    manifest["version"] = 2
+
+    # Remove the now-redundant flat newline dict
+    manifest.pop("orientation_orig_final_newline", None)
+
+    return manifest
+
+
+def write_manifest(target: Path, manifest: Dict) -> None:
+    """Write the manifest to disk."""
+    manifest_path = target / MANIFEST_PATH
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Receipt
+# ---------------------------------------------------------------------------
+
+def show_receipt(target: Path, cli_name: str, source: Path,
+                 source_selector: str, version: str,
+                 changed_paths: List[str],
+                 instruction_files: List[str]) -> None:
+    """Display the installation receipt.
+
+    VFO-016: lists only changed paths and one exact next command.
+    """
+    print("\n" + "=" * 60)
+    print("Installation Receipt")
+    print("=" * 60)
+    print(f"  Interface:   {cli_name}")
+    print(f"  Version:     {version}")
+    print(f"  Source:      {source.resolve()} ({source_selector})")
+    print()
+    print("  Changed paths:")
+    for p in sorted(set(changed_paths)):
+        print(f"    {p}")
+    if instruction_files:
+        print()
+        print("  Instruction headers injected:")
+        for p in instruction_files:
+            print(f"    {p}")
+    print()
+    print(f"  Uninstall:   .agent-factory/factory/scripts/remove-factory "
+          f"--target {target}")
+    print()
+    print(f"  Next:        cd {target}")
+    print("=" * 60)
+
+
+# ---------------------------------------------------------------------------
+# Main workflow
+# ---------------------------------------------------------------------------
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+
+    # --- Argument validation ---
+    error, source_selector = validate_args(args)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
+
+    # --- Target validation ---
+    error, target = validate_target(args.target)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
+
+    # --- Source validation (local only for this story) ---
+    if source_selector == "local":
+        error, source = validate_local_source(args.from_local)
+        if error:
+            print(error, file=sys.stderr)
+            return 1
+    else:
+        # Remote source handling is ST-0282
+        print("install-agent-factory: --from-remote is not yet implemented",
+              file=sys.stderr)
+        return 1
+
+    # --- Preflight diagnosis (VFO-010: read-only) ---
+    readiness, checks = run_preflight(source, target)
+
+    print("\nPreflight Diagnosis")
+    print("-" * 40)
+    for check in checks:
+        status = "OK" if check.passed else "FAIL"
+        print(f"  [{status}] {check.message}")
+        if not check.passed and check.purpose:
+            print(f"         Purpose:      {check.purpose}")
+            print(f"         Fix:          {check.fix}")
+            print(f"         Scope:        {check.scope}")
+            print(f"         Reversal:     {check.reversal}")
+            print(f"         Verification: {check.verification}")
+    print(f"\nReadiness: {readiness}")
+
+    if readiness == READINESS_BLOCKED:
+        # Check for unsupported platform specifically
+        platform_check = next((c for c in checks if c.name == "platform"), None)
+        if platform_check and not platform_check.passed:
+            print(f"\n{platform_check.message}", file=sys.stderr)
+            return 1
+        print("\nInstallation is blocked due to missing prerequisites.",
+              file=sys.stderr)
+        return 1
+
+    # --- Interface detection and selection ---
+    detected = detect_interfaces(target)
+    selected_cli = select_interface(detected)
+    if selected_cli is None:
+        print("\nNo interface selected. Stopping without changes.")
+        return 0
+
+    # --- Discover instruction files (before installation, for preview) ---
+    instruction_files = discover_instruction_files(target)
+
+    # --- Preview ---
+    version = read_factory_version(source)
+    show_preview(source, target, selected_cli, source_selector,
+                 readiness, instruction_files)
+
+    # --- Consent ---
+    if not get_consent():
+        print("\nInstallation cancelled. No changes made.")
+        return 0
+
+    # --- Delegate to init-factory ---
+    init_factory_path = source / "packages" / "factory" / "scripts" / "init-factory"
+    if not init_factory_path.is_file():
+        print(f"install-agent-factory: init-factory not found at "
+              f"{init_factory_path}", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        [sys.executable, str(init_factory_path),
+         "--source", str(source),
+         "--target", str(target),
+         "--cli", selected_cli],
+        capture_output=True, text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"\ninit-factory failed (exit {result.returncode}):",
+              file=sys.stderr)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        return 1
+
+    if result.stdout:
+        print(result.stdout, end="")
+
+    # --- Post-installation: instruction header management ---
+    # Re-discover instruction files after init-factory may have created new ones
+    instruction_files = discover_instruction_files(target)
+
+    extra_orientations: Dict[str, Dict] = {}
+    injected_files: List[str] = []
+
+    for filepath in instruction_files:
+        injection = inject_header(filepath, target, selected_cli)
+        if injection:
+            rel_path = injection["path"]
+            extra_orientations[rel_path] = {
+                "status": injection["status"],
+                "block_digest": injection["block_digest"],
+                "orig_final_newline": injection["orig_final_newline"],
+            }
+            injected_files.append(rel_path)
+
+    # --- Manifest v1 -> v2 migration ---
+    manifest = read_manifest(target)
+    if manifest is None:
+        # No manifest from init-factory; create minimal v2
+        manifest = {
+            "version": 1,
+            "orientation": {},
+            "orientation_orig_final_newline": {},
+        }
+
+    manifest = migrate_manifest_v1_to_v2(
+        manifest,
+        source_selector=source_selector,
+        resolved_source=str(source.resolve()),
+        extra_orientations=extra_orientations,
+    )
+    write_manifest(target, manifest)
+
+    # --- Collect changed paths ---
+    changed_paths = [".agent-factory/"]
+    for dot_dir in CLI_DOT_DIRS.get(selected_cli, []):
+        orientation_file = ORIENTATION_FILE.get(dot_dir, "")
+        if orientation_file:
+            changed_paths.append(orientation_file)
+    changed_paths.append(MANIFEST_PATH)
+    for f in injected_files:
+        changed_paths.append(f)
+
+    # --- Receipt ---
+    show_receipt(
+        target, selected_cli, source, source_selector, version,
+        changed_paths, injected_files,
+    )
+
+    return 0
 
 
 if __name__ == "__main__":
