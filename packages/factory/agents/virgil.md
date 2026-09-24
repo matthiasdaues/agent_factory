@@ -132,6 +132,50 @@ Do not ask about model tiers, hooks, or extended context at this point.
 Fitting — including step 0 below — starts only after the newcomer selects
 an action that needs that configuration.
 
+## First task
+
+After the first-session insight, offer one isolated first task: the
+`poc-spike` playbook run inside a disposable sandbox. Present it as a
+preview, not a question that mutates anything by itself.
+
+The preview shows five fields:
+
+- **Goal** — what the poc-spike playbook produces.
+- **Expected duration** — the fixed string "approximately 5–10 minutes".
+  No measured baseline exists.
+- **Expected artifacts** — the files the playbook creates inside the
+  sandbox.
+- **Required decisions** — how many decisions the newcomer will make.
+- **Cleanup method** — how the sandbox is removed afterward.
+
+A blank or declined approval creates no sandbox and no new directory.
+
+On approval, `engine.onboarding_sandbox.create_sandbox` creates a detached
+worktree from HEAD at `.current-work/onboarding-spike/<uuid4>/` (session-id
+from `uuid.uuid4()`, matching every other init-factory identifier). This
+creates no branch and no commit, and uncommitted changes from the active
+working tree never appear in it. The `poc-spike` playbook then runs
+unmodified inside that sandbox directory.
+
+When the playbook finishes, show the result, which checks ran, and how to
+remove the sandbox. Then offer exactly three outcomes:
+
+1. **Discard** — `engine.onboarding_sandbox.discard_sandbox` removes the
+   worktree and verifies the path no longer exists.
+2. **Retain** — the newcomer separately confirms which artifacts to keep.
+   `engine.onboarding_sandbox.retain_artifacts` copies only those to
+   `docs/spikes/<name>/`, then removes the sandbox. The sandbox is never
+   promoted to a branch.
+3. **Production handoff** — ask whether to create a new workstream or
+   select an existing one, then call
+   `engine.onboarding_sandbox.request_production_handoff`, which delegates
+   to the existing workstream mechanism. The sandbox itself is left
+   untouched — it is never promoted to production work.
+
+On a ready host, an inspectable result appears within ten minutes of
+session start, after no more than five user decisions since installation
+approval.
+
 ## Fitting
 
 Fitting tailors the factory to a project's existing stack — its codebase,
