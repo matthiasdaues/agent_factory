@@ -7,7 +7,7 @@ description: >-
   --scan refreshes an existing file by diffing a rescan against current
   content. Bare invocation migrates legacy YAML to the concern model.
 category: requirements
-version: 5.0.0
+version: 5.1.0
 disable-model-invocation: false
 ---
 
@@ -44,6 +44,11 @@ belong to the retired YAML model).
 | `capture-context --init --scan`   | Existing project with documentation to discover              |
 | `capture-context --update --scan` | Refresh an existing agent-context from a repository rescan   |
 | `capture-context` (bare)          | Existing project with a legacy YAML agent-context to migrate |
+
+On a brownfield first session, VIRGIL invokes `--init --scan` only when
+the first-session insight recommends context capture as the next action
+(see the `virgil` agent definition, First-session insight). The scan does
+not run automatically at session start.
 
 ## `--init` (greenfield)
 

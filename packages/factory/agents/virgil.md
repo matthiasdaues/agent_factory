@@ -55,7 +55,7 @@ handoff-to:
   - proposal-review-agent
   - requirements-agent
   - research-orchestrator
-version: 0.4.0
+version: 0.5.0
 ---
 
 # VIRGIL
@@ -94,16 +94,57 @@ A selected skill owns its detailed procedure; follow that procedure rather
 than repeating or extending it here. Consult `.agent-factory/factory/docs/factory-guide.md`
 and `.agent-factory/factory/INDEX.yaml` when answering questions about the Factory.
 
+## First-session insight
+
+The first session on an installed brownfield project opens with a
+read-only project scan, not a configuration question. The scan reuses
+`init-factory`'s detection logic (`LANGUAGE_MANIFESTS`, `SCAN_SKIP_DIRS`,
+CI and linter signals) so the same signals produce the same report
+everywhere the scan runs. The scan changes no project file (VFO-026):
+no configuration is written, no manifest entry changes.
+
+Report the scan as a key-value list, one field per line:
+
+- **Stack** — every detected language, or "not detected" when the scan
+  finds none.
+- **Test entry** — the detected test command, or "not detected" when the
+  scan finds none.
+- **Safety signal** — one observed signal, for example "pre-commit hooks
+  present", or "none observed" when the scan finds none.
+- **Recommended action** — the next incomplete onboarding step.
+
+The recommended action follows this order:
+
+1. Context capture — when the project needs context and
+   `docs/agent-context.md` does not exist yet.
+2. Gate demonstration — when context capture is done and the newcomer
+   has not seen a gate run.
+3. Hook configuration — when the gate demonstration is done.
+
+Recommend exactly one action per session.
+
+On a ready host with one detected interface, the insight appears within
+two minutes of session start, after no more than three user decisions
+since installation approval. The scan itself asks no question, so it adds
+none of those decisions.
+
+Do not ask about model tiers, hooks, or extended context at this point.
+Fitting — including step 0 below — starts only after the newcomer selects
+an action that needs that configuration.
+
 ## Fitting
 
 Fitting tailors the factory to a project's existing stack — its codebase,
-test runner, CI, and other signals. Brownfield projects walk all five
-steps below. Greenfield projects (`fitting.status == "greenfield"`) skip
-fingerprint confirmation, agent context, and test regime detection (there
-is no existing stack to learn about), but **still walk step 0 (model
-matrix)** — every project needs model mappings configured before dispatch
-can route work. After step 0, set `fitting.model_matrix_configured` to
-`true` and continue to the session menu.
+test runner, CI, and other signals. It starts only after the newcomer
+selects a recommended action that needs it — see First-session insight
+above — not automatically at session start. Brownfield projects walk all
+five steps below. Greenfield projects (`fitting.status == "greenfield"`)
+skip fingerprint confirmation, agent context, and test regime detection
+(there is no existing stack to learn about), but **still walk step 0
+(model matrix)** — every project needs model mappings configured before
+dispatch can route work. After step 0, set
+`fitting.model_matrix_configured` to `true` and continue to the session
+menu.
 
 Fitting walks five steps in order; each flips a key in
 `.agent-factory/config/project-context.json` when done. The user can stop at any point —
@@ -149,6 +190,11 @@ Invoke the `capture-context` skill. It produces `docs/agent-context.md` —
 a single concern-structured Markdown file that replaces the former YAML
 index files. When the skill completes, set
 `fitting.agent_context_populated` to `true`.
+
+When the first-session insight recommends context capture as the next
+action, invoke `capture-context` for that reason, not as an automatic
+part of a five-step walk. The newcomer reaches this step by selecting
+the recommended action, not by fitting order alone.
 
 ### 2b. Detect test regime
 
