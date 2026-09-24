@@ -59,9 +59,19 @@ Usage
   update-factory --check                                   # report changes, don't update
   update-factory --force                                   # update despite user changes
 
-Exit code: 0 on success. 1 if the target isn't an init-factory'd project, if no
-source can be resolved, or if the sourced init-factory stops on a collision.
-2 if user modifications were detected and --force was not passed.
+--check reports installed and candidate versions, source, candidate digest,
+local modifications, and planned instruction header changes, and performs no
+writes: no files, directories, staging areas, or manifest updates. The
+candidate version comes from the source's packages/factory/VERSION (local)
+or from the same remote release resolution install-agent-factory uses
+(remote, without downloading the archive). It always exits 0 once the
+manifest is readable, whether or not changes are found — --check reports,
+it never gates.
+
+Exit code: 0 on success, including --check. 1 if the target isn't an
+init-factory'd project, if no source can be resolved, or if the sourced
+init-factory stops on a collision. 2 if user modifications were detected on
+a non-check run and --force was not passed.
 """
 
 from __future__ import annotations
@@ -70,9 +80,13 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 import uuid
 from pathlib import Path
 
@@ -81,6 +95,41 @@ CHECKSUMS_PATH = ".agent-factory/checksums.json"
 USER_CHANGES_DIR = ".agent-factory/user-changes"
 CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
 CHECKSUM_SKIP_SUFFIXES = (".pyc",)
+REMOTE_TIMEOUT = 30
+
+# Instruction-file discovery, mirroring install-agent-factory's rule, so
+# --check can tell which files would receive a header on the next update
+# without delegating to init-factory (which --check must never invoke).
+INSTRUCTION_FILENAMES = frozenset({"AGENTS.md", "copilot-instructions.md"})
+INSTRUCTION_SCAN_SKIP_DIRS = frozenset({
+    ".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", ".nox",
+    "dist", "build", ".eggs", ".mypy_cache", ".pytest_cache", ".ruff_cache",
+    "factory", ".agent-factory", ".current-work", ".claude", ".github", ".pi",
+    ".codex", ".agents",
+})
+
+# Orientation block markers and per-CLI content sources, duplicated from
+# install-agent-factory (kept in sync the same way HOOK_REGENERATED_PATHS
+# is — see TestHookRegeneratedPathsConstant) so --check can recompute what
+# header content a *local* candidate source would produce, for content-level
+# comparison against the installed block_digest.
+ORIENTATION_BEGIN = "<!-- >>> agent_factory orientation >>>"
+ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
+ORIENTATION_INCLUDE = {
+    ".claude": "@../../.agent-factory/factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
+}
+CLI_DOT_DIRS = {
+    "claude": [".claude"],
+    "copilot": [".github"],
+    "pi": [".pi"],
+    "codex": [".codex"],
+}
+CLI_ORIENTATION_FILE = {
+    ".claude": "AGENTS.claude.md",
+    ".github": "AGENTS.copilot.md",
+    ".pi": "AGENTS.pi.md",
+    ".codex": "AGENTS.codex.md",
+}
 
 # Paths (relative to factory/) that a pre-commit hook regenerates after
 # install — e.g. index-lint rewriting INDEX.yaml. These are never a user
@@ -286,6 +335,301 @@ def _run_init(source: Path, target: Path) -> int:
     return result.returncode
 
 
+# ── Check mode ─────────────────────────────────────────────────────────
+
+
+def _read_candidate_version_local(source: Path) -> str:
+    """Read the Factory version from a local candidate source tree."""
+    version_file = source / "packages" / "factory" / "VERSION"
+    if version_file.is_file():
+        return version_file.read_text().strip()
+    return "unknown"
+
+
+def _fetch_url(url: str, timeout: int = REMOTE_TIMEOUT, method: str = "GET"):
+    """Fetch a URL. Returns (error, body_bytes)."""
+    req = urllib.request.Request(url, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return None, resp.read()
+    except urllib.error.HTTPError as e:
+        return f"failed to fetch {url}: HTTP {e.code} {e.reason}", None
+    except urllib.error.URLError as e:
+        return f"failed to fetch {url}: {e.reason}", None
+    except (TimeoutError, OSError) as e:
+        return f"failed to fetch {url}: {e}", None
+
+
+class _NoFollowRedirect(urllib.request.HTTPRedirectHandler):
+    """Suppress automatic redirect following so the 3xx response's Location
+    header can be read directly, matching install-agent-factory's release
+    resolution (ST-0282) without requiring the redirect target itself to be
+    independently fetchable."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _resolve_release_base_url(base_url: str, timeout: int = REMOTE_TIMEOUT):
+    """Resolve `<base_url>/latest`'s redirect to an immutable release URL.
+
+    Same resolution `install-agent-factory` uses for a version-less remote
+    install (ST-0282): a HEAD request to `<base>/latest` whose 3xx Location
+    header names the current release. Returns (error, resolved_url) where
+    resolved_url ends with '/'.
+    """
+    base = base_url.rstrip("/")
+    latest_url = f"{base}/latest"
+    opener = urllib.request.build_opener(_NoFollowRedirect)
+    req = urllib.request.Request(latest_url, method="HEAD")
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            return f"{latest_url} did not redirect to a release (HTTP {resp.status})", None
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308):
+            location = e.headers.get("Location")
+            if not location:
+                return f"redirect from {latest_url} had no Location header", None
+            resolved = urllib.parse.urljoin(latest_url, location)
+            if not resolved.endswith("/"):
+                resolved += "/"
+            return None, resolved
+        return f"failed to fetch {latest_url}: HTTP {e.code} {e.reason}", None
+    except urllib.error.URLError as e:
+        return f"failed to fetch {latest_url}: {e.reason}", None
+    except (TimeoutError, OSError) as e:
+        return f"failed to fetch {latest_url}: {e}", None
+
+
+def _fetch_candidate_digest(resolved_url: str, timeout: int = REMOTE_TIMEOUT):
+    """Read SHA256SUMS at a resolved release URL and return the digest for
+    agent-factory.tar.gz, without downloading the archive itself — --check
+    reports the candidate digest but must not write, and downloading the
+    full archive just to hash it is unnecessary for a report.
+
+    Returns (error, digest).
+    """
+    error, body = _fetch_url(resolved_url + "SHA256SUMS", timeout=timeout)
+    if error:
+        return error, None
+    for line in body.decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2 and parts[1].lstrip("*").strip() == "agent-factory.tar.gz":
+            return None, parts[0].strip()
+    return f"no digest for agent-factory.tar.gz in {resolved_url}SHA256SUMS", None
+
+
+def _derive_remote_base_url(resolved_source: str) -> str | None:
+    """Recover the release base URL from a previously resolved release URL.
+
+    The manifest records only the immutable, version-pinned release URL
+    (e.g. `https://host/releases/1.0.0/`) — the mutable base URL used to
+    check for a newer release is not stored separately. Strip the
+    `/releases/<version>/` suffix to recover it. Returns None if
+    resolved_source does not match that shape.
+    """
+    if not resolved_source:
+        return None
+    idx = resolved_source.find("/releases/")
+    if idx == -1:
+        return None
+    return resolved_source[:idx]
+
+
+def _resolve_remote_candidate(resolved_source: str, timeout: int = REMOTE_TIMEOUT):
+    """Resolve the candidate version and digest for a remote-sourced install.
+
+    Returns (error, candidate_version, resolved_url, digest). On error,
+    candidate_version and/or digest may still be None; the caller reports
+    what it has.
+    """
+    base_url = _derive_remote_base_url(resolved_source)
+    if base_url is None:
+        return (f"cannot determine the release base URL from the recorded "
+                f"source {resolved_source!r}"), None, None, None
+
+    error, resolved_url = _resolve_release_base_url(base_url, timeout=timeout)
+    if error:
+        return error, None, None, None
+
+    match = re.search(r"/releases/([^/]+)/?$", resolved_url)
+    candidate_version = match.group(1) if match else "unknown"
+
+    error, digest = _fetch_candidate_digest(resolved_url, timeout=timeout)
+    if error:
+        return error, candidate_version, resolved_url, None
+
+    return None, candidate_version, resolved_url, digest
+
+
+def _discover_instruction_files(target: Path) -> list[str]:
+    """Relative paths of AGENTS.md / copilot-instructions.md under target,
+    mirroring install-agent-factory's discovery rule."""
+    found = []
+    for dirpath, dirnames, filenames in os.walk(target, followlinks=False):
+        dirnames[:] = [d for d in dirnames if d not in INSTRUCTION_SCAN_SKIP_DIRS]
+        for fname in filenames:
+            if fname in INSTRUCTION_FILENAMES:
+                fpath = Path(dirpath) / fname
+                if fpath.is_file():
+                    found.append(fpath.relative_to(target).as_posix())
+    return sorted(found)
+
+
+def _candidate_orientation_block(source: Path, cli_name: str) -> str | None:
+    """Build the orientation block text a *local* candidate source would
+    inject for cli_name, for digest comparison against the installed
+    block_digest. Returns None when the CLI's config source is unavailable
+    in `source` — comparison is then skipped rather than guessed."""
+    dot_dirs = CLI_DOT_DIRS.get(cli_name, [])
+    dot_dir = dot_dirs[0] if dot_dirs else ""
+
+    if dot_dir in ORIENTATION_INCLUDE:
+        content = ORIENTATION_INCLUDE[dot_dir]
+    else:
+        cli_file = CLI_ORIENTATION_FILE.get(dot_dir, "")
+        if not cli_file:
+            return None
+        config_path = source / "packages" / "factory" / "config" / cli_file
+        if not config_path.is_file():
+            return None
+        content = config_path.read_text()
+
+    return f"{ORIENTATION_BEGIN}\n{content}{ORIENTATION_END}\n"
+
+
+def _injected_orientation_paths(orientation: dict) -> set[str]:
+    """Paths whose orientation entry records an injected header block —
+    the only entries --check's header-change report concerns itself with.
+    Linked/external entries are symlink bookkeeping, not header content."""
+    paths = set()
+    for path, entry in orientation.items():
+        status = entry.get("status") if isinstance(entry, dict) else entry
+        if status == "injected":
+            paths.add(path)
+    return paths
+
+
+def _detect_header_changes(target: Path, manifest: dict, source: Path | None) -> dict:
+    """Compare installed instruction headers (manifest orientation entries)
+    against the current target tree and, when a local candidate source is
+    available, against what that candidate would produce.
+
+    Returns {"added": [...], "removed": [...], "changed": [...]}. `added`
+    and `removed` need only the target tree. `changed` (content differs
+    from what the candidate would produce) is populated only when `source`
+    is given — a remote candidate would require downloading the archive to
+    compare content, which --check must not do.
+    """
+    orientation = manifest.get("orientation") or {}
+    known = _injected_orientation_paths(orientation)
+    current = set(_discover_instruction_files(target))
+
+    added = sorted(current - known)
+    removed = sorted(known - current)
+    changed = []
+
+    cli_name = manifest.get("cli")
+    if source is not None and cli_name:
+        candidate_block = _candidate_orientation_block(source, cli_name)
+        if candidate_block is not None:
+            candidate_digest = hashlib.sha256(
+                candidate_block.encode("utf-8")
+            ).hexdigest()
+            for path in sorted(known & current):
+                entry = orientation.get(path)
+                stored_digest = (
+                    entry.get("block_digest") if isinstance(entry, dict) else None
+                )
+                if stored_digest and stored_digest != candidate_digest:
+                    changed.append(path)
+
+    return {"added": added, "removed": removed, "changed": changed}
+
+
+def _run_check(target: Path, manifest: dict, args: argparse.Namespace) -> int:
+    """Report installed/candidate versions, source, digest, local
+    modifications, and planned header changes. Never writes — no files,
+    directories, staging areas, or manifest updates (VFO-021)."""
+    print("\nUpdate Check")
+    print("-" * 40)
+
+    installed_version = manifest.get("factory_version", "unknown")
+    source_selector = manifest.get("source_selector", "local")
+    resolved_source = manifest.get("resolved_source")
+
+    candidate_version = "unknown"
+    candidate_digest = None
+    candidate_error: str | None = None
+    local_source: Path | None = None
+    source_label = resolved_source or manifest.get("factory_source") or "unknown"
+
+    if args.source is not None:
+        local_source = args.source.resolve()
+        candidate_version = _read_candidate_version_local(local_source)
+        source_label = str(local_source)
+    elif source_selector == "remote":
+        if not resolved_source:
+            candidate_error = "no resolved_source recorded for this remote install"
+        else:
+            candidate_error, candidate_version, resolved_url, candidate_digest = \
+                _resolve_remote_candidate(resolved_source)
+            candidate_version = candidate_version or "unknown"
+            if resolved_url:
+                source_label = resolved_url
+    else:
+        factory_source = manifest.get("factory_source")
+        if not factory_source:
+            candidate_error = "no factory_source recorded — pass --source"
+        else:
+            local_source = Path(factory_source)
+            if not local_source.is_dir():
+                candidate_error = f"recorded source not found: {local_source}"
+            else:
+                candidate_version = _read_candidate_version_local(local_source)
+                source_label = str(local_source)
+
+    print(f"  Installed version:  {installed_version}")
+    if candidate_error:
+        print(f"  Candidate version:  unavailable ({candidate_error})")
+    else:
+        print(f"  Candidate version:  {candidate_version}")
+        if installed_version != "unknown" and installed_version == candidate_version:
+            print("  (installed and candidate versions are equal)")
+    print(f"  Source:             {source_label} ({source_selector})")
+    if candidate_digest:
+        print(f"  Candidate digest:   {candidate_digest}")
+
+    result = _detect_modifications(target)
+    if result is None:
+        print("\n  No checksum baseline found (pre-checksum install) — "
+              "cannot detect modifications.")
+    else:
+        modified, added, removed = result
+        if modified or added or removed:
+            _report_modifications(modified, added, removed)
+        else:
+            print("\n  No local modifications detected.")
+
+    headers = _detect_header_changes(target, manifest, local_source)
+    if headers["added"] or headers["removed"] or headers["changed"]:
+        print("\n  Planned instruction header changes:")
+        for p in headers["added"]:
+            print(f"    A  {p}")
+        for p in headers["removed"]:
+            print(f"    D  {p}")
+        for p in headers["changed"]:
+            print(f"    M  {p}")
+    else:
+        print("\n  No planned instruction header changes.")
+
+    print()
+    return 0
+
+
 # ── Main ───────────────────────────────────────────────────────────────
 
 
@@ -329,6 +673,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    if args.check:
+        return _run_check(target, manifest, args)
+
     # ── Modification detection ─────────────────────────────────────────
 
     result = _detect_modifications(target)
@@ -338,9 +685,6 @@ def main(argv: list[str] | None = None) -> int:
 
         if has_changes:
             _report_modifications(modified, added, removed)
-
-            if args.check:
-                return 2
 
             if not args.force:
                 print(
@@ -356,18 +700,8 @@ def main(argv: list[str] | None = None) -> int:
             saved = _preserve_user_changes(target, modified, added)
             if saved:
                 log(f"preserved {len(modified) + len(added)} user-changed files in {saved}")
-        elif args.check:
-            log("no user modifications detected in .agent-factory/factory/")
-            return 0
     else:
-        if args.check:
-            log("no checksum baseline found (pre-checksum install) — "
-                "cannot detect modifications; run update once to establish baseline")
-            return 0
         log("no checksum baseline — proceeding (first update will record baseline)")
-
-    if args.check:
-        return 0
 
     # ── Resolve source ─────────────────────────────────────────────────
 
