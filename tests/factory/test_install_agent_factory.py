@@ -8,16 +8,23 @@ version 2 migration, and receipt generation.
 from __future__ import annotations
 
 import hashlib
+import http.server
 import importlib.machinery
 import importlib.util
+import io
 import json
 import os
+import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
+import tarfile
 import textwrap
+import threading
 from pathlib import Path
+from typing import Dict
 from unittest import mock
 
 import pytest
@@ -101,6 +108,157 @@ def _make_target(tmp_path: Path, *, git: bool = True,
     for iface in (interfaces or []):
         (target / iface).mkdir(parents=True, exist_ok=True)
     return target
+
+
+# ---------------------------------------------------------------------------
+# Remote-release helpers
+# ---------------------------------------------------------------------------
+
+_INIT_FACTORY_STUB = textwrap.dedent("""\
+    #!/usr/bin/env python3
+    import argparse, json, sys
+    from pathlib import Path
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--source", type=Path)
+    ap.add_argument("--target", type=Path)
+    ap.add_argument("--cli", nargs="+")
+    args = ap.parse_args()
+    target = args.target
+    af = target / ".agent-factory"
+    af.mkdir(parents=True, exist_ok=True)
+    (af / "factory").mkdir(exist_ok=True)
+    manifest = {
+        "version": 1,
+        "factory_version": "1.0.0",
+        "cli": args.cli[0] if args.cli else None,
+        "orientation": {},
+        "orientation_markers": {
+            "begin": "<!-- >>> agent_factory orientation >>>",
+            "end": "<!-- <<< agent_factory orientation <<< -->"
+        },
+        "orientation_orig_final_newline": {},
+        "remove_paths": [],
+    }
+    (af / "install.json").write_text(json.dumps(manifest, indent=2) + "\\n")
+    print("init-factory: done")
+    sys.exit(0)
+""")
+
+
+def _build_remote_archive(version: str = "1.0.0") -> bytes:
+    """Build a gzip tar matching build-release's layout: entries are
+    relative to packages/factory/ (no wrapper directory)."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        version_bytes = f"{version}\n".encode("utf-8")
+        info = tarfile.TarInfo("VERSION")
+        info.size = len(version_bytes)
+        tf.addfile(info, io.BytesIO(version_bytes))
+
+        init_bytes = _INIT_FACTORY_STUB.encode("utf-8")
+        info = tarfile.TarInfo("scripts/init-factory")
+        info.size = len(init_bytes)
+        info.mode = 0o755
+        tf.addfile(info, io.BytesIO(init_bytes))
+    return buf.getvalue()
+
+
+def _sums_line(digest: str) -> bytes:
+    return f"{digest}  agent-factory.tar.gz\n".encode("utf-8")
+
+
+def _free_port() -> int:
+    """Return a TCP port that is free at the moment of the call."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
+def _make_release_handler(releases: Dict[str, Dict[str, object]],
+                          request_log: list) -> type:
+    """Build a BaseHTTPRequestHandler bound to a per-test releases map.
+
+    `releases` shape:
+        {
+            "latest_version": "1.0.0" | None,
+            "assets": {"1.0.0": {"SHA256SUMS": bytes,
+                                  "agent-factory.tar.gz": bytes}},
+        }
+    """
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def _handle(self, write_body: bool) -> None:
+            request_log.append(self.path)
+            if self.path == "/latest":
+                latest = releases.get("latest_version")
+                if latest is None:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                self.send_response(302)
+                self.send_header("Location", f"/releases/{latest}/")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+
+            m = re.match(r"^/releases/([^/]+)/([^/]+)$", self.path)
+            if m:
+                version, asset = m.groups()
+                data = releases.get("assets", {}).get(version, {}).get(asset)
+                if data is not None:
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    if write_body:
+                        self.wfile.write(data)
+                    return
+
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def do_GET(self) -> None:
+            self._handle(write_body=True)
+
+        def do_HEAD(self) -> None:
+            self._handle(write_body=False)
+
+        def log_message(self, format: str, *args) -> None:  # noqa: A002
+            pass
+
+    return Handler
+
+
+@pytest.fixture()
+def remote_release_server():
+    """Start a local HTTP server standing in for a distribution remote.
+
+    Yields a `start(releases) -> (base_url, request_log)` callable. The
+    server is shut down at test teardown.
+    """
+    state: Dict[str, object] = {}
+
+    def start(releases: Dict[str, Dict[str, object]]):
+        request_log: list = []
+        handler_cls = _make_release_handler(releases, request_log)
+        httpd = http.server.HTTPServer(("127.0.0.1", 0), handler_cls)
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        state["httpd"] = httpd
+        state["thread"] = thread
+        port = httpd.server_address[1]
+        return f"http://127.0.0.1:{port}", request_log
+
+    yield start
+
+    httpd = state.get("httpd")
+    if httpd is not None:
+        httpd.shutdown()
+        httpd.server_close()
 
 
 # ---------------------------------------------------------------------------
@@ -632,3 +790,217 @@ class TestPreviewContent:
         result = _run(["--from-local", str(source), "--target",
                         str(target)], input_text="\n")
         assert "remove-factory" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Slice 13 — Remote version resolution
+# ---------------------------------------------------------------------------
+
+class TestRemoteVersionResolution:
+    """Explicit --version bypasses /latest; omitted --version follows it."""
+
+    def test_explicit_version_fetches_releases_dir_without_redirect(
+            self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("1.0.0")
+        digest = hashlib.sha256(archive).hexdigest()
+        base_url, request_log = remote_release_server({
+            "latest_version": None,
+            "assets": {"1.0.0": {
+                "SHA256SUMS": _sums_line(digest),
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"], input_text="\nyes\n")
+
+        assert f"{base_url}/releases/1.0.0/" in result.stdout
+        assert not any(p == "/latest" for p in request_log), (
+            "explicit --version must not follow the /latest redirect")
+
+    def test_omitted_version_follows_latest_redirect(
+            self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("2.0.0")
+        digest = hashlib.sha256(archive).hexdigest()
+        base_url, request_log = remote_release_server({
+            "latest_version": "2.0.0",
+            "assets": {"2.0.0": {
+                "SHA256SUMS": _sums_line(digest),
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target)],
+                       input_text="\nyes\n")
+
+        assert "/latest" in request_log
+        assert f"{base_url}/releases/2.0.0/" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Slice 14 — Remote digest verification
+# ---------------------------------------------------------------------------
+
+class TestRemoteDigestVerification:
+    """A verified digest installs; a missing or mismatched one refuses."""
+
+    def test_valid_digest_installs(self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("1.0.0")
+        digest = hashlib.sha256(archive).hexdigest()
+        base_url, _ = remote_release_server({
+            "latest_version": None,
+            "assets": {"1.0.0": {
+                "SHA256SUMS": _sums_line(digest),
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"], input_text="\nyes\n")
+
+        assert result.returncode == 0, result.stderr
+        assert (target / ".agent-factory" / "install.json").exists()
+
+    def test_missing_digest_entry_blocks_extraction(
+            self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("1.0.0")
+        base_url, _ = remote_release_server({
+            "latest_version": None,
+            "assets": {"1.0.0": {
+                # SHA256SUMS present but names a different file.
+                "SHA256SUMS": b"deadbeef  some-other-file.tar.gz\n",
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"], input_text="\nyes\n")
+
+        assert result.returncode != 0
+        assert not (target / ".agent-factory").exists()
+
+    def test_mismatched_digest_blocks_extraction(
+            self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("1.0.0")
+        base_url, _ = remote_release_server({
+            "latest_version": None,
+            "assets": {"1.0.0": {
+                "SHA256SUMS": _sums_line("0" * 64),
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"], input_text="\nyes\n")
+
+        assert result.returncode != 0
+        assert not (target / ".agent-factory").exists()
+        assert "digest" in (result.stderr + result.stdout).lower()
+
+
+# ---------------------------------------------------------------------------
+# Slice 15 — Remote network failures
+# ---------------------------------------------------------------------------
+
+class TestRemoteNetworkFailures:
+    """Network failures name the URL and error, then exit non-zero."""
+
+    def test_connection_refused(self, tmp_path):
+        port = _free_port()
+        base_url = f"http://127.0.0.1:{port}"
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"])
+
+        assert result.returncode != 0
+        assert base_url in result.stderr
+        assert not (target / ".agent-factory").exists()
+
+    def test_http_404_on_missing_asset(self, tmp_path, remote_release_server):
+        base_url, _ = remote_release_server({
+            "latest_version": None,
+            "assets": {},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"])
+
+        assert result.returncode != 0
+        assert base_url in result.stderr
+        assert not (target / ".agent-factory").exists()
+
+
+# ---------------------------------------------------------------------------
+# Slice 16 — Remote preview and receipt content
+# ---------------------------------------------------------------------------
+
+class TestRemotePreviewAndReceipt:
+    """Remote preview and receipt show the resolved URL and digest."""
+
+    def test_preview_shows_resolved_url_and_digest(
+            self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("1.0.0")
+        digest = hashlib.sha256(archive).hexdigest()
+        base_url, _ = remote_release_server({
+            "latest_version": None,
+            "assets": {"1.0.0": {
+                "SHA256SUMS": _sums_line(digest),
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        # Stop at consent so the receipt path is not reached.
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"], input_text="\n\n")
+
+        assert f"{base_url}/releases/1.0.0/" in result.stdout
+        assert digest in result.stdout
+
+    def test_receipt_confirms_remote_source_and_digest(
+            self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("1.0.0")
+        digest = hashlib.sha256(archive).hexdigest()
+        base_url, _ = remote_release_server({
+            "latest_version": None,
+            "assets": {"1.0.0": {
+                "SHA256SUMS": _sums_line(digest),
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"], input_text="\nyes\n")
+
+        assert digest in result.stdout
+        assert f"{base_url}/releases/1.0.0/" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Slice 17 — Remote manifest fields
+# ---------------------------------------------------------------------------
+
+class TestRemoteManifest:
+    """The manifest records source_selector, resolved_source, and digest."""
+
+    def test_manifest_records_remote_fields(
+            self, tmp_path, remote_release_server):
+        archive = _build_remote_archive("1.0.0")
+        digest = hashlib.sha256(archive).hexdigest()
+        base_url, _ = remote_release_server({
+            "latest_version": None,
+            "assets": {"1.0.0": {
+                "SHA256SUMS": _sums_line(digest),
+                "agent-factory.tar.gz": archive,
+            }},
+        })
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(["--from-remote", base_url, "--target", str(target),
+                        "--version", "1.0.0"], input_text="\nyes\n")
+
+        assert result.returncode == 0, result.stderr
+        manifest = json.loads(
+            (target / ".agent-factory" / "install.json").read_text())
+        assert manifest["version"] == 2
+        assert manifest["source_selector"] == "remote"
+        assert manifest["resolved_source"] == f"{base_url}/releases/1.0.0/"
+        assert manifest["archive_sha256"] == digest

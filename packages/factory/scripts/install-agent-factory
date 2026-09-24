@@ -11,15 +11,24 @@ Architecture: ADR-0022 — bootstrap wraps init-factory.
 from __future__ import annotations
 
 import argparse
+import atexit
 import hashlib
+import io
 import json
 import os
 import platform
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+REMOTE_TIMEOUT = 30
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +202,187 @@ def validate_local_source(source_str: str) -> Tuple[Optional[str], Optional[Path
                 f"{source}"), None
 
     return None, source
+
+
+# ---------------------------------------------------------------------------
+# Remote source resolution, download, verification, extraction
+# ---------------------------------------------------------------------------
+
+def _fetch_url(url: str, timeout: int = REMOTE_TIMEOUT,
+               method: str = "GET") -> Tuple[Optional[str], Optional[bytes], Optional[str]]:
+    """Fetch a URL.  Returns (error, body_bytes, final_url).
+
+    On error, the message names the URL and the failure so the operator
+    can act on it directly.
+    """
+    req = urllib.request.Request(url, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read()
+            final_url = resp.geturl()
+        return None, body, final_url
+    except urllib.error.HTTPError as e:
+        return (f"install-agent-factory: failed to fetch {url}: "
+                f"HTTP {e.code} {e.reason}"), None, None
+    except urllib.error.URLError as e:
+        return (f"install-agent-factory: failed to fetch {url}: "
+                f"{e.reason}"), None, None
+    except (TimeoutError, OSError) as e:
+        return f"install-agent-factory: failed to fetch {url}: {e}", None, None
+
+
+class _NoFollowRedirect(urllib.request.HTTPRedirectHandler):
+    """Suppress automatic redirect following so the 3xx response (and its
+    Location header) can be inspected directly, without requiring the
+    redirect target itself to be independently fetchable."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def resolve_release_base_url(base_url: str, version: Optional[str],
+                             timeout: int = REMOTE_TIMEOUT
+                             ) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve the immutable versioned release URL.
+
+    When `version` is given, fetches directly from `<base>/releases/<version>/`
+    without following a redirect.  Otherwise issues a HEAD request to
+    `<base>/latest` and reads the 302 redirect's Location header to
+    discover the current version, without fetching the redirect target
+    itself.
+
+    Returns (error, resolved_base_url) where resolved_base_url ends with '/'.
+    """
+    base = base_url.rstrip("/")
+    if version:
+        return None, f"{base}/releases/{version}/"
+
+    latest_url = f"{base}/latest"
+    opener = urllib.request.build_opener(_NoFollowRedirect)
+    req = urllib.request.Request(latest_url, method="HEAD")
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            # No redirect handler fired: the server did not redirect.
+            return (f"install-agent-factory: {latest_url} did not redirect "
+                    f"to a release (HTTP {resp.status})"), None
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308):
+            location = e.headers.get("Location")
+            if not location:
+                return (f"install-agent-factory: redirect from {latest_url} "
+                        f"had no Location header"), None
+            resolved = urllib.parse.urljoin(latest_url, location)
+            if not resolved.endswith("/"):
+                resolved += "/"
+            return None, resolved
+        return (f"install-agent-factory: failed to fetch {latest_url}: "
+                f"HTTP {e.code} {e.reason}"), None
+    except urllib.error.URLError as e:
+        return (f"install-agent-factory: failed to fetch {latest_url}: "
+                f"{e.reason}"), None
+    except (TimeoutError, OSError) as e:
+        return f"install-agent-factory: failed to fetch {latest_url}: {e}", None
+
+
+def download_and_verify_archive(resolved_base_url: str,
+                                timeout: int = REMOTE_TIMEOUT
+                                ) -> Tuple[Optional[str], Optional[bytes], Optional[str]]:
+    """Download SHA256SUMS and agent-factory.tar.gz, verify the digest.
+
+    VFO-004: the archive is not extracted until its SHA-256 digest matches
+    SHA256SUMS from the resolved release base.  A missing or mismatched
+    digest returns an error and no bytes.
+
+    Returns (error, archive_bytes, digest).
+    """
+    sums_url = resolved_base_url + "SHA256SUMS"
+    error, sums_body, _ = _fetch_url(sums_url, timeout=timeout)
+    if error:
+        return error, None, None
+
+    archive_url = resolved_base_url + "agent-factory.tar.gz"
+    error, archive_bytes, _ = _fetch_url(archive_url, timeout=timeout)
+    if error:
+        return error, None, None
+
+    expected_digest = None
+    for line in sums_body.decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2 and parts[1].lstrip("*").strip() == "agent-factory.tar.gz":
+            expected_digest = parts[0].strip()
+            break
+
+    actual_digest = hashlib.sha256(archive_bytes).hexdigest()
+
+    if expected_digest is None:
+        return (f"install-agent-factory: no digest for agent-factory.tar.gz "
+                f"in {sums_url}; refusing to extract"), None, None
+
+    if expected_digest != actual_digest:
+        return (f"install-agent-factory: digest mismatch for "
+                f"agent-factory.tar.gz (expected {expected_digest}, got "
+                f"{actual_digest}); refusing to extract"), None, None
+
+    return None, archive_bytes, actual_digest
+
+
+def _safe_extract(tf: "tarfile.TarFile", dest: Path) -> None:
+    """Extract every member of tf into dest, refusing any path that would
+    resolve outside dest (path-traversal guard)."""
+    dest_resolved = dest.resolve()
+    for member in tf.getmembers():
+        member_path = (dest / member.name).resolve()
+        if member_path != dest_resolved and not str(member_path).startswith(
+                str(dest_resolved) + os.sep):
+            raise ValueError(f"unsafe path in archive: {member.name}")
+    tf.extractall(dest)
+
+
+def extract_archive(archive_bytes: bytes, staging_root: Path) -> Path:
+    """Extract a verified archive into staging_root/packages/factory/.
+
+    The resulting layout matches the local-source convention used by
+    validate_local_source and read_factory_version, so the remainder of
+    the bootstrap treats a remote source identically to a local one.
+
+    Returns staging_root.
+    """
+    factory_dir = staging_root / "packages" / "factory"
+    factory_dir.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:gz") as tf:
+        _safe_extract(tf, factory_dir)
+    return staging_root
+
+
+def resolve_remote_source(base_url: str, version: Optional[str]
+                          ) -> Tuple[Optional[str], Optional[str], Optional[str],
+                                     Optional[Path], Optional[Path]]:
+    """Resolve, download, verify, and extract a remote Factory release.
+
+    Returns (error, resolved_url, digest, source_path, staging_dir).
+    On any failure, no staging directory is left behind and the caller's
+    target is untouched.
+    """
+    error, resolved_url = resolve_release_base_url(base_url, version)
+    if error:
+        return error, None, None, None, None
+
+    error, archive_bytes, digest = download_and_verify_archive(resolved_url)
+    if error:
+        return error, resolved_url, None, None, None
+
+    staging_dir = Path(tempfile.mkdtemp(prefix="agent-factory-remote-"))
+    try:
+        source = extract_archive(archive_bytes, staging_dir)
+    except Exception as exc:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        return (f"install-agent-factory: failed to extract archive: "
+                f"{exc}"), resolved_url, digest, None, None
+
+    return None, resolved_url, digest, source, staging_dir
 
 
 # ---------------------------------------------------------------------------
@@ -463,18 +653,25 @@ def read_factory_version(source: Path) -> str:
 
 def show_preview(source: Path, target: Path, cli_name: str,
                  source_selector: str, readiness: str,
-                 instruction_files: List[Path]) -> None:
+                 instruction_files: List[Path],
+                 resolved_url: Optional[str] = None,
+                 archive_digest: Optional[str] = None) -> None:
     """Display the installation preview.
 
     VFO-014: shows source, version, target, interfaces, affected paths,
-    instruction files, and uninstall command.
+    instruction files, and uninstall command.  A remote preview also shows
+    the resolved release URL and the verified digest.
     """
     version = read_factory_version(source)
+    source_label = resolved_url if source_selector == "remote" else str(source.resolve())
 
     print("\n" + "=" * 60)
     print("Installation Preview")
     print("=" * 60)
-    print(f"  Source:      {source.resolve()} ({source_selector})")
+    print(f"  Source:      {source_label} ({source_selector})")
+    if source_selector == "remote":
+        print(f"  Resolved URL: {resolved_url}")
+        print(f"  Digest:       {archive_digest}")
     print(f"  Version:     {version}")
     print(f"  Target:      {target}")
     print(f"  Interface:   {cli_name}")
@@ -631,12 +828,13 @@ def migrate_manifest_v1_to_v2(
     source_selector: str,
     resolved_source: str,
     extra_orientations: Optional[Dict] = None,
+    archive_sha256: str = "",
 ) -> Dict:
     """Migrate a v1 manifest to v2 schema.
 
     - orientation entries: bare string -> object with status, block_digest,
       orig_final_newline
-    - New top-level keys: source_selector, resolved_source
+    - New top-level keys: source_selector, resolved_source, archive_sha256
     - Version bumped to 2
     """
     orientation = manifest.get("orientation", {})
@@ -669,6 +867,7 @@ def migrate_manifest_v1_to_v2(
     manifest["orientation"] = new_orientation
     manifest["source_selector"] = source_selector
     manifest["resolved_source"] = resolved_source
+    manifest["archive_sha256"] = archive_sha256
     manifest["version"] = 2
 
     # Remove the now-redundant flat newline dict
@@ -693,17 +892,24 @@ def write_manifest(target: Path, manifest: Dict) -> None:
 def show_receipt(target: Path, cli_name: str, source: Path,
                  source_selector: str, version: str,
                  changed_paths: List[str],
-                 instruction_files: List[str]) -> None:
+                 instruction_files: List[str],
+                 resolved_url: Optional[str] = None,
+                 archive_digest: Optional[str] = None) -> None:
     """Display the installation receipt.
 
-    VFO-016: lists only changed paths and one exact next command.
+    VFO-016: lists only changed paths and one exact next command.  A
+    remote receipt also confirms the resolved source and verified digest.
     """
+    source_label = resolved_url if source_selector == "remote" else str(source.resolve())
+
     print("\n" + "=" * 60)
     print("Installation Receipt")
     print("=" * 60)
     print(f"  Interface:   {cli_name}")
     print(f"  Version:     {version}")
-    print(f"  Source:      {source.resolve()} ({source_selector})")
+    print(f"  Source:      {source_label} ({source_selector})")
+    if source_selector == "remote":
+        print(f"  Digest:      {archive_digest}")
     print()
     print("  Changed paths:")
     for p in sorted(set(changed_paths)):
@@ -740,17 +946,24 @@ def main(argv: list[str] | None = None) -> int:
         print(error, file=sys.stderr)
         return 1
 
-    # --- Source validation (local only for this story) ---
+    # --- Source validation / resolution ---
+    resolved_url: Optional[str] = None
+    archive_digest: Optional[str] = None
+
     if source_selector == "local":
         error, source = validate_local_source(args.from_local)
         if error:
             print(error, file=sys.stderr)
             return 1
     else:
-        # Remote source handling is ST-0282
-        print("install-agent-factory: --from-remote is not yet implemented",
-              file=sys.stderr)
-        return 1
+        error, resolved_url, archive_digest, source, remote_staging_dir = \
+            resolve_remote_source(args.from_remote, args.version)
+        if error:
+            print(error, file=sys.stderr)
+            return 1
+        # The staging directory backs `source` for the rest of this run;
+        # clean it up on interpreter exit regardless of how main() returns.
+        atexit.register(shutil.rmtree, str(remote_staging_dir), ignore_errors=True)
 
     # --- Preflight diagnosis (VFO-010: read-only) ---
     readiness, checks = run_preflight(source, target)
@@ -791,7 +1004,8 @@ def main(argv: list[str] | None = None) -> int:
     # --- Preview ---
     version = read_factory_version(source)
     show_preview(source, target, selected_cli, source_selector,
-                 readiness, instruction_files)
+                 readiness, instruction_files,
+                 resolved_url=resolved_url, archive_digest=archive_digest)
 
     # --- Consent ---
     if not get_consent():
@@ -851,11 +1065,16 @@ def main(argv: list[str] | None = None) -> int:
             "orientation_orig_final_newline": {},
         }
 
+    resolved_source_value = (
+        resolved_url if source_selector == "remote" else str(source.resolve())
+    )
+
     manifest = migrate_manifest_v1_to_v2(
         manifest,
         source_selector=source_selector,
-        resolved_source=str(source.resolve()),
+        resolved_source=resolved_source_value,
         extra_orientations=extra_orientations,
+        archive_sha256=archive_digest if source_selector == "remote" else "",
     )
     write_manifest(target, manifest)
 
@@ -873,6 +1092,7 @@ def main(argv: list[str] | None = None) -> int:
     show_receipt(
         target, selected_cli, source, source_selector, version,
         changed_paths, injected_files,
+        resolved_url=resolved_url, archive_digest=archive_digest,
     )
 
     return 0
