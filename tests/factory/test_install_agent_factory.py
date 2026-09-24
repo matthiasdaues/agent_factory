@@ -167,6 +167,19 @@ def _sums_line(digest: str) -> bytes:
     return f"{digest}  agent-factory.tar.gz\n".encode("utf-8")
 
 
+def _load_module(name: str):
+    """Load install-agent-factory as a fresh module under `name`.
+
+    Mirrors the loader used throughout this file for unit-level tests that
+    call script-internal functions directly.
+    """
+    loader = importlib.machinery.SourceFileLoader(name, str(SCRIPT))
+    spec = importlib.util.spec_from_loader(name, loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
 def _free_port() -> int:
     """Return a TCP port that is free at the moment of the call."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1004,3 +1017,297 @@ class TestRemoteManifest:
         assert manifest["source_selector"] == "remote"
         assert manifest["resolved_source"] == f"{base_url}/releases/1.0.0/"
         assert manifest["archive_sha256"] == digest
+
+
+# ---------------------------------------------------------------------------
+# Slice 18 — Prerequisite fix loop (ST-0283)
+# ---------------------------------------------------------------------------
+
+class TestFixableChecksContract:
+    """uv and managed-Python checks carry the decided fix contract."""
+
+    def test_uv_fix_matches_decided_contract(self, monkeypatch):
+        """VFO-011: uv fix -> exact command/scope/reversal/verification."""
+        mod = _load_module("install_agent_factory_uvfix")
+        monkeypatch.setattr("shutil.which", lambda x: None)
+
+        result = mod.check_uv()
+        assert not result.passed
+        assert result.fixable is True
+        assert result.purpose
+        assert result.fix == "curl -LsSf https://astral.sh/uv/install.sh | sh"
+        assert "~/.local/bin" in result.scope
+        assert result.reversal == "uv self uninstall"
+        assert result.verification == "uv --version"
+
+    def test_managed_python_fix_matches_decided_contract(self, monkeypatch):
+        """VFO-011: managed Python fix -> exact command/scope/reversal/verification."""
+        mod = _load_module("install_agent_factory_pyfix")
+
+        def fake_run(cmd, **kwargs):
+            raise FileNotFoundError("uv not found")
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        result = mod.check_managed_python()
+        assert not result.passed
+        assert result.fixable is True
+        assert result.purpose
+        assert result.fix == "uv python install 3.10"
+        assert "~/.local/share/uv/python" in result.scope
+        assert result.reversal == "uv python uninstall 3.10"
+        assert result.verification == "uv python list | grep 3.10"
+
+    def test_managed_python_passes_when_verification_succeeds(self, monkeypatch):
+        mod = _load_module("install_agent_factory_pyok")
+
+        class FakeCompleted:
+            returncode = 0
+
+        monkeypatch.setattr("subprocess.run", lambda *a, **kw: FakeCompleted())
+
+        result = mod.check_managed_python()
+        assert result.passed
+
+    def test_git_and_shell_checks_are_not_fixable(self, monkeypatch):
+        """Unsupported prerequisites carry guidance only, never fixable."""
+        mod = _load_module("install_agent_factory_unsupported")
+        monkeypatch.setattr("shutil.which", lambda x: None)
+
+        def fake_run(cmd, **kwargs):
+            raise FileNotFoundError("git not found")
+        monkeypatch.setattr("subprocess.run", fake_run)
+
+        git_result = mod.check_git()
+        shell_result = mod.check_shell()
+        assert git_result.fixable is False
+        assert shell_result.fixable is False
+
+
+class TestFixConsent:
+    """VFO-012: blank input, decline, and cancellation are never consent."""
+
+    def _check(self, mod):
+        return mod.PreflightCheck(
+            "uv", False, False, "uv is not installed.",
+            purpose="p", fix="f", scope="s", reversal="r",
+            verification="v", fixable=True,
+        )
+
+    def test_blank_input_is_not_consent(self):
+        mod = _load_module("install_agent_factory_consent_blank")
+        check = self._check(mod)
+        assert mod.get_fix_consent(check, input_func=lambda p: "") is False
+
+    def test_declined_input_is_not_consent(self):
+        mod = _load_module("install_agent_factory_consent_decline")
+        check = self._check(mod)
+        assert mod.get_fix_consent(check, input_func=lambda p: "n") is False
+
+    def test_cancelled_input_is_not_consent(self):
+        mod = _load_module("install_agent_factory_consent_cancel")
+        check = self._check(mod)
+
+        def raise_eof(prompt):
+            raise EOFError()
+        assert mod.get_fix_consent(check, input_func=raise_eof) is False
+
+    def test_affirmative_input_is_consent(self):
+        mod = _load_module("install_agent_factory_consent_yes")
+        check = self._check(mod)
+        assert mod.get_fix_consent(check, input_func=lambda p: "yes") is True
+
+
+class TestFixLoop:
+    """VFO-012/VFO-013: the fix loop orchestrates consent, run, and verify."""
+
+    def _fixable(self, mod, name, passed=False):
+        return mod.PreflightCheck(
+            name, passed, False, f"{name} is not installed.",
+            purpose=f"purpose-{name}", fix=f"fix-{name}",
+            scope=f"scope-{name}", reversal=f"reversal-{name}",
+            verification=f"verify-{name}", fixable=True,
+        )
+
+    def _unfixable(self, mod, name):
+        return mod.PreflightCheck(
+            name, False, True, f"{name} is missing.",
+            purpose=f"purpose-{name}", fix=f"fix-{name}",
+            scope=f"scope-{name}", reversal=f"reversal-{name}",
+            verification=f"verify-{name}", fixable=False,
+        )
+
+    def test_confirmed_fix_runs_and_verifies_alone(self):
+        mod = _load_module("install_agent_factory_loop_confirm")
+        check = self._fixable(mod, "uv")
+        run_fix_calls = []
+        run_verify_calls = []
+
+        completed = mod.run_fix_loop(
+            [check],
+            input_func=lambda p: "yes",
+            run_fix=lambda cmd: run_fix_calls.append(cmd) or (True, ""),
+            run_verify=lambda cmd: run_verify_calls.append(cmd) or True,
+        )
+
+        assert run_fix_calls == ["fix-uv"]
+        assert run_verify_calls == ["verify-uv"]
+        assert completed == [{"name": "uv", "reversal": "reversal-uv"}]
+
+    def test_fix_stops_on_decline_and_reports_reversal(self, capsys):
+        mod = _load_module("install_agent_factory_loop_decline")
+        uv_check = self._fixable(mod, "uv")
+        py_check = self._fixable(mod, "managed_python")
+        answers = iter(["yes", "n"])
+        run_fix_calls = []
+
+        completed = mod.run_fix_loop(
+            [uv_check, py_check],
+            input_func=lambda p: next(answers),
+            run_fix=lambda cmd: run_fix_calls.append(cmd) or (True, ""),
+            run_verify=lambda cmd: True,
+        )
+
+        assert run_fix_calls == ["fix-uv"]
+        assert completed == [{"name": "uv", "reversal": "reversal-uv"}]
+        out = capsys.readouterr().out
+        assert "reversal-uv" in out
+
+    def test_blank_input_stops_and_skips_fix(self):
+        mod = _load_module("install_agent_factory_loop_blank")
+        check = self._fixable(mod, "uv")
+        run_fix_calls = []
+
+        completed = mod.run_fix_loop(
+            [check],
+            input_func=lambda p: "",
+            run_fix=lambda cmd: run_fix_calls.append(cmd) or (True, ""),
+            run_verify=lambda cmd: True,
+        )
+
+        assert run_fix_calls == []
+        assert completed == []
+
+    def test_cancelled_input_stops_and_skips_fix(self):
+        mod = _load_module("install_agent_factory_loop_cancel")
+        check = self._fixable(mod, "uv")
+        run_fix_calls = []
+
+        def raise_eof(prompt):
+            raise EOFError()
+
+        completed = mod.run_fix_loop(
+            [check],
+            input_func=raise_eof,
+            run_fix=lambda cmd: run_fix_calls.append(cmd) or (True, ""),
+            run_verify=lambda cmd: True,
+        )
+
+        assert run_fix_calls == []
+        assert completed == []
+
+    def test_failed_verification_stops_sequence(self, capsys):
+        mod = _load_module("install_agent_factory_loop_failverify")
+        uv_check = self._fixable(mod, "uv")
+        py_check = self._fixable(mod, "managed_python")
+        run_fix_calls = []
+
+        completed = mod.run_fix_loop(
+            [uv_check, py_check],
+            input_func=lambda p: "yes",
+            run_fix=lambda cmd: run_fix_calls.append(cmd) or (True, ""),
+            run_verify=lambda cmd: False,
+        )
+
+        assert run_fix_calls == ["fix-uv"]
+        assert completed == []
+        out = capsys.readouterr().out
+        assert "verification failed" in out.lower()
+
+    def test_unsupported_check_never_offered_fix(self):
+        mod = _load_module("install_agent_factory_loop_unsupported")
+        check = self._unfixable(mod, "git")
+        prompted = []
+
+        def spy_input(prompt):
+            prompted.append(prompt)
+            return "yes"
+
+        completed = mod.run_fix_loop(
+            [check],
+            input_func=spy_input,
+            run_fix=lambda cmd: (_ for _ in ()).throw(
+                AssertionError("run_fix should not be called")),
+            run_verify=lambda cmd: True,
+        )
+
+        assert prompted == []
+        assert completed == []
+
+    def test_passed_checks_are_skipped(self):
+        mod = _load_module("install_agent_factory_loop_passed")
+        check = self._fixable(mod, "uv", passed=True)
+        prompted = []
+
+        completed = mod.run_fix_loop(
+            [check],
+            input_func=lambda p: prompted.append(p) or "yes",
+            run_fix=lambda cmd: (_ for _ in ()).throw(
+                AssertionError("run_fix should not be called")),
+            run_verify=lambda cmd: True,
+        )
+
+        assert prompted == []
+        assert completed == []
+
+    def test_uv_recovery_guidance_names_restart_and_reversal(self, capsys):
+        """Recovery guidance is per-prerequisite (uv)."""
+        mod = _load_module("install_agent_factory_loop_recover_uv")
+        check = self._fixable(mod, "uv")
+
+        mod.run_fix_loop(
+            [check], input_func=lambda p: "yes",
+            run_fix=lambda cmd: (True, ""), run_verify=lambda cmd: False,
+        )
+        out = capsys.readouterr().out
+        assert "Restart your shell" in out
+        assert "uv self uninstall" in out
+
+    def test_managed_python_recovery_guidance_names_manual_install(self, capsys):
+        """Recovery guidance is per-prerequisite (managed Python)."""
+        mod = _load_module("install_agent_factory_loop_recover_py")
+        check = self._fixable(mod, "managed_python")
+
+        mod.run_fix_loop(
+            [check], input_func=lambda p: "yes",
+            run_fix=lambda cmd: (True, ""), run_verify=lambda cmd: False,
+        )
+        out = capsys.readouterr().out
+        assert "uv python install 3.10" in out
+        assert "uv python uninstall 3.10" in out
+
+
+class TestFixLoopIntegration:
+    """End-to-end: the fix loop is wired into the real bootstrap CLI."""
+
+    def _path_without_uv(self) -> str:
+        """PATH covering git/bash/python3 but not uv, so preflight reports
+        uv (and managed Python, which shells out through uv) missing."""
+        return "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+    def test_missing_uv_offers_fix_then_blank_stops_without_running_it(
+            self, tmp_path):
+        source = _make_source(tmp_path)
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        result = _run(
+            ["--from-local", str(source), "--target", str(target)],
+            input_text="\n",
+            env={"PATH": self._path_without_uv()},
+        )
+
+        out = result.stdout
+        assert "Ready with limitations" in out
+        assert "Fix available for uv" in out
+        assert "curl -LsSf https://astral.sh/uv/install.sh | sh" in out
+        assert "Purpose" in out and "Reversal" in out and "Verification" in out
+        # Declined at the first fix prompt: nothing installed.
+        assert not (target / ".agent-factory" / "install.json").exists()

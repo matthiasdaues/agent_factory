@@ -442,26 +442,26 @@ On BeginPreflight:
 
 State: PREFLIGHTED
 On ClassifyReadiness:
-  if result is Ready or ReadyWithLimitations
-    ChangeState(PREVIEWED)
-  else if result is Blocked and a supported fix exists
+  if result is Blocked
+    ChangeState(STOPPED_UNCHANGED)
+  else if a supported fix exists for a failed check
     ChangeState(FIX_OFFERED)
   else
-    ChangeState(STOPPED_UNCHANGED)
+    ChangeState(PREVIEWED)
 
 State: FIX_OFFERED
 On DecideFix:
   if fix is confirmed
     ChangeState(FIX_VERIFYING)
   else
-    ChangeState(STOPPED_VALID)
+    ChangeState(PREVIEWED)
 
 State: FIX_VERIFYING
 On VerifyFix:
   if verification passes
     ChangeState(PREFLIGHTED)
   else
-    ChangeState(STOPPED_VALID)
+    ChangeState(PREVIEWED)
 
 State: PREVIEWED
 On DecideInstallation:
@@ -494,13 +494,13 @@ stateDiagram-v2
     [*] --> START
     START --> PREFLIGHTED : BeginPreflight (valid source, safe target, supported host)
     START --> STOPPED_UNCHANGED : BeginPreflight (invalid or unsupported)
-    PREFLIGHTED --> PREVIEWED : ClassifyReadiness (Ready or ReadyWithLimitations)
-    PREFLIGHTED --> FIX_OFFERED : ClassifyReadiness (Blocked with supported fix)
-    PREFLIGHTED --> STOPPED_UNCHANGED : ClassifyReadiness (Blocked without supported fix)
+    PREFLIGHTED --> FIX_OFFERED : ClassifyReadiness (supported fix exists for a failed check)
+    PREFLIGHTED --> PREVIEWED : ClassifyReadiness (no supported fix exists)
+    PREFLIGHTED --> STOPPED_UNCHANGED : ClassifyReadiness (Blocked)
     FIX_OFFERED --> FIX_VERIFYING : DecideFix (confirmed)
-    FIX_OFFERED --> STOPPED_VALID : DecideFix (declined, cancelled, or blank)
-    FIX_VERIFYING --> PREFLIGHTED : VerifyFix (passes)
-    FIX_VERIFYING --> STOPPED_VALID : VerifyFix (fails)
+    FIX_OFFERED --> PREVIEWED : DecideFix (declined, cancelled, or blank)
+    FIX_VERIFYING --> PREFLIGHTED : VerifyFix (passes, offers the next supported fix if any)
+    FIX_VERIFYING --> PREVIEWED : VerifyFix (fails)
     PREVIEWED --> INSTALLING : DecideInstallation (approved and verified)
     PREVIEWED --> STOPPED_UNCHANGED : DecideInstallation (declined, cancelled, blank, or unverified)
     INSTALLING --> INSTALLED : VerifyInstallation (passes)
@@ -511,8 +511,12 @@ stateDiagram-v2
 ```
 
 `STOPPED_UNCHANGED` means the target received no installation change.
-`STOPPED_VALID` permits previously confirmed prerequisite fixes but requires a
-valid target project and reports reversal or recovery guidance.
+`STOPPED_VALID` means an approved installation began and then failed
+verification; some effects may exist. A declined, blank, cancelled, or
+unverified prerequisite fix reports completed fixes and their reversal
+commands but does not stop the bootstrap: `Blocked` is the only readiness
+that prevents installation, so once readiness is classified, an unresolved
+optional fix still leads to `PREVIEWED`.
 
 ## First-Task Sandbox Lifecycle
 

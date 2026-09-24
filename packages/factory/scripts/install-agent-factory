@@ -390,14 +390,20 @@ def resolve_remote_source(base_url: str, version: Optional[str]
 # ---------------------------------------------------------------------------
 
 class PreflightCheck:
-    """One preflight check result."""
+    """One preflight check result.
+
+    `fixable` distinguishes prerequisites the bootstrap can run a fix
+    command for (uv, managed Python) from ones it can only describe
+    (Git, shell, platform, network, coding interfaces) — VFO-011/VFO-012.
+    """
     __slots__ = ("name", "passed", "critical", "message",
-                 "purpose", "fix", "scope", "reversal", "verification")
+                 "purpose", "fix", "scope", "reversal", "verification",
+                 "fixable")
 
     def __init__(self, name: str, passed: bool, critical: bool,
                  message: str, *, purpose: str = "", fix: str = "",
                  scope: str = "", reversal: str = "",
-                 verification: str = "") -> None:
+                 verification: str = "", fixable: bool = False) -> None:
         self.name = name
         self.passed = passed
         self.critical = critical
@@ -407,6 +413,7 @@ class PreflightCheck:
         self.scope = scope
         self.reversal = reversal
         self.verification = verification
+        self.fixable = fixable
 
 
 def check_platform() -> PreflightCheck:
@@ -511,7 +518,7 @@ def check_python() -> PreflightCheck:
 
 
 def check_uv() -> PreflightCheck:
-    """Check that uv is available (optional)."""
+    """Check that uv is available (optional, fixable)."""
     if shutil.which("uv"):
         return PreflightCheck(
             "uv", True, False,
@@ -520,11 +527,38 @@ def check_uv() -> PreflightCheck:
     return PreflightCheck(
         "uv", False, False,
         "uv is not installed (recommended for dependency management).",
-        purpose="uv provides fast Python dependency management.",
+        purpose="Package manager for Python dependencies",
         fix="curl -LsSf https://astral.sh/uv/install.sh | sh",
-        scope="Installs uv for the current user (~/.cargo/bin/).",
-        reversal="rm ~/.cargo/bin/uv",
+        scope="Installs to ~/.local/bin",
+        reversal="uv self uninstall",
         verification="uv --version",
+        fixable=True,
+    )
+
+
+MANAGED_PYTHON_VERIFICATION = "uv python list | grep 3.10"
+
+
+def check_managed_python() -> PreflightCheck:
+    """Check that uv manages a Python 3.10 runtime (optional, fixable).
+
+    Uses the same shell command as the fix's verification step (VFO-013:
+    the fix loop repeats "the related check").
+    """
+    if run_verification_command(MANAGED_PYTHON_VERIFICATION):
+        return PreflightCheck(
+            "managed_python", True, False,
+            "Managed Python: 3.10 available via uv",
+        )
+    return PreflightCheck(
+        "managed_python", False, False,
+        "Managed Python 3.10 is not available via uv.",
+        purpose="Python runtime managed by uv",
+        fix="uv python install 3.10",
+        scope="Installs to ~/.local/share/uv/python",
+        reversal="uv python uninstall 3.10",
+        verification=MANAGED_PYTHON_VERIFICATION,
+        fixable=True,
     )
 
 
@@ -540,6 +574,7 @@ def run_preflight(source: Path, target: Path) -> Tuple[str, List[PreflightCheck]
         check_git(),
         check_python(),
         check_uv(),
+        check_managed_python(),
     ]
 
     critical_failures = [c for c in checks if c.critical and not c.passed]
@@ -553,6 +588,126 @@ def run_preflight(source: Path, target: Path) -> Tuple[str, List[PreflightCheck]
         readiness = READINESS_READY
 
     return readiness, checks
+
+
+# ---------------------------------------------------------------------------
+# Prerequisite fix loop (VFO-011, VFO-012, VFO-013)
+# ---------------------------------------------------------------------------
+
+FIX_RECOVERY_GUIDANCE = {
+    "uv": (
+        "Fix ran but verification failed. Restart your shell and check "
+        "`uv --version`. If uv is still not found, see "
+        "https://docs.astral.sh/uv/getting-started/installation/. "
+        "The fix may have partially applied. Reversal: `uv self uninstall`."
+    ),
+    "managed_python": (
+        "Fix ran but verification failed. Check `uv python list`. If the "
+        "version is missing, run `uv python install 3.10` manually. The "
+        "fix may have partially applied. Reversal: `uv python uninstall 3.10`."
+    ),
+}
+
+
+def run_fix_command(command: str) -> Tuple[bool, str]:
+    """Run a fix command through the shell.  Returns (succeeded, output).
+
+    All supported fix commands work identically on macOS, Linux, and WSL;
+    no platform branching.
+    """
+    try:
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True, timeout=300,
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        return result.returncode == 0, output
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, str(exc)
+
+
+def run_verification_command(command: str) -> bool:
+    """Run a verification command through the shell.  Returns True on success."""
+    try:
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True, timeout=30,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+
+
+def get_fix_consent(check: PreflightCheck, input_func=None) -> bool:
+    """Ask for consent to run one fix.
+
+    Shows purpose, command, scope, reversal, and verification (VFO-011)
+    before asking.  Blank input, decline, and cancellation are never
+    consent (VFO-012).
+    """
+    if input_func is None:
+        input_func = input
+    print(f"\nFix available for {check.name}:")
+    print(f"  Purpose:      {check.purpose}")
+    print(f"  Command:      {check.fix}")
+    print(f"  Scope:        {check.scope}")
+    print(f"  Reversal:     {check.reversal}")
+    print(f"  Verification: {check.verification}")
+    try:
+        answer = input_func(f"Run this fix for {check.name}? (yes to confirm): ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in ("yes", "y")
+
+
+def run_fix_loop(checks: List[PreflightCheck], input_func=None,
+                 run_fix=None, run_verify=None) -> List[Dict[str, str]]:
+    """Offer each failed, fixable check's fix in order.
+
+    After an approved fix, the related check's verification command runs
+    before the next fix is offered (VFO-013).  Declined, blank, or
+    cancelled consent, and failed verification, stop the sequence
+    (VFO-012, VFO-013).  Unsupported (not `fixable`) prerequisites are
+    never offered a fix here — preflight's own diagnosis output already
+    carries their guidance text.
+
+    Returns the fixes completed and verified, each as
+    {"name": ..., "reversal": ...}, for the cancellation/decline report.
+    """
+    if run_fix is None:
+        run_fix = run_fix_command
+    if run_verify is None:
+        run_verify = run_verification_command
+
+    completed: List[Dict[str, str]] = []
+
+    for check in checks:
+        if check.passed or not check.fixable:
+            continue
+
+        if not get_fix_consent(check, input_func=input_func):
+            break
+
+        _succeeded, output = run_fix(check.fix)
+        if output:
+            print(output)
+
+        if not run_verify(check.verification):
+            guidance = FIX_RECOVERY_GUIDANCE.get(
+                check.name,
+                "Fix ran but verification failed. "
+                f"The fix may have partially applied. Reversal: {check.reversal}",
+            )
+            print(f"\n{guidance}")
+            break
+
+        print(f"  [OK] {check.name} fixed and verified.")
+        completed.append({"name": check.name, "reversal": check.reversal})
+
+    if completed:
+        print("\nCompleted fixes:")
+        for fix in completed:
+            print(f"  {fix['name']}: reversal = {fix['reversal']}")
+
+    return completed
 
 
 # ---------------------------------------------------------------------------
@@ -990,6 +1145,9 @@ def main(argv: list[str] | None = None) -> int:
         print("\nInstallation is blocked due to missing prerequisites.",
               file=sys.stderr)
         return 1
+
+    # --- Prerequisite fix loop (VFO-011 through VFO-013) ---
+    run_fix_loop(checks)
 
     # --- Interface detection and selection ---
     detected = detect_interfaces(target)
