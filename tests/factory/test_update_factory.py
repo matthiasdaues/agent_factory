@@ -9,12 +9,17 @@ later update agree on what counts as a checksummed path.
 Also covers `--check` (ST-0284): reports installed/candidate versions,
 source, digest, local modifications, and planned instruction header
 changes without writing anything.
+
+ST-0285 extends this with the ADR-0023 seven-step transaction: approval,
+download-and-verify, staging, application, rollback, and the receipt.
 """
 
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+import tarfile
 from pathlib import Path
 
 from conftest import load_script
@@ -59,6 +64,33 @@ def _make_local_source(root: Path, version: str = "1.0.0") -> Path:
     (source / "packages" / "factory").mkdir(parents=True)
     (source / "packages" / "factory" / "VERSION").write_text(f"{version}\n")
     return source
+
+
+def _make_candidate_source(root: Path, version: str = "1.1.0") -> Path:
+    """A local candidate source tree with a marker file distinct from the
+    installed factory/, so a real staged swap is observable."""
+    source = root / "candidate-source"
+    factory = source / "packages" / "factory"
+    factory.mkdir(parents=True)
+    (factory / "VERSION").write_text(f"{version}\n")
+    (factory / "MARKER").write_text("candidate\n")
+    (factory / "scripts").mkdir()
+    (factory / "scripts" / "step-guard").write_text("candidate pass\n")
+    return source
+
+
+def _make_archive_bytes(files: dict[str, str]) -> bytes:
+    """Build an in-memory tar.gz whose members are the given relative
+    path -> content pairs, matching the release archive layout (paths
+    relative to the factory/ root, not prefixed with packages/factory/)."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        for rel, content in files.items():
+            data = content.encode("utf-8")
+            info = tarfile.TarInfo(name=rel)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
 
 
 class TestHookRegeneratedPathsConstant:
@@ -194,6 +226,7 @@ class TestMainSkipsForceGateForIndexYamlOnlyChanges:
         monkeypatch.setattr(
             uf, "_run_init", lambda src, tgt: calls.append((src, tgt)) or 0
         )
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
 
         code = uf.main(["--target", str(target)])
 
@@ -589,3 +622,376 @@ class TestCheckPerformsNoWrites:
             p.relative_to(target).as_posix() for p in target.rglob("*")
         )
         assert tree_after == tree_before
+
+
+# ---------------------------------------------------------------------------
+# ST-0285: approval, download/verify, staging, application, and rollback
+# ---------------------------------------------------------------------------
+
+
+class TestGetUpdateConsent:
+    """Blank, declined, or cancelled input is never treated as consent."""
+
+    def test_blank_input_is_not_consent(self):
+        assert uf.get_update_consent(input_func=lambda _: "") is False
+
+    def test_declining_input_is_not_consent(self):
+        assert uf.get_update_consent(input_func=lambda _: "no") is False
+
+    def test_yes_is_consent(self):
+        assert uf.get_update_consent(input_func=lambda _: "yes") is True
+
+    def test_eof_is_not_consent(self):
+        def _raise(_):
+            raise EOFError
+
+        assert uf.get_update_consent(input_func=_raise) is False
+
+
+class TestApprovalGate:
+    """A normal update requires affirmative consent before any download or
+    mutation (VFO-023 approval step); blank input stops with no changes."""
+
+    def test_declined_consent_makes_no_changes(self, tmp_path, capsys, monkeypatch):
+        target = tmp_path / "target"
+        target.mkdir()
+        factory = _make_installed_factory(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+
+        manifest_before = (target / uf.MANIFEST_PATH).read_bytes()
+        tree_before = sorted(
+            p.relative_to(target).as_posix() for p in target.rglob("*")
+        )
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: False)
+
+        def _fail_if_called(*_a, **_kw):
+            raise AssertionError("declined consent must never invoke _run_init")
+
+        monkeypatch.setattr(uf, "_run_init", _fail_if_called)
+
+        code = uf.main(["--target", str(target)])
+        capsys.readouterr()
+
+        assert code != 0
+        assert (target / uf.MANIFEST_PATH).read_bytes() == manifest_before
+        tree_after = sorted(
+            p.relative_to(target).as_posix() for p in target.rglob("*")
+        )
+        assert tree_after == tree_before
+        assert (factory / "MARKER").exists() is False
+
+
+class TestStageFactoryTree:
+    """Staging places the verified replacement alongside the current
+    installation without touching it (ADR-0023 step 4)."""
+
+    def test_staging_copies_candidate_without_touching_live_tree(self, tmp_path):
+        target = tmp_path / "target"
+        target.mkdir()
+        factory = _make_installed_factory(target)
+        source = _make_candidate_source(tmp_path)
+        source_factory = source / "packages" / "factory"
+
+        staging_dir = uf._stage_factory_tree(target, source_factory)
+
+        assert staging_dir.parent == target / ".agent-factory"
+        assert staging_dir.name.startswith(uf.STAGING_DIR_PREFIX)
+        assert (staging_dir / "MARKER").read_text() == "candidate\n"
+        # The live installation is untouched.
+        assert (factory / "MARKER").exists() is False
+        assert (factory / "INDEX.yaml").is_file()
+
+
+class TestRemoteVerificationBeforeStaging:
+    """VFO-022: a remote update verifies the archive digest before any
+    extraction or staging; a mismatch aborts with no changes."""
+
+    def _write_remote_manifest(self, target: Path, resolved_source: str) -> None:
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="remote",
+            resolved_source=resolved_source,
+        )
+
+    def test_digest_mismatch_aborts_without_changes(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        self._write_remote_manifest(
+            target, "https://example.com/releases/1.0.0/",
+        )
+
+        monkeypatch.setattr(
+            uf, "_resolve_remote_candidate",
+            lambda resolved_source, timeout=uf.REMOTE_TIMEOUT: (
+                None, "1.1.0", "https://example.com/releases/1.1.0/", "deadbeef"
+            ),
+        )
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(
+            uf, "_download_and_verify_archive",
+            lambda url, timeout=uf.REMOTE_TIMEOUT: (
+                "digest mismatch", None, None,
+            ),
+        )
+
+        def _fail_if_called(*_a, **_kw):
+            raise AssertionError("a digest mismatch must never reach _run_init")
+
+        monkeypatch.setattr(uf, "_run_init", _fail_if_called)
+
+        manifest_before = (target / uf.MANIFEST_PATH).read_bytes()
+
+        code = uf.main(["--target", str(target)])
+        capsys.readouterr()
+
+        assert code != 0
+        assert (target / uf.MANIFEST_PATH).read_bytes() == manifest_before
+        remote_scratch = list(
+            (target / ".agent-factory").glob(f"{uf.REMOTE_SCRATCH_PREFIX}*")
+        )
+        assert remote_scratch == []
+
+    def test_verified_archive_is_extracted_and_applied(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        self._write_remote_manifest(
+            target, "https://example.com/releases/1.0.0/",
+        )
+
+        archive_bytes = _make_archive_bytes({
+            "VERSION": "1.1.0\n",
+            "MARKER": "remote-candidate\n",
+        })
+
+        monkeypatch.setattr(
+            uf, "_resolve_remote_candidate",
+            lambda resolved_source, timeout=uf.REMOTE_TIMEOUT: (
+                None, "1.1.0", "https://example.com/releases/1.1.0/", "deadbeef"
+            ),
+        )
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(
+            uf, "_download_and_verify_archive",
+            lambda url, timeout=uf.REMOTE_TIMEOUT: (
+                None, archive_bytes, "deadbeef",
+            ),
+        )
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        code = uf.main(["--target", str(target)])
+        out = capsys.readouterr().out
+
+        assert code == 0
+        target_factory = target / ".agent-factory" / "factory"
+        assert (target_factory / "MARKER").read_text() == "remote-candidate\n"
+        assert "deadbeef" in out
+        manifest = json.loads((target / uf.MANIFEST_PATH).read_text())
+        assert manifest["factory_version"] == "1.1.0"
+        assert manifest["archive_sha256"] == "deadbeef"
+        # The remote extraction scratch directory is cleaned up.
+        assert list(
+            (target / ".agent-factory").glob(f"{uf.REMOTE_SCRATCH_PREFIX}*")
+        ) == []
+
+
+class TestApplicationAndRollback:
+    """VFO-05-IT-02: application failure restores the previous Factory
+    tree, manifest, and checksums exactly."""
+
+    def _install(self, target: Path) -> Path:
+        return _make_installed_factory(target)
+
+    def test_successful_update_swaps_staged_tree_into_place(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        self._install(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        code = uf.main(["--target", str(target)])
+        out = capsys.readouterr().out
+
+        assert code == 0
+        target_factory = target / ".agent-factory" / "factory"
+        assert (target_factory / "MARKER").read_text() == "candidate\n"
+        assert "Update Receipt" in out
+        assert ".agent-factory/factory/" in out
+        # No leftover staging or backup directories.
+        leftovers = list((target / ".agent-factory").glob(f"{uf.STAGING_DIR_PREFIX}*"))
+        leftovers += list((target / ".agent-factory").glob(f"{uf.BACKUP_DIR_PREFIX}*"))
+        assert leftovers == []
+
+    def test_run_init_failure_restores_previous_tree_manifest_and_checksums(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        self._install(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+
+        manifest_before = (target / uf.MANIFEST_PATH).read_bytes()
+        checksums_before = (target / uf.CHECKSUMS_PATH).read_bytes()
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 1)
+
+        code = uf.main(["--target", str(target)])
+        out_err = capsys.readouterr().err
+
+        assert code != 0
+        assert "restored" in out_err.lower()
+        target_factory = target / ".agent-factory" / "factory"
+        # The previous tree is back — the candidate marker is absent, the
+        # original installed content is present again.
+        assert (target_factory / "MARKER").exists() is False
+        assert (target_factory / "INDEX.yaml").read_text() == "agents: []\n"
+        assert (target / uf.MANIFEST_PATH).read_bytes() == manifest_before
+        assert (target / uf.CHECKSUMS_PATH).read_bytes() == checksums_before
+        leftovers = list((target / ".agent-factory").glob(f"{uf.STAGING_DIR_PREFIX}*"))
+        leftovers += list((target / ".agent-factory").glob(f"{uf.BACKUP_DIR_PREFIX}*"))
+        assert leftovers == []
+
+    def test_exception_during_application_also_rolls_back(
+        self, tmp_path, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        self._install(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+
+        manifest_before = (target / uf.MANIFEST_PATH).read_bytes()
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+
+        def _boom(*_a, **_kw):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(uf, "_apply_header_changes", _boom)
+
+        code = uf.main(["--target", str(target)])
+
+        assert code != 0
+        target_factory = target / ".agent-factory" / "factory"
+        assert (target_factory / "MARKER").exists() is False
+        assert (target / uf.MANIFEST_PATH).read_bytes() == manifest_before
+
+
+class TestForceReceipt:
+    """VFO-024/VFO-025: --force preserves modified files and the receipt
+    records the preservation path and the preserved files."""
+
+    def test_force_preserves_modified_files_and_receipt_records_them(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        factory = _make_installed_factory(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+
+        (factory / "scripts" / "step-guard").write_text("user-modified\n")
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        code = uf.main(["--target", str(target), "--force"])
+        out = capsys.readouterr().out
+
+        assert code == 0
+        assert "Preserved user changes" in out
+        assert "scripts/step-guard" in out
+        preserved_root = target / uf.USER_CHANGES_DIR
+        preserved_files = list(preserved_root.rglob("step-guard"))
+        assert len(preserved_files) == 1
+        assert preserved_files[0].read_text() == "user-modified\n"
+
+
+class TestHeaderApplyAndRollback:
+    """Instruction headers are updated during application and restored
+    exactly on rollback (ADR-0023 staging includes header edits)."""
+
+    def _setup(self, tmp_path):
+        target = tmp_path / "target"
+        target.mkdir()
+        _make_installed_factory(target)
+        source = _make_candidate_source(tmp_path)
+        (source / "packages" / "factory" / "config").mkdir()
+        (source / "packages" / "factory" / "config" / "AGENTS.codex.md").write_text(
+            "new instructions\n"
+        )
+
+        old_block = f"{uf.ORIENTATION_BEGIN}\nold instructions\n{uf.ORIENTATION_END}\n"
+        old_digest = hashlib.sha256(old_block.encode("utf-8")).hexdigest()
+        original_content = old_block + "\nproject instructions\n"
+        (target / "AGENTS.md").write_text(original_content)
+
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source), cli="codex",
+            orientation={
+                "AGENTS.md": {"status": "injected", "block_digest": old_digest},
+            },
+        )
+        return target, source, original_content
+
+    def test_changed_header_is_updated_on_successful_apply(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        target, _source, _original = self._setup(tmp_path)
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        code = uf.main(["--target", str(target)])
+        out = capsys.readouterr().out
+
+        assert code == 0
+        updated = (target / "AGENTS.md").read_text()
+        assert "new instructions" in updated
+        assert "old instructions" not in updated
+        assert "project instructions" in updated
+        assert "AGENTS.md" in out
+        manifest = json.loads((target / uf.MANIFEST_PATH).read_text())
+        assert manifest["orientation"]["AGENTS.md"]["block_digest"] != hashlib.sha256(
+            f"{uf.ORIENTATION_BEGIN}\nold instructions\n{uf.ORIENTATION_END}\n".encode()
+        ).hexdigest()
+
+    def test_header_change_is_restored_on_rollback(self, tmp_path, monkeypatch):
+        target, _source, original_content = self._setup(tmp_path)
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 1)
+
+        code = uf.main(["--target", str(target)])
+
+        assert code != 0
+        assert (target / "AGENTS.md").read_text() == original_content

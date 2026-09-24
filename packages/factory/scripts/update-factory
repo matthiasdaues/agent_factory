@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """update-factory — refresh an installed .agent-factory/factory/ to the current checkout.
 
-What: Brings a project's installed `.agent-factory/factory/` up to date with the current state
-      of the referenced agent_factory checkout, then re-applies every *derived*
-      install step through the sourced init-factory — regenerated Codex
-      adapters and Copilot agent copies (with tools: frontmatter), re-verified
-      runtime symlinks, re-merged guardrail/usage hook wiring, and a re-run
-      pre-commit install.
-When: To update an existing install to a newer checkout.
+What: Brings a project's installed `.agent-factory/factory/` up to date with
+      a candidate source (a local checkout or the recorded remote release),
+      through the seven-step transaction from ADR-0023: check, approval,
+      download-and-verify, staging, application, rollback, and receipt.
+      Application re-applies every *derived* install step through the
+      sourced init-factory — regenerated Codex adapters and Copilot agent
+      copies (with tools: frontmatter), re-verified runtime symlinks,
+      re-merged guardrail/usage hook wiring, and a re-run pre-commit
+      install.
+When: To update an existing install to a newer checkout or release.
 By:   run by hand (a shell, no AI needed); companion to init-factory and
       remove-factory. Run it from the checkout (`--target <project>`) or from
       inside the installed project (`--source <checkout>`); either works.
 
-Safety: Before replacing .agent-factory/factory/, the script compares per-file checksums
+Local-change safety: Before staging, the script compares per-file checksums
 recorded at install time against the currently installed files. Files that
 the user added (custom skills, agents, scripts) or modified (tweaked prompts,
 adjusted rules) are detected and reported. When user changes are found, the
@@ -30,27 +33,48 @@ doing its job is never a user modification, so it never triggers --force.
 These paths are still overwritten on every update, same as everything else in
 .agent-factory/factory/ — they are just never diffed against the baseline.
 
-What is *not* touched: only `.agent-factory/factory/` is replaced. The project's
+Approval: once local changes clear, a preview shows the source, installed
+and candidate versions, and planned effects (the factory/ replacement plus
+any instruction-header additions or content changes). Blank, declined, or
+cancelled input is never treated as consent — no download or mutation
+happens before an explicit "yes".
+
+Download and verification: for a remote-sourced install, the candidate
+archive is downloaded and its SHA-256 digest verified against SHA256SUMS
+before any extraction. A missing or mismatched digest aborts with no
+changes. A local source is used as-is (there is no published digest for an
+arbitrary checkout).
+
+Staging: the verified candidate is copied into
+`.agent-factory/factory-staging-<uuid>`, alongside the current installation.
+Nothing under `.agent-factory/factory/` is touched during staging.
+
+Application: the current `.agent-factory/factory/` is moved aside to
+`.agent-factory/factory-backup-<uuid>` (not deleted), the staged replacement
+is swapped into place, instruction-header edits are applied, and the sourced
+init-factory re-derives per-CLI wiring against the new tree.
+
+Rollback: if application fails — the swap, a header edit, or the sourced
+init-factory returning non-zero — the previous `.agent-factory/factory/`,
+`install.json` manifest, `checksums.json`, and any touched instruction
+headers are restored exactly. The project is never left without a
+`.agent-factory/factory/`; resolve the reported failure and re-run
+`update-factory` to finish.
+
+What is *not* touched: only `.agent-factory/factory/`, `install.json`,
+`checksums.json`, and instruction-header content are written. The project's
 own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the rest of
 `.agent-factory/` — including the usage-tracking transcripts under
 `.agent-factory/usage/` and the lifecycle state under `.agent-factory/usage/
-control/` — are all preserved. init-factory only rewrites the removal manifest
-(`.agent-factory/install.json`) and initializes the lifecycle
-if-absent; it never deletes usage data.
+control/` — are all preserved. init-factory never deletes usage data.
 
-On failure, the install is rolled back: the old `.agent-factory/factory/` is
-moved aside (not deleted) before the refresh, and if the sourced init-factory
-returns non-zero — a `Collision`, the only non-graceful failure — the previous
-`.agent-factory/factory/` is restored in place. The project is never left
-without a `.agent-factory/factory/` and dangling runtime symlinks; resolve the
-reported collision and
-re-run `update-factory` to finish.
-
-The one decision update-factory cannot infer is WHICH checkout to pull from.
-init-factory records the source it copied from in the install manifest
-(`factory_source`); update-factory reads that as its default and `--source`
-overrides it. Installations created before that field existed must pass
-`--source`.
+The one decision update-factory cannot infer is WHICH checkout or release to
+pull from. init-factory records the source it copied from in the install
+manifest (`factory_source` for local, `source_selector`/`resolved_source`
+for remote); update-factory reads that as its default and `--source`
+overrides it for a local candidate. Installations created before that field
+existed must pass `--source`. Changing source selector or remote URL is out
+of scope here — see ST-0286.
 
 Usage
   update-factory --target /path/to/project                 # source from manifest
@@ -69,21 +93,24 @@ manifest is readable, whether or not changes are found — --check reports,
 it never gates.
 
 Exit code: 0 on success, including --check. 1 if the target isn't an
-init-factory'd project, if no source can be resolved, or if the sourced
-init-factory stops on a collision. 2 if user modifications were detected on
-a non-check run and --force was not passed.
+init-factory'd project, if no source can be resolved, if consent is
+declined, if archive verification fails, or if application fails after
+rollback. 2 if user modifications were detected on a non-check run and
+--force was not passed.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -96,6 +123,14 @@ USER_CHANGES_DIR = ".agent-factory/user-changes"
 CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
 CHECKSUM_SKIP_SUFFIXES = (".pyc",)
 REMOTE_TIMEOUT = 30
+
+# ADR-0023 seven-step transaction: the staging and backup directories live
+# alongside the current installation under .agent-factory/, never outside
+# it, so the whole transaction stays in the project's factory-managed
+# namespace.
+STAGING_DIR_PREFIX = "factory-staging-"
+BACKUP_DIR_PREFIX = "factory-backup-"
+REMOTE_SCRATCH_PREFIX = "factory-remote-"
 
 # Instruction-file discovery, mirroring install-agent-factory's rule, so
 # --check can tell which files would receive a header on the next update
@@ -333,6 +368,258 @@ def _run_init(source: Path, target: Path) -> int:
         check=False,
     )
     return result.returncode
+
+
+# ── Approval and preview ────────────────────────────────────────────────
+
+
+def _show_update_preview(
+    installed_version: str,
+    candidate_version: str,
+    source_label: str,
+    source_selector: str,
+    header_changes: dict,
+    digest: str | None = None,
+) -> None:
+    """Display source, current/candidate versions, and planned effects
+    before any download or mutation (ADR-0023 step 2)."""
+    print("\nUpdate Preview")
+    print("-" * 40)
+    print(f"  Installed version:  {installed_version}")
+    print(f"  Candidate version:  {candidate_version}")
+    print(f"  Source:             {source_label} ({source_selector})")
+    if digest:
+        print(f"  Digest:             {digest}")
+    print("\n  Planned effects:")
+    print("    M  .agent-factory/factory/")
+    for p in header_changes.get("added", []):
+        print(f"    A  {p}")
+    for p in header_changes.get("changed", []):
+        print(f"    M  {p}")
+    for p in header_changes.get("removed", []):
+        print(f"    D  {p}  (no longer tracked)")
+    print()
+
+
+def get_update_consent(input_func=None) -> bool:
+    """Ask for update consent. Blank, declined, or cancelled input is
+    never treated as consent (VFO-023 approval gate)."""
+    if input_func is None:
+        input_func = input
+    try:
+        answer = input_func("Proceed with update? (yes to confirm): ")
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer.strip().lower() in ("yes", "y")
+
+
+# ── Download, verification, and extraction (remote candidates) ──────────
+
+
+def _download_and_verify_archive(
+    resolved_base_url: str, timeout: int = REMOTE_TIMEOUT,
+) -> tuple[str | None, bytes | None, str | None]:
+    """Download SHA256SUMS and agent-factory.tar.gz, verify the digest.
+
+    VFO-022: the archive is not extracted until its SHA-256 digest matches
+    SHA256SUMS from the resolved release. A missing or mismatched digest
+    returns an error and no bytes — no changes are made to the
+    installation. Returns (error, archive_bytes, digest).
+    """
+    sums_url = resolved_base_url + "SHA256SUMS"
+    error, sums_body = _fetch_url(sums_url, timeout=timeout)
+    if error:
+        return error, None, None
+
+    archive_url = resolved_base_url + "agent-factory.tar.gz"
+    error, archive_bytes = _fetch_url(archive_url, timeout=timeout)
+    if error:
+        return error, None, None
+
+    expected_digest = None
+    for line in sums_body.decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(None, 1)
+        if len(parts) == 2 and parts[1].lstrip("*").strip() == "agent-factory.tar.gz":
+            expected_digest = parts[0].strip()
+            break
+
+    actual_digest = hashlib.sha256(archive_bytes).hexdigest()
+
+    if expected_digest is None:
+        return (f"update-factory: no digest for agent-factory.tar.gz in "
+                f"{sums_url}; refusing to extract"), None, None
+
+    if expected_digest != actual_digest:
+        return (f"update-factory: digest mismatch for agent-factory.tar.gz "
+                f"(expected {expected_digest}, got {actual_digest}); "
+                f"refusing to extract"), None, None
+
+    return None, archive_bytes, actual_digest
+
+
+def _safe_extract_archive(archive_bytes: bytes, dest: Path) -> None:
+    """Extract a verified tar.gz's members into dest, refusing any path
+    that would resolve outside dest (path-traversal guard)."""
+    dest_resolved = dest.resolve()
+    with tarfile.open(fileobj=io.BytesIO(archive_bytes), mode="r:gz") as tf:
+        for member in tf.getmembers():
+            member_path = (dest / member.name).resolve()
+            if member_path != dest_resolved and not str(member_path).startswith(
+                    str(dest_resolved) + os.sep):
+                raise ValueError(f"unsafe path in archive: {member.name}")
+        tf.extractall(dest)
+
+
+# ── Staging and application (ADR-0023 steps 4-6) ─────────────────────────
+
+
+def _stage_factory_tree(target: Path, source_factory: Path) -> Path:
+    """Copy the verified candidate factory/ tree into a staging directory
+    alongside the current installation. The current installation is not
+    touched — staging never modifies .agent-factory/factory/."""
+    staging_dir = target / ".agent-factory" / f"{STAGING_DIR_PREFIX}{uuid.uuid4()}"
+    shutil.copytree(source_factory, staging_dir)
+    return staging_dir
+
+
+def _apply_header_changes(
+    target: Path, manifest: dict, header_changes: dict, candidate_source: Path,
+) -> tuple[list[str], dict[str, bytes]]:
+    """Apply planned instruction-header additions and content updates.
+
+    Returns (changed_paths, backups) where backups maps each touched
+    relative path to its original bytes, so a failed application can
+    restore instruction headers exactly (VFO-023).
+    """
+    changed_paths: list[str] = []
+    backups: dict[str, bytes] = {}
+    cli_name = manifest.get("cli")
+    if cli_name is None:
+        return changed_paths, backups
+    orientation = manifest.setdefault("orientation", {})
+
+    for rel in header_changes.get("changed", []):
+        fpath = target / rel
+        if not fpath.is_file():
+            continue
+        new_block = _candidate_orientation_block(candidate_source, cli_name)
+        if new_block is None:
+            continue
+        original = fpath.read_bytes()
+        content = original.decode("utf-8")
+        if ORIENTATION_BEGIN not in content or ORIENTATION_END not in content:
+            continue
+        start = content.index(ORIENTATION_BEGIN)
+        end = content.index(ORIENTATION_END) + len(ORIENTATION_END)
+        updated = content[:start] + new_block.rstrip("\n") + content[end:]
+        backups[rel] = original
+        fpath.write_text(updated, encoding="utf-8")
+        digest = hashlib.sha256(new_block.encode("utf-8")).hexdigest()
+        entry = orientation.get(rel)
+        if isinstance(entry, dict):
+            entry["block_digest"] = digest
+        else:
+            orientation[rel] = {"status": "injected", "block_digest": digest}
+        changed_paths.append(rel)
+
+    for rel in header_changes.get("added", []):
+        fpath = target / rel
+        if not fpath.is_file():
+            continue
+        original = fpath.read_bytes()
+        content = original.decode("utf-8")
+        if ORIENTATION_BEGIN in content:
+            continue
+        new_block = _candidate_orientation_block(candidate_source, cli_name)
+        if new_block is None:
+            continue
+        orig_final_newline = content.endswith("\n") if content else True
+        updated = new_block + "\n" + content
+        backups[rel] = original
+        fpath.write_text(updated, encoding="utf-8")
+        digest = hashlib.sha256(new_block.encode("utf-8")).hexdigest()
+        orientation[rel] = {
+            "status": "injected",
+            "block_digest": digest,
+            "orig_final_newline": orig_final_newline,
+        }
+        changed_paths.append(rel)
+
+    for rel in header_changes.get("removed", []):
+        orientation.pop(rel, None)
+
+    return changed_paths, backups
+
+
+def _rollback_update(
+    target: Path,
+    target_factory: Path,
+    backup_factory: Path | None,
+    manifest_backup: bytes | None,
+    checksums_backup: bytes | None,
+    header_backups: dict[str, bytes],
+) -> None:
+    """Restore the previous Factory tree, manifest, checksums, and
+    instruction headers after a failed application (ADR-0023 step 6)."""
+    if target_factory.exists():
+        if target_factory.is_dir():
+            shutil.rmtree(target_factory)
+        else:
+            target_factory.unlink()
+    if backup_factory is not None and backup_factory.is_dir():
+        os.rename(backup_factory, target_factory)
+
+    manifest_path = target / MANIFEST_PATH
+    if manifest_backup is not None:
+        manifest_path.write_bytes(manifest_backup)
+
+    checksums_path = target / CHECKSUMS_PATH
+    if checksums_backup is not None:
+        checksums_path.write_bytes(checksums_backup)
+    elif checksums_path.exists():
+        checksums_path.unlink()
+
+    for rel, original in header_backups.items():
+        (target / rel).write_bytes(original)
+
+    log("rolled back to the previous installation after a failed update")
+
+
+def _write_manifest(target: Path, manifest: dict) -> None:
+    manifest_path = target / MANIFEST_PATH
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8",
+    )
+
+
+def _show_receipt(
+    source_label: str,
+    source_selector: str,
+    resolved_version: str,
+    digest: str | None,
+    changed_paths: list[str],
+    preserved_path: str | None = None,
+    preserved_files: list[str] | None = None,
+) -> None:
+    """Display the update receipt (ADR-0023 step 7 / VFO-025)."""
+    print("\nUpdate Receipt")
+    print("-" * 40)
+    print(f"  Source:             {source_label} ({source_selector})")
+    print(f"  Resolved version:   {resolved_version}")
+    if digest:
+        print(f"  Digest:             {digest}")
+    print("\n  Changed paths:")
+    for p in sorted(set(changed_paths)):
+        print(f"    {p}")
+    if preserved_files:
+        print(f"\n  Preserved user changes ({preserved_path}):")
+        for p in preserved_files:
+            print(f"    {p}")
+    print()
 
 
 # ── Check mode ─────────────────────────────────────────────────────────
@@ -677,6 +964,11 @@ def main(argv: list[str] | None = None) -> int:
         return _run_check(target, manifest, args)
 
     # ── Modification detection ─────────────────────────────────────────
+    # Runs before staging or approval: a modified installation stops the
+    # update before the user is even asked to approve one (VFO-024).
+
+    preserved_path: str | None = None
+    preserved_files: list[str] | None = None
 
     result = _detect_modifications(target)
     if result is not None:
@@ -699,35 +991,15 @@ def main(argv: list[str] | None = None) -> int:
 
             saved = _preserve_user_changes(target, modified, added)
             if saved:
-                log(f"preserved {len(modified) + len(added)} user-changed files in {saved}")
+                preserved_path = str(saved)
+                preserved_files = modified + added
+                log(f"preserved {len(preserved_files)} user-changed files in {saved}")
     else:
         log("no checksum baseline — proceeding (first update will record baseline)")
 
-    # ── Resolve source ─────────────────────────────────────────────────
-
-    if args.source is not None:
-        source = args.source.resolve()
-    else:
-        recorded = manifest.get("factory_source")
-        if not isinstance(recorded, str) or not recorded:
-            print(
-                "update-factory: no --source given and the install manifest "
-                "records no factory_source (a pre-existing install?) — pass "
-                "--source <agent_factory checkout>",
-                file=sys.stderr,
-            )
-            return 1
-        source = Path(recorded).resolve()
-
-    pkg_factory = source / "packages" / "factory"
-    source_factory = pkg_factory if pkg_factory.is_dir() else source / ".agent-factory" / "factory"
-    if not source_factory.is_dir():
-        print(
-            f"update-factory: no packages/factory/ found at {source} — pass "
-            "--source explicitly",
-            file=sys.stderr,
-        )
-        return 1
+    installed_version = manifest.get("factory_version", "unknown")
+    source_selector = manifest.get("source_selector", "local")
+    is_remote = source_selector == "remote" and args.source is None
 
     target_factory = target / ".agent-factory" / "factory"
     if target_factory.exists() and not target_factory.is_dir():
@@ -738,32 +1010,147 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    # ── Replace .agent-factory/factory/ ────────────────────────────────
+    # ── Resolve candidate (read-only; no download of the archive yet) ───
+
+    resolved_url: str | None = None
+    digest: str | None = None
+    source: Path | None = None
+    source_factory: Path | None = None
+
+    if is_remote:
+        resolved_source = manifest.get("resolved_source")
+        if not resolved_source:
+            print(
+                "update-factory: no resolved_source recorded for this "
+                "remote install",
+                file=sys.stderr,
+            )
+            return 1
+        error, candidate_version, resolved_url, digest = \
+            _resolve_remote_candidate(resolved_source)
+        if error:
+            print(f"update-factory: {error}", file=sys.stderr)
+            return 1
+        source_label = resolved_url
+        preview_candidate_source = None
+    else:
+        if args.source is not None:
+            source = args.source.resolve()
+        else:
+            recorded = manifest.get("factory_source")
+            if not isinstance(recorded, str) or not recorded:
+                print(
+                    "update-factory: no --source given and the install manifest "
+                    "records no factory_source (a pre-existing install?) — pass "
+                    "--source <agent_factory checkout>",
+                    file=sys.stderr,
+                )
+                return 1
+            source = Path(recorded).resolve()
+
+        pkg_factory = source / "packages" / "factory"
+        source_factory = pkg_factory if pkg_factory.is_dir() else source / ".agent-factory" / "factory"
+        if not source_factory.is_dir():
+            print(
+                f"update-factory: no packages/factory/ found at {source} — pass "
+                "--source explicitly",
+                file=sys.stderr,
+            )
+            return 1
+
+        candidate_version = _read_candidate_version_local(source)
+        source_label = str(source)
+        preview_candidate_source = source
+
+    header_changes = _detect_header_changes(target, manifest, preview_candidate_source)
+
+    # ── Approval (ADR-0023 step 2) — before download or mutation ────────
+
+    _show_update_preview(
+        installed_version, candidate_version, source_label, source_selector,
+        header_changes, digest,
+    )
+    if not get_update_consent():
+        print("update-factory: update cancelled — no changes made", file=sys.stderr)
+        return 1
+
+    # ── Download and verification (remote candidates only) ──────────────
+    # VFO-022: verified before any extraction or mutation.
+
+    scratch_root: Path | None = None
+    if is_remote:
+        error, archive_bytes, digest = _download_and_verify_archive(resolved_url)
+        if error:
+            print(f"update-factory: {error}", file=sys.stderr)
+            return 1
+        scratch_root = target / ".agent-factory" / f"{REMOTE_SCRATCH_PREFIX}{uuid.uuid4()}"
+        factory_dir = scratch_root / "packages" / "factory"
+        factory_dir.mkdir(parents=True)
+        try:
+            _safe_extract_archive(archive_bytes, factory_dir)
+        except Exception as exc:
+            shutil.rmtree(scratch_root, ignore_errors=True)
+            print(f"update-factory: failed to extract archive: {exc}", file=sys.stderr)
+            return 1
+        source = scratch_root
+        source_factory = factory_dir
+
+    # Recompute header changes now that verified candidate content is on
+    # disk — the preview above could only report added/removed for a
+    # remote candidate, never content changes (that would need the
+    # archive downloaded, which approval must precede).
+    header_changes = _detect_header_changes(target, manifest, source)
+
+    # ── Staging (ADR-0023 step 4) ────────────────────────────────────────
+    # The verified replacement is staged alongside the current
+    # installation. Nothing under .agent-factory/factory/ is touched yet.
+
+    staging_dir = _stage_factory_tree(target, source_factory)
+    log(f"staged verified replacement at {staging_dir}")
+
+    # ── Application (ADR-0023 step 5), with rollback on failure (step 6) ─
+
+    manifest_path = target / MANIFEST_PATH
+    checksums_path = target / CHECKSUMS_PATH
+    manifest_backup = manifest_path.read_bytes() if manifest_path.is_file() else None
+    checksums_backup = checksums_path.read_bytes() if checksums_path.is_file() else None
 
     backup: Path | None = None
     if target_factory.is_dir():
         _unlock_factory(target_factory)
-        backup_dir = target / ".agent-factory"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        backup = backup_dir / f"factory-backup-{uuid.uuid4()}"
+        backup = target / ".agent-factory" / f"{BACKUP_DIR_PREFIX}{uuid.uuid4()}"
         os.rename(target_factory, backup)
         log(f"moved existing .agent-factory/factory/ aside ({target_factory})")
-    else:
-        log("no existing .agent-factory/factory/ to remove — installing fresh")
+    os.rename(staging_dir, target_factory)
 
-    log(f"refreshing .agent-factory/factory/ from {source_factory}")
-    code = _run_init(source, target)
-    if code != 0:
-        if backup is not None and backup.is_dir() and not target_factory.exists():
-            os.rename(backup, target_factory)
-            log("restored the previous .agent-factory/factory/ after the failed reinstall")
+    changed_header_paths: list[str] = []
+    header_backups: dict[str, bytes] = {}
+    apply_error: str | None = None
+    code = 0
+    try:
+        changed_header_paths, header_backups = _apply_header_changes(
+            target, manifest, header_changes, source,
+        )
+        code = _run_init(source, target)
+        if code != 0:
+            apply_error = "the sourced init-factory did not complete"
+    except Exception as exc:  # noqa: BLE001 — any apply failure rolls back
+        apply_error = str(exc)
+        code = code or 1
+
+    if apply_error is not None:
+        _rollback_update(
+            target, target_factory, backup, manifest_backup, checksums_backup,
+            header_backups,
+        )
+        if scratch_root is not None:
+            shutil.rmtree(scratch_root, ignore_errors=True)
         print(
-            "update-factory: the sourced init-factory did not complete — "
-            "see its output above; resolve the reported collision and re-run "
-            "update-factory to finish the refresh",
+            f"update-factory: {apply_error} — see output above; the "
+            "previous installation has been restored",
             file=sys.stderr,
         )
-        return code
+        return code if code else 1
 
     if backup is not None and backup.is_dir():
         shutil.rmtree(backup)
@@ -775,9 +1162,30 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(pycache)
     log("purged stale __pycache__ directories")
 
+    # ── Receipt (ADR-0023 step 7 / VFO-025) ──────────────────────────────
+
+    manifest["factory_version"] = candidate_version
+    manifest["source_selector"] = source_selector
+    if is_remote:
+        manifest["resolved_source"] = resolved_url
+        manifest["archive_sha256"] = digest or ""
+    else:
+        manifest["factory_source"] = str(source)
+    _write_manifest(target, manifest)
+
     _stamp_tree_hash(source, target)
     _write_checksums(target, target_factory)
     _lock_factory(target_factory)
+
+    if scratch_root is not None:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+    changed_paths = [".agent-factory/factory/"] + changed_header_paths
+    _show_receipt(
+        source_label, source_selector, candidate_version, digest,
+        changed_paths, preserved_path, preserved_files,
+    )
+
     log("done, .agent-factory/factory/ is now current")
     return 0
 
