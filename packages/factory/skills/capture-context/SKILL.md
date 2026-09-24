@@ -228,6 +228,62 @@ agent-context (`docs/agent-context/*.yaml`) to the concern format is a
 separate, bare `capture-context` invocation — see
 [Bare invocation (YAML migration)](#bare-invocation-yaml-migration) below.
 
+### Step 0 — Explanation and consent gate
+
+Before starting the scan, explain the context capture process and ask for
+affirmative consent. This step runs only when the newcomer selects an action
+that needs project context.
+
+**Present this explanation:**
+
+1. **What the scan reads** — The scan examines project files: language and
+   framework manifests (`package.json`, `pyproject.toml`, `Cargo.toml`,
+   `go.mod`), test configuration files (`pytest.ini`, `jest.config.*`),
+   CI/CD configuration (`.github/workflows/`, `.gitlab-ci.yml`), linting
+   setup (`.eslintrc*`, `ruff.toml`), and documentation structure to
+   detect your project's stack and organization.
+
+2. **What decisions it asks** — During the scan, you will confirm or adjust
+   the detected technical concerns (e.g., "backend", "frontend",
+   "data-storage" based on detected frameworks), propose domain concerns
+   from your scope map, and review what the scan discovered in your
+   existing documentation.
+
+3. **Where output goes** — The scan produces one file: `docs/agent-context.md`,
+   a concern-structured routing guide. This file is not created on deferral.
+
+4. **How concern-lint validates the output** — After the scan completes,
+   `concern-lint` validates that every concern has a description and
+   `Read:` paths, and that referenced files exist. The validation runs
+   automatically; you see any findings before proceeding.
+
+5. **How humans and agents use the file** — Humans read `docs/agent-context.md`
+   to understand your project's structure, conventions, and decision rules.
+   Agents use it to route themselves to project-specific knowledge — when an
+   agent needs to learn how your team handles testing, branching, or
+   deployment, it reads the concern named "Testing discipline", "Branching",
+   or "Infrastructure" to find the right documentation.
+
+**Define concern before unparaphrased use:**
+
+Before using the term "concern" without definition, state: "A concern is a
+routing topic that directs agents to project-specific knowledge." This
+definition appears in the explanation, not in a separate section.
+
+**Consent gate:**
+
+After the explanation, ask: "Start the context capture scan? (accept/defer/cancel)"
+
+- **Accept** — The scan proceeds to Step 1.
+- **Defer** — The scan stops here. No `docs/agent-context.md` is created. No
+  project files are changed. The session continues. The newcomer can select
+  this action again in a later session to start the scan then.
+- **Cancel** — Same as defer.
+- **Blank input** — Treated as defer.
+
+**Completion**: If accept, proceed to Step 1. If defer, cancel, or blank,
+exit this flow. No file changes occur. No scan runs.
+
 ### Step 1 — Guard, scan, and proposals
 
 Run greenfield Steps 0–4 exactly as written: guard against an existing
@@ -293,13 +349,13 @@ Same as greenfield Step 6: run `.agent-factory/factory/scripts/concern-lint` and
 docs: initialize agent context (--init --scan)
 ```
 
-**Completion**: `docs/agent-context.md` exists with three category
-headings; cross-cutting concerns are seeded and enriched with any
-matching discovered documentation; technical and domain concerns are
-proposed, confirmed, and enriched with discovered `Read:` paths through
-the concern-based interview walked in category order (cross-cutting,
-technical, domain); `concern-lint` reports zero errors; no YAML files
-were created.
+**Completion**: After affirmative consent, `docs/agent-context.md` exists
+with three category headings; cross-cutting concerns are seeded and enriched
+with any matching discovered documentation; technical and domain concerns are
+proposed, confirmed, and enriched with discovered `Read:` paths through the
+concern-based interview walked in category order (cross-cutting, technical,
+domain); `concern-lint` reports zero errors; no YAML files were created. If
+consent is deferred, cancelled, or blank, no scan runs and no file is created.
 
 ## `--update --scan` (refresh existing agent-context)
 
