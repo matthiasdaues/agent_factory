@@ -256,11 +256,29 @@ When done, set `fitting.test_regime_detected` to `true`.
 
 ### 3. Decide on hooks
 
-Review the pre-commit configuration in `.pre-commit-config.yaml`. Walk
-through each `agent_factory_hook-*` entry: what it does, whether it fits
-the project's workflow, and whether its settings need adjustment. Disable
-or adjust hooks the user does not want. When done, set
-`fitting.hooks_decided` to `true`.
+Run `.agent-factory/factory/scripts/hook-subset present` to get the
+Factory hook set grouped by protected outcome (e.g. "Formatting",
+"Specification consistency"), each entry carrying its trade-off
+(`auto-fix`, `material-cost`, or `none`) and, for a hook unavailable on
+this project, a description instead of an error.
+
+Present the groups. For each hook with `trade_off: none`, state that it
+is included automatically — no question needed. For each hook with
+`trade_off: auto-fix` or `material-cost`, ask for consent individually,
+explaining what it changes or what it costs. For an unavailable hook,
+show its description; never present it as an error or as a choice to
+make.
+
+Once the newcomer has answered every auto-fix / material-cost hook, run
+`.agent-factory/factory/scripts/hook-subset generate --approve <id> ...`
+(one `--approve` per accepted hook) to build the filtered consumer
+template, then splice it with `merge-precommit-config` if the target
+project has its own `.pre-commit-config.yaml`. The generated set never
+includes `index-lint` and never includes a hook whose trigger can only
+match an ignored Factory runtime path (BUG-0029); `matrix-lint` is always
+placed last, after model configuration (step 0) and before dispatch.
+
+When done, set `fitting.hooks_decided` to `true`.
 
 ### Completion
 
