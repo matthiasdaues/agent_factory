@@ -1,17 +1,24 @@
-"""Onboarding sandbox — isolated first-task lifecycle (ST-0291).
+"""Onboarding sandbox — isolated first-task lifecycle (ST-0291, ST-0292).
 
-Creates a detached-worktree sandbox from HEAD for the poc-spike playbook,
-then applies exactly one newcomer-chosen outcome: discard, retain selected
-artifacts, or hand off to a normal production workstream. The sandbox
-creates no branch and no commit; production handoff delegates to the
-existing `engine.workstream` mechanism rather than reimplementing it.
+Creates a sandbox for the poc-spike playbook, then applies exactly one
+newcomer-chosen outcome: discard, retain selected artifacts, or hand off to
+a normal production workstream. The sandbox creates no branch and no
+commit; production handoff delegates to the existing `engine.workstream`
+mechanism rather than reimplementing it.
 
-The companion "repository has no commit" path (a plain, non-worktree
-sandbox) is ST-0292's ownership and is not implemented here.
+A repository with a current HEAD gets a detached worktree from that
+commit (ST-0291). A repository without HEAD (a bare `git init`, no commits
+yet) gets a plain directory instead — no `git worktree add` is attempted
+(ST-0292). Both are addressed at the same path,
+`.current-work/onboarding-spike/<uuid4>/`, and both flow through the same
+discard/retain/handoff outcome logic: `discard_sandbox` tells them apart by
+the presence of the `.git` file `git worktree add` leaves at the sandbox
+root, which a plain `os.makedirs` directory never has.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import uuid
@@ -37,22 +44,23 @@ def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
 def create_sandbox(
     repo_root: str | Path, base_dir: str | Path = DEFAULT_SANDBOX_BASE
 ) -> Path:
-    """Create a detached worktree from HEAD at
-    <repo_root>/<base_dir>/<uuid4>/. Raises SandboxError when the
-    repository has no HEAD commit (see ST-0292 for that path) or when
-    `git worktree add` fails.
+    """Create the first-task sandbox at <repo_root>/<base_dir>/<uuid4>/.
+
+    A repository with a current HEAD gets a detached worktree from that
+    commit. A repository without HEAD (exit code 128 from
+    `git rev-parse --verify HEAD`, e.g. a bare `git init`) gets a plain
+    directory instead — no `git worktree add` is attempted. Raises
+    SandboxError when `git worktree add` fails.
     """
     repo_root = Path(repo_root)
+    session_id = str(uuid.uuid4())
+    sandbox_path = repo_root / base_dir / session_id
 
     head_check = _run_git(["rev-parse", "--verify", "HEAD"], repo_root)
     if head_check.returncode != 0:
-        raise SandboxError(
-            "repository has no HEAD commit; the detached-worktree sandbox "
-            "requires a commit (the no-commit path is ST-0292's ownership)"
-        )
+        os.makedirs(sandbox_path)
+        return sandbox_path
 
-    session_id = str(uuid.uuid4())
-    sandbox_path = repo_root / base_dir / session_id
     sandbox_path.parent.mkdir(parents=True, exist_ok=True)
 
     result = _run_git(
@@ -65,19 +73,27 @@ def create_sandbox(
 
 
 def discard_sandbox(repo_root: str | Path, sandbox_path: str | Path) -> None:
-    """Remove the sandbox worktree and verify the path no longer exists.
+    """Remove the sandbox and verify the path no longer exists.
 
-    Uses --force: the poc-spike playbook typically leaves uncommitted
-    output files inside the sandbox, and discard must still succeed.
+    A worktree sandbox is removed with `git worktree remove --force` (the
+    poc-spike playbook typically leaves uncommitted output files inside it,
+    and discard must still succeed). A plain sandbox — detected by the
+    absence of the `.git` file `git worktree add` leaves at the sandbox
+    root — is removed with `shutil.rmtree` instead.
     """
     repo_root = Path(repo_root)
     sandbox_path = Path(sandbox_path)
 
-    result = _run_git(
-        ["worktree", "remove", "--force", str(sandbox_path)], repo_root
-    )
-    if result.returncode != 0:
-        raise SandboxError(f"git worktree remove failed: {result.stderr.strip()}")
+    if (sandbox_path / ".git").exists():
+        result = _run_git(
+            ["worktree", "remove", "--force", str(sandbox_path)], repo_root
+        )
+        if result.returncode != 0:
+            raise SandboxError(
+                f"git worktree remove failed: {result.stderr.strip()}"
+            )
+    else:
+        shutil.rmtree(sandbox_path)
 
     if sandbox_path.exists():
         raise SandboxError(

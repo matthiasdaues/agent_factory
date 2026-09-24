@@ -1,18 +1,20 @@
-"""Contract tests for ST-0291: isolated first-task sandbox lifecycle.
+"""Contract tests for ST-0291/ST-0292: isolated first-task sandbox
+lifecycle.
 
 Owned contracts (EPIC 5 Ownership Resolution table,
 docs/spec/value-first-onboarding-journey-qa-strategy.md):
 
-  - VFO-08-IT-01 — Repository state selects a detached worktree
-    (`Scenario: Repository with a commit uses a detached worktree`). The
-    companion "no commit" path (`Scenario: Repository without a commit uses
-    a plain sandbox`) is ST-0292's ownership, out of scope here.
+  - VFO-08-IT-01 — Repository state selects a detached worktree or a plain
+    sandbox (`Scenario: Repository with a commit uses a detached
+    worktree`, `Scenario: Repository without a commit uses a plain
+    sandbox`). The plain-sandbox path is ST-0292's ownership.
   - VFO-08-IT-02 — Active-working-tree changes never enter the sandbox
     (`Scenario: Repository with a commit uses a detached worktree`).
   - VFO-08-IT-03 — Discard, retention, and production handoff apply only
     the selected outcome (`Scenario: Newcomer retains selected reference
     artifacts`, `Scenario: Newcomer discards the first task`,
-    `Scenario: Newcomer begins real work explicitly`).
+    `Scenario: Newcomer begins real work explicitly`) — for both the
+    detached-worktree sandbox (ST-0291) and the plain sandbox (ST-0292).
 
 The dynamic, end-to-end first-task preview (VFO-08-AC-01) and the
 ten-minute/five-decision journey bound are acceptance-level contracts owned
@@ -81,6 +83,13 @@ def repo(tmp_path) -> Path:
     return repo_path
 
 
+@pytest.fixture()
+def repo_without_head(tmp_path) -> Path:
+    repo_path = tmp_path / "no-head-repo"
+    _init_repo(repo_path)
+    return repo_path
+
+
 class TestCreateSandboxDetachedWorktree:
     """VFO-08-IT-01: a repository with HEAD gets a detached worktree under
     .current-work/onboarding-spike/<uuid4>/, no new branch, no new commit."""
@@ -118,12 +127,6 @@ class TestCreateSandboxDetachedWorktree:
         assert str(sandbox) in listing
         assert "(detached HEAD)" in listing
 
-    def test_raises_when_repository_has_no_head(self, tmp_path: Path) -> None:
-        empty_repo = tmp_path / "empty"
-        _init_repo(empty_repo)
-
-        with pytest.raises(SandboxError):
-            create_sandbox(empty_repo)
 
 
 class TestUncommittedChangesExcluded:
@@ -268,6 +271,116 @@ class TestProductionHandoff:
         )
 
         assert data["workstream_id"] == "existing-stream"
+        assert sandbox.exists()
+
+
+class TestCreatePlainSandboxNoHead:
+    """VFO-08-IT-01 (ST-0292): a repository without HEAD gets a plain
+    directory under .current-work/onboarding-spike/<uuid4>/, and no
+    `git worktree add` is attempted."""
+
+    def test_creates_plain_directory_under_default_base(
+        self, repo_without_head: Path
+    ) -> None:
+        sandbox = create_sandbox(repo_without_head)
+
+        assert sandbox.exists()
+        assert sandbox.is_dir()
+        assert sandbox.parent == repo_without_head / DEFAULT_SANDBOX_BASE
+
+    def test_session_id_is_a_uuid4_string(self, repo_without_head: Path) -> None:
+        sandbox = create_sandbox(repo_without_head)
+
+        parsed = uuid.UUID(sandbox.name)
+        assert parsed.version == 4
+
+    def test_does_not_raise(self, repo_without_head: Path) -> None:
+        # Previously (ST-0291) create_sandbox raised SandboxError here; this
+        # story replaces that with the plain-directory path.
+        create_sandbox(repo_without_head)
+
+    def test_no_worktree_is_registered(self, repo_without_head: Path) -> None:
+        sandbox = create_sandbox(repo_without_head)
+
+        listing = _run_git(["worktree", "list"], repo_without_head).stdout
+        assert str(sandbox) not in listing
+
+    def test_sandbox_has_no_dot_git(self, repo_without_head: Path) -> None:
+        # `git worktree add` would leave a `.git` file at the sandbox root;
+        # a plain `os.makedirs` directory has none.
+        sandbox = create_sandbox(repo_without_head)
+
+        assert not (sandbox / ".git").exists()
+
+
+class TestDiscardPlainSandbox:
+    """VFO-08-IT-03 (ST-0292): discard removes the plain sandbox with
+    shutil.rmtree and verifies removal, reusing the worktree case's
+    verification step."""
+
+    def test_discard_removes_sandbox_directory(
+        self, repo_without_head: Path
+    ) -> None:
+        sandbox = create_sandbox(repo_without_head)
+
+        discard_sandbox(repo_without_head, sandbox)
+
+        assert not sandbox.exists()
+
+    def test_discard_removes_a_dirty_sandbox(self, repo_without_head: Path) -> None:
+        sandbox = create_sandbox(repo_without_head)
+        (sandbox / "spike-output.txt").write_text("result\n")
+
+        discard_sandbox(repo_without_head, sandbox)
+
+        assert not sandbox.exists()
+
+
+class TestRetainSelectedArtifactsPlainSandbox:
+    """VFO-08-IT-03 (ST-0292): retention behaves identically to the
+    worktree case for a plain sandbox."""
+
+    def test_retains_only_confirmed_artifact(self, repo_without_head: Path) -> None:
+        sandbox = create_sandbox(repo_without_head)
+        (sandbox / "keep.txt").write_text("keep me\n")
+        (sandbox / "skip.txt").write_text("discard me\n")
+
+        target = retain_artifacts(
+            repo_without_head,
+            sandbox,
+            artifact_names=["keep.txt"],
+            retain_name="my-spike",
+        )
+
+        assert target == repo_without_head / "docs" / "spikes" / "my-spike"
+        assert (target / "keep.txt").read_text() == "keep me\n"
+        assert not (target / "skip.txt").exists()
+        assert not sandbox.exists()
+
+
+class TestProductionHandoffPlainSandbox:
+    """VFO-08-IT-03 (ST-0292): production handoff delegates without
+    touching or promoting the plain sandbox."""
+
+    def test_create_new_workstream_delegates_without_touching_sandbox(
+        self, repo_without_head: Path
+    ) -> None:
+        sandbox = create_sandbox(repo_without_head)
+        ws_base = repo_without_head / ".agent-factory" / "workstreams"
+
+        request_production_handoff(
+            create_new=True,
+            workstream_id="first-real-feature",
+            topic="First real feature",
+            origin_ref=None,
+            base_dir=ws_base,
+        )
+
+        data = load_workstream("first-real-feature", base_dir=ws_base)
+        assert data["workstream_id"] == "first-real-feature"
+
+        # The sandbox is untouched — still present, still a plain
+        # directory, never converted into the new workstream.
         assert sandbox.exists()
 
 
