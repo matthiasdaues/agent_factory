@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 scope: value-first-onboarding-journey
-status: accepted
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-22
 updated: 2026-09-23
