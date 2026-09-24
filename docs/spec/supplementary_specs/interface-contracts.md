@@ -777,6 +777,17 @@ The remote release base exposes `<base>/latest`,
 | Isolation | Does not change the target project and removes the fixture after the demonstration |
 | Decline   | Skipping the demonstration does not change recommended hook defaults               |
 
+### Consumer hook configuration
+
+| Property        | Contract                                                                                                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metadata source | `packages/factory/config/hook-metadata.yaml` maps each `agent_factory_hook-*` id to an `outcome`, a `trade_off` (`auto-fix`, `material-cost`, or `none`), an `availability`, and a `description`                 |
+| Presentation    | Hooks are grouped by `outcome`; `trade_off: none` hooks are included without asking; `trade_off: auto-fix` or `material-cost` hooks require separate consent                                                     |
+| Unavailability  | A hook whose `availability` condition is unmet by the target project shows its `description`; it is never presented as an error or a choice                                                                      |
+| Exclusion       | `index-lint` is excluded unconditionally; any hook whose `files:` trigger is anchored under `.agent-factory/factory/` and matches nothing in `git ls-files` is excluded (BUG-0029)                               |
+| `matrix-lint`   | Its generated stanza drops the broken `files:` trigger on the gitignored `.agent-factory/config/model.conf` path for `always_run: true`, and is always ordered last — after model configuration, before dispatch |
+| Splice          | The filtered, reordered template is handed to `merge-precommit-config` as `--template`; `pre-commit-config.yaml` itself is read-only                                                                             |
+
 ### First-task sandbox
 
 | Property                  | Contract                                                                                                               |
