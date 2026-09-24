@@ -1181,7 +1181,8 @@ def main(argv: list[str] | None = None) -> int:
         [sys.executable, str(init_factory_path),
          "--source", str(source),
          "--target", str(target),
-         "--cli", selected_cli],
+         "--cli", selected_cli,
+         "--project-name", target.name],
         capture_output=True, text=True,
     )
 

@@ -715,17 +715,18 @@ Proposal trace: [value-first-onboarding-journey.md](../../proposals/value-first-
 
 ### `install-agent-factory`
 
-| Property      | Contract                                                                                                                                 |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Source        | Exactly one of `--from-local <relative-path>` and `--from-remote <URL>`                                                                  |
-| Version       | `--version <release>` is valid only with `--from-remote`                                                                                 |
-| Target        | First installation requires `--target <path>` and rejects root, user home, unresolved paths, and unsupported content                     |
-| Preflight     | Reads host, tools, Git state, network, interfaces, and target; returns `Ready`, `Ready with limitations`, or `Blocked` without changes   |
-| Remote assets | Resolves an immutable version URL and verifies `agent-factory.tar.gz` against `SHA256SUMS` before extraction                             |
-| Fixes         | Shows purpose, command, scope, reversal, and verification per supported fix (uv, managed Python); runs it only after affirmative consent |
-| Approval      | Shows source, version, target, interfaces, paths, instruction files, and uninstall command before requesting consent                     |
-| Receipt       | Lists changed paths, interfaces, version, resolved source, uninstall command, and one next command                                       |
-| Cancellation  | Blank input is not consent; cancellation reports completed fixes and reversals and leaves the target valid                               |
+| Property      | Contract                                                                                                                                           |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source        | Exactly one of `--from-local <relative-path>` and `--from-remote <URL>`                                                                            |
+| Version       | `--version <release>` is valid only with `--from-remote`                                                                                           |
+| Target        | First installation requires `--target <path>` and rejects root, user home, unresolved paths, and unsupported content                               |
+| Preflight     | Reads host, tools, Git state, network, interfaces, and target; returns `Ready`, `Ready with limitations`, or `Blocked` without changes             |
+| Remote assets | Resolves an immutable version URL and verifies `agent-factory.tar.gz` against `SHA256SUMS` before extraction                                       |
+| Fixes         | Shows purpose, command, scope, reversal, and verification per supported fix (uv, managed Python); runs it only after affirmative consent           |
+| Approval      | Shows source, version, target, interfaces, paths, instruction files, and uninstall command before requesting consent                               |
+| Receipt       | Lists changed paths, interfaces, version, resolved source, uninstall command, and one next command                                                 |
+| Cancellation  | Blank input is not consent; cancellation reports completed fixes and reversals and leaves the target valid                                         |
+| Delegation    | Passes `init-factory` a `--project-name` derived from the target directory, so the project-identity step never falls back to an interactive prompt |
 
 The remote release base exposes `<base>/latest`,
 `<base>/releases/<version>/install-agent-factory`,

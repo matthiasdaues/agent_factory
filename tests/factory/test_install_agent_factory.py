@@ -66,12 +66,16 @@ def _make_source(tmp_path: Path) -> Path:
         ap.add_argument("--source", type=Path)
         ap.add_argument("--target", type=Path)
         ap.add_argument("--cli", nargs="+")
+        ap.add_argument("--project-name")
         args = ap.parse_args()
         target = args.target
         # Create minimal Factory tree
         af = target / ".agent-factory"
         af.mkdir(parents=True, exist_ok=True)
         (af / "factory").mkdir(exist_ok=True)
+        # Record the argv this stub was invoked with, so tests can assert
+        # on what install-agent-factory passes through to init-factory.
+        (af / "_init_factory_argv.json").write_text(json.dumps(sys.argv[1:]))
         # Write a v1 manifest
         manifest = {
             "version": 1,
@@ -122,6 +126,7 @@ _INIT_FACTORY_STUB = textwrap.dedent("""\
     ap.add_argument("--source", type=Path)
     ap.add_argument("--target", type=Path)
     ap.add_argument("--cli", nargs="+")
+    ap.add_argument("--project-name")
     args = ap.parse_args()
     target = args.target
     af = target / ".agent-factory"
@@ -578,6 +583,28 @@ class TestManifestV2:
             assert "status" in entry
             assert "block_digest" in entry
             assert "orig_final_newline" in entry
+
+
+class TestInitFactoryDelegation:
+    """install-agent-factory must give init-factory everything it needs to
+    run non-interactively. Without --project-name, a fresh target has no
+    .agent-factory/config/project.json yet, so init-factory's own project-
+    identity step falls back to an interactive `input("Project name: ")`
+    prompt that a piped, non-interactive bootstrap can never answer (found
+    while building the ST-0293 end-to-end journey test, which runs the
+    real init-factory instead of this stub)."""
+
+    def test_passes_project_name_so_init_factory_never_prompts(self, tmp_path):
+        source = _make_source(tmp_path)
+        target = _make_target(tmp_path, interfaces=[".claude"])
+        _run(["--from-local", str(source), "--target",
+              str(target)], input_text="\nyes\n")
+        argv = json.loads(
+            (target / ".agent-factory" / "_init_factory_argv.json").read_text()
+        )
+        assert "--project-name" in argv
+        name_index = argv.index("--project-name") + 1
+        assert argv[name_index] == target.name
 
 
 # ---------------------------------------------------------------------------
