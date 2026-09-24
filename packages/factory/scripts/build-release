@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""build-release -- produce reproducible release assets from a versioned
+Agent Factory source tree.
+
+Reads the version from packages/factory/VERSION.  Validates the version
+format against the current Git branch:
+
+  - main:  N.N.N  (no suffix)
+  - dev:   N.N.N-rc
+
+Produces three files in --output <dir> (default ./release/):
+
+  install-agent-factory   -- verbatim copy from packages/factory/scripts/
+  agent-factory.tar.gz    -- deterministic archive of packages/factory/
+  SHA256SUMS              -- sha256 digest of agent-factory.tar.gz
+
+Deterministic tar: sorted entries, fixed timestamps (1970-01-01 00:00:00),
+fixed owner (root:root, uid/gid 0), no platform-specific metadata.
+
+On failure: exits non-zero and removes any partial output from the
+output directory.
+
+Stdlib-only Python 3.8+.  No virtualenv or external dependencies.
+"""
+
+from __future__ import annotations
+
+import argparse
+import gzip
+import hashlib
+import io
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tarfile
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Version validation
+# ---------------------------------------------------------------------------
+
+_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+_VERSION_RC_RE = re.compile(r"^\d+\.\d+\.\d+-rc$")
+
+
+def read_version(repo_root: Path) -> str:
+    """Read and strip the VERSION file content."""
+    version_file = repo_root / "packages" / "factory" / "VERSION"
+    if not version_file.exists():
+        raise SystemExit("build-release: packages/factory/VERSION not found")
+    return version_file.read_text().strip()
+
+
+def current_branch(repo_root: Path) -> str:
+    """Return the current Git branch name."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise SystemExit("build-release: not a git repository")
+    return result.stdout.strip()
+
+
+def validate_version_branch(version: str, branch: str) -> bool:
+    """Return True when version format matches branch policy."""
+    if branch == "main":
+        return bool(_VERSION_RE.match(version))
+    if branch == "dev":
+        return bool(_VERSION_RC_RE.match(version))
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Archive building
+# ---------------------------------------------------------------------------
+
+def build_tarball(repo_root: Path) -> bytes:
+    """Build a deterministic tar.gz archive of packages/factory/ in memory.
+
+    Returns the raw bytes of the gzipped tarball.
+    """
+    factory_dir = repo_root / "packages" / "factory"
+
+    # Build an uncompressed tar first, then gzip with mtime=0 to avoid
+    # the gzip header embedding the current time.
+    tar_buf = io.BytesIO()
+    with tarfile.open(fileobj=tar_buf, mode="w",
+                      format=tarfile.GNU_FORMAT) as tf:
+        entries: list[Path] = []
+        for root_path, dirs, files in os.walk(factory_dir):
+            dirs.sort()
+            root = Path(root_path)
+            for d in dirs:
+                entries.append(root / d)
+            for f in sorted(files):
+                entries.append(root / f)
+
+        entries.sort(key=lambda p: str(p.relative_to(factory_dir)))
+
+        for entry in entries:
+            arcname = str(entry.relative_to(factory_dir))
+            info = tf.gettarinfo(str(entry), arcname=arcname)
+            info.mtime = 0
+            info.uid = 0
+            info.gid = 0
+            info.uname = "root"
+            info.gname = "root"
+            if info.isfile():
+                with open(entry, "rb") as fh:
+                    tf.addfile(info, fh)
+            else:
+                tf.addfile(info)
+
+    gz_buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=gz_buf, mode="wb", mtime=0) as gz:
+        gz.write(tar_buf.getvalue())
+
+    return gz_buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build reproducible release assets")
+    parser.add_argument("--output", default="./release/",
+                        help="Output directory (default: ./release/)")
+    args = parser.parse_args(argv)
+
+    repo_root = Path.cwd()
+    output_dir = Path(args.output)
+
+    # Read and validate version against branch
+    version = read_version(repo_root)
+    branch = current_branch(repo_root)
+
+    if not validate_version_branch(version, branch):
+        # Clean output if it exists and was created by us
+        if output_dir.exists():
+            shutil.rmtree(output_dir, ignore_errors=True)
+        return 1
+
+    # Verify install-agent-factory source exists
+    install_src = repo_root / "packages" / "factory" / "scripts" / "install-agent-factory"
+    if not install_src.exists():
+        if output_dir.exists():
+            shutil.rmtree(output_dir, ignore_errors=True)
+        print("build-release: packages/factory/scripts/install-agent-factory not found",
+              file=sys.stderr)
+        return 1
+
+    # Create output directory
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        # 1. Copy install-agent-factory verbatim
+        install_dst = output_dir / "install-agent-factory"
+        shutil.copy2(install_src, install_dst)
+
+        # 2. Build deterministic archive
+        tarball_bytes = build_tarball(repo_root)
+        tarball_path = output_dir / "agent-factory.tar.gz"
+        tarball_path.write_bytes(tarball_bytes)
+
+        # 3. Compute SHA256SUMS
+        digest = hashlib.sha256(tarball_bytes).hexdigest()
+        sums_path = output_dir / "SHA256SUMS"
+        sums_path.write_text(f"{digest}  agent-factory.tar.gz\n")
+
+    except Exception:
+        # Clean up partial output on any failure
+        if output_dir.exists():
+            shutil.rmtree(output_dir, ignore_errors=True)
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
