@@ -9,6 +9,31 @@ version: 1.0.0
 
 Shared format for all review and inspection skills.
 
+## Report frontmatter
+
+Every review report carries this YAML frontmatter. Keys marked *(branch-scoped)* apply only when the review targets a branch diff (code review, fagan, bug-hunt, security). Keys marked *(doc-scoped)* apply only when the review targets artifacts against a reference (reconciliation, ATAM, spec review).
+
+```yaml
+---
+type: <review-skill-name>
+title: <human-readable report title>
+date: <YYYY-MM-DD>
+status: pass | defects | block
+reviewer: <agent name>
+findings_filed: <integer>
+story: <story or artifact ID, when applicable>
+branch: <branch under review>              # branch-scoped
+branch_base: <full 40-char SHA>            # branch-scoped
+branch_head: <full 40-char SHA>            # branch-scoped
+scope: <what is being reviewed>            # doc-scoped
+---
+```
+
+- `branch-base` is the merge base commit — where the branch diverged from its target.
+- `branch-head` is the branch tip at the time of review.
+- Both must be full 40-character SHAs per [rules.md § Git workflow](../rules.md#git-workflow).
+- `scope` describes the reviewed artifacts in plain language when no branch diff applies.
+
 ## Finding table
 
 Row format: [review-report.md template](../templates/review-report.md).

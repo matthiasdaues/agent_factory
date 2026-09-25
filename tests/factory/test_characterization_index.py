@@ -21,8 +21,7 @@ def index_data() -> dict:
     """Load and parse INDEX.yaml once per module."""
     assert INDEX_PATH.exists(), f"INDEX.yaml not found at {INDEX_PATH}"
     text = INDEX_PATH.read_text(encoding="utf-8")
-    if text.startswith("---\n"):
-        text = text[4:]
+    text = text.removeprefix("---\n")
     data = yaml.safe_load(text)
     assert isinstance(data, dict), "INDEX.yaml did not parse as a mapping"
     return data
@@ -49,8 +48,8 @@ class TestAgentResolution:
             resolved = FACTORY_ROOT / entry["path"]
             if not resolved.exists():
                 missing.append(f"{entry['name']} -> {resolved}")
-        assert not missing, (
-            f"Agent definition files not found:\n  " + "\n  ".join(missing)
+        assert not missing, "Agent definition files not found:\n  " + "\n  ".join(
+            missing
         )
 
 
@@ -75,8 +74,8 @@ class TestSkillResolution:
             resolved = FACTORY_ROOT / entry["path"]
             if not resolved.exists():
                 missing.append(f"{entry['name']} -> {resolved}")
-        assert not missing, (
-            f"Skill definition files not found:\n  " + "\n  ".join(missing)
+        assert not missing, "Skill definition files not found:\n  " + "\n  ".join(
+            missing
         )
 
 

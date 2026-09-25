@@ -178,7 +178,7 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 - Report each failure with source file, one-based line number, field when applicable, and a stable failure code.
 - Validate usage objects against the installed JSON Schema Draft 2020-12 contract and the manifest's accepted version range.
 - Enforce identifiers, timestamps, declared nullability, non-negative counters, nested `transcript_ref` shape, and `normalized_total = normalized_input + normalized_output` outside schema where required.
-- Reject an unknown CLI. The supported CLI set and accounting registry keys must be exactly `claude-code`, `pi`, `codex`, and `copilot`.
+- Reject an unknown CLI. The supported CLI set and accounting registry keys must be exactly `claude-code`, `pi`, `codex`, `copilot`, and `opencode`.
 - Before selecting a latest snapshot, group evidence by `(cli, session_id, run_id)` and require one distinct `parent_run_id`, treating null as a value. If evidence disagrees, classify every snapshot for that key as `USAGE_ANCESTRY_PARENT_CONFLICT`; do not select one snapshot to establish or override the parent.
 - Partition logical runs by `(cli, session_id)` and require exactly one null-parent root, same-partition parent resolution for every non-root, no self-links, no cycles, and reachability of every run from the root.
 - Report malformed ancestry with `USAGE_ANCESTRY_ROOT_COUNT`, `USAGE_ANCESTRY_PARENT_MISSING`, `USAGE_ANCESTRY_PARENT_BOUNDARY`, `USAGE_ANCESTRY_SELF_PARENT`, or `USAGE_ANCESTRY_CYCLE`. Any ancestry failure blocks canonical accounting.
@@ -191,6 +191,7 @@ These rules support the [local usage feature](../local-usage-processing-and-anal
 - Select the latest cumulative snapshot by maximum `(capture_sequence, normalized_source_path, source_line)`. Compare capture sequence and line numerically and normalized paths by unsigned UTF-8 byte lexicographic order.
 - Claude Code total: latest root snapshot plus each distinct child run once.
 - Pi total: root record plus each distinct descendant run once.
+- OpenCode total: latest root snapshot plus each distinct child run once (matches Claude Code model).
 - Codex total: latest inclusive root snapshot; descendants provide attribution only.
 - GitHub Copilot CLI total: latest inclusive root snapshot; descendants provide attribution only.
 - Canonical session dimensions and timestamp come from the selected root snapshot. Additive descendant measures do not replace those dimensions.
@@ -320,3 +321,130 @@ For each artifact type, the following mechanical validation checks apply. Semant
 **Research brief.** Passes brief schema validation (`research-brief.schema.json`). `decision_needed` is the only delivery-link field. No `origin_cycle` or `return_cycle` fields exist.
 
 **Research report.** Passes route-specific validation (survey or falsification). References the originating brief. Records evidence disposition for each claim or source.
+
+## OpenCode CLI Integration Validation Rules
+
+Proposal trace: [opencode-cli-integration.md](../../proposals/opencode-cli-integration.md).
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature).
+
+### Installation validation
+
+1. Detection markers for OpenCode are `.opencode/`, `opencode.json`, and `opencode.jsonc`. The presence of any one marker selects OpenCode as an active CLI target.
+2. Explicit `--cli opencode` selection produces the same installation as auto-detection.
+3. The installer checks `opencode --version` before creating any OpenCode path. A version older than `1.18.31` stops installation and prints an upgrade instruction naming the minimum version.
+4. The installer creates `.opencode/INDEX.yaml`, `.opencode/agents/`, and links the plugin into `.opencode/plugins/`. Skills are placed at `.agents/skills/`.
+5. Every created OpenCode path is recorded in `.agent-factory/install.json` under the `opencode` CLI key.
+6. Repeated installation against the same project state produces no additional changes (idempotent).
+7. User-owned files under `.opencode/` are not overwritten, modified, or removed during installation or update.
+
+### Removal validation
+
+1. `remove-factory` removes every path listed in `.agent-factory/install.json` for the `opencode` CLI key.
+2. `remove-factory` does not remove user-owned OpenCode configuration (files not recorded in `.agent-factory/install.json`).
+
+### Coexistence validation
+
+1. A project with Pi, Codex, and OpenCode installed has exactly one root `AGENTS.md`.
+2. Adding OpenCode to an existing multi-CLI project does not modify the other CLIs' files.
+
+### Plugin permission validation
+
+1. The plugin evaluates allow rules first, ask rules second, and deny rules last.
+2. An explicit configured deny is final. The plugin's permission hook does not change a `deny` effect to `allow` or `ask`.
+3. A pre-tool hook reads the active step manifest and denies reads outside its declared inputs.
+4. A pre-tool hook reads the active step manifest and denies writes outside its declared outputs.
+5. Shell commands matching a denied Git pattern are denied before execution.
+6. Review agents whose definitions declare no write outputs receive read-only tool sets (write tools removed).
+7. Tool removal restricts the active agent to its declared tool set.
+8. Child sessions inherit session-scoped restrictions from the root session and apply their own generated agent permissions.
+
+### Plugin fail-closed validation
+
+1. The plugin fails closed when initialization fails. The Factory entry flow stops and the error names the failed control and the recovery action.
+2. The plugin fails closed when the step manifest cannot be read or parsed. Tool invocations are denied.
+3. The plugin fails closed when the permission evaluation hook encounters an error. Tool invocations are denied.
+4. The plugin fails closed when worktree creation fails. The dispatch is denied and the error names the recovery action.
+5. Usage capture failure does not trigger fail-closed behavior. Usage capture is best-effort.
+
+### Usage capture validation
+
+1. Completed root sessions produce one usage record following the existing usage contract with `cli: opencode`.
+2. Completed child sessions produce one usage record following the existing usage contract with `cli: opencode`.
+3. The root session's usage record does not include the child session's usage.
+4. Session completion does not reactivate the agent. No OpenCode-specific completion gate is introduced.
+5. Usage capture failure is reported but does not block the session.
+
+### Worktree isolation validation
+
+1. The plugin registers a worktree strategy through `ctx.worktree.transform()` with strategy ID `agent-factory`.
+2. Branch and worktree creation is delegated to Factory scripts. The Factory's naming, base, path, and verification rules remain authoritative.
+3. Each dispatched child receives its own branch and worktree under `.current-work/<feature-branch>/`.
+4. Each dispatched child verifies its declared base commit before reading or changing files.
+5. The primary checkout receives a session-scoped write denial while any child session is active in an isolated worktree.
+
+### Model configuration validation
+
+1. `model.conf` supports `opencode.economy`, `opencode.standard`, and `opencode.strong` entries.
+2. Model identifiers follow the `provider/model` format.
+3. A missing required tier halts dispatch with the existing `on_missing = halt` policy.
+4. Each generated OpenCode agent definition carries an explicit `model` field derived from its tier mapping in `model.conf`. This is the workaround for the model inheritance bug (OpenCode issue #49765).
+
+## Value-First Onboarding Validation Rules
+
+Proposal trace: [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md).
+Feature trace: [value-first-onboarding-journey.feature](../value-first-onboarding-journey.feature).
+
+### Release and source validation
+
+- **VFO-001:** A release build emits exactly one bootstrap, Factory archive, and checksum manifest for the requested version.
+- **VFO-002:** Repeated builds from the same source tree and version produce the same archive SHA-256 digest.
+- **VFO-003:** Installation accepts exactly one source selector. `--version` is valid only for a remote source.
+- **VFO-004:** A remote archive is not extracted until its SHA-256 digest matches `SHA256SUMS` from the selected release base.
+- **VFO-005:** An update never changes the recorded source kind or remote URL without an explicit selector and separate confirmation.
+
+### Target and preflight validation
+
+- **VFO-006:** First installation requires `--target`. The target must resolve to an existing Git repository or empty directory.
+- **VFO-007:** The filesystem root, user home, unresolved paths, and unsupported target content are rejected without changes.
+- **VFO-008:** Supported hosts are native macOS and Linux on `x86_64` and `arm64`, plus the Linux path under Windows Subsystem for Linux.
+- **VFO-009:** Preflight produces exactly one readiness value: `Ready`, `Ready with limitations`, or `Blocked`.
+- **VFO-010:** Preflight does not install software or edit host or project files.
+- **VFO-011:** Every offered prerequisite fix identifies its purpose, command, scope, reversal, and verification command.
+- **VFO-012:** A fix runs only after affirmative consent. Blank input, cancellation, and refusal stop the fix sequence.
+- **VFO-013:** The related check must pass after a fix. Failure stops the sequence and produces recovery guidance.
+
+### Installation and instruction-file validation
+
+- **VFO-014:** Installation starts only after approval of a preview that names the source, version, target, interfaces, affected paths, instruction files, and uninstall command.
+- **VFO-015:** Blank interface selection chooses one interface only when one detected active interface is unambiguous. It never means all interfaces.
+- **VFO-016:** The receipt lists only paths changed by the completed installation and gives one exact next command.
+- **VFO-017:** Instruction discovery visits existing regular `AGENTS.md` and `copilot-instructions.md` files outside the documented exclusions.
+- **VFO-018:** Instruction discovery does not follow external symlinks or create missing nested instruction files.
+- **VFO-019:** Each discovered instruction file contains at most one marker-delimited Factory header.
+- **VFO-020:** The manifest records enough original state to update or remove only the Factory header and restore the prior newline state.
+
+### Update validation
+
+- **VFO-021:** `update-factory --check` performs no writes.
+- **VFO-022:** A remote update verifies and stages all replacement content before applying any change.
+- **VFO-023:** An application failure restores the previous Factory tree and instruction headers.
+- **VFO-024:** Modified Factory-owned files stop update unless the user explicitly selects the preservation flow.
+- **VFO-025:** A successful update records the resolved version or local revision, source, remote digest when applicable, and changed paths.
+
+### First-session and configuration validation
+
+- **VFO-026:** The initial project scan distinguishes observations, unknowns, and recommendations and performs no writes.
+- **VFO-027:** Context capture starts only after onboarding explains its scan, decisions, single output, validation, and consumers.
+- **VFO-028:** Onboarding defines `concern` as a routing topic before using the term without a paraphrase.
+- **VFO-029:** Deferring or cancelling context capture before scanning produces no scan and no output file.
+- **VFO-030:** The gate demonstration runs on a Factory-owned disposable fixture, removes the fixture, and leaves the target project unchanged.
+- **VFO-031:** Consumer hook configuration omits `index-lint` and any trigger that can match only ignored Factory runtime paths.
+- **VFO-032:** `matrix-lint` runs after model configuration and before dispatch.
+
+### First-task validation
+
+- **VFO-033:** First-task approval is affirmative and follows a preview of the goal, duration, artifacts, decisions, and cleanup.
+- **VFO-034:** A repository with `HEAD` uses a detached worktree from that commit. A repository without `HEAD` uses a plain sandbox.
+- **VFO-035:** The sandbox path is `.current-work/onboarding-spike/<session-id>/`. The first task creates no branch or commit.
+- **VFO-036:** Retention copies only separately confirmed artifacts to a named path under `docs/spikes/`.
+- **VFO-037:** Discard verifies sandbox removal. Production handoff requires separate approval and never promotes the sandbox.

@@ -601,46 +601,64 @@ class TestAskClis:
 
     def test_single_number(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "1")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() == ["claude"]
 
     def test_multiple_numbers_comma(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "1,3")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() == ["claude", "pi"]
 
     def test_multiple_numbers_space(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "2 4")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() == ["copilot", "codex"]
 
     def test_names(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "claude copilot")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() == ["claude", "copilot"]
 
     def test_all(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "a")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() is None
 
     def test_empty_means_all(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() is None
 
     def test_invalid_input_returns_none(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "xyz 99")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() is None
 
     def test_non_tty_returns_none(self, monkeypatch):
-        monkeypatch.setattr("sys.stdin", type("FakeNoTTY", (), {"isatty": lambda self: False})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeNoTTY", (), {"isatty": lambda self: False})()
+        )
         assert inf.ask_clis() is None
 
     def test_no_duplicates(self, monkeypatch):
         monkeypatch.setattr("builtins.input", lambda _: "1,1,claude")
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})())
+        monkeypatch.setattr(
+            "sys.stdin", type("FakeTTY", (), {"isatty": lambda self: True})()
+        )
         assert inf.ask_clis() == ["claude"]
 
 
@@ -953,7 +971,9 @@ class TestDeriveFittingKeys:
     def test_fingerprint_confirmed_true_when_cache_has_languages(self, tmp_path):
         (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
         (tmp_path / ".agent-factory" / "config" / "project-context.json").write_text(
-            json.dumps({"languages": [{"name": "python", "evidence": "pyproject.toml"}]})
+            json.dumps(
+                {"languages": [{"name": "python", "evidence": "pyproject.toml"}]}
+            )
         )
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["fingerprint_confirmed"] is True
@@ -961,7 +981,9 @@ class TestDeriveFittingKeys:
     def test_fingerprint_confirmed_true_when_cache_has_frameworks(self, tmp_path):
         (tmp_path / ".agent-factory" / "config").mkdir(parents=True)
         (tmp_path / ".agent-factory" / "config" / "project-context.json").write_text(
-            json.dumps({"languages": [], "frameworks": [{"name": "django", "evidence": "x"}]})
+            json.dumps(
+                {"languages": [], "frameworks": [{"name": "django", "evidence": "x"}]}
+            )
         )
         derived = inf._derive_fitting_keys(tmp_path)
         assert derived["fingerprint_confirmed"] is True
@@ -1071,6 +1093,7 @@ class TestDetectFrameworksPyproject:
             path = tmp_path / "pyproject.toml"
             path.write_text(content)
             return path
+
         return _write
 
     def test_detects_fastapi(self, pyproject):
@@ -1084,9 +1107,7 @@ class TestDetectFrameworksPyproject:
         assert "fastapi" in names
 
     def test_detects_django(self, pyproject):
-        path = pyproject(
-            '[project]\nname = "demo"\ndependencies = ["Django>=4.2"]\n'
-        )
+        path = pyproject('[project]\nname = "demo"\ndependencies = ["Django>=4.2"]\n')
         if inf.tomllib is None:
             pytest.skip("tomllib not available")
         found = inf._detect_frameworks_pyproject(path)
@@ -1211,7 +1232,9 @@ class TestWriteProjectContext:
         install = {"remove_paths": []}
         report: list[str] = []
         inf.write_project_context(tmp_path, install, report)
-        assert (tmp_path / ".agent-factory" / "config" / "project-context.json").exists()
+        assert (
+            tmp_path / ".agent-factory" / "config" / "project-context.json"
+        ).exists()
 
 
 class TestReconcileProjectContext:
@@ -1251,7 +1274,9 @@ class TestReconcileProjectContext:
         assert data["fitting"]["agent_context_populated"] is True
         assert data["fitting"]["status"] == "fitting"
 
-    def test_all_tracked_artifacts_present_yields_four_of_five_and_fitting(self, tmp_path):
+    def test_all_tracked_artifacts_present_yields_four_of_five_and_fitting(
+        self, tmp_path
+    ):
         cache_path = self._seed_cache(
             tmp_path,
             {
@@ -1277,10 +1302,17 @@ class TestReconcileProjectContext:
         report: list[str] = []
         inf.write_project_context(tmp_path, install, report)
         fitting = json.loads(cache_path.read_text())["fitting"]
-        true_count = sum(1 for k in (
-            "model_matrix_configured", "fingerprint_confirmed",
-            "agent_context_populated", "test_regime_detected", "hooks_decided",
-        ) if fitting[k])
+        true_count = sum(
+            1
+            for k in (
+                "model_matrix_configured",
+                "fingerprint_confirmed",
+                "agent_context_populated",
+                "test_regime_detected",
+                "hooks_decided",
+            )
+            if fitting[k]
+        )
         assert true_count == 4
         assert fitting["model_matrix_configured"] is False
         assert fitting["status"] == "fitting"
@@ -1319,7 +1351,10 @@ class TestReconcileProjectContext:
         install = {"remove_paths": []}
         report: list[str] = []
         inf.write_project_context(tmp_path, install, report)
-        assert json.loads(cache_path.read_text())["fitting"]["model_matrix_configured"] is True
+        assert (
+            json.loads(cache_path.read_text())["fitting"]["model_matrix_configured"]
+            is True
+        )
 
     def test_all_five_true_yields_fitted_status(self, tmp_path):
         cache_path = self._seed_cache(
@@ -1365,7 +1400,9 @@ class TestReconcileProjectContext:
         report: list[str] = []
         inf.write_project_context(tmp_path, install, report)
         data = json.loads(cache_path.read_text())
-        assert data["docs_structure"] == [{"name": "README.md", "evidence": "README.md"}]
+        assert data["docs_structure"] == [
+            {"name": "README.md", "evidence": "README.md"}
+        ]
 
     def test_greenfield_cache_left_untouched(self, tmp_path):
         greenfield_fitting = {
@@ -1474,7 +1511,12 @@ class TestConcernModelMigration:
         """Copilot orientation uses .github/INDEX.yaml, not the generic list."""
         factory = tmp_path / ".agent-factory" / "factory"
         (factory / "config").mkdir(parents=True)
-        src = Path(__file__).resolve().parent.parent.parent / "packages" / "factory" / "config"
+        src = (
+            Path(__file__).resolve().parent.parent.parent
+            / "packages"
+            / "factory"
+            / "config"
+        )
         (factory / "config" / "AGENTS.md").write_text(
             (src / "AGENTS.md").read_text(encoding="utf-8")
         )
@@ -1490,7 +1532,12 @@ class TestConcernModelMigration:
         """Codex orientation uses .codex/INDEX.yaml, not the generic list."""
         factory = tmp_path / ".agent-factory" / "factory"
         (factory / "config").mkdir(parents=True)
-        src = Path(__file__).resolve().parent.parent.parent / "packages" / "factory" / "config"
+        src = (
+            Path(__file__).resolve().parent.parent.parent
+            / "packages"
+            / "factory"
+            / "config"
+        )
         (factory / "config" / "AGENTS.md").write_text(
             (src / "AGENTS.md").read_text(encoding="utf-8")
         )
@@ -1508,7 +1555,10 @@ class TestConcernModelMigration:
         (factory / "config").mkdir(parents=True)
         agents_md = (
             Path(__file__).resolve().parent.parent.parent
-            / "packages" / "factory" / "config" / "AGENTS.md"
+            / "packages"
+            / "factory"
+            / "config"
+            / "AGENTS.md"
         )
         (factory / "config" / "AGENTS.md").write_text(
             agents_md.read_text(encoding="utf-8")
@@ -1593,11 +1643,15 @@ class TestDoRemove:
     def test_reports_not_installed(self, tmp_path):
         manifest_path = tmp_path / ".agent-factory" / "install.json"
         manifest_path.parent.mkdir(parents=True)
-        manifest_path.write_text(json.dumps({
-            "cli": ["copilot"],
-            "remove_paths": [],
-            "orientation": {},
-        }))
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "cli": ["copilot"],
+                    "remove_paths": [],
+                    "orientation": {},
+                }
+            )
+        )
         rc = inf.do_remove(tmp_path, ["claude"])
         assert rc == 0
 
@@ -1613,19 +1667,24 @@ class TestDoRemove:
         manifest_path.parent.mkdir(parents=True)
         gitignore = tmp_path / ".gitignore"
         gitignore.write_text("# project\n")
-        manifest_path.write_text(json.dumps({
-            "cli": ["pi", "codex"],
-            "remove_paths": [],
-            "orientation": {"AGENTS.md": "injected"},
-            "orientation_markers": {"begin": begin, "end": end},
-            "ignored_paths": [],
-            "gitignore_existed": True,
-            "gitignore_orig_final_newline": True,
-        }))
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "cli": ["pi", "codex"],
+                    "remove_paths": [],
+                    "orientation": {"AGENTS.md": "injected"},
+                    "orientation_markers": {"begin": begin, "end": end},
+                    "ignored_paths": [],
+                    "gitignore_existed": True,
+                    "gitignore_orig_final_newline": True,
+                }
+            )
+        )
         rc = inf.do_remove(tmp_path, ["codex"])
         assert rc == 0
         text = agents_md.read_text()
         assert begin in text, "orientation block should be preserved for pi"
+
 
 class TestFactoryChecksums:
     """Per-file checksum recording and modification detection."""
@@ -1634,7 +1693,9 @@ class TestFactoryChecksums:
         factory = tmp_path / ".agent-factory" / "factory"
         factory.mkdir(parents=True)
         (factory / "scripts").mkdir()
-        (factory / "scripts" / "step-guard").write_text("#!/usr/bin/env python3\npass\n")
+        (factory / "scripts" / "step-guard").write_text(
+            "#!/usr/bin/env python3\npass\n"
+        )
         (factory / "skills").mkdir()
         (factory / "skills" / "tdd").mkdir()
         (factory / "skills" / "tdd" / "SKILL.md").write_text("# TDD skill\n")
@@ -1670,7 +1731,9 @@ class TestFactoryChecksums:
     def test_detect_modified_file(self, tmp_path):
         factory = self._make_factory(tmp_path)
         inf.write_factory_checksums(tmp_path, factory)
-        (factory / "skills" / "tdd" / "SKILL.md").write_text("# TDD skill\nCustomized.\n")
+        (factory / "skills" / "tdd" / "SKILL.md").write_text(
+            "# TDD skill\nCustomized.\n"
+        )
         result = inf.detect_factory_modifications(tmp_path)
         modified, added, removed = result
         assert "skills/tdd/SKILL.md" in modified
@@ -1683,7 +1746,7 @@ class TestFactoryChecksums:
         (factory / "skills" / "custom").mkdir()
         (factory / "skills" / "custom" / "SKILL.md").write_text("# Custom\n")
         result = inf.detect_factory_modifications(tmp_path)
-        modified, added, removed = result
+        modified, added, _removed = result
         assert modified == []
         assert "skills/custom/SKILL.md" in added
 
@@ -1692,7 +1755,7 @@ class TestFactoryChecksums:
         inf.write_factory_checksums(tmp_path, factory)
         (factory / "skills" / "tdd" / "SKILL.md").unlink()
         result = inf.detect_factory_modifications(tmp_path)
-        modified, added, removed = result
+        _modified, _added, removed = result
         assert "skills/tdd/SKILL.md" in removed
 
     def test_no_baseline_returns_none(self, tmp_path):
@@ -1715,7 +1778,6 @@ class TestFactoryChecksums:
 
 
 class TestDoRemoveCLIPaths:
-
     def test_removes_cli_paths(self, tmp_path):
         claude_dir = tmp_path / ".claude"
         claude_dir.mkdir()
@@ -1725,17 +1787,178 @@ class TestDoRemoveCLIPaths:
         manifest_path.parent.mkdir(parents=True)
         gitignore = tmp_path / ".gitignore"
         gitignore.write_text("# project\n")
-        manifest_path.write_text(json.dumps({
-            "cli": ["claude", "copilot"],
-            "remove_paths": [".claude/settings.json", ".claude"],
-            "orientation": {},
-            "ignored_paths": [],
-            "gitignore_existed": True,
-            "gitignore_orig_final_newline": True,
-        }))
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "cli": ["claude", "copilot"],
+                    "remove_paths": [".claude/settings.json", ".claude"],
+                    "orientation": {},
+                    "ignored_paths": [],
+                    "gitignore_existed": True,
+                    "gitignore_orig_final_newline": True,
+                }
+            )
+        )
         rc = inf.do_remove(tmp_path, ["claude"])
         assert rc == 0
         assert not settings.exists()
         manifest = json.loads(manifest_path.read_text())
         assert "claude" not in (manifest.get("cli") or [])
         assert "copilot" in (manifest.get("cli") or [])
+
+
+# --------------------------------------------------------------------------- #
+# Preserve data directories across reinstalls
+# --------------------------------------------------------------------------- #
+
+
+class TestBackupPreservedDirs:
+    """backup_preserved_dirs backs up non-empty usage/ and user-changes/."""
+
+    def test_skips_when_no_agent_factory_dir(self, tmp_path):
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert result == {}
+
+    def test_skips_empty_directories(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        (af / "usage" / "records").mkdir(parents=True)
+        (af / "usage" / "transcripts").mkdir(parents=True)
+        (af / "user-changes").mkdir(parents=True)
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert result == {}
+
+    def test_backs_up_non_empty_usage(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        records = af / "usage" / "records"
+        records.mkdir(parents=True)
+        (records / "session-001.jsonl").write_text('{"tokens": 42}\n')
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert "usage" in result
+        backup_records = result["usage"] / "records" / "session-001.jsonl"
+        assert backup_records.exists()
+        assert backup_records.read_text() == '{"tokens": 42}\n'
+
+    def test_backs_up_non_empty_user_changes(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        uc = af / "user-changes" / "20260901-120000"
+        uc.mkdir(parents=True)
+        (uc / "backup.txt").write_text("saved")
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert "user-changes" in result
+
+    def test_ignores_symlinks(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        real = tmp_path / "real-usage"
+        real.mkdir(parents=True)
+        (real / "data.txt").write_text("content")
+        (af).mkdir()
+        (af / "usage").symlink_to(real)
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert result == {}
+
+
+class TestOfferRestorePreservedDirs:
+    """offer_restore_preserved_dirs compares structure and restores."""
+
+    def _make_backup(self, tmp_path, name, subdirs, files=None):
+        """Create a backup directory with given subdirs and optional files."""
+        import tempfile
+
+        backup_root = Path(tempfile.mkdtemp(
+            prefix=f"af-preserve-{name}-", dir=tmp_path
+        ))
+        backup = backup_root / name
+        backup.mkdir()
+        for sd in subdirs:
+            (backup / sd).mkdir(parents=True)
+        for fname, content in (files or {}).items():
+            (backup / fname).write_text(content)
+        return backup
+
+    def test_restores_when_structure_matches(self, tmp_path, monkeypatch):
+        af = tmp_path / ".agent-factory"
+        usage = af / "usage"
+        for sd in ("records", "transcripts", "control", "runtime"):
+            (usage / sd).mkdir(parents=True)
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records", "transcripts", "control"],
+            {"records/session.jsonl": '{"tokens": 99}\n'},
+        )
+
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {
+            "isatty": lambda self: True,
+            "readline": lambda self: "y\n",
+        })())
+        monkeypatch.setattr("builtins.input", lambda prompt: "y")
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        assert (usage / "records" / "session.jsonl").exists()
+        assert (usage / "records" / "session.jsonl").read_text() == '{"tokens": 99}\n'
+
+    def test_prints_path_when_structure_mismatches(self, tmp_path, capsys):
+        af = tmp_path / ".agent-factory"
+        usage = af / "usage"
+        (usage / "records").mkdir(parents=True)
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records", "transcripts", "control", "new-subdir"],
+        )
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        captured = capsys.readouterr()
+        assert "structure changed" in captured.out
+        assert str(backup) in captured.out
+        assert not list((usage / "records").glob("*"))
+
+    def test_prints_path_when_dir_not_recreated(self, tmp_path, capsys):
+        af = tmp_path / ".agent-factory"
+        af.mkdir()
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records"],
+            {"records/data.jsonl": "content"},
+        )
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        captured = capsys.readouterr()
+        assert "not recreated" in captured.out
+        assert str(backup) in captured.out
+
+    def test_non_interactive_restores_automatically(self, tmp_path, monkeypatch):
+        af = tmp_path / ".agent-factory"
+        usage = af / "usage"
+        (usage / "records").mkdir(parents=True)
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records"],
+            {"records/session.jsonl": '{"data": true}\n'},
+        )
+
+        monkeypatch.setattr("sys.stdin", type("NoTTY", (), {
+            "isatty": lambda self: False,
+        })())
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        assert (usage / "records" / "session.jsonl").read_text() == '{"data": true}\n'

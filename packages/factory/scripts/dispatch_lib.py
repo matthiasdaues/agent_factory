@@ -329,7 +329,7 @@ class WaveCloseout:
 
 class Ledger:
     def __init__(self) -> None:
-        self.mode: str = "autonomous"
+        self.mode: str = "automated"
         self.closed: bool = False
         self.invocation_branch: str | None = None
         self.branch_root: str | None = None
@@ -432,7 +432,7 @@ class Ledger:
             raise FileNotFoundError(path)
         raw = _load_yaml(path.read_text())
         ledger = cls()
-        ledger.mode = raw.get("mode", "autonomous")
+        ledger.mode = raw.get("mode", "automated")
         ledger.closed = bool(raw.get("closed", False))
         ledger.invocation_branch = raw.get("invocation_branch")
         ledger.branch_root = raw.get("branch_root")

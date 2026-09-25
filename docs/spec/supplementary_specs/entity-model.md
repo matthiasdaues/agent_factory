@@ -63,7 +63,7 @@ erDiagram
         int    tokens "tiktoken cl100k_base body count"
     }
     MODEL_MATRIX_ENTRY {
-        string cli "copilot | codex | pi (model.conf row keys. Claude Code resolves its model outside model.conf)"
+        string cli "copilot | codex | pi | opencode (model.conf row keys. Claude Code resolves its model outside model.conf)"
         string tier "economy | standard | strong"
         string model_id
     }
@@ -378,14 +378,14 @@ erDiagram
 
 - `INPUT_SET` is immutable for one query and contains only sorted, top-level `*.jsonl` paths from the selected usage directory.
 - Evidence identity is `(normalized_source_path, source_line)`. The path is relative to the selected usage directory, uses `/` separators, has `.` removed, rejects `..`, absolute paths, invalid UTF-8, and Unicode-normalizes each segment to NFC. Line numbers are one-based positive integers.
-- The closed registry keys are exactly `claude-code`, `pi`, `codex`, and `copilot`. Every CLI uses logical-run key `(cli, session_id, run_id)`. For Claude Code and Pi this distinguishes additive child or descendant runs; for Codex and GitHub Copilot CLI it distinguishes inclusive roots from attribution-only descendants. `parent_run_id` establishes ancestry but is not part of identity. Source path, source line, capture sequence, and record content never enter the logical-run key.
+- The closed registry keys are exactly `claude-code`, `pi`, `codex`, `copilot`, and `opencode`. Every CLI uses logical-run key `(cli, session_id, run_id)`. For Claude Code, Pi, and OpenCode this distinguishes additive child or descendant runs; for Codex and GitHub Copilot CLI it distinguishes inclusive roots from attribution-only descendants. `parent_run_id` establishes ancestry but is not part of identity. Source path, source line, capture sequence, and record content never enter the logical-run key.
 - Before `LATEST_RUN_SNAPSHOT` selection, all otherwise valid evidence snapshots for one logical-run key must have exactly one distinct `parent_run_id`, with null treated as a value. Disagreement classifies every snapshot for that key as a `PREFLIGHT_FAILURE` with `USAGE_ANCESTRY_PARENT_CONFLICT`; no evidence snapshot establishes or overrides the logical run's parent.
 - Each `(cli, session_id)` partition contains exactly one root with null `parent_run_id`. Every non-root parent resolves to a distinct logical run in the same partition. The parent graph is acyclic, every run is reachable from the root, direct children name the root's `run_id`, and descendants are its transitive closure.
 - Missing parents, cross-CLI or cross-session parents, self-links, cycles, and root counts other than one create `PREFLIGHT_FAILURE` rows with the stable `USAGE_ANCESTRY_*` codes and prevent canonical accounting.
 - Every selected line produces exactly one `USAGE_RECORD` or `PREFLIGHT_FAILURE` in query scope.
 - `normalized_total` equals `normalized_input + normalized_output`; token counters are non-negative.
 - `LATEST_RUN_SNAPSHOT` selects the greatest tuple `(capture_sequence, normalized_source_path, source_line)`: capture sequence numerically ascending, normalized path by unsigned UTF-8 byte lexicographic order, and line number numerically ascending. Selection takes the maximum tuple; this makes the later line win within one file and removes source identity after one snapshot remains per logical-run key.
-- `CANONICAL_SESSION_USAGE` has one accounting result per session. Its rule is selected from the closed four-CLI registry.
+- `CANONICAL_SESSION_USAGE` has one accounting result per session. Its rule is selected from the closed five-CLI registry.
 - `CACHE_EFFICIENCY_SIGNAL` distinguishes unavailable, input-only, and measured values; unavailable is not zero.
 - A stable `QUERY_RESULT` other than `capture_health` exists only when the input set has zero failures.
 - `PARQUET_EXPORT` is derived, attributable, atomic, and rebuildable. It is never authoritative state.
@@ -494,3 +494,198 @@ erDiagram
 - **GOVERNED_ARTIFACT** is any artifact in the closed first-release set: proposals, epics, stories, Gherkin feature files, `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. The `scope` field is read from YAML frontmatter when present, otherwise from a `scope:` declaration on the first line of the file. Proposals use `scope` in place of `title`. A lint check at artifact creation time verifies the declaration is present and carries either `global` or a known workstream identifier.
 - **Path resolution:** The evaluator resolves a `path_pattern` in four ordered steps: glob expansion (replace placeholders with `*`), scope filtering (keep only candidates whose `scope` matches the bound workstream or equals `global`; skipped in Open Stage), condition checking (evaluate all conditions, remove failing candidates), and cardinality (zero = unsatisfied, one = satisfied, multiple = reported for human selection).
 - **No delegation in the engine.** Chaining happens externally — an external orchestrator inspects evaluator evidence after each fence. No delegation grant, attempt counter, or retry limit exists in the engine, agent definitions, or session bindings.
+
+## OpenCode CLI Integration Entities
+
+The OpenCode integration adds a fifth CLI target and a V2 plugin that maps Factory safety controls to OpenCode primitives. The existing `MODEL_MATRIX_ENTRY` gains an `opencode` CLI value. New entities model the plugin, its configuration, and the OpenCode-specific catalog surface.
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+```mermaid
+erDiagram
+    OPENCODE_PLUGIN ||--|| PLUGIN_PERMISSION_RULE_SET : "enforces"
+    OPENCODE_PLUGIN ||--o| STEP_MANIFEST : "reads"
+    OPENCODE_PLUGIN ||--|| WORKTREE_STRATEGY : "registers"
+    OPENCODE_PLUGIN ||--o{ OPENCODE_USAGE_RECORD : "captures"
+    OPENCODE_CATALOG ||--o{ OPENCODE_AGENT_DEF : "lists"
+    OPENCODE_CATALOG ||--|| OPENCODE_INDEX : "rooted at"
+    OPENCODE_AGENT_DEF ||--o| MODEL_MATRIX_ENTRY : "tier resolves via"
+    INSTALL_MANIFEST ||--o{ INSTALLED_PATH : "records"
+
+    OPENCODE_PLUGIN {
+        string id "agent-factory"
+        string setup "V2 Plugin.define() setup function"
+        string health "healthy | unhealthy"
+    }
+    PLUGIN_PERMISSION_RULE_SET {
+        list allow_rules "ordered"
+        list ask_rules "ordered"
+        list deny_rules "ordered, final"
+    }
+    STEP_MANIFEST {
+        string path ".current-work/current-step.yml"
+        list declared_inputs "readable paths"
+        list declared_outputs "writable paths"
+    }
+    WORKTREE_STRATEGY {
+        string id "agent-factory"
+        string delegate "Factory scripts for branch and worktree operations"
+    }
+    OPENCODE_USAGE_RECORD {
+        string session_id "root or child session identifier"
+        string cli "opencode"
+        string contract "existing usage contract"
+    }
+    OPENCODE_CATALOG {
+        string index_path ".opencode/INDEX.yaml"
+        string agents_dir ".opencode/agents/"
+        string skills_dir ".agents/skills/"
+    }
+    OPENCODE_AGENT_DEF {
+        string name "agent name from canonical catalog"
+        string mode "OpenCode agent mode"
+        string model "provider/model identifier from tier mapping"
+        object permissions "generated from agent definition"
+    }
+    OPENCODE_INDEX {
+        string path ".opencode/INDEX.yaml"
+        string generated_by "init-factory"
+    }
+    INSTALL_MANIFEST {
+        string path ".agent-factory/install.json"
+    }
+    INSTALLED_PATH {
+        string path "absolute or repo-relative path"
+        string owner "factory or user"
+    }
+```
+
+### Notes
+
+- **OPENCODE_PLUGIN** is the V2 plugin at `packages/factory/config/plugins/agent-factory.ts`. It exposes its setup function through `Plugin.define()`. The `health` field is runtime state: `healthy` after successful initialization, `unhealthy` when initialization, manifest loading, permission evaluation, or worktree creation fails. An unhealthy plugin stops the Factory entry flow.
+- **PLUGIN_PERMISSION_RULE_SET** applies rules in order: allow, ask, deny. Deny rules are final — a permission hook may narrow a decision but never broaden a configured denial.
+- **STEP_MANIFEST** is the same `.current-work/current-step.yml` used by the existing step-guard. The plugin reads it through the `execute.before` hook and denies reads or writes outside its declared boundary.
+- **WORKTREE_STRATEGY** delegates branch and worktree creation to Factory scripts. OpenCode tracks the resulting location and starts each child session there. The original checkout receives a session-scoped write denial while isolated work is active.
+- **OPENCODE_USAGE_RECORD** follows the existing usage contract. Root and child session usage is reported separately. The child session's usage is not included in the root's record.
+
+## Value-First Onboarding Entities
+
+Proposal trace: [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md)
+
+```mermaid
+erDiagram
+    RELEASE_ASSET_SET ||--|| INSTALL_SOURCE : publishes
+    INSTALL_SOURCE ||--o{ INSTALLATION : supplies
+    INSTALLATION ||--|| PREFLIGHT_RESULT : requires
+    PREFLIGHT_RESULT ||--o{ PREREQUISITE_FIX : proposes
+    INSTALLATION ||--|| INSTALLATION_PREVIEW : requires
+    INSTALLATION ||--|| INSTALLATION_RECEIPT : produces
+    INSTALLATION ||--o{ INSTRUCTION_HEADER : records
+    INSTALLATION ||--o| ONBOARDING_SESSION : opens
+    ONBOARDING_SESSION ||--o| FIRST_TASK_SANDBOX : creates
+    FIRST_TASK_SANDBOX ||--o{ RETAINED_SPIKE_ARTIFACT : copies
+
+    RELEASE_ASSET_SET {
+        string version
+        string bootstrap_path
+        string archive_path
+        string checksum_manifest_path
+        string archive_sha256
+    }
+
+    INSTALL_SOURCE {
+        string selector "local or remote"
+        string requested_value
+        string resolved_value
+        string version "remote only"
+        string archive_sha256 "remote only"
+    }
+
+    PREFLIGHT_RESULT {
+        string readiness "Ready, Ready with limitations, or Blocked"
+        string absolute_target
+        string target_class
+        string platform
+        string architecture
+    }
+
+    PREREQUISITE_FIX {
+        string prerequisite
+        string command
+        string change_scope
+        string reversal_command
+        string verification_command
+        boolean confirmed
+        boolean verified
+    }
+
+    INSTALLATION {
+        string target
+        string version
+        string source_selector
+        string status
+    }
+
+    INSTALLATION_PREVIEW {
+        string target
+        string version
+        string selected_interfaces
+        string affected_paths
+        string uninstall_command
+    }
+
+    INSTALLATION_RECEIPT {
+        string changed_paths
+        string selected_interfaces
+        string installed_version
+        string resolved_source
+        string next_command
+    }
+
+    INSTRUCTION_HEADER {
+        string path
+        string original_newline_state
+        string installed_block_digest
+        string status
+    }
+
+    ONBOARDING_SESSION {
+        string session_id
+        string observed_stack
+        string observed_test_entry_point
+        string observed_safety_signal
+        string recommended_action
+        int decisions_since_install_approval
+    }
+
+    FIRST_TASK_SANDBOX {
+        string session_id
+        string path
+        string kind "detached worktree or plain sandbox"
+        string source_head "nullable"
+        string status
+    }
+
+    RETAINED_SPIKE_ARTIFACT {
+        string source_path
+        string destination_path
+        boolean separately_confirmed
+    }
+```
+
+### Notes
+
+- **RELEASE_ASSET_SET** contains one bootstrap, one Factory archive, and one checksum manifest for a version. Repeated builds from the same source and version have the same archive digest.
+- **INSTALL_SOURCE** has exactly one selector. A local source stores an absolute checkout path. A remote source stores the normalized release base, immutable version URL, version, and archive digest.
+- **PREFLIGHT_RESULT** is read-only. `Ready with limitations` permits installation. `Blocked` prevents installation.
+- **PREREQUISITE_FIX** exists only for a detected missing prerequisite. Each fix carries one command, reversal, verification, and separate consent result.
+- **INSTALLATION_PREVIEW** is immutable input to one approval decision. Blank input is not approval.
+- **INSTALLATION_RECEIPT** records completed effects and one next command. It never reports a path that installation did not change.
+- **INSTRUCTION_HEADER** identifies one marker-delimited Factory block in an existing instruction file. The manifest stores enough state to update or remove only that block.
+- **ONBOARDING_SESSION** separates observed project evidence from the recommended action. The initial scan does not change project files.
+- **FIRST_TASK_SANDBOX** uses a detached worktree when `HEAD` exists. It uses a plain directory otherwise. The sandbox never becomes production work.
+- **RETAINED_SPIKE_ARTIFACT** is created only after separate confirmation and always targets a named path below `docs/spikes/`.
+- **OPENCODE_CATALOG** is the OpenCode-visible catalog surface. Agents live under `.opencode/agents/`. Skills live under `.agents/skills/`, which OpenCode discovers natively. The catalog is linked from `.opencode/INDEX.yaml`.
+- **OPENCODE_AGENT_DEF** carries a `model` field derived from the agent's tier mapping in `model.conf`. This is a workaround for the model inheritance bug (OpenCode issue #49765). Each generated definition has explicit model, mode, and permission fields.
+- **MODEL_MATRIX_ENTRY.cli** gains the value `opencode` alongside the existing `copilot`, `codex`, and `pi`. Claude Code resolves its model outside `model.conf`.
+- **INSTALL_MANIFEST** at `.agent-factory/install.json` records every path init-factory creates for each CLI. `remove-factory` uses this record to remove Factory-owned paths without disturbing user-owned files.

@@ -34,6 +34,10 @@ layers:
     tool: pytest
     infrastructure: real filesystem and subprocess
     entry_point: "uv run pytest --tb=short --quiet tests/"
+  end_to_end:
+    tool: pytest
+    infrastructure: real filesystem, subprocess, and temporary Git repositories
+    entry_point: "uv run pytest --tb=short --quiet tests/factory/test_onboarding_journey.py"
 
 # Preserved from the former testing charter; these gates were not part of the
 # regime scan.

@@ -7,17 +7,15 @@ What: Resolves what to run (agent, or one playbook step) and its model
 When: At dispatch, when a skill or orchestrator runs an agent or advances a
       playbook step.
 By:   the run-step skill and orchestration — not a gate; sequencing lives in
-      transition-lint and phase.
+      agent eligibility and the selected playbook.
 
 This is the whole of the CLI-agnostic dispatch mechanism: resolve what to
 run (agent name, or one step of a playbook's agent sequence) and how
 (tier -> model via model.conf), then hand off to the target CLI. It does
-NOT decide *whether* a step is allowed to run — that is transition-lint's
-job (blocks staged files from a future phase) and phase-advance's job
-(checks entry_conditions before moving the marker). trigger only dispatches
-what it's told to; sequencing and resumability live in those gates plus
-whatever skill drives this script, not here (deliberately no persisted
-run-state of its own — see .agent-factory/factory/skills/run-step/SKILL.md).
+NOT decide *whether* a step is eligible. The eligibility engine and the
+calling skill own that decision. trigger only dispatches what it receives.
+It stores no run state of its own. See
+.agent-factory/factory/skills/run-step/SKILL.md for the routing workflow.
 
 Reuses, not reimplements: agent/playbook lookup imports index-lint's own
 load_agents()/load_playbooks() (the same data .agent-factory/factory/INDEX.yaml is
@@ -192,8 +190,7 @@ CLAUDE_ALLOWED_TOOLS = (
     "Bash(.agent-factory/factory/scripts/backlog-lint *),Bash(.agent-factory/factory/scripts/matrix-lint *),"
     "Bash(.agent-factory/factory/scripts/statemachine-lint *),Bash(.agent-factory/factory/scripts/mermaid-lint *),"
     "Bash(.agent-factory/factory/scripts/index-lint *),"
-    "Bash(.agent-factory/factory/scripts/transition-lint *),Bash(.agent-factory/factory/scripts/mdformat *),"
-    "Bash(.agent-factory/factory/scripts/phase *),"
+    "Bash(.agent-factory/factory/scripts/mdformat *),"
     "Bash(uvx ruff check *),Bash(uvx ruff format *),"
     "Bash(uv run mdformat *),Bash(uv run ruff check *),Bash(uv run ruff format *),"
     "Bash(uv run pytest *)"
@@ -218,8 +215,7 @@ COPILOT_ALLOW_TOOLS = (
     "shell(.agent-factory/factory/scripts/backlog-lint:*),shell(.agent-factory/factory/scripts/matrix-lint:*),"
     "shell(.agent-factory/factory/scripts/statemachine-lint:*),shell(.agent-factory/factory/scripts/mermaid-lint:*),"
     "shell(.agent-factory/factory/scripts/index-lint:*),"
-    "shell(.agent-factory/factory/scripts/transition-lint:*),shell(.agent-factory/factory/scripts/mdformat:*),"
-    "shell(.agent-factory/factory/scripts/phase:*),"
+    "shell(.agent-factory/factory/scripts/mdformat:*),"
     "shell(uvx ruff check:*),shell(uvx ruff format:*),"
     "shell(uv run mdformat:*),shell(uv run ruff check:*),shell(uv run ruff format:*),"
     "shell(uv run pytest:*)"

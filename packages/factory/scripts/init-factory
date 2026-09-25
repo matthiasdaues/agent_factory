@@ -100,6 +100,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -236,6 +237,8 @@ PROJECT_IDENTITY = Path(".agent-factory/config/project.json")
 
 KNOWN_COMPONENTS = ("usage",)
 COMPONENT_INSTALL_DIR = ".agent-factory/usage/analysis"
+
+PRESERVE_DIRS = ("usage", "user-changes")
 
 
 def _read_factory_version(target: Path) -> str:
@@ -439,6 +442,107 @@ def log(report: list[str], line: str) -> None:
     report.append(line)
     if not _out.quiet:
         print(f"  {line}")
+
+
+# --------------------------------------------------------------------------- #
+# Preserve existing data directories across reinstalls
+# --------------------------------------------------------------------------- #
+
+
+def _dir_has_content(path: Path) -> bool:
+    """True when path is a real directory containing at least one file."""
+    if not path.is_dir() or path.is_symlink():
+        return False
+    for root, _dirs, files in os.walk(path):
+        if files:
+            return True
+    return False
+
+
+def _subdir_names(path: Path) -> set[str]:
+    """Return the set of immediate subdirectory names under path."""
+    if not path.is_dir():
+        return set()
+    return {e.name for e in path.iterdir() if e.is_dir() and not e.is_symlink()}
+
+
+def backup_preserved_dirs(
+    target: Path, report: list[str]
+) -> dict[str, Path]:
+    """Back up PRESERVE_DIRS from .agent-factory/ before a reinstall.
+
+    Returns a mapping from directory name to the backup copy path.
+    Only non-empty, non-symlink directories are backed up.
+    """
+    backups: dict[str, Path] = {}
+    af = target / ".agent-factory"
+    for name in PRESERVE_DIRS:
+        src = af / name
+        if _dir_has_content(src):
+            backup_root = Path(
+                tempfile.mkdtemp(prefix=f"af-preserve-{name}-")
+            )
+            dest = backup_root / name
+            shutil.copytree(src, dest, symlinks=False)
+            backups[name] = dest
+            log(report, f".agent-factory/{name}/: backed up to {dest}")
+    return backups
+
+
+def offer_restore_preserved_dirs(
+    target: Path, backups: dict[str, Path], report: list[str]
+) -> None:
+    """Compare backed-up directory structure against the new install.
+
+    If the subdirectory layout matches, offer to restore.  If it does not
+    match (e.g. a version upgrade changed the structure), print the backup
+    path and leave restoration to the user.
+    """
+    af = target / ".agent-factory"
+    for name, backup_path in backups.items():
+        new_path = af / name
+        backup_structure = _subdir_names(backup_path)
+        new_structure = _subdir_names(new_path)
+
+        if not new_path.exists():
+            print(f"\n  .agent-factory/{name}/ was not recreated by this install.")
+            print(f"  Backup preserved at: {backup_path}")
+            log(report, f".agent-factory/{name}/: not recreated; backup at {backup_path}")
+            continue
+
+        if backup_structure <= new_structure:
+            # Backed-up subdirs are a subset of (or equal to) the new layout.
+            print(f"\n  .agent-factory/{name}/ structure matches the new install.")
+            if sys.stdin.isatty():
+                answer = input(f"  Restore backed-up {name} data? [Y/n] ").strip().lower()
+                if answer in ("", "y", "yes"):
+                    _do_restore(af, name, backup_path, report)
+                else:
+                    print(f"  Skipped. Backup preserved at: {backup_path}")
+                    log(report, f".agent-factory/{name}/: restore declined; backup at {backup_path}")
+            else:
+                _do_restore(af, name, backup_path, report)
+        else:
+            missing = backup_structure - new_structure
+            print(f"\n  .agent-factory/{name}/ structure changed (missing: {', '.join(sorted(missing))}).")
+            print(f"  Backup preserved at: {backup_path}")
+            log(report, f".agent-factory/{name}/: structure mismatch; backup at {backup_path}")
+
+
+def _do_restore(
+    af: Path, name: str, backup_path: Path, report: list[str]
+) -> None:
+    """Replace the newly created directory with the backed-up copy."""
+    dest = af / name
+    try:
+        shutil.rmtree(dest)
+        shutil.copytree(backup_path, dest, symlinks=False)
+        shutil.rmtree(backup_path.parent)
+        log(report, f".agent-factory/{name}/: restored from backup")
+    except OSError as exc:
+        print(f"  Restore failed: {exc}", file=sys.stderr)
+        print(f"  Backup preserved at: {backup_path}")
+        log(report, f".agent-factory/{name}/: restore failed; backup at {backup_path}")
 
 
 # --------------------------------------------------------------------------- #
@@ -3348,6 +3452,18 @@ def _dedup(paths: list[str]) -> list[str]:
 
 
 def pre_commit_install(target: Path, report: list[str]) -> None:
+    import shutil
+
+    if not shutil.which("uvx"):
+        log(
+            report,
+            "uvx pre-commit install: SKIPPED — 'uvx' not found on PATH. "
+            "Install uv (https://docs.astral.sh/uv/getting-started/installation/) "
+            "and ensure 'uvx' is on PATH (restart your shell after installing), "
+            "then run: uvx pre-commit install --hook-type pre-commit --hook-type pre-push",
+        )
+        return
+
     result = subprocess.run(
         [
             "uvx",
@@ -4238,6 +4354,7 @@ def main(argv: list[str] | None = None) -> int:
     print("═" * 54)
 
     report: list[str] = []
+    preserved = backup_preserved_dirs(target, report)
     install: dict = {
         "_target": target,
         "remove_paths": [],
@@ -4386,6 +4503,10 @@ def main(argv: list[str] | None = None) -> int:
     write_manifest(target, install, report)
     initialize_usage_lifecycle(target, report, args.usage_transcript_retention)
     _out.quiet = False
+
+    # ── Restore preserved data directories ─────────────────────────────
+    if preserved:
+        offer_restore_preserved_dirs(target, preserved, report)
 
     # Receipt.
     print(f"\n{'═' * 54}")

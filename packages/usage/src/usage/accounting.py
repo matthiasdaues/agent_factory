@@ -29,6 +29,7 @@ CONSERVATION_RULES: dict[str, str] = {
 # Latest snapshot selection
 # ---------------------------------------------------------------------------
 
+
 def select_latest_snapshots(conn: duckdb.DuckDBPyConnection) -> None:
     """Create ``latest_run_snapshots`` view on *conn*.
 
@@ -52,11 +53,10 @@ def select_latest_snapshots(conn: duckdb.DuckDBPyConnection) -> None:
 # Unknown CLI check
 # ---------------------------------------------------------------------------
 
+
 def check_unknown_clis(conn: duckdb.DuckDBPyConnection) -> set[str]:
     """Return CLI values in ``latest_run_snapshots`` not in ``KNOWN_CLIS``."""
-    rows = conn.execute(
-        "SELECT DISTINCT cli FROM latest_run_snapshots"
-    ).fetchall()
+    rows = conn.execute("SELECT DISTINCT cli FROM latest_run_snapshots").fetchall()
     found = {r[0] for r in rows}
     return found - KNOWN_CLIS
 
@@ -64,6 +64,7 @@ def check_unknown_clis(conn: duckdb.DuckDBPyConnection) -> set[str]:
 # ---------------------------------------------------------------------------
 # Session roots (recursive CTE)
 # ---------------------------------------------------------------------------
+
 
 def build_session_roots(conn: duckdb.DuckDBPyConnection) -> None:
     """Create ``session_roots`` view mapping each session to its root."""
@@ -90,16 +91,34 @@ def build_session_roots(conn: duckdb.DuckDBPyConnection) -> None:
 # ---------------------------------------------------------------------------
 
 _CONTRIBUTION_COLS = (
-    "record_id", "project_id", "project_name",
-    "normalized_input", "normalized_output", "normalized_total",
-    "cli", "session_id", "parent_session_id", "depth",
-    "recorded_at", "agent", "model", "provider",
-    "reported_input", "reported_output",
-    "reported_cache_read", "reported_cache_write",
-    "usage_granularity", "usage_capability",
-    "cache_miss_turns", "cache_miss_input_tokens", "late_early_input_ratio",
-    "exit_status", "branch", "commit_id",
-    "_source_file", "_line_number",
+    "record_id",
+    "project_id",
+    "project_name",
+    "normalized_input",
+    "normalized_output",
+    "normalized_total",
+    "cli",
+    "session_id",
+    "parent_session_id",
+    "depth",
+    "recorded_at",
+    "agent",
+    "model",
+    "provider",
+    "reported_input",
+    "reported_output",
+    "reported_cache_read",
+    "reported_cache_write",
+    "usage_granularity",
+    "usage_capability",
+    "cache_miss_turns",
+    "cache_miss_input_tokens",
+    "late_early_input_ratio",
+    "exit_status",
+    "branch",
+    "commit_id",
+    "_source_file",
+    "_line_number",
 )
 
 _L_COLS = ", ".join(f'l."{c}"' for c in _CONTRIBUTION_COLS)

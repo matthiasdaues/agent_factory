@@ -64,32 +64,11 @@ ______________________________________________________________________
 
 ## P — Project Work
 
-The Project Work lane handles workstream creation and continuation. Ask the user whether they want to start a new workstream or continue an existing one.
+The Project Work lane presents the intention tree first, then binds a workstream before dispatching.
 
-### Start a new workstream
+### Step 1 — Choose what to do
 
-1. Ask the user for a topic description.
-2. Derive the workstream ID by slugifying the topic to lowercase kebab-case (e.g. "activity graph orchestration" → `activity-graph-orchestration`).
-3. Ask whether an existing proposal under `docs/proposals/` should be the origin reference. If yes, record its path as `origin_ref`.
-4. Create the workstream state file at `.agent-factory/workstreams/<workstream-id>.yaml` using `engine/workstream.py::create_workstream`. The file contains exactly four fields: `schema_version: 2`, `workstream_id`, `topic`, `origin_ref`. No cycle, attempt, delegation, or work fields exist.
-5. Create a session binding at `.agent-factory/workstreams/sessions/<session-id>.yaml` using `engine/session_binding.py::create_binding`. The binding records `session_id`, `workstream_id`, and `bound_at`.
-6. Confirm the workstream name and binding to the user.
-7. Run `.agent-factory/factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
-
-If the user wants to do something that does not fit a workstream (a quick question, a tour, research), redirect to lane O (Open Stage) instead of creating a workstream.
-
-### Continue an existing workstream
-
-1. List existing workstreams by calling `engine/workstream.py::list_workstreams`, which scans `.agent-factory/workstreams/*.yaml`.
-2. If workstreams exist, present a numbered list showing each workstream's topic and ID. Ask the user to select one by number or name. Never select a workstream automatically.
-3. On selection, create a session binding for the selected workstream using `engine/session_binding.py::create_binding`.
-4. Run `.agent-factory/factory/scripts/intent select --workstream <workstream-id>` to present all agents with their precondition evidence. The developer selects an agent from the list.
-
-If no workstreams exist, tell the user and offer to start a new workstream (go to "Start a new workstream" above) or return to the main menu.
-
-### Intention-based routing
-
-Once a workstream is active, present this expanded tree:
+Present this tree immediately:
 
 > **1. Create something new**\
 > `a` — `poc-spike`: build the smallest thing that proves the idea, then throw it away\
@@ -122,7 +101,25 @@ Once a workstream is active, present this expanded tree:
 >
 > At any point, ask 'what is [concept]?' for a plain-language explanation.
 
-When the user picks a leaf (a playbook or agent), run that playbook's operational procedure or spawn that agent with the user's stated goal as the task.
+If the user wants to do something that does not fit a workstream (a quick question, a tour, research), redirect to lane O (Open Stage) instead.
+
+### Step 2 — Bind a workstream
+
+Once the user picks a leaf, bind a workstream before dispatching:
+
+1. List existing workstreams by calling `engine/workstream.py::list_workstreams`, which scans `.agent-factory/workstreams/*.yaml`.
+2. If workstreams exist, present a numbered list showing each workstream's topic and ID, plus an option to create a new one. Ask the user to select by number or name. Never select a workstream automatically.
+3. If no workstreams exist, or the user chooses to create one:
+   a. Ask the user for a topic description.
+   b. Derive the workstream ID by slugifying the topic to lowercase kebab-case (e.g. "activity graph orchestration" → `activity-graph-orchestration`).
+   c. Ask whether an existing proposal under `docs/proposals/` should be the origin reference. If yes, record its path as `origin_ref`.
+   d. Create the workstream state file at `.agent-factory/workstreams/<workstream-id>.yaml` using `engine/workstream.py::create_workstream`. The file contains exactly four fields: `schema_version: 2`, `workstream_id`, `topic`, `origin_ref`. No cycle, attempt, delegation, or work fields exist.
+4. Create a session binding at `.agent-factory/workstreams/sessions/<session-id>.yaml` using `engine/session_binding.py::create_binding`. The binding records `session_id`, `workstream_id`, and `bound_at`.
+5. Confirm the workstream name and binding to the user.
+
+### Step 3 — Dispatch
+
+Run the selected playbook's operational procedure or spawn the selected agent with the user's stated goal as the task.
 
 ______________________________________________________________________
 

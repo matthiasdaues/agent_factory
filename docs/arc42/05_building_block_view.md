@@ -8,23 +8,26 @@ Factory Flow Control produces usage evidence and distributes the opt-in Usage
 Analysis system. The two systems share only the Factory-owned record contract
 and local JSONL spool.
 
-| Container                  | Responsibility                                                                                                                               | Technology                |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| **Eligibility Engine**     | Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility                      | Python 3.10+              |
-| **Validator**              | Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks                       | Bash, Python              |
-| **Dispatcher**             | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                                                 | Bash, Python              |
-| **Usage Capture**          | Normalizes CLI transcripts and appends canonical runtime usage records with optional workstream context                                      | Python, shell, TypeScript |
-| **Distribution**           | Installs, updates, removes, and reports opt-in components without coupling them to Factory core                                              | Bash, Python              |
-| Workstream State           | Immutable workstream identity records under `.agent-factory/workstreams/`; each records schema_version, workstream_id, topic, and origin_ref | YAML (storage)            |
-| Session Bindings           | Session-to-workstream mapping under `.agent-factory/workstreams/sessions/<session-id>.yaml`; records session_id, workstream_id, and bound_at | YAML (storage)            |
-| State Files                | Local git-ignored dispatch ledgers and quality-gate reports                                                                                  | YAML/JSON (storage)       |
-| Catalog                    | Generated `.agent-factory/factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                              | YAML (storage)            |
-| Usage Record Contract      | Factory-owned record schema and producer-consumer compatibility policy; v1 schema includes optional workstream and origin fields             | JSON Schema, YAML         |
-| Raw Usage Spool            | Authoritative append-only records under `.agent-factory/usage/`                                                                              | JSONL (storage)           |
-| Install Manifest           | Records installed CLI integrations and opt-in components                                                                                     | JSON (storage)            |
-| **Usage Analysis Runtime** | Reads a snapshotted input set and publishes versioned local DuckDB views                                                                     | Python, DuckDB, PyArrow   |
-| DuckDB UI                  | Optional ephemeral localhost exploration of the published views                                                                              | DuckDB bundled UI         |
-| Installed Analysis Module  | Locked executable package, SQL, registry, and contract copy under `.agent-factory/usage-analysis/`                                           | Files (storage)           |
+| Container                  | Responsibility                                                                                                                                                 | Technology                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **Eligibility Engine**     | Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility                                        | Python 3.10+                      |
+| **Validator**              | Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks                                         | Bash, Python                      |
+| **Dispatcher**             | Resolves agents/models from catalog, spawns CLI sessions with scoped permits                                                                                   | Bash, Python                      |
+| **Usage Capture**          | Normalizes CLI transcripts and appends canonical runtime usage records with optional workstream context                                                        | Python, shell, TypeScript         |
+| **Distribution**           | Installs, updates, removes, and reports opt-in components without coupling them to Factory core                                                                | Bash, Python                      |
+| Workstream State           | Immutable workstream identity records under `.agent-factory/workstreams/`; each records schema_version, workstream_id, topic, and origin_ref                   | YAML (storage)                    |
+| Session Bindings           | Session-to-workstream mapping under `.agent-factory/workstreams/sessions/<session-id>.yaml`; records session_id, workstream_id, and bound_at                   | YAML (storage)                    |
+| State Files                | Local git-ignored dispatch ledgers and quality-gate reports                                                                                                    | YAML/JSON (storage)               |
+| Catalog                    | Generated `.agent-factory/factory/INDEX.yaml` from agent/skill/playbook/rulebook frontmatter, with token counts                                                | YAML (storage)                    |
+| Usage Record Contract      | Factory-owned record schema and producer-consumer compatibility policy; v1 schema includes optional workstream and origin fields                               | JSON Schema, YAML                 |
+| Raw Usage Spool            | Authoritative append-only records under `.agent-factory/usage/`                                                                                                | JSONL (storage)                   |
+| Install Manifest           | Records installed CLI integrations and opt-in components                                                                                                       | JSON (storage)                    |
+| Project Filesystem         | Project-controlled source, configuration, documentation, and transient onboarding paths; Factory changes them only through defined contracts and consent gates | Filesystem (storage)              |
+| **OpenCode Plugin**        | V2 plugin adapter mapping Factory safety controls to OpenCode session hooks, tool restrictions, and worktree isolation                                         | TypeScript/OpenCode V2 Plugin API |
+| OpenCode Catalog           | OpenCode-visible agent definitions under `.opencode/agents/` and index at `.opencode/INDEX.yaml`, generated by init-factory                                    | YAML/Markdown (storage)           |
+| **Usage Analysis Runtime** | Reads a snapshotted input set and publishes versioned local DuckDB views                                                                                       | Python, DuckDB, PyArrow           |
+| DuckDB UI                  | Optional ephemeral localhost exploration of the published views                                                                                                | DuckDB bundled UI                 |
+| Installed Analysis Module  | Locked executable package, SQL, registry, and contract copy under `.agent-factory/usage-analysis/`                                                             | Files (storage)                   |
 
 ![Containers](../assets/images/Containers.svg)
 
@@ -219,8 +222,11 @@ Every building block's entry point, invoked how, and by whom:
 | Fence Runner                 | Post-agent-activity validation         | Python module (`packages/factory/engine/fence.py`)                                 | 0 (pass), 1 (violations)                      |
 | Proposal Validator           | `intent assess`, on-demand             | Python module (`packages/factory/engine/validators/proposal.py`)                   | 0 (pass), 1 (violations)                      |
 | Session Binding Manager      | Session start, workstream binding      | Python module (`packages/factory/engine/session_binding.py`)                       | (internal)                                    |
-| init-factory                 | Human                                  | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
-| update-factory               | Human                                  | `factory/scripts/update-factory`                                                   | 0 (updated), 1+ (error)                       |
+| install-agent-factory        | Newcomer                               | `install-agent-factory --from-local\|--from-remote <src> --target <path>`          | 0 (installed), 1+ (error)                     |
+| build-release                | Release Maintainer                     | `factory/scripts/build-release --version <ver>`                                    | 0 (published), 1+ (error)                     |
+| hook-demo                    | Newcomer (via onboarding)              | `factory/scripts/hook-demo`                                                        | 0 (passed), 1+ (error)                        |
+| init-factory                 | install-agent-factory, Human           | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
+| update-factory               | Project Maintainer                     | `factory/scripts/update-factory [--check]`                                         | 0 (updated), 1+ (error)                       |
 | remove-factory               | Human                                  | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                       |
 | usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)              |
 | Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
@@ -230,6 +236,7 @@ Every building block's entry point, invoked how, and by whom:
 | Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                                   | (internal)                                    |
 | Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
 | Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
+| OpenCode Plugin              | OpenCode V2 plugin lifecycle           | `packages/factory/config/plugins/agent-factory.ts` via `Plugin.define()`           | (plugin hooks)                                |
 
 ## 5.6 Level 2: Component View -- Usage Capture
 
@@ -238,7 +245,7 @@ Every building block's entry point, invoked how, and by whom:
 | **usage-capture** | Normalize one CLI-native transcript and append a canonical usage record to the raw spool, with optional workstream context. |
 
 `usage-capture` is a CLI-agnostic pipeline with two adapter seams. A
-CLI-specific normalizer maps Claude Code, Copilot, Codex, or Pi events into
+CLI-specific normalizer maps Claude Code, Copilot, Codex, Pi, or OpenCode events into
 ordered input/output text and nullable provider usage. The fixed
 `cl100k_base` tokenizer produces comparable `normalized_*` counts. A JSONL
 logging adapter appends the canonical record beneath `.agent-factory/usage/`
@@ -250,10 +257,10 @@ from it and includes them in the usage record. These fields are optional
 and nullable. Usage capture does not import the Eligibility Engine.
 
 Native lifecycle adapters own invocation: Claude `Stop`/`SubagentStop`,
-Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, and Pi
-`session_shutdown` plus inline child capture. Each adapter fires exactly
-once per session. See
-[ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md).
+Copilot `agentStop`/`subagentStop`, Codex `Stop`/`SubagentStop`, Pi
+`session_shutdown` plus inline child capture, and OpenCode `execute.after`
+hooks via the Factory plugin. Each adapter fires exactly once per session.
+See [ADR-0007](../adr/0007-normalize-runtime-usage-through-cli-adapters.md).
 
 ## 5.7 Level 2: Component View -- Usage Analysis Runtime
 
@@ -267,7 +274,7 @@ usage-record contract. Factory capture has no dependency on analysis.
 | **Input Snapshot**        | Select and normalize a sorted list of top-level JSONL files once at query start.                                                        |
 | **Contract Check**        | Validate the installed contract, every selected line, cross-field invariants, and version compatibility.                                |
 | **Operational Preflight** | Classify every line, validate the rooted run graph, and register query-scoped valid and failure relations.                              |
-| **Accounting Registry**   | Map exactly `claude-code`, `copilot`, `codex`, and `pi` to their conservation rule.                                                     |
+| **Accounting Registry**   | Map exactly `claude-code`, `copilot`, `codex`, `pi`, and `opencode` to their conservation rule.                                         |
 | **Query Model v1**        | Publish `raw_usage_snapshots`, `latest_run_snapshots`, `session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`. |
 | **Result Adapters**       | Project one published view as a table, JSON, DuckDB relation, or PyArrow table without reimplementing accounting.                       |
 | **Parquet Exporter**      | Stage, verify, attribute, and atomically replace an explicit Parquet export.                                                            |
@@ -279,11 +286,37 @@ Parquet files, and UI state are disposable.
 
 ## 5.8 Level 2: Component View -- Distribution
 
-| Component          | Responsibility                                                                    |
-| ------------------ | --------------------------------------------------------------------------------- |
-| **init-factory**   | Install, update, or remove the usage component and maintain the install manifest. |
-| **update-factory** | Update Factory core and report installed components without changing them.        |
-| **remove-factory** | Perform complete Factory removal, including analysis and raw usage data.          |
+![Distribution components](../assets/images/DistributionComponents.svg)
+
+| Component                 | Responsibility                                                                                                                                                                                                                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **install-agent-factory** | Bootstrap script for first-time installation: read-only preflight diagnosis, confirmed prerequisite fixes, release verification against SHA-256 digest, installation preview with consent, and receipt with one next command.                                                                                             |
+| **build-release**         | Deterministic release builder: produces `install-agent-factory`, `agent-factory.tar.gz`, and `SHA256SUMS` from a versioned source tree. Repeated builds from the same source and version produce the same archive digest.                                                                                                 |
+| **hook-demo**             | Gate demonstration for newcomer onboarding: runs a real Factory gate against a disposable fixture, shows one failure-to-pass cycle, and removes the fixture without changing the target project.                                                                                                                          |
+| **init-factory**          | Install, update, or remove the usage component and maintain the install manifest. Also generates OpenCode agent definitions, index, and plugin configuration under `.opencode/` and skills under `.agents/skills/`.                                                                                                       |
+| **update-factory**        | Full update transaction: check mode, approval, verified staging, atomic application with rollback, local-change policy, source-boundary consent, and receipt. Reads the install manifest for source selector and installed version. See [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md). |
+| **remove-factory**        | Perform complete Factory removal, including analysis and raw usage data.                                                                                                                                                                                                                                                  |
+
+The bootstrap (`install-agent-factory`) wraps `init-factory` rather than replacing it. The bootstrap owns the newcomer-facing journey: preflight, prerequisites, consent, and release verification. After approval, it delegates the actual file operations to `init-factory`, which retains its existing interface for direct consumers and tests. See [ADR-0022](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md) (superseded by [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md); the layered first-install design is preserved).
+
+`update-factory` owns the full update transaction: check mode, approval, download and verification, staging, atomic application with rollback, and receipt. It no longer delegates to `init-factory` for the replacement. See [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md).
+
+## 5.9 Level 2: Component View -- OpenCode Plugin
+
+The **OpenCode Plugin** is a V2 plugin adapter that maps Factory safety controls to OpenCode session hooks, tool restrictions, and worktree isolation. It sits between the OpenCode runtime and Factory's domain containers.
+
+![OpenCode Plugin components](../assets/images/OpenCodePluginComponents.svg)
+
+| Component                | Responsibility                                                                                                                                                          | Reads                      | Writes      |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ----------- |
+| **Permission Enforcer**  | Evaluates ordered allow/ask/deny rules and enforces step-manifest read/write boundaries through `execute.before` hooks                                                  | Step manifest, state files | (none)      |
+| **Tool Restrictor**      | Removes tools not in the active agent's declared set via `session.hook("context")`; enforces read-only for review agents                                                | OpenCode Catalog           | (none)      |
+| **Usage Observer**       | Captures completed root and child session usage via `execute.after` hooks without double-counting child tokens                                                          | (none)                     | Usage spool |
+| **Worktree Strategy**    | Registers a Factory worktree strategy through `ctx.worktree.transform()`; delegates branch and path creation to Factory scripts                                         | State files                | Worktrees   |
+| **Orientation Injector** | Injects `AGENTS.opencode.md` into session context via `session.hook("context")`; describes OpenCode tool names and session-start procedure                              | OpenCode Catalog           | (none)      |
+| **Health Monitor**       | Tracks plugin health lifecycle (UNLOADED → HEALTHY → UNHEALTHY); fails closed on initialization, manifest, permission, or worktree failures with named recovery actions | (none)                     | (none)      |
+
+The plugin implements a fail-closed trust model: any failure in initialization, manifest loading, permission evaluation, or worktree creation denies the operation and reports the specific failed control with a recovery action. The health lifecycle state machine is documented in [state-machines.md](../spec/supplementary_specs/state-machines.md).
 
 ## Referenced from
 

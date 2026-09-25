@@ -8,13 +8,18 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
     model {
         # External actors
         humanOperator = person "Human Operator" "Person driving Agent Factory by hand"
-        cliAgent = person "CLI-Invoked Agent" "Claude Code, Copilot CLI, or Pi agent session under scoped allowlist; under Pi also the caller of run_agent" "Agent"
+        cliAgent = person "CLI-Invoked Agent" "Claude Code, Copilot CLI, Pi, or OpenCode agent session under scoped allowlist; under Pi also the caller of run_agent, under OpenCode controlled by Factory plugin" "Agent"
+        newcomer = person "Newcomer" "Person installing and using Agent Factory for the first time"
+        releaseMaintainer = person "Release Maintainer" "Person who builds and publishes Factory release assets"
 
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
 
         # Local output selected explicitly by the operator
         parquetFile = softwareSystem "Parquet Export" "Optional, attributable, atomically replaced local export; never authoritative state" "External"
+
+        # Distribution remote for verified releases
+        distributionRemote = softwareSystem "Distribution Remote" "HTTPS release base hosting bootstrap scripts, Factory archives, and checksum manifests" "External"
 
         # Factory Flow Control system
         factoryFlowControl = softwareSystem "Factory Flow Control" "Precondition-based agent eligibility, dispatch, and validation for Agent Factory" {
@@ -57,11 +62,14 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 usageCapture = component "usage-capture" "Normalizes one CLI transcript and appends a canonical usage record; adds workstream_id and workstream_origin from the session binding when available" "Python"
             }
 
-            # Distribution — component lifecycle
-            distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components" "Bash/Python" {
+            # Distribution — component lifecycle and onboarding
+            distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components; provides the value-first onboarding bootstrap, release building, and gate demonstration" "Bash/Python" {
                 initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest" "Python"
-                updateFactory = component "update-factory" "Updates Factory core and reports installed components without changing them" "Python"
+                updateFactory = component "update-factory" "Full update transaction: check mode, approval, verified staging, atomic application with rollback, local-change policy, source-boundary consent, and receipt" "Python"
                 removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
+                installAgentFactory = component "install-agent-factory" "Bootstrap script: read-only preflight, confirmed prerequisite fixes, release verification, installation preview, consent, and receipt with one next command" "Bash/Python"
+                buildRelease = component "build-release" "Deterministic release builder: produces install-agent-factory, agent-factory.tar.gz, and SHA256SUMS with reproducible archive digests" "Python"
+                hookDemo = component "hook-demo" "Gate demonstration: runs a real Factory gate against a disposable fixture, shows one failure-to-pass cycle, and removes the fixture without changing the target project" "Python"
             }
 
             # Storage
@@ -72,6 +80,20 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             usageRecordContract = container "Usage Record Contract" "Factory-owned JSON Schema Draft 2020-12 and compatibility manifest; v1 schema includes optional workstream_id and workstream_origin fields" "JSON Schema/YAML" "Storage"
             rawUsageSpool = container "Raw Usage Spool" "Authoritative append-only top-level JSONL records under .agent-factory/usage/" "JSONL files" "Storage"
             installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
+            projectFilesystem = container "Project Filesystem" "Project-controlled source, configuration, documentation, and transient onboarding paths that Factory reads or changes only through defined contracts and consent gates" "Filesystem" "Storage"
+
+            # OpenCode Plugin — V2 plugin adapter for OpenCode CLI
+            opencodePlugin = container "OpenCode Plugin" "V2 plugin adapter mapping Factory safety controls to OpenCode session hooks, tool restrictions, and worktree isolation" "TypeScript/OpenCode V2 Plugin API" {
+                permissionEnforcer = component "Permission Enforcer" "Evaluates ordered allow/ask/deny rules and enforces step-manifest read/write boundaries through execute.before hooks" "TypeScript"
+                toolRestrictor = component "Tool Restrictor" "Removes tools not in the active agent's declared set via session.hook context; enforces read-only for review agents" "TypeScript"
+                usageObserver = component "Usage Observer" "Captures completed root and child session usage via execute.after hooks without double-counting child tokens" "TypeScript"
+                worktreeStrategyComponent = component "Worktree Strategy" "Registers a Factory worktree strategy through ctx.worktree.transform; delegates branch and path creation to Factory scripts" "TypeScript"
+                orientationInjector = component "Orientation Injector" "Injects AGENTS.opencode.md into session context via session.hook context; describes OpenCode tool names and session-start procedure" "TypeScript"
+                pluginHealthMonitor = component "Health Monitor" "Tracks plugin health lifecycle; fails closed on initialization, manifest, permission, or worktree failures with named recovery actions" "TypeScript"
+            }
+
+            # OpenCode Catalog — generated agent definitions and index
+            opencodeCatalog = container "OpenCode Catalog" "OpenCode-visible agent definitions under .opencode/agents/ and index at .opencode/INDEX.yaml, generated by init-factory" "YAML/Markdown files" "Storage"
         }
 
         # Separate bounded context: local analytical consumer
@@ -80,7 +102,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 inputSnapshot = component "Input Snapshot" "Selects and normalizes a sorted, top-level JSONL input set at query start" "Python"
                 contractCheck = component "Contract Check" "Validates the installed record contract, every selected line, and producer-consumer compatibility" "Python/JSON Schema"
                 operationalPreflight = component "Operational Preflight" "Classifies every line, validates ancestry, and registers valid and failure relations" "Python/DuckDB"
-                accountingRegistry = component "Accounting Registry" "Maps exactly four producer CLI values to their conservation rule" "Python/SQL"
+                accountingRegistry = component "Accounting Registry" "Maps exactly five producer CLI values to their conservation rule" "Python/SQL"
                 queryModel = component "Query Model v1" "Publishes six versioned DuckDB views over query-scoped relations; workstream dimension available in usage_by_dimension" "DuckDB SQL"
                 resultAdapters = component "Result Adapters" "Projects a published view as table, JSON, DuckDB relation, or PyArrow table" "Python"
                 parquetExporter = component "Parquet Exporter" "Stages, verifies, attributes, and atomically replaces an explicit export" "Python/DuckDB"
@@ -106,6 +128,9 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                     containerInstance usageRecordContract
                     containerInstance rawUsageSpool
                     containerInstance installManifest
+                    containerInstance projectFilesystem
+                    containerInstance opencodePlugin
+                    containerInstance opencodeCatalog
                     containerInstance usageAnalysisRuntime
                     containerInstance duckdbUi
                     containerInstance installedAnalysis
@@ -124,6 +149,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         humanOperator -> parquetExporter "Requests an explicit Parquet export"
         humanOperator -> duckdbUi "Optionally explores published views"
         humanOperator -> initFactory "Installs, updates, or removes the usage component"
+        humanOperator -> updateFactory "Updates Factory core via the update transaction"
 
         # ================================================================
         # Relationships — Git hooks
@@ -178,9 +204,38 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         initFactory -> usageRecordContract "Copies the compatible contract into the component"
         initFactory -> installedAnalysis "Installs, updates, or removes without touching raw data"
         initFactory -> installManifest "Records installed_components.usage"
-        updateFactory -> installManifest "Reports component presence without changing it"
+        updateFactory -> installManifest "Reads source and version; writes receipt after update"
+        updateFactory -> distributionRemote "Downloads and verifies release assets for update"
+        updateFactory -> humanOperator "Presents update preview for approval"
+        updateFactory -> updateFactory "Stages, applies, and rolls back verified replacement"
         removeFactory -> installedAnalysis "Removes during complete uninstall"
         removeFactory -> rawUsageSpool "Deletes during complete uninstall"
+
+        # ================================================================
+        # Relationships — Value-First Onboarding
+        # ================================================================
+        newcomer -> installAgentFactory "Downloads and runs the bootstrap with source and target"
+        newcomer -> hookDemo "Optionally runs the gate demonstration before hook configuration"
+        releaseMaintainer -> buildRelease "Builds a deterministic release from a versioned source tree"
+        installAgentFactory -> distributionRemote "Downloads and verifies release assets over HTTPS"
+        installAgentFactory -> initFactory "Delegates installation after release verification and approval"
+        installAgentFactory -> installManifest "Records source selector, resolved source, and installation metadata"
+        buildRelease -> distributionRemote "Publishes bootstrap, archive, and checksum manifest"
+        hookDemo -> stateFiles "Creates and removes the disposable fixture"
+        installAgentFactory -> newcomer "Presents installation preview and receipt"
+
+        # ================================================================
+        # Relationships — First-Session and First-Task Lifecycle
+        # ================================================================
+        newcomer -> cliAgent "Opens first Factory session via the installation receipt command"
+        cliAgent -> hookDemo "Runs gate demonstration during first session"
+        cliAgent -> git "Creates or removes detached worktree for the first-task sandbox"
+        cliAgent -> dispatcher "Dispatches poc-spike inside the first-task sandbox"
+        cliAgent -> workstreamState "Creates or selects production workstream for handoff"
+        cliAgent -> sessionBindings "Creates session binding for production workstream"
+        cliAgent -> newcomer "Presents evidence, previews, and results during onboarding"
+        cliAgent -> installManifest "Reads installation state during first session"
+        cliAgent -> projectFilesystem "Scans project files and copies retained artifacts to docs/spikes/"
 
         # ================================================================
         # Relationships — Usage Analysis
@@ -216,6 +271,24 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # Relationships — Module-graph check
         # ================================================================
         cliAgent -> moduleGraphCheck "Orchestrating session runs at architecture boundary"
+
+        # ================================================================
+        # Relationships — OpenCode Plugin
+        # ================================================================
+        cliAgent -> opencodePlugin "OpenCode sessions routed through V2 plugin hooks"
+        cliAgent -> permissionEnforcer "Tool invocation reaches execute.before hook for permission check"
+        cliAgent -> worktreeStrategyComponent "Dispatcher requests child session workspace via plugin"
+        permissionEnforcer -> cliAgent "Denies or allows tool invocation"
+        opencodePlugin -> opencodeCatalog "Reads agent definitions for permissions and tool sets"
+        permissionEnforcer -> stateFiles "Reads step manifest for boundary enforcement"
+        toolRestrictor -> opencodeCatalog "Reads agent tool declarations"
+        usageObserver -> usageCapture "Delegates usage recording to existing pipeline"
+        worktreeStrategyComponent -> stateFiles "Delegates branch and worktree operations to Factory scripts"
+        orientationInjector -> opencodeCatalog "Reads AGENTS.opencode.md for session context injection"
+        pluginHealthMonitor -> permissionEnforcer "Monitors permission evaluation failures"
+        pluginHealthMonitor -> worktreeStrategyComponent "Monitors worktree creation failures"
+        initFactory -> opencodeCatalog "Generates OpenCode agent definitions and index"
+        removeFactory -> opencodeCatalog "Removes Factory-owned OpenCode files via install manifest"
 
         # ================================================================
         # Relationships — CLI Agent hooks
@@ -289,6 +362,108 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             humanOperator -> parquetExporter "1. Requests a published view as Parquet"
             queryModel -> parquetExporter "2. Supplies the selected stable view"
             parquetExporter -> parquetFile "3. Replaces the destination after verification"
+        }
+
+        component opencodePlugin "OpenCodePluginComponents" "OpenCode V2 plugin internals: permission enforcement, tool restriction, usage capture, worktree isolation, and health monitoring" {
+            include *
+            include stateFiles
+            include opencodeCatalog
+            include usageCapture
+            include cliAgent
+            autoLayout tb
+        }
+
+        component distribution "DistributionComponents" "Distribution internals: bootstrap, release building, installation, update, removal, and gate demonstration" {
+            include *
+            include newcomer
+            include releaseMaintainer
+            include distributionRemote
+            include installManifest
+            include projectFilesystem
+            include stateFiles
+            include usageRecordContract
+            include installedAnalysis
+            include rawUsageSpool
+            include opencodeCatalog
+            autoLayout tb
+        }
+
+        dynamic distribution "OnboardingInstallation" "Newcomer installs a verified Factory release through the bootstrap" {
+            newcomer -> installAgentFactory "1. Runs the bootstrap with source selector and target"
+            installAgentFactory -> newcomer "2. Presents installation preview from preflight and planned effects"
+            installAgentFactory -> distributionRemote "3. Downloads and verifies release assets after approval (SHA-256)"
+            installAgentFactory -> initFactory "4. Delegates project-level setup after verification"
+            initFactory -> installManifest "5. Records installed paths and source metadata"
+            installAgentFactory -> installManifest "6. Records source selector and installation metadata"
+        }
+
+        dynamic distribution "ReleaseBuild" "Release maintainer produces reproducible installation assets" {
+            releaseMaintainer -> buildRelease "1. Runs build-release for a versioned source tree"
+            buildRelease -> distributionRemote "2. Publishes bootstrap, archive, and checksum manifest"
+        }
+
+        dynamic distribution "UpdateTransactionCheck" "Check mode reports installed and candidate state without mutation" {
+            humanOperator -> updateFactory "1. Runs update-factory --check"
+            updateFactory -> installManifest "2. Reads source selector and installed version"
+            updateFactory -> distributionRemote "3. Queries candidate version and digest"
+            updateFactory -> humanOperator "4. Reports installed vs. candidate, local modifications, and planned effects"
+        }
+
+        dynamic distribution "UpdateTransaction" "Normal-update transaction: approval, staging with rollback, and receipt" {
+            humanOperator -> updateFactory "1. Runs update-factory"
+            updateFactory -> installManifest "2. Reads source selector and installed version"
+            updateFactory -> humanOperator "3. Presents update preview"
+            humanOperator -> updateFactory "4. Gives affirmative approval"
+            updateFactory -> humanOperator "5. Presents source-change confirmation when source selector changed"
+            humanOperator -> updateFactory "6. Confirms source change"
+            updateFactory -> distributionRemote "7. Downloads and verifies release assets (SHA-256)"
+            updateFactory -> updateFactory "8. Stages verified replacement alongside current installation"
+            updateFactory -> updateFactory "9. Applies staged replacement; restores prior tree on failure"
+            updateFactory -> installManifest "10. Writes receipt: source, version, digest, changed paths"
+        }
+
+        dynamic distribution "FirstSessionInsight" "First session delivers project insight before advanced configuration" {
+            newcomer -> cliAgent "1. Opens first Factory session via the receipt command"
+            cliAgent -> installManifest "2. Reads installation state"
+            cliAgent -> projectFilesystem "3. Scans project filesystem (read-only)"
+            cliAgent -> newcomer "4. Reports detected stack, test entry point, and safety signals"
+            cliAgent -> newcomer "5. Recommends one next action; defers advanced configuration"
+            cliAgent -> newcomer "6. Explains context capture scope, output, and validation"
+            newcomer -> cliAgent "7. Gives affirmative consent for context capture"
+            cliAgent -> newcomer "8. Runs capture-context and presents results"
+            cliAgent -> newcomer "9. Offers gate demonstration"
+            newcomer -> cliAgent "10. Gives affirmative consent for gate demonstration"
+            cliAgent -> hookDemo "11. Runs gate demonstration on disposable fixture"
+            hookDemo -> stateFiles "12. Creates and removes disposable fixture"
+            cliAgent -> newcomer "13. Presents hook choices grouped by protected outcome"
+        }
+
+        dynamic factoryFlowControl "FirstTaskLifecycle" "Newcomer reaches an inspectable result in a detached-worktree sandbox; the first-task state machine owns disposition branching" {
+            cliAgent -> newcomer "1. Presents task preview: goal, duration, artifacts, decisions, cleanup"
+            newcomer -> cliAgent "2. Gives affirmative approval for the first task"
+            cliAgent -> git "3. Creates detached worktree at .current-work/onboarding-spike/"
+            cliAgent -> dispatcher "4. Dispatches poc-spike inside sandbox"
+            cliAgent -> newcomer "5. Shows inspectable result and check evidence"
+        }
+
+        dynamic factoryFlowControl "FirstTaskLifecycleNoHead" "Newcomer reaches an inspectable result in a plain-directory sandbox; the first-task state machine owns disposition branching" {
+            cliAgent -> newcomer "1. Presents task preview: goal, duration, artifacts, decisions, cleanup"
+            newcomer -> cliAgent "2. Gives affirmative approval for the first task"
+            cliAgent -> projectFilesystem "3. Creates plain sandbox directory at .current-work/onboarding-spike/"
+            cliAgent -> dispatcher "4. Dispatches poc-spike inside sandbox"
+            cliAgent -> newcomer "5. Shows inspectable result and check evidence"
+        }
+
+        dynamic opencodePlugin "OpenCodePermissionEnforcement" "Plugin enforces permission and step boundaries on tool invocation" {
+            cliAgent -> permissionEnforcer "1. Tool invocation reaches execute.before hook"
+            permissionEnforcer -> stateFiles "2. Reads active step manifest"
+            permissionEnforcer -> cliAgent "3. Denies or allows the invocation"
+        }
+
+        dynamic opencodePlugin "OpenCodeWorktreeIsolation" "Plugin isolates a dispatched child session in a Factory-managed worktree" {
+            cliAgent -> worktreeStrategyComponent "1. Dispatcher requests child session workspace"
+            worktreeStrategyComponent -> stateFiles "2. Delegates branch and worktree creation to Factory scripts"
+            cliAgent -> permissionEnforcer "3. Primary checkout receives session-scoped write denial"
         }
 
         deployment * "Release 1" "Deployment" "Local, process-bound release-1 deployment" {
