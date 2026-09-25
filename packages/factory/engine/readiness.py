@@ -23,10 +23,12 @@ def derive_readiness(evaluation_results: list[dict]) -> list[AgentReadiness]:
         unsatisfied = tuple(
             r for r in ev.get("requirements", []) if not r.get("satisfied")
         )
-        results.append(AgentReadiness(
-            agent_name=ev["agent_name"],
-            eligible=ev.get("eligible", False),
-            unsatisfied=unsatisfied,
-            warnings=tuple(ev.get("warnings", [])),
-        ))
+        results.append(
+            AgentReadiness(
+                agent_name=ev["agent_name"],
+                eligible=ev.get("eligible", False),
+                unsatisfied=unsatisfied,
+                warnings=tuple(ev.get("warnings", [])),
+            )
+        )
     return results

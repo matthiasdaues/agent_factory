@@ -40,7 +40,9 @@ class TestCheckRequiredArtifacts:
 
     def test_missing_scope_map(self, tmp_path):
         findings = sl.check_required_artifacts(tmp_path)
-        assert any(f.code == "STRUCT005" and "scope-map.md" in f.artifact for f in findings)
+        assert any(
+            f.code == "STRUCT005" and "scope-map.md" in f.artifact for f in findings
+        )
 
 
 class TestCheckUseCases:

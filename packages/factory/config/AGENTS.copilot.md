@@ -59,7 +59,11 @@ Count how many are `true` (completed) vs. `false` (remaining). List the complete
 - User accepts → read the `virgil` agent definition (resolve path from INDEX.yaml) and follow its Fitting procedure, resuming from the first incomplete step.
 - User declines → continue to step 2.
 
-If the file is missing or `fitting.status` is anything other than `"unfitted"` or `"fitting"` → continue to step 2.
+If the file exists and `fitting.status` is `"greenfield"`:
+
+Read the `virgil` agent definition (resolve path from INDEX.yaml) and follow its **First-session insight** procedure. Report the key-value scan (Stack, Test entry, Safety signal, Recommended action) using `project-context.json` observations. The scan changes no file. After the insight, continue to step 2.
+
+If the file is missing or `fitting.status` is anything other than `"unfitted"`, `"fitting"`, or `"greenfield"` → continue to step 2.
 
 ### 2. Present the session menu
 

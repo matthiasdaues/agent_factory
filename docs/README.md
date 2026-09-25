@@ -13,6 +13,7 @@ This documentation derives from the specification in [`spec/`](spec/prd.md). The
 | 7   | [Deployment View](arc42/07_deployment_view.md)               |
 | 8   | [Cross-cutting Concepts](arc42/08_crosscutting_concepts.md)  |
 | 9   | [Architecture Decisions](arc42/09_architecture_decisions.md) |
+| 10  | [Quality Requirements](arc42/10_quality_requirements.md)     |
 | 12  | [Glossary](arc42/12_glossary.md)                             |
 
 ## Model and diagrams

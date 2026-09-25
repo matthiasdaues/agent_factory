@@ -35,15 +35,21 @@ class TestEvaluateAgent:
     def test_satisfied_requirement(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         (tmp_path / "docs" / "proposals").mkdir(parents=True)
-        _write_frontmatter(tmp_path / "docs" / "proposals" / "x.md", {"status": "accepted"})
+        _write_frontmatter(
+            tmp_path / "docs" / "proposals" / "x.md", {"status": "accepted"}
+        )
 
         agent = {
             "name": "arch",
-            "inputs": {"required": [{
-                "type": "proposal",
-                "path_pattern": "docs/proposals/{name}.md",
-                "conditions": {"field": "status", "value": "accepted"},
-            }]},
+            "inputs": {
+                "required": [
+                    {
+                        "type": "proposal",
+                        "path_pattern": "docs/proposals/{name}.md",
+                        "conditions": {"field": "status", "value": "accepted"},
+                    }
+                ]
+            },
         }
         result = evaluate_agent(agent)
         assert result["eligible"] is True
@@ -53,10 +59,14 @@ class TestEvaluateAgent:
         monkeypatch.chdir(tmp_path)
         agent = {
             "name": "arch",
-            "inputs": {"required": [{
-                "type": "proposal",
-                "path_pattern": "docs/proposals/{name}.md",
-            }]},
+            "inputs": {
+                "required": [
+                    {
+                        "type": "proposal",
+                        "path_pattern": "docs/proposals/{name}.md",
+                    }
+                ]
+            },
         }
         result = evaluate_agent(agent)
         assert result["eligible"] is False

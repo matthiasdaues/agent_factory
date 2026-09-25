@@ -1,15 +1,15 @@
 # Agent Lifecycle Protocol
 
-Three mandatory boundaries every phase agent observes.
+Three mandatory boundaries every agent observes.
 
-## Phase entry
+## Session entry
 
-When a playbook crosses a phase boundary, the receiving phase agent begins in
-a fresh session. Direct interactive selection from the session menu may adopt
-the role in the current session unless that session contains work from which
-the selected agent must remain independent. Read the handoff first and verify
-its Git claims. Read referenced artifacts through initial bounded chunks,
-expanding further only on demand for the current task. Do not replay the prior
+When work moves to a different agent, the receiving agent begins in a fresh
+session. Direct interactive selection from the session menu may adopt the role
+in the current session unless that session contains work from which the
+selected agent must remain independent. Read the handoff first and verify its
+Git claims. Read referenced artifacts through initial bounded chunks, expanding
+further only on demand for the current task. Do not replay the prior
 transcript. Use no in-place transcript compaction and no prose-only
 cache-restabilisation turn.
 
@@ -21,9 +21,9 @@ disposition, severity counts, and every artifact path. Include a
 one-to-three-sentence next action. Do not include verbatim finding detail or
 full reasoning.
 
-## Phase exit
+## Session exit
 
-If the next action crosses a workflow phase boundary, invoke `handoff`. Require
-a clean `handoff-lint` result and independent semantic review, then stop the
-outgoing session without entering the next phase. Work remaining in the same
-phase is exempt and may continue in the current session.
+If the next action will be performed by a different agent, invoke `handoff`.
+Require a clean `handoff-lint` result and independent semantic review, then
+stop the outgoing session without starting the incoming agent's work. Work
+that continues within the same agent's session is exempt and needs no handoff.

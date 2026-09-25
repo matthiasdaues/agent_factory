@@ -6,13 +6,18 @@ import json
 from pathlib import Path
 
 import pytest
-
 from conftest import load_script
 
 mod = load_script("housekeeping-about")
 
 
-def _write_install(base: Path, *, version: str = "0.12.0", source: str = "/src", cli: list[str] | None = None) -> None:
+def _write_install(
+    base: Path,
+    *,
+    version: str = "0.12.0",
+    source: str = "/src",
+    cli: list[str] | None = None,
+) -> None:
     af = base / ".agent-factory"
     af.mkdir(parents=True, exist_ok=True)
     data = {
@@ -23,7 +28,9 @@ def _write_install(base: Path, *, version: str = "0.12.0", source: str = "/src",
     (af / "install.json").write_text(json.dumps(data), encoding="utf-8")
 
 
-def _write_context(base: Path, *, status: str = "fitted", steps: dict[str, bool] | None = None) -> None:
+def _write_context(
+    base: Path, *, status: str = "fitted", steps: dict[str, bool] | None = None
+) -> None:
     cfg = base / ".agent-factory" / "config"
     cfg.mkdir(parents=True, exist_ok=True)
     fitting = {
@@ -128,13 +135,16 @@ class TestPartialFitting:
     def test_three_of_five(self, tmp_path: Path) -> None:
         _write_install(tmp_path)
         _write_usage(tmp_path)
-        _write_context(tmp_path, steps={
-            "model_matrix_configured": True,
-            "fingerprint_confirmed": True,
-            "agent_context_populated": True,
-            "test_regime_detected": False,
-            "hooks_decided": False,
-        })
+        _write_context(
+            tmp_path,
+            steps={
+                "model_matrix_configured": True,
+                "fingerprint_confirmed": True,
+                "agent_context_populated": True,
+                "test_regime_detected": False,
+                "hooks_decided": False,
+            },
+        )
 
         out = mod.report(tmp_path)
         assert "Fitting: 3/5" in out
@@ -154,7 +164,9 @@ class TestNoCli:
 
 
 class TestMainEntrypoint:
-    def test_main_runs(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_main_runs(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         _write_install(tmp_path)
         _write_context(tmp_path)
         _write_usage(tmp_path)

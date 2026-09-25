@@ -6,13 +6,10 @@ research routing, and stageless delivery.
 
 from __future__ import annotations
 
-import ast
-import re
 import textwrap
 from pathlib import Path
 
 import pytest
-import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGES_DIR = REPO_ROOT / "packages" / "factory"
@@ -25,7 +22,6 @@ if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
 from engine.eligibility import evaluate_agent, evaluate_all
-
 
 # ── 1. Unrestricted selection: no blocking on unsatisfied inputs ────────
 
@@ -64,8 +60,14 @@ class TestUnrestrictedSelection:
         if not intent_script.exists():
             pytest.skip("intent script not yet created")
         source = intent_script.read_text(encoding="utf-8")
-        for forbidden in ["confirm", "override", "justification", "block",
-                          "are you sure", "proceed anyway"]:
+        for forbidden in [
+            "confirm",
+            "override",
+            "justification",
+            "block",
+            "are you sure",
+            "proceed anyway",
+        ]:
             assert forbidden not in source.lower(), (
                 f"intent select contains blocking mechanism: '{forbidden}'"
             )
@@ -126,8 +128,13 @@ class TestReworkWithoutCeremony:
         """The evaluator module has no state machine, transition, or
         reconciliation logic."""
         source = (ENGINE_DIR / "eligibility.py").read_text(encoding="utf-8")
-        for forbidden in ["state_machine", "transition", "reconcil",
-                          "ceremony", "cycle_entry"]:
+        for forbidden in [
+            "state_machine",
+            "transition",
+            "reconcil",
+            "ceremony",
+            "cycle_entry",
+        ]:
             assert forbidden not in source.lower(), (
                 f"evaluator contains state management: '{forbidden}'"
             )
@@ -201,14 +208,19 @@ class TestNoCycleVocabulary:
                 if term in text:
                     violations.append(f"{path.name}: contains '{term}'")
 
-        assert violations == [], f"cycle vocabulary found:\n" + "\n".join(violations)
+        assert violations == [], "cycle vocabulary found:\n" + "\n".join(violations)
 
     def test_no_cycle_vocabulary_in_engine(self):
         """Engine modules eligibility.py, readiness.py, and
         recommendations.py have no cycle imports or references."""
         modules = ["eligibility.py", "readiness.py", "recommendations.py"]
-        forbidden = ["cycle_model", "from engine.cycles", "REQUIRED_CYCLES",
-                      "eligible_cycles", "current_cycle"]
+        forbidden = [
+            "cycle_model",
+            "from engine.cycles",
+            "REQUIRED_CYCLES",
+            "eligible_cycles",
+            "current_cycle",
+        ]
 
         violations = []
         for mod_name in modules:
@@ -220,7 +232,7 @@ class TestNoCycleVocabulary:
                 if term in source:
                     violations.append(f"{mod_name}: contains '{term}'")
 
-        assert violations == [], f"cycle vocabulary found:\n" + "\n".join(violations)
+        assert violations == [], "cycle vocabulary found:\n" + "\n".join(violations)
 
 
 # ── 5. Stageless delivery sequence ─────────────────────────────────────
@@ -291,7 +303,8 @@ class TestStagelessDelivery:
 
         # Initially: only req_agent is eligible (proposal exists)
         (proposals_dir / "test.md").write_text(
-            "---\nstatus: accepted\n---\n# Test\n", encoding="utf-8",
+            "---\nstatus: accepted\n---\n# Test\n",
+            encoding="utf-8",
         )
 
         results = evaluate_all(agents)
@@ -301,7 +314,8 @@ class TestStagelessDelivery:
 
         # After spec work: arch_agent becomes eligible
         (specs_dir / "test.feature").write_text(
-            "Feature: Test\n", encoding="utf-8",
+            "Feature: Test\n",
+            encoding="utf-8",
         )
 
         results = evaluate_all(agents)
@@ -311,7 +325,8 @@ class TestStagelessDelivery:
 
         # After scope map: plan_agent becomes eligible
         (specs_dir / "scope-map.md").write_text(
-            "---\ntitle: Scope map\n---\n# Scope\n", encoding="utf-8",
+            "---\ntitle: Scope map\n---\n# Scope\n",
+            encoding="utf-8",
         )
 
         results = evaluate_all(agents)
@@ -321,7 +336,8 @@ class TestStagelessDelivery:
 
         # After story creation: dev_agent becomes eligible
         (backlog_dir / "ST-0001.md").write_text(
-            "---\nstatus: pending\n---\n# Story\n", encoding="utf-8",
+            "---\nstatus: pending\n---\n# Story\n",
+            encoding="utf-8",
         )
 
         results = evaluate_all(agents)

@@ -128,6 +128,20 @@ The common failures are a deliverable named in Affected Paths, Outputs, the
 Agent Plan, and Acceptance Criteria; and a verification method stated in the
 Goal. Both are redundancy, not emphasis.
 
+**Use a Contract table when behavior is tabular.** When a slice's behavior
+reduces to a finite set of input→outcome cases, write a `## Contract` table
+(columns: input class, result, persistence effect) in place of separate Domain
+Rule, Outputs, and Required Behavior sections. Rename Acceptance Criteria to
+`## Evidence`. The contract table is the normative core; Evidence proves it
+without restating it. Keep separate sections when the behavior is narrative or
+has more than a handful of input classes.
+
+**Omit Suggested Agent Plan by default.** Include it only when implementation
+ordering is itself a requirement — a migration that must run before a service
+change, a generated-types step that gates downstream consumers. When ordering
+is obvious from the dependency chain and affected paths, the plan adds tokens
+without adding information.
+
 **Specify demo data as data, not as a task.** Every slice carries a
 `## Demo Data` section.
 
@@ -190,6 +204,14 @@ container-based or make-target tests.
 
 **Suggested Agent Plan.** Write a short numbered plan in implementation order.
 Reference Affected Paths and Outputs. Do not write file-by-file scripts.
+Omit entirely when ordering is obvious (see above).
+
+**Sharpen stop conditions for the slice's scope.** Rewrite inherited Agent Stop
+Conditions so each one names a checkable predicate the agent evaluates before
+starting work, not a vague risk category. Add at least one specification-drift
+stop condition: "Code and the referenced specification disagree on \[specific
+aspect\] — report the conflicting files and the decision needed; do not add a
+workaround."
 
 ### 4. Close the original story
 
@@ -205,7 +227,14 @@ Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gate
 Implementation stories do not carry a `## Resolve Before Implementation`
 section. They inherit the resolved answers in their home sections.
 
-### 6. Format and validate
+### 6. Agent-readability check
+
+Before finishing, verify that a coding agent can quickly identify: the one
+observable change, permitted and refused cases, data side effects, public
+boundaries, test evidence, verification commands, excluded work, and when to
+stop. Remove prose that does not answer one of those questions.
+
+### 7. Format and validate
 
 Format each story via `.agent-factory/factory/scripts/mdformat --number <path>`.
 

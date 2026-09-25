@@ -1,39 +1,32 @@
 ---
-title: Phase Handoff Format
+title: Handoff Format
 category: orchestration
 enforcement: handoff-lint, handoff author, and semantic reviewer
-version: 2.0.0
+version: 3.0.0
 ---
 
-# Phase Handoff Format
+# Handoff Format
 
-A phase handoff is a CLI-neutral restart contract, not a transcript summary.
-Dense prose removes wording, never informational detail. The next participant
-must be able to identify what was decided, what remains open, the exact
-repository state, the durable evidence, and the next safe action without
-replaying the outgoing session.
+A handoff is a CLI-neutral restart contract, not a transcript summary. Dense
+prose removes wording, never informational detail. The next participant must be
+able to identify what was decided, what remains open, the exact repository
+state, the durable evidence, and the next safe action without replaying the
+outgoing session.
 
-## Boundary set
+## When a handoff is required
 
-The accepted Factory delivery flow contains these boundaries:
+A handoff is required whenever work moves from one agent to another — for
+example, an author handing artifacts to a reviewer, a reviewer returning
+findings to an author for remediation, or one agent's output satisfying
+another agent's preconditions. The outgoing session must stop after structural
+lint and independent semantic review pass. The incoming agent starts in a fresh
+session, reads the handoff first, verifies its Git claims, and then reads
+referenced artifacts in bounded, on-demand chunks.
 
-- proposal intake → requirements;
-- requirements → review;
-- review → architecture;
-- architecture → review;
-- review → remedies;
-- remedies → planning;
-- planning → implementation.
-
-Every arrow is a mandatory handoff. The outgoing session must stop after
-structural lint and independent semantic review pass. The incoming phase starts
-in a fresh session, reads the handoff first, verifies its Git claims, and then
-reads referenced artifacts in bounded, on-demand chunks. Work that continues
-within the same phase is exempt; it needs neither a handoff nor a restart.
-
-Later playbook steps may name more specific author, reviewer, reconciliation,
-quality, or remedy roles. They apply this contract whenever the next work
-crosses one of the Factory phases above; role labels do not weaken the boundary.
+Work that continues within the same agent's session needs neither a handoff nor
+a restart. Playbook steps may name specific author, reviewer, reconciliation,
+quality, or remedy roles; the handoff contract applies whenever the next
+activity is performed by a different agent.
 
 ## Required document shape
 
@@ -42,12 +35,12 @@ not placeholders. A literal `none` is required when there are no open items,
 upstream, retained worktrees/branches, or other applicable entries.
 
 ```markdown
-# Phase Handoff
+# Handoff
 
 ## Boundary
 
-Outgoing phase: <phase>
-Incoming phase: <phase or review/remedy role>
+Outgoing activity: <agent or role>
+Incoming activity: <agent or role>
 Boundary: <outgoing> -> <incoming>
 
 ## Repository state
@@ -104,11 +97,11 @@ integrity only. It cannot infer an undeclared decision, open item, evidence
 item, or artifact, and therefore makes no semantic-losslessness claim.
 
 After structural lint passes, a designated reviewer independently compares the
-handoff with the outgoing phase's durable artifacts, decisions, open items, and
-gate/verification evidence. An omission or distortion keeps phase closure
+handoff with the outgoing activity's durable artifacts, decisions, open items,
+and gate/verification evidence. An omission or distortion keeps closure
 blocked. Correct the handoff, repeat structural lint, and repeat semantic review
 until both pass. Only then may the outgoing session stop; it must not begin the
-incoming phase itself.
+incoming activity itself.
 
 ## Resume rule
 
@@ -120,7 +113,7 @@ overrides the repository. The prior transcript is not replayed.
 
 ## References
 
-- Scope-map rule: "Continue a multi-phase workflow in a fresh session with bounded context" → `factory/skills/handoff/SKILL.md`
+- Scope-map rule: "Continue a multi-activity workflow in a fresh session with bounded context" → `factory/skills/handoff/SKILL.md`
 - [git-workflow.md § Record branch state explicitly](git-workflow.md#record-branch-state-explicitly)
 - [dispatch-contract.md § Verify Sub-Agent Reports Against State](dispatch-contract.md#verify-sub-agent-reports-against-state)
 - [Accepted session-transcript proposal](../../../../docs/proposals/implemented/proposal-session-transcript-token-control.md)
