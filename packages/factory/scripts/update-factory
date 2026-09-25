@@ -573,7 +573,8 @@ def _apply_header_changes(
     """
     changed_paths: list[str] = []
     backups: dict[str, bytes] = {}
-    cli_name = manifest.get("cli")
+    cli_raw = manifest.get("cli")
+    cli_name = cli_raw[0] if isinstance(cli_raw, list) and cli_raw else cli_raw
     if cli_name is None:
         return changed_paths, backups
     orientation = manifest.setdefault("orientation", {})
@@ -908,7 +909,8 @@ def _detect_header_changes(target: Path, manifest: dict, source: Path | None) ->
     removed = sorted(known - current)
     changed = []
 
-    cli_name = manifest.get("cli")
+    cli_raw = manifest.get("cli")
+    cli_name = cli_raw[0] if isinstance(cli_raw, list) and cli_raw else cli_raw
     if source is not None and cli_name:
         candidate_block = _candidate_orientation_block(source, cli_name)
         if candidate_block is not None:

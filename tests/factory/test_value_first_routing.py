@@ -150,3 +150,25 @@ class TestCaptureContextInvokedAsRecommendedAction:
 
     def test_scan_not_automatic_at_session_start(self) -> None:
         assert "does not run automatically at session start" in self.normalized
+
+
+class TestGreenfieldRoutesToInsight:
+    """The CLI orientation files route greenfield projects through the
+    first-session insight before showing the session menu."""
+
+    AGENTS_DIR = REPO_ROOT / "packages" / "factory" / "config"
+
+    @pytest.fixture(params=["AGENTS.claude.md", "AGENTS.pi.md",
+                            "AGENTS.codex.md", "AGENTS.copilot.md"])
+    def agents_content(self, request: pytest.FixtureRequest) -> str:
+        return (self.AGENTS_DIR / request.param).read_text(encoding="utf-8")
+
+    def test_greenfield_triggers_first_session_insight(self, agents_content: str) -> None:
+        assert '"greenfield"' in agents_content
+        assert "First-session insight" in agents_content
+
+    def test_greenfield_checked_before_fallthrough(self, agents_content: str) -> None:
+        greenfield_pos = agents_content.index('"greenfield"')
+        fallthrough = '`"unfitted"`, `"fitting"`, or `"greenfield"`'
+        fallthrough_pos = agents_content.index(fallthrough)
+        assert greenfield_pos < fallthrough_pos

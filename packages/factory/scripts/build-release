@@ -71,8 +71,8 @@ def validate_version_branch(version: str, branch: str) -> bool:
     """Return True when version format matches branch policy."""
     if branch == "main":
         return bool(_VERSION_RE.match(version))
-    if branch == "dev":
-        return bool(_VERSION_RC_RE.match(version))
+    if _VERSION_RC_RE.match(version):
+        return True
     return False
 
 

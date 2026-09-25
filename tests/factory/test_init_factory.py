@@ -1805,3 +1805,160 @@ class TestDoRemoveCLIPaths:
         manifest = json.loads(manifest_path.read_text())
         assert "claude" not in (manifest.get("cli") or [])
         assert "copilot" in (manifest.get("cli") or [])
+
+
+# --------------------------------------------------------------------------- #
+# Preserve data directories across reinstalls
+# --------------------------------------------------------------------------- #
+
+
+class TestBackupPreservedDirs:
+    """backup_preserved_dirs backs up non-empty usage/ and user-changes/."""
+
+    def test_skips_when_no_agent_factory_dir(self, tmp_path):
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert result == {}
+
+    def test_skips_empty_directories(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        (af / "usage" / "records").mkdir(parents=True)
+        (af / "usage" / "transcripts").mkdir(parents=True)
+        (af / "user-changes").mkdir(parents=True)
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert result == {}
+
+    def test_backs_up_non_empty_usage(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        records = af / "usage" / "records"
+        records.mkdir(parents=True)
+        (records / "session-001.jsonl").write_text('{"tokens": 42}\n')
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert "usage" in result
+        backup_records = result["usage"] / "records" / "session-001.jsonl"
+        assert backup_records.exists()
+        assert backup_records.read_text() == '{"tokens": 42}\n'
+
+    def test_backs_up_non_empty_user_changes(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        uc = af / "user-changes" / "20260901-120000"
+        uc.mkdir(parents=True)
+        (uc / "backup.txt").write_text("saved")
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert "user-changes" in result
+
+    def test_ignores_symlinks(self, tmp_path):
+        af = tmp_path / ".agent-factory"
+        real = tmp_path / "real-usage"
+        real.mkdir(parents=True)
+        (real / "data.txt").write_text("content")
+        (af).mkdir()
+        (af / "usage").symlink_to(real)
+        report: list[str] = []
+        result = inf.backup_preserved_dirs(tmp_path, report)
+        assert result == {}
+
+
+class TestOfferRestorePreservedDirs:
+    """offer_restore_preserved_dirs compares structure and restores."""
+
+    def _make_backup(self, tmp_path, name, subdirs, files=None):
+        """Create a backup directory with given subdirs and optional files."""
+        import tempfile
+
+        backup_root = Path(tempfile.mkdtemp(
+            prefix=f"af-preserve-{name}-", dir=tmp_path
+        ))
+        backup = backup_root / name
+        backup.mkdir()
+        for sd in subdirs:
+            (backup / sd).mkdir(parents=True)
+        for fname, content in (files or {}).items():
+            (backup / fname).write_text(content)
+        return backup
+
+    def test_restores_when_structure_matches(self, tmp_path, monkeypatch):
+        af = tmp_path / ".agent-factory"
+        usage = af / "usage"
+        for sd in ("records", "transcripts", "control", "runtime"):
+            (usage / sd).mkdir(parents=True)
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records", "transcripts", "control"],
+            {"records/session.jsonl": '{"tokens": 99}\n'},
+        )
+
+        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {
+            "isatty": lambda self: True,
+            "readline": lambda self: "y\n",
+        })())
+        monkeypatch.setattr("builtins.input", lambda prompt: "y")
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        assert (usage / "records" / "session.jsonl").exists()
+        assert (usage / "records" / "session.jsonl").read_text() == '{"tokens": 99}\n'
+
+    def test_prints_path_when_structure_mismatches(self, tmp_path, capsys):
+        af = tmp_path / ".agent-factory"
+        usage = af / "usage"
+        (usage / "records").mkdir(parents=True)
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records", "transcripts", "control", "new-subdir"],
+        )
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        captured = capsys.readouterr()
+        assert "structure changed" in captured.out
+        assert str(backup) in captured.out
+        assert not list((usage / "records").glob("*"))
+
+    def test_prints_path_when_dir_not_recreated(self, tmp_path, capsys):
+        af = tmp_path / ".agent-factory"
+        af.mkdir()
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records"],
+            {"records/data.jsonl": "content"},
+        )
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        captured = capsys.readouterr()
+        assert "not recreated" in captured.out
+        assert str(backup) in captured.out
+
+    def test_non_interactive_restores_automatically(self, tmp_path, monkeypatch):
+        af = tmp_path / ".agent-factory"
+        usage = af / "usage"
+        (usage / "records").mkdir(parents=True)
+
+        backup = self._make_backup(
+            tmp_path, "usage",
+            ["records"],
+            {"records/session.jsonl": '{"data": true}\n'},
+        )
+
+        monkeypatch.setattr("sys.stdin", type("NoTTY", (), {
+            "isatty": lambda self: False,
+        })())
+
+        report: list[str] = []
+        inf.offer_restore_preserved_dirs(
+            tmp_path, {"usage": backup}, report
+        )
+        assert (usage / "records" / "session.jsonl").read_text() == '{"data": true}\n'

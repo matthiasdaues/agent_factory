@@ -109,11 +109,17 @@ class TestVersionBranchValidation:
         result = _run_build(repo, out)
         assert result.returncode != 0
 
-    def test_non_release_branch_rejected(self, tmp_path):
+    def test_bare_version_on_feature_branch_rejected(self, tmp_path):
         repo = _make_repo(tmp_path, "feature/foo", "1.0.0")
         out = tmp_path / "release"
         result = _run_build(repo, out)
         assert result.returncode != 0
+
+    def test_rc_on_feature_branch_accepted(self, tmp_path):
+        repo = _make_repo(tmp_path, "feature/foo", "1.0.0-rc")
+        out = tmp_path / "release"
+        result = _run_build(repo, out)
+        assert result.returncode == 0
 
 
 # ---------------------------------------------------------------------------

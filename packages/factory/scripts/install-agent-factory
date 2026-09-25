@@ -1079,6 +1079,8 @@ def show_receipt(target: Path, cli_name: str, source: Path,
           f"--target {target}")
     print()
     print(f"  Next:        cd {target}")
+    print("               Enter the project directory, start your CLI.")
+    print("               Send send any prompt, e.g. 'hi', to begin the session.")
     print("=" * 60)
 
 
