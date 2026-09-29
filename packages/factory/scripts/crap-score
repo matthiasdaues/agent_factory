@@ -199,13 +199,8 @@ def crap_formula(complexity: int, coverage_pct: float) -> float:
 
 
 def flatten_blocks(blocks: list) -> list:
-    flat: list = []
-    for block in blocks:
-        if hasattr(block, "methods"):
-            flat.extend(block.methods)
-        else:
-            flat.append(block)
-    return flat
+    # cc_visit already lists each method as its own block; drop the classes.
+    return [block for block in blocks if not hasattr(block, "methods")]
 
 
 def detect_story_id(explicit: str | None) -> str:

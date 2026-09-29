@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.1 — 2026-09-29
+
+### Fixes
+
+- **crap-score lists each method once.** Radon's `cc_visit` already
+  returns every class method as its own block; `flatten_blocks()` added
+  them a second time. Scores were correct, but each method appeared
+  twice in the report. Class blocks are now dropped, and each function
+  appears once.
+
 ## 1.1.0 — 2026-09-29
 
 ### Features
