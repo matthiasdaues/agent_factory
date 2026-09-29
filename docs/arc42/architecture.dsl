@@ -471,7 +471,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             autoLayout lr
         }
 
-        theme default
+        theme themes/default/theme.json
 
         styles {
             element "Person" {

@@ -930,9 +930,9 @@ class TestScanProjectContext:
         assert fitting["test_regime_detected"] is False
         assert fitting["hooks_decided"] is False
 
-    def test_brownfield_partial_artifacts_mixed_status_fitting(self, tmp_path):
-        """ST-0210 scenario 3: some but not all artifacts present -> mixed
-        keys, status fitting."""
+    def test_brownfield_partial_artifacts_fresh_install_ignores_existing(self, tmp_path):
+        """Fresh install always starts 0/5 unfitted, even when fitting
+        artifacts from a previous installation survive on disk."""
         (tmp_path / "pyproject.toml").write_text("[project]\nname = 'demo'\n")
         docs = tmp_path / "docs"
         docs.mkdir(parents=True)
@@ -941,11 +941,11 @@ class TestScanProjectContext:
         )
         ctx = inf._scan_project_context(tmp_path)
         fitting = ctx["fitting"]
-        assert fitting["agent_context_populated"] is True
+        assert fitting["agent_context_populated"] is False
         assert fitting["fingerprint_confirmed"] is False
         assert fitting["test_regime_detected"] is False
         assert fitting["hooks_decided"] is False
-        assert fitting["status"] == "fitting"
+        assert fitting["status"] == "unfitted"
 
     def test_model_matrix_configured_never_derived_true_from_scan(self, tmp_path):
         """model_matrix_configured has no artifact to derive from -- a fresh
