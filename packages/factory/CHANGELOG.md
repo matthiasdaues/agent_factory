@@ -1,5 +1,110 @@
 # Changelog
 
+## 1.1.0-rc — 2026-09-28
+
+Value-first onboarding journey: full implementation of all fifteen
+stories (ST-0280 through ST-0294), delivering a standalone installer,
+remote installation with digest verification, progressive fitting with
+project insight, outcome-grouped hook configuration, first-task sandbox,
+and a moderated usability protocol. GitHub Actions CI for automated
+release builds. Preserve-dirs guard protects usage data across
+reinstalls.
+
+### Features
+
+- **Value-first onboarding — implementation complete.** All fifteen
+  stories implemented end to end:
+  - **Build-release script (ST-0280).** Packages the factory into a
+    versioned tarball with SHA-256 checksums under `releases/<version>/`.
+  - **Standalone installer (ST-0281).** `install-agent-factory` script
+    installs the factory from a local source directory into any target
+    project. Runs prerequisite checks, CLI auto-detection, consent-gated
+    preview, and prints an installation receipt with next steps.
+  - **Remote installation with digest verification (ST-0282).**
+    `install-agent-factory --source <url>` downloads a release tarball,
+    verifies its SHA-256 digest against `SHA256SUMS`, and installs.
+  - **Consent-gated prerequisite fix loop (ST-0283).** Missing
+    prerequisites (uv, git) are detected and reported with fix guidance.
+    The installer loops until prerequisites are met or the user aborts.
+  - **Extended update-factory --check (ST-0284).** Dry-run mode reports
+    installed vs. candidate version, changed files, and CLI list without
+    modifying anything.
+  - **Verified staged updates with rollback (ST-0285).** `update-factory`
+    applies updates with automatic rollback on failure. User-changed
+    files are backed up to `.agent-factory/user-changes/`.
+  - **Source-boundary consent (ST-0286).** `update-factory` detects when
+    the update source type changes (local to remote or vice versa) and
+    requires explicit consent before proceeding.
+  - **First-session project insight (ST-0287).** Virgil's greenfield
+    first session leads with a key-value scan (Stack, Test entry, Safety
+    signal, Recommended action) before presenting the session menu.
+  - **Context capture with explanation and consent (ST-0288).** Context
+    capture is offered as a recommended action after the project insight,
+    not run automatically. The explanation describes what data is
+    collected and why.
+  - **Gate demonstration before hooks (ST-0289).** A live gate
+    demonstration shows what gates protect and how they fire before the
+    user decides on hook configuration.
+  - **Hooks grouped by protected outcome (ST-0290).** Hook configuration
+    presents hooks grouped by the outcome they protect, not by individual
+    hook name. Source-only triggers are filtered out in target projects.
+  - **Isolated first-task sandbox (ST-0291).** Repositories with commits
+    get normal session behavior. The sandbox lifecycle activates only for
+    truly empty repositories.
+  - **Plain sandbox for headless repos (ST-0292).** `init-factory`
+    creates a plain sandbox when the target repository has no HEAD,
+    avoiding errors on `git log` and `git diff` in empty repos.
+  - **Automated end-to-end journey test (ST-0293).** Test harness
+    exercising the greenfield-to-insight-to-menu-to-first-task path.
+  - **Moderated usability protocol (ST-0294).** Template for moderated
+    usability testing of the onboarding flow with comprehension
+    checkpoints.
+- **Preserve-dirs guard.** `init-factory` backs up non-empty `usage/`
+  and `user-changes/` directories before reinstalling. After the
+  install, compares subdirectory structure against the new install and
+  offers restore (interactive) or restores automatically
+  (non-interactive). Prints the backup path when structure does not
+  match.
+- **GitHub Actions CI.** `build-release.yml` workflow triggers on tag
+  push (`v*`) and dev branch push. Creates GitHub releases with
+  `install-agent-factory`, `agent-factory.tar.gz`, and `SHA256SUMS`.
+
+### Fixes
+
+- **build-release branch constraint.** Relaxed to allow `-rc` suffix
+  builds on non-main, non-dev branches (feature branches).
+- **Greenfield routing in orientation files.** `AGENTS.*.md` orientation
+  files now correctly route `fitting.status = "greenfield"` to the
+  first-session insight procedure instead of the session menu.
+- **update-factory TypeError.** Fixed crash when `manifest.get("cli")`
+  returns a list instead of a string.
+- **Install receipt text.** Improved clarity of the "Next" section in
+  the installation receipt.
+- **.gitignore trailing-slash semantics.** `.agent-factory/` pattern
+  (with trailing slash) matches directories only. Symlinks created by
+  ST-0294 no longer slip through.
+- **Bare .github in .gitignore.** Removed the bare `.github` line that
+  blocked all `.github/` content from being tracked.
+
+### Documentation
+
+- **UAT script.** 18-step acceptance test script at
+  `docs/reviews/uat-2026-09-25-value-first-onboarding.md` covering all
+  fifteen stories plus the preserve-dirs guard. Each step has shell
+  commands, expected outcomes, and failure signals.
+- **Usage data recovery proposal.** Draft proposal at
+  `docs/proposals/usage-data-recovery.md` documenting raw transcript
+  inventory across four CLIs (518 sessions), capture pipeline, two
+  recovery options, metadata quality matrix, and prevention.
+
+### Tests
+
+- **Preserve-dirs guard tests.** Nine tests in
+  `test_init_factory.py`: five for `backup_preserved_dirs` (skip
+  conditions, non-empty backup, symlink handling) and four for
+  `offer_restore_preserved_dirs` (structure match, mismatch, missing
+  directory, non-interactive restore).
+
 ## 1.0.0 — 2026-09-21
 
 Activity graph orchestration: full implementation of all seventeen
