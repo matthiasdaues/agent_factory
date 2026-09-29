@@ -33,7 +33,10 @@ docs/
 │   ├── 10_quality_requirements.md
 │   ├── 11_risks_and_technical_debt.md
 │   ├── 12_glossary.md
-│   └── architecture.dsl
+│   ├── architecture.dsl
+│   └── themes/
+│       └── default/
+│           └── theme.json
 ├── adr/
 └── assets/
     └── images/
@@ -51,6 +54,8 @@ Format every chapter file and `docs/README.md` via `.agent-factory/factory/scrip
 **Completion**: all 12 chapter files exist with substantive content, every chapter starts with the back-link, `docs/README.md` links to all chapters and all links resolve.
 
 ## Step 2 — Define the C4 model
+
+Copy the default Structurizr theme from `.agent-factory/factory/themes/structurizr/default/` into `docs/arc42/themes/default/`.
 
 Create `docs/arc42/architecture.dsl` using **Structurizr DSL** — see [STRUCTURIZR.md](STRUCTURIZR.md) for syntax reference.
 
