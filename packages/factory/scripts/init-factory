@@ -2681,9 +2681,11 @@ def _scan_project_context(target: Path) -> dict:
         fitting = {
             "status": "unfitted",
             "model_matrix_configured": False,
-            **_derive_fitting_keys(target),
+            "fingerprint_confirmed": False,
+            "agent_context_populated": False,
+            "test_regime_detected": False,
+            "hooks_decided": False,
         }
-        fitting["status"] = _fitting_status(fitting)
     else:
         fitting = {
             "status": "greenfield",
