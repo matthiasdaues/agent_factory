@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.1.0 — 2026-09-29
+
+### Features
+
+- **Structurizr default theme vendored locally.** The `default` theme
+  from `structurizr/structurizr` is copied into
+  `packages/factory/themes/structurizr/default/` and ships with every
+  factory install. `architecture.dsl` uses a local relative path
+  (`theme themes/default/theme.json`) instead of `theme default`, which
+  resolved to `static.structurizr.com` — a host decommissioned on
+  30 September 2026. `scaffold-arc42` copies the theme into new projects
+  during scaffolding. Additional themes (AWS, Azure, GCP) can be added
+  the same way from the upstream GitHub repository.
+
+### Fixes
+
+- **init-factory fresh install always starts 0/5 unfitted.** A fresh
+  install no longer derives fitting keys from leftover artifacts of a
+  previous installation.
+
 ## 1.1.0-rc — 2026-09-28
 
 Value-first onboarding journey: full implementation of all fifteen
