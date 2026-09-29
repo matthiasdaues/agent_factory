@@ -167,14 +167,22 @@ The story file's `status` field must be updated to `done` in the **same commit**
 
 This ensures the backlog file is always consistent with the repository's actual state: if the commit is present, the status is `done`; if the status is `done`, the commit is present.
 
+### Manual Mode
+
+Manual mode (`--manual`) disables all mechanized dispatch infrastructure. No dispatch scripts, no ledger, no automated SHA verification, no wave boundaries. The implementation-agent dispatches stories serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. A code-review-agent reviews each committed story before the next dispatch. When defects are found, the implementation-agent dispatches a fresh developer-agent with the findings for remediation. The human commits fixes.
+
+The following sections do not apply in manual mode: Dispatch Ledger, Wave Boundary As Hard Gate, Hard Checkpoint Per Story, Wave Closeout Record, Story Status Commit Rule, QA-in-Worktree Divergence.
+
 ### Dispatch Ledger
 
-The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. Autonomous mode refreshes or commits it after each mechanically observable transition. Review mode keeps it ignored and unstaged while `review-dispatch`, `review-accept`, and `review-close` record the serial human-review lifecycle.
+The dispatch ledger applies to **automated mode only**.
+
+The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. The ledger is refreshed or committed after each mechanically observable transition.
 
 Schema:
 
 ```yaml
-mode: autonomous | review
+mode: automated
 closed: false | true
 invocation_branch: <branch-name>
 branch_root: <40-char SHA>
@@ -192,8 +200,6 @@ stories:
     wave: <wave-number>
     reason: <null or explanation for blocked/failed>
 ```
-
-Review mode uses the same story states with a narrower transition path: `pending` → `prepared` → `dispatching` → `dispatched` → `done`. `review-dispatch` performs the first two transitions around preflight and manifest creation; `mark-dispatched` records the real spawn; `review-accept` verifies the human commit before recording `done`. Blocked and failed remain terminal alternatives. Autonomous preparation and merge commands must reject a ledger whose `mode` is `review`.
 
 The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads it to determine which stories completed, which failed, what is merely prepared, and what the current base SHA is, rather than reconstructing state from git log heuristics.
 
@@ -257,12 +263,12 @@ When a dispatch touches files under `packages/factory/`, QA can pass in the work
 
 ## Enforcement
 
-Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. Mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. See [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) for the current concrete application.
+Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. In automated mode, mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. In manual mode, none of these script commands apply. See [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) for the current concrete application.
 
 ## References
 
 - [rules.md § Dispatch](../rules.md#dispatch)
 - [branching-policy.md](branching-policy.md) — the branch/worktree half of the dispatch contract (Verify-Base Preamble, Declared Base SHA, Pre-Merge Diff Check)
-- [implementation-agent.md § Workflow](../../agents/implementation-agent.md#workflow) — the current dispatcher applying this contract
+- [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) — the current dispatcher applying this contract
 - [reconciliation-agent.md](../../agents/reconciliation-agent.md) — the agent whose incident motivated the Sub-Agent Addressing rule
 - [docs/reviews/retro-2026-07-12.md](../../../../docs/reviews/retro-2026-07-12.md) — the session that motivated both rules

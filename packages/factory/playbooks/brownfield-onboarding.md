@@ -27,7 +27,7 @@ Unlike greenfield (Spec → Architecture → Code), brownfield starts with exist
 
 ## Stage 1 — Enough to Work
 
-## Phase 1: Code Understanding
+## Code Understanding
 
 ### Step 1.1 — Establish Baseline
 
@@ -66,9 +66,9 @@ grep -r "^func " **/*.go
 
 Document discovered seams in `docs/spec/todos.md`.
 
-## Phase 2: Architecture Docs Baseline
+## Architecture Docs Baseline
 
-First architecture pass: structural skeleton from code and infrastructure-as-code. Scope is system context, containers, and deployment nodes. Component-level detail is deferred to Phase 4.
+First architecture pass: structural skeleton from code and infrastructure-as-code. Scope is system context, containers, and deployment nodes. Component-level detail is deferred to the component-resolution pass.
 
 ### Step 2.0 — Archive Superseded Documentation
 
@@ -110,9 +110,9 @@ The workspace property `"arc42.projected"` defaults to `"false"` and is set to `
 ```
 
 **If errors** → Fix and re-validate
-**If clean** → Proceed to Phase 3
+**If clean** → Proceed to the scope map and domain vocabulary pass.
 
-## Phase 2b: Scope Map and Domain Vocabulary
+## Scope Map and Domain Vocabulary
 
 ### Step 2.5 — Populate Scope Map via Reverse-Map
 
@@ -148,7 +148,7 @@ ______________________________________________________________________
 
 Stage 2 deepens the baseline with full specification extraction, component-level architecture resolution, ATAM review, and reconciliation. Available when the user or the change warrants it, but not required before the first feature-addition.
 
-## Phase 3: Specification Extraction
+## Specification Extraction
 
 ### Step 3.1 — Extract Domain Vocabulary
 
@@ -186,26 +186,26 @@ For stateful components found in code, extract state machines per [`state-machin
 
 **Output**: `docs/spec/supplementary_specs/state-machines.md`
 
-## Phase 4: Component-Resolution Pass
+## Component-Resolution Pass
 
-Second architecture pass: deepen the baseline architecture using domain knowledge from the specification.
+Second architecture pass: deepen the baseline architecture using domain knowledge from the specification extraction.
 
 ### Step 4.1 — Resolve Components Within Containers
 
 **Agent**: `architecture-agent`
-**Task**: Using the specification artifacts from Phase 3 (entity model, use cases, supplementary specs) and the code, resolve component-level detail within each container. Update `architecture.dsl` with component views. Add dynamic views showing use-case flows through components. Refine deployment views where Phase 3 revealed runtime dependencies.
+**Task**: Using the specification artifacts (entity model, use cases, supplementary specs) and the code, resolve component-level detail within each container. Update `architecture.dsl` with component views. Add dynamic views showing use-case flows through components. Refine deployment views where specification extraction revealed runtime dependencies.
 
 **Inputs**:
 
-- `docs/arc42/architecture.dsl` (baseline from Phase 2)
-- `docs/spec/` (all specification artifacts from Phase 3)
+- `docs/arc42/architecture.dsl` (baseline from architecture docs pass)
+- `docs/spec/` (all specification artifacts from extraction)
 - Source code
 
 **Expected outputs**:
 
 - Updated `docs/arc42/architecture.dsl` (component views, dynamic views added)
 - Updated arc42 chapters [05 (Building Block View)](../rulebooks/rules.md#architecture-documentation), [06 (Runtime View)](../rulebooks/rules.md#architecture-documentation), [07 (Deployment View)](../rulebooks/rules.md#architecture-documentation)
-- New ADRs if component boundaries reveal undocumented decisions
+- New ADRs when component boundaries reveal undocumented decisions
 
 ### Step 4.2 — Validate and Export Updated Model
 
@@ -216,9 +216,9 @@ Second architecture pass: deepen the baseline architecture using domain knowledg
 ```
 
 **If errors** → Fix and re-validate
-**If clean** → Proceed to Phase 5
+**If clean** → The architecture-review-agent's preconditions are satisfied.
 
-## Phase 5: Architecture Review
+## Architecture Review
 
 ### Step 5.1 — ATAM Review
 
@@ -231,7 +231,7 @@ Second architecture pass: deepen the baseline architecture using domain knowledg
 
 Fix findings from the ATAM review. Re-validate architecture after fixes.
 
-**If blocking findings remain** → Loop to Step 5.1
+**If blocking findings remain** → Return to the ATAM review (Step 5.1)
 **If clean** → Proceed to Step 5.3
 
 ### Step 5.3 — Capture Project Charter
@@ -274,9 +274,10 @@ This gate must pass before any specification work or planning decisions that
 follow onboarding.
 
 **If gate fails** → Return to Step 5.3 and correct charter entries
-**If gate passes + stakeholder approves** → Proceed to Phase 6
+**If gate passes + stakeholder approves** → The reconciliation-agent's
+preconditions are satisfied.
 
-## Phase 6: Reconciliation / Gap Loop
+## Reconciliation / Gap Loop
 
 Iterative loop: verify documentation matches code, identify gaps, fix, repeat.
 
@@ -319,7 +320,7 @@ The playbook ends when the following terminal artifacts exist:
 - [ ] `docs/agent-context.md` (project context: concerns, paths, boundaries)
 - [ ] `docs/reviews/atam-review.md` (architecture review findings — all addressed)
 
-**Next Phase:**
+**Next:**
 
 After this playbook completes, **all feature work enters through the `feature-addition` playbook**. Each feature-addition slice produces a per-feature `.feature` file from one or more Rules in the scope map (matching implemented code). The scope map and quality baselines are established through this onboarding pass; new feature delivery is a single pipeline regardless of how the project started.
 

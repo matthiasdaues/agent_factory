@@ -1,6 +1,6 @@
 ---
 title: Backlog Story Template
-version: 2.2.0
+version: 2.3.0
 ---
 
 # Backlog Story Template
@@ -58,6 +58,19 @@ One paragraph. What user-visible or API-visible behavior must exist after this s
 
 Bullet list. Mental model: entities, invariants, must-nevers. "Use this wording" guidance for implementing logic.
 
+## Contract
+
+(Implementation stories only — replaces Domain Rule, Outputs, and Required Behavior when the story's behavior reduces to a finite set of input→outcome cases.)
+
+Table with columns: input class, result, persistence effect. The contract table is the normative core of the story. Evidence proves it; Evidence does not restate it.
+
+| Submitted input               | Result                        | Persistence         |
+|-------------------------------|-------------------------------|---------------------|
+| <valid input class>           | <expected outcome>            | <what is stored>    |
+| <refused input class>         | <stable error>                | <no row / no change>|
+
+When the behavior is narrative or has more than a handful of input classes, keep the separate Domain Rule / Outputs / Required Behavior sections instead.
+
 ## Demo Scenario
 
 Numbered step list (not paragraphs). Observable actions with concrete values.
@@ -110,15 +123,19 @@ Explicit must-not list from ADRs, conventions, testing regime, scope exclusions.
 
 ## Suggested Agent Plan
 
+(Optional for implementation stories — omit unless implementation ordering is itself a requirement, such as a migration that must run before a service change.)
+
 Numbered implementation steps in dependency order, referencing Affected Paths and Outputs. Helps the developer-agent understand optimal execution sequence and dependencies between implementation tasks.
 
 1. Write RED test covering [Affected Path X] behavior
 2. Implement [Affected Path Y]
 3. (continue as needed)
 
-## Acceptance Criteria
+## Acceptance Criteria / Evidence
 
-Checkbox list of falsifiable invariants (unchanged format, but checkboxes replace dashes).
+Checkbox list of falsifiable invariants. Each item proves a contract row or boundary holds; it does not restate the contract.
+
+When the story uses a `## Contract` table, name this section `## Evidence`. State each rule once in its canonical section (Contract or Boundaries); Evidence proves it without re-explaining it.
 
 - [ ] <falsifiable invariant — "X produces Y", "X never Y", or "when X then Y" (RULE-ID)>
 - [ ] <another criterion>

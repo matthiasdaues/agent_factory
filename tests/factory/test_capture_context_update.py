@@ -7,10 +7,12 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SKILL_PATH = REPO_ROOT / "packages" / "factory" / "skills" / "capture-context" / "SKILL.md"
+SKILL_PATH = (
+    REPO_ROOT / "packages" / "factory" / "skills" / "capture-context" / "SKILL.md"
+)
 MENU_PATH = REPO_ROOT / "packages" / "factory" / "config" / "session-menu.md"
 
-SECTION_HEADING = '## `--update --scan` (refresh existing agent-context)'
+SECTION_HEADING = "## `--update --scan` (refresh existing agent-context)"
 
 
 def _extract_update_scan_section(content: str) -> str:
@@ -20,7 +22,7 @@ def _extract_update_scan_section(content: str) -> str:
     """
     start = content.find(SECTION_HEADING)
     assert start != -1, f"Section heading not found: {SECTION_HEADING}"
-    after = content[start + len(SECTION_HEADING):]
+    after = content[start + len(SECTION_HEADING) :]
     in_fence = False
     for i, line in enumerate(after.split("\n")):
         if line.startswith("```"):

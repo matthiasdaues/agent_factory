@@ -16,9 +16,19 @@ def _make_source_transcript(path, content=None):
     """Write a realistic source transcript and return its bytes."""
     if content is None:
         content = (
-            json.dumps({"type": "init", "message": {"role": "system", "content": "hello"}})
+            json.dumps(
+                {"type": "init", "message": {"role": "system", "content": "hello"}}
+            )
             + "\n"
-            + json.dumps({"type": "msg", "message": {"role": "assistant", "content": [{"type": "text", "text": "world"}]}})
+            + json.dumps(
+                {
+                    "type": "msg",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "world"}],
+                    },
+                }
+            )
             + "\n"
         )
     raw = content.encode("utf-8")
@@ -42,7 +52,7 @@ class TestStructuredTranscriptFull:
 
     def test_structured_file_exists_alongside_text(self, tmp_path):
         source = tmp_path / "source.jsonl"
-        source_bytes = _make_source_transcript(source)
+        _make_source_transcript(source)
 
         storage = uc.UsageStoragePaths(tmp_path)
         storage.ensure_layout()
@@ -54,7 +64,10 @@ class TestStructuredTranscriptFull:
         adapter = uc.JsonlLoggingAdapter(tmp_path, retention="full")
         record = _make_record()
         ok = adapter.record_reserved(
-            record, "normalized text", reservation, source_transcript=source,
+            record,
+            "normalized text",
+            reservation,
+            source_transcript=source,
         )
         assert ok is True
         assert reservation.structured_path.exists()
@@ -69,7 +82,10 @@ class TestStructuredTranscriptFull:
         adapter = uc.JsonlLoggingAdapter(tmp_path, retention="full")
         record = _make_record()
         adapter.record_reserved(
-            record, "normalized text", reservation, source_transcript=source,
+            record,
+            "normalized text",
+            reservation,
+            source_transcript=source,
         )
         assert reservation.structured_path.read_bytes() == source_bytes
 
@@ -84,7 +100,10 @@ class TestStructuredTranscriptFull:
         adapter = uc.JsonlLoggingAdapter(tmp_path, retention="full")
         record = _make_record()
         adapter.record_reserved(
-            record, "normalized text here", reservation, source_transcript=source,
+            record,
+            "normalized text here",
+            reservation,
+            source_transcript=source,
         )
         assert text_path.read_text(encoding="utf-8") == "normalized text here"
 
@@ -116,7 +135,10 @@ class TestStructuredTranscriptOmit:
         adapter = uc.JsonlLoggingAdapter(tmp_path, retention="omit")
         record = _make_record()
         ok = adapter.record_reserved(
-            record, "text", reservation, source_transcript=source,
+            record,
+            "text",
+            reservation,
+            source_transcript=source,
         )
         assert ok is True
         assert not structured.exists()
@@ -132,7 +154,10 @@ class TestStructuredTranscriptOmit:
         adapter = uc.JsonlLoggingAdapter(tmp_path, retention="omit")
         record = _make_record()
         adapter.record_reserved(
-            record, "text", reservation, source_transcript=source,
+            record,
+            "text",
+            reservation,
+            source_transcript=source,
         )
         assert text_path.read_text(encoding="utf-8") == ""
 
@@ -140,9 +165,7 @@ class TestStructuredTranscriptOmit:
 class TestStructuredTranscriptSafety:
     """Filesystem safety measures on the structured copy."""
 
-    @pytest.mark.skipif(
-        not hasattr(os, "symlink"), reason="symlinks not available"
-    )
+    @pytest.mark.skipif(not hasattr(os, "symlink"), reason="symlinks not available")
     def test_symlink_source_is_rejected(self, tmp_path):
         """Source transcript that is a symlink must not be followed."""
         real = tmp_path / "real.jsonl"
@@ -157,7 +180,10 @@ class TestStructuredTranscriptSafety:
         record = _make_record()
         # Should succeed overall (best-effort) but structured copy fails
         ok = adapter.record_reserved(
-            record, "text", reservation, source_transcript=link,
+            record,
+            "text",
+            reservation,
+            source_transcript=link,
         )
         assert ok is True
         # Structured file exists but is empty (copy failed, logged to stderr)

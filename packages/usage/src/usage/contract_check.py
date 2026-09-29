@@ -23,7 +23,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -35,25 +34,30 @@ EXIT_OPERATIONAL = 2
 Diag = tuple[str, int, str, str, str]
 
 # Assertion keywords this validator implements.
-_IMPLEMENTED_KEYWORDS: frozenset[str] = frozenset({
-    "type",
-    "properties",
-    "required",
-    "additionalProperties",
-    "minimum",
-})
+_IMPLEMENTED_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "type",
+        "properties",
+        "required",
+        "additionalProperties",
+        "minimum",
+    }
+)
 
 # Non-assertion keywords that are always allowed in a schema object.
-_META_KEYWORDS: frozenset[str] = frozenset({
-    "$schema",
-    "title",
-    "description",
-})
+_META_KEYWORDS: frozenset[str] = frozenset(
+    {
+        "$schema",
+        "title",
+        "description",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Schema loading
 # ---------------------------------------------------------------------------
+
 
 def _contracts_dir() -> Path:
     """Return the installed contracts directory next to this package."""
@@ -98,6 +102,7 @@ def _load_contract() -> tuple[dict[str, Any] | None, str | None]:
 # Schema keyword checking
 # ---------------------------------------------------------------------------
 
+
 def _check_unsupported_keywords(
     schema: dict[str, Any],
     path: str = "<root>",
@@ -108,9 +113,7 @@ def _check_unsupported_keywords(
 
     for key in schema:
         if key not in allowed:
-            diags.append(
-                f"schema uses unsupported keyword '{key}' at {path}"
-            )
+            diags.append(f"schema uses unsupported keyword '{key}' at {path}")
 
     props = schema.get("properties")
     if isinstance(props, dict):
@@ -162,6 +165,7 @@ def _matches_type(value: Any, type_spec: str | list[str]) -> bool:
 # Record validation — split into focused checkers
 # ---------------------------------------------------------------------------
 
+
 def _check_required(
     record: dict[str, Any],
     schema: dict[str, Any],
@@ -172,11 +176,15 @@ def _check_required(
     diags: list[Diag] = []
     for field in schema.get("required", []):
         if field not in record:
-            diags.append((
-                filepath, line_no, field,
-                "SCHEMA_REQUIRED",
-                f"required field '{field}' is missing",
-            ))
+            diags.append(
+                (
+                    filepath,
+                    line_no,
+                    field,
+                    "SCHEMA_REQUIRED",
+                    f"required field '{field}' is missing",
+                )
+            )
     return diags
 
 
@@ -193,11 +201,15 @@ def _check_additional(
     diags: list[Diag] = []
     for key in record:
         if key not in allowed_keys:
-            diags.append((
-                filepath, line_no, key,
-                "SCHEMA_ADDITIONAL",
-                f"additional property '{key}' is not allowed",
-            ))
+            diags.append(
+                (
+                    filepath,
+                    line_no,
+                    key,
+                    "SCHEMA_ADDITIONAL",
+                    f"additional property '{key}' is not allowed",
+                )
+            )
     return diags
 
 
@@ -214,7 +226,9 @@ def _check_type(
         return None
     expected = type_spec if isinstance(type_spec, str) else " | ".join(type_spec)
     return (
-        filepath, line_no, field,
+        filepath,
+        line_no,
+        field,
         "SCHEMA_TYPE",
         f"expected type {expected}, got {type(value).__name__}",
     )
@@ -232,7 +246,9 @@ def _check_minimum(
     if minimum is None or not _is_non_bool_int(value) or value >= minimum:
         return None
     return (
-        filepath, line_no, field,
+        filepath,
+        line_no,
+        field,
         "SCHEMA_MINIMUM",
         f"value {value} is below minimum {minimum}",
     )
@@ -250,8 +266,9 @@ def _check_nested(
         return []
     return [
         (fp, ln, f"{field}.{fld}", code, msg)
-        for fp, ln, fld, code, msg
-        in _validate_record(value, prop_schema, filepath, line_no)
+        for fp, ln, fld, code, msg in _validate_record(
+            value, prop_schema, filepath, line_no
+        )
     ]
 
 
@@ -294,11 +311,15 @@ def _check_normalized_invariant(
     if not (_is_non_bool_int(ni) and _is_non_bool_int(no) and _is_non_bool_int(nt)):
         return []
     if nt != ni + no:
-        return [(
-            filepath, line_no, "normalized_total",
-            "INVARIANT_NORMALIZED_TOTAL",
-            f"normalized_total ({nt}) != normalized_input ({ni}) + normalized_output ({no})",
-        )]
+        return [
+            (
+                filepath,
+                line_no,
+                "normalized_total",
+                "INVARIANT_NORMALIZED_TOTAL",
+                f"normalized_total ({nt}) != normalized_input ({ni}) + normalized_output ({no})",
+            )
+        ]
     return []
 
 
@@ -321,6 +342,7 @@ def _validate_record(
 # File validation
 # ---------------------------------------------------------------------------
 
+
 def _validate_file(
     filepath: str,
     schema: dict[str, Any],
@@ -338,30 +360,40 @@ def _validate_file(
                 try:
                     record = json.loads(stripped)
                 except json.JSONDecodeError as exc:
-                    diags.append((
-                        filepath, line_no, "$",
-                        "SCHEMA_PARSE",
-                        f"invalid JSON: {exc}",
-                    ))
+                    diags.append(
+                        (
+                            filepath,
+                            line_no,
+                            "$",
+                            "SCHEMA_PARSE",
+                            f"invalid JSON: {exc}",
+                        )
+                    )
                     continue
 
                 if not isinstance(record, dict):
-                    diags.append((
-                        filepath, line_no, "$",
-                        "SCHEMA_TYPE",
-                        f"expected object, got {type(record).__name__}",
-                    ))
+                    diags.append(
+                        (
+                            filepath,
+                            line_no,
+                            "$",
+                            "SCHEMA_TYPE",
+                            f"expected object, got {type(record).__name__}",
+                        )
+                    )
                     continue
 
-                diags.extend(
-                    _validate_record(record, schema, filepath, line_no)
-                )
+                diags.extend(_validate_record(record, schema, filepath, line_no))
     except OSError as exc:
-        diags.append((
-            filepath, 0, "$",
-            "SCHEMA_PARSE",
-            f"cannot read file: {exc}",
-        ))
+        diags.append(
+            (
+                filepath,
+                0,
+                "$",
+                "SCHEMA_PARSE",
+                f"cannot read file: {exc}",
+            )
+        )
 
     return diags
 
@@ -369,6 +401,7 @@ def _validate_file(
 # ---------------------------------------------------------------------------
 # Directory collection
 # ---------------------------------------------------------------------------
+
 
 def _collect_jsonl_files(path: str) -> list[str]:
     """Recursively collect *.jsonl files under *path*, sorted."""
@@ -384,6 +417,7 @@ def _collect_jsonl_files(path: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Diagnostic formatting
 # ---------------------------------------------------------------------------
+
 
 def _format_diagnostic(
     filepath: str,
@@ -405,6 +439,7 @@ def _sort_diagnostics(
 # ---------------------------------------------------------------------------
 # Input file collection
 # ---------------------------------------------------------------------------
+
 
 def _collect_input_files(args: list[str]) -> tuple[list[str], str | None]:
     """Resolve CLI arguments to a list of JSONL files.
@@ -431,6 +466,7 @@ def _collect_input_files(args: list[str]) -> tuple[list[str], str | None]:
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
+
 
 def _load_and_check_schema() -> tuple[dict[str, Any] | None, int]:
     """Load the schema and check for unsupported keywords.

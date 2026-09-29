@@ -280,7 +280,307 @@ The exporter writes a temporary sibling, verifies logical rows and schema, and
 records query-model and input-set provenance before replacement. Any failure
 leaves an existing destination unchanged. No scheduled refresh exists.
 
-## 6.8 Other Runtime Scenarios (Summary)
+## 6.8 OpenCode Permission Enforcement
+
+Derived from dynamic view `OpenCodePermissionEnforcement` in [`architecture.dsl`](architecture.dsl).
+
+The Factory plugin enforces permissions and step boundaries for every tool invocation in an OpenCode session. The permission enforcer evaluates ordered allow, ask, and deny rules. Explicit denials are final and cannot be broadened by the plugin's permission hook.
+
+### 6.8.1 Sequence: Plugin Evaluates a Tool Invocation
+
+```mermaid
+sequenceDiagram
+    participant A as CLI-Invoked Agent (OpenCode)
+    participant PE as Permission Enforcer
+    participant SM as Step Manifest
+    participant P as Plugin Permission Rules
+
+    A->>PE: 1. Tool invocation reaches execute.before hook
+    PE->>SM: 2. Reads active step manifest
+    PE->>P: 3. Evaluates allow/ask/deny rules in order
+    alt Path within step boundary and allowed
+        PE-->>A: Allow invocation
+    else Path outside step boundary or denied
+        PE-->>A: Deny with named failed control and recovery action
+    end
+```
+
+**Key Points:**
+
+- The plugin reads `.current-work/current-step.yml` to determine the active step boundary.
+- Reads outside declared inputs are denied before tool execution.
+- Writes outside declared outputs are denied before tool execution.
+- Shell commands matching denied Git patterns are denied before execution.
+- Review agents whose definitions declare no write outputs receive read-only tool sets. The Tool Restrictor removes write tools from the agent's available set.
+- Permission hooks may narrow an OpenCode decision but never broaden a configured denial.
+
+## 6.9 OpenCode Worktree Isolation
+
+Derived from dynamic view `OpenCodeWorktreeIsolation` in [`architecture.dsl`](architecture.dsl).
+
+The plugin isolates each dispatched child session in a Factory-managed worktree. The worktree strategy delegates branch and path creation to Factory scripts so that the Factory's naming, base, path, and verification rules remain authoritative.
+
+### 6.9.1 Sequence: Plugin Isolates a Child Session
+
+```mermaid
+sequenceDiagram
+    participant IA as Dispatcher (root session)
+    participant WS as Worktree Strategy
+    participant FS as Factory Scripts
+    participant PE as Permission Enforcer
+    participant C as Child Session
+
+    IA->>WS: 1. Request child session workspace
+    WS->>FS: 2. Delegates branch and worktree creation
+    FS-->>WS: Worktree at .current-work/<feature-branch>/
+    WS-->>IA: Child workspace ready
+    PE->>IA: 3. Primary checkout receives session-scoped write denial
+    IA->>C: 4. Child starts in isolated worktree
+    C->>C: 5. Verifies declared base before reading or changing files
+    Note over IA: Primary checkout rejects writes while child is active
+    C-->>IA: Child completes
+    PE-->>IA: Write denial released
+```
+
+**Key Points:**
+
+- Each child receives its own Factory branch and Git worktree under `.current-work/<feature-branch>/`.
+- Each child verifies its declared base commit before reading or changing files.
+- The primary checkout rejects writes through a session-scoped write denial while any child is active.
+- Worktree creation failure fails closed: the dispatch is denied with a named recovery action.
+- The Factory's naming, base, path, and verification rules remain authoritative. OpenCode tracks the resulting location and starts each child session there.
+
+## 6.10 Value-First Onboarding
+
+The value-first onboarding journey guides a newcomer from diagnosis to one safe result before asking for advanced configuration. Five runtime sequences cover the key interactions: installation, release build, first-session insight, the first-task sandbox lifecycle, and the update transaction.
+
+### 6.10.1 Sequence: Newcomer Installs a Verified Factory Release
+
+Derived from dynamic view `OnboardingInstallation` in [`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant N as Newcomer
+    participant B as install-agent-factory
+    participant DR as Distribution Remote
+    participant IF as init-factory
+    participant IM as Install Manifest
+
+    N->>B: 1. Runs the bootstrap with source selector and target
+    B->>B: 2. Read-only preflight: host, tools, Git state, network, interfaces
+    alt Blocked
+        B-->>N: Incompatibility explanation, exit without changes
+    else Ready or Ready with limitations
+        B-->>N: 3. Installation preview from preflight and planned effects
+        N->>B: 4. Affirmative consent (blank input is not consent)
+        B->>DR: 5. Downloads and verifies release assets (SHA-256)
+        alt Digest mismatch
+            B-->>N: Refuse extraction, target unchanged
+        else Digest verified
+            B->>IF: 6. Delegates project-level setup after verification
+            IF->>IM: 7. Records installed paths, source selector, and metadata
+            B->>IM: 8. Records source selector and installation metadata
+            B-->>N: 9. Receipt: changed paths, version, next command
+        end
+    end
+```
+
+**Key Points:**
+
+- Preflight is read-only. No software is installed, no files are edited, and no configuration is changed during diagnosis.
+- The installation preview derives from preflight results and the source selector. No install manifest exists before first installation.
+- The installation preview precedes download. No remote assets are fetched until the newcomer gives affirmative consent. This satisfies the consent-before-mutation rule.
+- Each prerequisite fix requires separate affirmative consent, shows its scope and reversal, and passes verification before the next fix. Blank input stops the sequence.
+- The bootstrap delegates to `init-factory` for the actual file operations. See [ADR-0022](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md) (superseded by [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md); the layered first-install design is preserved).
+- The receipt names one exact command that opens the first Factory session.
+
+### 6.10.2 Sequence: Release Maintainer Builds Reproducible Assets
+
+Derived from dynamic view `ReleaseBuild` in [`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant RM as Release Maintainer
+    participant BR as build-release
+    participant DR as Distribution Remote
+
+    RM->>BR: 1. Runs build-release for a versioned source tree
+    BR->>BR: 2. Normalizes archive metadata for reproducibility
+    BR->>DR: 3. Publishes install-agent-factory, agent-factory.tar.gz, SHA256SUMS
+    Note over BR: Repeated builds from the same source and version produce the same archive digest
+```
+
+### 6.10.3 Sequence: First Session Delivers Project Insight
+
+Derived from dynamic view `FirstSessionInsight` in [`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant N as Newcomer
+    participant V as CLI-Invoked Agent (Virgil)
+    participant IM as Install Manifest
+    participant FS as Project Filesystem
+    participant HD as hook-demo
+    participant SF as State Files
+
+    N->>V: Opens first Factory session via the receipt command
+    V->>IM: Reads installation state
+    V->>FS: Read-only project scan
+    FS-->>V: Detected stack, test entry point, safety signals
+    V-->>N: Reports observed evidence, unknowns, and one recommended action
+    Note over V: No files changed, no advanced configuration requested
+    opt Selected action needs context
+        V-->>N: Explains capture-context scope, output, and validation
+        N->>V: Gives affirmative consent for context capture
+        V->>V: Runs capture-context to create docs/agent-context.md
+        V-->>N: Presents captured concerns for review
+    end
+    opt Newcomer accepts gate demonstration
+        V-->>N: Offers gate demonstration
+        N->>V: Gives affirmative consent for gate demonstration
+        V->>HD: Runs gate demonstration on disposable fixture
+        HD->>SF: Creates disposable fixture
+        HD-->>N: Shows failure-to-pass cycle
+        HD->>SF: Removes fixture
+        V-->>N: Hook choices grouped by protected outcome
+    end
+```
+
+**Component ownership:**
+
+| Behavior                       | Owner                                                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read-only project insight      | Virgil reads the install manifest and scans the project filesystem without side effects                                                     |
+| Deferred configuration routing | Virgil delays model-tier, hook, and context decisions until the selected action requires them                                               |
+| Context capture                | `capture-context` skill creates `docs/agent-context.md` after the newcomer gives affirmative consent; Virgil presents captured concerns     |
+| Gate demonstration             | `hook-demo` (Distribution) creates a disposable fixture, runs a real gate, and removes the fixture after newcomer gives affirmative consent |
+
+**Key Points:**
+
+- The first session reads installation state and scans the project, then reports what the Factory found, what remains unknown, and one recommended action without changing project files.
+- Model-tier selection, hook decisions, and extended context capture wait until the chosen action requires them.
+- Before context capture, onboarding explains the scan, the output (`docs/agent-context.md`), validation (`concern-lint`), and defines `concern` as a routing topic. Context capture requires affirmative consent before scanning. The capture invocation follows consent, and the captured concerns are presented for review.
+- The gate demonstration requires affirmative consent before running. It uses a disposable fixture and leaves the target project unchanged.
+
+### 6.10.4 Sequence: First Task Runs in an Isolated Sandbox
+
+The shared execution paths are derived from dynamic views `FirstTaskLifecycle`
+and `FirstTaskLifecycleNoHead` in [`architecture.dsl`](architecture.dsl). The
+first-task state machine owns the mutually exclusive discard, reference
+retention, and production-handoff branches.
+
+The first-task sandbox lifecycle follows the state machine at [`state-machines.md`](../spec/supplementary_specs/state-machines.md#first-task-sandbox-lifecycle) and the contract at [`interface-contracts.md`](../spec/supplementary_specs/interface-contracts.md#first-task-sandbox).
+
+```mermaid
+sequenceDiagram
+    participant N as Newcomer
+    participant V as CLI-Invoked Agent (Virgil)
+    participant PF as Project Filesystem
+    participant G as Git / pre-commit
+    participant D as Dispatcher
+    participant WS as Workstream State
+    participant SB as Session Bindings
+
+    V-->>N: Task preview: goal, duration, artifacts, decisions, cleanup
+    N->>V: Approves first task
+    alt Repository has HEAD
+        V->>G: Creates detached worktree from HEAD at .current-work/onboarding-spike/
+    else Repository has no HEAD
+        V->>PF: Creates plain sandbox directory at .current-work/onboarding-spike/
+    end
+    V->>D: Dispatches poc-spike inside sandbox
+    D-->>V: poc-spike completes with result and check evidence
+    V-->>N: Shows inspectable result and removal instructions
+    alt Newcomer chooses discard
+        Note over V: No artifacts retained
+    else Newcomer retains reference artifacts
+        N->>V: Confirms retention of selected artifacts
+        V->>PF: Copies confirmed artifacts to docs/spikes/
+    else Newcomer begins real work
+        V->>WS: Creates or selects production workstream
+        V->>SB: Creates session binding for production workstream
+        Note over V: Sandbox is not promoted to production work
+    end
+    alt Sandbox is a Git worktree
+        V->>G: Removes worktree and verifies absence
+    else Sandbox is a plain directory
+        V->>PF: Removes directory and verifies absence
+    end
+```
+
+**Component ownership:**
+
+| Behavior                        | Owner                                                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| First-task preview and approval | Virgil presents goal, duration, artifacts, decisions, and cleanup; blank or declined approval creates no sandbox              |
+| Sandbox creation                | Virgil creates a detached worktree via Git (HEAD exists) or a plain sandbox directory under `.current-work/` (no HEAD)        |
+| Task execution and checking     | Dispatcher resolves and dispatches `poc-spike` playbook inside the sandbox                                                    |
+| Discard and cleanup             | Virgil removes the sandbox via Git (worktree) or filesystem and verifies the sandbox path no longer exists                    |
+| Reference-artifact retention    | Newcomer confirms retention of selected artifacts; Virgil copies confirmed artifacts to `docs/spikes/` before sandbox removal |
+| Production-workstream handoff   | Virgil creates or selects a workstream identity and binds the session to it; the sandbox is never promoted                    |
+
+**Key Points:**
+
+- The sandbox creates no branch or commit. Uncommitted active-working-tree changes are absent from the sandbox.
+- When the repository has no HEAD, Virgil creates a plain directory instead of a Git worktree. This is not a Git operation.
+- The `poc-spike` workflow runs only inside the sandbox. Its result is directly inspectable by the newcomer.
+- Retention requires separate consent per artifact. The newcomer confirms before Virgil copies. Retained files are reference copies, not production state.
+- Production handoff creates a normal workstream through the existing workstream creation path. The sandbox does not become production work.
+- The ready-host budget is an inspectable result within ten minutes and five decisions after installation approval.
+
+### 6.10.5 Sequence: Project Maintainer Updates an Installation
+
+Derived from dynamic views `UpdateTransaction` and `UpdateTransactionCheck` in [`architecture.dsl`](architecture.dsl).
+
+The update transaction follows [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md), which supersedes ADR-0010 and ADR-0022 for the update path while preserving the layered first-install design.
+
+```mermaid
+sequenceDiagram
+    participant M as Project Maintainer
+    participant UF as update-factory
+    participant IM as Install Manifest
+    participant DR as Distribution Remote
+
+    alt Check mode (--check)
+        M->>UF: 1. Runs update-factory --check
+        UF->>IM: 2. Reads source selector and installed version
+        UF->>DR: Queries candidate version and digest
+        UF-->>M: Reports installed vs. candidate, local modifications, planned effects
+    else Normal update
+        M->>UF: 1. Runs update-factory
+        UF->>IM: 2. Reads source selector and installed version
+        UF-->>M: Preview: source, versions, planned effects
+        M->>UF: Affirmative approval (blank is not consent)
+        opt Source selector or remote URL changed (--source)
+            UF-->>M: Presents source-change confirmation
+            M->>UF: Confirms source change
+        end
+        UF->>DR: 3. Downloads and verifies release assets (SHA-256)
+        alt Digest mismatch
+            UF-->>M: Abort, no changes
+        else Digest verified
+            UF->>UF: Stages verified replacement alongside current installation
+            UF->>UF: Moves current Factory tree aside, applies staged replacement
+            alt Application failure
+                UF->>UF: Restores previous Factory tree and instruction headers
+                UF-->>M: Reports rolled-back state
+            else Application succeeds
+                UF->>IM: 4. Writes receipt: source, version, digest, changed paths
+                UF-->>M: Receipt with changed paths and version
+            end
+        end
+    end
+```
+
+**Key Points:**
+
+- Check mode is read-only. It reports the same information as the approval preview without downloading or mutating.
+- Modified Factory-owned files stop the update before staging. The user may select the existing preservation flow to proceed.
+- A different source selector or remote URL requires a separate `--source` option and its own confirmation step. No automatic fallback crosses the source boundary.
+- The previous Factory tree is moved aside, not deleted, before application. Rollback restores it if application fails.
+- `update-factory` owns the full transaction. It no longer delegates to `init-factory` for the replacement.
+
+## 6.11 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 

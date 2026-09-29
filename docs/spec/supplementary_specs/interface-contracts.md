@@ -83,7 +83,7 @@ See [UC-10](../../~archive/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.
 
 |                   |                                                                                                                                                      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invocation        | `usage-capture --cli <claude-code\|copilot\|codex\|pi> --transcript PATH --session ID [--model MODEL] [...]`                                         |
+| Invocation        | `usage-capture --cli <claude-code\|copilot\|codex\|pi\|opencode> --transcript PATH --session ID [--model MODEL] [...]`                               |
 | Reads             | One CLI-native transcript, explicit invocation context, and `config/project.json`                                                                    |
 | Writes            | One normalized JSONL usage record with non-null `project_id` and `project_name`, configured evidence, and session-end derived signals when available |
 | Model attribution | Explicit `--model` first; otherwise the latest non-empty native transcript model; otherwise null                                                     |
@@ -325,7 +325,7 @@ The [feature specification](../local-usage-processing-and-analysis.feature) adds
 | Schema dialect       | JSON Schema Draft 2020-12                                                                  |
 | Installed projection | `.agent-factory/usage-analysis/contract/`                                                  |
 | Consumer rule        | Usage Analysis reads only the installed projection and declares its accepted version range |
-| Known CLI values     | `claude-code`, `copilot`, `codex`, and `pi` (registry, not schema-enforced)                |
+| Known CLI values     | `claude-code`, `copilot`, `codex`, `pi`, and `opencode` (registry, not schema-enforced)    |
 | Gate                 | `packages/usage/scripts/usage-contract-check`                                              |
 
 The YAML manifest declares owner, current version, compatibility policy, and accepted consumer range. The schema owns field names, types, nullability, and nested structure. The gate additionally owns cross-field invariants and producer/consumer version agreement. A failure identifies source file, line number, field, and stable failure code.
@@ -481,7 +481,7 @@ The command accepts `--dimensions <name>[,<name>...]` and `--time-granularity no
 
 #### Logical-run and source-position contract
 
-The registry keys are exactly the producer values `claude-code`, `pi`, `codex`, and `copilot`. Logical-run identity is `(cli, session_id, run_id)`. Claude Code and Pi descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
+The registry keys are exactly the producer values `claude-code`, `pi`, `codex`, `copilot`, and `opencode`. Logical-run identity is `(cli, session_id, run_id)`. Claude Code, Pi, and OpenCode descendants contribute once per distinct key. Codex and Copilot descendants remain attribution-only. `parent_run_id` defines ancestry and is not an identity field. Evidence source, capture sequence, and record content are excluded after reduction.
 
 Before latest-snapshot selection, strict preflight groups all evidence snapshots by logical-run key and requires exactly one distinct `parent_run_id`, with null treated as a value. If snapshots disagree, every evidence snapshot for that key is classified as `USAGE_ANCESTRY_PARENT_CONFLICT`; no snapshot establishes or overrides the parent. The conflict enters the query-scoped failure relation and blocks canonical accounting.
 
@@ -489,7 +489,7 @@ Each `(cli, session_id)` partition must form one rooted directed tree. The root 
 
 Strict preflight reports ancestry failures before accounting. Root count other than one is `USAGE_ANCESTRY_ROOT_COUNT`. A parent ID absent from every selected run is `USAGE_ANCESTRY_PARENT_MISSING`. A parent ID found only under another CLI or session is `USAGE_ANCESTRY_PARENT_BOUNDARY`. A self-link is `USAGE_ANCESTRY_SELF_PARENT`. A directed cycle is `USAGE_ANCESTRY_CYCLE`. All detectable failures enter the query-scoped failure relation; any such failure blocks every stable view except `capture_health`.
 
-Canonical session dimensions and `captured_at` come from the selected root snapshot. Additive Claude and Pi descendants contribute measures but do not replace root dimensions. Cache aggregation uses exactly the logical runs whose measures contribute under the selected CLI conservation rule.
+Canonical session dimensions and `captured_at` come from the selected root snapshot. Additive Claude, Pi, and OpenCode descendants contribute measures but do not replace root dimensions. Cache aggregation uses exactly the logical runs whose measures contribute under the selected CLI conservation rule.
 
 A source path is made relative to the selected usage directory, converted to `/` separators, stripped of `.` segments, rejected if absolute or containing `..`, decoded as valid UTF-8, and normalized segment-by-segment to Unicode NFC. Source position is `(normalized_source_path, source_line)`, comparing paths lexicographically by unsigned UTF-8 bytes and lines as one-based unsigned integers. The latest snapshot is the maximum `(capture_sequence, normalized_source_path, source_line)` tuple, with numeric ordering for the first and last items.
 
@@ -602,3 +602,201 @@ The precondition graph handles routing: a research agent's output is an artifact
 | `decision_needed` | `string` or `null` | The decision the research result must inform (unchanged) |
 
 Standalone research omits this field. The existing survey and falsification routes remain unchanged.
+
+## OpenCode CLI Integration Contracts
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+### `packages/factory/config/plugins/agent-factory.ts` — Factory plugin
+
+|                 |                                                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Plugin ID       | `agent-factory`                                                                                                               |
+| API             | OpenCode V2 `Plugin.define()` with `setup(ctx)` function                                                                      |
+| Hooks           | `execute.before`, `execute.after`, `permission.hook("evaluate")`, `session.hook("context")`                                   |
+| Reads           | `.current-work/current-step.yml` (step manifest), agent definition frontmatter (tier, permissions, outputs)                   |
+| Enforces        | Ordered allow/ask/deny permission rules, step-boundary reads and writes, dangerous Git command denial, tool removal per agent |
+| Fails closed on | Initialization failure, manifest loading failure, permission evaluation failure, worktree creation failure                    |
+| Error contract  | Error names the failed control and the recovery action                                                                        |
+
+### Plugin permission evaluation
+
+|                |                                                                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Hook           | `permission.hook("evaluate")`                                                                                                           |
+| Fires after    | Configured `allow` and `ask` rules                                                                                                      |
+| Cannot broaden | A configured `deny` is final. The hook may change `effect` to `deny` but never to `allow` or `ask` when the configured effect is `deny` |
+| Effect values  | `allow`, `ask`, `deny`                                                                                                                  |
+| Message        | Appears as denial reason or escalated request text                                                                                      |
+
+### Plugin tool removal
+
+|                |                                                                                  |
+| -------------- | -------------------------------------------------------------------------------- |
+| Hook           | `session.hook("context")`                                                        |
+| Removes        | Tools not in the active agent's declared tool set                                |
+| Review agents  | Receive read-only permissions unless their procedure declares a write output     |
+| Child sessions | Inherit session-scoped restrictions; apply their own generated agent permissions |
+
+### Plugin usage capture
+
+|                     |                                                                  |
+| ------------------- | ---------------------------------------------------------------- |
+| Observes            | Completed root and child sessions                                |
+| Sends to            | Existing Factory usage pipeline                                  |
+| Contract            | Existing usage record contract with `cli: opencode`              |
+| Double-count guard  | Root session usage does not include child session usage          |
+| Completion behavior | Session completion does not reactivate the agent                 |
+| Failure behavior    | Usage capture failure is reported but does not block the session |
+
+### Plugin worktree strategy
+
+|                    |                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------- |
+| API                | `ctx.worktree.transform()` with `WorktreeDefinition` interface                           |
+| Strategy ID        | `agent-factory`                                                                          |
+| Branch creation    | Delegated to Factory scripts (naming, base, verification rules)                          |
+| Worktree creation  | Delegated to Factory scripts (path under `.current-work/<feature-branch>/`)              |
+| Write denial       | Session-scoped write denial on the primary checkout while isolated work is active        |
+| Child session path | OpenCode tracks the worktree location and starts each child session there                |
+| Failure behavior   | Fails closed: worktree creation failure denies the dispatch with a named recovery action |
+
+### `init-factory` OpenCode CLI additions
+
+|                   |                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| Detection markers | `.opencode/`, `opencode.json`, `opencode.jsonc`                                                          |
+| CLI name          | `opencode`                                                                                               |
+| Dot-dir           | `.opencode`                                                                                              |
+| Version check     | `opencode --version` must report `1.18.31` or later. Failure stops installation with upgrade instruction |
+| Creates           | `.opencode/INDEX.yaml`, `.opencode/agents/`, `.opencode/plugins/agent-factory.ts` (link)                 |
+| Skills path       | `.agents/skills/` (native OpenCode discovery path)                                                       |
+| Orientation       | Injected by the plugin via `session.hook("context")`, not via `instructions` field or root `AGENTS.md`   |
+| Manifest          | Records every created OpenCode path in `.agent-factory/install.json`                                     |
+| Idempotency       | Repeated installation produces no additional changes                                                     |
+| User preservation | User-owned files under `.opencode/` remain unchanged                                                     |
+
+### `model.conf` OpenCode entries
+
+|                |                                                                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key format     | `opencode.economy`, `opencode.standard`, `opencode.strong`                                                                                   |
+| Value format   | `provider/model` identifier                                                                                                                  |
+| Missing policy | `on_missing = halt` (existing policy)                                                                                                        |
+| Workaround     | Each generated agent definition carries an explicit `model` field from its tier mapping due to model inheritance bug (OpenCode issue #49765) |
+
+### `AGENTS.md` OpenCode additions
+
+|                  |                                                              |
+| ---------------- | ------------------------------------------------------------ |
+| CLI table        | Adds OpenCode row with `.opencode/INDEX.yaml`                |
+| Orientation file | `AGENTS.opencode.md` (new, under `packages/factory/config/`) |
+| Root AGENTS.md   | Not replaced — OpenCode orientation is plugin-injected       |
+
+### `AGENTS.opencode.md` — OpenCode orientation
+
+|             |                                                                    |
+| ----------- | ------------------------------------------------------------------ |
+| Injected by | Factory plugin via `session.hook("context")`                       |
+| Describes   | OpenCode tool names, child-session behavior, skill discovery paths |
+
+## Value-First Onboarding Contracts
+
+Proposal trace: [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md)
+
+### `build-release`
+
+| Property    | Contract                                                                              |
+| ----------- | ------------------------------------------------------------------------------------- |
+| Input       | Versioned Agent Factory source tree and release version                               |
+| Output      | `install-agent-factory`, `agent-factory.tar.gz`, and `SHA256SUMS`                     |
+| Determinism | Repeated builds from the same source tree and version produce the same archive digest |
+| Failure     | Exits non-zero and publishes no partial release set                                   |
+
+### `install-agent-factory`
+
+| Property      | Contract                                                                                                                                           |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source        | Exactly one of `--from-local <relative-path>` and `--from-remote <URL>`                                                                            |
+| Version       | `--version <release>` is valid only with `--from-remote`                                                                                           |
+| Target        | First installation requires `--target <path>` and rejects root, user home, unresolved paths, and unsupported content                               |
+| Preflight     | Reads host, tools, Git state, network, interfaces, and target; returns `Ready`, `Ready with limitations`, or `Blocked` without changes             |
+| Remote assets | Resolves an immutable version URL and verifies `agent-factory.tar.gz` against `SHA256SUMS` before extraction                                       |
+| Fixes         | Shows purpose, command, scope, reversal, and verification per supported fix (uv, managed Python); runs it only after affirmative consent           |
+| Approval      | Shows source, version, target, interfaces, paths, instruction files, and uninstall command before requesting consent                               |
+| Receipt       | Lists changed paths, interfaces, version, resolved source, uninstall command, and one next command                                                 |
+| Cancellation  | Blank input is not consent; cancellation reports completed fixes and reversals and leaves the target valid                                         |
+| Delegation    | Passes `init-factory` a `--project-name` derived from the target directory, so the project-identity step never falls back to an interactive prompt |
+
+The remote release base exposes `<base>/latest`,
+`<base>/releases/<version>/install-agent-factory`,
+`<base>/releases/<version>/agent-factory.tar.gz`, and
+`<base>/releases/<version>/SHA256SUMS` over HTTPS.
+
+### Instruction header management
+
+| Property   | Contract                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| Discovery  | Finds existing regular files named `AGENTS.md` or `copilot-instructions.md` below the target                         |
+| Exclusions | Skips `.git/`, `.agent-factory/`, `.current-work/`, dependency trees, virtual environments, caches, and build output |
+| Symlinks   | Does not follow external symlinks and reports matching symlinks as unchanged                                         |
+| Injection  | Prepends one idempotent marker-delimited Factory block with links relative to the instruction file                   |
+| Manifest   | Records the path, installed block, and original newline state                                                        |
+| Update     | Adds, refreshes, or removes only Factory-owned blocks                                                                |
+| Removal    | Restores original content and newline state without changing user-owned content                                      |
+
+### `update-factory`
+
+| Property       | Contract                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Default source | Reads the source selector and resolved source from `.agent-factory/install.json`                                            |
+| Check mode     | `--check` reports installed and candidate versions, source, digest, local modifications, and header changes without writing |
+| Approval       | A normal update requires confirmation before download or mutation                                                           |
+| Safety         | Downloads, verifies, and stages the complete replacement before application                                                 |
+| Rollback       | Application failure restores the previous Factory tree and instruction headers                                              |
+| Local changes  | Modified Factory-owned files stop update unless the user selects the existing preservation flow                             |
+| Source change  | A different source selector or remote URL requires an explicit option and separate confirmation                             |
+| Receipt        | Records selected source, immutable version or local revision, remote digest when applicable, and changed paths              |
+
+### First-session insight
+
+| Property          | Contract                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| Reads             | Real project files needed to detect stack, test entry point, and one safety signal    |
+| Writes            | None                                                                                  |
+| Output            | Observed facts, explicit unknowns, and one recommended action                         |
+| Configuration     | Requests model, hook, or context decisions only before an action that depends on them |
+| Ready-host budget | Insight within two minutes and three decisions after installation approval            |
+
+### Gate demonstration
+
+| Property  | Contract                                                                           |
+| --------- | ---------------------------------------------------------------------------------- |
+| Input     | One Factory-owned disposable fixture and one real Factory gate                     |
+| Output    | Failing input, specific failure, corrected input, and passing result               |
+| Isolation | Does not change the target project and removes the fixture after the demonstration |
+| Decline   | Skipping the demonstration does not change recommended hook defaults               |
+
+### Consumer hook configuration
+
+| Property        | Contract                                                                                                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metadata source | `packages/factory/config/hook-metadata.yaml` maps each `agent_factory_hook-*` id to an `outcome`, a `trade_off` (`auto-fix`, `material-cost`, or `none`), an `availability`, and a `description`                 |
+| Presentation    | Hooks are grouped by `outcome`; `trade_off: none` hooks are included without asking; `trade_off: auto-fix` or `material-cost` hooks require separate consent                                                     |
+| Unavailability  | A hook whose `availability` condition is unmet by the target project shows its `description`; it is never presented as an error or a choice                                                                      |
+| Exclusion       | `index-lint` is excluded unconditionally; any hook whose `files:` trigger is anchored under `.agent-factory/factory/` and matches nothing in `git ls-files` is excluded (BUG-0029)                               |
+| `matrix-lint`   | Its generated stanza drops the broken `files:` trigger on the gitignored `.agent-factory/config/model.conf` path for `always_run: true`, and is always ordered last — after model configuration, before dispatch |
+| Splice          | The filtered, reordered template is handed to `merge-precommit-config` as `--template`; `pre-commit-config.yaml` itself is read-only                                                                             |
+
+### First-task sandbox
+
+| Property                  | Contract                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Approval                  | Shows goal, duration, artifacts, decisions, and cleanup before creating the sandbox                                    |
+| Repository with `HEAD`    | Creates a detached worktree from `HEAD` at `.current-work/onboarding-spike/<session-id>/`; creates no branch or commit |
+| Repository without `HEAD` | Creates a plain sandbox at the same path pattern                                                                       |
+| Execution                 | Runs the `poc-spike` workflow only inside the sandbox                                                                  |
+| Result                    | Shows inspectable output, check results, and removal instructions                                                      |
+| Retention                 | Copies separately confirmed artifacts to a named `docs/spikes/` path                                                   |
+| Production handoff        | Requires approval for a normal workstream; never promotes the sandbox                                                  |
+| Ready-host budget         | Inspectable result within ten minutes and five decisions after installation approval                                   |

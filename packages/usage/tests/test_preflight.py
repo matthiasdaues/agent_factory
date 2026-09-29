@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from usage.preflight import (
     CYCLE,
     PARENT_BOUNDARY,
@@ -16,17 +15,16 @@ from usage.preflight import (
     run_preflight,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _failure_codes(result, *, session_id: str | None = None) -> list[str]:
     """Extract failure codes from the result, optionally filtered by session."""
     if session_id is not None:
         rows = result.conn.execute(
-            "SELECT _failure_code FROM preflight_failure "
-            "WHERE session_id = ?",
+            "SELECT _failure_code FROM preflight_failure WHERE session_id = ?",
             [session_id],
         ).fetchall()
     else:
@@ -53,6 +51,7 @@ def _total_rows(result) -> int:
 # Valid input — zero failures
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-05")
 class TestValidInput:
     """A well-formed session tree produces zero failures."""
@@ -72,7 +71,9 @@ class TestValidInput:
     def test_all_sessions_present(self, ancestry_dir: Path) -> None:
         result = run_preflight([ancestry_dir / "valid_tree.jsonl"])
         assert _valid_session_ids(result) == {
-            "sess-root", "sess-child1", "sess-child2",
+            "sess-root",
+            "sess-child1",
+            "sess-child2",
         }
 
 
@@ -80,27 +81,31 @@ class TestValidInput:
 # Exhaustive classification
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-05")
 class TestExhaustiveClassification:
     """Every input line lands in exactly one relation."""
 
-    @pytest.mark.parametrize("fixture", [
-        "valid_tree.jsonl",
-        "parent_conflict.jsonl",
-        "self_parent.jsonl",
-        "root_count_zero.jsonl",
-        "root_count_multi.jsonl",
-        "parent_missing.jsonl",
-        "parent_boundary.jsonl",
-        "cycle.jsonl",
-    ])
+    @pytest.mark.parametrize(
+        "fixture",
+        [
+            "valid_tree.jsonl",
+            "parent_conflict.jsonl",
+            "self_parent.jsonl",
+            "root_count_zero.jsonl",
+            "root_count_multi.jsonl",
+            "parent_missing.jsonl",
+            "parent_boundary.jsonl",
+            "cycle.jsonl",
+        ],
+    )
     def test_valid_plus_failure_equals_total(
-        self, ancestry_dir: Path, fixture: str,
+        self,
+        ancestry_dir: Path,
+        fixture: str,
     ) -> None:
         path = ancestry_dir / fixture
-        line_count = sum(
-            1 for line in path.read_text().splitlines() if line.strip()
-        )
+        line_count = sum(1 for line in path.read_text().splitlines() if line.strip())
         result = run_preflight([path])
         assert _total_rows(result) == line_count
 
@@ -110,8 +115,7 @@ class TestExhaustiveClassification:
             ancestry_dir / "self_parent.jsonl",
         ]
         total_lines = sum(
-            sum(1 for line in p.read_text().splitlines() if line.strip())
-            for p in paths
+            sum(1 for line in p.read_text().splitlines() if line.strip()) for p in paths
         )
         result = run_preflight(paths)
         assert _total_rows(result) == total_lines
@@ -126,6 +130,7 @@ class TestExhaustiveClassification:
 # ---------------------------------------------------------------------------
 # PARENT_CONFLICT
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.spec("LU-05")
 class TestParentConflict:
@@ -150,6 +155,7 @@ class TestParentConflict:
 # SELF_PARENT
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-05")
 class TestSelfParent:
     """A session whose parent_session_id equals its own session_id."""
@@ -168,6 +174,7 @@ class TestSelfParent:
 # ROOT_COUNT
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-05")
 class TestRootCount:
     """CLI with zero or more than one root session."""
@@ -178,7 +185,8 @@ class TestRootCount:
         assert codes == [ROOT_COUNT]
 
     def test_zero_roots_other_session_parent_missing(
-        self, ancestry_dir: Path,
+        self,
+        ancestry_dir: Path,
     ) -> None:
         """sess-rz02 points to a missing parent — PARENT_MISSING takes priority."""
         result = run_preflight([ancestry_dir / "root_count_zero.jsonl"])
@@ -195,6 +203,7 @@ class TestRootCount:
 # ---------------------------------------------------------------------------
 # PARENT_MISSING
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.spec("LU-05")
 class TestParentMissing:
@@ -213,6 +222,7 @@ class TestParentMissing:
 # ---------------------------------------------------------------------------
 # PARENT_BOUNDARY
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.spec("LU-05")
 class TestParentBoundary:
@@ -234,6 +244,7 @@ class TestParentBoundary:
 # CYCLE
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-05")
 class TestCycle:
     """Directed cycle in parent_session_id chain."""
@@ -253,12 +264,14 @@ class TestCycle:
 # Conflict priority — no cascading
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-05")
 class TestConflictPriority:
     """Parent-conflict lines do not cascade to other failure codes."""
 
     def test_conflict_does_not_produce_other_codes(
-        self, ancestry_dir: Path,
+        self,
+        ancestry_dir: Path,
     ) -> None:
         """The two conflicting records both get PARENT_CONFLICT, not
         PARENT_MISSING or ROOT_COUNT even though the root is the only
@@ -268,7 +281,9 @@ class TestConflictPriority:
         assert set(codes) == {PARENT_CONFLICT}
 
     def test_conflict_records_excluded_from_session_checks(
-        self, ancestry_dir: Path, tmp_path: Path,
+        self,
+        ancestry_dir: Path,
+        tmp_path: Path,
     ) -> None:
         """Craft a file where the ONLY records are conflicting.  With
         conflict excluded, no session-level check runs and no other
@@ -308,8 +323,10 @@ class TestConflictPriority:
 
         fixture = tmp_path / "only_conflict.jsonl"
         fixture.write_text(
-            json.dumps(_rec("rec-x", "sess-x", "sess-a")) + "\n"
-            + json.dumps(_rec("rec-x", "sess-x", "sess-b")) + "\n",
+            json.dumps(_rec("rec-x", "sess-x", "sess-a"))
+            + "\n"
+            + json.dumps(_rec("rec-x", "sess-x", "sess-b"))
+            + "\n",
             encoding="utf-8",
         )
         result = run_preflight([fixture])

@@ -12,10 +12,10 @@ from pathlib import Path
 
 from usage import adapters, contract_check, input_snapshot, preflight
 from usage.views.cache_efficiency import cache_efficiency
-from usage.views.session_usage import session_usage
 from usage.views.capture_health import capture_health
 from usage.views.latest_run_snapshots import latest_run_snapshots
 from usage.views.raw_usage_snapshots import raw_usage_snapshots
+from usage.views.session_usage import session_usage
 from usage.views.usage_by_dimension import usage_by_dimension
 
 AVAILABLE_VIEWS = (
@@ -45,32 +45,43 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("view", help="View name to query.")
     parser.add_argument(
-        "--usage-dir", default=".agent-factory/usage/",
+        "--usage-dir",
+        default=".agent-factory/usage/",
         help="Directory containing JSONL files (default: .agent-factory/usage/).",
     )
     parser.add_argument(
-        "--diagnostic", action="store_true", default=False,
+        "--diagnostic",
+        action="store_true",
+        default=False,
         help="Run in diagnostic mode (only capture_health, informational output).",
     )
     parser.add_argument(
-        "--dimensions", default=None,
+        "--dimensions",
+        default=None,
         help="Comma-separated ordered dimension list for usage_by_dimension.",
     )
     parser.add_argument(
-        "--granularity", default="none",
+        "--granularity",
+        default="none",
         choices=("none", "hour", "day", "week", "month"),
         help="Time granularity for usage_by_dimension (default: none).",
     )
     parser.add_argument(
-        "--format", dest="output_format", default="json",
+        "--format",
+        dest="output_format",
+        default="json",
         help="Output format: json (default), table, relation, arrow, parquet.",
     )
     parser.add_argument(
-        "-o", "--output", default=None,
+        "-o",
+        "--output",
+        default=None,
         help="Output file path (required for parquet format).",
     )
     parser.add_argument(
-        "--persist", metavar="PATH", default=None,
+        "--persist",
+        metavar="PATH",
+        default=None,
         help="Materialize pipeline views as tables in a persistent .duckdb file.",
     )
     return parser.parse_args(argv)
@@ -122,6 +133,7 @@ def _format_and_output(
     """Render *result* to stdout in the requested format."""
     if args.output_format == "parquet":
         from usage.parquet_exporter import export_parquet
+
         _ensure_view_materialized(args, preflight_result)
         export_parquet(
             preflight_result.conn,
@@ -152,6 +164,7 @@ def _persist_if_requested(args: argparse.Namespace, preflight_result) -> None:
     if root is not None and not Path(persist_path).is_absolute():
         persist_path = str(root / persist_path)
     from usage.persist import persist_to_duckdb
+
     count = persist_to_duckdb(preflight_result.conn, Path(persist_path))
     print(f"persisted {count} table(s) to {persist_path}", file=sys.stderr)
 
@@ -203,7 +216,9 @@ def _route_usage_by_dimension(args, preflight_result) -> dict:
     """Route for usage_by_dimension with validation error handling."""
     dims = args.dimensions.split(",") if args.dimensions else None
     result = usage_by_dimension(
-        preflight_result, dimensions=dims, granularity=args.granularity,
+        preflight_result,
+        dimensions=dims,
+        granularity=args.granularity,
     )
     if "error" in result and result["error"] == "validation":
         print(result["message"], file=sys.stderr)
@@ -220,10 +235,14 @@ _VIEW_DISPATCH: dict[str, object] = {
     "cache_efficiency": lambda args, pr: cache_efficiency(pr),
 }
 
-_VIEWS_WITH_CLI_CHECK = frozenset({
-    "session_usage", "latest_run_snapshots",
-    "usage_by_dimension", "cache_efficiency",
-})
+_VIEWS_WITH_CLI_CHECK = frozenset(
+    {
+        "session_usage",
+        "latest_run_snapshots",
+        "usage_by_dimension",
+        "cache_efficiency",
+    }
+)
 
 
 def _route(args: argparse.Namespace, preflight_result) -> dict:
@@ -257,6 +276,7 @@ def _duckdb_view_name(view: str) -> str:
 def _ensure_view_materialized(args, preflight_result) -> None:
     """Ensure the DuckDB views are built for the requested view."""
     from usage import accounting
+
     conn = preflight_result.conn
     if args.view in ("session_usage", "usage_by_dimension", "cache_efficiency"):
         accounting.select_latest_snapshots(conn)

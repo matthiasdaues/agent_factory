@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 import yaml
-
 from engine.session_binding import (
     BindingValidationError,
     create_binding,

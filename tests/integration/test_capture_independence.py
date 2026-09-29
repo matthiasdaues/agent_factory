@@ -11,7 +11,10 @@ import pytest
 
 CAPTURE_SCRIPT = (
     Path(__file__).resolve().parents[2]
-    / "packages" / "factory" / "scripts" / "usage-capture"
+    / "packages"
+    / "factory"
+    / "scripts"
+    / "usage-capture"
 )
 
 
@@ -20,10 +23,14 @@ def capture_project(tmp_path: Path) -> Path:
     """Project directory with capture prerequisites but no analysis component."""
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "project.json").write_text(json.dumps({
-        "project_id": str(uuid.uuid4()),
-        "project_name": "capture-independence-test",
-    }))
+    (config_dir / "project.json").write_text(
+        json.dumps(
+            {
+                "project_id": str(uuid.uuid4()),
+                "project_name": "capture-independence-test",
+            }
+        )
+    )
 
     usage_dir = tmp_path / ".agent-factory" / "usage"
     usage_dir.mkdir(parents=True)
@@ -36,19 +43,23 @@ def capture_project(tmp_path: Path) -> Path:
 def transcript(tmp_path: Path) -> Path:
     """Minimal Claude Code transcript JSONL."""
     path = tmp_path / "transcript.jsonl"
-    path.write_text(json.dumps({
-        "type": "assistant",
-        "message": {
-            "role": "assistant",
-            "content": [{"type": "text", "text": "Test response."}],
-            "usage": {"input_tokens": 10, "output_tokens": 5},
-        },
-    }) + "\n")
+    path.write_text(
+        json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "Test response."}],
+                    "usage": {"input_tokens": 10, "output_tokens": 5},
+                },
+            }
+        )
+        + "\n"
+    )
     return path
 
 
 class TestCaptureIndependence:
-
     def test_capture_without_analysis_component(
         self, capture_project: Path, transcript: Path
     ) -> None:
@@ -57,11 +68,18 @@ class TestCaptureIndependence:
 
         result = subprocess.run(
             [
-                "uv", "run", "--script", str(CAPTURE_SCRIPT),
-                "--cli", "claude-code",
-                "--transcript", str(transcript),
-                "--session", "test-session-001",
-                "--transcript-retention", "omit",
+                "uv",
+                "run",
+                "--script",
+                str(CAPTURE_SCRIPT),
+                "--cli",
+                "claude-code",
+                "--transcript",
+                str(transcript),
+                "--session",
+                "test-session-001",
+                "--transcript-retention",
+                "omit",
             ],
             capture_output=True,
             text=True,
@@ -89,18 +107,23 @@ class TestCaptureIndependence:
 
 
 class TestDependencyBoundary:
-
     def test_dependency_check_passes(self) -> None:
         """dependency-check exits zero with factory/usage boundary rules (LU-11)."""
         script = (
             Path(__file__).resolve().parents[2]
-            / "packages" / "factory" / "scripts" / "dependency-check"
+            / "packages"
+            / "factory"
+            / "scripts"
+            / "dependency-check"
         )
         result = subprocess.run(
             [
-                "python3", str(script),
-                "--source-root", "packages/",
-                "--story-id", "ST-0250-test",
+                "python3",
+                str(script),
+                "--source-root",
+                "packages/",
+                "--story-id",
+                "ST-0250-test",
             ],
             capture_output=True,
             text=True,
@@ -118,7 +141,10 @@ class TestDependencyBoundary:
         """dependency-check exits non-zero when a boundary is violated (LU-11)."""
         script = (
             Path(__file__).resolve().parents[2]
-            / "packages" / "factory" / "scripts" / "dependency-check"
+            / "packages"
+            / "factory"
+            / "scripts"
+            / "dependency-check"
         )
         source = tmp_path / "source"
         pkg_a = source / "alpha"
@@ -131,20 +157,21 @@ class TestDependencyBoundary:
 
         dsl = tmp_path / "test.dsl"
         dsl.write_text(
-            'workspace "test" {\n'
-            "  model {\n"
-            "    alpha must_not_depend_on beta\n"
-            "  }\n"
-            "}\n"
+            'workspace "test" {\n  model {\n    alpha must_not_depend_on beta\n  }\n}\n'
         )
 
         result = subprocess.run(
             [
-                "python3", str(script),
-                "--dsl-path", str(dsl),
-                "--source-root", str(source),
-                "--story-id", "violation-test",
-                "--report-dir", str(tmp_path / "reports"),
+                "python3",
+                str(script),
+                "--dsl-path",
+                str(dsl),
+                "--source-root",
+                str(source),
+                "--story-id",
+                "violation-test",
+                "--report-dir",
+                str(tmp_path / "reports"),
             ],
             capture_output=True,
             text=True,

@@ -9,7 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from usage.accounting import (
     CONSERVATION_RULES,
     build_session_roots,
@@ -20,10 +19,10 @@ from usage.accounting import (
 from usage.preflight import run_preflight
 from usage.registry import KNOWN_CLIS
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _preflight_conn(paths: list[Path]):
     """Run preflight and return the DuckDB connection."""
@@ -58,6 +57,7 @@ def _session_rows(conn) -> list[dict]:
 # Conservation rules registry
 # ---------------------------------------------------------------------------
 
+
 class TestConservationRules:
     """CONSERVATION_RULES maps every KNOWN_CLI to a strategy."""
 
@@ -80,6 +80,7 @@ class TestConservationRules:
 # ---------------------------------------------------------------------------
 # Latest snapshot selection
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.spec("LU-03")
 class TestLatestSnapshotSelection:
@@ -152,6 +153,7 @@ class TestLatestSnapshotSelection:
 # Claude-code conservation: root + direct children
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-03")
 class TestClaudeCodeConservation:
     """Root + direct children only."""
@@ -172,37 +174,70 @@ class TestClaudeCodeConservation:
         import json
 
         base = {
-            "project_id": "proj-test", "project_name": "test",
-            "agent": "a", "model": "m", "provider": "p",
-            "reported_input": 10, "reported_output": 5,
-            "reported_cache_read": 0, "reported_cache_write": 0,
-            "usage_granularity": "turn", "usage_capability": "full",
-            "cache_miss_turns": 0, "cache_miss_input_tokens": 0,
-            "late_early_input_ratio": 1.0, "exit_status": "success",
-            "branch": "main", "commit_id": "x",
+            "project_id": "proj-test",
+            "project_name": "test",
+            "agent": "a",
+            "model": "m",
+            "provider": "p",
+            "reported_input": 10,
+            "reported_output": 5,
+            "reported_cache_read": 0,
+            "reported_cache_write": 0,
+            "usage_granularity": "turn",
+            "usage_capability": "full",
+            "cache_miss_turns": 0,
+            "cache_miss_input_tokens": 0,
+            "late_early_input_ratio": 1.0,
+            "exit_status": "success",
+            "branch": "main",
+            "commit_id": "x",
             "transcript_ref": {"path": "/t.jsonl", "span": "0:100"},
         }
-        root = {**base, "record_id": "r1", "cli": "claude-code",
-                "session_id": "s-root", "parent_session_id": None,
-                "depth": 0, "recorded_at": "2026-01-15T10:00:00Z",
-                "normalized_input": 100, "normalized_output": 50,
-                "normalized_total": 150}
-        child = {**base, "record_id": "r2", "cli": "claude-code",
-                 "session_id": "s-child", "parent_session_id": "s-root",
-                 "depth": 1, "recorded_at": "2026-01-15T10:01:00Z",
-                 "normalized_input": 30, "normalized_output": 20,
-                 "normalized_total": 50}
-        grandchild = {**base, "record_id": "r3", "cli": "claude-code",
-                      "session_id": "s-grand", "parent_session_id": "s-child",
-                      "depth": 2, "recorded_at": "2026-01-15T10:02:00Z",
-                      "normalized_input": 10, "normalized_output": 5,
-                      "normalized_total": 15}
+        root = {
+            **base,
+            "record_id": "r1",
+            "cli": "claude-code",
+            "session_id": "s-root",
+            "parent_session_id": None,
+            "depth": 0,
+            "recorded_at": "2026-01-15T10:00:00Z",
+            "normalized_input": 100,
+            "normalized_output": 50,
+            "normalized_total": 150,
+        }
+        child = {
+            **base,
+            "record_id": "r2",
+            "cli": "claude-code",
+            "session_id": "s-child",
+            "parent_session_id": "s-root",
+            "depth": 1,
+            "recorded_at": "2026-01-15T10:01:00Z",
+            "normalized_input": 30,
+            "normalized_output": 20,
+            "normalized_total": 50,
+        }
+        grandchild = {
+            **base,
+            "record_id": "r3",
+            "cli": "claude-code",
+            "session_id": "s-grand",
+            "parent_session_id": "s-child",
+            "depth": 2,
+            "recorded_at": "2026-01-15T10:02:00Z",
+            "normalized_input": 10,
+            "normalized_output": 5,
+            "normalized_total": 15,
+        }
 
         f = tmp_path / "cc_grand.jsonl"
         f.write_text(
-            json.dumps(root) + "\n"
-            + json.dumps(child) + "\n"
-            + json.dumps(grandchild) + "\n"
+            json.dumps(root)
+            + "\n"
+            + json.dumps(child)
+            + "\n"
+            + json.dumps(grandchild)
+            + "\n"
         )
 
         conn = _preflight_conn([f])
@@ -217,6 +252,7 @@ class TestClaudeCodeConservation:
 # ---------------------------------------------------------------------------
 # Pi conservation: root + ALL descendants
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.spec("LU-03")
 class TestPiConservation:
@@ -238,6 +274,7 @@ class TestPiConservation:
 # Codex conservation: inclusive root only
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-03")
 class TestCodexConservation:
     """Inclusive root only."""
@@ -258,6 +295,7 @@ class TestCodexConservation:
 # Copilot conservation: same as codex
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.spec("LU-03")
 class TestCopilotConservation:
     """Same as codex — inclusive root only."""
@@ -277,6 +315,7 @@ class TestCopilotConservation:
 # ---------------------------------------------------------------------------
 # Unknown CLI detection
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.spec("LU-03")
 class TestUnknownCli:

@@ -1,10 +1,10 @@
 ---
 scope: global
 schema_version: 2
-status: accepted
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-23
 supersedes:
 
 impact:

@@ -6,6 +6,8 @@ category: quality
 
 # Security Review
 
+Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+
 Review code changes for security vulnerabilities against the OWASP Top 10.
 Read `rulebooks/principles/owasp-top-10.md` before proceeding. Skip only
 if you can state all ten categories without reading.

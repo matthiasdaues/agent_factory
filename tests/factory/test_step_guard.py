@@ -150,7 +150,8 @@ class TestMainRoundTrip:
         manifest.write_text("inputs:\n  - docs/*.md\noutputs:\n  - src/*.py\n")
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(
-            "sys.stdin", io.StringIO(json.dumps({"path": ".agent-factory/factory/scripts/lint"}))
+            "sys.stdin",
+            io.StringIO(json.dumps({"path": ".agent-factory/factory/scripts/lint"})),
         )
         rc = sg.main(["--guard-type", "read"])
         assert rc == 0
@@ -200,9 +201,7 @@ class TestMainRoundTrip:
         import json
 
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(
-            "sys.stdin", io.StringIO(json.dumps({"path": ""}))
-        )
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"path": ""})))
         rc = sg.main(["--guard-type", "write"])
         assert rc == 0
 
@@ -214,9 +213,7 @@ class TestMainRoundTrip:
         manifest.parent.mkdir(parents=True)
         manifest.write_text("inputs:\n  - docs/*.md\noutputs:\n  - src/*.py\n")
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(
-            "sys.stdin", io.StringIO(json.dumps({"path": ""}))
-        )
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"path": ""})))
         rc = sg.main(["--guard-type", "write"])
         assert rc == 2
 
@@ -238,7 +235,9 @@ class TestMainRoundTrip:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(
             "sys.stdin",
-            io.StringIO(json.dumps({"command": "cat .agent-factory/factory/scripts/lint"})),
+            io.StringIO(
+                json.dumps({"command": "cat .agent-factory/factory/scripts/lint"})
+            ),
         )
         rc = sg.main(["--guard-type", "bash"])
         assert rc == 0

@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import time
-from pathlib import Path
 
-import pytest
 import yaml
-
 from engine.fence import (
     DeclarationResult,
     FenceResult,
@@ -37,7 +33,9 @@ class TestSnapshotOutputs:
         f = d / "a.md"
         f.write_text("hello")
 
-        agent = _agent([{"path_pattern": "docs/*.md", "validator": None, "required": True}])
+        agent = _agent(
+            [{"path_pattern": "docs/*.md", "validator": None, "required": True}]
+        )
         snap = snapshot_outputs(agent)
 
         assert "docs/*.md" in snap
@@ -58,9 +56,11 @@ class TestRunFence:
     def test_required_output_created_passes(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        agent = _agent([
-            {"path_pattern": "out/*.md", "validator": None, "required": True},
-        ])
+        agent = _agent(
+            [
+                {"path_pattern": "out/*.md", "validator": None, "required": True},
+            ]
+        )
         pre = snapshot_outputs(agent)
 
         d = tmp_path / "out"
@@ -76,9 +76,11 @@ class TestRunFence:
     def test_required_output_missing_fails(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        agent = _agent([
-            {"path_pattern": "out/*.md", "validator": None, "required": True},
-        ])
+        agent = _agent(
+            [
+                {"path_pattern": "out/*.md", "validator": None, "required": True},
+            ]
+        )
         pre = snapshot_outputs(agent)
 
         result = run_fence(agent, pre, "s1", "i1")
@@ -143,10 +145,13 @@ class TestRunFence:
     def test_minimum_changed_met_passes(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        agent = _agent([
-            {"path_pattern": "a/*.md", "validator": None, "required": False},
-            {"path_pattern": "b/*.md", "validator": None, "required": False},
-        ], minimum_changed=2)
+        agent = _agent(
+            [
+                {"path_pattern": "a/*.md", "validator": None, "required": False},
+                {"path_pattern": "b/*.md", "validator": None, "required": False},
+            ],
+            minimum_changed=2,
+        )
         (tmp_path / "a").mkdir()
         (tmp_path / "b").mkdir()
         pre = snapshot_outputs(agent)
@@ -169,9 +174,15 @@ class TestRunFence:
 
         d = tmp_path / "out"
         d.mkdir()
-        agent = _agent([
-            {"path_pattern": "out/*.md", "validator": "fail-check", "required": True},
-        ])
+        agent = _agent(
+            [
+                {
+                    "path_pattern": "out/*.md",
+                    "validator": "fail-check",
+                    "required": True,
+                },
+            ]
+        )
         pre = snapshot_outputs(agent)
 
         (d / "x.md").write_text("new")
@@ -186,9 +197,15 @@ class TestRunFence:
 
         d = tmp_path / "out"
         d.mkdir()
-        agent = _agent([
-            {"path_pattern": "out/*.md", "validator": "nonexistent-validator", "required": True},
-        ])
+        agent = _agent(
+            [
+                {
+                    "path_pattern": "out/*.md",
+                    "validator": "nonexistent-validator",
+                    "required": True,
+                },
+            ]
+        )
         pre = snapshot_outputs(agent)
 
         (d / "x.md").write_text("new")
@@ -211,10 +228,13 @@ class TestRunFence:
     def test_all_optional_none_changed_passes(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        agent = _agent([
-            {"path_pattern": "a/*.md", "validator": None, "required": False},
-            {"path_pattern": "b/*.md", "validator": None, "required": False},
-        ], minimum_changed=0)
+        agent = _agent(
+            [
+                {"path_pattern": "a/*.md", "validator": None, "required": False},
+                {"path_pattern": "b/*.md", "validator": None, "required": False},
+            ],
+            minimum_changed=0,
+        )
         pre = snapshot_outputs(agent)
 
         result = run_fence(agent, pre, "s1", "i1")
@@ -229,9 +249,11 @@ class TestRunFence:
         f = d / "existing.md"
         f.write_text("original")
 
-        agent = _agent([
-            {"path_pattern": "out/*.md", "validator": None, "required": True},
-        ])
+        agent = _agent(
+            [
+                {"path_pattern": "out/*.md", "validator": None, "required": True},
+            ]
+        )
         pre = snapshot_outputs(agent)
 
         time.sleep(0.05)

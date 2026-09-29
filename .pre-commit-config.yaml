@@ -110,19 +110,6 @@ repos:
         files: ^(\.agent-factory/factory/agents/.*\.md|\.agent-factory/factory/skills/.*/SKILL\.md|\.agent-factory/factory/playbooks/.*\.md)$
         stages: [pre-commit, pre-merge-commit]
 
-      # Enforce playbook phase ordering. A playbook moves through
-      # phases in a fixed sequence (requirements → architecture →
-      # planning → implementation → QA). This blocks commits that
-      # skip or reorder phases. Inspects all staged files, so it
-      # always runs — no-op when no phase marker is staged.
-      - id: agent_factory_hook-transition-lint
-        name: "agent_factory: transition-lint (playbook phase-ordering gate)"
-        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/transition-lint' --
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [manual]
-
   # ── Development hooks (this repo only) ─────────────────────────
   - repo: local
     hooks:
@@ -194,14 +181,6 @@ repos:
         pass_filenames: false
         files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md)$
         stages: [pre-commit, pre-merge-commit]
-
-      - id: transition-lint
-        name: transition-lint (playbook phase-ordering gate)
-        entry: .agent-factory/factory/scripts/transition-lint
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [manual]
 
       # Validate YAML syntax and style (trailing spaces, indentation,
       # duplicate keys). Uses the project .yamllint.yaml config.

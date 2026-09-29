@@ -1,15 +1,15 @@
 ---
 name: handoff
-description: Create and validate a dense phase-boundary restart contract before ending the outgoing session.
+description: Create and validate a dense session-boundary restart contract before ending the outgoing session.
 category: utility
 ---
 
 # Handoff
 
-Create one CLI-neutral phase handoff when the next action crosses a Factory
-phase boundary. Work that remains in the same phase is exempt. This skill ends
-the outgoing phase; it never performs in-place transcript compaction and never
-starts the incoming phase.
+Create one CLI-neutral handoff when work moves to a different agent. Work that
+continues within the same agent's session is exempt. This skill ends the
+outgoing session; it never performs in-place transcript compaction and never
+starts the incoming agent's work.
 
 Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 Read [handoff-format.md](../../rulebooks/conventions/handoff-format.md) before
@@ -17,9 +17,9 @@ writing the handoff.
 
 ## 1. Confirm the boundary
 
-Identify the outgoing and incoming phases. If the next work stays within the
-same phase, stop this skill and continue the current session. Otherwise, the
-handoff, independent semantic review, hard stop, and fresh-session restart are
+Identify the outgoing and incoming agents. If the next work stays within the
+same agent's session, stop this skill and continue. Otherwise, the handoff,
+independent semantic review, hard stop, and fresh-session restart are
 mandatory.
 
 ## 2. Gather durable evidence
@@ -37,7 +37,7 @@ Write the exact required headings and fields from `handoff-format.md`. Use dense
 unambiguous prose: compression removes wording, never decisions, open items,
 artifact paths, branch/upstream state, gate or verification evidence, the next
 action, or any exact 40-character SHA. Do not replay the transcript or copy
-historical narration that does not constrain the incoming phase.
+historical narration that does not constrain the incoming agent.
 
 The next action tells a fresh session to read the handoff first, verify Git
 state, then read only the named artifacts in bounded chunks.
@@ -67,6 +67,6 @@ both `handoff-lint` and semantic review.
 ## 6. Stop at the boundary
 
 After structural lint and semantic review pass, report the handoff path and
-stop the outgoing session. Do not enter the next phase. The incoming participant
+stop the outgoing session. Do not start the incoming agent's work. The incoming participant
 must use a fresh session and begin from the handoff and canonical artifacts,
 not from the prior transcript.

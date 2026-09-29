@@ -31,7 +31,6 @@ def export_parquet(
     Raises ImportError when PyArrow is not installed.
     """
     try:
-        import pyarrow as pa
         import pyarrow.parquet as pq
     except ImportError:
         raise ImportError(

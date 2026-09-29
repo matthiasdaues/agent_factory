@@ -6,9 +6,11 @@ Adding a new CLI requires one line here and a conservation rule — no
 schema change.
 """
 
-KNOWN_CLIS: frozenset[str] = frozenset({
-    "claude-code",
-    "pi",
-    "codex",
-    "copilot",
-})
+KNOWN_CLIS: frozenset[str] = frozenset(
+    {
+        "claude-code",
+        "pi",
+        "codex",
+        "copilot",
+    }
+)

@@ -7,11 +7,9 @@ so coverage.py can instrument them (unlike subprocess-based tests).
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
-
 from usage import contract_check
 from usage.contract_check import (
     EXIT_OK,
@@ -21,7 +19,6 @@ from usage.contract_check import (
     _check_minimum,
     _check_nested,
     _check_normalized_invariant,
-    _check_properties,
     _check_required,
     _check_single_type,
     _check_type,
@@ -29,13 +26,12 @@ from usage.contract_check import (
     _collect_input_files,
     _collect_jsonl_files,
     _is_non_bool_int,
+    _load_and_check_schema,
     _matches_type,
+    _run_validation,
     _validate_file,
     _validate_record,
-    _run_validation,
-    _load_and_check_schema,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -98,6 +94,7 @@ def _valid_record() -> dict:
 # _check_single_type
 # ---------------------------------------------------------------------------
 
+
 class TestCheckSingleType:
     def test_string(self):
         assert _check_single_type("hello", "string") is True
@@ -143,6 +140,7 @@ class TestCheckSingleType:
 # _matches_type
 # ---------------------------------------------------------------------------
 
+
 class TestMatchesType:
     def test_single_type_string(self):
         assert _matches_type("hi", "string") is True
@@ -164,6 +162,7 @@ class TestMatchesType:
 # _is_non_bool_int
 # ---------------------------------------------------------------------------
 
+
 class TestIsNonBoolInt:
     def test_regular_int(self):
         assert _is_non_bool_int(42) is True
@@ -182,6 +181,7 @@ class TestIsNonBoolInt:
 # _check_required
 # ---------------------------------------------------------------------------
 
+
 class TestCheckRequired:
     def test_all_present(self):
         record = {"name": "x", "value": 1}
@@ -197,6 +197,7 @@ class TestCheckRequired:
 # ---------------------------------------------------------------------------
 # _check_additional
 # ---------------------------------------------------------------------------
+
 
 class TestCheckAdditional:
     def test_no_extra(self):
@@ -219,6 +220,7 @@ class TestCheckAdditional:
 # _check_type
 # ---------------------------------------------------------------------------
 
+
 class TestCheckType:
     def test_matching_type(self):
         assert _check_type("name", "x", {"type": "string"}, "f", 1) is None
@@ -240,6 +242,7 @@ class TestCheckType:
 # ---------------------------------------------------------------------------
 # _check_minimum
 # ---------------------------------------------------------------------------
+
 
 class TestCheckMinimum:
     def test_above_minimum(self):
@@ -267,6 +270,7 @@ class TestCheckMinimum:
 # _check_nested
 # ---------------------------------------------------------------------------
 
+
 class TestCheckNested:
     def test_non_dict_skipped(self):
         assert _check_nested("f", "x", {"properties": {}}, "f", 1) == []
@@ -290,13 +294,22 @@ class TestCheckNested:
 # _check_normalized_invariant
 # ---------------------------------------------------------------------------
 
+
 class TestCheckNormalizedInvariant:
     def test_correct_sum(self):
-        record = {"normalized_input": 100, "normalized_output": 50, "normalized_total": 150}
+        record = {
+            "normalized_input": 100,
+            "normalized_output": 50,
+            "normalized_total": 150,
+        }
         assert _check_normalized_invariant(record, "f", 1) == []
 
     def test_incorrect_sum(self):
-        record = {"normalized_input": 100, "normalized_output": 50, "normalized_total": 200}
+        record = {
+            "normalized_input": 100,
+            "normalized_output": 50,
+            "normalized_total": 200,
+        }
         diags = _check_normalized_invariant(record, "f", 1)
         assert len(diags) == 1
         assert diags[0][3] == "INVARIANT_NORMALIZED_TOTAL"
@@ -305,13 +318,18 @@ class TestCheckNormalizedInvariant:
         assert _check_normalized_invariant({}, "f", 1) == []
 
     def test_null_fields(self):
-        record = {"normalized_input": None, "normalized_output": 50, "normalized_total": 50}
+        record = {
+            "normalized_input": None,
+            "normalized_output": 50,
+            "normalized_total": 50,
+        }
         assert _check_normalized_invariant(record, "f", 1) == []
 
 
 # ---------------------------------------------------------------------------
 # _validate_record
 # ---------------------------------------------------------------------------
+
 
 class TestValidateRecord:
     def test_valid_record(self, usage_schema):
@@ -366,6 +384,7 @@ class TestValidateRecord:
 # _check_unsupported_keywords
 # ---------------------------------------------------------------------------
 
+
 class TestCheckUnsupportedKeywords:
     def test_clean_schema(self, usage_schema):
         assert _check_unsupported_keywords(usage_schema) == []
@@ -388,6 +407,7 @@ class TestCheckUnsupportedKeywords:
 # ---------------------------------------------------------------------------
 # _validate_file
 # ---------------------------------------------------------------------------
+
 
 class TestValidateFile:
     def test_valid_file(self, tmp_path, usage_schema):
@@ -432,6 +452,7 @@ class TestValidateFile:
 # _collect_jsonl_files
 # ---------------------------------------------------------------------------
 
+
 class TestCollectJsonlFiles:
     def test_finds_jsonl(self, tmp_path):
         (tmp_path / "a.jsonl").write_text("{}\n")
@@ -456,6 +477,7 @@ class TestCollectJsonlFiles:
 # _collect_input_files
 # ---------------------------------------------------------------------------
 
+
 class TestCollectInputFiles:
     def test_file_arg(self, tmp_path):
         f = tmp_path / "test.jsonl"
@@ -471,23 +493,24 @@ class TestCollectInputFiles:
         assert len(files) == 1
 
     def test_empty_dir(self, tmp_path):
-        files, err = _collect_input_files([str(tmp_path)])
+        _files, err = _collect_input_files([str(tmp_path)])
         assert err is not None
         assert "no *.jsonl" in err
 
     def test_nonexistent_path(self):
-        files, err = _collect_input_files(["/no/such/path"])
+        _files, err = _collect_input_files(["/no/such/path"])
         assert err is not None
         assert "not found" in err
 
     def test_empty_args(self, tmp_path):
-        files, err = _collect_input_files([])
+        _files, err = _collect_input_files([])
         assert err is not None
 
 
 # ---------------------------------------------------------------------------
 # _load_contract / _load_and_check_schema
 # ---------------------------------------------------------------------------
+
 
 class TestLoadContract:
     def test_loads_real_contract(self):
@@ -542,6 +565,7 @@ class TestLoadAndCheckSchema:
 # _run_validation
 # ---------------------------------------------------------------------------
 
+
 class TestRunValidation:
     def test_valid_files(self, tmp_path, usage_schema):
         f = tmp_path / "ok.jsonl"
@@ -558,13 +582,17 @@ class TestRunValidation:
 # main()
 # ---------------------------------------------------------------------------
 
+
 class TestMain:
     def test_no_args(self):
         assert contract_check.main([]) == EXIT_OPERATIONAL
 
     def test_valid_fixture(self):
         fixture = str(
-            Path(__file__).resolve().parent.parent / "fixtures" / "snapshot" / "alpha.jsonl"
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "snapshot"
+            / "alpha.jsonl"
         )
         assert contract_check.main([fixture]) == EXIT_OK
 

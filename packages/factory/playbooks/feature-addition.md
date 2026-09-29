@@ -195,7 +195,7 @@ Operational procedure for **adding features to existing system**.
 
 The three anchor files (`architecture.dsl`, `scope-map.md`, `docs/CONTEXT.md`)
 are the minimum baseline. Full specification artifacts (PRD, use cases,
-supplementary specs) add detail to the requirements and architecture phases when present but are not required. If
+supplementary specs) add detail to the requirements and architecture activities when present but are not required. If
 any anchor file is missing, suggest running `brownfield-onboarding` to
 establish the baseline.
 
@@ -207,48 +207,24 @@ requirements-agent adds a Rule to `scope-map.md` with status "specified," the
 architecture-agent updates `architecture.dsl` when the structural shape changes,
 and the grilling and domain-modeling skills add new terms to `docs/CONTEXT.md`.
 
-## Phase Boundary Contract
+## Session Boundaries
 
-Every transition in the table below is a Factory workflow phase boundary. The
-outgoing participant must invoke `handoff`, obtain a clean `handoff-lint`
-result and independent semantic review, then make a hard stop before doing any
-work from the next row. The incoming participant starts a fresh session and
-must read the handoff first, verify its Git state, and read referenced artifacts
-through an initial bounded chunk, expanding further only on demand. Do not
-replay a prior transcript.
+When work moves from one agent to another, the outgoing session writes a
+handoff per [handoff-format.md](../rulebooks/conventions/handoff-format.md),
+obtains a clean `handoff-lint` result and independent semantic review, then
+makes a hard stop. The incoming agent starts a fresh session, reads the handoff
+first, verifies its Git state, and reads referenced artifacts in bounded,
+on-demand chunks. Do not replay a prior transcript.
 
 Before any child returns, it persists its complete reports and findings in
 canonical tracked artifacts. Its parent receives only disposition, severity
 counts, every artifact path, and a one-to-three-sentence next action; finding
-detail and full reasoning remain in the artifacts. No in-place transcript
-compaction, prose-only cache-restabilisation ritual, or live cache control is
-introduced.
+detail and full reasoning remain in the artifacts.
 
-| Transition                                     | Route                                                 |
-| ---------------------------------------------- | ----------------------------------------------------- |
-| proposal intake → requirements-agent           | Declared impact requires specification work           |
-| proposal intake → architecture-agent           | Specification is skipped; architecture change is true |
-| proposal intake → planning-agent               | Specification and architecture are both skipped       |
-| requirements-agent → spec-review-agent         | Specification update completes                        |
-| spec-review-agent → requirements-agent         | Open specification findings require remedies          |
-| spec-review-agent → architecture-agent         | Review is clean; architecture change is true          |
-| spec-review-agent → planning-agent             | Review is clean; architecture change is false         |
-| architecture-agent → architecture-review-agent | Architecture update completes                         |
-| architecture-review-agent → architecture-agent | Open architecture findings require remedies           |
-| architecture-review-agent → planning-agent     | Architecture review is clean                          |
-| planning-agent → implementation-agent          | Backlog is approved                                   |
-| implementation-agent → code-review-agent       | Implementation wave completes                         |
-| code-review-agent → implementation-agent       | Code review finds defects                             |
-| code-review-agent → reconciliation-agent       | Code review is clean                                  |
-| reconciliation-agent → implementation-agent    | Reconciliation finds code defects                     |
-| reconciliation-agent → qa-agent                | Reconciliation is clean                               |
-| qa-agent → implementation-agent                | Quality review finds defects                          |
-| implementation-agent → qa-agent                | Quality remedies are ready for retest                 |
-
-Each listed route requires the reviewed handoff and restart even where agent
-frontmatter groups author and reviewer roles under one broader phase name.
-Work that remains inside one route's outgoing phase is exempt under
-[handoff-format.md](../rulebooks/conventions/handoff-format.md).
+A handoff is required whenever the next activity is performed by a different
+agent — for example, an author handing artifacts to a reviewer, or a reviewer
+returning findings to an author for remediation. Work that continues within the
+same agent's session needs no handoff.
 
 ## Proposal Intake
 
@@ -307,60 +283,47 @@ the work using Step 0.3.
 
 ### Step 0.3 — Route from Declared Impact
 
-Routing to Phase 1 (Requirements) and Phase 2 (Architecture) is based on the
-proposal's declared impact and refined by a mechanical verification of the
-architecture change declaration after Phase 1 completes.
+The accepted proposal's declared impact determines which activities are needed.
+Run `intent select` to see which agents have their preconditions satisfied.
 
-**Routing to Phase 1:**
+**Specification work** is needed when the accepted design changes behavior, use
+cases, quality requirements, or an external contract. When it is not needed,
+skip directly to the mechanical architecture check (Step 1.4).
 
-Specification work is required when the accepted design changes behavior, use
-cases, quality requirements, or an external contract. Otherwise, specification
-is not required.
-
-- **If specification work is required:** Proceed to Phase 1.
-- **If specification work is not required:** Skip Phase 1 and proceed to Step
-  1.4 (Mechanical Architecture Check).
-
-**Routing to Phase 2 and Phase 3:**
-
-After Phase 1 completes (or is skipped), execute Step 1.4 to run the mechanical
-architecture check. This check examines the proposal's Phase 1 outputs and may
-update the proposal's `impact.architecture_change` field. Then:
-
-- `impact.architecture_change: true` (after possible mechanical update)
-  requires Phase 2.
-- `impact.architecture_change: false` skips Phase 2 and proceeds directly to
-  Phase 3.
+**Architecture work** is needed when `impact.architecture_change` is `true`
+(as declared in the proposal or updated by the mechanical check in Step 1.4).
+When it is not needed, the planning-agent's preconditions are already
+satisfied by the existing anchor files.
 
 **Planning constraint:** Do not infer a small/large shortcut independently of
 the accepted proposal. `impact`, `governance`, and Completion Criteria are the
-routing inputs.
+inputs to this decision.
 
 ## Approval Contract
 
-At the start of each phase, present one bounded approval covering its reversible,
-in-scope work. State:
+At the start of each activity, present one bounded approval covering its
+reversible, in-scope work. State:
 
 - outputs and acceptance invariants;
 - deterministic gates that must pass;
 - stop conditions: a changed requirement, unresolved design choice, destructive
   action, external side effect, failed gate, or scope expansion.
 
-After approval, execute the phase through its stated gates without requesting
+After approval, execute the activity through its stated gates without requesting
 confirmation for each routine reversible step. Existing decision points remain:
 stakeholders still approve requirements, architecture decisions, backlog scope,
 destructive cleanup, and any response to a stop condition. Batching must not be
 used to infer broader authority.
 
 **Token discipline — fresh agents for review-fix loops.** When a review finds
-defects and the loop returns to the authoring step, spawn a fresh agent for the
+defects and the work returns to the authoring agent, spawn a fresh agent for the
 fix pass rather than resuming the original. The original agent's context
 contains the full grilling transcript, every prior tool call, and every file
 read; resuming it replays all of that before the fix work begins. A fresh agent
 reads only the findings and the affected files, cutting the fix-cycle cost by
 50–70%.
 
-## Phase 1: Requirements (If Specification Changes Are Needed)
+## Requirements (If Specification Changes Are Needed)
 
 ### Step 1.1 — Update Specification
 
@@ -389,15 +352,16 @@ Check for open `SPEC-*` findings:
 grep -l "status: open" docs/findings/SPEC-*.md
 ```
 
-**If open** → Loop to Step 1.1
-**If clean** → Proceed to Step 1.4
+**If open** → Return to the requirements-agent to address findings, then
+re-run the spec-review-agent.
+**If clean** → Proceed to the mechanical architecture check (Step 1.4).
 
 ### Step 1.4 — Mechanical Architecture Check
 
-*Execute this step after Phase 1 is complete (if it ran), or immediately if
-Phase 1 was skipped.*
+*Execute this step after specification work completes (if it ran), or
+immediately if specification work was not needed.*
 
-Run the mechanical module-graph check to verify whether the feature's Phase 1
+Run the mechanical module-graph check to verify whether the specification
 outputs declare architectural changes:
 
 ```bash
@@ -407,7 +371,7 @@ outputs declare architectural changes:
 **What the check does:**
 
 1. Reads the current module structure from `docs/arc42/architecture.dsl`
-2. Analyzes the feature's Phase 1 outputs (`docs/spec/supplementary_specs/interface-contracts.md`,
+2. Analyzes the specification outputs (`docs/spec/supplementary_specs/interface-contracts.md`,
    `docs/spec/supplementary_specs/entity-model.md`) to identify new or changed
    interfaces and entities
 3. Determines whether the feature changes module boundaries, dependency
@@ -421,30 +385,33 @@ outputs declare architectural changes:
   Update the field to `true`, annotated `# mechanical detection`.
 - **Field is `true`, check detects no change (`false`):** Human declaration
   stands conservatively. Log the check result, but leave the field as `true`.
-  A later manual review may update it to `false` if Phase 2 produces no changes.
+  A later manual review may update it to `false` if architecture work produces
+  no changes.
 - **Human override:** After seeing the check result, record any override as a
   comment on the field
   (e.g., `architecture_change: false  # manual override — no boundary change despite new interface`).
 
 **Constraints and safety:**
 
-- The check uses Phase 1 outputs only; it does not depend on story files or
-  implementation artifacts.
-- After implementation (Phase 5), the `reconciliation-agent` reconciles
+- The check uses specification outputs only; it does not depend on story files
+  or implementation artifacts.
+- After implementation, the `reconciliation-agent` reconciles
   `architecture.dsl` and arc42 documentation against the code-as-built, catching
-  any module-graph changes missed by this Phase 1 check.
+  any module-graph changes missed by this check.
 
 **Routing result:**
 
 Proceed based on the (possibly updated) `impact.architecture_change` value:
 
-- If `true`, go to Phase 2
-- If `false`, skip Phase 2 and go to Phase 3
+- If `true`, the architecture-agent's preconditions are satisfied — select it
+  via `intent select`.
+- If `false`, the planning-agent's preconditions are already satisfied by the
+  existing anchor files.
 
-## Phase 2: Architecture (If Architectural Changes Needed)
+## Architecture (If Architectural Changes Needed)
 
-Enter this phase when `impact.architecture_change` is `true` (as determined by
-Step 0.3 declaration and refined by Step 1.4's mechanical check). If
+Select the architecture-agent when `impact.architecture_change` is `true` (as
+determined by Step 0.3 and refined by Step 1.4's mechanical check). If
 implementation discovery contradicts that determination, the proposal has
 materially changed: return it to `open`, amend it, and repeat acceptance before
 continuing.
@@ -474,10 +441,11 @@ Check for open `ATAM-*` findings:
 grep -l "status: open" docs/findings/ATAM-*.md
 ```
 
-**If open** → Loop to Step 2.1
-**If clean** → Go to Phase 3
+**If open** → Return to the architecture-agent to address findings, then
+re-run the architecture-review-agent.
+**If clean** → The planning-agent's preconditions are satisfied.
 
-## Phase 3: Planning
+## Planning
 
 ### Step 3.1 — Create Stories
 
@@ -513,10 +481,10 @@ deferred scope, and applies the declared governance and risk domains.
 
 **Manual**: Stakeholder approval
 
-**If approved** → Go to Phase 4
-**If changes** → Return to Step 3.1
+**If approved** → The implementation-agent's preconditions are satisfied.
+**If changes** → Return to the planning-agent (Step 3.1).
 
-## Phase 4: Implementation
+## Implementation
 
 ### Step 4.1 — Implement Stories
 
@@ -543,8 +511,9 @@ Check for implementation defects:
 grep -l "status: open" docs/findings/IMPL-*.md
 ```
 
-**If defects** → Loop to Step 4.1
-**If clean** → Go to Step 4.4
+**If defects** → Return to the implementation-agent to address findings, then
+re-run the code-review-agent.
+**If clean** → The reconciliation-agent's preconditions are satisfied.
 
 ### Step 4.4 — Reconcile
 
@@ -562,10 +531,11 @@ Check for reconciliation defects:
 grep -l "status: open" docs/findings/RECON-*.md
 ```
 
-**If defects** → Loop to Step 4.1
-**If clean** → Go to Phase 5
+**If defects** → Return to the implementation-agent to address findings, then
+re-run the reconciliation-agent.
+**If clean** → The qa-agent's preconditions are satisfied.
 
-## Phase 5: Quality
+## Quality
 
 ### Step 5.1 — QA
 
@@ -583,7 +553,8 @@ Check for open defects:
 grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 ```
 
-**If defects** → Loop to Step 4.1
+**If defects** → Return to the implementation-agent to address findings, then
+re-run the qa-agent.
 **If clean** → DONE
 
 ## DONE

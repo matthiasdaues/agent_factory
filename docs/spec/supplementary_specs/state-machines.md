@@ -332,3 +332,261 @@ stateDiagram-v2
 - [activity-graph-orchestration.feature](../activity-graph-orchestration.feature)
 - [entity-model.md](entity-model.md)
 - [interface-contracts.md](interface-contracts.md)
+
+## OpenCode Plugin Health Lifecycle
+
+The lifecycle of the Factory plugin within an OpenCode session. The plugin must fail closed: an unhealthy state stops the Factory entry flow and names the recovery action.
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+### Pseudocode
+
+```text
+State: UNLOADED
+On PluginSetup[success]:
+  ChangeState(HEALTHY)
+On PluginSetup[failure]:
+  ChangeState(UNHEALTHY)
+
+State: HEALTHY
+On ManifestLoadFailure:
+  ChangeState(UNHEALTHY)
+On PermissionEvaluationFailure:
+  ChangeState(UNHEALTHY)
+On WorktreeCreationFailure:
+  ChangeState(UNHEALTHY)
+On SessionEnds:
+  ChangeState(UNLOADED)
+
+State: UNHEALTHY
+On FactoryEntryAttempt:
+  Reject — report failed control and recovery action
+  ChangeState(UNHEALTHY)
+On SessionEnds:
+  ChangeState(UNLOADED)
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> UNLOADED
+    UNLOADED --> HEALTHY : PluginSetup (success)
+    UNLOADED --> UNHEALTHY : PluginSetup (failure)
+    HEALTHY --> UNHEALTHY : ManifestLoadFailure
+    HEALTHY --> UNHEALTHY : PermissionEvaluationFailure
+    HEALTHY --> UNHEALTHY : WorktreeCreationFailure
+    HEALTHY --> UNLOADED : SessionEnds
+    UNHEALTHY --> UNHEALTHY : FactoryEntryAttempt (rejected)
+    UNHEALTHY --> UNLOADED : SessionEnds
+```
+
+### Notes
+
+- **UNLOADED** means the plugin is not active. This is the state before the OpenCode session loads the plugin and after the session ends.
+- **HEALTHY** means the plugin initialized and all controls are operational. Tool invocations, permission evaluations, and worktree operations proceed normally.
+- **UNHEALTHY** means one or more Factory controls failed. The plugin stops the Factory entry flow and names the failed control and the recovery action. The error message is specific: "Factory plugin: manifest loading failed — re-run init-factory" rather than a generic failure.
+- Usage capture failure does not transition to UNHEALTHY. Usage capture is best-effort; its failure is reported but does not block the session.
+- The plugin does not self-heal during a session. An UNHEALTHY plugin requires a new session after the underlying issue is resolved.
+
+## OpenCode Session Isolation Lifecycle
+
+The lifecycle of a write-denial lock on the primary checkout while isolated child work is active.
+
+Feature trace: [opencode-cli-integration.feature](../opencode-cli-integration.feature)
+
+### Pseudocode
+
+```text
+State: UNLOCKED
+On ChildSessionDispatched:
+  ChangeState(LOCKED)
+
+State: LOCKED
+On WriteAttemptToPrimaryCheckout:
+  Reject — session-scoped write denial
+  ChangeState(LOCKED)
+On AllChildSessionsComplete:
+  ChangeState(UNLOCKED)
+
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> UNLOCKED
+    UNLOCKED --> LOCKED : ChildSessionDispatched
+    LOCKED --> LOCKED : WriteAttemptToPrimaryCheckout (rejected)
+    LOCKED --> UNLOCKED : AllChildSessionsComplete
+```
+
+### Notes
+
+- **UNLOCKED** means the primary checkout accepts writes normally. No isolated child work is active.
+- **LOCKED** means one or more child sessions are running in isolated worktrees. Writes to the primary checkout are denied through a session-scoped write denial enforced by the plugin's permission hook.
+- The lock is session-scoped. It does not persist across sessions.
+- The lock applies to the primary checkout only. Each child session writes to its own worktree without restriction (within its step-manifest boundary).
+
+## Value-First Installation Lifecycle
+
+### Pseudocode
+
+```text
+State: START
+On BeginPreflight:
+  if source and target are valid and host is supported
+    ChangeState(PREFLIGHTED)
+  else
+    ChangeState(STOPPED_UNCHANGED)
+
+State: PREFLIGHTED
+On ClassifyReadiness:
+  if result is Blocked
+    ChangeState(STOPPED_UNCHANGED)
+  else if a supported fix exists for a failed check
+    ChangeState(FIX_OFFERED)
+  else
+    ChangeState(PREVIEWED)
+
+State: FIX_OFFERED
+On DecideFix:
+  if fix is confirmed
+    ChangeState(FIX_VERIFYING)
+  else
+    ChangeState(PREVIEWED)
+
+State: FIX_VERIFYING
+On VerifyFix:
+  if verification passes
+    ChangeState(PREFLIGHTED)
+  else
+    ChangeState(PREVIEWED)
+
+State: PREVIEWED
+On DecideInstallation:
+  if installation is approved and remote assets are verified
+    ChangeState(INSTALLING)
+  else
+    ChangeState(STOPPED_UNCHANGED)
+
+State: INSTALLING
+On VerifyInstallation:
+  if verification passes
+    ChangeState(INSTALLED)
+  else
+    ChangeState(STOPPED_VALID)
+
+State: INSTALLED
+  # terminal — no outbound transitions
+
+State: STOPPED_UNCHANGED
+  # terminal — no outbound transitions
+
+State: STOPPED_VALID
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> START
+    START --> PREFLIGHTED : BeginPreflight (valid source, safe target, supported host)
+    START --> STOPPED_UNCHANGED : BeginPreflight (invalid or unsupported)
+    PREFLIGHTED --> FIX_OFFERED : ClassifyReadiness (supported fix exists for a failed check)
+    PREFLIGHTED --> PREVIEWED : ClassifyReadiness (no supported fix exists)
+    PREFLIGHTED --> STOPPED_UNCHANGED : ClassifyReadiness (Blocked)
+    FIX_OFFERED --> FIX_VERIFYING : DecideFix (confirmed)
+    FIX_OFFERED --> PREVIEWED : DecideFix (declined, cancelled, or blank)
+    FIX_VERIFYING --> PREFLIGHTED : VerifyFix (passes, offers the next supported fix if any)
+    FIX_VERIFYING --> PREVIEWED : VerifyFix (fails)
+    PREVIEWED --> INSTALLING : DecideInstallation (approved and verified)
+    PREVIEWED --> STOPPED_UNCHANGED : DecideInstallation (declined, cancelled, blank, or unverified)
+    INSTALLING --> INSTALLED : VerifyInstallation (passes)
+    INSTALLING --> STOPPED_VALID : VerifyInstallation (fails)
+    INSTALLED --> [*]
+    STOPPED_UNCHANGED --> [*]
+    STOPPED_VALID --> [*]
+```
+
+`STOPPED_UNCHANGED` means the target received no installation change.
+`STOPPED_VALID` means an approved installation began and then failed
+verification; some effects may exist. A declined, blank, cancelled, or
+unverified prerequisite fix reports completed fixes and their reversal
+commands but does not stop the bootstrap: `Blocked` is the only readiness
+that prevents installation, so once readiness is classified, an unresolved
+optional fix still leads to `PREVIEWED`.
+
+## First-Task Sandbox Lifecycle
+
+### Pseudocode
+
+```text
+State: ABSENT
+On DecideTask:
+  if task is approved and HEAD exists
+    Create detached worktree from HEAD
+    ChangeState(READY)
+  else if task is approved and HEAD does not exist
+    Create plain sandbox
+    ChangeState(READY)
+  else
+    ChangeState(CANCELLED)
+
+State: READY
+On RunPocSpike:
+  ChangeState(RUNNING)
+
+State: RUNNING
+On FinishTask:
+  Record result or failure evidence
+  ChangeState(COMPLETED)
+
+State: COMPLETED
+On ChooseOutcome:
+  if discard is selected
+    Remove sandbox and verify absence
+    ChangeState(REMOVED)
+  else if reference retention is confirmed
+    Copy selected artifacts to docs/spikes/
+    ChangeState(RETAINED_REFERENCE)
+  else if production work is approved
+    Leave sandbox outside production work
+    ChangeState(HANDED_OFF)
+
+State: CANCELLED
+  # terminal — no outbound transitions
+
+State: REMOVED
+  # terminal — no outbound transitions
+
+State: RETAINED_REFERENCE
+  # terminal — no outbound transitions
+
+State: HANDED_OFF
+  # terminal — no outbound transitions
+```
+
+### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> ABSENT
+    ABSENT --> READY : DecideTask (approved, HEAD exists) / Create detached worktree
+    ABSENT --> READY : DecideTask (approved, no HEAD) / Create plain sandbox
+    ABSENT --> CANCELLED : DecideTask (declined, cancelled, or blank)
+    READY --> RUNNING : RunPocSpike
+    RUNNING --> COMPLETED : FinishTask / Record result or failure evidence
+    COMPLETED --> REMOVED : ChooseOutcome (discard) / Remove sandbox and verify absence
+    COMPLETED --> RETAINED_REFERENCE : ChooseOutcome (retain) / Copy selected artifacts to docs/spikes/
+    COMPLETED --> HANDED_OFF : ChooseOutcome (production) / Leave sandbox outside production work
+    CANCELLED --> [*]
+    REMOVED --> [*]
+    RETAINED_REFERENCE --> [*]
+    HANDED_OFF --> [*]
+```
+
+The first-task lifecycle never creates a branch or commit. Retention copies
+reference artifacts after separate consent. Production work begins through a
+normal workstream and does not reuse the sandbox as production state.

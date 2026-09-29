@@ -1,0 +1,437 @@
+#!/usr/bin/env python3
+"""hook-subset — consumer hook subset generation and outcome-grouped
+presentation for fitting (ST-0290, Value-First Session epic).
+
+What: Reads `pre-commit-config.yaml` (the Factory hook set) and its
+      companion `hook-metadata.yaml`, then:
+        1. Groups hooks by protected outcome for presentation, marking
+           which ones need consent (auto-fix / material-cost) and which
+           are unavailable for the detected project (with a description,
+           never as an error or choice).
+        2. Builds the filtered, reordered consumer hook template — the
+           `- repo: local` block that `merge-precommit-config` splices
+           into a project's own `.pre-commit-config.yaml` — from a set of
+           user-approved hook ids.
+When: During fitting step 3 ("Decide on hooks"), after the gate
+      demonstration (ST-0289) and before hooks are spliced into the
+      target project's config.
+By:   the session agent (Virgil), which drives the actual consent
+      dialogue; this script owns only the deterministic filtering,
+      grouping, and template-building mechanics.
+
+Fixes BUG-0029: the source `pre-commit-config.yaml` unconditionally
+excludes `index-lint`, and rewrites `matrix-lint`'s stanza (dropping its
+`files:` trigger on the gitignored `.agent-factory/config/model.conf` path,
+which can never match a tracked file, in favour of `always_run: true`) and
+repositions it after every other included hook, so it acts as a final
+gate rather than a trigger that can never fire. `pre-commit-config.yaml`
+itself is read-only here (Boundaries: filter at subset-generation time,
+never remove hooks from the source file).
+
+Wraps, rather than rewrites, `merge-precommit-config` (Boundaries): this
+script produces the `--template` text; splicing it into a target project's
+`.pre-commit-config.yaml` is still `merge-precommit-config`'s job.
+
+Deliberately not a general YAML parser — `hook-metadata.yaml` is a
+purpose-built, flat `hooks: { <id>: { outcome, trade_off, availability,
+description } }` shape, read with a small regex-based reader (ADR-0006
+zero-dependency approach, matching `merge-precommit-config` and the other
+`*-lint` scripts).
+
+Usage
+  hook-subset present [--pre-commit PATH] [--metadata PATH] [--repo-root PATH]
+  hook-subset generate [--pre-commit PATH] [--metadata PATH] [--repo-root PATH]
+                        [--approve HOOK_ID ...]
+
+Exit codes
+  0: success
+  1: `pre-commit-config.yaml` or `hook-metadata.yaml` could not be parsed
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_PRE_COMMIT = SCRIPT_DIR.parent / "config" / "pre-commit-config.yaml"
+DEFAULT_METADATA = SCRIPT_DIR.parent / "config" / "hook-metadata.yaml"
+
+FACTORY_INTERNAL_PREFIX = ".agent-factory/factory/"
+
+# index-lint is excluded unconditionally (BUG-0029): consumers don't edit
+# the installed Factory index, so its trigger can never match a tracked
+# consumer file.
+UNCONDITIONALLY_EXCLUDED = {"agent_factory_hook-index-lint"}
+
+MATRIX_LINT_ID = "agent_factory_hook-matrix-lint"
+
+# --- pre-commit-config.yaml parsing -----------------------------------
+
+HOOK_ID_LINE = re.compile(r"^(\s*)- id:\s*(\S+)\s*$")
+NAME_LINE = re.compile(r"^\s*name:\s*(.+?)\s*$")
+FILES_LINE = re.compile(r"^(\s*)files:\s*(.+?)\s*$")
+REPO_ITEM_START = re.compile(r"^  - repo:\s*\S")
+TEMPLATE_BLOCK_START = re.compile(r"^  - repo: local\s*$")
+
+
+@dataclass
+class HookStanza:
+    id: str
+    lines: list[str]  # raw lines of this hook's stanza, verbatim
+    files: str | None  # the `files:` regex value, or None if absent
+
+
+def parse_hook_stanzas(pre_commit_text: str) -> list[HookStanza]:
+    """Split the template's `- repo: local` hooks block into one
+    HookStanza per `- id: ...` entry, preserving source order and raw
+    text. Comments and blank lines immediately preceding a hook id travel
+    with that hook's stanza."""
+    lines = pre_commit_text.splitlines()
+
+    block_start = None
+    for i, line in enumerate(lines):
+        if TEMPLATE_BLOCK_START.match(line):
+            block_start = i
+            break
+    if block_start is None:
+        return []
+
+    block_end = len(lines)
+    for i in range(block_start + 1, len(lines)):
+        if REPO_ITEM_START.match(lines[i]):
+            block_end = i
+            break
+
+    block = lines[block_start:block_end]
+
+    stanzas: list[HookStanza] = []
+    current_id: str | None = None
+    current_lines: list[str] = []
+    pending: list[str] = []  # comments/blanks not yet attached to a hook
+
+    def flush() -> None:
+        if current_id is not None:
+            files = None
+            for ln in current_lines:
+                m = FILES_LINE.match(ln)
+                if m:
+                    files = m.group(2)
+                    break
+            stanzas.append(HookStanza(id=current_id, lines=list(current_lines), files=files))
+
+    for line in block:
+        m = HOOK_ID_LINE.match(line)
+        if m:
+            flush()
+            current_id = m.group(2)
+            current_lines = pending + [line]
+            pending = []
+        elif current_id is None:
+            pending.append(line)
+        else:
+            current_lines.append(line)
+    flush()
+
+    return stanzas
+
+
+# --- hook-metadata.yaml parsing -----------------------------------
+
+HOOK_KEY_LINE = re.compile(r"^  (\S[^:]*):\s*$")
+FIELD_LINE = re.compile(r"^    (\w+):\s*(.*)$")
+
+
+@dataclass
+class HookMeta:
+    outcome: str
+    trade_off: str  # "auto-fix" | "material-cost" | "none"
+    availability: str  # "always" or "requires-path:<relative-path>"
+    description: str
+
+
+def load_hook_metadata(metadata_text: str) -> dict[str, HookMeta]:
+    """Read the flat `hooks: { <id>: { outcome, trade_off, availability,
+    description } }` shape hand-rolled for this file (see the file's own
+    header comment) — not a general YAML parser."""
+    metadata: dict[str, HookMeta] = {}
+    current_id: str | None = None
+    fields: dict[str, str] = {}
+
+    def flush() -> None:
+        if current_id is not None and fields:
+            metadata[current_id] = HookMeta(
+                outcome=fields.get("outcome", ""),
+                trade_off=fields.get("trade_off", "none"),
+                availability=fields.get("availability", "always"),
+                description=fields.get("description", ""),
+            )
+
+    for raw_line in metadata_text.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        m = HOOK_KEY_LINE.match(raw_line)
+        if m and m.group(1) != "hooks":
+            flush()
+            current_id = m.group(1).strip()
+            fields = {}
+            continue
+        m = FIELD_LINE.match(raw_line)
+        if m and current_id is not None:
+            fields[m.group(1)] = m.group(2).strip()
+    flush()
+
+    return metadata
+
+
+# --- availability -----------------------------------
+
+def is_available(meta: HookMeta, repo_root: Path) -> tuple[bool, str | None]:
+    """Return (available, reason). reason is set only when unavailable —
+    it is meta.description, shown to the newcomer instead of an error."""
+    if meta.availability == "always":
+        return True, None
+    if meta.availability.startswith("requires-path:"):
+        required = meta.availability.removeprefix("requires-path:")
+        if (repo_root / required).exists():
+            return True, None
+        return False, meta.description
+    # Unknown availability spec: fail safe by treating it as unavailable
+    # rather than silently including a hook whose condition we can't parse.
+    return False, meta.description
+
+
+# --- BUG-0029: hooks whose trigger can only ever match ignored paths ---
+
+def hook_matches_only_factory_internal(files_pattern: str | None, tracked_files: list[str]) -> bool:
+    """True if *files_pattern* is anchored under the gitignored
+    `.agent-factory/factory/` prefix and matches none of *tracked_files* —
+    proof that it can never fire against a real commit (BUG-0029), tested
+    against a representative `git ls-files` list rather than compared
+    statically against `.gitignore`."""
+    if not files_pattern or FACTORY_INTERNAL_PREFIX not in files_pattern:
+        return False
+    rx = re.compile(files_pattern)
+    return not any(rx.search(f) for f in tracked_files)
+
+
+def git_ls_files(repo_root: Path) -> list[str]:
+    try:
+        result = subprocess.run(
+            ["git", "ls-files"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return []
+    return [line for line in result.stdout.splitlines() if line]
+
+
+# --- matrix-lint: strip the broken trigger, run on every commit --------
+
+def rewrite_matrix_lint_stanza(lines: list[str]) -> list[str]:
+    """Replace matrix-lint's `files:` line (a trigger on the gitignored
+    `.agent-factory/config/model.conf` path that can never match a
+    tracked file) with `always_run: true`, so the hook actually runs
+    instead of being silently skipped forever (BUG-0029)."""
+    out: list[str] = []
+    for line in lines:
+        m = FILES_LINE.match(line)
+        if m:
+            indent = m.group(1)
+            out.append(f"{indent}always_run: true")
+        else:
+            out.append(line)
+    return out
+
+
+# --- decisions: presentation + consumer-subset membership --------------
+
+@dataclass
+class HookDecision:
+    id: str
+    outcome: str
+    trade_off: str
+    description: str
+    available: bool
+    unavailable_reason: str | None
+    excluded: bool  # excluded from the consumer set regardless of availability
+    exclude_reason: str | None
+    needs_consent: bool
+    included: bool  # available, not excluded — lands in the consumer set
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def build_decisions(
+    pre_commit_text: str,
+    metadata_text: str,
+    *,
+    repo_root: Path,
+    tracked_files: list[str] | None = None,
+) -> list[HookDecision]:
+    """Compute one HookDecision per hook in source order. Does not apply
+    approvals — `needs_consent` hooks are `included` here only if they
+    would be auto-included (trade_off: none); callers that need the final
+    approved consumer set call `apply_approvals`."""
+    stanzas = parse_hook_stanzas(pre_commit_text)
+    metadata = load_hook_metadata(metadata_text)
+    if tracked_files is None:
+        tracked_files = git_ls_files(repo_root)
+
+    decisions: list[HookDecision] = []
+    for stanza in stanzas:
+        meta = metadata.get(
+            stanza.id,
+            HookMeta(outcome="Uncategorized", trade_off="none", availability="always", description=""),
+        )
+        available, unavailable_reason = is_available(meta, repo_root)
+
+        exclude_reason = None
+        if stanza.id in UNCONDITIONALLY_EXCLUDED:
+            exclude_reason = "index-lint is source-repo only; consumers don't edit the installed Factory index"
+        elif hook_matches_only_factory_internal(stanza.files, tracked_files):
+            exclude_reason = "trigger matches only ignored Factory runtime paths (BUG-0029)"
+        excluded = exclude_reason is not None
+
+        needs_consent = meta.trade_off != "none"
+        included = available and not excluded and not needs_consent
+
+        decisions.append(
+            HookDecision(
+                id=stanza.id,
+                outcome=meta.outcome,
+                trade_off=meta.trade_off,
+                description=meta.description,
+                available=available,
+                unavailable_reason=unavailable_reason,
+                excluded=excluded,
+                exclude_reason=exclude_reason,
+                needs_consent=needs_consent,
+                included=included,
+            )
+        )
+
+    return decisions
+
+
+def group_by_outcome(decisions: list[HookDecision]) -> dict[str, list[HookDecision]]:
+    """Group decisions by outcome, preserving first-seen outcome order and
+    each outcome's hooks in source order."""
+    grouped: dict[str, list[HookDecision]] = {}
+    for d in decisions:
+        grouped.setdefault(d.outcome, []).append(d)
+    return grouped
+
+
+def apply_approvals(decisions: list[HookDecision], approved_ids: set[str]) -> list[str]:
+    """Return the ordered list of hook ids in the final consumer set:
+    every available, non-excluded hook with trade_off: none, plus any
+    available, non-excluded, needs_consent hook whose id is in
+    *approved_ids*. matrix-lint, if present, is moved to the end."""
+    included_ids = [
+        d.id
+        for d in decisions
+        if d.available and not d.excluded and (not d.needs_consent or d.id in approved_ids)
+    ]
+    if MATRIX_LINT_ID in included_ids:
+        included_ids.remove(MATRIX_LINT_ID)
+        included_ids.append(MATRIX_LINT_ID)
+    return included_ids
+
+
+# --- consumer template generation -----------------------------------
+
+def build_consumer_template(
+    pre_commit_text: str,
+    metadata_text: str,
+    *,
+    repo_root: Path,
+    approved_ids: set[str] | None = None,
+    tracked_files: list[str] | None = None,
+) -> str:
+    """Build the `- repo: local` template text `merge-precommit-config`
+    splices into a target project: only included hooks (per
+    `apply_approvals`), matrix-lint's stanza rewritten to `always_run:
+    true` and moved last."""
+    approved_ids = approved_ids or set()
+    stanzas = {s.id: s for s in parse_hook_stanzas(pre_commit_text)}
+    decisions = build_decisions(
+        pre_commit_text, metadata_text, repo_root=repo_root, tracked_files=tracked_files
+    )
+    ordered_ids = apply_approvals(decisions, approved_ids)
+
+    out_lines: list[str] = ["  - repo: local", "    hooks:"]
+    for hook_id in ordered_ids:
+        lines = stanzas[hook_id].lines
+        if hook_id == MATRIX_LINT_ID:
+            lines = rewrite_matrix_lint_stanza(lines)
+        out_lines.extend(lines)
+
+    return "\n".join(out_lines) + "\n"
+
+
+# --- CLI -----------------------------------
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def cmd_present(args: argparse.Namespace) -> int:
+    pre_commit_text = _read(args.pre_commit)
+    metadata_text = _read(args.metadata)
+    decisions = build_decisions(pre_commit_text, metadata_text, repo_root=args.repo_root)
+    grouped = group_by_outcome(decisions)
+    payload = {outcome: [d.to_dict() for d in hooks] for outcome, hooks in grouped.items()}
+    print(json.dumps(payload, indent=2))
+    return 0
+
+
+def cmd_generate(args: argparse.Namespace) -> int:
+    pre_commit_text = _read(args.pre_commit)
+    metadata_text = _read(args.metadata)
+    template = build_consumer_template(
+        pre_commit_text,
+        metadata_text,
+        repo_root=args.repo_root,
+        approved_ids=set(args.approve or []),
+    )
+    print(template, end="")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = ap.add_subparsers(dest="command", required=True)
+
+    common = dict(
+        pre_commit=lambda p: p.add_argument("--pre-commit", type=Path, default=DEFAULT_PRE_COMMIT),
+        metadata=lambda p: p.add_argument("--metadata", type=Path, default=DEFAULT_METADATA),
+        repo_root=lambda p: p.add_argument("--repo-root", type=Path, default=Path.cwd()),
+    )
+
+    present = sub.add_parser("present", help="print hooks grouped by outcome, as JSON")
+    for add in common.values():
+        add(present)
+    present.set_defaults(func=cmd_present)
+
+    generate = sub.add_parser("generate", help="print the filtered consumer template")
+    for add in common.values():
+        add(generate)
+    generate.add_argument("--approve", action="append", metavar="HOOK_ID")
+    generate.set_defaults(func=cmd_generate)
+
+    args = ap.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

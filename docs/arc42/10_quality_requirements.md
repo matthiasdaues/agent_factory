@@ -78,6 +78,90 @@ References: [architecture.dsl](architecture.dsl), [section 8](08_crosscutting_co
 
 References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
 
+### QS-7: Plugin fails closed on control failure
+
+| Field             | Description                                                                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety                                                                                                                                    |
+| Stimulus          | The OpenCode Factory plugin cannot load the step manifest, evaluate a permission, or create a worktree.                                   |
+| Environment       | An OpenCode session with the Factory plugin active.                                                                                       |
+| Response          | The plugin denies the operation. The error names the failed control and the recovery action.                                              |
+| Response measure  | No tool invocation executes after the failure. The Factory entry flow stops. Usage capture failure does not trigger fail-closed behavior. |
+
+References: [architecture.dsl OpenCode Plugin container](architecture.dsl), [section 8.14](08_crosscutting_concepts.md#814-opencode-plugin-as-enforcement-boundary)
+
+### QS-8: CLI integration preserves existing CLI files
+
+| Field             | Description                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Compatibility                                                                                                                 |
+| Stimulus          | A project with Claude Code and Pi installed adds OpenCode as a third CLI target.                                              |
+| Environment       | `init-factory` runs with `--add opencode`.                                                                                    |
+| Response          | OpenCode files are created under `.opencode/`. Claude Code files under `.claude/` and Pi files under `.pi/` remain unchanged. |
+| Response measure  | Zero modifications to files owned by other CLIs. One root `AGENTS.md` serves all CLIs.                                        |
+
+References: [opencode-cli-integration.feature Rule: Project maintainer runs OpenCode alongside other Factory CLIs](../spec/opencode-cli-integration.feature)
+
+### QS-9: Read-only preflight before installation
+
+| Field             | Description                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety                                                                                                                                                      |
+| Stimulus          | A newcomer runs the bootstrap script in a project directory.                                                                                                |
+| Environment       | The target directory may contain existing configuration, uncommitted work, or a prior Factory installation.                                                 |
+| Response          | The bootstrap checks host platform, required tools, Git state, network reachability, and target directory without writing, installing, or editing anything. |
+| Response measure  | Zero filesystem writes during preflight. The preflight result is a data structure available for inspection before any consent prompt appears.               |
+
+References: [architecture.dsl Distribution container](architecture.dsl), [section 5.8](05_building_block_view.md#58-level-2-component-view----distribution), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
+
+### QS-10: Consent-gated installation
+
+| Field             | Description                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Controllability                                                                                                                                              |
+| Stimulus          | The bootstrap reaches the installation step after a clean preflight.                                                                                         |
+| Environment       | The preflight result shows all checks passed. The newcomer sees an installation preview.                                                                     |
+| Response          | The preview lists source, version, target path, interfaces to install, paths to create, and the uninstall command. Installation waits for consent.           |
+| Response measure  | Blank input stops the sequence without installing. Declined consent leaves the target directory unchanged. Only an affirmative response starts installation. |
+
+References: [architecture.dsl Distribution container](architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
+
+### QS-11: Installation integrity verification
+
+| Field             | Description                                                                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety                                                                                                                                                            |
+| Stimulus          | The bootstrap downloads a Factory release archive from the Distribution Remote.                                                                                   |
+| Environment       | The release includes a SHA-256 checksum manifest alongside the archive.                                                                                           |
+| Response          | The bootstrap computes the digest of the downloaded archive and compares it against the manifest entry. A mismatch aborts installation with a diagnostic message. |
+| Response measure  | No archive with a failed digest check is extracted. The abort message names the expected and actual digests.                                                      |
+
+References: [architecture.dsl install-agent-factory relationships](architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release)
+
+### QS-12: First-session insight budget
+
+| Field             | Description                                                                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Usability                                                                                                                            |
+| Stimulus          | A newcomer completes installation and starts a first session.                                                                        |
+| Environment       | The Factory is installed and `init-factory` has run. The session agent (Virgil) starts.                                              |
+| Response          | The session presents a project insight (language, frameworks, test infrastructure, configuration) within the decision budget.        |
+| Response measure  | The newcomer sees a useful project insight within two minutes of session start and three user decisions after installation approval. |
+
+References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-delivers-project-insight), [value-first-onboarding-journey.feature Rule 7](../spec/value-first-onboarding-journey.feature)
+
+### QS-13: First-task result budget
+
+| Field             | Description                                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Usability                                                                                                                             |
+| Stimulus          | A newcomer completes the first session and approves the first task.                                                                   |
+| Environment       | The Factory is installed, the first session has delivered project insight, and the newcomer has approved the first-task preview.      |
+| Response          | The first task produces an inspectable result in an isolated sandbox. The newcomer can examine the result and choose its disposition. |
+| Response measure  | The newcomer holds an inspectable first-task result within ten minutes and five user decisions after installation approval.           |
+
+References: [section 6.10.4](06_runtime_view.md#6104-sequence-first-task-runs-in-an-isolated-sandbox), [value-first-onboarding-journey.feature Rule 8](../spec/value-first-onboarding-journey.feature)
+
 ## 10.2 Quality Attribute Priority
 
 | Priority | Quality attribute                  | Scenarios |
@@ -88,8 +172,15 @@ References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [sec
 | 1        | Resilience (observable resume)     | QS-5      |
 | 2        | Simplicity (immutable state)       | QS-4      |
 | 2        | Safety (deterministic validation)  | QS-6      |
+| 2        | Safety (fail-closed plugin)        | QS-7      |
+| 2        | Compatibility (CLI coexistence)    | QS-8      |
+| 1        | Safety (read-only preflight)       | QS-9      |
+| 1        | Controllability (consent gate)     | QS-10     |
+| 2        | Safety (integrity verification)    | QS-11     |
+| 2        | Usability (first-session insight)  | QS-12     |
+| 2        | Usability (first-task result)      | QS-13     |
 
 ## Referenced from
 
 - [09_architecture_decisions.md](09_architecture_decisions.md) — architecture decisions that underpin these scenarios
-- [08_crosscutting_concepts.md](08_crosscutting_concepts.md) — principles that underpin QS-3 and QS-6
+- [08_crosscutting_concepts.md](08_crosscutting_concepts.md) — principles that underpin QS-3, QS-6, QS-9, and QS-10

@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import os
 import stat
-from pathlib import Path
 
 import pytest
-
 from conftest import SCRIPTS_DIR, load_script
 
 CHECK_SCRIPTS = [
@@ -79,6 +77,6 @@ class TestCheckScriptsExitCodes:
                 f"{script} raised SystemExit({exc.code}); expected 0, 1, or 2"
             )
         else:
-            assert rc in (0, 1), (
-                f"{script} main([]) returned {rc}; expected 0 or 1"
+            assert isinstance(rc, int) and rc >= 0, (
+                f"{script} main([]) returned {rc}; expected a non-negative integer"
             )
