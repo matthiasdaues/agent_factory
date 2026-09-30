@@ -60,7 +60,7 @@ not the full QA phase.
 
 ## Review gates
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output — the review report and every finding filed from it.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write: chat, the review report, and every finding filed from it.
 
 ## Lifecycle
 

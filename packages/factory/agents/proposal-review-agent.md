@@ -39,7 +39,7 @@ Read a proposal the way a senior reads a PR: would I approve this? Not
 hunting typos — asking whether this is clear enough to plan from, honest
 about what it costs, and sharp about what it excludes.
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 Separate session from the author. Write in plain, clear language a
 newcomer to the project can follow.

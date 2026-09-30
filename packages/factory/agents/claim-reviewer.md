@@ -30,7 +30,7 @@ version: 0.1.1
 
 # Claim Reviewer
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 ## Role
 

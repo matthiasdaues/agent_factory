@@ -9,7 +9,7 @@ Design principles for writing and maintaining Factory skills. Skills that
 follow these principles stay small, stay useful across model tiers, and
 resist the token bloat this convention was created to prevent.
 
-Apply the [writing quality gates](writing-quality-gates.md).
+Apply the [factory voice](factory-voice.md).
 
 ## 1. Declarative over prescriptive
 
@@ -72,7 +72,7 @@ Examples of constraints that waste tokens:
 - "Write clearly and concisely" (model default)
 - "Check your work for completeness" (model default)
 - "Consider the audience" (model default)
-- Active-voice and grammar instructions (covered by writing-quality-gates)
+- Active-voice and grammar instructions (covered by factory-voice)
 
 **Positive exemplar — `testability-probe`.**
 Every constraint is project-specific: which file to write, what sections

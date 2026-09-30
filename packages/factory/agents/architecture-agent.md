@@ -58,7 +58,7 @@ version: 0.5.1
 
 **Principle: YAGNI.** Build the simplest solution that meets the quality goals declared in `docs/arc42/10_quality_requirements.md`. A requirement already in chapter 10 is in scope even if no story uses it yet. Only undeclared, hypothetical needs are out of scope.
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 ## Role
 

@@ -7,7 +7,6 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - Small is beautiful
 - Small steps are better than big ones
 - Quality is what satisfies a given use case
-- Use simple language
 - Keep it simple
 - Better done than perfect
 
@@ -26,12 +25,9 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 ## Foundational principles
 
-→ [foundational-principles.md](conventions/foundational-principles.md)
+→ [foundational-principles.md](conventions/foundational-principles.md), [factory-voice.md](conventions/factory-voice.md)
 
-- **MUST** pass all four [writing quality gates](conventions/writing-quality-gates.md) — Junior Clarity / Senior Acceptance, Agent-Answerability, International Readability, No Pretense — during composition of every persistent prose artifact. Apply the gates while writing each section, not as a post-hoc review.
-- **MUST** write short, precise prose following plain English by Strunk & White, or "Gutes Deutsch" by Wolf Schneider, depending on language.
-- **MUST** write for an international Team whose members have English as a common, but not as a native language.
-- **MUST** write so that a junior gets it and a senior who hates marketing, hyperbole, adverbs and adjectives respects it.
+- **MUST** write every text, chat included, in the [factory voice](conventions/factory-voice.md), and pass its release check while writing each sentence, not afterwards.
 - **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle).
 - **MUST** separate agentic creation from deterministic validation — agents create artifacts; mechanically triggered gates run scripts that validate against predefined, state-dependent criteria.
 - **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI).
@@ -222,6 +218,7 @@ Rules in this section apply to both modes unless marked **(automated only)**. In
 ## Referenced from
 
 - [foundational-principles.md](conventions/foundational-principles.md)
+- [factory-voice.md](conventions/factory-voice.md)
 - [agent-context-composition.md](conventions/agent-context-composition.md)
 - [branching-policy.md § Project-Specific Rules](conventions/branching-policy.md#project-specific-rules)
 - [dispatch-contract.md § Project-Specific Rules](conventions/dispatch-contract.md#project-specific-rules)

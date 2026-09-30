@@ -9,8 +9,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1220
-    total_tokens: 8150
+    tokens: 1221
+    total_tokens: 8191
     inputs:
       required:
         - type: feature
@@ -47,8 +47,8 @@ agents:
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 718
-    total_tokens: 5651
+    tokens: 719
+    total_tokens: 5646
     inputs:
       required:
         - type: feature
@@ -80,8 +80,8 @@ agents:
     tier: standard
     description: Attempts to refute a claim produced by the Researcher, checking whether it can be falsified, whether its sources hold up, and whether its tests were severe — then casts a vote on its disposition without ever editing the claim itself.
     path: agents/claim-reviewer.md
-    tokens: 614
-    total_tokens: 2192
+    tokens: 615
+    total_tokens: 2193
     inputs:
       context:
         - .agent-factory/factory/rulebooks/templates/research-conjecture.md
@@ -103,8 +103,8 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 456
-    total_tokens: 1164
+    tokens: 457
+    total_tokens: 1163
     inputs:
       context:
         - docs/CONTEXT.md
@@ -121,8 +121,8 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 934
-    total_tokens: 5146
+    tokens: 935
+    total_tokens: 5143
     inputs:
       required:
         - type: story
@@ -154,8 +154,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1984
-    total_tokens: 5027
+    tokens: 1985
+    total_tokens: 5024
     inputs:
       required:
         - type: feature
@@ -192,8 +192,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3863
-    total_tokens: 12078
+    tokens: 3864
+    total_tokens: 12077
     inputs:
       required:
         - type: story
@@ -234,8 +234,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1544
-    total_tokens: 13751
+    tokens: 1534
+    total_tokens: 14344
     inputs:
       required:
         - type: feature
@@ -256,8 +256,8 @@ agents:
     tier: strong
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
-    tokens: 1460
-    total_tokens: 3034
+    tokens: 1461
+    total_tokens: 3013
     inputs:
       required:
         - type: proposal
@@ -276,8 +276,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1266
-    total_tokens: 9592
+    tokens: 1267
+    total_tokens: 9585
     inputs:
       required:
         - type: feature
@@ -316,8 +316,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2195
-    total_tokens: 18400
+    tokens: 2196
+    total_tokens: 19088
     inputs:
       required:
         - type: scope-map
@@ -372,8 +372,8 @@ agents:
     tier: strong
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1509
-    total_tokens: 18145
+    tokens: 1510
+    total_tokens: 18827
     inputs:
       required:
         - type: proposal
@@ -419,8 +419,8 @@ agents:
     tier: standard
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
-    tokens: 1252
-    total_tokens: 7662
+    tokens: 1253
+    total_tokens: 7663
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -455,8 +455,8 @@ agents:
     tier: standard
     description: Writes a research report from completed research artifacts. In falsification mode, builds the final report from a frozen claim register. In survey mode, synthesizes recorded source records into a cited report. Never conducts new research or overstates what the evidence supports.
     path: agents/research-report-writer.md
-    tokens: 990
-    total_tokens: 1716
+    tokens: 991
+    total_tokens: 1717
     inputs:
       context:
         - .agent-factory/factory/rulebooks/conventions/research-report-policy.md
@@ -479,8 +479,8 @@ agents:
     tier: standard
     description: Research a bounded question and form testable claims — find sources, assess their provenance, record evidence for and against, and design or execute refutation tests. Never reviews or votes on its own claim.
     path: agents/researcher.md
-    tokens: 455
-    total_tokens: 2033
+    tokens: 456
+    total_tokens: 2034
     inputs:
       context:
         - .agent-factory/factory/rulebooks/conventions/research-role-separation.md
@@ -496,8 +496,8 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 677
-    total_tokens: 4414
+    tokens: 678
+    total_tokens: 4411
     inputs:
       required:
         - type: feature
@@ -525,8 +525,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 2632
-    total_tokens: 14325
+    tokens: 3758
+    total_tokens: 16121
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -559,117 +559,117 @@ skills:
     category: requirements
     description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 5221
+    tokens: 5914
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
     path: skills/capture-vision/SKILL.md
-    tokens: 333
+    tokens: 331
   - name: clarify-requirements
     category: requirements
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
-    tokens: 475
+    tokens: 473
   - name: derive-feature
     category: requirements
     description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
-    tokens: 2034
+    tokens: 2032
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
     path: skills/draft-proposal/SKILL.md
-    tokens: 750
+    tokens: 747
   - name: inspect-spec
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
     path: skills/inspect-spec/SKILL.md
-    tokens: 720
+    tokens: 718
   - name: qa-strategy-from-spec
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 2566
+    tokens: 2564
   - name: reverse-map
     category: requirements
     description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1279
+    tokens: 1277
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
     path: skills/write-prd/SKILL.md
-    tokens: 446
+    tokens: 444
   - name: atam-review
     category: architecture
     description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
     path: skills/atam-review/SKILL.md
-    tokens: 828
+    tokens: 826
   - name: maintain-architecture
     category: architecture
     description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
     path: skills/maintain-architecture/SKILL.md
-    tokens: 1272
+    tokens: 1270
   - name: model-structurizr-slice
     category: architecture
     description: Model an increment, MVP, or release in a canonical Structurizr DSL workspace. Use to tag and style a component subset, map runtime deployment, create static and dynamic slice views, separate data models from C4 views, or fix diagrams that mix structure, deployment, behavior, and data.
     path: skills/model-structurizr-slice/SKILL.md
-    tokens: 1088
+    tokens: 1086
   - name: pugh-matrix
     category: architecture
     description: Evaluate multiple alternatives against weighted criteria in a Pugh Matrix, present for confirmation, return the completed matrix. Use when a decision has genuine alternatives worth formally comparing — not every decision needs this.
     path: skills/pugh-matrix/SKILL.md
-    tokens: 527
+    tokens: 525
   - name: scaffold-arc42
     category: architecture
     description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
     path: skills/scaffold-arc42/SKILL.md
-    tokens: 838
+    tokens: 888
   - name: write-adr
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
     path: skills/write-adr/SKILL.md
-    tokens: 938
+    tokens: 936
   - name: create-backlog
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 2190
+    tokens: 2188
   - name: create-backlog-epics
     category: planning
     description: Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
     path: skills/create-backlog-epics/SKILL.md
-    tokens: 2403
+    tokens: 2401
   - name: create-backlog-stories
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
     path: skills/create-backlog-stories/SKILL.md
-    tokens: 2199
+    tokens: 2813
   - name: create-backlog-story-slices
     category: planning
     description: Read confirmed backlog/epics.md, sketch story-level slice tables per EPIC, and present them for user approval. Phase 3 of 4 in the create-backlog sequence.
     path: skills/create-backlog-story-slices/SKILL.md
-    tokens: 1556
+    tokens: 1554
   - name: create-backlog-write-epics
     category: planning
     description: Write backlog/epics.md from the approved EPIC slicing approach. Phase 2 of 4 in the create-backlog sequence.
     path: skills/create-backlog-write-epics/SKILL.md
-    tokens: 1177
+    tokens: 1174
   - name: make-concrete
     category: planning
     description: "Incorporate grilling results into a backlog story: fill resolved contract decisions into their home sections, write concrete Required API Behavior, and prepare the story for slicing. Phase 6 of the create-backlog sequence."
     path: skills/create-backlog-make-concrete/SKILL.md
-    tokens: 1251
+    tokens: 1249
   - name: slice-story
     category: planning
     description: Cut a concrete backlog story into independently implementable slices along contract boundaries. Phase 7 of the create-backlog sequence.
     path: skills/create-backlog-slice-story/SKILL.md
-    tokens: 2657
+    tokens: 2655
   - name: testability-probe
     category: planning
     description: Assess epic testability and resolve contract ownership backlog-wide before stories are cut. Mandatory step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices. Writes a testability paragraph and ownership table per EPIC into backlog/epics.md — no failure scenarios, test paths, or risk classifications.
     path: skills/testability-probe/SKILL.md
-    tokens: 2682
+    tokens: 2680
   - name: crap-score
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
@@ -689,12 +689,12 @@ skills:
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
     path: skills/reconcile-spec/SKILL.md
-    tokens: 893
+    tokens: 891
   - name: spec-feedback
     category: implementation
     description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
     path: skills/spec-feedback/SKILL.md
-    tokens: 476
+    tokens: 474
   - name: test-design
     category: implementation
     description: Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files.
@@ -709,12 +709,12 @@ skills:
     category: quality
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
-    tokens: 608
+    tokens: 606
   - name: fagan-review
     category: quality
     description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
     path: skills/fagan-review/SKILL.md
-    tokens: 607
+    tokens: 605
   - name: mutation-testing
     category: quality
     description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
@@ -724,12 +724,7 @@ skills:
     category: quality
     description: Security-focused code review against OWASP Top 10 with minimised false positives.
     path: skills/security-review/SKILL.md
-    tokens: 335
-  - name: caveman
-    category: utility
-    description: Ultra-compressed communication mode for the workflow. Cuts token use by dropping filler, articles, and pleasantries while keeping full technical accuracy. The workflow's default communication style for everything except specification and documentation prose (which stay Plain English, Strunk & White). Adapted from JuliusBrussee/caveman.
-    path: skills/caveman/SKILL.md
-    tokens: 784
+    tokens: 333
   - name: comic-relief
     category: utility
     description: Context-aware one-liner or two-sentence aside when levity is warranted. Target is process, tooling, or situation — never the user.
@@ -749,7 +744,7 @@ skills:
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
     path: skills/domain-modeling/SKILL.md
-    tokens: 700
+    tokens: 698
   - name: explain-concept
     category: utility
     description: Look up a Factory concept and explain it. Knows what exists and what is missing.
@@ -759,7 +754,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me" or "grill with docs".
     path: skills/grilling/SKILL.md
-    tokens: 893
+    tokens: 873
   - name: guided-tour
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
@@ -769,7 +764,7 @@ skills:
     category: utility
     description: Create and validate a dense session-boundary restart contract before ending the outgoing session.
     path: skills/handoff/SKILL.md
-    tokens: 681
+    tokens: 679
   - name: init-factory
     category: utility
     description: Wire Agent Factory into a project — new or existing — by running the deterministic init-factory script and relaying its result. Invoked explicitly, never automatically.
@@ -779,12 +774,12 @@ skills:
     category: utility
     description: Process a meeting transcript into two markdown artifacts — a verbatim protocol and a comparison against the current repository state. Use when the user provides a transcript, mentions "process transcript", or wants to compare a discussion against the spec.
     path: skills/process-transcript/SKILL.md
-    tokens: 1481
+    tokens: 1479
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
-    tokens: 708
+    tokens: 706
   - name: run-step
     category: utility
     description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
@@ -804,12 +799,12 @@ skills:
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
     path: skills/adversarial-review/SKILL.md
-    tokens: 1084
+    tokens: 1082
   - name: claim-formulation
     category: research
     description: Produce one precise, testable claim from recorded evidence with scope, assumptions, and content hash.
     path: skills/claim-formulation/SKILL.md
-    tokens: 1052
+    tokens: 1050
   - name: newcomer-tour
     category: onboarding
     description: Give first-time Agent Factory users a short, interactive orientation when they choose option H or ask to be shown around
@@ -819,27 +814,27 @@ skills:
     category: research
     description: Define refuting evidence, conditions for refutation, and severe tests to expose them.
     path: skills/refutation-design/SKILL.md
-    tokens: 1005
+    tokens: 1003
   - name: research-planning
     category: research
     description: Turn a validated brief into the mode-appropriate survey or falsification research plan.
     path: skills/research-planning/SKILL.md
-    tokens: 746
+    tokens: 744
   - name: research-reporting
     category: research
     description: Build a final report from the frozen claim register without adding new findings, citing surviving claim IDs and preserving qualifications.
     path: skills/research-reporting/SKILL.md
-    tokens: 1133
+    tokens: 1131
   - name: research-synthesis
     category: research
     description: Build a cited survey report from recorded source records while preserving uncertainty and evidence bounds.
     path: skills/research-synthesis/SKILL.md
-    tokens: 379
+    tokens: 377
   - name: source-research
     category: research
     description: Find sources for one bounded assignment and record them against the source-record artifact.
     path: skills/source-research/SKILL.md
-    tokens: 393
+    tokens: 391
 
 playbooks:
   - name: architecture-review
@@ -852,7 +847,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 14906
+    total_tokens: 14942
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -864,7 +859,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2957
-    total_tokens: 35158
+    total_tokens: 35882
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -874,7 +869,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15300
+    total_tokens: 15290
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -886,7 +881,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 41491
+    total_tokens: 42170
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -903,7 +898,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4610
-    total_tokens: 99937
+    total_tokens: 101922
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -921,7 +916,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2858
-    total_tokens: 99349
+    total_tokens: 101333
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -937,7 +932,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15803
+    total_tokens: 15793
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -950,7 +945,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1106
-    total_tokens: 12517
+    total_tokens: 12520
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -971,7 +966,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 16735
+    total_tokens: 16739
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -982,7 +977,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4480
+    tokens: 4387
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1015,6 +1010,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
     tokens: 4554
+  - name: factory-voice
+    category: conventions
+    path: rulebooks/conventions/factory-voice.md
+    tokens: 1339
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
@@ -1022,7 +1021,7 @@ rulebooks:
   - name: foundational-principles
     category: conventions
     path: rulebooks/conventions/foundational-principles.md
-    tokens: 479
+    tokens: 320
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
@@ -1070,7 +1069,7 @@ rulebooks:
   - name: skill-authoring
     category: conventions
     path: rulebooks/conventions/skill-authoring.md
-    tokens: 1110
+    tokens: 1107
   - name: state-machine-notation
     category: conventions
     path: rulebooks/conventions/state-machine-notation.md
@@ -1095,10 +1094,6 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/versioning-policy.md
     tokens: 657
-  - name: writing-quality-gates
-    category: conventions
-    path: rulebooks/conventions/writing-quality-gates.md
-    tokens: 984
   - name: cockburn-reasoning
     category: principles
     path: rulebooks/principles/cockburn-reasoning.md

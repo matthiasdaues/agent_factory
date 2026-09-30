@@ -57,7 +57,7 @@ version: 0.4.2
 
 **Check: YAGNI violations.** Flag unused abstractions, premature optimization, speculative generality.
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 ## Role
 

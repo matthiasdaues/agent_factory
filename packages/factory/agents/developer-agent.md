@@ -51,7 +51,7 @@ version: 0.7.0
 
 **Principle: YAGNI.** Build only what the story requires.
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 ## Role
 

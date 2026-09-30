@@ -37,7 +37,7 @@ version: 0.2.0
 
 # Research Report Writer
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 ## Role
 
