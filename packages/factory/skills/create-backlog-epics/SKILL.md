@@ -10,7 +10,7 @@ This skill surveys user capabilities and the codebase, then presents the propose
 
 ## Writing constraint
 
-The [writing quality gates](../../rulebooks/conventions/writing-quality-gates.md) are read before composing either table. All four gates apply to every capability row, every EPIC row, and all accompanying terminal prose. No row reaches terminal output until it passes. A failing row is revised before presenting.
+The [factory voice](../../rulebooks/conventions/factory-voice.md) is read before composing either table. All four gates apply to every capability row, every EPIC row, and all accompanying terminal prose. No row reaches terminal output until it passes. A failing row is revised before presenting.
 
 ## Step 0a — Survey the capability set
 

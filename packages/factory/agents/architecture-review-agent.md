@@ -48,7 +48,7 @@ version: 0.3.1
 
 **MUST run in a separate session** from Architecture Agent.
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 ## Role
 

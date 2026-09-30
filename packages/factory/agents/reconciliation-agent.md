@@ -77,7 +77,7 @@ version: 0.5.1
 
 **MUST run in a separate session** from Implementation and QA agents.
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 If this agent spawns sub-agents, follow [dispatch-contract.md § Sub-Agent Addressing](../rulebooks/conventions/dispatch-contract.md#sub-agent-addressing) — give each a resolvable instance ID, never the agent-type name, and never block indefinitely on a reply.
 

@@ -8,7 +8,7 @@ category: research
 
 Find and document sources for one bounded research assignment. The playbook controls when source research occurs and how sources are used; this skill covers how to find, assess, and record evidence.
 
-Read [writing-quality-gates.md](../../rulebooks/conventions/writing-quality-gates.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
 Each source record must document:
 
 | Field                       | Purpose                                                  |

@@ -72,7 +72,7 @@ version: 0.6.0
 
 **Principle: YAGNI.** Derive only what traces to proposal goals. Nothing speculative.
 
-Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 ## Role
 
