@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.2.0-rc — 2026-10-01
+
+### Features
+
+- **One voice for every text.** The new rulebook `factory-voice.md`
+  defines how the factory writes. It covers chat replies, status reports,
+  handoffs, commit messages, findings, stories, and specifications. It
+  replaces `writing-quality-gates.md`, which is removed. The voice ends
+  with four gates and a final pass that removes buzzwords. Terms of the
+  trade, such as SQL or API, need no definition. Project terms still do.
+- **Every agent and skill loads the voice.** All 17 agents and 49 skills
+  start with one fixed sentence that loads `factory-voice.md`. The new
+  `voice-anchor-lint` script checks that sentence in pre-commit and as
+  gate 13 in `validate`. It runs only in the factory source repository.
+  Seven skills with mechanical or exempt output are listed in the script.
+- **Review findings explained for newcomers.** The new skill
+  `explain-review-finding` explains a finding, bug report, or failing
+  test. It checks the finding against the code first. It then states the
+  consequence, shows a short chain of cause and effect, and names the
+  smallest fix. It never edits code. `code-review-agent` offers it while
+  the user decides which findings to file.
+- **Defects state the consequence first.** `fagan-review` now writes each
+  Defect in a fixed order: the consequence and who receives it, the first
+  layer where the problem starts, and whether the behavior looks
+  intended, wrong, or undocumented.
+
+### Fixes
+
+- **Voice declaration cleaned up.** A stray `\<` at the start of
+  `factory-voice.md` is removed. Two lines in `proposal-review-agent` and
+  `newcomer-tour` asked for a different tone and now match the voice.
+- **VERSION without prefix.** `VERSION` no longer starts with `v`, so
+  `build-release` accepts it.
+
 ## 1.1.1 — 2026-09-29
 
 ### Fixes
