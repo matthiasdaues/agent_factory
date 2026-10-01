@@ -6,6 +6,8 @@ category: utility
 
 # Validate
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 Run the same deterministic gates pre-commit runs, callable any time during a session — after a draft edit, before offering to commit, or when the user just asks "does this pass?". Each gate is conditional on the artifact it checks existing in the project; skip cleanly and say so rather than failing on an artifact that was never expected to exist yet.
 
 ## Gates
@@ -26,12 +28,13 @@ Run in this order — cheap and universal first, project-specific last:
 | 10  | statemachine-lint | `docs/spec/` exists                                                         | `.agent-factory/factory/scripts/statemachine-lint --spec-dir docs/spec`        |
 | 11  | index-lint        | `.agent-factory/factory/agents/` or `.agent-factory/factory/skills/` exists | `.agent-factory/factory/scripts/index-lint --check`                            |
 | 12  | concern-lint      | `docs/agent-context.md` exists                                              | `.agent-factory/factory/scripts/concern-lint`                                  |
+| 13  | voice-anchor-lint | `packages/factory/agents/` exists (the factory source repository)           | `packages/factory/scripts/voice-anchor-lint`                                   |
 
-**Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-12) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed. `link-check` is the fast offline counterpart to tools such as lychee: it validates local files and images while deliberately leaving remote URLs to an online crawler. `mermaid-lint` rejects raw semicolons in fenced Mermaid blocks while allowing entity escapes such as `#59;`. `concern-lint` validates the concern-oriented agent context structure (`docs/agent-context.md`).
+**Ruff is Python-specific, not universal.** Gates 2-3 are the one pair genuinely conditional on implementation language — the factory itself (agents/skills/playbooks/rulebooks, gates 1 and 4-13) is language-agnostic; only a Python target project pulls in ruff. A non-Python project should see gates 2-3 reported as skipped, not failed. `link-check` is the fast offline counterpart to tools such as lychee: it validates local files and images while deliberately leaving remote URLs to an online crawler. `mermaid-lint` rejects raw semicolons in fenced Mermaid blocks while allowing entity escapes such as `#59;`. `concern-lint` validates the concern-oriented agent context structure (`docs/agent-context.md`). `voice-anchor-lint` checks that every agent and every prose-producing skill contains the fixed sentence that loads the factory voice. It runs only in the factory source repository, from the source copy.
 
 **index-lint uses `--check` here, not the default write mode.** `validate` reports pass/fail, it doesn't rewrite project files as a side effect of checking — if `INDEX.yaml` is stale, report `FAIL` and let the user (or `commit`, which already runs `validate` first) decide to regenerate via a plain `.agent-factory/factory/scripts/index-lint`.
 
-**Path convention.** Every script above lives in `.agent-factory/factory/scripts/`; `config/model.conf` is the one exception, copied out to the project root at init time rather than staying inside `.agent-factory/factory/` — see the portable `.agent-factory/factory/config/pre-commit-config.yaml` template. Run `validate` from the project root.
+**Path convention.** Every script above except `voice-anchor-lint` lives in `.agent-factory/factory/scripts/`; `config/model.conf` is the one exception, copied out to the project root at init time rather than staying inside `.agent-factory/factory/` — see the portable `.agent-factory/factory/config/pre-commit-config.yaml` template. Run `validate` from the project root.
 
 ## Step 1 — Detect applicable gates
 

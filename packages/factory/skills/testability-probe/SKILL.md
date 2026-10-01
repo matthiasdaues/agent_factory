@@ -22,7 +22,7 @@ skill — the probe catches scoping defects and resolves *who* owns each
 contract's tests, while `test-design` (invoked by the developer agent with code
 in hand) designs and writes the tests themselves.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 This is mandatory step 2.5 in the
 [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence): it
 runs after [`create-backlog-write-epics`](../create-backlog-write-epics/SKILL.md)

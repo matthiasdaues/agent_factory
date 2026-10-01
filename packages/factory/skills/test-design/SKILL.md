@@ -15,6 +15,8 @@ outputs:
 
 # Test Design
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 Design and author tests for integration paths and edge cases that the TDD
 cycle (pass 1) did not cover. This is an implementation-time skill invoked
 by the developer agent after GREEN on non-`.feature`-governed stories — it

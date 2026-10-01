@@ -8,7 +8,7 @@ category: architecture
 
 Create architecture documentation from the specification using the **arc42** template and **Structurizr DSL** for **C4** models. Apply **Clean Architecture** for layer and component boundaries.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Step 1 — Create the arc42 file structure

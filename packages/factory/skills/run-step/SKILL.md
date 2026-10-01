@@ -6,6 +6,8 @@ category: utility
 
 # Run Step
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 Dispatches one agent invocation via `.agent-factory/factory/scripts/trigger`. Re-derives "what's next" from agent eligibility preconditions on every invocation, so a crash, a closed terminal, or a fresh session never leaves work stranded behind stale state.
 
 ## Step 1 — Read the workstream state

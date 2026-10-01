@@ -9,7 +9,9 @@ version: 1.0.0
 
 # Newcomer Tour
 
-Orient newcomers warmly and briefly.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
+Show newcomers around the factory, and keep the tour short.
 
 ## Procedure
 

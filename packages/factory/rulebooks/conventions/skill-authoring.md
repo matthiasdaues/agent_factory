@@ -9,7 +9,9 @@ Design principles for writing and maintaining Factory skills. Skills that
 follow these principles stay small, stay useful across model tiers, and
 resist the token bloat this convention was created to prevent.
 
-Apply the [factory voice](factory-voice.md).
+Apply the [factory voice](factory-voice.md). Every skill that produces prose
+carries the fixed anchor sentence that loads the voice. `voice-anchor-lint`
+checks the sentence and lists the skills that are exempt.
 
 ## 1. Declarative over prescriptive
 

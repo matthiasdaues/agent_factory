@@ -8,7 +8,7 @@ category: research
 
 Turn recorded source records into a source-grounded survey report. The survey playbook controls when synthesis occurs and how the result is released; this skill covers how to write the report.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 ## Input
 

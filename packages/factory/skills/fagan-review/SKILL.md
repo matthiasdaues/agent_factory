@@ -8,7 +8,7 @@ category: quality
 
 A structured code review following the **Fagan Inspection** method. The review checks correctness against the specification, architectural compliance, and maintainability. Every finding is categorised and actionable.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 Read `docs/CONTEXT.md` if it exists — flag terminology drift between code and domain vocabulary.
 
 ## Step 1 — Identify the review scope

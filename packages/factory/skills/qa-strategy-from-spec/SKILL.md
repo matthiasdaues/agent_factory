@@ -12,7 +12,7 @@ repository's actual test infrastructure. The output tells the `qa-agent` how
 to specialise the generic testing strategy for one feature's contracts,
 boundaries, and risk profile.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 This skill is **not** a rewrite of
 `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`. That rulebook stays
 generic policy and provides shared vocabulary and the overlap-deletion

@@ -8,7 +8,7 @@ category: architecture
 
 Review the Phase-2 architecture for structural defects and quality-attribute risks **before** implementation consumes it. The review runs in two passes with a strict division of labour:
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 - **Pass 1 — `arch-lint` (deterministic).** A parser catches the boring, provable defects — arc42 chapters missing, Structurizr DSL referencing undefined containers, ADR index out of sync, diagram files not matching view keys. Cheap, reproducible, zero false-positive by design.
 - **Pass 2 — ATAM evaluation (this LLM).** Spend judgement only on what a parser *cannot* decide: sensitivity points, tradeoff points, risks versus non-risks for each quality scenario.

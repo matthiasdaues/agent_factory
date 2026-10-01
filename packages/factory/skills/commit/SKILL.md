@@ -6,6 +6,8 @@ category: utility
 
 # Commit
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 Compose a correctly-formatted commit per [commit-conventions.md](../../rulebooks/conventions/commit-conventions.md) and commit — invoked only when explicitly asked to commit, never proactively. Invoking this skill *is* the explicit ask; it does not itself decide whether to commit.
 
 ## Step 1 — Gate first

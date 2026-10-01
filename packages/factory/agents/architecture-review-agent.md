@@ -46,9 +46,9 @@ version: 0.3.1
 
 # Architecture Review Agent
 
-**MUST run in a separate session** from Architecture Agent.
+Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
-Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
+**MUST run in a separate session** from Architecture Agent.
 
 ## Role
 

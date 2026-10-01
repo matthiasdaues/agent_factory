@@ -11,7 +11,7 @@ inputs:
 
 Write story files from confirmed slice tables, validate, and present the final backlog. This is phase 4 of the [create-backlog sequence](../create-backlog/SKILL.md#operational-sequence). Story format, composition rules, and the done check live in the [parent skill](../create-backlog/SKILL.md).
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 **Prerequisite:** story-level slice tables have been confirmed by the user (output of [`create-backlog-story-slices`](../create-backlog-story-slices/SKILL.md)).
 
@@ -108,7 +108,7 @@ List blocking stories in `deps` (by `ST-NNNN` id). Run `.agent-factory/factory/s
 
 ## Quality gate
 
-Compose every story with the factory voice active. Every sentence passes all four gates while you write it, not after.
+Compose every story with the factory voice active. Every sentence passes all four gates and the final pass while you write it, not after.
 
 ## Agent-readability check
 

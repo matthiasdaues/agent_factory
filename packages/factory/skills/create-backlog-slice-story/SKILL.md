@@ -222,7 +222,7 @@ implementation stories.
 
 ### 5. Quality gate
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. Compose every implementation story with all four gates active — no sentence reaches terminal output or a file until it passes.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass. This applies to every implementation story.
 
 Implementation stories do not carry a `## Resolve Before Implementation`
 section. They inherit the resolved answers in their home sections.

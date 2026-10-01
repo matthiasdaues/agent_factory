@@ -11,7 +11,7 @@ Cockburn reasoning sequence as an **internal working discipline** — not
 document production. Outputs a single-file specification that coders and QA
 agents can read in one pass.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 Apply Cockburn reasoning to derive actor-goal pairs. Read
 `rulebooks/principles/cockburn-reasoning.md` before proceeding. Skip only
 if you can state the actor-goal-scenario sequence without reading.

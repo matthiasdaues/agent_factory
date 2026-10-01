@@ -37,7 +37,7 @@ version: 0.2.0
 
 # Research Report Writer
 
-Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
+Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 ## Role
 
