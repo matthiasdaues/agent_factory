@@ -39,6 +39,8 @@ For every changed file, check:
 
 Save as `docs/reviews/fagan-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md). File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `FAGAN`.
 
+Write the What is wrong field of every Defect in this order: the consequence and who receives it, the first layer where information, control, or an assumption is lost or changed, and whether the behavior looks intended, wrong, or undocumented. When the defect crosses layers, add a causal chain of three to six steps in a text block. In Fix, name the smallest change and the layer where it belongs.
+
 Format both the report and any finding files via `scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Step 4 — Done-check
@@ -47,3 +49,4 @@ Format both the report and any finding files via `scripts/mdformat --number` per
 - [ ] Findings are categorised (Defect / Suggestion / Question)
 - [ ] Defects are actionable — each describes what's wrong and what to do
 - [ ] Spec compliance has been explicitly checked
+- [ ] Every Defect states the consequence first and names the layer where the problem starts
