@@ -121,8 +121,8 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 944
-    total_tokens: 5146
+    tokens: 980
+    total_tokens: 6141
     inputs:
       required:
         - type: story
@@ -235,7 +235,7 @@ agents:
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
     tokens: 1582
-    total_tokens: 14400
+    total_tokens: 14408
     inputs:
       required:
         - type: feature
@@ -277,7 +277,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1290
-    total_tokens: 9596
+    total_tokens: 9698
     inputs:
       required:
         - type: feature
@@ -644,7 +644,7 @@ skills:
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
     path: skills/create-backlog-stories/SKILL.md
-    tokens: 2810
+    tokens: 2814
   - name: create-backlog-story-slices
     category: planning
     description: Read confirmed backlog/epics.md, sketch story-level slice tables per EPIC, and present them for user approval. Phase 3 of 4 in the create-backlog sequence.
@@ -654,7 +654,7 @@ skills:
     category: planning
     description: Write backlog/epics.md from the approved EPIC slicing approach. Phase 2 of 4 in the create-backlog sequence.
     path: skills/create-backlog-write-epics/SKILL.md
-    tokens: 1171
+    tokens: 1175
   - name: make-concrete
     category: planning
     description: "Incorporate grilling results into a backlog story: fill resolved contract decisions into their home sections, write concrete Required API Behavior, and prepare the story for slicing. Phase 6 of the create-backlog sequence."
@@ -710,11 +710,16 @@ skills:
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
     tokens: 603
+  - name: explain-review-finding
+    category: quality
+    description: When the user asks what a review finding, bug report, failing test, or architecture concern means, explain it to a newcomer, starting with a short chain of cause and effect.
+    path: skills/explain-review-finding/SKILL.md
+    tokens: 857
   - name: fagan-review
     category: quality
     description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
     path: skills/fagan-review/SKILL.md
-    tokens: 602
+    tokens: 704
   - name: mutation-testing
     category: quality
     description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
@@ -869,7 +874,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15366
+    total_tokens: 15468
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -898,7 +903,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4610
-    total_tokens: 102061
+    total_tokens: 103166
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -916,7 +921,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2858
-    total_tokens: 101492
+    total_tokens: 102597
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -932,7 +937,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15869
+    total_tokens: 15971
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1069,7 +1074,7 @@ rulebooks:
   - name: skill-authoring
     category: conventions
     path: rulebooks/conventions/skill-authoring.md
-    tokens: 1107
+    tokens: 1141
   - name: state-machine-notation
     category: conventions
     path: rulebooks/conventions/state-machine-notation.md

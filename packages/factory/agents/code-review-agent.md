@@ -8,6 +8,7 @@ description: >-
   than the QA agent: changed files only, no security review, no bug hunt.
 skills:
   - fagan-review
+  - explain-review-finding
   - handoff
 inputs:
   required:
@@ -93,7 +94,9 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    resolve or annotate each open `IMPL` finding, **and** re-run the full
    inspection fresh.
 
-**Pause point:** Present findings before filing.
+**Pause point:** Present findings before filing. When the user asks what a
+finding means, invoke `explain-review-finding` for that finding, then return
+to the filing decision.
 
 ## Completion criteria
 
