@@ -6,6 +6,8 @@ category: utility
 
 # Guided Tour
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 Reorient the user at any point in a session. Answer "where am I?", "what do I do next?", and "what are we doing?" without requiring the user to know factory vocabulary first.
 
 ## When invoked

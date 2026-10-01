@@ -65,7 +65,7 @@ Good: one story delivering the complete actor outcome. Validation, generation, a
 
 ## Quality gate
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. Compose every slice-table row with all four gates active — no row reaches terminal output or a file until it passes. Revise any row that fails before presenting.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass. This applies to every slice-table row. Revise a failing row before you present the table.
 
 Present the tables to the user for confirmation.
 

@@ -7,6 +7,8 @@ version: 1.1.0
 
 # Explain Concept
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 Explain a Factory concept at the right depth for the person asking.
 
 ## Search path

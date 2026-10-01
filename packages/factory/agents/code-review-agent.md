@@ -49,6 +49,8 @@ version: 0.1.0
 
 # Code Review Agent
 
+Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 **MUST run in a separate session** from Implementation Agent.
 
 ## Role
@@ -57,10 +59,6 @@ Review the implementation diff for correctness, architecture compliance, and
 maintainability. Catch code defects before the reconciliation run reads the
 entire codebase against the specification. This is a bounded PR-level review,
 not the full QA phase.
-
-## Review gates
-
-Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write: chat, the review report, and every finding filed from it.
 
 ## Lifecycle
 

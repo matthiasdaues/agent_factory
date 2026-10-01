@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Require the factory-voice anchor sentence in every agent and skill.
+
+Each agent file and each skill file must contain the fixed sentence that
+tells the reader to load factory-voice.md. One fixed wording keeps the
+anchor identical everywhere and lets this script check it. Skills whose
+output is mechanical, or exempt from the voice, are listed in EXEMPT_SKILLS.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+FACTORY_DIR = Path(__file__).resolve().parent.parent
+
+# Skills that produce no prose for the voice to govern.
+EXEMPT_SKILLS = {
+    "comic-relief",  # one-line aside; its tone is its purpose
+    "crap-score",  # gate report from a script
+    "dependency-check",  # gate report from a script
+    "detect-test-regime",  # writes testing.yaml records
+    "mutation-testing",  # tool setup and survivor tables
+    "scratchpad",  # keeps the user's words, exempt by factory-voice.md
+    "vue-best-practices",  # coding conventions, no prose output
+}
+
+
+def anchor_sentence(prefix: str) -> str:
+    """Return the anchor sentence with the given relative path prefix."""
+    return (
+        f"Read [factory-voice.md]({prefix}/rulebooks/conventions/factory-voice.md) "
+        "now and hold every rule as a writing constraint. No prose reaches "
+        "terminal output or a file until it passes all four gates and clears "
+        "the final pass."
+    )
+
+
+def check(factory_dir: Path) -> list[str]:
+    """Return one error line per agent or skill that lacks the anchor."""
+    targets = [(path, "..") for path in sorted((factory_dir / "agents").glob("*.md"))]
+    targets += [
+        (path, "../..")
+        for path in sorted((factory_dir / "skills").glob("*/SKILL.md"))
+        if path.parent.name not in EXEMPT_SKILLS
+    ]
+    errors = []
+    for path, prefix in targets:
+        if anchor_sentence(prefix) not in path.read_text(encoding="utf-8"):
+            rel = path.relative_to(factory_dir)
+            errors.append(
+                f"{rel}: VOICE-ANCHOR missing the fixed factory-voice anchor sentence"
+            )
+    return errors
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--factory-dir", type=Path, default=FACTORY_DIR)
+    args = parser.parse_args(argv)
+
+    errors = check(args.factory_dir)
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        print(f"Expected sentence: {anchor_sentence('<prefix>')}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

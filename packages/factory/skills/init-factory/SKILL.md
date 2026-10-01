@@ -6,6 +6,8 @@ category: utility
 
 # Init Factory
 
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 A thin wrapper around `.agent-factory/factory/scripts/init-factory` — a normal, standalone, idempotent Python script that does all the actual work (git init, dot-dir symlinks, `.gitignore`/`.pre-commit-config.yaml` merging, `pre-commit install`). It is built to two promises: it never disturbs what the project already owns, and everything it adds is reversible without a trace via its companion `.agent-factory/factory/scripts/remove-factory`. This skill exists only for CLIs that want to trigger it conversationally; **the script itself needs no AI in the loop at all** — running it directly from a shell works exactly the same way. Use whichever is convenient.
 
 **Bootstrap note.** Before this has ever run against a project, there is no `.claude/skills/` or `.github/skills/` yet for a CLI to resolve this skill by name — that's the whole point of running it. The very first invocation has to name the file directly (e.g. "read `.agent-factory/factory/skills/init-factory/SKILL.md` in the agent_factory checkout and follow it"), not rely on skill-name resolution. Every later invocation, in a project that already has `factory/` installed, can be a normal by-name skill call.

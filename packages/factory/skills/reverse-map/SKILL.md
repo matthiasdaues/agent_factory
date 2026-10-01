@@ -8,7 +8,7 @@ category: requirements
 
 Build `docs/spec/scope-map.md` from whatever sources exist — code, tests, docs, wiki pages, API specs, or stakeholder knowledge.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 ## How the user experiences it
 

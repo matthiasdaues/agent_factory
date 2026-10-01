@@ -10,7 +10,7 @@ source: https://github.com/mattpocock/skills/
 
 Interview me relentlessly about every aspect of this plan until we reach shared understanding. Walk down each branch of the design tree, resolving dependencies one-by-one. For each question, give your recommended answer.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 If a question is a *fact* answerable by exploring the codebase, look it up instead of asking. The *decisions* are the user's — put each one to them and wait for their answer.
 

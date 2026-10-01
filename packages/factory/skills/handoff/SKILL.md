@@ -11,7 +11,7 @@ continues within the same agent's session is exempt. This skill ends the
 outgoing session; it never performs in-place transcript compaction and never
 starts the incoming agent's work.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 Read [handoff-format.md](../../rulebooks/conventions/handoff-format.md) before
 writing the handoff.
 

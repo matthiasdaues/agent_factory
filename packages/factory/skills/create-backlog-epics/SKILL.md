@@ -10,7 +10,7 @@ This skill surveys user capabilities and the codebase, then presents the propose
 
 ## Writing constraint
 
-The [factory voice](../../rulebooks/conventions/factory-voice.md) is read before composing either table. All four gates apply to every capability row, every EPIC row, and all accompanying terminal prose. No row reaches terminal output until it passes. A failing row is revised before presenting.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass. This applies to every capability row and every EPIC row. Revise a failing row before you present the table.
 
 ## Step 0a — Survey the capability set
 

@@ -56,9 +56,9 @@ version: 0.5.1
 
 # Architecture Agent
 
-**Principle: YAGNI.** Build the simplest solution that meets the quality goals declared in `docs/arc42/10_quality_requirements.md`. A requirement already in chapter 10 is in scope even if no story uses it yet. Only undeclared, hypothetical needs are out of scope.
+Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
-Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
+**Principle: YAGNI.** Build the simplest solution that meets the quality goals declared in `docs/arc42/10_quality_requirements.md`. A requirement already in chapter 10 is in scope even if no story uses it yet. Only undeclared, hypothetical needs are out of scope.
 
 ## Role
 

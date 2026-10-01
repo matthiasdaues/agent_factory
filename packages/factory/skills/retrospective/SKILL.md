@@ -8,7 +8,7 @@ category: utility
 
 Run a structured retrospective at the end of a work session or phase. Mine the conversation history for concrete examples — do not invent or generalize. Every item must cite a specific event from the session.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 ## Step 1 — Gather evidence
 

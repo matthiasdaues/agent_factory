@@ -8,7 +8,7 @@ category: research
 
 Review one claim against ten structured checks, classify defects, and cast a vote tied to the claim's content hash. The vote determines whether the claim survives into the final report. The playbook controls when reviews occur and how many reviewers assess each claim; this skill covers what one reviewer does.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
 ## Input Artifacts
 

@@ -8,7 +8,7 @@ category: research
 
 Turn a validated research brief into the structured plan appropriate to its mode. The playbook controls when planning occurs and how the plan is used; this skill covers what the plan contains and how to write it.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 Read the brief's `mode` before choosing the output contract. An omitted mode
 means `survey`.
 

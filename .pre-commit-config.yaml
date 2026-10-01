@@ -182,6 +182,16 @@ repos:
         files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md)$
         stages: [pre-commit, pre-merge-commit]
 
+      # Check that every agent and every prose-producing skill carries
+      # the fixed factory-voice anchor sentence. Runs the source copy,
+      # because agents and skills are authored only in this repository.
+      - id: voice-anchor-lint
+        name: voice-anchor-lint (factory-voice anchor in agents and skills)
+        entry: packages/factory/scripts/voice-anchor-lint
+        language: system
+        pass_filenames: false
+        files: ^packages/factory/(agents/.*\.md|skills/.*/SKILL\.md|scripts/voice-anchor-lint)$
+
       # Validate YAML syntax and style (trailing spaces, indentation,
       # duplicate keys). Uses the project .yamllint.yaml config.
       - id: yamllint

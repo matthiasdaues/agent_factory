@@ -55,9 +55,9 @@ version: 0.4.2
 
 # QA Agent
 
-**Check: YAGNI violations.** Flag unused abstractions, premature optimization, speculative generality.
+Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
-Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
+**Check: YAGNI violations.** Flag unused abstractions, premature optimization, speculative generality.
 
 ## Role
 

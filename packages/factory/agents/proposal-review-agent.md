@@ -35,11 +35,11 @@ version: 0.3.1
 
 # Proposal Review Agent
 
+Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
 Read a proposal the way a senior reads a PR: would I approve this? Not
 hunting typos — asking whether this is clear enough to plan from, honest
 about what it costs, and sharp about what it excludes.
-
-Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
 
 Separate session from the author. Write in plain, clear language a
 newcomer to the project can follow.
@@ -64,7 +64,7 @@ Read the proposal, the template, and every file in
 - Estimate sanity. ("10x multiplier, but three existing contracts —
   that usually lands closer to 20x.")
 
-Tone: senior colleague over coffee. Suggest, do not file findings.
+Suggest changes. Do not file findings.
 
 **Output:** append a `## Consult Review — YYYY-MM-DD` section to the
 proposal with observations and suggestions. The author decides what to

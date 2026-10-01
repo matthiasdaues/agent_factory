@@ -95,7 +95,7 @@ Every must-not from ADRs, conventions, testing regime, and scope exclusions goes
 
 ## Quality gates
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint throughout every phase. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass. This applies in every phase.
 
 ## Done Check
 

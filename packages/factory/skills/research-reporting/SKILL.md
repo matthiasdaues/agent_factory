@@ -8,7 +8,7 @@ category: research
 
 Compose the final research report from a frozen claim register. The playbook controls when the register is frozen and when the report is written; this skill covers how to write it.
 
-Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates. Do not write first and check later.
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 The report must:
 
 - Use only surviving claims as its factual basis.

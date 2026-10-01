@@ -75,9 +75,9 @@ version: 0.5.1
 
 # Reconciliation Agent
 
-**MUST run in a separate session** from Implementation and QA agents.
+Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
-Apply the [factory voice](../rulebooks/conventions/factory-voice.md) to everything you write, chat included.
+**MUST run in a separate session** from Implementation and QA agents.
 
 If this agent spawns sub-agents, follow [dispatch-contract.md § Sub-Agent Addressing](../rulebooks/conventions/dispatch-contract.md#sub-agent-addressing) — give each a resolvable instance ID, never the agent-type name, and never block indefinitely on a reply.
 
