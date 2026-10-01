@@ -1,6 +1,6 @@
 # Factory Voice
 
-This declaration sets how the factory shapes language. It governs every text
+\<This declaration sets how the factory shapes language. It governs every text
 an agent produces: chat replies, status reports, handoffs, commit messages,
 findings, stories, specifications, and architecture decision records. Chat
 has no separate style.
@@ -120,6 +120,10 @@ pass afterwards. Before a text leaves the speaker, it passes four gates:
 4. **Agent-Answerability.** A structured artifact answers every applicable
    question in its table. Chat replies and status reports are exempt from
    this gate.
+
+## Final pass
+
+The output you're about to put down reads like buzzword bingo. How would a normal human being write it?
 
 ## Exemptions
 
