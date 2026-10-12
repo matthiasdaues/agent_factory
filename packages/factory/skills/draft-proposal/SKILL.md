@@ -45,7 +45,12 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
    pressure-test the written version. The grilling skill amends the
    proposal in place as decisions settle.
 
-5. **Gate.** Before setting `status: open`:
+5. **Primer.** Spawn a fresh subagent with the
+   [write-primer](../write-primer/SKILL.md) skill and the proposal path. It
+   returns the primer; write it into the `## Primer` section below the
+   title, replacing any earlier one.
+
+6. **Gate.** Before setting `status: open`:
 
    - Every section is filled or carries an explicit "does not apply because
      …" note. No blank sections, no `TODO`.
@@ -56,15 +61,17 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
    - Open Questions are genuine — each must become a story acceptance
      criterion, a recorded assumption, or an explicit deferral. Padding
      gets removed, not resolved.
+   - The Primer section describes the proposal as it now stands. If the
+     gate changed the design, run step 5 again.
 
-6. **Transition.** Set `status: open`, update `updated:`, commit.
+7. **Transition.** Set `status: open`, update `updated:`, commit.
 
 ## Validation
 
 Run `.agent-factory/factory/scripts/mdformat --number docs/proposals/<name>.md` before
 committing.
 
-No dedicated lint script exists for proposals yet. The gate in Step 5 is
+No dedicated lint script exists for proposals yet. The gate in Step 6 is
 manual.
 
 ## Quality gate

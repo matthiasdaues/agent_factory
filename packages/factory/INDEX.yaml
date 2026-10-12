@@ -526,7 +526,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3781
-    total_tokens: 16369
+    total_tokens: 16460
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -579,7 +579,7 @@ skills:
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
     path: skills/draft-proposal/SKILL.md
-    tokens: 744
+    tokens: 835
   - name: inspect-spec
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
@@ -600,6 +600,11 @@ skills:
     description: Synthesise a Product Requirements Document from clarified requirements.
     path: skills/write-prd/SKILL.md
     tokens: 441
+  - name: write-primer
+    category: requirements
+    description: "Write a short primer for a proposal: a plain-language introduction that lets a reader who knows nothing about the project follow the full document. Writes it into the proposal's Primer section."
+    path: skills/write-primer/SKILL.md
+    tokens: 1298
   - name: atam-review
     category: architecture
     description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
