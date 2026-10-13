@@ -2,7 +2,7 @@
 title: Dispatch Contract
 category: implementation
 enforcement: dispatch-prompt clause (human/agent-authored discipline) — not mechanically gate-checked
-version: 1.4.0
+version: 1.5.0
 ---
 
 # Dispatch Contract
@@ -62,6 +62,56 @@ Every dispatch prompt that may itself spawn sub-agents carries this clause, verb
 > If you spawn sub-agents, give each one **your resolvable instance ID** as the address to report back to — never your agent *type* name. Include, verbatim, in each sub-agent's prompt: "Report your result to instance `<PARENT_INSTANCE_ID>`." Do not block indefinitely waiting on a sub-agent's reply: if a sub-agent declines out-of-scope work or does not respond, do the work yourself rather than waiting.
 
 Motivating example: a reconciliation-agent instance in the 2026-07-12 session addressed its own sub-agents by type name; their replies stranded, surfaced to the orchestrating session for manual relay, and the parent blocked indefinitely on a reply that was never coming until told to stop waiting.
+
+### Fresh Agent Or Inherited Context
+
+A child agent either starts fresh, with only the task it is given, or it
+inherits the parent's whole conversation. Inheriting costs more the later it
+happens: in one measured session, early children that inherited the context
+used about 80,000 tokens each, late ones 550,000 to 600,000. A child that
+starts fresh costs the same at any point.
+
+So the parent starts a fresh agent with a brief file by default. A child
+inherits the context only when it needs the conversation itself: what the
+user said, meant, or rejected, before anyone wrote it down. After a context
+compaction, the parent always starts fresh agents, because a written brief
+holds more than the summary.
+
+How each CLI starts the two kinds:
+
+| CLI            | Fresh agent                                                | Inherited context          |
+| -------------- | ---------------------------------------------------------- | -------------------------- |
+| Claude Code    | `Agent` tool with a named agent type, or `general-purpose` | `subagent_type: "fork"`    |
+| OpenAI Codex   | a native custom agent from `.codex/agents/`                | none; every child is fresh |
+| GitHub Copilot | `@agent-name`, default `general-purpose`                   | none; every child is fresh |
+| Pi             | the `run_agent` tool, or `dispatch-wave` for a wave        | none; every child is fresh |
+
+Where every child is fresh, the brief file is the only way to hand over what
+the session knows.
+
+### Brief File
+
+Before the parent starts a fresh agent, it writes the brief to
+`<scratchpad>/briefs/<task>.md`, or to `.current-work/<branch>/briefs/` when
+the CLI has no scratchpad. The prompt then says only: "Read `<brief path>`
+and follow it." Other agents and later rounds can reuse the same file.
+
+A brief holds:
+
+1. **Goal.** The observable result the child delivers.
+2. **Ownership.** The one file or path the child may change, written as "You
+   own ONLY `<path>`." Parallel children never own the same file.
+3. **Decisions.** The path of the decision ledger or Decisions table that
+   records what the session has settled. The parent keeps that record
+   current before each round.
+4. **Inputs.** The documents to read, with sections where a whole file is
+   not needed.
+5. **Output.** The report format, its length limit, and the instance ID to
+   report to (see Sub-Agent Addressing).
+6. **Stop conditions.** When the child stops and asks instead of deciding.
+
+A dispatch packet or story file that already holds these points is the brief.
+The parent then names that file instead of writing a second one.
 
 ### Dispatch Scope Cap And Checkpointing
 

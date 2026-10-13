@@ -14,12 +14,15 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 
 If a question is a *fact* answerable by exploring the codebase, look it up instead of asking. The *decisions* are the user's — put each one to them and wait for their answer.
 
+Put every question as [Decision questions](../../rulebooks/conventions/factory-voice.md#decision-questions) in the factory voice describes: one concrete case, the outcome of each option for it, your recommendation, and what the answer settles.
+
 Do not enact the plan until shared understanding is reached.
 
 ## Pacing
 
 - **Direct user session** — ask one question at a time, waiting for feedback
-  before continuing.
+  before continuing. Stay on one theme for at most five questions, then ask
+  whether to go deeper or move on.
 - **Subagent session** (you were spawned by another agent) —
   batch up to five related questions per round-trip. Group by theme; number each
   question so the caller can answer concisely. Each round-trip reprocesses your
@@ -32,13 +35,23 @@ When the target is a feature proposal:
 1. Read the proposal, the proposal template, and every referenced boundary.
 2. Treat the proposal as the sole interview record. Amend it in place as
    decisions settle; do not create parallel notes or a second design brief.
+   Write each decision into the section that owns it, in the present tense,
+   without a date or a "Decision:" stamp. Then add a row to the Decisions
+   table in the Appendix: date, kind, who decided, the decision, and what
+   raised it. A gap you fill yourself goes in as kind `assumption`, until the
+   user confirms it. Cite the row as "(DEC-NN)" only where a reader might ask
+   why the design has its shape.
 3. Test Summary, Motivation, Design, Scope, Open Questions, and Completion
    Criteria for enough precision to plan without re-deriving the design.
 4. Update `impact`, `governance`, and the dated estimate when answers invalidate
    them. Use `unknown` rather than invented precision.
 5. Resolve each Open Question as a decision, explicit assumption, or explicit
-   deferral. Leave genuinely unresolved items visible.
-6. When decision-complete, set `draft` to `open` and update `updated`.
+   deferral. Remove a resolved item from Open Questions; its result lives in
+   the owning section and in the Decisions table. Leave genuinely unresolved
+   items visible.
+6. When a grilling answer fixes a review finding, set its row in the Review
+   findings table to `fixed` and write the resolution with its evidence.
+7. When decision-complete, set `draft` to `open` and update `updated`.
 
 Never set a proposal to `accepted` or `implemented`; those are stakeholder and
 delivery gates outside the interview.

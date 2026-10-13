@@ -8,7 +8,7 @@ Read `.codex/INDEX.yaml`. All available agents, skills, and playbooks are listed
 
 You are running in OpenAI Codex CLI. These are your capabilities and limits:
 
-- **Subagents:** supported. Agent definitions are generated as `.codex/agents/*.toml`.
+- **Subagents:** supported. Agent definitions are generated as `.codex/agents/*.toml`. Every child starts fresh, so hand over context in a brief file (`rulebooks/conventions/dispatch-contract.md`, "Brief File").
 - **Skills:** skill directories are symlinked into `.agents/skills/`. Reference skills by name from INDEX.yaml.
 - **No task tracking.** There is no TaskCreate or TaskUpdate. Track progress conversationally.
 - **No workflow orchestration.** There is no Workflow tool. For multi-step work, proceed sequentially.

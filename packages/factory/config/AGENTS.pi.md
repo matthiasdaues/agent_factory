@@ -8,7 +8,7 @@ Read `.pi/INDEX.yaml`. All available agents, skills, and playbooks are listed th
 
 You are running in Stackblitz Pi. These are your capabilities and limits:
 
-- **Subagents:** no native subagent spawning. The factory provides `run-agent.ts` and `dispatch-wave.ts` as project-local extensions in `.pi/extensions/` — use those when multi-agent work is needed.
+- **Subagents:** no native subagent spawning. The factory provides `run-agent.ts` and `dispatch-wave.ts` as project-local extensions in `.pi/extensions/` — use those when multi-agent work is needed. Every child starts fresh, so hand over context in a brief file (`rulebooks/conventions/dispatch-contract.md`, "Brief File").
 - **Skills:** no native skill invocation. Skill content is available in the factory tree but must be read manually when needed.
 - **No task tracking.** Track progress conversationally.
 - **No workflow orchestration.** For multi-step work, proceed sequentially or use the dispatch-wave extension.

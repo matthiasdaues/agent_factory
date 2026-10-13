@@ -87,6 +87,88 @@ the speaker look good does not belong.
   The text does not present it as an achievement.
 - **A simple operation stays simple.** A list that does not change during a
   query is "fixed", not "locked for the rest of the query".
+- **A design is explained by what it does and whom it serves.** "Rights fall
+  into three classes, so a role can act on the plan without changing a Task"
+  explains. "If every right were alike, the prohibition would rest on an
+  administrator" argues against a design nobody proposed. Weigh an
+  alternative only when someone proposed it or a reader would expect it, and
+  then give the real reason against it.
+- **No sentence only reassures a reviewer.** "Either way, no object is
+  without an owner" and "so the model enforces the boundary" answer a doubt
+  the reader does not have. State what the system does, and the reader sees
+  that the doubt is settled.
+
+## Paragraphs
+
+Sentence rules applied alone produce flat text: a block of definitions,
+abstract nouns, and short claims with no links between them. Every sentence
+passes, and the paragraph still says nothing. So the speaker also reads each
+paragraph as a whole:
+
+- **Outside in.** The paragraph starts with the situation a person meets:
+  what they see, need, or must do. It leads from there to the mechanism behind
+  it.
+- **Terms on arrival.** Each term arrives at the moment the receiver meets the
+  thing it names. A block of definitions up front is broken up and moved to
+  the places of first use.
+- **Concrete nouns.** Each abstract noun becomes the thing it means. "Folders
+  answer this" becomes what a Folder does for the person in the situation.
+- **Links.** Sentences connect with "so", "because", "then", or "that is why"
+  where one idea leads to the next.
+
+## Documents
+
+A document is read once, in order. So its order is part of its meaning:
+
+- **The map comes before the list.** A table that sorts twenty items into
+  classes comes before the twenty items.
+- **The reason comes before the rule, and the example before the abstract
+  statement,** where the rule would otherwise read as arbitrary.
+- **Each fact has one home.** Other sections link to it instead of restating
+  it. A summary or primer that orients the reader is not a copy, but two
+  orienting sections that say the same thing are.
+- **A term is used only after the section that introduces it,** or with a
+  link to that section.
+- **A heading predicts its content.** Content that serves several sections
+  gets its own heading instead of hiding under one of them.
+- **A reference must be usable.** "D-20 option C" means nothing to a reader
+  who has not opened D-20. Say in a few words what the reference holds, then
+  link it.
+
+## Target state and record
+
+A specification, proposal, or architecture text describes the target state in
+the present tense. It does not say when something was decided, who decided
+it, or what it replaced. Words such as "no longer", "was called", "removed",
+and stamps such as "Decision (2026-10-12):" do not belong in it.
+
+The record of how the text got its shape lives apart from it: in an appendix,
+a decision log, a review report, or git history. The target-state text cites
+a record entry by its identifier, for example "(DEC-07)", where a reader
+might ask why the design has its shape. The reader never needs the record to
+understand the design.
+
+## Decision questions
+
+A question that asks the receiver to decide is the hardest text to read,
+because the receiver must picture each option before choosing. Option names
+alone, such as "Option B" or "regular Folders", make the receiver ask back.
+So every decision question has four parts:
+
+1. **One concrete case** from the project's own material, with its real
+   names: "Task `nightly-billing` in Folder Finance is still `PENDING` when
+   its window ends."
+2. **The outcome of each option for that case.** In a multiple-choice prompt,
+   the option label names the outcome, such as "The run becomes `MISSED`".
+   If two options lead to the same outcome, the case does not separate them,
+   so the speaker picks another case.
+3. **The recommendation**, with its reason.
+4. **What the answer changes**: the section, story, or rule it settles.
+
+The speaker looks up facts before asking, and asks only for decisions. With
+the receiver present, the speaker asks about one theme at a time, at most
+five questions, and asks after each theme whether to go deeper or move on. A
+written decision sheet uses the same four parts for every question.
 
 ## Structured artifacts
 
@@ -119,8 +201,10 @@ then the final pass.
    undecided. A text that meets only the second half is decided but hard to
    follow.
 2. **International Readability.** Every sentence meets the master's style
-   and vocabulary.
-3. **No Pretense.** Every sentence meets the rules for meaningful text.
+   and vocabulary, and every paragraph meets the rules for paragraphs. A
+   document of several sections also meets the rules for documents.
+3. **No Pretense.** Every sentence meets the rules for meaningful text. A
+   target-state text carries no record.
 4. **Agent-Answerability.** A structured artifact answers every applicable
    question in its table. Chat replies and status reports are exempt from
    this gate.

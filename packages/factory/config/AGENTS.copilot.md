@@ -8,7 +8,7 @@ Read `.github/INDEX.yaml`. All available agents, skills, and playbooks are liste
 
 You are running in GitHub Copilot CLI. These are your capabilities and limits:
 
-- **Subagents:** invoke with `@agent-name` in chat. Agent definitions are in `.github/agents/`. The default subagent is `general-purpose`.
+- **Subagents:** invoke with `@agent-name` in chat. Agent definitions are in `.github/agents/`. The default subagent is `general-purpose`. Every child starts fresh, so hand over context in a brief file (`rulebooks/conventions/dispatch-contract.md`, "Brief File").
 - **Skills:** `SKILL.md` files are loaded by agents on demand — there is no `/skill` slash-command invocation. Reference skills by name; the agent loads the right one.
 - **No task tracking.** There is no TaskCreate or TaskUpdate. Track progress conversationally.
 - **No workflow orchestration.** There is no Workflow tool. For multi-step work, proceed sequentially or delegate to subagents via `@agent-name`.
