@@ -8,7 +8,7 @@ Read the local INDEX.yaml (`.claude/INDEX.yaml`). All available agents, skills, 
 
 You are running in Claude Code. Use these capabilities:
 
-- **Subagents:** spawn with the `Agent` tool. Typed agent definitions are in `.agent-factory/factory/agents/`. Use `subagent_type: "fork"` for background research; named types for specialised roles. Isolation via `isolation: "worktree"` for implementation agents.
+- **Subagents:** spawn with the `Agent` tool. Typed agent definitions are in `.agent-factory/factory/agents/`. Start a named type or `general-purpose` with a brief file by default; use `subagent_type: "fork"` only when the child needs the conversation itself (`rulebooks/conventions/dispatch-contract.md`, "Fresh Agent Or Inherited Context"). Isolation via `isolation: "worktree"` for implementation agents.
 - **Skills:** invoke with `/skill-name` or the `Skill` tool. Available skills are listed in the system reminder.
 - **Task tracking:** use `TaskCreate` and `TaskUpdate` to break work into steps and track progress.
 - **Workflow orchestration:** the `Workflow` tool runs multi-agent scripts when the user opts in.

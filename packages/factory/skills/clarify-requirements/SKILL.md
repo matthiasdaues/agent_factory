@@ -34,6 +34,9 @@ Use the **Socratic Method** with **MECE**. Ask at most 3 questions at a time. Ke
 - Match `docs/CONTEXT.md` domain vocabulary.
 - Never accept "it should just work" — demand specifics.
 - Every question gets a recommended answer, even lightweight ones.
+- Every decision question follows [Decision questions](../../rulebooks/conventions/factory-voice.md#decision-questions):
+  one concrete case, the outcome of each option for it, the recommendation,
+  and what the answer settles.
 - Do not create a parallel interview record or design brief.
 - A decision-complete `draft` becomes `open`; only a stakeholder can make it
   `accepted`.

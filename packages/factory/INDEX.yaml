@@ -193,7 +193,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 3887
-    total_tokens: 12097
+    total_tokens: 12691
     inputs:
       required:
         - type: story
@@ -229,6 +229,25 @@ agents:
         - path_pattern: docs/adr/*.md
           validator: ""
           required: false
+  - name: lector-agent
+    title: Lector Agent
+    tier: strong
+    description: Edit the prose of a finished document for a newcomer who dislikes long and vain texts. The sentence pass edits in place. The structural pass writes a cut plan for approval first. The lector changes wording, never meaning, and runs in a separate session from the author.
+    path: agents/lector-agent.md
+    tokens: 2320
+    total_tokens: 4875
+    inputs:
+      required:
+        - type: document
+          path_pattern: docs/**/*.md
+      context:
+        - .agent-factory/factory/rulebooks/conventions/factory-voice.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/**/*.md
+          validator: ""
+          required: true
   - name: planning-agent
     title: Planning Agent
     tier: strong
@@ -256,8 +275,8 @@ agents:
     tier: strong
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
-    tokens: 1477
-    total_tokens: 3023
+    tokens: 1735
+    total_tokens: 3518
     inputs:
       required:
         - type: proposal
@@ -317,7 +336,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2219
-    total_tokens: 19099
+    total_tokens: 19693
     inputs:
       required:
         - type: scope-map
@@ -373,7 +392,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1533
-    total_tokens: 18829
+    total_tokens: 18876
     inputs:
       required:
         - type: proposal
@@ -420,7 +439,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1276
-    total_tokens: 7686
+    total_tokens: 8280
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -526,7 +545,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3781
-    total_tokens: 16460
+    total_tokens: 16881
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -569,7 +588,7 @@ skills:
     category: requirements
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
-    tokens: 470
+    tokens: 517
   - name: derive-feature
     category: requirements
     description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
@@ -579,7 +598,7 @@ skills:
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
     path: skills/draft-proposal/SKILL.md
-    tokens: 835
+    tokens: 1019
   - name: inspect-spec
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
@@ -604,7 +623,7 @@ skills:
     category: requirements
     description: "Write a short primer for a proposal: a plain-language introduction that lets a reader who knows nothing about the project follow the full document. Writes it into the proposal's Primer section."
     path: skills/write-primer/SKILL.md
-    tokens: 1298
+    tokens: 1381
   - name: atam-review
     category: architecture
     description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
@@ -764,7 +783,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me" or "grill with docs".
     path: skills/grilling/SKILL.md
-    tokens: 870
+    tokens: 1107
   - name: guided-tour
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
@@ -869,7 +888,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2957
-    total_tokens: 35912
+    total_tokens: 36506
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -891,7 +910,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 42232
+    total_tokens: 43420
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -908,7 +927,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4610
-    total_tokens: 103166
+    total_tokens: 104401
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -926,7 +945,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2858
-    total_tokens: 102597
+    total_tokens: 103832
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -955,7 +974,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1106
-    total_tokens: 12589
+    total_tokens: 13183
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -976,7 +995,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 16831
+    total_tokens: 17425
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -987,7 +1006,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4387
+    tokens: 4510
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1019,11 +1038,11 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 4554
+    tokens: 5148
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md
-    tokens: 1525
+    tokens: 2555
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md

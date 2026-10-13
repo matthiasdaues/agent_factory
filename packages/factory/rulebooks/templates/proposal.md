@@ -1,6 +1,6 @@
 ---
 title: Feature Proposal Template
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Feature Proposal Template
@@ -103,14 +103,29 @@ decision-complete proposal from `draft` to `open`, but stakeholder acceptance is
 the only transition to `accepted`. Material changes after acceptance return it
 to `open` for reacceptance.
 
+The file has two parts. The proposal describes the design in the present
+tense, as if it were already built. The Appendix records how it got its shape:
+decisions and review findings. The proposal cites an appendix row by its ID,
+for example "(DEC-07)", where a reader might ask why the design has its shape.
+A reader never needs the Appendix to understand the design. So the proposal
+carries no dates, no "Decision:" stamps and no answers to reviewers; see
+"Target state and record" in factory-voice.md.
+
 Fill every section; delete a section only if it genuinely does not apply, and
 say why. Delete these comments in the finished proposal.
 -->
 
+## Primer
+
+<!-- 400-500 words for a newcomer, written by the write-primer skill once the
+design is settled. It gives the map, not every street. -->
+
 ## Summary
 
 <!-- 2-4 sentences: what the feature adds and the one question it answers that
-the system cannot answer today. State the scope boundary of the first release. -->
+the system cannot answer today. State the scope boundary of the first release.
+Do not retell the Primer: the Primer orients a newcomer, the Summary tells a
+planner what is in the box. -->
 
 ## Motivation
 
@@ -147,8 +162,10 @@ decisions an implementer would otherwise guess. -->
 
 ## Open Questions
 
-<!-- Genuine unresolved decisions. Each should become a story acceptance
-criterion, a recorded assumption, or an explicit deferral — not padding. -->
+<!-- Genuine unresolved decisions only. Each should become a story acceptance
+criterion, a recorded assumption, or an explicit deferral — not padding. When a
+question is decided, remove it here, write the result into the section that
+owns it, and add a row to Decisions. -->
 
 -
 
@@ -162,3 +179,39 @@ to must-have stories in the backlog. -->
 ## Guiding Rule
 
 <!-- Optional. The one sentence a reviewer should hold the whole feature against. -->
+
+# Appendix
+
+<!-- The record of how the proposal got its shape. Tables only. Rows are added
+and updated in place; nothing is deleted. -->
+
+## Decisions
+
+<!-- One row per decision or assumption that shaped the proposal, written when
+it is made. Kind is `decision` or `assumption`; an assumption becomes a
+decision when the person named in "Decided by" confirms it. "Raised by" names
+the finding, open question or grilling round that led to it. -->
+
+| ID     | Date       | Kind     | Decided by    | Decision                              | Raised by |
+| ------ | ---------- | -------- | ------------- | ------------------------------------- | --------- |
+| DEC-01 | YYYY-MM-DD | decision | product owner | \<the decision, one or two sentences> | PROP-01   |
+
+## Review findings
+
+<!-- One cumulative table for all review passes. The reviewer adds new rows
+with status `open`. Whoever fixes a finding sets `fixed` and writes the
+resolution with its evidence. The next review pass checks each `fixed` row and
+sets `resolved`, or `open` again with the reason. -->
+
+| ID      | Pass | Severity | Check | Status | Finding                                | Resolution |
+| ------- | ---- | -------- | ----- | ------ | -------------------------------------- | ---------- |
+| PROP-01 | 1    | major    | 02    | open   | \<what is wrong, with line references> |            |
+
+## Review passes
+
+<!-- One row per review pass. Line references in findings refer to the
+reviewed commit of their pass. -->
+
+| Pass | Date       | Reviewed commit | Disposition | Failed checks | Summary                  |
+| ---- | ---------- | --------------- | ----------- | ------------- | ------------------------ |
+| 1    | YYYY-MM-DD | \<40-char SHA>  | findings    | 02, 03        | <one to three sentences> |

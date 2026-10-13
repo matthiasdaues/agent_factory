@@ -30,7 +30,7 @@ handoff-to:
   - requirements-agent
   - architecture-agent
   - planning-agent
-version: 0.3.1
+version: 0.4.0
 ---
 
 # Proposal Review Agent
@@ -66,9 +66,10 @@ Read the proposal, the template, and every file in
 
 Suggest changes. Do not file findings.
 
-**Output:** append a `## Consult Review — YYYY-MM-DD` section to the
-proposal with observations and suggestions. The author decides what to
-act on.
+**Output:** add one row per observation to the `## Review findings`
+table in the proposal's Appendix, with severity `note`, and one row to
+`## Review passes`. The author decides what to act on and sets each note to
+`fixed` or `declined`, with a reason.
 
 ### Adversarial (`status: open`)
 
@@ -115,36 +116,40 @@ specifics:
    on a feature-addition is optimistic (typical: 15–25x). `unknown`
    beats a fabricated number.
 
-**Output:** append a `## Review — YYYY-MM-DD` section to the proposal
-with a findings table and a summary. Present before appending. The
-reviewer does not fix the proposal.
+**Output:** write into the two review tables of the proposal's Appendix
+(see the [proposal template](../rulebooks/templates/proposal.md)). Present
+the findings to the session before writing them. The reviewer does not fix
+the proposal.
 
-Findings table format:
+1. Add one row per new finding to `## Review findings`, with the next free
+   `PROP-NN`, this pass's number, and status `open`:
 
-```markdown
-## Review — YYYY-MM-DD
+   ```markdown
+   | ID      | Pass | Severity | Check | Status | Finding                          | Resolution |
+   | ------- | ---- | -------- | ----- | ------ | -------------------------------- | ---------- |
+   | PROP-01 | 1    | major    | 02    | open   | Scope boundary ambiguous for ... |            |
+   ```
 
-Reviewer: proposal-review-agent
-Reviewed commit: <full 40-char SHA>
-Disposition: [clean | findings]
+2. Add one row to `## Review passes`:
 
-### Findings
+   ```markdown
+   | Pass | Date       | Reviewed commit | Disposition | Failed checks | Summary                                 |
+   | ---- | ---------- | --------------- | ----------- | ------------- | --------------------------------------- |
+   | 1    | YYYY-MM-DD | <40-char SHA>   | findings    | 02, 08        | <one to three sentences: what passed, what did not, what must change> |
+   ```
 
-| ID      | Severity | Check | Status | Finding                          |
-| ------- | -------- | ----- | ------ | -------------------------------- |
-| PROP-01 | major    | 02    | open   | Scope boundary ambiguous for ... |
-| PROP-02 | minor    | 08    | open   | Multiplier 10x below typical ... |
+   Disposition is `clean` or `findings`. A check that fails names its
+   finding IDs in the finding rows, so the pass row lists only the numbers.
 
-### Summary
+**Repeat passes:** check every row with status `fixed` against its
+resolution. Set it to `resolved`, or back to `open` with the reason added to
+its Resolution cell. Check rows still `open` the same way: a fix made
+without a status change counts. Then re-run all eight checks and add new
+rows. A fix for PROP-01 may introduce new problems elsewhere.
 
-<one-to-three sentences: what passed, what did not, what must change
-before this is ready to plan from>
-```
-
-**Repeat passes:** resolve or annotate each open finding row in the
-existing table (update its Status cell), then re-run all eight checks
-and append a new `## Review — YYYY-MM-DD` section. A fix for PROP-01
-may introduce new problems elsewhere.
+If the proposal still carries `## Review — YYYY-MM-DD` sections from the
+older layout, leave them and write the new pass as such a section too. Moving
+old records into the Appendix is the author's step.
 
 ## Lifecycle
 
@@ -152,15 +157,16 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Completion
 
-**Consult:** consult review section appended with observations.
+**Consult:** observations added to the Review findings table as notes.
 
-**Adversarial:** review section appended with findings table, all
+**Adversarial:** findings and the pass row written to the Appendix, all
 eight checks evaluated, prior findings resolved or annotated.
 
 ## Handoff
 
-**Open findings** → back to author: _"[N] open findings. Address and
-re-open when ready."_
+**Open findings** → back to author: _"[N] open findings. Fix each one,
+set its row to `fixed` with the resolution and its evidence, and re-open when
+ready."_ A decision made while fixing goes into the Decisions table.
 
 **Clean, no architecture change** → Requirements Agent or Planning
 Agent per feature-addition routing.
@@ -171,13 +177,13 @@ Agent per feature-addition routing.
 ## Boundaries
 
 - **MUST** run in a separate session from the proposal author.
-- **MUST** append review output to the proposal file, not to separate
+- **MUST** write review output into the proposal file, not to separate
   report or finding files.
-- **MUST NOT** modify any section of the proposal above the review
-  sections it appends.
+- **MUST NOT** modify anything above `# Appendix`, and in the Appendix
+  nothing but the `## Review findings` and `## Review passes` tables.
 - **MUST NOT** set a proposal's status to `accepted` or `implemented`.
-- **MUST** present findings to the session before appending them.
+- **MUST** present findings to the session before writing them.
 - **MUST** re-run all eight checks on repeat passes, not only update
   prior findings.
 - **SHOULD** confirm the reviewed commit SHA matches the proposal's
-  current HEAD before appending.
+  current HEAD before writing.

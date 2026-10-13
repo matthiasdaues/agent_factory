@@ -28,6 +28,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 → [foundational-principles.md](conventions/foundational-principles.md), [factory-voice.md](conventions/factory-voice.md)
 
 - **MUST** write every text, chat included, in the [factory voice](conventions/factory-voice.md), and pass its release check while writing each sentence, not afterwards.
+- **MUST** put every decision to the user with a concrete case and the outcome of each option for that case, as [Decision questions](conventions/factory-voice.md#decision-questions) describes, in every CLI and every skill.
 - **MUST** keep each skill/agent transmission short and independently verifiable (Eichhorst's Principle).
 - **MUST** separate agentic creation from deterministic validation — agents create artifacts; mechanically triggered gates run scripts that validate against predefined, state-dependent criteria.
 - **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI).
@@ -108,6 +109,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 Rules in this section apply to both modes unless marked **(automated only)**. In **manual** mode, the human owns all commits, pushes, and gate decisions; dispatch scripts, ledgers, and mechanized verification are not used.
 
 - **MUST** give any sub-agent a resolvable instance ID to report back to, never the parent's agent-type name.
+- **MUST** start a sub-agent fresh, with a [brief file](conventions/dispatch-contract.md#brief-file), unless it needs the conversation itself; after a context compaction, always fresh. This holds for every CLI ([Fresh Agent Or Inherited Context](conventions/dispatch-contract.md#fresh-agent-or-inherited-context)).
 - **MUST NOT** block indefinitely on a sub-agent's reply — do the work yourself if it declines or doesn't respond.
 - **MUST** split a whole-codebase dispatch into smaller, independently mergeable dispatches rather than run it as one.
 - **MUST** checkpoint a long-running dispatch with commits between rounds.

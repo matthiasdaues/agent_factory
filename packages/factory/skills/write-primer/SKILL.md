@@ -5,7 +5,7 @@ description: >-
   a reader who knows nothing about the project follow the full document.
   Writes it into the proposal's Primer section.
 category: requirements
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Write Primer
@@ -42,8 +42,10 @@ plain, in connected sentences. Not a pitch, not a summary slide, not a spec.
   list, such as separate rules or open questions. Use no bold section labels.
 - Each sentence is complete, short, and active. No fragments, no semicolon
   chains, no arrows.
-- Connect the ideas: say why one thing leads to the next ("so", "because",
-  "that is why"). A newcomer needs the links, not only the facts.
+- Follow the "Paragraphs" rules of the voice: outside in, terms on arrival,
+  concrete nouns, and links between sentences. A newcomer needs the links,
+  not only the facts. "One of three views on a Task" says nothing until the
+  reader knows what the three views show.
 - Use one concrete example and carry it through. Build it only from names and
   facts in the proposal. Do not invent numbers, sizes, or circumstances.
 - No buzzwords and no drama: no "robust", "seamless", "leverage", "powerful",
@@ -89,8 +91,9 @@ everything has become a summary.
 
 Follow this order, as plain paragraphs:
 
-1. The setting: what the system is and the first terms, defined in passing.
-2. The problem, told as a situation.
+1. The situation a person meets, told from the outside. Name the system and
+   the first terms only as the situation needs them.
+2. The problem in that situation.
 3. The framing concepts, and where this proposal's subject fits among them.
 4. The idea and how it works, using the running example.
 5. The obvious alternative and why it is not taken, in one or two sentences.
@@ -110,7 +113,10 @@ Follow this order, as plain paragraphs:
    is spelled out, and that every named right is explained.
 4. Check that every must-appear item from step 2 is present, and that each
    rule has its reason.
-5. Final pass: assume the text still reads like buzzword bingo or a breathless
+5. Paragraph check: read each paragraph as a whole against the "Paragraphs"
+   rules of the voice. A paragraph of short, unlinked claims fails, even when
+   every sentence passes.
+6. Final pass: assume the text still reads like buzzword bingo or a breathless
    pitch. Find those sentences and rewrite each one the way a colleague would
    say it out loud.
 
@@ -118,8 +124,8 @@ Follow this order, as plain paragraphs:
 
 The calling session writes the primer into a `## Primer` section directly
 below the proposal's title, before `## Summary`. It replaces the section if
-one exists. The primer describes the proposal as it stands; it carries no
-history of earlier versions.
+one exists. The primer describes the proposal as it stands. It carries no
+history of earlier versions and draws nothing from the Appendix.
 
 ## Validation
 
