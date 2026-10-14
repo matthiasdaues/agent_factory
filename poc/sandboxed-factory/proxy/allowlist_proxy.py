@@ -20,9 +20,20 @@ POLICY_FILE = os.environ.get("EGRESS_POLICY", "/policy/policy.json")
 LISTEN = os.environ.get("EGRESS_PROXY_LISTEN", "0.0.0.0:8080")
 
 
+import json
+
 def load_policy():
-    with open(POLICY_FILE) as fh:
-        return json.load(fh)
+    try:
+        with open(POLICY_FILE) as fh:
+            return json.load(fh)
+    except (ValueError, json.JSONDecodeError) as e:
+        # Handle the error, e.g., log, return error response, etc.
+        print(f"Error parsing JSON: {e}")
+        return None
+    except FileNotFoundError:
+        print(f"Error: The file {POLICY_FILE} was not found.")
+        return None
+
 
 
 def allowed(host: str) -> tuple[bool, str]:
