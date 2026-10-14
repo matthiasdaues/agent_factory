@@ -456,6 +456,15 @@ no-network posture while preserving writes under its tested `keep-id` model.
 It does not prove the dedicated-UID ownership contract in this proposal; that
 contract requires the separate DAC/ACL interoperability tests above.
 
+[Microsoft eXecution Container (MXC)](https://github.com/microsoft/mxc) is a
+candidate runtime for this profile. It is a software development kit that
+runs a workload under a JSON path and network policy. On Linux, it uses
+Bubblewrap, which may need no subordinate ID ranges. Its README, read on
+2026-10-08, documents no Linux launcher, no confirmed host filtering for
+Bubblewrap, no interactive terminal session, and no published release. The
+Dev Container proposal
+names the experiment that would settle these gaps.
+
 ## Git and Publication Transition
 
 ### Current state
