@@ -104,7 +104,7 @@ agents:
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
     tokens: 480
-    total_tokens: 1183
+    total_tokens: 1248
     inputs:
       context:
         - docs/CONTEXT.md
@@ -235,7 +235,7 @@ agents:
     description: Edit the prose of a finished document for a newcomer who dislikes long and vain texts. The sentence pass edits in place. The structural pass writes a cut plan for approval first. The lector changes wording, never meaning, and runs in a separate session from the author.
     path: agents/lector-agent.md
     tokens: 2320
-    total_tokens: 4875
+    total_tokens: 5111
     inputs:
       required:
         - type: document
@@ -335,8 +335,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2219
-    total_tokens: 19693
+    tokens: 2272
+    total_tokens: 19746
     inputs:
       required:
         - type: scope-map
@@ -808,7 +808,7 @@ skills:
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
-    tokens: 703
+    tokens: 768
   - name: run-step
     category: utility
     description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
@@ -888,7 +888,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2957
-    total_tokens: 36506
+    total_tokens: 36559
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -910,7 +910,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 43420
+    total_tokens: 43473
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -927,7 +927,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4610
-    total_tokens: 104401
+    total_tokens: 104454
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -945,7 +945,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2858
-    total_tokens: 103832
+    total_tokens: 103950
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1006,7 +1006,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4510
+    tokens: 4721
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1042,7 +1042,7 @@ rulebooks:
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md
-    tokens: 2555
+    tokens: 2791
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
@@ -1123,6 +1123,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/versioning-policy.md
     tokens: 657
+  - name: working-discipline
+    category: conventions
+    path: rulebooks/conventions/working-discipline.md
+    tokens: 1240
   - name: cockburn-reasoning
     category: principles
     path: rulebooks/principles/cockburn-reasoning.md
