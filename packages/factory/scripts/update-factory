@@ -666,6 +666,33 @@ def _rollback_update(
     log("rolled back to the previous installation after a failed update")
 
 
+def _reread_manifest_after_init(target: Path, before: dict) -> dict:
+    """Return the record init-factory wrote, with the header digests kept.
+
+    init-factory records each orientation entry as the string "injected".
+    _detect_header_changes needs the block_digest that update-factory stored,
+    so a digest record from before the run replaces that string. An
+    unreadable record falls back to the copy from before the run."""
+    try:
+        after = load_manifest(target)
+    except ManifestUnreadable as exc:
+        print(
+            f"update-factory: warning: install.json unreadable after "
+            f"init-factory ({exc}); keeping the record from before the run",
+            file=sys.stderr,
+        )
+        return before
+    if after is None:
+        return before
+    kept = before.get("orientation", {})
+    orientation = after.setdefault("orientation", {})
+    for rel, entry in kept.items():
+        if isinstance(entry, dict) and not isinstance(orientation.get(rel), dict):
+            if rel in orientation:
+                orientation[rel] = entry
+    return after
+
+
 def _write_manifest(target: Path, manifest: dict) -> None:
     manifest_path = target / MANIFEST_PATH
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1285,6 +1312,9 @@ def main(argv: list[str] | None = None) -> int:
         changed_header_paths, header_backups = _apply_header_changes(
             target, manifest, header_changes, source,
         )
+        # init-factory carries the prior record forward, so it must see the
+        # header digests just applied. A rollback restores manifest_backup.
+        _write_manifest(target, manifest)
         code = _run_init(source, target)
         if code != 0:
             apply_error = "the sourced init-factory did not complete"
@@ -1318,6 +1348,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── Receipt (ADR-0023 step 7 / VFO-025) ──────────────────────────────
 
+    # init-factory rewrote install.json with the wiring it installed. Build
+    # the receipt on that record, not on the copy read before the run, or
+    # the next update meets agent files whose records were dropped.
+    manifest = _reread_manifest_after_init(target, manifest)
     manifest["factory_version"] = candidate_version
     manifest["source_selector"] = source_selector
     if is_remote:

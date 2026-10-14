@@ -839,6 +839,47 @@ class TestApplicationAndRollback:
         leftovers += list((target / ".agent-factory").glob(f"{uf.BACKUP_DIR_PREFIX}*"))
         assert leftovers == []
 
+    def test_receipt_keeps_the_records_init_factory_wrote(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """init-factory rewrites install.json during the update. The receipt
+        must build on that rewritten record, or the next update finds an
+        agent file whose record it lost and stops."""
+        target = tmp_path / "target"
+        target.mkdir()
+        self._install(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+            copilot_generated_agents=[".github/agents/old-agent.md"],
+        )
+
+        def _init_writes_records(src, tgt):
+            manifest_path = tgt / uf.MANIFEST_PATH
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["copilot_generated_agents"] = [
+                ".github/agents/new-agent.md",
+                ".github/agents/old-agent.md",
+            ]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            return 0
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", _init_writes_records)
+
+        code = uf.main(["--target", str(target)])
+
+        assert code == 0
+        manifest = json.loads(
+            (target / uf.MANIFEST_PATH).read_text(encoding="utf-8")
+        )
+        assert manifest["copilot_generated_agents"] == [
+            ".github/agents/new-agent.md",
+            ".github/agents/old-agent.md",
+        ]
+        assert manifest["factory_source"] == str(source)
+
     def test_run_init_failure_restores_previous_tree_manifest_and_checksums(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -984,6 +1025,60 @@ class TestHeaderApplyAndRollback:
         assert manifest["orientation"]["AGENTS.md"]["block_digest"] != hashlib.sha256(
             f"{uf.ORIENTATION_BEGIN}\nold instructions\n{uf.ORIENTATION_END}\n".encode()
         ).hexdigest()
+
+    def test_header_digest_survives_init_writing_injected(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """init-factory records each orientation entry as "injected". The
+        digest record must survive, or the next update never sees a changed
+        header again."""
+        target, _source, _original = self._setup(tmp_path)
+
+        def _init_marks_injected(src, tgt):
+            manifest_path = tgt / uf.MANIFEST_PATH
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            for rel in manifest.get("orientation", {}):
+                manifest["orientation"][rel] = "injected"
+            manifest["copilot_generated_agents"] = [".github/agents/new-agent.md"]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            return 0
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", _init_marks_injected)
+
+        code = uf.main(["--target", str(target)])
+
+        assert code == 0
+        manifest = json.loads((target / uf.MANIFEST_PATH).read_text())
+        new_block = uf._candidate_orientation_block(_source, "codex")
+        assert manifest["orientation"]["AGENTS.md"]["block_digest"] == (
+            hashlib.sha256(new_block.encode("utf-8")).hexdigest()
+        )
+        assert manifest["copilot_generated_agents"] == [
+            ".github/agents/new-agent.md"
+        ]
+
+    def test_unreadable_record_after_init_keeps_the_prior_record(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """A corrupt install.json after init-factory must not stop the update
+        halfway; the receipt falls back to the record from before the run."""
+        target, source, _original = self._setup(tmp_path)
+
+        def _init_corrupts_record(src, tgt):
+            (tgt / uf.MANIFEST_PATH).write_text("{not json", encoding="utf-8")
+            return 0
+
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", _init_corrupts_record)
+
+        code = uf.main(["--target", str(target)])
+
+        assert code == 0
+        assert "unreadable after init-factory" in capsys.readouterr().err
+        manifest = json.loads((target / uf.MANIFEST_PATH).read_text())
+        assert manifest["factory_source"] == str(source)
+        assert (target / uf.CHECKSUMS_PATH).is_file()
 
     def test_header_change_is_restored_on_rollback(self, tmp_path, monkeypatch):
         target, _source, original_content = self._setup(tmp_path)
