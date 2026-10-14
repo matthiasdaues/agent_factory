@@ -52,6 +52,7 @@ models/
 /.codex/agents/code-review-agent.toml
 /.codex/agents/developer-agent.toml
 /.codex/agents/implementation-agent.toml
+/.codex/agents/lector-agent.toml
 /.codex/agents/planning-agent.toml
 /.codex/agents/proposal-review-agent.toml
 /.codex/agents/qa-agent.toml
@@ -94,6 +95,7 @@ models/
 /.agents/skills/domain-modeling
 /.agents/skills/draft-proposal
 /.agents/skills/explain-concept
+/.agents/skills/explain-review-finding
 /.agents/skills/fagan-review
 /.agents/skills/grilling
 /.agents/skills/guided-tour
@@ -127,4 +129,5 @@ models/
 /.agents/skills/vue-best-practices
 /.agents/skills/write-adr
 /.agents/skills/write-prd
+/.agents/skills/write-primer
 # <<< agent_factory related <<<
