@@ -26,6 +26,7 @@ Rules:
 
 - Concrete example per item, not a general principle.
 - Friction: state root cause and cost (time, rework, risk).
+- An agent error: name it plainly, trace its cause, and name the process change, per [working-discipline.md § Admit, analyse, adapt](../../rulebooks/conventions/working-discipline.md#admit-analyse-adapt). The same class of error seen twice goes under **Stop Doing**.
 - Stop/Continue/Start: actionable — a future agent or user can follow it.
 - Zero items in a category: say so. Do not pad.
 

@@ -33,6 +33,17 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** separate agentic creation from deterministic validation — agents create artifacts; mechanically triggered gates run scripts that validate against predefined, state-dependent criteria.
 - **MUST** build only what the specification requires, in the smallest verified step it allows (YAGNI).
 
+## Working discipline
+
+→ [working-discipline.md](conventions/working-discipline.md)
+
+- **MUST** check a premise before building an explanation on it; an unexpected result or a long justification is a reason to stop and check.
+- **MUST** handle an error in three steps: admit it plainly, trace its cause, and change the process.
+- **MUST** stop repairing an approach after the same class of error occurs twice; report it and propose another approach or an earlier decision to revisit.
+- **MUST NOT** state how a tool or external product behaves unless it was checked in this session; otherwise mark the claim as unchecked and name what would check it.
+- **MUST** check an invented example for names, dates, and facts that contradict each other or the project.
+- **MUST** prefer removing a document's claim over creating what it describes, unless a concrete system names what breaks without it (the Breakage Test).
+
 ## Proposals
 
 → [proposal.md template](templates/proposal.md), [feature-addition.md](../playbooks/feature-addition.md)
@@ -221,6 +232,7 @@ Rules in this section apply to both modes unless marked **(automated only)**. In
 
 - [foundational-principles.md](conventions/foundational-principles.md)
 - [factory-voice.md](conventions/factory-voice.md)
+- [working-discipline.md](conventions/working-discipline.md)
 - [agent-context-composition.md](conventions/agent-context-composition.md)
 - [branching-policy.md § Project-Specific Rules](conventions/branching-policy.md#project-specific-rules)
 - [dispatch-contract.md § Project-Specific Rules](conventions/dispatch-contract.md#project-specific-rules)
