@@ -116,7 +116,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    - Read the `### Ownership Resolution` table in `backlog/epics.md` for each EPIC. For each contract with an ownership assignment, verify that the owning story's `tests:` field includes at least one test covering that contract. When ownership exists but no corresponding test coverage is found, file a `RECON-TEST-COVERAGE` finding.
    - Test references stay in story files (`backlog/ST-NNNN.md`), not in `.feature` files — consistent with [cross-reference-format.md](../rulebooks/conventions/cross-reference-format.md).
 
-**Pause point:** Present the discrepancy table before committing updates. Human decides: update spec or change code?
+**Pause point:** Present the discrepancy table before committing updates. Human decides: update spec or change code? For each descriptive claim that names something the code lacks, apply the [Breakage Test](../rulebooks/conventions/working-discipline.md#when-a-document-and-reality-disagree): recommend removing the claim unless the table names what breaks without the missing thing.
 
 ## Completion Criteria
 
