@@ -590,7 +590,7 @@ The planning agent fills each story's `quality-gates` field from the `gates` sec
 
 ### Step isolation
 
-Per-step manifests at `.current-work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `.agent-factory/factory/scripts/step-guard` hook is installed, but it does not enforce these boundaries yet: it does not find the manifests, and its denials would not block a tool call. Agents keep to their step boundary by discipline.
+Per-step manifests at `.current-work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `step-guard` hook is installed but does not enforce these boundaries yet. It does not find the manifests. Agents keep to their step boundary by discipline.
 
 ### Mechanized dispatch
 
