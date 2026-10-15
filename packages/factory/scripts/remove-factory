@@ -581,6 +581,11 @@ def _cancel_pending(target: Path, control: Path) -> int:
     return cancelled
 
 
+# An owner file is created empty and written right after. One that is still
+# empty or unparsable after this many seconds was left by a crash.
+OWNER_WRITE_GRACE_SECONDS = 5.0
+
+
 def _owner_pid(text: str) -> int | None:
     text = text.strip()
     return int(text) if text.isdigit() else None
@@ -609,7 +614,8 @@ def _stale_snapshot(owner: Path) -> tuple[int, int, int, str] | None:
     snapshot = (info.st_dev, info.st_ino, info.st_mtime_ns, text)
     pid = _owner_pid(text)
     if pid is None:
-        return None  # still being written: assume a live owner
+        age = time.time() - info.st_mtime
+        return snapshot if age > OWNER_WRITE_GRACE_SECONDS else None
     return snapshot if _pid_is_dead(pid) else None
 
 

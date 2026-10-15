@@ -221,3 +221,16 @@ def test_bug_0076_concurrent_takeover_of_stale_owner_lets_one_removal_win(
     assert competitor == [True]
     assert first_claim is False
     assert [p.name for p in tmp_path.iterdir()] == ["remove-owner"]
+
+
+@pytest.mark.parametrize(("age", "claimed"), [(60, True), (0, False)])
+def test_bug_0076_empty_owner_file_expires_after_grace_period(
+    remove_factory, tmp_path, age, claimed
+):
+    owner = tmp_path / "remove-owner"
+    owner.write_text("")
+    then = owner.stat().st_mtime - age
+    os.utime(owner, (then, then))
+
+    assert age == 0 or age > remove_factory.OWNER_WRITE_GRACE_SECONDS
+    assert remove_factory._claim_owner(owner) is claimed
