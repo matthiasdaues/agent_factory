@@ -93,11 +93,12 @@ def _sentence_count(text: str) -> int:
 
 def _find_markers(text: str, markers: Tuple[str, ...]) -> List[str]:
     # A marker counts only as a whole word or phrase, so "no " does not match
-    # inside "arduino ".
+    # inside "arduino ". A hyphen joins words too, so "no" does not match
+    # inside "no-op", "--no-ff" or "not-yet".
     low = text.lower()
     return [
         m.strip() for m in markers
-        if re.search(rf'\b{re.escape(m.strip())}\b', low)
+        if re.search(rf'(?<![\w-]){re.escape(m.strip())}(?![\w-])', low)
     ]
 
 

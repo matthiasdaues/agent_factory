@@ -17,6 +17,18 @@ class TestConjectureMarkersMatchWholeWords:
         claim = "The Arduino platform supports the Singapore protocol"
         assert cl.lint_claim(claim) == []
 
+    def test_no_op_is_not_a_gap(self):
+        claim = "The adapter supports a no-op shutdown hook"
+        assert cl.lint_claim(claim) == []
+
+    def test_no_ff_flag_is_not_a_gap(self):
+        claim = "The merge script supports the --no-ff flag"
+        assert cl.lint_claim(claim) == []
+
+    def test_not_yet_is_not_a_gap(self):
+        claim = "The queue handles not-yet-acknowledged messages"
+        assert cl.lint_claim(claim) == []
+
     def test_real_capability_and_gap_bundle_is_still_flagged(self):
         claim = "The adapter supports batch writes and no retry path exists"
         findings = cl.lint_claim(claim)
