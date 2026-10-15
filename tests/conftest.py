@@ -12,19 +12,17 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_SCRIPTS_DIR = REPO_ROOT / "packages" / "factory" / "scripts"
-INSTALLED_SCRIPTS_DIR = REPO_ROOT / ".agent-factory" / "factory" / "scripts"
-SCRIPTS_DIR = INSTALLED_SCRIPTS_DIR
+SCRIPTS_DIR = SOURCE_SCRIPTS_DIR
 
-# Scripts like spec-lint do `import _session_log` at module scope.
-for d in (SOURCE_SCRIPTS_DIR, INSTALLED_SCRIPTS_DIR):
-    if d.is_dir() and str(d) not in sys.path:
-        sys.path.insert(0, str(d))
+# Scripts like spec-lint do `import _session_log` at module scope. Tests
+# check the source, so only the source directory goes on sys.path.
+if str(SOURCE_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SOURCE_SCRIPTS_DIR))
 
 
 def load_script(name: str):
     """Import a factory script as a Python module."""
-    source_path = SOURCE_SCRIPTS_DIR / name
-    path = source_path if source_path.is_file() else INSTALLED_SCRIPTS_DIR / name
+    path = SOURCE_SCRIPTS_DIR / name
     module_name = name.replace("-", "_")
     loader = SourceFileLoader(module_name, str(path))
     spec = importlib.util.spec_from_loader(module_name, loader)
