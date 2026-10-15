@@ -57,13 +57,17 @@ init-factory re-derives per-CLI wiring against the new tree.
 Rollback: if application fails — the swap, a header edit, or the sourced
 init-factory returning non-zero — the previous `.agent-factory/factory/`,
 `install.json` manifest, `checksums.json`, and any touched instruction
-headers are restored exactly. The project is never left without a
-`.agent-factory/factory/`; resolve the reported failure and re-run
-`update-factory` to finish.
+headers are restored exactly. So is the wiring init-factory writes
+(WIRING_ROOTS): the tool directories, `AGENTS.md`, `.gitignore`,
+`.pre-commit-config.yaml`, `.agent-factory/config/`, and `docs/testing.yaml`.
+Paths the failed run created are removed, so no generated file outlives its
+record. The project is never left without a `.agent-factory/factory/`;
+resolve the reported failure and re-run `update-factory` to finish.
 
-What is *not* touched: only `.agent-factory/factory/`, `install.json`,
-`checksums.json`, and instruction-header content are written. The project's
-own files, the `.gitignore`/`.pre-commit-config.yaml` edits, and the rest of
+What is *not* touched: besides `.agent-factory/factory/`, `install.json`,
+`checksums.json`, and instruction-header content, only the sourced
+init-factory writes, and only the wiring listed above. The project's own
+files, `.claude/worktrees/`, `.github/workflows/`, and the rest of
 `.agent-factory/` — including the usage-tracking transcripts under
 `.agent-factory/usage/` and the lifecycle state under `.agent-factory/usage/
 control/` — are all preserved. init-factory never deletes usage data.
@@ -139,6 +143,17 @@ REMOTE_TIMEOUT = 30
 STAGING_DIR_PREFIX = "factory-staging-"
 BACKUP_DIR_PREFIX = "factory-backup-"
 REMOTE_SCRATCH_PREFIX = "factory-remote-"
+
+# Paths the sourced init-factory may write outside .agent-factory/factory/.
+# A failed update restores them from a snapshot taken before application
+# (BUG-0048). Worktrees and CI workflows are the developer's own work, which
+# init-factory never writes, so the snapshot skips them.
+WIRING_ROOTS = (
+    ".claude", ".codex", ".github", ".pi", ".agents",
+    "AGENTS.md", ".gitignore", ".pre-commit-config.yaml",
+    ".agent-factory/config", "docs/testing.yaml",
+)
+WIRING_SKIP = frozenset({".claude/worktrees", ".github/workflows"})
 
 # Instruction-file discovery, mirroring install-agent-factory's rule, so
 # --check can tell which files would receive a header on the next update
@@ -639,9 +654,10 @@ def _rollback_update(
     manifest_backup: bytes | None,
     checksums_backup: bytes | None,
     header_backups: dict[str, bytes],
+    wiring_snapshot: dict[str, tuple] | None = None,
 ) -> None:
-    """Restore the previous Factory tree, manifest, checksums, and
-    instruction headers after a failed application (ADR-0023 step 6)."""
+    """Restore the previous Factory tree, manifest, checksums, instruction
+    headers, and wiring after a failed application (ADR-0023 step 6)."""
     if target_factory.exists():
         if target_factory.is_dir():
             shutil.rmtree(target_factory)
@@ -663,7 +679,101 @@ def _rollback_update(
     for rel, original in header_backups.items():
         (target / rel).write_bytes(original)
 
+    if wiring_snapshot is not None:
+        _restore_wiring(target, wiring_snapshot)
+
     log("rolled back to the previous installation after a failed update")
+
+
+def _walk_wiring(target: Path):
+    """Yield (relative path, path) for every wiring path, parents first.
+
+    Symlinks are reported but not followed, so links into the installed
+    factory are recorded as links."""
+    for root in WIRING_ROOTS:
+        start = target / root
+        if not (start.exists() or start.is_symlink()):
+            continue
+        pending = [start]
+        while pending:
+            path = pending.pop()
+            relative = path.relative_to(target).as_posix()
+            if relative in WIRING_SKIP:
+                continue
+            yield relative, path
+            if path.is_dir() and not path.is_symlink():
+                pending.extend(sorted(path.iterdir(), reverse=True))
+
+
+def _snapshot_wiring(target: Path) -> dict[str, tuple]:
+    """Record every wiring path: a link's target, a file's bytes and mode,
+    or a directory's mode."""
+    snapshot: dict[str, tuple] = {}
+    for relative, path in _walk_wiring(target):
+        if path.is_symlink():
+            snapshot[relative] = ("link", os.readlink(path))
+        elif path.is_dir():
+            snapshot[relative] = ("dir", path.stat().st_mode & 0o7777)
+        elif path.is_file():
+            snapshot[relative] = (
+                "file", path.read_bytes(), path.stat().st_mode & 0o7777,
+            )
+    return snapshot
+
+
+def _remove_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def _restore_wiring(target: Path, snapshot: dict[str, tuple]) -> None:
+    """Put every wiring path back as the snapshot recorded it: remove paths
+    the failed run created, rewrite paths it changed, and recreate paths it
+    removed."""
+    created = [
+        relative for relative, _path in _walk_wiring(target)
+        if relative not in snapshot
+    ]
+    # Deepest first, so a created directory is empty when its turn comes.
+    # A directory that still holds a skipped path, such as a worktree,
+    # stays.
+    for relative in sorted(created, key=lambda rel: rel.count("/"), reverse=True):
+        path = target / relative
+        if path.is_dir() and not path.is_symlink():
+            try:
+                path.rmdir()
+            except OSError:
+                pass
+        else:
+            path.unlink(missing_ok=True)
+
+    for relative, entry in sorted(snapshot.items(), key=lambda item: item[0].count("/")):
+        path = target / relative
+        kind = entry[0]
+        if kind == "dir":
+            if path.is_symlink() or path.is_file():
+                path.unlink()
+            path.mkdir(exist_ok=True)
+            path.chmod(entry[1])
+        elif kind == "link":
+            if path.is_symlink() and os.readlink(path) == entry[1]:
+                continue
+            _remove_path(path)
+            os.symlink(entry[1], path)
+        else:
+            _kind, content, mode = entry
+            if (
+                path.is_file() and not path.is_symlink()
+                and path.read_bytes() == content
+            ):
+                path.chmod(mode)
+                continue
+            _remove_path(path)
+            path.write_bytes(content)
+            path.chmod(mode)
+    log("restored the wiring the failed run had changed")
 
 
 def _reread_manifest_after_init(target: Path, before: dict) -> dict:
@@ -1295,6 +1405,7 @@ def main(argv: list[str] | None = None) -> int:
     checksums_path = target / CHECKSUMS_PATH
     manifest_backup = manifest_path.read_bytes() if manifest_path.is_file() else None
     checksums_backup = checksums_path.read_bytes() if checksums_path.is_file() else None
+    wiring_snapshot = _snapshot_wiring(target)
 
     backup: Path | None = None
     if target_factory.is_dir():
@@ -1325,7 +1436,7 @@ def main(argv: list[str] | None = None) -> int:
     if apply_error is not None:
         _rollback_update(
             target, target_factory, backup, manifest_backup, checksums_backup,
-            header_backups,
+            header_backups, wiring_snapshot,
         )
         if scratch_root is not None:
             shutil.rmtree(scratch_root, ignore_errors=True)
