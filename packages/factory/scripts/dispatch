@@ -67,6 +67,20 @@ def _git(*args: str) -> tuple[int, str, str]:
     return r.returncode, r.stdout.strip(), r.stderr.strip()
 
 
+def _worktree_for_branch(branch: str) -> str | None:
+    """Return the path of the worktree that has *branch* checked out, if any."""
+    code, out, _ = _git("worktree", "list", "--porcelain")
+    if code != 0:
+        return None
+    path = None
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            path = line[len("worktree "):]
+        elif line == f"branch refs/heads/{branch}":
+            return path
+    return None
+
+
 def _project_root() -> Path:
     """Resolve the project root from git."""
     code, out, _ = _git("rev-parse", "--show-toplevel")
@@ -1390,6 +1404,16 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
         )
         return 1
 
+    if entry.base_sha:
+        ahead_code, _, _ = _git("merge-base", "--is-ancestor", entry.base_sha, sha)
+        if ahead_code != 0 or _git("rev-parse", sha)[1] == entry.base_sha:
+            print(
+                f"error: SHA {sha} is not ahead of the story's base {entry.base_sha} "
+                f"for {args.story_id}",
+                file=sys.stderr,
+            )
+            return 1
+
     entry.verify_base = "pass"
     entry.commit_sha = sha
     if entry.attempts:
@@ -1477,6 +1501,17 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         )
         return 1
 
+    current_branch = _current_branch_name()
+    if current_branch != target_branch:
+        location = _worktree_for_branch(target_branch)
+        where = f" Run it from {location}." if location else ""
+        print(
+            f"error: merge-story must run on the invocation branch '{target_branch}', "
+            f"but the current checkout is on '{current_branch}'.{where}",
+            file=sys.stderr,
+        )
+        return 1
+
     story_path = project_root / "backlog" / f"{entry.id}.md"
     fm = (
         parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
@@ -1488,15 +1523,23 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         else ([raw_outputs] if raw_outputs else [])
     )
 
-    already_merged_code, _, _ = _git(
-        "merge-base", "--is-ancestor", entry.branch, "HEAD"
-    )
     # Interrupted-merge recovery: a prior run created the merge commit (and
     # amended the status update into it) but was interrupted before the
-    # test suite completed. Detect it via ancestry rather than re-running
-    # premerge-check and re-merging, and run the test suite directly
-    # against the existing merge commit instead of duplicating it.
-    already_merged = already_merged_code == 0
+    # test suite completed. That is the case only when HEAD is a merge
+    # commit whose second parent is the story's tip. A story branch that is
+    # an ancestor of HEAD in any other way has no commits of its own, and
+    # merging it would record unrelated history as the story's work.
+    _, branch_tip, _ = _git("rev-parse", entry.branch)
+    second_parent_code, second_parent, _ = _git("rev-parse", "--verify", "-q", "HEAD^2")
+    already_merged = second_parent_code == 0 and second_parent == branch_tip
+    contained_code, _, _ = _git("merge-base", "--is-ancestor", entry.branch, "HEAD")
+    if contained_code == 0 and not already_merged:
+        print(
+            f"error: {entry.branch} has no commits ahead of {target_branch}; "
+            "nothing to merge",
+            file=sys.stderr,
+        )
+        return 1
 
     if not already_merged:
         premerge_cmd = [str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch]
@@ -1617,6 +1660,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
+    ledger.branch_head = merge_sha
     return _save_ledger(ledger, ledger_path)
 
 
