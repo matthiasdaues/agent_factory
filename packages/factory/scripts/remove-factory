@@ -118,6 +118,11 @@ def strip_gitignore_block(target: Path, manifest: dict) -> None:
         log(".gitignore: removed (held only the agent_factory block)")
 
 
+def _orientation_status(entry: object) -> object:
+    """Read an orientation entry: a bare string (v1) or a dictionary (v2)."""
+    return entry.get("status") if isinstance(entry, dict) else entry
+
+
 def strip_orientation_block(target: Path, manifest: dict) -> None:
     orientation = manifest.get("orientation", {})
     markers = manifest.get("orientation_markers", {})
@@ -125,8 +130,8 @@ def strip_orientation_block(target: Path, manifest: dict) -> None:
     end = markers.get("end", ORIENTATION_END)
     orig_newlines = manifest.get("orientation_orig_final_newline", {})
 
-    for rel, status in orientation.items():
-        if status != "injected":
+    for rel, entry in orientation.items():
+        if _orientation_status(entry) != "injected":
             continue
         path = target / rel
         if not path.exists():
@@ -141,7 +146,10 @@ def strip_orientation_block(target: Path, manifest: dict) -> None:
         if restored:
             restored += "\n"
         restored += post
-        had_nl = orig_newlines.get(rel, True)
+        if isinstance(entry, dict) and "orig_final_newline" in entry:
+            had_nl = entry["orig_final_newline"]
+        else:
+            had_nl = orig_newlines.get(rel, True)
         restored = restored.rstrip("\n")
         if restored and had_nl:
             restored += "\n"
@@ -430,7 +438,8 @@ def _symlink_points_to(path: Path, expected: Path) -> bool:
 def _codex_artifact_owned(path: Path, rel: str, target: Path, manifest: dict) -> bool:
     if (
         rel == "AGENTS.md"
-        and manifest.get("orientation", {}).get("AGENTS.md") == "linked"
+        and _orientation_status(manifest.get("orientation", {}).get("AGENTS.md"))
+        == "linked"
     ):
         return _symlink_points_to(path, target / ".agent-factory/factory/config/AGENTS.md")
     if rel.startswith(".agents/skills/"):
