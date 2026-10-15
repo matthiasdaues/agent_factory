@@ -133,3 +133,32 @@ def test_consumer_gate_skips_without_any_factory(project_with_worktree):
 
     assert result.returncode == 0
     assert not project_with_worktree["marker"].exists()
+
+
+def test_link_check_in_a_worktree_follows_links_into_the_main_checkout(
+    project_with_worktree,
+):
+    """BUG-0041: a tracked document that links into .agent-factory/ passes
+    link-check in a linked worktree, which has no copy of its own."""
+    project, worktree = project_with_worktree["project"], project_with_worktree["worktree"]
+    target = project / ".agent-factory" / "factory" / "guide.md"
+    target.write_text("# Guide\n\n## Setup\n")
+    doc = worktree / "docs" / "note.md"
+    doc.parent.mkdir()
+    doc.write_text("[guide](../.agent-factory/factory/guide.md#setup)\n")
+
+    result = _run([str(SOURCE_SCRIPTS_DIR / "link-check"), "docs/note.md"], worktree)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_link_check_still_reports_a_missing_installed_file(project_with_worktree):
+    """BUG-0041: the fallback does not hide links to files that exist nowhere."""
+    worktree = project_with_worktree["worktree"]
+    doc = worktree / "docs" / "note.md"
+    doc.parent.mkdir()
+    doc.write_text("[gone](../.agent-factory/factory/missing.md)\n")
+
+    result = _run([str(SOURCE_SCRIPTS_DIR / "link-check"), "docs/note.md"], worktree)
+
+    assert result.returncode == 1

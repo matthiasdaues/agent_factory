@@ -242,7 +242,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{counts['warning']} warning(s), {counts['info']} info."
         )
 
-    return 0 if args.report_only else counts["error"]
+    return 1 if counts["error"] and not args.report_only else 0
 
 
 if __name__ == "__main__":

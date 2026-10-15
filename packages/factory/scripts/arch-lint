@@ -268,7 +268,7 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
     if needs_export:
         # Auto-export via structurizr script (deterministic validation principle)
         docs_root = dsl_path.parent.parent
-        structurizr_script = Path(".agent-factory/factory/scripts/structurizr").resolve()
+        structurizr_script = Path(__file__).resolve().parent / "structurizr"
 
         if not structurizr_script.exists():
             rep.error(

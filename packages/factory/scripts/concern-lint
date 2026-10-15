@@ -26,9 +26,11 @@ Exit code: number of ERROR-severity findings (0 = clean).
 from __future__ import annotations
 
 import argparse
+import functools
 import glob
 import json
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -235,6 +237,33 @@ def check_paths(concerns: list[ConcernSection], root: Path) -> list[Finding]:
     return findings
 
 
+@functools.lru_cache(maxsize=None)
+def _main_checkout(worktree_root: Path) -> Path | None:
+    """Return the main checkout of a linked worktree, or None.
+
+    The installed factory under .agent-factory/ is untracked, so only the
+    main checkout has it. A linked worktree reaches it there.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(worktree_root), "rev-parse", "--git-common-dir"],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    main_root = (worktree_root / result.stdout.strip()).resolve().parent
+    return None if main_root == worktree_root.resolve() else main_root
+
+
+def _installed_copy_in_main_checkout(target: Path) -> Path | None:
+    """Map a missing path under .agent-factory/ to the main checkout's copy."""
+    parts = target.parts
+    if ".agent-factory" not in parts:
+        return None
+    index = parts.index(".agent-factory")
+    main_root = _main_checkout(Path(*parts[:index]))
+    return None if main_root is None else main_root.joinpath(*parts[index:])
+
+
 def _path_resolves(path_str: str, root: Path) -> bool:
     """Return True when path_str resolves to an existing file or at least
     one glob match, relative to root.
@@ -244,12 +273,15 @@ def _path_resolves(path_str: str, root: Path) -> bool:
     """
     # mdformat escapes * to \* in markdown; undo that for path resolution
     cleaned = path_str.replace("\\*", "*")
-    full = root / cleaned
-    if full.exists():
-        return True
-    # Try glob expansion
-    matches = glob.glob(str(full))
-    return len(matches) > 0
+    full = (root / cleaned).resolve()
+    candidates = [full]
+    fallback = _installed_copy_in_main_checkout(full)
+    if fallback is not None:
+        candidates.append(fallback)
+    for candidate in candidates:
+        if candidate.exists() or glob.glob(str(candidate)):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
