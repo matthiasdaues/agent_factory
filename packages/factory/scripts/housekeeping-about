@@ -5,7 +5,9 @@
 """housekeeping-about — display factory installation state.
 
 Reads four independent sources and prints a summary: factory version,
-fitting status, CLI integrations, and usage pipeline health.
+fitting status, CLI integrations, and usage pipeline health. The usage
+pipeline counts as healthy only when its runtime is installed and it has
+written at least one record; the report names the newest record's time.
 Each source is read independently; a failure in one does not prevent
 reading others. Unreadable values show as "unknown" with the error.
 
@@ -20,7 +22,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 FITTING_STEPS = [
@@ -65,12 +69,28 @@ def read_fitting(base: Path) -> str:
         return f"unknown ({type(exc).__name__}: {exc})"
 
 
+def _runtime_ready(usage_dir: Path) -> bool:
+    """Mirror the checks usage-capture-runtime makes before it runs."""
+    runtime = usage_dir / "runtime"
+    if not (runtime / ".requirements-sha256").is_file():
+        return False
+    pythons = (runtime / "bin" / "python", runtime / "Scripts" / "python.exe")
+    return any(path.is_file() and os.access(path, os.X_OK) for path in pythons)
+
+
 def read_usage_health(base: Path) -> str:
     try:
         usage_dir = base / ".agent-factory" / "usage"
-        if usage_dir.is_dir():
-            return "healthy"
-        return "unknown (usage directory not found)"
+        if not usage_dir.is_dir():
+            return "unknown (usage directory not found)"
+        if not _runtime_ready(usage_dir):
+            return "broken (usage runtime not installed)"
+        records = list(usage_dir.glob("*.jsonl"))
+        if not records:
+            return "idle (runtime ready, no usage records yet)"
+        newest = max(path.stat().st_mtime for path in records)
+        stamp = datetime.fromtimestamp(newest, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return f"healthy (last record {stamp})"
     except Exception as exc:
         return f"unknown ({type(exc).__name__}: {exc})"
 

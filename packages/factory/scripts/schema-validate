@@ -4,7 +4,9 @@
 # What: Validates one JSON artifact against one JSON Schema and reports every
 #       structural violation — missing required fields, wrong types, disallowed
 #       enum/const values, malformed identifiers (pattern), bad timestamp
-#       formats, unexpected properties, and too-short arrays.
+#       formats, numbers below `minimum`, unexpected properties, and too-short
+#       arrays. `type` takes one type name or a list of names (a union), and
+#       `null` is a type.
 # When: Stage 1 of the three-stage research validation order (schema → policy →
 #       semantic); the load-bearing gate every later artifact and playbook step
 #       depends on. Invoked by the research skills/agents (ST-0019..0022) and on
@@ -45,6 +47,7 @@ _TYPE_NAMES = {
     "number": (int, float),
     "integer": int,
     "boolean": bool,
+    "null": type(None),
 }
 
 # RFC 3339 date-time, the profile JSON Schema's `format: date-time` refers to.
@@ -54,12 +57,15 @@ _RE_DATE_TIME = re.compile(
 )
 
 
-def _is_type(instance: Any, type_name: str) -> bool:
+def _is_type(instance: Any, type_name: str | list[str]) -> bool:
     """Return whether *instance* matches the JSON Schema *type_name*.
 
+    A list of type names is a union: the instance must match one of them.
     Guards the Python `bool`/`int` subclassing quirk: booleans satisfy only the
     `boolean` type, never `integer` or `number`.
     """
+    if isinstance(type_name, list):
+        return any(_is_type(instance, name) for name in type_name)
     expected = _TYPE_NAMES.get(type_name)
     if expected is None:
         return True  # unknown/unsupported type keyword — nothing to enforce
@@ -108,6 +114,10 @@ def validate(instance: Any, schema: Any, path: str = "$") -> list[str]:
             )
         if "format" in schema:
             _check_format(instance, schema["format"], path, errors)
+
+    is_number = isinstance(instance, (int, float)) and not isinstance(instance, bool)
+    if is_number and "minimum" in schema and instance < schema["minimum"]:
+        errors.append(f"{path}: {instance!r} is less than minimum {schema['minimum']!r}")
 
     if isinstance(instance, dict):
         errors += _validate_object(instance, schema, path)

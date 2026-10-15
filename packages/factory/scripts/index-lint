@@ -36,7 +36,9 @@ Usage (run from the repo root)
              --out .agent-factory/factory/INDEX.yaml
 
 Exit code: 0 if INDEX.yaml is (now, or already) up to date; 1 in --check
-mode if it was stale or an agent uses the rejected flat format.
+mode if it was stale, and 1 in any mode if an agent uses the rejected flat
+format or two agents or two skills share a name. A file without a `name`
+is left out of the index with a warning.
 """
 
 from __future__ import annotations
@@ -345,15 +347,41 @@ def _extract_agent_sequence(text: str) -> list[str]:
     return _AGENT_REF.findall(text)
 
 
-def load_agents(agents_dir: Path) -> list[dict]:
+def _read_named(path: Path, warnings: list[str] | None) -> tuple[str, dict] | None:
+    """Read a file that must carry a frontmatter ``name``.
+
+    ``utf-8-sig`` drops a leading byte order mark, which would otherwise hide
+    the frontmatter. A file without a name is skipped with a warning, so it
+    never vanishes from INDEX.yaml unnoticed (BUG-0057)."""
+    text = path.read_text(encoding="utf-8-sig")
+    fm = parse_frontmatter(text)
+    if not fm.get("name"):
+        if warnings is not None:
+            warnings.append(f"{path}: has no 'name' in its frontmatter; left out of the index")
+        return None
+    return text, fm
+
+
+def _duplicate_names(kind: str, entries: list[dict]) -> list[str]:
+    """Return one error per name that more than one entry claims."""
+    paths: dict[str, list[str]] = {}
+    for entry in entries:
+        paths.setdefault(entry["name"], []).append(entry["_path"])
+    return [
+        f"duplicate {kind} name '{name}': {', '.join(sorted(found))}"
+        for name, found in sorted(paths.items())
+        if len(found) > 1
+    ]
+
+
+def load_agents(agents_dir: Path, warnings: list[str] | None = None) -> list[dict]:
     agents = []
 
     for path in sorted(agents_dir.glob("*.md")):
-        text = path.read_text(encoding="utf-8")
-        fm = parse_frontmatter(text)
-
-        if not fm.get("name"):
+        named = _read_named(path, warnings)
+        if named is None:
             continue
+        text, fm = named
 
         fm["_path"] = str(path)
         fm["_tokens"] = count_tokens(text)
@@ -362,15 +390,14 @@ def load_agents(agents_dir: Path) -> list[dict]:
     return agents
 
 
-def load_skills(skills_dir: Path) -> list[dict]:
+def load_skills(skills_dir: Path, warnings: list[str] | None = None) -> list[dict]:
     skills = []
 
     for path in sorted(skills_dir.glob("*/SKILL.md")):
-        text = path.read_text(encoding="utf-8")
-        fm = parse_frontmatter(text)
-
-        if not fm.get("name"):
+        named = _read_named(path, warnings)
+        if named is None:
             continue
+        text, fm = named
 
         fm["_path"] = str(path)
         fm["_tokens"] = count_tokens(text)
@@ -383,7 +410,7 @@ def load_playbooks(playbooks_dir: Path) -> list[dict[str, object]]:
     playbooks = []
 
     for path in sorted(playbooks_dir.glob("*.md")):
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
         fm = parse_frontmatter(text)
         name = path.stem
         fsm_path = path.parent / f"{name}.fsm.yml"
@@ -417,7 +444,7 @@ def load_rulebooks(rulebooks_dir: Path) -> list[dict]:
         if "templates" in path.parts:
             continue
 
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
         name = path.stem
 
         rel = path.relative_to(rulebooks_dir)
@@ -699,8 +726,9 @@ def render_index(
     rulebooks_dir: Path,
     out: Path,
 ) -> tuple[str, list[str]]:
-    agents = load_agents(agents_dir)
-    skills = load_skills(skills_dir)
+    load_warnings: list[str] = []
+    agents = load_agents(agents_dir, load_warnings)
+    skills = load_skills(skills_dir, load_warnings)
     playbooks = load_playbooks(playbooks_dir)
     rulebooks = load_rulebooks(rulebooks_dir)
 
@@ -733,7 +761,8 @@ def render_index(
     playbook_entries, pw = build_playbooks_data(playbooks, agent_total_tokens)
     rulebook_entries, rw = build_rulebooks_data(rulebooks)
 
-    all_warnings = aw + sw + pw + rw
+    duplicates = _duplicate_names("agent", agents) + _duplicate_names("skill", skills)
+    all_warnings = load_warnings + duplicates + aw + sw + pw + rw
 
     if _TOKEN_FALLBACK:
         all_warnings.append(
@@ -836,8 +865,9 @@ def main(argv: list[str] | None = None) -> int:
         args.out,
     )
 
-    # Check for flat-format rejections
+    # Check for flat-format rejections and duplicate names
     flat_format_errors = [w for w in warnings if "rejected flat" in w]
+    duplicate_errors = [w for w in warnings if w.startswith("duplicate ")]
 
     for w in warnings:
         print(f"[WARNING] {w}", file=sys.stderr)
@@ -847,6 +877,12 @@ def main(argv: list[str] | None = None) -> int:
             f"index-lint: {len(flat_format_errors)} agent(s) use rejected flat format",
             file=sys.stderr,
         )
+    if duplicate_errors:
+        print(
+            f"index-lint: {len(duplicate_errors)} name(s) used by more than one entry",
+            file=sys.stderr,
+        )
+    if flat_format_errors or duplicate_errors:
         return 1
 
     current = args.out.read_text(encoding="utf-8") if args.out.exists() else None
