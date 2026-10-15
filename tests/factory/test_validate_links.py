@@ -61,3 +61,22 @@ def test_ruff_check_gate_does_not_fix():
 
     assert "--fix" not in command
 
+
+# --- BUG-0060: the validate skill looks for model.conf in the wrong place ---
+
+
+def test_matrix_lint_gate_uses_the_installed_model_conf():
+    """BUG-0060: init-factory installs model.conf under .agent-factory/config/,
+    so the matrix-lint gate checks and passes that path."""
+    condition, command = _gates()["matrix-lint"]
+
+    assert "`.agent-factory/config/model.conf` exists" in condition
+    assert command.endswith("--matrix .agent-factory/config/model.conf")
+
+
+def test_skill_names_no_root_level_model_conf():
+    """BUG-0060: no sentence in the skill points at a root-level config/model.conf."""
+    text = SKILL.read_text(encoding="utf-8")
+
+    assert not re.search(r"(?<![/\w.])config/model\.conf", text)
+
