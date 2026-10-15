@@ -234,7 +234,7 @@ Fix findings from the ATAM review. Re-validate architecture after fixes.
 **If blocking findings remain** → Return to the ATAM review (Step 5.1)
 **If clean** → Proceed to Step 5.3
 
-### Step 5.3 — Capture Project Charter
+### Step 5.3 — Capture Agent Context
 
 **Manual**: Invoke `capture-context` to scan the codebase and bootstrap the agent context.
 
@@ -249,31 +249,30 @@ The skill:
 2. Populates `docs/agent-context.md` with concern sections and `Read:` paths
 3. Presents findings to the stakeholder for confirmation
 
-**⚠️ No Epic 0 derivation in brownfield** — the mise en place (infrastructure,
-setup scripts, configurations) already exists in the scanned codebase. Unlike
-greenfield, which must *create* those artifacts, brownfield *documents* them.
-The agent context records reality as it stands.
+The infrastructure, setup scripts, and configurations already exist in the
+scanned codebase, so brownfield documents them instead of planning them. The
+agent context records reality as it stands.
 
 **Expected output**: `docs/agent-context.md`, confirmed by stakeholder
 
 **If scan incomplete** → Stakeholder corrects or adds findings
 **If complete** → Proceed to Step 5.4
 
-### Step 5.4 — Planning Gate (Charter & Specification Readiness)
+### Step 5.4 — Planning Gate (Agent Context & Specification Readiness)
 
 **Manual**: Stakeholder approval + deterministic gate
 
-Present the completed charter to the stakeholder. Run the planning gate to
-verify no `To be decided.` entries remain in tech-stack.md or development.md:
+Present `docs/agent-context.md` to the stakeholder. Run the planning gate to
+verify that every concern resolves:
 
 ```bash
-.agent-factory/factory/scripts/charter-lint --planning-gate
+.agent-factory/factory/scripts/concern-lint
 ```
 
 This gate must pass before any specification work or planning decisions that
 follow onboarding.
 
-**If gate fails** → Return to Step 5.3 and correct charter entries
+**If gate fails** → Return to Step 5.3 and correct `docs/agent-context.md`
 **If gate passes + stakeholder approves** → The reconciliation-agent's
 preconditions are satisfied.
 

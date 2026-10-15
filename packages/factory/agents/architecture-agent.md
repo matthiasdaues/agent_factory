@@ -10,7 +10,6 @@ skills:
   - write-adr
   - maintain-architecture
   - model-structurizr-slice
-  - update-charter
   - handoff
 inputs:
   required:

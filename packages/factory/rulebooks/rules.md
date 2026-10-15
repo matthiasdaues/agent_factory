@@ -65,12 +65,6 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** treat arc42 chapters 05, 06, and 07 as derived explanations of `architecture.dsl` views, not independent sources.
 - **MUST** provision `"arc42.projected" "false"` in the workspace `properties` block when creating a fresh `architecture.dsl`; only the architecture-agent sets it to `"true"` when the user explicitly requests arc42 chapter projection.
 
-## Coding
-
-- **MUST** derive Epic 0 from the charter when one exists.
-- **MUST** complete all must-have Epic 0 stories before any feature story begins.
-- **MUST** read house-rules and adjust workflow accordingly.
-
 ## Agent context composition
 
 → [agent-context-composition.md](conventions/agent-context-composition.md)

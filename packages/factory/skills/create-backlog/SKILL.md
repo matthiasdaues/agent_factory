@@ -77,7 +77,7 @@ Spec rules are traces — evidence of coverage, not the decomposition axis. A st
 
 Do not derive stories from components, layers, or implementation stages. Derive each story from an actor-visible outcome, then include every internal change required to deliver that outcome. An internal component may be a standalone story only when that component is itself a supported interface used by a named actor or external consumer. Build only the internal slice each actor-facing story requires — never a standalone "build the engine" or "create the schema" story.
 
-Each story **MUST** cross all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes) enters as a line item inside the story that first uses it, never as a standalone story — unless the story was already created by the `capture-charter` completeness sweep as part of Epic 0. The planning agent never creates Epic 0 stories; it only acknowledges ones the charter sweep produced.
+Each story **MUST** cross all system boundaries its capability requires. Infrastructure (identity types, schema scaffolding, test markers, pre-commit fixes, and project setup such as the test runner, CI, and linters) enters as a line item inside the story that first uses it, never as a standalone story.
 
 ### Rule 3: Criteria Are Invariants
 
@@ -111,7 +111,7 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 
 - [ ] Every story's demo uses the shipped interface — not test output, source inspection, or direct invocation of internals
 
-- [ ] No horizontal stories exist outside Epic 0 (a story derived from a component rather than an actor-visible outcome is horizontal)
+- [ ] No horizontal stories exist (a story derived from a component rather than an actor-visible outcome is horizontal)
 
 - [ ] Stories meet INVEST criteria (especially: small and testable)
 

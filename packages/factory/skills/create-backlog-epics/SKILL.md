@@ -31,7 +31,7 @@ The table is incomplete at this point. Step 0b fills the remaining columns befor
 
 ## Step 0b — Survey the codebase against each capability
 
-The technical concerns and cross-cutting concerns in `docs/agent-context.md` are read now. Technical concerns locate source directories, test roots, and infrastructure paths. Cross-cutting concerns define Epic 0 (foundational must-haves). For each capability row, the relevant codebase determines two columns:
+The technical concerns and cross-cutting concerns in `docs/agent-context.md` are read now. Technical concerns locate source directories, test roots, and infrastructure paths. Cross-cutting concerns name the setup work that the first stories must include. For each capability row, the relevant codebase determines two columns:
 
 - **Status quo** — "exists," "partial," "absent," or "gap." A capability is "exists" only when its complete specified observable behavior already works. An existing entry point with missing behavior is "partial." A capability is "gap" when an unresolved specification decision prevents a complete slice.
 - **Supporting rules** — which specification rules this capability requires and whether each has an existing implementation. Specification rules include engine decisions, adapter behaviors, validator checks, and schema constraints.
@@ -49,8 +49,6 @@ Steps 0a and 0b run without a pause. The completed capability table is not prese
 An EPIC groups capabilities that form one coherent user journey or deliver one useful outcome. Shared infrastructure does not justify grouping. Unrelated journeys may share an adapter or schema without belonging in the same EPIC. Backend rules from Step 0b are supporting scope. They never seed an EPIC.
 
 An engine, adapter, validator, schema, or migration rule that no user capability owns cannot originate an EPIC. Such a rule is a specification gap.
-
-If context files exist and Epic 0 stories are already in the backlog (created by the `capture-context` completeness sweep), the final Epic 0 story (chronologically last) is identified. Feature EPICs depend on Epic 0 completion.
 
 ## Step 1.5a — EPIC-level slice table
 

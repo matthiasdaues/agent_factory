@@ -17,7 +17,7 @@ This skill is **not** a rewrite of
 `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`. That rulebook stays
 generic policy and provides shared vocabulary and the overlap-deletion
 protocol. This skill produces a feature-specific plan grounded in the
-project charter for `docs/spec/<feature-name>-qa-strategy.md`.
+project's agent context for `docs/spec/<feature-name>-qa-strategy.md`.
 
 ## Inputs
 

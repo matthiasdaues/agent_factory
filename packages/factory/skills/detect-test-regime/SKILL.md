@@ -201,7 +201,7 @@ record:
   for null fields the human can fill in.
 - **No suites found:** do not fabricate commands. Surface the gap plainly.
   Offer to help build test infrastructure; building from scratch is a full
-  onboarding interview owned by `capture-charter`, not this skill.
+  onboarding interview owned by `capture-context`, not this skill.
 
 ### 4. Scan for test layers
 
