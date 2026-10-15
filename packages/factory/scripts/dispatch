@@ -1525,8 +1525,8 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     )
 
     # Interrupted-merge recovery: a prior run created the merge commit (and
-    # amended the status update into it) but was interrupted before the
-    # test suite completed. That is the case only when HEAD is a merge
+    # may have amended the status update into it) but was interrupted before
+    # the test suite completed. That is the case only when HEAD is a merge
     # commit whose second parent is the story's tip. A story branch that is
     # an ancestor of HEAD in any other way has no commits of its own, and
     # merging it would record unrelated history as the story's work.
@@ -1579,8 +1579,9 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
     if already_merged:
         pre_merge_sha = _git("rev-parse", "HEAD^1")[1]
-        if (fm or {}).get("status") != "done" and story_path.exists():
-            _update_story_status_in_file(project_root, entry.id, "done")
+        if (fm or {}).get("status") != "done" and _update_story_status_in_file(
+            project_root, entry.id, "done"
+        ):
             _git("add", "--", str(story_path.relative_to(project_root)))
             amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
             if amend_code != 0:

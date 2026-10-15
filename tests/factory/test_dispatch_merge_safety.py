@@ -204,6 +204,9 @@ def test_merge_story_completes_an_interrupted_merge(dispatched):
     assert result.returncode == 0, result.stderr
     assert _git(inv, "rev-parse", "HEAD^2") == sha
     assert _git(inv, "rev-parse", "HEAD^1") == _git(inv, "rev-parse", f"{merge_commit}^1")
+    head = _git(inv, "rev-parse", "HEAD")
     data = yaml.safe_load(ledger.read_text())
     assert data["stories"]["ST-0001"]["status"] == "done"
-    assert "status: done" in (inv / "backlog" / "ST-0001.md").read_text()
+    assert data["stories"]["ST-0001"]["commit_sha"] == head
+    assert data["branch_head"] == head
+    assert "status: done" in _git(inv, "show", "HEAD:backlog/ST-0001.md")
