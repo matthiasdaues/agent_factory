@@ -842,10 +842,18 @@ def check_testing_yaml(path: Optional[Path]) -> List[Finding]:
 
     testing.yaml has no fixed shape, so a full YAML parser judges it, not
     the restricted parse_yaml() subset (BUG-0062). The import stays local,
-    so callers of detect_format() do not need PyYAML."""
+    so callers of detect_format() do not need PyYAML. Without PyYAML the
+    check exits 2, so the gap is not mistaken for findings (exit 1)."""
     if path is None:
         return []
-    import yaml
+    try:
+        import yaml
+    except ImportError:
+        sys.stderr.write(
+            "context-lint: PyYAML is required to check testing.yaml; "
+            "install pyyaml or run via uv\n"
+        )
+        sys.exit(2)
 
     rel = path.name
     try:

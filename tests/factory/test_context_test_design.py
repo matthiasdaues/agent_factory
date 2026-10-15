@@ -9,6 +9,7 @@ Both scripts run as subprocesses, as in test_context_lint.py.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -59,6 +60,30 @@ def test_bug_0062_unclosed_quote_and_bracket_fails(tmp_path: Path) -> None:
     findings = _testing_yaml_findings(tmp_path, text)
 
     assert [f["code"] for f in findings] == ["CX-PARSE"]
+
+
+def test_bug_0062_missing_pyyaml_exits_2_with_one_line(tmp_path: Path) -> None:
+    stubs = tmp_path / "stubs"
+    stubs.mkdir()
+    (stubs / "yaml.py").write_text(
+        'raise ImportError("No module named \'yaml\'")\n', encoding="utf-8"
+    )
+    project = tmp_path / "project"
+    (project / "docs").mkdir(parents=True)
+    (project / "docs" / "testing.yaml").write_text("suites: {}\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(CONTEXT_LINT), "--root", str(project)],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "PYTHONPATH": str(stubs)},
+    )
+
+    assert result.returncode == 2
+    assert "Traceback" not in result.stderr
+    assert result.stderr.strip().count("\n") == 0
+    assert "PyYAML" in result.stderr
 
 
 # --- BUG-0063: test-design-verify reads a tests: block list -----------------
