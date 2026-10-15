@@ -47,10 +47,11 @@ Validates (YAML agent-context mode):
   structure, independent of that key's value (CX-GUIDE-REF)
 - Files exist at more than one format-detection-chain location (CX-FORMAT)
 
-No third-party dependencies (Python 3.10+ stdlib only) — YAML is parsed
-by a minimal indentation-based parser scoped to the agent-context schema
-(nested mappings, block sequences, scalars, null), not a general-purpose
-YAML implementation.
+Python 3.10+ with one third-party dependency: PyYAML, used only to parse
+testing.yaml. Without it, the check exits 2 when testing.yaml exists. The
+agent-context files are parsed by a minimal indentation-based parser scoped
+to their schema (nested mappings, block sequences, scalars, null), not a
+general-purpose YAML implementation.
 
 Usage:
   context-lint
