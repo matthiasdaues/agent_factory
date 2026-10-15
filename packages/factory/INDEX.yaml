@@ -545,7 +545,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3782
-    total_tokens: 17011
+    total_tokens: 17070
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -823,7 +823,7 @@ skills:
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 1268
+    tokens: 1327
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
