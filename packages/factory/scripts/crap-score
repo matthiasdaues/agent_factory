@@ -22,8 +22,9 @@ Output
 
 Coverage lookup
   coverage.json keys are resolved to absolute paths, first against the
-  current directory and then against the directory holding coverage.json,
-  and matched against each scanned file's absolute path.
+  current directory, then against the directory holding coverage.json,
+  then against --source-root, and matched against each scanned file's
+  absolute path.
 """
 
 from __future__ import annotations
@@ -166,11 +167,11 @@ def iter_python_files(source_root: Path) -> list[Path]:
     return sorted(files)
 
 
-def load_coverage(coverage_json_path: Path) -> dict:
+def load_coverage(coverage_json_path: Path, source_root: Path) -> dict:
     """Return coverage.py file entries keyed by absolute path."""
     data = json.loads(coverage_json_path.read_text(encoding="utf-8"))
     by_absolute: dict = {}
-    for base in (Path.cwd(), coverage_json_path.parent):
+    for base in (Path.cwd(), coverage_json_path.parent, source_root):
         for key, entry in data.get("files", {}).items():
             by_absolute.setdefault(str((base / key).resolve()), entry)
     return by_absolute
@@ -257,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
         if not cov_path.is_file():
             print(f"crap-score: coverage.json not found: {cov_path}", file=sys.stderr)
             return 2
-        coverage_files = load_coverage(cov_path)
+        coverage_files = load_coverage(cov_path, source_root)
 
     threshold = resolve_threshold(args.threshold, source_root)
     results: list[FunctionCrap] = []

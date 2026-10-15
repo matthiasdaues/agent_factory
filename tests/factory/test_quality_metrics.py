@@ -128,6 +128,47 @@ def test_BUG_0072_coverage_keys_relative_to_project_root_match(tmp_path, monkeyp
     assert code == 0
 
 
+def test_BUG_0072_coverage_keys_relative_to_source_root_match(tmp_path, monkeypatch):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "module.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    coverage = tmp_path / "coverage.json"
+    coverage.write_text(
+        json.dumps(
+            {
+                "files": {
+                    "module.py": {
+                        "executed_lines": [1, 2, 3, 4],
+                        "missing_lines": [],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    reports = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path)
+
+    code = cs.main(
+        [
+            "--source-root",
+            "src",
+            "--coverage-json",
+            "coverage.json",
+            "--report-dir",
+            str(reports),
+            "--story-id",
+            "ST-0000",
+            "--threshold",
+            "2",
+        ]
+    )
+
+    rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
+    assert rows[0]["coverage_pct"] == 100.0
+    assert code == 0
+
+
 def test_BUG_0072_syntax_error_file_does_not_crash_the_gate(tmp_path, capsys):
     src = tmp_path / "src"
     src.mkdir()
