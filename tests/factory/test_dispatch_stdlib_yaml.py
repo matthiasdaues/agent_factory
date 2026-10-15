@@ -130,6 +130,55 @@ def test_an_empty_block_scalar_loads_as_pyyaml_reads_it(header):
     _assert_same(f"a: {header}\nb: 1\n")
 
 
+def test_a_block_scalar_followed_by_a_key_at_a_lower_indent():
+    _assert_same(
+        "outer:\n  inner:\n    text: >-\n      one\n      two\n\n"
+        "after: 1\nlist:\n  - name: x\n    text: |\n      body\nlast: 2\n"
+    )
+
+
+@pytest.mark.parametrize("extra", [1, 4])
+@pytest.mark.parametrize("header", ["|", ">", "|-", ">+"])
+@pytest.mark.parametrize("position", list(POSITIONS))
+def test_block_bodies_indented_by_one_or_four_columns(extra, header, position):
+    prefix, header_line, _indent, sibling = POSITIONS[position]
+    # The parent is the key, or the dash of a list scalar.
+    parent = len(header_line) - len(header_line.lstrip(" "))
+    if position == "list_item_first_key":
+        parent += 2
+    body = " " * (parent + extra)
+    lines = [*prefix, header_line.format(h=header)]
+    lines += [body + "one", body + "two", "", body + "  deeper", body + "three", sibling]
+    _assert_same("\n".join(lines) + "\n")
+
+
+HEADER_VALUES = [">", "|", ">-", "|+", "|2", "|-+"]
+
+
+@pytest.mark.parametrize("value", HEADER_VALUES)
+def test_a_ledger_keeps_free_text_that_looks_like_a_block_header(
+    tmp_path, monkeypatch, value
+):
+    ledger = lib.Ledger()
+    entry = lib.StoryEntry(
+        id="ST-0001", status=lib.StoryState.BLOCKED, reason=value, deps=[value]
+    )
+    lib.append_attempt(
+        entry, session="impl", tier="economy", failure_class="environment",
+        evidence=value, commit_sha=None, normalized_total=0,
+    )
+    ledger.stories["ST-0001"] = entry
+    path = tmp_path / "ledger.yaml"
+    monkeypatch.setattr(lib, "yaml", None)
+
+    ledger.save(path)
+    loaded = lib.Ledger.load(path).stories["ST-0001"]
+
+    assert loaded.reason == value
+    assert loaded.deps == [value]
+    assert loaded.attempts[0]["evidence"] == value
+
+
 def test_a_header_comment_is_ignored():
     _assert_same("a: >-  # folded\n  one\n  two\nb: 1\n")
 

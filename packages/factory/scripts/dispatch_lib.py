@@ -559,13 +559,16 @@ def _scalar(value: Any) -> str:
     if not isinstance(value, str):
         return str(value)
     text = value
-    # Quote a string that _parse_scalar would not read back unchanged, such
-    # as "123", "null", "a #b", or a quoted string. JSON quoting is valid YAML.
+    # Quote a string that the loader would not read back unchanged, such as
+    # "123", "null", "a #b", ">-", or a quoted string. The loader reads a
+    # block scalar header before _parse_scalar sees the value. JSON quoting
+    # is valid YAML.
     if (
         not text
         or text != text.strip()
         or "\n" in text
         or text in ("[]", "{}")
+        or _BLOCK_HEADER_RE.match(text)
         or _parse_scalar(text) != text
     ):
         return json.dumps(text)

@@ -137,7 +137,11 @@ def test_stdlib_yaml_loader_reads_quotes_comments_and_null(line, expected):
 
 
 @pytest.mark.parametrize(
-    "value", ["123", "null", "true", "see #12", '"quoted"', "'single'", "", " pad", "a\nb", "[]"]
+    "value",
+    [
+        "123", "null", "true", "see #12", '"quoted"', "'single'", "", " pad", "a\nb", "[]",
+        ">", "|", ">-", "|+", "|2", "|-+",
+    ],
 )
 def test_stdlib_yaml_dump_round_trips_strings(value):
     import dispatch_lib as lib
