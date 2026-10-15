@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -47,8 +48,17 @@ def _write_context(
     (cfg / "project-context.json").write_text(json.dumps(data), encoding="utf-8")
 
 
-def _write_usage(base: Path) -> None:
-    (base / ".agent-factory" / "usage").mkdir(parents=True, exist_ok=True)
+def _write_usage(base: Path, *, runtime: bool = True, records: bool = True) -> None:
+    usage = base / ".agent-factory" / "usage"
+    usage.mkdir(parents=True, exist_ok=True)
+    if runtime:
+        python = usage / "runtime" / "bin" / "python"
+        python.parent.mkdir(parents=True, exist_ok=True)
+        python.write_text("", encoding="utf-8")
+        python.chmod(0o755)
+        (usage / "runtime" / ".requirements-sha256").write_text("x\n", encoding="utf-8")
+    if records:
+        (usage / "session-1.jsonl").write_text("{}\n", encoding="utf-8")
 
 
 class TestAllSourcesReadable:
@@ -174,3 +184,28 @@ class TestMainEntrypoint:
         mod.main(["--base-dir", str(tmp_path)])
         captured = capsys.readouterr()
         assert "Factory version: 0.12.0" in captured.out
+
+
+@pytest.mark.parametrize(
+    ("runtime", "records", "expected"),
+    [
+        pytest.param(False, False, "broken (usage runtime not installed)", id="no-runtime"),
+        pytest.param(True, False, "idle (runtime ready, no usage records yet)", id="no-records"),
+    ],
+)
+def test_usage_health_does_not_call_a_dead_pipeline_healthy(
+    tmp_path: Path, runtime: bool, records: bool, expected: str
+) -> None:
+    """BUG-0070: a usage directory alone is not a healthy pipeline."""
+    _write_usage(tmp_path, runtime=runtime, records=records)
+
+    assert mod.read_usage_health(tmp_path) == expected
+
+
+def test_usage_health_names_the_newest_record_time(tmp_path: Path) -> None:
+    """BUG-0070: a healthy pipeline reports when it last wrote a record."""
+    _write_usage(tmp_path)
+    record = tmp_path / ".agent-factory" / "usage" / "session-1.jsonl"
+    os.utime(record, (0, 1_700_000_000))
+
+    assert mod.read_usage_health(tmp_path) == "healthy (last record 2023-11-14T22:13:20Z)"
