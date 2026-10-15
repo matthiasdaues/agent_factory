@@ -52,6 +52,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
@@ -586,9 +587,21 @@ def _cancel_pending(target: Path, control: Path) -> int:
 OWNER_WRITE_GRACE_SECONDS = 5.0
 
 
-def _owner_pid(text: str) -> int | None:
+def _owner_record(text: str) -> tuple[int, str | None] | None:
+    """Return (pid, host) from an owner file; host is None in the old format."""
     text = text.strip()
-    return int(text) if text.isdigit() else None
+    if text.isdigit():
+        return int(text), None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    pid, host = data.get("pid"), data.get("host")
+    if not isinstance(pid, int) or isinstance(pid, bool) or not isinstance(host, str):
+        return None
+    return pid, host
 
 
 def _pid_is_dead(pid: int) -> bool:
@@ -612,10 +625,13 @@ def _stale_snapshot(owner: Path) -> tuple[int, int, int, str] | None:
     except (OSError, UnicodeError):
         return None  # unreadable: assume a live owner
     snapshot = (info.st_dev, info.st_ino, info.st_mtime_ns, text)
-    pid = _owner_pid(text)
-    if pid is None:
+    record = _owner_record(text)
+    if record is None:
         age = time.time() - info.st_mtime
         return snapshot if age > OWNER_WRITE_GRACE_SECONDS else None
+    pid, host = record
+    if host is not None and host != socket.gethostname():
+        return None  # a process on another host cannot be checked from here
     return snapshot if _pid_is_dead(pid) else None
 
 
@@ -647,7 +663,9 @@ def _move_aside(owner: Path, snapshot: tuple[int, int, int, str]) -> bool:
 def _create_owner(owner: Path) -> bool:
     try:
         with owner.open("x", encoding="utf-8") as handle:
-            handle.write(str(os.getpid()))
+            handle.write(
+                json.dumps({"pid": os.getpid(), "host": socket.gethostname()})
+            )
     except FileExistsError:
         return False
     owner.chmod(0o600)

@@ -234,3 +234,19 @@ def test_bug_0076_empty_owner_file_expires_after_grace_period(
 
     assert age == 0 or age > remove_factory.OWNER_WRITE_GRACE_SECONDS
     assert remove_factory._claim_owner(owner) is claimed
+
+
+@pytest.mark.parametrize(
+    ("host", "claimed"), [("another-host", False), (None, True)]
+)
+def test_bug_0076_dead_pid_expires_only_on_the_same_host(
+    remove_factory, tmp_path, host, claimed
+):
+    import socket
+
+    owner = tmp_path / "remove-owner"
+    owner.write_text(
+        json.dumps({"pid": _dead_pid(), "host": host or socket.gethostname()})
+    )
+
+    assert remove_factory._claim_owner(owner) is claimed
