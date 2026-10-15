@@ -1072,16 +1072,35 @@ def _resolve_remote_candidate_from_base(base_url: str, timeout: int = REMOTE_TIM
 
 def _discover_instruction_files(target: Path) -> list[str]:
     """Relative paths of AGENTS.md / copilot-instructions.md under target,
-    mirroring install-agent-factory's discovery rule."""
-    found = []
+    mirroring install-agent-factory's discovery rule: a symlink that
+    resolves outside target or under .agent-factory/ is skipped, and paths
+    that resolve to the same file count once, a regular file winning over
+    a link to it (BUG-0077)."""
+    target_root = target.resolve()
+    factory_root = target_root / ".agent-factory"
+    by_resolved: dict[Path, list[Path]] = {}
     for dirpath, dirnames, filenames in os.walk(target, followlinks=False):
         dirnames[:] = [d for d in dirnames if d not in INSTRUCTION_SCAN_SKIP_DIRS]
         for fname in filenames:
             if fname in INSTRUCTION_FILENAMES:
                 fpath = Path(dirpath) / fname
-                if fpath.is_file():
-                    found.append(fpath.relative_to(target).as_posix())
-    return sorted(found)
+                if not fpath.is_file():
+                    continue
+                try:
+                    resolved = fpath.resolve(strict=True)
+                except (OSError, RuntimeError):
+                    continue
+                if fpath.is_symlink() and (
+                    not resolved.is_relative_to(target_root)
+                    or resolved.is_relative_to(factory_root)
+                ):
+                    continue
+                by_resolved.setdefault(resolved, []).append(fpath)
+    return sorted(
+        min(paths, key=lambda p: (p.is_symlink(), str(p)))
+        .relative_to(target).as_posix()
+        for paths in by_resolved.values()
+    )
 
 
 def _candidate_orientation_block(

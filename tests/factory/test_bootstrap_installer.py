@@ -61,13 +61,36 @@ def _load_module():
     return mod
 
 
-def _make_source(tmp_path: Path) -> Path:
+# init-factory stub that installs the Codex orientation and links nothing.
+_PLAIN_INIT_FACTORY = textwrap.dedent("""\
+    #!/usr/bin/env python3
+    import argparse, json
+    from pathlib import Path
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--source", type=Path)
+    ap.add_argument("--target", type=Path)
+    ap.add_argument("--cli", nargs="+")
+    ap.add_argument("--project-name")
+    args = ap.parse_args()
+    config = args.target / ".agent-factory" / "factory" / "config"
+    config.mkdir(parents=True, exist_ok=True)
+    (config / "AGENTS.codex.md").write_text("# Codex orientation\\n")
+    manifest = {"version": 1, "orientation": {},
+                "orientation_orig_final_newline": {}}
+    (args.target / ".agent-factory" / "install.json").write_text(
+        json.dumps(manifest, indent=2) + "\\n")
+    print("init-factory: done")
+""")
+
+
+def _make_source(tmp_path: Path, init_script: str = _LINKING_INIT_FACTORY
+                 ) -> Path:
     source = tmp_path / "factory-src"
     scripts = source / "packages" / "factory" / "scripts"
     scripts.mkdir(parents=True)
     (source / "packages" / "factory" / "VERSION").write_text("0.12.0\n")
     init = scripts / "init-factory"
-    init.write_text(_LINKING_INIT_FACTORY)
+    init.write_text(init_script)
     os.chmod(init, 0o755)
     return source
 
@@ -219,3 +242,72 @@ class TestUpdateKeepsClaudeIncludePaths:
 
         for rel, content in before.items():
             assert (target / rel).read_bytes() == content, rel
+
+
+class TestDeveloperLinkedInstructionFiles:
+    """BUG-0077: a developer's own link inside the project keeps its header;
+    only links out of the project or into the installed factory are
+    skipped."""
+
+    def test_BUG_0077_discovery_keeps_developer_link(self, tmp_path):
+        mod = _load_module()
+        target = tmp_path / "project"
+        target.mkdir()
+        (target / "CLAUDE.md").write_text("# mine\n")
+        (target / "AGENTS.md").symlink_to("CLAUDE.md")
+
+        found = mod.discover_instruction_files(target)
+
+        assert found == [target / "AGENTS.md"]
+
+    def test_BUG_0077_discovery_skips_link_out_of_project(self, tmp_path):
+        mod = _load_module()
+        outside = tmp_path / "elsewhere.md"
+        outside.write_text("# not ours\n")
+        target = tmp_path / "project"
+        target.mkdir()
+        (target / "AGENTS.md").symlink_to(outside)
+
+        assert mod.discover_instruction_files(target) == []
+
+    def test_BUG_0077_install_writes_header_through_developer_link(
+            self, tmp_path):
+        source = _make_source(tmp_path, _PLAIN_INIT_FACTORY)
+        target = _make_target(tmp_path, ".codex")
+        (target / "CLAUDE.md").write_text("# mine\n")
+        (target / "AGENTS.md").symlink_to("CLAUDE.md")
+
+        result = _install(source, target)
+
+        assert result.returncode == 0, result.stderr
+        assert "Instruction files to update:" in result.stdout
+        assert "    AGENTS.md\n" in result.stdout
+        assert (target / "AGENTS.md").is_symlink()
+        content = (target / "CLAUDE.md").read_text()
+        assert content.startswith(BEGIN)
+        assert content.endswith("# mine\n")
+
+    def test_BUG_0077_update_discovery_matches_installer(self, tmp_path):
+        inst = _load_module()
+        uf = _load_update_factory()
+        target = tmp_path / "project"
+        (target / "docs").mkdir(parents=True)
+        (target / "web").mkdir()
+        (target / ".agent-factory" / "factory" / "config").mkdir(parents=True)
+        (target / ".agent-factory" / "factory" / "config" / "AGENTS.md"
+         ).write_text("# Factory routing\n")
+        outside = tmp_path / "elsewhere.md"
+        outside.write_text("# not ours\n")
+        (target / "CLAUDE.md").write_text("# mine\n")
+        (target / "docs" / "AGENTS.md").write_text("# Docs\n")
+        (target / "AGENTS.md").symlink_to("CLAUDE.md")
+        (target / "web" / "AGENTS.md").symlink_to("../docs/AGENTS.md")
+        (target / "docs" / "copilot-instructions.md").symlink_to(outside)
+        (target / "web" / "copilot-instructions.md").symlink_to(
+            "../.agent-factory/factory/config/AGENTS.md")
+
+        expected = [p.relative_to(target).as_posix()
+                    for p in inst.discover_instruction_files(target)]
+
+        assert expected == ["AGENTS.md", "docs/AGENTS.md"]
+        assert uf._discover_instruction_files(target) == expected
