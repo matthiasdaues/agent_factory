@@ -21,6 +21,7 @@ Checks
                    .agent-factory/factory/scripts/structurizr export-all (deterministic validation).
   2. Coupling    — the core components and the ports named in chapter 5
                    (05_building_block_view.md) must match the model, both ways.
+                   A chapter 5 that names no component is an error.
   3. Validate    — run `structurizr validate` when Docker is available; skip otherwise.
   4. ADR         — every docs/adr/*.md has `status` and `evaluation` (pugh-matrix |
                    none) in frontmatter, and a matrix-shaped table is present iff
@@ -178,14 +179,41 @@ def _section(md: str, start: str, end: str) -> str:
     return md[i : j if j != -1 else len(md)]
 
 
+_TABLE_SEPARATOR = re.compile(r"^\|\s*:?-{3,}")
+
+
+def _first_cell(line: str) -> str:
+    return re.split(r"(?<!\\)\|", line.strip())[1].strip()
+
+
 def ch5_core_components(md: str) -> set[str]:
-    # Scan all §5.x component tables and sections after the Level 1 container table
+    """Component names from the tables of chapter 5 from `## 5.2` on.
+
+    A body row names a component when its first cell starts with a bold name
+    (`| **Worker** |`), in any table, or when its first cell is plain text and
+    the table's header calls that column `Component`. Header and separator
+    rows never count.
+    """
     sec = _section(md, "## 5.2", "## Referenced from")
+    lines = sec.splitlines()
     names = set()
-    for line in sec.splitlines():
-        m = re.search(r"\|\s*\*\*([^*]+)\*\*.*?\|", line)
-        if m:
-            names.add(m.group(1).strip())
+    header = None
+    for i, line in enumerate(lines):
+        if not line.strip().startswith("|"):
+            header = None
+            continue
+        if _TABLE_SEPARATOR.match(line.strip()):
+            continue
+        cell = _first_cell(line)
+        following = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        if _TABLE_SEPARATOR.match(following):
+            header = cell
+            continue
+        bold = re.match(r"\*\*([^*]+)\*\*", cell)
+        if bold:
+            names.add(bold.group(1).strip())
+        elif cell and header is not None and header.lower() == "component":
+            names.add(cell)
     return names
 
 
@@ -312,6 +340,13 @@ def check_coupling(rep: Report, dsl: str, ch5: str) -> None:
         ("component", dsl_core_components(dsl), ch5_core_components(ch5)),
         ("port", dsl_ports(dsl), ch5_ports(ch5)),
     ):
+        if kind == "component" and not cset:
+            rep.error(
+                "ARCH-CH5-EMPTY",
+                "chapter 5 names no component; use a table whose first column "
+                "is headed 'Component' (see scaffold-arc42)",
+            )
+            continue
         if not dset or not cset:
             rep.warn("ARCH-PARSE", f"could not extract {kind}s from DSL or chapter 5")
             continue

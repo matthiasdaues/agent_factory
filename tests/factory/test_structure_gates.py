@@ -240,3 +240,71 @@ class TestMissingInputDirectory:
     def test_concern_lint_missing_root_exits_2(self, tmp_path: Path) -> None:
         """BUG-0054: a missing --root exits 2."""
         assert cl.main(["--root", str(tmp_path / "nope")]) == 2
+
+
+# ---------------------------------------------------------------------------
+# BUG-0090: arch-lint checks nothing when chapter 5 has plain first columns
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+PLAIN_CH5 = (
+    "# 5. Building Block View\n\n"
+    "## 5.2 Level 2: Component View\n\n"
+    "| Component  | Responsibility |\n"
+    "| ---------- | -------------- |\n"
+    "| API routes | Serve requests |\n"
+    "| Worker     | Run jobs       |\n"
+)
+
+BOLD_CH5 = (
+    "# 5. Building Block View\n\n"
+    "## 5.2 Level 2: Component View\n\n"
+    "| Component      | Responsibility |\n"
+    "| -------------- | -------------- |\n"
+    "| **API routes** | Serve requests |\n"
+    "| **Worker**     | Run jobs       |\n"
+)
+
+DSL = (
+    "workspace {\n  model {\n    s = softwareSystem \"S\" {\n"
+    "      core = container \"Core\" {\n"
+    "        api = component \"API routes\"\n"
+    "        worker = component \"Worker\"\n"
+    "      }\n    }\n  }\n}\n"
+)
+
+
+class TestChapterFiveComponents:
+    def test_plain_first_column_is_a_component(self) -> None:
+        """BUG-0090: a plain first column under a Component header counts."""
+        assert al.ch5_core_components(PLAIN_CH5) == {"API routes", "Worker"}
+
+    def test_bold_first_column_is_a_component(self) -> None:
+        """BUG-0090: bold first columns still count."""
+        assert al.ch5_core_components(BOLD_CH5) == {"API routes", "Worker"}
+
+    def test_plain_columns_couple_with_dsl(self) -> None:
+        """BUG-0090: plain columns take part in the coupling check."""
+        rep = al.Report()
+        al.check_coupling(rep, DSL, PLAIN_CH5.replace("| Worker ", "| Queue  "))
+        couple = sorted(m for _, c, m in rep.items if c == "ARCH-COUPLE")
+        assert len(couple) == 2
+        assert "'Queue' is in chapter 5" in couple[0]
+
+    def test_zero_components_is_an_error(self) -> None:
+        """BUG-0090: chapter 5 without components fails instead of passing."""
+        ch5 = "# 5. Building Block View\n\n## 5.2 Level 2\n\nNo table.\n"
+        rep = al.Report()
+        al.check_coupling(rep, DSL, ch5)
+        assert rep.n(al.ERROR) == 1
+        assert any(c == "ARCH-CH5-EMPTY" for _, c, _ in rep.items)
+
+    def test_repository_chapter_five_is_unchanged(self) -> None:
+        """BUG-0090: this repository's chapter 5 keeps its 41 components."""
+        ch5 = (REPO_ROOT / "docs" / "arc42" / "05_building_block_view.md").read_text()
+        dsl = (REPO_ROOT / "docs" / "arc42" / "architecture.dsl").read_text()
+        assert len(al.ch5_core_components(ch5)) == 41
+        rep = al.Report()
+        al.check_coupling(rep, dsl, ch5)
+        assert rep.n(al.ERROR) == 0

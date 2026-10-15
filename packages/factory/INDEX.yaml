@@ -10,7 +10,7 @@ agents:
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
     tokens: 1238
-    total_tokens: 8194
+    total_tokens: 8306
     inputs:
       required:
         - type: feature
@@ -648,7 +648,7 @@ skills:
     category: architecture
     description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
     path: skills/scaffold-arc42/SKILL.md
-    tokens: 885
+    tokens: 997
   - name: write-adr
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
@@ -876,7 +876,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 14959
+    total_tokens: 15071
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -888,7 +888,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2921
-    total_tokens: 36623
+    total_tokens: 36735
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -927,7 +927,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4632
-    total_tokens: 104493
+    total_tokens: 104605
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -945,7 +945,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 103846
+    total_tokens: 103958
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
