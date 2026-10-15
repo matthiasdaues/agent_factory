@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -95,3 +96,21 @@ def test_pi_bootstrap_keeps_files_whose_registration_does_not_match(tmp_path: Pa
     assert paths["marker"].exists()
     assert paths["source"].exists()
 
+
+def test_usage_explore_with_only_no_watch_prints_usage(tmp_path: Path) -> None:
+    """BUG-0069: `usage-explore --no-watch` exits with the usage line, not a crash."""
+    package = tmp_path / "packages" / "usage"
+    package.mkdir(parents=True)
+    (package / "pyproject.toml").write_text("[project]\nname = 'usage'\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, str(SOURCE_SCRIPTS_DIR / "usage-explore"), "--no-watch"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 2
+    assert "usage: usage-explore" in result.stderr
+    assert "Traceback" not in result.stderr
