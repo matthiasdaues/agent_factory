@@ -4389,7 +4389,16 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── Section 2: CLI selection ────────────────────────────────────────
     clis: list[str] | None = args.cli
-    if clis is None:
+    # A rerun keeps the tools the user chose, including None for "all";
+    # guessing from folders would add tools the user never asked for
+    # (BUG-0044). install["cli"] exists only when a prior record had it.
+    recorded = install.get("cli")
+    from_record = clis is None and "cli" in install and (
+        recorded is None or (isinstance(recorded, list) and bool(recorded))
+    )
+    if from_record:
+        clis = list(recorded) if recorded is not None else None
+    elif clis is None:
         detected = detect_cli(target)
         if detected:
             clis = detected
@@ -4404,7 +4413,10 @@ def main(argv: list[str] | None = None) -> int:
     dot_dirs = _active_dot_dirs(clis)
     cli_label = ", ".join(clis) if clis else "all"
     install["cli"] = clis
-    auto = " (auto-detected)" if args.cli is None and clis else ""
+    if from_record:
+        auto = " (from the install record)"
+    else:
+        auto = " (auto-detected)" if args.cli is None and clis else ""
 
     # ── Section 3: Wiring ───────────────────────────────────────────────
     section(f"Wiring: {cli_label}{auto}")

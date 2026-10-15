@@ -32,7 +32,7 @@ TARGET defaults to the current directory.
 --dry-run shows what would happen without making changes.
 
 After migration, run:
-    packages/factory/scripts/init-factory --update TARGET --force
+    packages/factory/scripts/init-factory --target TARGET
 to rewire symlinks and update the manifest.
 """
 
@@ -191,8 +191,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\n  {moved} paths moved.")
     if not dry:
         print(
-            "\n  Next step: run init-factory --update to rewire symlinks:\n"
-            f"    packages/factory/scripts/init-factory --update {args.target} --force"
+            "\n  Next step: rerun init-factory to rewire symlinks:\n"
+            f"    packages/factory/scripts/init-factory --target {args.target}"
         )
     return 0
 

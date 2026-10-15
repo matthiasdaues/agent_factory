@@ -60,12 +60,12 @@ Feature: Activity-graph orchestration
       Then the factory runs the complete five-step fitting procedure
       And the factory reports the resulting completed and remaining fitting steps
 
-    Scenario: Update Factory runs init-factory and refreshes About
+    Scenario: Update Factory hands the update command to the human and refreshes About
       Given the Housekeeping lane is open
       When the human selects Update Factory
-      Then the factory runs .agent-factory/factory/scripts/init-factory --update <project-root> --force
-      And the factory relays the command output and exit status
-      And the About section refreshes after success
+      Then the factory asks the human to run .agent-factory/factory/scripts/update-factory --target <project-root> in their own terminal
+      And the factory explains that the update asks for confirmation
+      And the About section refreshes after the human reports success
 
     Scenario: Update agent context invokes interactive scan
       Given the Housekeeping lane is open

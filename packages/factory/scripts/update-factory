@@ -1064,7 +1064,7 @@ def main(argv: list[str] | None = None) -> int:
         "--force",
         action="store_true",
         help="proceed even when user modifications are detected; "
-        "changed files are preserved under .agent-factory/factory-user-changes/",
+        "changed files are preserved under .agent-factory/user-changes/<timestamp>/",
     )
     ap.add_argument(
         "--check",
