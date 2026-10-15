@@ -1634,7 +1634,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
     Runs ``premerge-check`` with the story's declared scope entries
     (``outputs``, else ``touches``) immediately before merging: plain entries as
-    ``--scope`` path prefixes, entries with ``*``, ``?``, or ``[`` as ``--scope-glob``.
+    ``--scope`` path prefixes, entries with ``*`` or ``?`` as ``--scope-glob``.
     On a merge conflict, aborts the merge and marks the story ``blocked``
     with reason "merge conflict"; the current branch is left unchanged. On a
     red test suite after a clean merge, resets the current branch back to
@@ -1719,10 +1719,11 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
     if not already_merged:
         premerge_cmd = [str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch]
-        # An entry without glob characters is a path or folder prefix
+        # An entry without ``*`` or ``?`` is a path or folder prefix
         # (``--scope``); only real patterns go through ``--scope-glob``.
+        # glob_match has no bracket classes, so ``[`` stays literal.
         for entry_path in outputs:
-            flag = "--scope-glob" if any(c in entry_path for c in "*?[") else "--scope"
+            flag = "--scope-glob" if any(c in entry_path for c in "*?") else "--scope"
             premerge_cmd += [flag, entry_path]
         # The dispatch contract requires updating the story's own backlog file
         # (status: done) in the implementation commit — always in scope. The

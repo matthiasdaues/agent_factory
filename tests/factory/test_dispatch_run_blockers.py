@@ -14,7 +14,6 @@ from test_dispatch_merge_safety import STORY, _dispatch, _git
 
 DEPENDENT_STORY = STORY.replace("deps: []", "deps: [ST-0001]")
 TOUCHES_ONLY_STORY = STORY.replace('outputs: ["src/{id}.txt"]\n', "")
-FOLDER_TOUCHES_STORY = TOUCHES_ONLY_STORY.replace('touches: ["src/{id}.txt"]', 'touches: ["src/"]')
 TESTING_YAML = '# comment\ntest_all: "false"\ntest_command: "true"\n'
 
 
@@ -542,10 +541,14 @@ def test_merge_story_blocks_a_file_outside_touches(touches_only):
     assert _story(_ledger(touches_only), "ST-0001")["status"] == "dispatched"
 
 
-@pytest.fixture()
-def folder_touches(tmp_path: Path) -> dict[str, Path]:
-    """ST-0001 declares only the folder entry src/ in touches."""
-    r = _repo(tmp_path, first_story=FOLDER_TOUCHES_STORY)
+def _touches_story(entry: str) -> str:
+    return TOUCHES_ONLY_STORY.replace('touches: ["src/{id}.txt"]', f'touches: ["{entry}"]')
+
+
+@pytest.fixture(params=["src/", "src"])
+def folder_touches(tmp_path: Path, request) -> dict[str, Path]:
+    """ST-0001 declares only the folder entry src/ (or src) in touches."""
+    r = _repo(tmp_path, first_story=_touches_story(request.param))
     assert _prepare_wave_one(r).returncode == 0
     return r
 
@@ -568,3 +571,35 @@ def test_merge_story_blocks_a_file_outside_a_folder_entry(folder_touches, stray)
     assert result.returncode != 0
     assert stray in result.stdout + result.stderr
     assert _story(_ledger(folder_touches), "ST-0001")["status"] == "dispatched"
+
+
+@pytest.mark.parametrize(
+    ("entry", "work", "stray"),
+    [
+        ("src/*.py", "src/a.py", "src/sub/b.py"),
+        ("app/[id]/", "app/[id]/page.tsx", "app/i/page.tsx"),
+    ],
+)
+def test_merge_story_scopes_glob_and_bracket_entries_in_touches(
+    tmp_path, entry, work, stray
+):
+    """A glob entry goes to --scope-glob; a bracket entry without * or ? is a
+    literal folder, because glob_match has no bracket classes."""
+    r = _repo(tmp_path, first_story=_touches_story(entry))
+    assert _prepare_wave_one(r).returncode == 0
+    _commit_story_work(r, "ST-0001", (work,))
+    # The story's own src/ST-0001.txt lies outside these entries; drop it.
+    story = _story_worktree(r, "ST-0001")
+    _git(story, "rm", "-q", "src/ST-0001.txt")
+    _git(story, "commit", "-qm", "drop")
+
+    result = _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0001", "--dry-run")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    (story / stray).parent.mkdir(parents=True, exist_ok=True)
+    (story / stray).write_text("stray\n")
+    _git(story, "add", "-A")
+    _git(story, "commit", "-qm", "stray")
+    result = _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0001", "--dry-run")
+    assert result.returncode != 0
+    assert stray in result.stdout + result.stderr
