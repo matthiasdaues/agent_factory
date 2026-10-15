@@ -2,7 +2,7 @@
 """build-release -- produce reproducible release assets from a versioned
 Agent Factory source tree.
 
-Reads the version from packages/factory/VERSION.  Validates the version
+Reads the version from packages/factory/VERSION at HEAD.  Validates the version
 format against the current Git branch:
 
   - main:  N.N.N  (no suffix)
@@ -50,12 +50,15 @@ _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 _VERSION_RC_RE = re.compile(r"^\d+\.\d+\.\d+-rc$")
 
 
-def read_version(repo_root: Path) -> str:
-    """Read and strip the VERSION file content."""
-    version_file = repo_root / "packages" / "factory" / "VERSION"
-    if not version_file.exists():
-        raise SystemExit("build-release: packages/factory/VERSION not found")
-    return version_file.read_text().strip()
+def read_version(files: dict[str, tuple[str, bytes]]) -> str:
+    """Return the stripped VERSION content from the committed files.
+
+    *files* is the mapping committed_factory_files returns, so the version
+    comes from the same tree as the archive.
+    """
+    if _VERSION_PATH not in files:
+        raise BuildError(f"{_VERSION_PATH} not found at HEAD")
+    return files[_VERSION_PATH][1].decode().strip()
 
 
 def current_branch(repo_root: Path) -> str:
@@ -86,6 +89,7 @@ def validate_version_branch(version: str, branch: str) -> bool:
 
 _FACTORY_PREFIX = "packages/factory/"
 _INSTALL_PATH = _FACTORY_PREFIX + "scripts/install-agent-factory"
+_VERSION_PATH = _FACTORY_PREFIX + "VERSION"
 
 
 class BuildError(Exception):
@@ -242,18 +246,15 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = Path.cwd()
     output_dir = Path(args.output)
 
-    # Read and validate version against branch
-    version = read_version(repo_root)
     branch = current_branch(repo_root)
-
-    if not validate_version_branch(version, branch):
-        expected = "N.N.N" if branch == "main" else "N.N.N-rc"
-        print(f"build-release: version {version!r} does not fit branch "
-              f"{branch!r}; expected {expected}", file=sys.stderr)
-        return 1
 
     try:
         files = committed_factory_files(repo_root)
+        version = read_version(files)
+        if not validate_version_branch(version, branch):
+            expected = "N.N.N" if branch == "main" else "N.N.N-rc"
+            raise BuildError(f"version {version!r} does not fit branch "
+                             f"{branch!r}; expected {expected}")
         if _INSTALL_PATH not in files:
             raise BuildError(f"{_INSTALL_PATH} not found at HEAD")
         install_mode, install_bytes = files[_INSTALL_PATH]

@@ -345,3 +345,20 @@ class TestArchiveFromGit:
             assert tf.getmember("scripts").isdir()
         assert install.mode == 0o755
         assert agent.mode == 0o644
+
+
+# ---------------------------------------------------------------------------
+# Slice 7 — Review fixes (BUG-0073)
+# ---------------------------------------------------------------------------
+
+class TestReviewFixes:
+    """The version, the rewrite, and the warning all follow HEAD."""
+
+    def test_version_read_from_head(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        (repo / "packages" / "factory" / "VERSION").write_text("1.0.0-rc")
+        out = tmp_path / "release"
+        result = _run_build(repo, out)
+        assert result.returncode == 0, result.stderr
+        with tarfile.open(out / "agent-factory.tar.gz", "r:gz") as tf:
+            assert tf.extractfile("VERSION").read() == b"1.0.0"
