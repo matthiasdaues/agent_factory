@@ -4,7 +4,9 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+# The script lives in .agent-factory/factory/scripts/, three levels below
+# the project root.
+PROJECT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd)
 RUNTIME="$PROJECT_DIR/.agent-factory/usage/runtime"
 
 [ -f "$RUNTIME/.requirements-sha256" ] || exit 70
