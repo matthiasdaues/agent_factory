@@ -1636,18 +1636,38 @@ def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str)
     """Merge *target_branch* into the story branch inside its worktree.
 
     Returns 0 when the branch already contains the target tip or the merge
-    succeeds, 1 otherwise. A dirty worktree is refused unchanged. On a
+    succeeds, 1 otherwise. It refuses, unchanged, a dirty worktree, a
+    worktree on another branch, and a target whose tip is the story's merge
+    commit (an interrupted ``merge-story``; its rerun recovers). On a
     conflict the merge is aborted and the story is marked ``blocked`` with
     reason "refresh conflict"; the caller saves the ledger.
     """
     if not entry.branch or not entry.worktree:
         print(f"error: story {entry.id} has no branch or worktree recorded", file=sys.stderr)
         return 1
+    _, branch_tip, _ = _git("rev-parse", entry.branch)
+    second_code, second_parent, _ = _git("rev-parse", "--verify", "-q", f"{target_branch}^2")
+    if second_code == 0 and second_parent == branch_tip:
+        print(
+            f"error: {target_branch} already ends in the merge of {entry.branch}; "
+            f"an interrupted merge-story left it there, so rerun merge-story {entry.id}",
+            file=sys.stderr,
+        )
+        return 1
     contained, _, _ = _git("merge-base", "--is-ancestor", target_branch, entry.branch)
     if contained == 0:
         print(f"{entry.branch} already contains {target_branch}")
         return 0
     worktree = entry.worktree
+    head_code, head_branch, _ = _git("-C", worktree, "symbolic-ref", "-q", "--short", "HEAD")
+    if head_code != 0 or head_branch != entry.branch:
+        checked_out = head_branch if head_code == 0 else "a detached HEAD"
+        print(
+            f"error: {worktree} is on {checked_out}, not {entry.branch}; "
+            f"check out {entry.branch} before refreshing it",
+            file=sys.stderr,
+        )
+        return 1
     code, dirty, err = _git("-C", worktree, "status", "--porcelain")
     if code != 0:
         print(f"error: cannot read the status of {worktree}: {err}", file=sys.stderr)

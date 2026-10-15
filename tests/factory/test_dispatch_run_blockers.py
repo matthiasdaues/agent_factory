@@ -685,3 +685,45 @@ def test_refresh_story_refuses_a_dirty_worktree(parallel):
     assert _git(parallel["repo"], "rev-parse", "story/ST-0002") == tip
     assert (story / "src" / "ST-0002.txt").read_text() == "uncommitted\n"
     assert _story(_ledger(parallel), "ST-0002")["status"] == "dispatched"
+
+
+def test_refresh_story_refuses_a_worktree_on_another_branch(parallel):
+    story = _story_worktree(parallel, "ST-0002")
+    _git(story, "checkout", "-q", "-b", "side")
+    tip = _git(parallel["repo"], "rev-parse", "story/ST-0002")
+    side = _git(story, "rev-parse", "HEAD")
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    assert "side" in result.stderr
+    assert _git(parallel["repo"], "rev-parse", "story/ST-0002") == tip
+    assert _git(story, "rev-parse", "HEAD") == side
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "dispatched"
+
+
+def _interrupt_merge_story(r: dict[str, Path], tmp_path: Path) -> None:
+    """Run merge-story for ST-0002 and kill it after the merge commit."""
+    sentinel = tmp_path / "killed"
+    (r["inv"] / "config" / "project.json").write_text(
+        '{"test_command": "test -f %s || { touch %s; kill -9 $PPID; }"}'
+        % (sentinel, sentinel)
+    )
+    _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0002")
+    assert _git(r["inv"], "rev-parse", "HEAD^2") == _git(r["repo"], "rev-parse", "story/ST-0002")
+
+
+def test_refresh_story_refuses_after_an_interrupted_merge_story(parallel, tmp_path):
+    _interrupt_merge_story(parallel, tmp_path)
+    tip = _git(parallel["repo"], "rev-parse", "story/ST-0002")
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    assert "rerun merge-story" in result.stderr
+    assert _git(parallel["repo"], "rev-parse", "story/ST-0002") == tip
+
+    rerun = _dispatch(parallel["inv"], parallel["ledger"], "merge-story", "ST-0002")
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "done"
+    assert _git(parallel["inv"], "rev-parse", "HEAD^2") == tip
