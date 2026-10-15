@@ -6,11 +6,14 @@ dependencies = [
     "mdformat-frontmatter>=2.1.2",
 ]
 
-[tool.pytest.ini_options]
+[tool.pytest]
+minversion = "9.0"
 testpaths = ["tests"]
 markers = [
     "spec(id): traces a test to its ACX-* contract-owner row in docs/spec/agent-context-qa-strategy.md",
 ]
+
+
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLW1510", "RUF012"]
