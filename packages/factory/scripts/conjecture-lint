@@ -60,14 +60,14 @@ _LEADING_NEGATION = re.compile(
 _CAP_MARKERS = (
     "is covered", "are covered", "is performed", "are performed", "provides",
     "supports", "couples", "handles", "is adequate", "are adequate",
-    "can sustain", "can parallelis", "can parallelize", "is reachable",
-    "ships", "is available", "performs",
+    "can sustain", "can parallelise", "can parallelize", "can parallelised",
+    "can parallelized", "is reachable", "ships", "is available", "performs",
 )
 # Markers that a claim asserts a gap / negation.
 _GAP_MARKERS = (
-    "no ", "not ", "lacks", "absent", "gap", "unpackaged", "unmaintained",
+    "no ", "not ", "lacks", "absent", "gap", "gaps", "unpackaged", "unmaintained",
     "does not", "cannot", "no admissible", "no maintained", "no turnkey",
-    "infeasible", "unproven",
+    "infeasible", "unproven", "must-not",
 )
 
 
@@ -92,8 +92,15 @@ def _sentence_count(text: str) -> int:
 
 
 def _find_markers(text: str, markers: Tuple[str, ...]) -> List[str]:
+    # A marker counts only as a whole word or phrase, so "no " does not match
+    # inside "arduino ". A hyphen joins words too, so "no" does not match
+    # inside "no-op", "--no-ff" or "not-yet". A negation spelled with a
+    # hyphen, such as "must-not", is listed as its own marker.
     low = text.lower()
-    return [m.strip() for m in markers if m in low]
+    return [
+        m.strip() for m in markers
+        if re.search(rf'(?<![\w-]){re.escape(m.strip())}(?![\w-])', low)
+    ]
 
 
 def lint_claim(claim: str) -> List[str]:
