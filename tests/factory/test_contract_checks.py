@@ -119,6 +119,39 @@ class TestModuleGraphCheckUnreadableInput:
         assert "warning" in captured.err
         assert (tmp_path / "reports" / "ST-TEST.json").is_file()
 
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            pytest.param("### `scripts/new-tool`", id="level-three"),
+            pytest.param("##`scripts/new-tool`", id="no-space"),
+            pytest.param("   ## `scripts/new-tool`", id="indented"),
+            pytest.param("# `scripts/new-tool`", id="level-one"),
+            pytest.param("﻿## `scripts/new-tool`", id="byte-order-mark"),
+        ],
+    )
+    def test_contract_shaped_heading_out_of_form_exits_2(
+        self, tmp_path, capsys, heading
+    ):
+        contracts = (
+            f"{heading}\n\n| Field | Value |\n| ----- | ----- |\n| Reads | users |\n"
+        )
+
+        code = _run_module_graph_check(tmp_path, DSL_WITH_COMPONENT, contracts)
+
+        assert code == 2
+        assert "architecture_change=" not in capsys.readouterr().out
+        assert not (tmp_path / "reports").exists()
+
+    def test_fenced_contract_shaped_heading_still_declares_none(
+        self, tmp_path, capsys
+    ):
+        contracts = "# Interface contracts\n\n```md\n### `scripts/new-tool`\n```\n"
+
+        code = _run_module_graph_check(tmp_path, DSL_WITH_COMPONENT, contracts)
+
+        assert code == 0
+        assert "warning" in capsys.readouterr().err
+
     def test_readable_input_still_reports_no_change(self, tmp_path, capsys):
         code = _run_module_graph_check(
             tmp_path, DSL_WITH_COMPONENT, CONTRACTS_WITH_HEADING

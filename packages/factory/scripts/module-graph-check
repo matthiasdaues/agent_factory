@@ -17,8 +17,10 @@ Output
   Exits 0 on success; 2 on configuration or parse error.  A DSL with no
   components counts as a parse error.  So does an interface-contracts file
   with "## " headings of which none has the form ## `path`: that is format
-  drift.  An interface-contracts file with no "## " headings at all declares
-  no contracts; the check warns on stderr and reports on an empty contract
+  drift.  So is a heading outside a code fence that names a backticked path
+  in another form: level 1 to 6, indented up to three spaces, no space
+  after the hashes, or behind a byte-order mark.  An interface-contracts
+  file with neither declares no contracts; the check warns on stderr and reports on an empty contract
   set.
 """
 
@@ -127,6 +129,13 @@ _REL_RE = re.compile(
 _CONTRACT_HEADER_RE = re.compile(
     r"^##\s+`([^`]+)`"
 )
+
+# A heading that names a backticked path in any form: level 1 to 6, optional
+# byte-order mark, up to three spaces of indent, optional space after hashes.
+_CONTRACT_SHAPED_HEADING_RE = re.compile(r"^\ufeff? {0,3}#{1,6}[ \t]*`[^`]+`")
+
+# Opening or closing code fence: ``` or ~~~, up to three spaces of indent.
+_FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 # Mermaid ER entity definition block: ENTITY_NAME {
 _ER_ENTITY_DEF_RE = re.compile(
@@ -305,6 +314,29 @@ def _has_level_two_heading(contracts_path: Path) -> bool:
     """Return True when the file has any "## " heading, in any form."""
     text = contracts_path.read_text(encoding="utf-8")
     return any(line.startswith("## ") for line in text.splitlines())
+
+
+def _has_contract_shaped_heading(contracts_path: Path) -> bool:
+    """Return True when a heading outside a code fence names a backticked path.
+
+    Any level 1 to 6 counts, with an optional byte-order mark, up to three
+    spaces of indent, and an optional space after the hashes.  Such a line
+    is a contract written in the wrong form, not the absence of contracts.
+    """
+    text = contracts_path.read_text(encoding="utf-8")
+    fence: str | None = None
+    for line in text.splitlines():
+        fence_match = _FENCE_RE.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = marker
+            elif marker[0] == fence[0] and len(marker) >= len(fence):
+                fence = None
+            continue
+        if fence is None and _CONTRACT_SHAPED_HEADING_RE.match(line):
+            return True
+    return False
 
 
 def parse_interface_contracts(contracts_path: Path) -> list[ContractInfo]:
@@ -670,7 +702,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     if not contracts:
-        if _has_level_two_heading(contracts_path):
+        if _has_level_two_heading(contracts_path) or _has_contract_shaped_heading(
+            contracts_path
+        ):
             print(
                 "module-graph-check: no contract headings (## `path`) found in "
                 f"{contracts_path}",
