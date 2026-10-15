@@ -8,7 +8,7 @@
  * returns the child's result. The separate session is what preserves
  * author/reviewer independence: the reviewer never sees the author's reasoning.
  *
- * Symlinked to `.pi/extensions/run-agent.ts` by `factory/scripts/init-factory`,
+ * Symlinked to `.pi/extensions/run-agent.ts` by `.agent-factory/factory/scripts/init-factory`,
  * the same pattern the git-safety guardrail uses. Reversed by `remove-factory`.
  *
  * See docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md and

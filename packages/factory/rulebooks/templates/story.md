@@ -5,7 +5,7 @@ version: 2.3.0
 
 # Backlog Story Template
 
-Skeleton for a single `backlog/ST-NNNN[A-Z].md` file. Governed by [create-backlog skill](../../skills/create-backlog/SKILL.md) and validated by `factory/scripts/backlog-lint`.
+Skeleton for a single `backlog/ST-NNNN[A-Z].md` file. Governed by [create-backlog skill](../../skills/create-backlog/SKILL.md) and validated by `.agent-factory/factory/scripts/backlog-lint`.
 
 ## Frontmatter
 

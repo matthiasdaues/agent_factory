@@ -41,6 +41,6 @@ Note over D,DB: The first clause#59; the second clause
 
 ## Enforcement
 
-The `factory/scripts/mermaid-lint` pre-commit gate inspects fenced Mermaid
+The `.agent-factory/factory/scripts/mermaid-lint` pre-commit gate inspects fenced Mermaid
 blocks in Markdown. It reports each raw semicolon with its file, line, and
 column while allowing valid named and numeric Mermaid entity escapes.

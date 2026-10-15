@@ -86,7 +86,7 @@ stateDiagram-v2
 
 ## References
 
-- Enforcement: `factory/scripts/statemachine-lint`
+- Enforcement: `.agent-factory/factory/scripts/statemachine-lint`
 - Hook: `.git/hooks/pre-commit` (if configured)
 
 ## Referenced from

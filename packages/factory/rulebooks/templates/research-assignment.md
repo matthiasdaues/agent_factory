@@ -8,7 +8,7 @@ version: 1.0.0
 Skeleton for a single research-assignment artifact (JSON), one bounded piece
 of work handed out from a research plan. Validated against
 [research-assignment.schema.json](../schemas/research-assignment.schema.json)
-via `factory/scripts/schema-validate`.
+via `.agent-factory/factory/scripts/schema-validate`.
 
 ## Fields
 

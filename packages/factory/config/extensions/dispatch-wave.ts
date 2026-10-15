@@ -22,7 +22,7 @@
  * run_agent — each child is a separate `pi` session that loads the same
  * project-local extensions.
  *
- * Symlinked to `.pi/extensions/dispatch-wave.ts` by `factory/scripts/
+ * Symlinked to `.pi/extensions/dispatch-wave.ts` by `.agent-factory/factory/scripts/
  * init-factory`, alongside run-agent.ts; reversed by `remove-factory`.
  *
  * See docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md and

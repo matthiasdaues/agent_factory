@@ -5,7 +5,7 @@
 # The file declares all test commands the project uses and, optionally,
 # a detailed description of each test layer employed.
 #
-# See: factory/rulebooks/conventions/testing-strategy.md
+# See: .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
 # Required: Full test suite command.
 # This command runs from the repository root and must exit 0 when all tests pass.
@@ -25,7 +25,7 @@ test_staged_command: "uv run pytest --tb=short --quiet"
 # Optional: Detailed layer configuration.
 # Document which test layers your project employs and how they work.
 # Omit unused layers entirely (do not set them to null).
-# Layer names come from factory/rulebooks/conventions/testing-strategy.md.
+# Layer names come from .agent-factory/factory/rulebooks/conventions/testing-strategy.md.
 
 layers:
   deterministic_linter:

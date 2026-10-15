@@ -1,6 +1,6 @@
 """Dispatch ledger model, story lifecycle state machine, and shared utilities.
 
-Shared library for factory/scripts/dispatch. No third-party dependencies.
+Shared library for the dispatch script. No third-party dependencies.
 """
 
 from __future__ import annotations

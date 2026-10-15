@@ -17,7 +17,7 @@ export default function (pi: ExtensionAPI) {
     const sourceDir = join(top, "packages", "factory");
     if (!existsSync(sourceDir)) return;
 
-    const manifestPath = join(top, ".agent-factory", "factory-install.json");
+    const manifestPath = join(top, ".agent-factory", "install.json");
     if (!existsSync(manifestPath)) return;
 
     const currentHash = git(top, ["rev-parse", "HEAD:packages/factory"]);

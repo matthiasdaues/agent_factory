@@ -6,7 +6,7 @@ version: 1.0.0
 # Survey Research Plan Template
 
 Skeleton for a source-grounded survey-plan JSON artifact. Validate it with
-`factory/scripts/schema-validate` against
+`.agent-factory/factory/scripts/schema-validate` against
 [research-survey-plan.schema.json](../schemas/research-survey-plan.schema.json).
 
 ## Fields

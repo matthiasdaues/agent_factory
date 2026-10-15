@@ -8,7 +8,7 @@ version: 1.0.0
 Skeleton for a single research-plan artifact (JSON), produced from a research
 brief. Validated against
 [research-plan.schema.json](../schemas/research-plan.schema.json)
-via `factory/scripts/schema-validate`.
+via `.agent-factory/factory/scripts/schema-validate`.
 
 ## Fields
 

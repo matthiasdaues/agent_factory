@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
@@ -70,8 +70,10 @@ export default function (pi: ExtensionAPI) {
         gitDir !== gitCommonDir &&
         (!marker || !existsSync(marker))
       ) {
+        // The installed factory lives only in the main checkout.
+        const mainRoot = dirname(resolve(top, gitCommonDir));
         return blocked(
-          "git commit in a worktree with no .current-work/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first.",
+          `git commit in a worktree with no .current-work/verify-base-ok marker. Run ${join(mainRoot, ".agent-factory", "factory", "scripts", "verify-base")} <target> [--expect-base <SHA>] first.`,
         );
       }
     }
@@ -90,7 +92,7 @@ export default function (pi: ExtensionAPI) {
 
       if (!ok) {
         return blocked(
-          `git merge ${mergeBranch ?? "<branch>"} with no passing .current-work/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> ${mergeBranch ?? "<branch>"} first.`,
+          `git merge ${mergeBranch ?? "<branch>"} with no passing .current-work/premerge-check-ok marker for that branch's current head. Run .agent-factory/factory/scripts/premerge-check <target> ${mergeBranch ?? "<branch>"} first.`,
         );
       }
     }
