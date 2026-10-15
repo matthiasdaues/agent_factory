@@ -407,6 +407,7 @@ class Ledger:
             branch_head=branch_head,
         )
         self.waves.append(record)
+        self.branch_head = branch_head
         return record, True
 
     def save(self, path: Path) -> None:
