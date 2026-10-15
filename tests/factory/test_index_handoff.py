@@ -1,4 +1,4 @@
-"""Regression tests for index-lint (BUG-0057)."""
+"""Regression tests for index-lint (BUG-0057) and handoff-lint (BUG-0058)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import pytest
 from conftest import load_script
 
 il = load_script("index-lint")
+hl = load_script("handoff-lint")
 
 
 # ── index-lint: every skill reaches INDEX.yaml (BUG-0057) ────────────────
@@ -79,3 +80,25 @@ def test_index_lint_rejects_duplicate_skill_names(
     assert "duplicate skill name 'twin'" in capsys.readouterr().err
     assert not out.exists()
 
+
+# ── handoff-lint: exit 1 for findings, 2 for usage errors (BUG-0058) ─────
+
+
+def test_handoff_lint_exits_1_when_handoff_has_findings(tmp_path: Path) -> None:
+    handoff = tmp_path / "handoff.md"
+    handoff.write_text("", encoding="utf-8")
+
+    assert hl.main([str(handoff), "--repo-root", str(tmp_path)]) == 1
+
+
+def test_handoff_lint_exits_2_when_handoff_file_is_missing(tmp_path: Path) -> None:
+    missing = tmp_path / "absent.md"
+
+    assert hl.main([str(missing), "--repo-root", str(tmp_path)]) == 2
+
+
+def test_handoff_lint_exits_2_when_repo_root_is_missing(tmp_path: Path) -> None:
+    handoff = tmp_path / "handoff.md"
+    handoff.write_text("", encoding="utf-8")
+
+    assert hl.main([str(handoff), "--repo-root", str(tmp_path / "absent")]) == 2
