@@ -7,7 +7,9 @@ runs remove-factory against it, and checks what is left on disk.
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -199,31 +201,65 @@ def test_bug_0079_removes_codex_dir_the_install_created(remove_factory, tmp_path
     assert not (tmp_path / ".codex").exists()
 
 
+CLAIMERS = 8
+CLAIM_ROUNDS = 150
+
+
+def _claim_rounds(remove_factory, owners, barrier, results) -> None:
+    """Worker: claim each round's owner file together with the other workers."""
+    remove_factory.log = lambda *args, **kwargs: None
+    for round_no, owner in enumerate(owners):
+        barrier.wait()
+        try:
+            outcome = str(remove_factory._claim_owner(owner))
+        except Exception as exc:  # report it; the parent asserts on it
+            outcome = f"EXC:{type(exc).__name__}"
+        results.put((round_no, os.getpid(), outcome))
+        # Stay alive until every worker has claimed: a winner that exits
+        # leaves a dead PID behind, which a later claim rightly takes over.
+        barrier.wait()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs fork and flock")
 def test_bug_0076_concurrent_takeover_of_stale_owner_lets_one_removal_win(
-    remove_factory, tmp_path, monkeypatch
+    remove_factory, tmp_path
 ):
-    owner = tmp_path / "remove-owner"
-    owner.write_text(str(_dead_pid()))
-    real_snapshot = remove_factory._stale_snapshot
-    competitor: list[bool] = []
-    calls: list[Path] = []
+    stale = json.dumps({"pid": _dead_pid(), "host": socket.gethostname()})
+    owners = []
+    for round_no in range(CLAIM_ROUNDS):
+        round_dir = tmp_path / str(round_no)
+        round_dir.mkdir()
+        (round_dir / "remove-owner").write_text(stale)
+        owners.append(round_dir / "remove-owner")
+    context = multiprocessing.get_context("fork")
+    barrier = context.Barrier(CLAIMERS)
+    results = context.Queue()
+    workers = [
+        context.Process(
+            target=_claim_rounds, args=(remove_factory, owners, barrier, results)
+        )
+        for _ in range(CLAIMERS)
+    ]
+    for worker in workers:
+        worker.start()
+    outcomes = [results.get(timeout=60) for _ in range(CLAIMERS * CLAIM_ROUNDS)]
+    for worker in workers:
+        worker.join(timeout=60)
 
-    def snapshot_then_competitor_claims(path):
-        snapshot = real_snapshot(path)
-        calls.append(path)
-        if len(calls) == 1:
-            # Removal B runs its whole claim between A's read and A's takeover.
-            competitor.append(remove_factory._claim_owner(path))
-        return snapshot
-
-    monkeypatch.setattr(
-        remove_factory, "_stale_snapshot", snapshot_then_competitor_claims
-    )
-    first_claim = remove_factory._claim_owner(owner)
-
-    assert competitor == [True]
-    assert first_claim is False
-    assert [p.name for p in tmp_path.iterdir()] == ["remove-owner"]
+    failures = []
+    for round_no, owner in enumerate(owners):
+        claims = [(pid, out) for r, pid, out in outcomes if r == round_no]
+        winners = [pid for pid, out in claims if out == "True"]
+        errors = [out for _pid, out in claims if out not in ("True", "False")]
+        holder = json.loads(owner.read_text())["pid"] if owner.exists() else None
+        stray = sorted(
+            p.name for p in owner.parent.iterdir()
+            if p.name not in ("remove-owner", "remove-owner.lock")
+        )
+        private = owner.exists() and owner.stat().st_mode & 0o777 == 0o600
+        if len(winners) != 1 or errors or holder != winners[0] or stray or not private:
+            failures.append((round_no, len(winners), errors, stray, private))
+    assert failures == []
 
 
 @pytest.mark.parametrize(("age", "claimed"), [(60, True), (0, False)])
@@ -245,8 +281,6 @@ def test_bug_0076_empty_owner_file_expires_after_grace_period(
 def test_bug_0076_dead_pid_expires_only_on_the_same_host(
     remove_factory, tmp_path, host, claimed
 ):
-    import socket
-
     owner = tmp_path / "remove-owner"
     owner.write_text(
         json.dumps({"pid": _dead_pid(), "host": host or socket.gethostname()})

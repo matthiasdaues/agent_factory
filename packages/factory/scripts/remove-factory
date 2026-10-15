@@ -60,6 +60,11 @@ import time
 import uuid
 from pathlib import Path
 
+try:
+    import fcntl
+except ImportError:  # Windows has no flock
+    fcntl = None
+
 MANIFEST_PATH = ".agent-factory/install.json"
 HOOK_ID_PREFIX = "agent_factory_hook-"
 CLAUDE_GUARDRAIL_HOOK_COMMAND = (
@@ -583,8 +588,9 @@ def _cancel_pending(target: Path, control: Path) -> int:
     return cancelled
 
 
-# An owner file is created empty and written right after. One that is still
-# empty or unparsable after this many seconds was left by a crash.
+# An owner file from an older remove-factory was created empty and written
+# right after. One that is still empty or unparsable after this many seconds
+# was left by a crash.
 OWNER_WRITE_GRACE_SECONDS = 5.0
 
 
@@ -617,71 +623,77 @@ def _pid_is_dead(pid: int) -> bool:
     return False
 
 
-def _stale_snapshot(owner: Path) -> tuple[int, int, int, str] | None:
-    """Identify the owner file when it is stale; None when it may be live."""
+def _owner_state(owner: Path) -> str:
+    """Return "absent", "stale" or "live" for the owner file."""
     try:
         with owner.open(encoding="utf-8") as handle:
             info = os.fstat(handle.fileno())
             text = handle.read()
+    except FileNotFoundError:
+        return "absent"
     except (OSError, UnicodeError):
-        return None  # unreadable: assume a live owner
-    snapshot = (info.st_dev, info.st_ino, info.st_mtime_ns, text)
+        return "live"  # unreadable: assume a live owner
     record = _owner_record(text)
     if record is None:
         age = time.time() - info.st_mtime
-        return snapshot if age > OWNER_WRITE_GRACE_SECONDS else None
+        return "stale" if age > OWNER_WRITE_GRACE_SECONDS else "live"
     pid, host = record
     if host is not None and host != socket.gethostname():
-        return None  # a process on another host cannot be checked from here
-    return snapshot if _pid_is_dead(pid) else None
+        return "live"  # a process on another host cannot be checked from here
+    return "stale" if _pid_is_dead(pid) else "live"
 
 
-def _move_aside(owner: Path, snapshot: tuple[int, int, int, str]) -> bool:
-    """Atomically take the stale file away; False when another removal won."""
-    aside = owner.with_name(f"{owner.name}.stale-{uuid.uuid4().hex}")
+def _publish_owner(owner: Path) -> bool:
+    """Write the owner file complete and private, then link it into place."""
+    temp = owner.with_name(f"{owner.name}.{uuid.uuid4().hex}.tmp")
     try:
-        os.rename(owner, aside)
-    except FileNotFoundError:
-        return False
-    try:
-        with aside.open(encoding="utf-8") as handle:
-            info = os.fstat(handle.fileno())
-            moved = (info.st_dev, info.st_ino, info.st_mtime_ns, handle.read())
-    except (OSError, UnicodeError):
-        moved = None
-    if moved != snapshot:
-        # Another removal replaced the stale file first; hand its file back.
-        try:
-            os.link(aside, owner)
-        except OSError:
-            pass
-        aside.unlink(missing_ok=True)
-        return False
-    aside.unlink(missing_ok=True)
-    return True
-
-
-def _create_owner(owner: Path) -> bool:
-    try:
-        with owner.open("x", encoding="utf-8") as handle:
-            handle.write(
-                json.dumps({"pid": os.getpid(), "host": socket.gethostname()})
-            )
+        temp.write_text(
+            json.dumps({"pid": os.getpid(), "host": socket.gethostname()}),
+            encoding="utf-8",
+        )
+        temp.chmod(0o600)
+        os.link(temp, owner)  # fails when the name exists; never overwrites
     except FileExistsError:
         return False
-    owner.chmod(0o600)
+    finally:
+        temp.unlink(missing_ok=True)
     return True
 
 
 def _claim_owner(owner: Path) -> bool:
-    """Create the owner file, taking over one left by a dead removal."""
-    if _create_owner(owner):
-        return True
-    snapshot = _stale_snapshot(owner)
-    if snapshot is None or not _move_aside(owner, snapshot):
+    """Create the owner file, taking over one left by a dead removal.
+
+    Every claim holds an exclusive flock on a lock file next to the owner
+    file while it reads, judges, removes and creates the owner file, so no
+    two removals ever act on a stale file at once. The lock file stays in
+    place; removing it would let two claims lock two different files. The
+    owner file, not the lock, records who owns the removal.
+    """
+    if fcntl is None:
+        # Without flock, the takeover of a stale file cannot be made safe.
+        # Claim only an absent owner file; a stale one needs a manual delete.
+        if _publish_owner(owner):
+            return True
+        if _owner_state(owner) == "stale":
+            print(
+                f"remove-factory: {owner} was left by a removal that ended; "
+                "delete it and run remove-factory again",
+                file=sys.stderr,
+            )
         return False
-    log("removed a stale usage removal owner file")
-    return _create_owner(owner)
+    lock_path = owner.with_name(f"{owner.name}.lock")
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        state = _owner_state(owner)
+        if state == "live":
+            return False
+        if state == "stale":
+            owner.unlink(missing_ok=True)
+            log("removed a stale usage removal owner file")
+        return _publish_owner(owner)
+    finally:
+        os.close(fd)  # closing the descriptor releases the flock
 
 
 def prepare_usage_removal(
