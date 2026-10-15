@@ -259,16 +259,39 @@ def read_test_design_pass(story_text: str) -> str | None:
 
 
 def read_tests_field(story_text: str) -> list[str]:
-    """Parse the ``tests:`` frontmatter field (a bracketed YAML list of
-    module paths). Returns an empty list when the field is absent."""
+    """Parse the ``tests:`` frontmatter field, written either as a
+    bracketed list (``tests: [a, b]``) or as a block list (``tests:``
+    followed by ``- a`` lines). Returns an empty list when the field is
+    absent or lists nothing."""
     frontmatter = extract_frontmatter(story_text)
     match = re.search(r"^tests:\s*\[(?P<items>.*)\]\s*$", frontmatter, re.MULTILINE)
-    if not match:
+    if match:
+        items = match.group("items").strip()
+        if not items:
+            return []
+        return [item.strip().strip("'\"") for item in items.split(",") if item.strip()]
+    return _read_block_list(frontmatter, "tests")
+
+
+def _read_block_list(frontmatter: str, key: str) -> list[str]:
+    """Return the items of a block list under ``key:``. The list ends at
+    the first line that is neither a ``- item`` line, a comment, nor blank."""
+    lines = frontmatter.splitlines()
+    key_re = re.compile(rf"^{re.escape(key)}:\s*(#.*)?$")
+    start = next((i for i, line in enumerate(lines) if key_re.match(line)), None)
+    if start is None:
         return []
-    items = match.group("items").strip()
-    if not items:
-        return []
-    return [item.strip().strip("'\"") for item in items.split(",") if item.strip()]
+    items: list[str] = []
+    for line in lines[start + 1 :]:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if not (stripped == "-" or stripped.startswith("- ")):
+            break
+        item = re.sub(r"\s+#.*$", "", stripped[1:]).strip().strip("'\"")
+        if item:
+            items.append(item)
+    return items
 
 
 def _has_tests_field(story_text: str) -> bool:
