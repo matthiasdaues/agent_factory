@@ -49,8 +49,39 @@ different folder. Cluster 7 and cluster 13 both touch `init-factory`, but
 in different functions; cluster 13 merges after cluster 7 and resolves any
 overlap.
 
-**Wave 1:** clusters 1 to 7. **Wave 2:** clusters 8 to 13. Wave 2 starts
-when every wave-1 story has merged into the integration branch.
+The stories are ST-0295 to ST-0308, in the order of the table, with story
+14 as ST-0308. `dispatch plan` puts them into three waves:
+
+- **Wave 1:** ST-0295 to ST-0306. No two of them share a file.
+- **Wave 2:** ST-0307, after ST-0301, because both change `init-factory`.
+- **Wave 3:** ST-0308.
+
+Each wave starts when every story of the wave before has merged into the
+integration branch. Wave 1 holds twelve stories, so the implementation
+agent starts at most six developer agents at a time within it.
+
+## Story 14: YAML files begin with `---`
+
+The stakeholder decided on 2026-10-15 that every YAML file begins with the
+document marker `---`. In this repository `yamllint` already enforces it.
+The gap lies in what the factory writes into other projects: `init-factory`
+writes `docs/testing.yaml` without the marker, and the format example in
+`skills/detect-test-regime/SKILL.md` lacks it, so agents copy the gap.
+
+The story does three things:
+
+1. It states the rule in the conventions: every YAML file the factory
+   creates, and every YAML example it gives agents, begins with `---`.
+2. It adds a test that runs every factory writer that produces YAML and
+   extracts every YAML example from skills and templates. The first line
+   that is not a comment must be `---`.
+3. It fixes each gap the test finds. A file that belongs to the developer,
+   such as an existing `.pre-commit-config.yaml`, stays untouched.
+
+The story may touch writers that other clusters change, so it runs alone in
+wave 3. The factory does not yet enforce the marker inside consumer
+projects, and the two legacy fixtures under `tests/fixtures/concern-lint/`
+keep their old form.
 
 ## Stories
 
@@ -58,6 +89,10 @@ Each cluster becomes one story file `backlog/ST-NNNN.md`. Its `touches:`
 lists the cluster's files, and its body lists the findings with links. The
 story for cluster 13 declares `deps:` on the story for cluster 7. Every
 story names the steps below as its acceptance criteria.
+
+Every story sets `quality-gates: []`. Without that entry the factory
+default applies, and it runs `crap-score` and `dependency-check`, which
+this run fixes (BUG-0071, BUG-0072).
 
 ## The work of one developer agent
 
@@ -77,6 +112,11 @@ story names the steps below as its acceptance criteria.
 A fresh code-review agent then reviews the story's diff. Defects go back
 to a developer agent, and the review repeats until it passes. Then
 `dispatch merge-story` merges the story into the integration branch.
+
+Automated mode has no code-review step of its own; only manual mode reviews
+each story. The brief to the implementation agent adds the review for this
+run. Whether automated mode should always review each story is an open
+question for the factory.
 
 ## Work in the main session
 
@@ -99,6 +139,9 @@ These need a decision or a proposal first:
   needs its own proposal.
 - **R-5, step manifests.** It waits on the open questions of the
   [step-guard proposal](../proposals/step-guard-enforcement.md).
+- **BUG-0086, chain predecessors in the ledger.** `prepare-story` reads
+  the ledger's `deps` as the serial-chain predecessor. This run has no
+  chains, because no two stories share a file.
 - **D-13, duplicate story IDs across sessions.** Allocation needs a design:
   a lock, or a namespace per session.
 - **Offline token counting.** `usage-capture` downloads its encoding on
