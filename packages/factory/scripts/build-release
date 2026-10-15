@@ -2,7 +2,7 @@
 """build-release -- produce reproducible release assets from a versioned
 Agent Factory source tree.
 
-Reads the version from packages/factory/VERSION.  Validates the version
+Reads the version from packages/factory/VERSION at HEAD.  Validates the version
 format against the current Git branch:
 
   - main:  N.N.N  (no suffix)
@@ -10,15 +10,21 @@ format against the current Git branch:
 
 Produces three files in --output <dir> (default ./release/):
 
-  install-agent-factory   -- verbatim copy from packages/factory/scripts/
-  agent-factory.tar.gz    -- deterministic archive of packages/factory/
+  install-agent-factory   -- copy of packages/factory/scripts/ at HEAD
+  agent-factory.tar.gz    -- deterministic archive of packages/factory/ at HEAD
   SHA256SUMS              -- sha256 digest of agent-factory.tar.gz
 
-Deterministic tar: sorted entries, fixed timestamps (1970-01-01 00:00:00),
-fixed owner (root:root, uid/gid 0), no platform-specific metadata.
+The assets come from the committed tree at HEAD, read through git.
+Untracked files and uncommitted changes stay out of the release; when
+packages/factory/ has any, the script prints a one-line warning on stderr.
 
-On failure: exits non-zero and removes any partial output from the
-output directory.
+Deterministic tar: sorted entries, fixed timestamps (1970-01-01 00:00:00),
+fixed owner (root:root, uid/gid 0), modes 0755 for directories and
+executables and 0644 for other files.
+
+On failure: exits non-zero, prints the reason, and removes only the files
+and directories this run created.  Files already in the output directory
+stay.
 
 Stdlib-only Python 3.8+.  No virtualenv or external dependencies.
 """
@@ -31,7 +37,6 @@ import hashlib
 import io
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tarfile
@@ -46,12 +51,15 @@ _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 _VERSION_RC_RE = re.compile(r"^\d+\.\d+\.\d+-rc$")
 
 
-def read_version(repo_root: Path) -> str:
-    """Read and strip the VERSION file content."""
-    version_file = repo_root / "packages" / "factory" / "VERSION"
-    if not version_file.exists():
-        raise SystemExit("build-release: packages/factory/VERSION not found")
-    return version_file.read_text().strip()
+def read_version(files: dict[str, tuple[str, bytes]]) -> str:
+    """Return the stripped VERSION content from the committed files.
+
+    *files* is the mapping committed_factory_files returns, so the version
+    comes from the same tree as the archive.
+    """
+    if _VERSION_PATH not in files:
+        raise BuildError(f"{_VERSION_PATH} not found at HEAD")
+    return files[_VERSION_PATH][1].decode().strip()
 
 
 def current_branch(repo_root: Path) -> str:
@@ -80,48 +88,158 @@ def validate_version_branch(version: str, branch: str) -> bool:
 # Archive building
 # ---------------------------------------------------------------------------
 
-def build_tarball(repo_root: Path) -> bytes:
+_FACTORY_PREFIX = "packages/factory/"
+_INSTALL_PATH = _FACTORY_PREFIX + "scripts/install-agent-factory"
+_VERSION_PATH = _FACTORY_PREFIX + "VERSION"
+
+
+class BuildError(Exception):
+    """A build failure with a message for the user."""
+
+
+def _git(repo_root: Path, *args: str) -> bytes:
+    result = subprocess.run(
+        ["git", *args], cwd=str(repo_root), capture_output=True,
+    )
+    if result.returncode != 0:
+        raise BuildError(
+            f"git {' '.join(args)} failed: "
+            f"{result.stderr.decode(errors='replace').strip()}"
+        )
+    return result.stdout
+
+
+def committed_factory_files(repo_root: Path) -> dict[str, tuple[str, bytes]]:
+    """Return {path: (git mode, content)} for packages/factory/ at HEAD.
+
+    Paths are relative to the repository root.  Submodule entries are
+    skipped.
+    """
+    listing = _git(repo_root, "ls-tree", "-r", "-z", "HEAD", "--",
+                   _FACTORY_PREFIX)
+    entries: list[tuple[str, str, str]] = []
+    for record in listing.split(b"\0"):
+        if not record:
+            continue
+        meta, path = record.split(b"\t", 1)
+        mode, kind, sha = meta.decode().split()
+        if kind != "blob":
+            continue
+        entries.append((path.decode("utf-8", errors="surrogateescape"),
+                        mode, sha))
+
+    files: dict[str, tuple[str, bytes]] = {}
+    for path, mode, sha in entries:
+        files[path] = (mode, _git(repo_root, "cat-file", "blob", sha))
+    return files
+
+
+def _tarinfo(name: str) -> tarfile.TarInfo:
+    info = tarfile.TarInfo(name)
+    info.mtime = 0
+    info.uid = 0
+    info.gid = 0
+    info.uname = "root"
+    info.gname = "root"
+    return info
+
+
+def build_tarball(files: dict[str, tuple[str, bytes]]) -> bytes:
     """Build a deterministic tar.gz archive of packages/factory/ in memory.
 
-    Returns the raw bytes of the gzipped tarball.
+    *files* maps repository paths to (git mode, content), as returned by
+    committed_factory_files.  Returns the raw bytes of the gzipped tarball.
     """
-    factory_dir = repo_root / "packages" / "factory"
+    members: dict[str, tuple[str, bytes] | None] = {}
+    for path, blob in files.items():
+        rel = path[len(_FACTORY_PREFIX):]
+        members[rel] = blob
+        parent = Path(rel).parent
+        while str(parent) != ".":
+            members.setdefault(str(parent), None)
+            parent = parent.parent
 
     # Build an uncompressed tar first, then gzip with mtime=0 to avoid
     # the gzip header embedding the current time.
     tar_buf = io.BytesIO()
     with tarfile.open(fileobj=tar_buf, mode="w",
                       format=tarfile.GNU_FORMAT) as tf:
-        entries: list[Path] = []
-        for root_path, dirs, files in os.walk(factory_dir):
-            dirs.sort()
-            root = Path(root_path)
-            for d in dirs:
-                entries.append(root / d)
-            for f in sorted(files):
-                entries.append(root / f)
-
-        entries.sort(key=lambda p: str(p.relative_to(factory_dir)))
-
-        for entry in entries:
-            arcname = str(entry.relative_to(factory_dir))
-            info = tf.gettarinfo(str(entry), arcname=arcname)
-            info.mtime = 0
-            info.uid = 0
-            info.gid = 0
-            info.uname = "root"
-            info.gname = "root"
-            if info.isfile():
-                with open(entry, "rb") as fh:
-                    tf.addfile(info, fh)
-            else:
+        for name in sorted(members):
+            blob = members[name]
+            info = _tarinfo(name)
+            if blob is None:
+                info.type = tarfile.DIRTYPE
+                info.mode = 0o755
                 tf.addfile(info)
+                continue
+            mode, content = blob
+            if mode == "120000":
+                info.type = tarfile.SYMTYPE
+                info.linkname = content.decode("utf-8")
+                info.mode = 0o777
+                tf.addfile(info)
+                continue
+            info.mode = 0o755 if mode == "100755" else 0o644
+            info.size = len(content)
+            tf.addfile(info, io.BytesIO(content))
 
     gz_buf = io.BytesIO()
     with gzip.GzipFile(fileobj=gz_buf, mode="wb", mtime=0) as gz:
         gz.write(tar_buf.getvalue())
 
     return gz_buf.getvalue()
+
+
+def _create_dirs(path: Path) -> list[Path]:
+    """Create *path* and missing parents; return the ones created, deepest
+    first."""
+    missing: list[Path] = []
+    current = path
+    while not current.exists():
+        missing.append(current)
+        current = current.parent
+    for directory in reversed(missing):
+        directory.mkdir()
+    return missing
+
+
+def write_assets(output_dir: Path, assets: dict[str, tuple[bytes, int]]) -> None:
+    """Write *assets* ({name: (content, mode)}) into *output_dir*.
+
+    Writes every asset to a temp file first and renames them into place
+    only when all temp files exist and no target is a directory.  On
+    failure removes the temp files and the directories this call created,
+    then re-raises.  Files already in *output_dir* stay.
+    """
+    created_dirs: list[Path] = []
+    temp_files: list[Path] = []
+    try:
+        created_dirs = _create_dirs(output_dir)
+        staged: list[tuple[Path, Path]] = []
+        for name, (content, mode) in assets.items():
+            tmp = output_dir / f".{name}.build-release-tmp"
+            temp_files.append(tmp)
+            tmp.write_bytes(content)
+            os.chmod(tmp, mode)
+            staged.append((tmp, output_dir / name))
+        for _, target in staged:
+            if target.is_dir() and not target.is_symlink():
+                raise IsADirectoryError(f"{target} is a directory")
+        for tmp, target in staged:
+            os.replace(tmp, target)
+            temp_files.remove(tmp)
+    except BaseException:
+        for path in temp_files:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        for directory in created_dirs:
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -137,47 +255,32 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = Path.cwd()
     output_dir = Path(args.output)
 
-    # Read and validate version against branch
-    version = read_version(repo_root)
     branch = current_branch(repo_root)
 
-    if not validate_version_branch(version, branch):
-        # Clean output if it exists and was created by us
-        if output_dir.exists():
-            shutil.rmtree(output_dir, ignore_errors=True)
-        return 1
-
-    # Verify install-agent-factory source exists
-    install_src = repo_root / "packages" / "factory" / "scripts" / "install-agent-factory"
-    if not install_src.exists():
-        if output_dir.exists():
-            shutil.rmtree(output_dir, ignore_errors=True)
-        print("build-release: packages/factory/scripts/install-agent-factory not found",
-              file=sys.stderr)
-        return 1
-
-    # Create output directory
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     try:
-        # 1. Copy install-agent-factory verbatim
-        install_dst = output_dir / "install-agent-factory"
-        shutil.copy2(install_src, install_dst)
-
-        # 2. Build deterministic archive
-        tarball_bytes = build_tarball(repo_root)
-        tarball_path = output_dir / "agent-factory.tar.gz"
-        tarball_path.write_bytes(tarball_bytes)
-
-        # 3. Compute SHA256SUMS
+        files = committed_factory_files(repo_root)
+        if _git(repo_root, "status", "--porcelain", "--", _FACTORY_PREFIX):
+            print(f"build-release: warning: {_FACTORY_PREFIX} has uncommitted "
+                  "changes; the release holds HEAD only", file=sys.stderr)
+        version = read_version(files)
+        if not validate_version_branch(version, branch):
+            expected = "N.N.N" if branch == "main" else "N.N.N-rc"
+            raise BuildError(f"version {version!r} does not fit branch "
+                             f"{branch!r}; expected {expected}")
+        if _INSTALL_PATH not in files:
+            raise BuildError(f"{_INSTALL_PATH} not found at HEAD")
+        install_mode, install_bytes = files[_INSTALL_PATH]
+        if install_mode not in ("100644", "100755"):
+            raise BuildError(f"{_INSTALL_PATH} is not a regular file at HEAD")
+        tarball_bytes = build_tarball(files)
         digest = hashlib.sha256(tarball_bytes).hexdigest()
-        sums_path = output_dir / "SHA256SUMS"
-        sums_path.write_text(f"{digest}  agent-factory.tar.gz\n")
-
-    except Exception:
-        # Clean up partial output on any failure
-        if output_dir.exists():
-            shutil.rmtree(output_dir, ignore_errors=True)
+        write_assets(output_dir, {
+            "install-agent-factory": (install_bytes, 0o755),
+            "agent-factory.tar.gz": (tarball_bytes, 0o644),
+            "SHA256SUMS": (f"{digest}  agent-factory.tar.gz\n".encode(), 0o644),
+        })
+    except (BuildError, OSError) as exc:
+        print(f"build-release: {exc}", file=sys.stderr)
         return 1
 
     return 0
