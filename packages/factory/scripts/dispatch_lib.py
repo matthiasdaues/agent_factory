@@ -556,7 +556,20 @@ def _scalar(value: Any) -> str:
         return "true" if value else "false"
     if isinstance(value, int):
         return str(value)
-    return str(value)
+    if not isinstance(value, str):
+        return str(value)
+    text = value
+    # Quote a string that _parse_scalar would not read back unchanged, such
+    # as "123", "null", "a #b", or a quoted string. JSON quoting is valid YAML.
+    if (
+        not text
+        or text != text.strip()
+        or "\n" in text
+        or text in ("[]", "{}")
+        or _parse_scalar(text) != text
+    ):
+        return json.dumps(text)
+    return text
 
 
 def _stdlib_load(text: str) -> dict[str, Any]:
@@ -656,8 +669,39 @@ def _stdlib_load(text: str) -> dict[str, Any]:
     return result
 
 
+def _quoted_scalar(text: str) -> tuple[str, str] | None:
+    """Split a quoted YAML scalar from what follows it, or return None."""
+    if text.startswith('"'):
+        try:
+            value, end = json.JSONDecoder().raw_decode(text)
+        except json.JSONDecodeError:
+            return None
+        return value, text[end:]
+    if text.startswith("'"):
+        index = 1
+        while index < len(text):
+            if text[index] == "'":
+                if text[index + 1 : index + 2] == "'":
+                    index += 2
+                    continue
+                return text[1:index].replace("''", "'"), text[index + 1 :]
+            index += 1
+    return None
+
+
 def _parse_scalar(text: str) -> Any:
-    if text == "null":
+    quoted = _quoted_scalar(text)
+    if quoted is not None:
+        value, rest = quoted
+        rest = rest.strip()
+        if not rest or rest.startswith("#"):
+            return value
+    if text.startswith("#"):
+        return None
+    comment = text.find(" #")
+    if comment != -1:
+        text = text[:comment].rstrip()
+    if text in ("null", "~"):
         return None
     if text == "true":
         return True

@@ -181,9 +181,9 @@ def test_close_wave_from_main_checkout_keeps_the_merged_head(dispatched):
     assert _dispatch(inv, ledger, "merge-story", "ST-0001").returncode == 0
     merged_head = _git(inv, "rev-parse", "HEAD")
 
-    # close-wave exits 1 here, because it cannot commit the ignored ledger
-    # (known bug D-5). It saves the ledger before that step.
-    _dispatch(repo, ledger, "close-wave", "1")
+    result = _dispatch(repo, ledger, "close-wave", "1")
+
+    assert result.returncode == 0, result.stderr
 
     data = yaml.safe_load(ledger.read_text())
     assert data["branch_head"] == merged_head

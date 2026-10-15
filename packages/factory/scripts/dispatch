@@ -42,6 +42,7 @@ from dispatch_lib import (
     StoryEntry,
     StoryState,
     TransitionError,
+    _load_yaml,
     append_attempt,
     attempts_for_session,
     clear_manifest_force,
@@ -132,24 +133,18 @@ _TEST_COMMAND_KEYS = ("test_command", "test_all")
 
 
 def _testing_yaml_command(path: Path) -> str | None:
-    """Return the top-level test_command, or else test_all, of testing.yaml."""
+    """Return the top-level test_command, or else test_all, of testing.yaml.
+
+    Only a non-empty string counts, so `test_command: null` falls through.
+    """
     try:
-        text = path.read_text()
-    except OSError:
+        data = _load_yaml(path.read_text())
+    except Exception:  # noqa: BLE001 - a missing or malformed file counts as absent
         return None
-    values: dict[str, str] = {}
-    for line in text.splitlines():
-        match = re.match(r"^(test_command|test_all):\s*(.*?)\s*$", line)
-        if not match:
-            continue
-        value = match.group(2)
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-            value = value[1:-1]
-        if value:
-            values.setdefault(match.group(1), value)
     for key in _TEST_COMMAND_KEYS:
-        if key in values:
-            return values[key]
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
     return None
 
 
@@ -804,35 +799,62 @@ def _run_verify_base(
     return result.returncode, output
 
 
+@dataclass
+class _StoryWorkspace:
+    """What one _create_story_workspace call created, and its error."""
+
+    created_branch: bool
+    created_worktree: bool
+    error: str
+
+
+def _branch_tip(branch_name: str) -> str | None:
+    code, tip, _ = _git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch_name}")
+    return tip if code == 0 and tip else None
+
+
 def _create_story_workspace(
     branch_name: str, worktree_path: Path, base_sha: str
-) -> tuple[bool, str]:
+) -> _StoryWorkspace:
     """Create a story branch together with its worktree (BUG-0084).
 
     A leftover branch from a failed run is reused when it holds no work,
     that is, when it still points at *base_sha*. A leftover branch with
-    work is refused, so no commit is lost. Returns (created_branch, error).
+    work is refused, so no commit is lost. git can create both and still
+    exit 1, for example when a post-checkout hook fails. So the result
+    reports what exists afterwards that did not exist before the call.
     """
-    code, tip, _ = _git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch_name}")
-    if code == 0 and tip:
-        if tip != base_sha:
-            return False, (
-                f"branch {branch_name!r} already exists with commits that are not "
-                f"on the dispatch base; inspect it, then delete it or resume it"
-            )
+    tip = _branch_tip(branch_name)
+    if tip is not None and tip != base_sha:
+        return _StoryWorkspace(False, False, (
+            f"branch {branch_name!r} already exists with commits that are not "
+            f"on the dispatch base; inspect it, then delete it or resume it"
+        ))
+    worktree_existed = (
+        worktree_path.exists() or _verify_worktree_registration(worktree_path)
+    )
+    if tip is not None:
         code, _, err = _git("worktree", "add", str(worktree_path), branch_name)
-        return False, err if code != 0 else ""
-    code, _, err = _git("worktree", "add", "-b", branch_name, str(worktree_path), base_sha)
-    return code == 0, err if code != 0 else ""
+    else:
+        code, _, err = _git(
+            "worktree", "add", "-b", branch_name, str(worktree_path), base_sha
+        )
+    created_branch = tip is None and _branch_tip(branch_name) is not None
+    created_worktree = not worktree_existed and (
+        worktree_path.exists() or _verify_worktree_registration(worktree_path)
+    )
+    if code != 0 and not err:
+        err = "git worktree add failed"
+    return _StoryWorkspace(created_branch, created_worktree, err if code != 0 else "")
 
 
 def _remove_story_workspace(
-    branch_name: str, worktree_path: Path, created_branch: bool
+    branch_name: str, worktree_path: Path, workspace: _StoryWorkspace
 ) -> None:
-    """Undo _create_story_workspace after a later step failed."""
-    if _verify_worktree_registration(worktree_path) or worktree_path.exists():
+    """Undo what one _create_story_workspace call created, and nothing else."""
+    if workspace.created_worktree:
         _git("worktree", "remove", "--force", str(worktree_path))
-    if created_branch:
+    if workspace.created_branch:
         _git("branch", "-D", branch_name)
 
 
@@ -889,7 +911,9 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
     wave_story_ids = {entry.id for entry in stories_in_wave}
 
     for entry in stories_in_wave:
-        if entry.status == StoryState.PREPARED:
+        # Only a pending story gets a new workspace. A story past that state
+        # owns a worktree that may hold an agent's uncommitted work.
+        if entry.status != StoryState.PENDING:
             continue
 
         same_wave_deps = [dep for dep in entry.deps if dep in wave_story_ids]
@@ -915,21 +939,18 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             main_root / ".current-work" / target_branch / branch_name
         )
 
-        created_branch, err = _create_story_workspace(
-            branch_name, worktree_path, base_sha
-        )
-        if err:
-            if created_branch or worktree_path.exists():
-                _remove_story_workspace(branch_name, worktree_path, created_branch)
+        workspace = _create_story_workspace(branch_name, worktree_path, base_sha)
+        if workspace.error:
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(
                 f"error: failed to create {branch_name!r} and its worktree "
-                f"for {entry.id}: {err}",
+                f"for {entry.id}: {workspace.error}",
                 file=sys.stderr,
             )
             return 1
 
         if not _verify_worktree_registration(worktree_path):
-            _remove_story_workspace(branch_name, worktree_path, created_branch)
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(
                 f"error: git worktree list did not report {worktree_path} for {entry.id}",
                 file=sys.stderr,
@@ -940,7 +961,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             worktree_path, target_branch, base_sha
         )
         if verify_code != 0:
-            _remove_story_workspace(branch_name, worktree_path, created_branch)
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             if verify_output:
                 print(verify_output, file=sys.stderr)
             print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
@@ -967,14 +988,14 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
                 entry.active_session = "impl"
                 entry.active_tier = _story_declared_or_current_tier(project_root, entry)
         if manifest_code != 0:
-            _remove_story_workspace(branch_name, worktree_path, created_branch)
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(f"error: {manifest_err}", file=sys.stderr)
             return 1
 
         try:
             ledger.transition(entry.id, StoryState.PREPARED)
         except TransitionError as e:
-            _remove_story_workspace(branch_name, worktree_path, created_branch)
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(f"error: {e}", file=sys.stderr)
             return 1
         save_code = _save_ledger(ledger, ledger_path)
@@ -1045,6 +1066,13 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     if entry.status == StoryState.PREPARED:
         return 0
+    if entry.status not in {StoryState.PENDING, StoryState.FAILED}:
+        print(
+            f"error: story {story_id} is {entry.status.value}; prepare-story "
+            f"prepares only a pending or failed story",
+            file=sys.stderr,
+        )
+        return 1
 
     if not entry.deps:
         print(
@@ -1084,21 +1112,18 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     branch_name = f"story/{entry.id}"
     worktree_path = main_root / ".current-work" / feature_branch_for_path / branch_name
 
-    created_branch, err = _create_story_workspace(
-        branch_name, worktree_path, merge_sha
-    )
-    if err:
-        if created_branch or worktree_path.exists():
-            _remove_story_workspace(branch_name, worktree_path, created_branch)
+    workspace = _create_story_workspace(branch_name, worktree_path, merge_sha)
+    if workspace.error:
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(
             f"error: failed to create {branch_name!r} and its worktree "
-            f"for {entry.id}: {err}",
+            f"for {entry.id}: {workspace.error}",
             file=sys.stderr,
         )
         return 1
 
     if not _verify_worktree_registration(worktree_path):
-        _remove_story_workspace(branch_name, worktree_path, created_branch)
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(
             f"error: git worktree list did not report {worktree_path} for {entry.id}",
             file=sys.stderr,
@@ -1107,7 +1132,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     verify_code, verify_output = _run_verify_base(worktree_path, merge_sha, merge_sha)
     if verify_code != 0:
-        _remove_story_workspace(branch_name, worktree_path, created_branch)
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         if verify_output:
             print(verify_output, file=sys.stderr)
         print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
@@ -1123,7 +1148,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         or _current_branch_name()
     )
     if not feature_branch:
-        _remove_story_workspace(branch_name, worktree_path, created_branch)
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(
             f"error: unable to determine feature branch for {entry.id}",
             file=sys.stderr,
@@ -1134,7 +1159,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         project_root, entry, feature_branch, worktree_path
     )
     if manifest_code != 0:
-        _remove_story_workspace(branch_name, worktree_path, created_branch)
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(f"error: {manifest_err}", file=sys.stderr)
         return 1
     entry.active_session = "impl"
@@ -1143,7 +1168,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     try:
         ledger.transition(entry.id, StoryState.PREPARED)
     except TransitionError as e:
-        _remove_story_workspace(branch_name, worktree_path, created_branch)
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(f"error: {e}", file=sys.stderr)
         return 1
     return _save_ledger(ledger, ledger_path)
