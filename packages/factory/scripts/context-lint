@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
+# dependencies = ["pyyaml"]
 # ///
 """context-lint — deterministic validation gate for the agent context.
 
@@ -46,10 +47,11 @@ Validates (YAML agent-context mode):
   structure, independent of that key's value (CX-GUIDE-REF)
 - Files exist at more than one format-detection-chain location (CX-FORMAT)
 
-No third-party dependencies (Python 3.10+ stdlib only) — YAML is parsed
-by a minimal indentation-based parser scoped to the agent-context schema
-(nested mappings, block sequences, scalars, null), not a general-purpose
-YAML implementation.
+Python 3.10+ with one third-party dependency: PyYAML, used only to parse
+testing.yaml. Without it, the check exits 2 when testing.yaml exists. The
+agent-context files are parsed by a minimal indentation-based parser scoped
+to their schema (nested mappings, block sequences, scalars, null), not a
+general-purpose YAML implementation.
 
 Usage:
   context-lint
@@ -837,14 +839,29 @@ def resolve_testing_yaml(root: Path) -> Optional[Path]:
 def check_testing_yaml(path: Optional[Path]) -> List[Finding]:
     """Validate testing.yaml with CX-PARSE only — its lifecycle-exempt
     carve-out. No CX-SRC-EXIST, CX-NULL, or CX-KEYS checks apply:
-    testing.yaml is a peer file, not a Layer 2 index file."""
+    testing.yaml is a peer file, not a Layer 2 index file.
+
+    testing.yaml has no fixed shape, so a full YAML parser judges it, not
+    the restricted parse_yaml() subset (BUG-0062). The import stays local,
+    so callers of detect_format() do not need PyYAML. Without PyYAML the
+    check exits 2, so the gap is not mistaken for findings (exit 1)."""
     if path is None:
         return []
+    try:
+        import yaml
+    except ImportError:
+        sys.stderr.write(
+            "context-lint: PyYAML is required to check testing.yaml; "
+            "install pyyaml or run via uv\n"
+        )
+        sys.exit(2)
+
     rel = path.name
     try:
-        parse_yaml(path.read_text(encoding="utf-8"))
-    except YamlParseError as exc:
-        return [Finding("CX-PARSE", "error", rel, f"invalid YAML: {exc}")]
+        yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        reason = " ".join(str(exc).split())
+        return [Finding("CX-PARSE", "error", rel, f"invalid YAML: {reason}")]
     return []
 
 
