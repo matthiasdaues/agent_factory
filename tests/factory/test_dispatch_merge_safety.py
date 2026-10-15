@@ -181,10 +181,13 @@ def test_close_wave_from_main_checkout_keeps_the_merged_head(dispatched):
     assert _dispatch(inv, ledger, "merge-story", "ST-0001").returncode == 0
     merged_head = _git(inv, "rev-parse", "HEAD")
 
+    # close-wave exits 1 here, because it cannot commit the ignored ledger
+    # (known bug D-5). It saves the ledger before that step.
     _dispatch(repo, ledger, "close-wave", "1")
 
     data = yaml.safe_load(ledger.read_text())
     assert data["branch_head"] == merged_head
+    assert data["waves"][0]["branch_head"] == merged_head
 
 
 def test_merge_story_completes_an_interrupted_merge(dispatched):
@@ -199,6 +202,8 @@ def test_merge_story_completes_an_interrupted_merge(dispatched):
     result = _dispatch(inv, ledger, "merge-story", "ST-0001")
 
     assert result.returncode == 0, result.stderr
-    assert _git(inv, "rev-parse", "HEAD") == merge_commit
+    assert _git(inv, "rev-parse", "HEAD^2") == sha
+    assert _git(inv, "rev-parse", "HEAD^1") == _git(inv, "rev-parse", f"{merge_commit}^1")
     data = yaml.safe_load(ledger.read_text())
     assert data["stories"]["ST-0001"]["status"] == "done"
+    assert "status: done" in (inv / "backlog" / "ST-0001.md").read_text()
