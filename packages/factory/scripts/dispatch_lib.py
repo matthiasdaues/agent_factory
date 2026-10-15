@@ -400,7 +400,8 @@ class Ledger:
                 for entry in self.stories.values()
                 if entry.status == StoryState.PENDING
                 and all(
-                    dep not in self.stories or self.is_terminal(dep)
+                    dep not in self.stories
+                    or self.stories[dep].status == StoryState.DONE
                     for dep in entry.deps
                 )
             ],
