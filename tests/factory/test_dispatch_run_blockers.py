@@ -1,4 +1,4 @@
-"""Dispatch can run a fix wave (BUG-0082 to BUG-0085, BUG-0087).
+"""Dispatch can run a fix wave (BUG-0082 to BUG-0085, BUG-0087, BUG-0089).
 
 Each test builds a scratch repository with an invocation branch in its own
 worktree and drives dispatch the way the implementation agent does.
@@ -6,10 +6,12 @@ worktree and drives dispatch the way the implementation agent does.
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
+from conftest import SOURCE_SCRIPTS_DIR
 from test_dispatch_merge_safety import STORY, _dispatch, _git
 
 DEPENDENT_STORY = STORY.replace("deps: []", "deps: [ST-0001]")
@@ -23,12 +25,14 @@ def _repo(
     testing_yaml: str | None = None,
     project_json: bool = True,
     first_story: str = STORY,
+    second_story: str = DEPENDENT_STORY,
 ) -> dict[str, Path]:
     """A repo with ST-0001 and ST-0002 (which depends on ST-0001).
 
     *testing_yaml* is committed as docs/testing.yaml when given. Without it,
     config/project.json carries the test command, unless *project_json* is
-    False. *first_story* is the backlog template for ST-0001.
+    False. *first_story* and *second_story* are the backlog templates for
+    ST-0001 and ST-0002.
     """
     repo = tmp_path / "repo"
     (repo / "backlog").mkdir(parents=True)
@@ -36,7 +40,7 @@ def _repo(
     _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
     (repo / "backlog" / "ST-0001.md").write_text(first_story.format(id="ST-0001"))
     (repo / "backlog" / "ST-0002.md").write_text(
-        DEPENDENT_STORY.format(id="ST-0002")
+        second_story.format(id="ST-0002")
     )
     if testing_yaml is not None:
         (repo / "docs").mkdir()
@@ -603,3 +607,81 @@ def test_merge_story_scopes_glob_and_bracket_entries_in_touches(
     result = _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0001", "--dry-run")
     assert result.returncode != 0
     assert stray in result.stdout + result.stderr
+
+
+# -- BUG-0089: a story branch takes in the moved invocation branch ----------
+
+
+@pytest.fixture()
+def parallel(tmp_path: Path) -> dict[str, Path]:
+    """ST-0001 and ST-0002 share wave 1; ST-0001 is merged, ST-0002 is
+    dispatched and committed on a branch that lacks that merge."""
+    r = _repo(tmp_path, second_story=STORY)
+    assert _prepare_wave_one(r).returncode == 0
+    _commit_story_work(r, "ST-0002")
+    _finish_story(r, "ST-0001")
+    return r
+
+
+def test_merge_story_refreshes_a_parallel_story_behind_the_invocation_branch(parallel):
+    first_merge = _story(_ledger(parallel), "ST-0001")["commit_sha"]
+
+    result = _dispatch(parallel["inv"], parallel["ledger"], "merge-story", "ST-0002")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "done"
+    story_tip = _git(parallel["inv"], "rev-parse", "HEAD^2")
+    _git(parallel["inv"], "merge-base", "--is-ancestor", first_merge, story_tip)
+
+
+def test_refresh_story_lets_verify_base_pass_in_the_story_worktree(parallel):
+    story = _story_worktree(parallel, "ST-0002")
+    base = _story(_ledger(parallel), "ST-0002")["base_sha"]
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _git(story, "log", "-1", "--format=%s") == "merge: feat/x into story/ST-0002"
+    verify = subprocess.run(
+        [str(SOURCE_SCRIPTS_DIR / "verify-base"), "feat/x", "--expect-base", base],
+        cwd=story, capture_output=True, text=True, check=False,
+    )
+    assert verify.returncode == 0, verify.stdout + verify.stderr
+
+    again = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+    assert again.returncode == 0, again.stderr
+    assert _git(story, "log", "-1", "--format=%s") == "merge: feat/x into story/ST-0002"
+
+
+def test_refresh_story_blocks_a_story_whose_merge_conflicts(tmp_path):
+    r = _repo(tmp_path, second_story=STORY)
+    assert _prepare_wave_one(r).returncode == 0
+    # ST-0002 writes the same file ST-0001 writes, with other content.
+    _commit_story_work(r, "ST-0002", ("src/ST-0001.txt",))
+    story = _story_worktree(r, "ST-0002")
+    (story / "src" / "ST-0001.txt").write_text("other\n")
+    _git(story, "commit", "-qam", "other")
+    _finish_story(r, "ST-0001")
+    tip = _git(r["repo"], "rev-parse", "story/ST-0002")
+
+    result = _dispatch(r["repo"], r["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    entry = _story(_ledger(r), "ST-0002")
+    assert (entry["status"], entry["reason"]) == ("blocked", "refresh conflict")
+    assert _git(story, "status", "--porcelain") == ""
+    assert _git(r["repo"], "rev-parse", "story/ST-0002") == tip
+
+
+def test_refresh_story_refuses_a_dirty_worktree(parallel):
+    story = _story_worktree(parallel, "ST-0002")
+    (story / "src" / "ST-0002.txt").write_text("uncommitted\n")
+    tip = _git(parallel["repo"], "rev-parse", "story/ST-0002")
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    assert "uncommitted" in result.stderr
+    assert _git(parallel["repo"], "rev-parse", "story/ST-0002") == tip
+    assert (story / "src" / "ST-0002.txt").read_text() == "uncommitted\n"
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "dispatched"
