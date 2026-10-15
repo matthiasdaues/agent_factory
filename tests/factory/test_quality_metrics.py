@@ -169,14 +169,8 @@ def test_BUG_0072_coverage_keys_relative_to_source_root_match(tmp_path, monkeypa
     assert code == 0
 
 
-def test_BUG_0072_syntax_error_file_does_not_crash_the_gate(tmp_path, capsys):
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "broken.py").write_text("def broken(:\n    pass\n", encoding="utf-8")
-    (src / "good.py").write_text(COVERED_SOURCE, encoding="utf-8")
-    reports = tmp_path / "reports"
-
-    code = cs.main(
+def _run_crap_score_on(src, reports):
+    return cs.main(
         [
             "--source-root",
             str(src),
@@ -189,7 +183,35 @@ def test_BUG_0072_syntax_error_file_does_not_crash_the_gate(tmp_path, capsys):
         ]
     )
 
+
+def test_BUG_0072_syntax_error_file_fails_the_gate(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "broken.py").write_text("def broken(:\n    pass\n", encoding="utf-8")
+    (src / "good.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    reports = tmp_path / "reports"
+
+    code = _run_crap_score_on(src, reports)
+
     rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
-    assert [row["function"] for row in rows] == ["choose"]
-    assert code == 0
-    assert "broken.py" in capsys.readouterr().err
+    by_file = {row["file"]: row for row in rows}
+    assert by_file["good.py"]["function"] == "choose"
+    assert by_file["good.py"]["pass_fail"] == "pass"
+    assert by_file["broken.py"]["pass_fail"] == "fail"
+    assert "invalid syntax" in by_file["broken.py"]["function"]
+    assert code == 1
+
+
+def test_BUG_0072_undecodable_file_fails_the_gate(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "latin.py").write_bytes("NAME = 'caf\xe9'\n".encode("latin-1"))
+    reports = tmp_path / "reports"
+
+    code = _run_crap_score_on(src, reports)
+
+    rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
+    assert [row["file"] for row in rows] == ["latin.py"]
+    assert rows[0]["pass_fail"] == "fail"
+    assert "utf-8" in rows[0]["function"]
+    assert code == 1

@@ -17,7 +17,8 @@ Formula
 Output
   Writes JSON to .current-work/crap-score/<story-id>.json and to
   stdout. Exits 1 when any function exceeds the threshold. A file that
-  cannot be parsed is named on stderr and skipped; the other files are
+  cannot be read or parsed fails the gate: it gets one failing row whose
+  function field reads "<parse error: ...>", and the other files are
   still scored.
 
 Coverage lookup
@@ -214,6 +215,18 @@ def flatten_blocks(blocks: list) -> list:
     return [block for block in blocks if not hasattr(block, "methods")]
 
 
+def parse_failure(relative: str, exc: Exception) -> FunctionCrap:
+    """Return a failing row for a file whose functions cannot be scored."""
+    return FunctionCrap(
+        file=relative,
+        function=f"<parse error: {exc}>",
+        complexity=0,
+        coverage_pct=0.0,
+        crap_score=0.0,
+        pass_fail="fail",
+    )
+
+
 def detect_story_id(explicit: str | None) -> str:
     if explicit:
         return explicit
@@ -266,14 +279,10 @@ def main(argv: list[str] | None = None) -> int:
     for file_path in iter_python_files(source_root):
         relative = str(file_path.relative_to(source_root))
         try:
-            source = file_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-
-        try:
-            blocks = flatten_blocks(cc_visit(source))
-        except (SyntaxError, ValueError) as exc:
-            print(f"crap-score: skipped {relative}: {exc}", file=sys.stderr)
+            blocks = flatten_blocks(cc_visit(file_path.read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+            print(f"crap-score: cannot parse {relative}: {exc}", file=sys.stderr)
+            results.append(parse_failure(relative, exc))
             continue
         for block in blocks:
             cov = function_coverage(
