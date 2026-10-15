@@ -234,7 +234,7 @@ Fix findings from the ATAM review. Re-validate architecture after fixes.
 **If blocking findings remain** → Return to the ATAM review (Step 5.1)
 **If clean** → Proceed to Step 5.3
 
-### Step 5.3 — Capture Project Charter
+### Step 5.3 — Capture Agent Context
 
 **Manual**: Invoke `capture-context` to scan the codebase and bootstrap the agent context.
 

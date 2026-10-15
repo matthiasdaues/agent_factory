@@ -78,14 +78,14 @@ Report what was found to the user before proceeding.
 Prepare the six generic cross-cutting concern sections. These are
 factory-shipped defaults — every project gets them:
 
-| Concern            | Description                                                                  | Default Read path(s)                                                                            |
-| ------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Branching          | Branching policy and worktree discipline.                                    | `.agent-factory/factory/rulebooks/conventions/branching-policy.md`                              |
-| Committing         | Commit message format and hook discipline.                                   | `.agent-factory/factory/rulebooks/conventions/commit-conventions.md`, `.pre-commit-config.yaml` |
-| Testing discipline | Risk-based testing, test admission, layer ownership, risk classes.           | `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`                              |
-| Review             | Peer review rules, architecture review triggers, creation/review separation. | `.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md`                        |
-| Scope discipline   | Build accepted scope only, YAGNI, deferred-feature boundaries.               | `.agent-factory/factory/rulebooks/conventions/foundational-principles.md`                       |
-| Security           | Security-focused review triggers, secret handling, authorization boundaries. | `.agent-factory/factory/rulebooks/principles/owasp-top-10.md`                                   |
+| Concern            | Description                                                                  | Default Read path(s)                                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Branching          | Branching policy and worktree discipline.                                    | `.agent-factory/factory/rulebooks/conventions/branching-policy.md`                                                    |
+| Committing         | Commit message format and hook discipline.                                   | `.agent-factory/factory/rulebooks/conventions/commit-conventions.md`, `.pre-commit-config.yaml`                       |
+| Testing discipline | Risk-based testing, test admission, layer ownership, risk classes.           | `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`                                                    |
+| Review             | Peer review rules, architecture review triggers, creation/review separation. | `.agent-factory/factory/rulebooks/rules.md`, `.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md` |
+| Scope discipline   | Build accepted scope only, YAGNI, deferred-feature boundaries.               | `.agent-factory/factory/rulebooks/conventions/foundational-principles.md`                                             |
+| Security           | Security-focused review triggers, secret handling, authorization boundaries. | `.agent-factory/factory/rulebooks/principles/owasp-top-10.md`                                                         |
 
 For each default `Read:` path, check whether the file exists in the
 project. Leave out a path that does not exist, because `concern-lint`
@@ -167,7 +167,7 @@ Read: .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
 ### Review
 Peer review rules, architecture review triggers, creation/review separation.
-Read: .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
+Read: .agent-factory/factory/rulebooks/rules.md, .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
 
 ### Scope discipline
 Build accepted scope only, YAGNI, deferred-feature boundaries.

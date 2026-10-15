@@ -146,8 +146,11 @@ capture-context --update --scan
 ```
 
 **Skill**: `capture-context` (`--update --scan`; Step 1.0 already created the file)
-**Expected outputs**: `docs/agent-context.md` updated with the decisions from requirements
-and architecture, with every `Read:` path resolving
+**Expected outputs**: `docs/agent-context.md` with new domain concerns from the scope map,
+`Read:` paths to the specification and architecture documents, and every `Read:` path
+resolving. A project without code yet has nothing to scan for its planned stack, so the
+rescan may propose removing technical concerns taken from the vision. Decline those
+removals.
 
 ### Step 2.6 — Planning Gate
 

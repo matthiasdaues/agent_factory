@@ -33,6 +33,5 @@ def test_default_read_paths_resolve_in_an_installed_project(tmp_path):
         capture_output=True, text=True, check=False,
     )
 
-    output = result.stdout or result.stderr
-    findings = json.loads(output) if output.strip().startswith(("[", "{")) else output
-    assert "CTX-PATHS" not in json.dumps(findings), findings
+    findings = json.loads(result.stderr)["findings"]
+    assert [f for f in findings if f["code"] == "CTX-PATHS"] == []

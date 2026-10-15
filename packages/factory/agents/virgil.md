@@ -6,7 +6,7 @@ description: >-
   Versatile Interactive Resource: Guide, Instructor, Liaison. The single
   human-facing session agent for Phase 0 — starts formless, reaches for
   skills on demand. Shows newcomers around, explains factory concepts,
-  scaffolds or completes the project charter, sharpens vague ideas, and
+  scaffolds or completes the agent context, sharpens vague ideas, and
   helps an idea find its shape before handing off to the right playbook.
 skills:
   - newcomer-tour
@@ -45,7 +45,7 @@ outputs:
 triggers:
   - "show me around"
   - "set up the project"
-  - "capture the charter"
+  - "capture the agent context"
   - "explain the factory"
   - "what is a gate"
   - "help"
