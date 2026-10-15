@@ -40,7 +40,8 @@ Usage
                     [--base <ref>] [--head <ref>]
                     [--format text|json] [--report-only]
 
-Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+Exit code: 1 when there is at least one ERROR-severity finding, 0 when
+clean or with --report-only.
 """
 
 from __future__ import annotations

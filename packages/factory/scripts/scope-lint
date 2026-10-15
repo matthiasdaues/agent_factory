@@ -18,7 +18,7 @@ Seven governed artifact types:
   - Entity model     (docs/spec/supplementary_specs/entity-model.{md,yaml})
   - Scope map        (docs/spec/scope-map.md)         — YAML frontmatter scope
 
-Exit code: number of errors (0 = clean).
+Exit code: 1 when there is at least one error, 0 when clean.
 """
 
 from __future__ import annotations

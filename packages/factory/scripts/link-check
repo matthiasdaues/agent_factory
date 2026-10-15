@@ -81,13 +81,17 @@ def _main_checkout(worktree_root: Path) -> Path | None:
     main checkout has it. A linked worktree reaches it there.
     """
     result = subprocess.run(
-        ["git", "-C", str(worktree_root), "rev-parse", "--git-common-dir"],
+        ["git", "-C", str(worktree_root), "rev-parse", "--show-toplevel", "--git-common-dir"],
         capture_output=True, text=True, check=False,
     )
-    if result.returncode != 0 or not result.stdout.strip():
+    lines = result.stdout.splitlines()
+    if result.returncode != 0 or len(lines) != 2:
         return None
-    main_root = (worktree_root / result.stdout.strip()).resolve().parent
-    return None if main_root == worktree_root.resolve() else main_root
+    toplevel = Path(lines[0]).resolve()
+    if toplevel != worktree_root.resolve():
+        return None  # .agent-factory is a subfolder, not the installed copy
+    main_root = (worktree_root / lines[1]).resolve().parent
+    return None if main_root == toplevel else main_root
 
 
 def _installed_copy_in_main_checkout(target: Path) -> Path | None:

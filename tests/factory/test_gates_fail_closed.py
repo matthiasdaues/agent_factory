@@ -162,3 +162,29 @@ def test_link_check_still_reports_a_missing_installed_file(project_with_worktree
     result = _run([str(SOURCE_SCRIPTS_DIR / "link-check"), "docs/note.md"], worktree)
 
     assert result.returncode == 1
+
+
+def test_link_check_does_not_map_a_nested_agent_factory_folder(project_with_worktree):
+    """BUG-0041: only the repository root's .agent-factory/ maps to the main
+    checkout, so a broken link into a nested folder of that name fails."""
+    project, worktree = project_with_worktree["project"], project_with_worktree["worktree"]
+    (project / ".agent-factory" / "factory" / "x.md").write_text("# X\n")
+    doc = worktree / "docs" / "note.md"
+    doc.parent.mkdir()
+    doc.write_text("[x](sub/.agent-factory/factory/x.md)\n")
+
+    result = _run([str(SOURCE_SCRIPTS_DIR / "link-check"), "docs/note.md"], worktree)
+
+    assert result.returncode == 1
+
+
+def test_concern_lint_in_a_worktree_resolves_installed_paths(project_with_worktree):
+    """BUG-0041: a Read: path into .agent-factory/ resolves in a worktree."""
+    from conftest import load_script
+
+    lint = load_script("concern-lint")
+    project, worktree = project_with_worktree["project"], project_with_worktree["worktree"]
+    (project / ".agent-factory" / "factory" / "rules.md").write_text("# Rules\n")
+
+    assert lint._path_resolves(".agent-factory/factory/rules.md", worktree)
+    assert not lint._path_resolves(".agent-factory/factory/missing.md", worktree)
