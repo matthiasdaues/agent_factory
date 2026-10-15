@@ -13,7 +13,9 @@ example, not a reference.
 from __future__ import annotations
 
 import argparse
+import functools
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -71,6 +73,37 @@ def anchors(path: Path) -> set[str]:
     return found
 
 
+@functools.lru_cache(maxsize=None)
+def _main_checkout(worktree_root: Path) -> Path | None:
+    """Return the main checkout of a linked worktree, or None.
+
+    The installed factory under .agent-factory/ is untracked, so only the
+    main checkout has it. A linked worktree reaches it there.
+    """
+    result = subprocess.run(
+        ["git", "-C", str(worktree_root), "rev-parse", "--show-toplevel", "--git-common-dir"],
+        capture_output=True, text=True, check=False,
+    )
+    lines = result.stdout.splitlines()
+    if result.returncode != 0 or len(lines) != 2:
+        return None
+    toplevel = Path(lines[0]).resolve()
+    if toplevel != worktree_root.resolve():
+        return None  # .agent-factory is a subfolder, not the installed copy
+    main_root = (worktree_root / lines[1]).resolve().parent
+    return None if main_root == toplevel else main_root
+
+
+def _installed_copy_in_main_checkout(target: Path) -> Path | None:
+    """Map a missing path under .agent-factory/ to the main checkout's copy."""
+    parts = target.parts
+    if ".agent-factory" not in parts:
+        return None
+    index = parts.index(".agent-factory")
+    main_root = _main_checkout(Path(*parts[:index]))
+    return None if main_root is None else main_root.joinpath(*parts[index:])
+
+
 def check(path: Path) -> list[str]:
     errors: list[str] = []
     text = strip_code(path.read_text(encoding="utf-8"))
@@ -82,8 +115,11 @@ def check(path: Path) -> list[str]:
         target = path if not parsed.path else path.parent / unquote(parsed.path)
         target = target.resolve()
         if not target.exists():
-            errors.append(f"{path}: broken link {destination!r}")
-            continue
+            fallback = _installed_copy_in_main_checkout(target)
+            if fallback is None or not fallback.exists():
+                errors.append(f"{path}: broken link {destination!r}")
+                continue
+            target = fallback
         if not parsed.fragment or target.is_dir() or target.suffix.lower() != ".md":
             continue
         if unquote(parsed.fragment) not in anchors(target):

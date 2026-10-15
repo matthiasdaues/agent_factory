@@ -212,14 +212,15 @@ class TestNonGovernedArtifacts:
 
 
 class TestMultipleErrors:
-    def test_exit_code_equals_error_count(self, tmp_path: Path) -> None:
+    def test_exit_code_is_1_with_several_errors(self, tmp_path: Path) -> None:
+        """Three errors exit 1, not 3 (BUG-0039)."""
         _write_proposal(tmp_path, "p1", "title: No Scope 1\n")
         _write_proposal(tmp_path, "p2", "title: No Scope 2\n")
         _write_feature(tmp_path, "f1")
         findings = scope_lint.validate_scope(tmp_path)
         assert len(findings) == 3
         exit_code = scope_lint.main(["--base-dir", str(tmp_path)])
-        assert exit_code == 3
+        assert exit_code == 1
 
 
 class TestMainCli:

@@ -659,13 +659,13 @@ The gate scripts (`spec-lint`, `arch-lint`, `backlog-lint`, and the rest) are st
 
 The `.pre-commit-config.yaml` is tracked, so everyone who clones the repo gets the hook definitions. But `.agent-factory/factory/` itself is git-ignored — it exists only on machines where `init-factory` has run. A colleague who has never heard of Agent Factory does not have it.
 
-Every hook that calls a `.agent-factory/factory/scripts/*` gate is wrapped in a one-line bash guard:
+Every hook that calls a `.agent-factory/factory/scripts/*` gate starts with a short bash guard:
 
 ```bash
-bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/<gate> "$@"' --
+bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || exit 0; exec "$AF"/factory/scripts/<gate> "$@"' --
 ```
 
-If `.agent-factory/factory/` is not there, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` hook carries the same guard, so even the formatter stays quiet when the factory directory is absent.
+The guard looks for `.agent-factory/` in the current checkout first. A linked worktree has no copy of its own, so the guard then looks in the main checkout. If neither has the factory, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` hook carries the same guard, so even the formatter stays quiet when the factory directory is absent.
 
 This is deliberate. The `.pre-commit-config.yaml` is tracked because it must survive clones and branch switches. The `.agent-factory/factory/` directory is untracked because it is local tooling, not project source. The guard bridges the two: hooks exist in the config for anyone who has the factory, and vanish for anyone who does not.
 

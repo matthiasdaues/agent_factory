@@ -142,7 +142,7 @@ See [UC-08](../../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-
 | Usage         | `backlog-lint [--backlog-dir DIR] [--format text\|json] [--report-only]`                                                                                                           |
 | Reads         | Story files in `backlog/ST-*.md`                                                                                                                                                   |
 | Writes        | Nothing; validation is read-only                                                                                                                                                   |
-| Exit code     | Count of error-severity findings (`0` = clean), unless `--report-only` (always `0`)                                                                                                |
+| Exit code     | `1` when there is at least one error-severity finding, `0` when clean or with `--report-only`, `2` on a usage error                                                                |
 | Finding codes | `BL-ID`, `BL-MISSING`, `BL-EXTRA`, `BL-ENUM`, `BL-TYPE`, `BL-DEP`, `BL-FILE`, `BL-EMPTY`, `BL-NAME`, `BL-PARSE`, `BL-DUP-ID`, `BL-CYCLE`, `BL-DUP`, `BL-NOTES`, `VR-027`, `VR-028` |
 
 ### StoryFrontmatter schema

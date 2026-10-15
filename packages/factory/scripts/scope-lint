@@ -18,7 +18,7 @@ Seven governed artifact types:
   - Entity model     (docs/spec/supplementary_specs/entity-model.{md,yaml})
   - Scope map        (docs/spec/scope-map.md)         — YAML frontmatter scope
 
-Exit code: number of errors (0 = clean).
+Exit code: 1 when there is at least one error, 0 when clean.
 """
 
 from __future__ import annotations
@@ -249,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"\nscope-lint: {error_count} error(s).")
 
-    return error_count
+    return 1 if error_count else 0
 
 
 if __name__ == "__main__":
