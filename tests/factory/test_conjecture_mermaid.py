@@ -7,6 +7,7 @@ import stat
 from conftest import SOURCE_SCRIPTS_DIR, load_script
 
 cl = load_script("conjecture-lint")
+ml = load_script("mermaid-lint")
 
 
 class TestConjectureMarkersMatchWholeWords:
@@ -38,3 +39,34 @@ class TestScriptsAreExecutable:
             and not path.stat().st_mode & stat.S_IXUSR
         ]
         assert offenders == []
+
+
+class TestMermaidFenceForms:
+    """BUG-0051: mermaid-lint must check tilde fences and indented fences."""
+
+    def test_tilde_fence_with_raw_semicolon_is_reported(self, tmp_path):
+        doc = tmp_path / "doc.md"
+        doc.write_text(
+            "~~~mermaid\nflowchart LR\n  A-->B; B-->C\n~~~\n", encoding="utf-8"
+        )
+        errors = ml.check(doc)
+        assert len(errors) == 1
+        assert "MERMAID-SEMICOLON" in errors[0]
+
+    def test_indented_fence_with_raw_semicolon_is_reported(self, tmp_path):
+        doc = tmp_path / "doc.md"
+        doc.write_text(
+            "- step one\n\n  ```mermaid\n  flowchart LR\n    A-->B; B-->C\n  ```\n",
+            encoding="utf-8",
+        )
+        errors = ml.check(doc)
+        assert len(errors) == 1
+        assert "MERMAID-SEMICOLON" in errors[0]
+
+    def test_tilde_fence_is_closed_only_by_tildes(self, tmp_path):
+        doc = tmp_path / "doc.md"
+        doc.write_text(
+            "~~~mermaid\n```\nA-->B; B-->C\n~~~\n", encoding="utf-8"
+        )
+        errors = ml.check(doc)
+        assert len(errors) == 1
