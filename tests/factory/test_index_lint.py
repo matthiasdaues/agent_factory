@@ -459,3 +459,31 @@ class TestMainRoundTrip:
             ]
         )
         assert rc == 1
+
+
+class TestFactoryRoot:
+    """BUG-0030: in the factory source repository, index-lint without
+    arguments regenerates the tracked packages/factory/INDEX.yaml."""
+
+    def test_source_tree_wins_over_installed_copy(self, tmp_path, monkeypatch):
+        (tmp_path / "packages" / "factory").mkdir(parents=True)
+        (tmp_path / ".agent-factory" / "factory").mkdir(parents=True)
+        monkeypatch.chdir(tmp_path)
+        assert il._factory_root() == "packages/factory"
+
+    def test_installed_copy_without_source_tree(self, tmp_path, monkeypatch):
+        (tmp_path / ".agent-factory" / "factory").mkdir(parents=True)
+        monkeypatch.chdir(tmp_path)
+        assert il._factory_root() == ".agent-factory/factory"
+
+    def test_new_rulebook_reaches_tracked_index(self, tmp_path, monkeypatch):
+        factory = tmp_path / "packages" / "factory"
+        for sub in ("agents", "skills", "playbooks", "rulebooks/conventions"):
+            (factory / sub).mkdir(parents=True)
+        (factory / "rulebooks" / "conventions" / "new-rule.md").write_text(
+            "# New Rule\n", encoding="utf-8"
+        )
+        monkeypatch.chdir(tmp_path)
+        assert il.main([]) == 0
+        index = (factory / "INDEX.yaml").read_text(encoding="utf-8")
+        assert "name: new-rule" in index

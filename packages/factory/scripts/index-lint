@@ -26,7 +26,8 @@ Playbooks carry `total_tokens` (body + unique agent totals). A warning
 fires when an agent's `total_tokens` exceeds 20 000.
 
 Usage (run from the repo root)
-  index-lint                          # regenerate .agent-factory/factory/INDEX.yaml in place
+  index-lint                          # regenerate INDEX.yaml in place (packages/factory/ in
+                                      # the source repository, else .agent-factory/factory/)
   index-lint --check                  # gate mode: exit 1 if stale, write nothing
   index-lint --agents-dir .agent-factory/factory/agents --skills-dir .agent-factory/factory/skills \
              --playbooks-dir .agent-factory/factory/playbooks --rulebooks-dir .agent-factory/factory/rulebooks \
@@ -794,7 +795,10 @@ def render_index(
 
 
 def _factory_root() -> str:
-    """Return the factory root: .agent-factory/factory if installed, else factory."""
+    """Return the factory root: packages/factory in the factory source
+    repository, .agent-factory/factory in an installed project, else factory."""
+    if Path("packages/factory").is_dir():
+        return "packages/factory"
     if Path(".agent-factory/factory").is_dir():
         return ".agent-factory/factory"
     return "factory"

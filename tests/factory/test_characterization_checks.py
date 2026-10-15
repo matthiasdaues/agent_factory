@@ -25,6 +25,11 @@ CHECK_SCRIPTS = [
 ]
 
 
+# Arguments that keep a script from writing tracked files during the test.
+# Without them, index-lint regenerates the factory's INDEX.yaml.
+NO_WRITE_ARGS = {"index-lint": ["--check"]}
+
+
 class TestCheckScriptsExist:
     """Every listed check script exists on disk and is executable."""
 
@@ -71,7 +76,7 @@ class TestCheckScriptsExitCodes:
     def test_main_returns_valid_exit_code(self, script: str) -> None:
         mod = load_script(script)
         try:
-            rc = mod.main([])
+            rc = mod.main(NO_WRITE_ARGS.get(script, []))
         except SystemExit as exc:
             assert exc.code == 2, (
                 f"{script} raised SystemExit({exc.code}); expected 0, 1, or 2"

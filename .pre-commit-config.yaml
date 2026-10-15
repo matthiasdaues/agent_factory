@@ -176,7 +176,7 @@ repos:
 
       - id: index-lint
         name: index-lint (regenerate INDEX.yaml)
-        entry: .agent-factory/factory/scripts/index-lint
+        entry: packages/factory/scripts/index-lint
         language: system
         pass_filenames: false
         files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md)$
