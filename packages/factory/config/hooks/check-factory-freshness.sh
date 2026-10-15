@@ -51,7 +51,7 @@ except Exception:
 " 2>/dev/null)
 
 if [ -z "$RECORDED_HASH" ] || [ "$CURRENT_HASH" != "$RECORDED_HASH" ]; then
-  echo "WARNING: installed factory/ is out of sync with packages/factory/. To update, run: ./init-factory --update ." >&2
+  echo "WARNING: installed factory/ is out of sync with packages/factory/. To update, run: .agent-factory/factory/scripts/update-factory --target ." >&2
 fi
 
 exit 0

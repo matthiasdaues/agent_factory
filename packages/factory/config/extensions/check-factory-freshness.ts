@@ -35,7 +35,7 @@ export default function (pi: ExtensionAPI) {
 
     console.error(
       "WARNING: installed factory/ is out of sync with packages/factory/. " +
-        "To update, run: ./init-factory --update .",
+        "To update, run: .agent-factory/factory/scripts/update-factory --target .",
     );
   });
 }

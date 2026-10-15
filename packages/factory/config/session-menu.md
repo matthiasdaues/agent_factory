@@ -51,7 +51,7 @@ Rerun all five fitting steps: model matrix, fingerprint, agent context, test reg
 
 ### Update Factory
 
-Run `init-factory --update <project-root> --force`. Relay the command's stdout and exit status to the developer. On success, rerun About to show the refreshed factory state.
+Run `.agent-factory/factory/scripts/update-factory --target <project-root>`. Relay the command's stdout and exit status to the developer. If it stops because it found changes the developer made to the factory files, ask the developer before rerunning it with `--force`; `--force` keeps those changes under `.agent-factory/factory-user-changes/`. On success, rerun About to show the refreshed factory state.
 
 ### Update agent context
 
