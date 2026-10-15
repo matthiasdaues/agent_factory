@@ -179,7 +179,8 @@ def _section(md: str, start: str, end: str) -> str:
     return md[i : j if j != -1 else len(md)]
 
 
-_TABLE_SEPARATOR = re.compile(r"^\|\s*:?-{3,}")
+# A GFM separator row: every cell is dashes with optional alignment colons.
+_TABLE_SEPARATOR = re.compile(r"^\|(?:\s*:?-+:?\s*\|)+\s*$")
 
 
 def _first_cell(line: str) -> str:

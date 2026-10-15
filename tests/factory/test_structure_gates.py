@@ -341,3 +341,47 @@ class TestValidateGateSeven:
         monkeypatch.chdir(tmp_path)
         assert al.main(_gate_seven_args()) == 0
 
+
+# ---------------------------------------------------------------------------
+# BUG-0090: aligned separator rows mark the header row
+# ---------------------------------------------------------------------------
+
+
+def _ch5_with_separator(separator: str) -> str:
+    return (
+        "# 5. Building Block View\n\n"
+        "## 5.2 Level 2: Component View\n\n"
+        "| Component | Responsibility |\n"
+        f"{separator}\n"
+        "| Worker    | Run jobs       |\n"
+    )
+
+
+class TestAlignedSeparator:
+    def test_left_aligned_separator(self) -> None:
+        """BUG-0090: `| :-- | :-- |` is a separator row."""
+        assert al.ch5_core_components(_ch5_with_separator("| :-- | :-- |")) == {
+            "Worker"
+        }
+
+    def test_right_aligned_separator(self) -> None:
+        """BUG-0090: `| --: | --: |` is a separator row."""
+        assert al.ch5_core_components(_ch5_with_separator("| --: | --: |")) == {
+            "Worker"
+        }
+
+    def test_centre_aligned_separator(self) -> None:
+        """BUG-0090: `|:-:|:-:|` is a separator row."""
+        assert al.ch5_core_components(_ch5_with_separator("|:-:|:-:|")) == {"Worker"}
+
+    def test_short_separator(self) -> None:
+        """BUG-0090: `| - | - |` is a separator row."""
+        assert al.ch5_core_components(_ch5_with_separator("| - | - |")) == {"Worker"}
+
+    def test_aligned_component_table_couples_with_dsl(self) -> None:
+        """BUG-0090: a correct table with an aligned separator is not empty."""
+        ch5 = _ch5_with_separator("| :-- | --: |") + "| API routes | Serve |\n"
+        rep = al.Report()
+        al.check_coupling(rep, DSL, ch5)
+        assert not any(c == "ARCH-CH5-EMPTY" for _, c, _ in rep.items)
+        assert rep.n(al.ERROR) == 0
