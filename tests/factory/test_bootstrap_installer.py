@@ -117,3 +117,31 @@ class TestLinkedInstructionFiles:
         found = mod.discover_instruction_files(target)
 
         assert found == [real]
+
+
+class TestClaudeIncludePaths:
+    """BUG-0078: each include path is relative to the file it sits in."""
+
+    def _block(self, tmp_path: Path, rel: str) -> str:
+        mod = _load_module()
+        target = tmp_path / "project"
+        filepath = target / rel
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text("# Agents\n")
+        return mod._build_orientation_block(target, filepath, "claude")
+
+    def test_BUG_0078_root_agents_md_includes_resolve_inside_project(
+            self, tmp_path):
+        block = self._block(tmp_path, "AGENTS.md")
+
+        assert "@.agent-factory/factory/config/AGENTS.claude.md\n" in block
+        assert "@docs/agent-context.md\n" in block
+        assert "@../" not in block
+
+    def test_BUG_0078_nested_agents_md_includes_climb_to_project_root(
+            self, tmp_path):
+        block = self._block(tmp_path, "packages/web/AGENTS.md")
+
+        assert ("@../../.agent-factory/factory/config/AGENTS.claude.md\n"
+                in block)
+        assert "@../../docs/agent-context.md\n" in block

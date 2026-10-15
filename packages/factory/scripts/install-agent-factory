@@ -38,8 +38,13 @@ REMOTE_TIMEOUT = 30
 ORIENTATION_BEGIN = "<!-- >>> agent_factory orientation >>>"
 ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
 
+# Files a CLI with @-include support pulls in, as paths from the project
+# root. Each include is written relative to the file that holds it.
 ORIENTATION_INCLUDE = {
-    ".claude": "@../../.agent-factory/factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
+    ".claude": (
+        ".agent-factory/factory/config/AGENTS.claude.md",
+        "docs/agent-context.md",
+    ),
 }
 
 ORIENTATION_FILE = {
@@ -905,8 +910,12 @@ def _build_orientation_block(target: Path, filepath: Path,
     dot_dir = dot_dirs[0] if dot_dirs else ""
 
     if dot_dir in ORIENTATION_INCLUDE:
-        # CLI supports @-includes — compute relative path
-        content = ORIENTATION_INCLUDE[dot_dir]
+        # CLI supports @-includes; resolve each from the file's directory.
+        content = "".join(
+            "@" + Path(os.path.relpath(target / include,
+                                       filepath.parent)).as_posix() + "\n"
+            for include in ORIENTATION_INCLUDE[dot_dir]
+        )
     else:
         # Inline the CLI-specific orientation content
         # Read from the source's config directory
