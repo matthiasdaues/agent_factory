@@ -82,14 +82,15 @@ factory-shipped defaults — every project gets them:
 | ------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Branching          | Branching policy and worktree discipline.                                    | `.agent-factory/factory/rulebooks/conventions/branching-policy.md`                              |
 | Committing         | Commit message format and hook discipline.                                   | `.agent-factory/factory/rulebooks/conventions/commit-conventions.md`, `.pre-commit-config.yaml` |
-| Testing discipline | Risk-based testing, test admission, layer ownership, risk classes.           | `docs/handbook/testing/conventions.md`, `docs/handbook/testing/strategy.md`                     |
-| Review             | Peer review rules, architecture review triggers, creation/review separation. | `.agent-factory/factory/rulebooks/conventions/review-policy.md`                                 |
-| Scope discipline   | Build accepted scope only, YAGNI, deferred-feature boundaries.               | `.agent-factory/factory/rulebooks/conventions/scope-policy.md`                                  |
-| Security           | Security-focused review triggers, secret handling, authorization boundaries. | `.agent-factory/factory/rulebooks/conventions/security-policy.md`                               |
+| Testing discipline | Risk-based testing, test admission, layer ownership, risk classes.           | `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`                              |
+| Review             | Peer review rules, architecture review triggers, creation/review separation. | `.agent-factory/factory/rulebooks/conventions/review-loop-discipline.md`                        |
+| Scope discipline   | Build accepted scope only, YAGNI, deferred-feature boundaries.               | `.agent-factory/factory/rulebooks/conventions/foundational-principles.md`                       |
+| Security           | Security-focused review triggers, secret handling, authorization boundaries. | `.agent-factory/factory/rulebooks/principles/owasp-top-10.md`                                   |
 
 For each default `Read:` path, check whether the file exists in the
-project. If it does not, keep the path as a placeholder — the concern
-section is still valid and the path can be updated later. Present the
+project. Leave out a path that does not exist, because `concern-lint`
+reports every `Read:` path that does not resolve. Each default concern
+keeps at least one shipped rulebook path, so no section ends up empty. Present the
 cross-cutting concerns to the user for confirmation (usually accepted
 as-is).
 
@@ -162,19 +163,19 @@ Read: .agent-factory/factory/rulebooks/conventions/commit-conventions.md, .pre-c
 
 ### Testing discipline
 Risk-based testing, test admission, layer ownership, risk classes.
-Read: docs/handbook/testing/conventions.md, docs/handbook/testing/strategy.md
+Read: .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
 ### Review
 Peer review rules, architecture review triggers, creation/review separation.
-Read: .agent-factory/factory/rulebooks/conventions/review-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/review-loop-discipline.md
 
 ### Scope discipline
 Build accepted scope only, YAGNI, deferred-feature boundaries.
-Read: .agent-factory/factory/rulebooks/conventions/scope-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/foundational-principles.md
 
 ### Security
 Security-focused review triggers, secret handling, authorization boundaries.
-Read: .agent-factory/factory/rulebooks/conventions/security-policy.md
+Read: .agent-factory/factory/rulebooks/principles/owasp-top-10.md
 
 ## Technical concerns
 
@@ -420,8 +421,8 @@ Show differences grouped by category. Use this format:
 ```text
 ## Cross-cutting
   ~ CHANGED: Testing discipline
-    Read: docs/handbook/testing/conventions.md
-    → Read: docs/handbook/testing/conventions.md, docs/testing.yaml
+    Read: .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    → Read: .agent-factory/factory/rulebooks/conventions/testing-strategy.md, docs/testing.yaml
 
 ## Technical
   + NEW: data-storage — ORM detected (SQLAlchemy)

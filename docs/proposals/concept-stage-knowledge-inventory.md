@@ -210,7 +210,7 @@ across conversations and later-phase documents.
 The current greenfield contract also contains incompatible artifact paths. The
 [capture-context skill § Concern model](../../.agent-factory/factory/skills/capture-context/SKILL.md#concern-model)
 requires one `docs/agent-context.md` file and retires the earlier YAML model.
-The [greenfield playbook § Step 1.0](../../.agent-factory/factory/playbooks/greenfield-development.md#step-10--scaffold-project-charter)
+The [greenfield playbook § Step 1.0](../../packages/factory/playbooks/greenfield-development.md#step-10--scaffold-agent-context)
 still requires the retired YAML files and the former `capture-charter` skill.
 A formal Concept stage needs one consistent artifact contract.
 

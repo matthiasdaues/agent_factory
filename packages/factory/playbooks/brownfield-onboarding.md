@@ -249,8 +249,8 @@ The skill:
 2. Populates `docs/agent-context.md` with concern sections and `Read:` paths
 3. Presents findings to the stakeholder for confirmation
 
-The setup (infrastructure, setup scripts, configurations) already exists in
-the scanned codebase, so brownfield documents it instead of planning it. The
+The infrastructure, setup scripts, and configurations already exist in the
+scanned codebase, so brownfield documents them instead of planning them. The
 agent context records reality as it stands.
 
 **Expected output**: `docs/agent-context.md`, confirmed by stakeholder
@@ -272,7 +272,7 @@ verify that every concern resolves:
 This gate must pass before any specification work or planning decisions that
 follow onboarding.
 
-**If gate fails** → Return to Step 5.3 and correct charter entries
+**If gate fails** → Return to Step 5.3 and correct `docs/agent-context.md`
 **If gate passes + stakeholder approves** → The reconciliation-agent's
 preconditions are satisfied.
 

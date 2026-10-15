@@ -36,7 +36,7 @@ same agent's session needs no handoff.
 
 ## Requirements
 
-### Step 1.0 — Scaffold Project Charter
+### Step 1.0 — Scaffold Agent Context
 
 ```bash
 # In the active session (stakeholder present), right after vision capture:
@@ -44,9 +44,8 @@ capture-context --init
 ```
 
 **Skill**: `capture-context` (`--init` mode)
-**Expected outputs**: `docs/agent-context.md` — skeleton created from the template, answers
-already known from the vision conversation filled in, everything else left
-`To be decided.`
+**Expected outputs**: `docs/agent-context.md` — skeleton created from the template, with
+the answers already known from the vision conversation filled in
 
 ### Step 1.1 — Run Requirements Agent
 
@@ -57,10 +56,9 @@ already known from the vision conversation filled in, everything else left
 **Agent**: `requirements-agent`
 **Expected outputs**: `docs/spec/prd.md`, `docs/spec/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/<feature-name>-gaps.md`, `docs/spec/<feature-name>-qa-strategy.md`, `docs/spec/supplementary_specs/`
 
-As requirements decisions settle a charter entry — a data store, a
+As requirements decisions settle a project fact — a data store, a
 licensing constraint, an integration requirement — the requirements agent
-records it in `docs/agent-context.md` incrementally, rather than waiting for
-the completeness sweep.
+records it in `docs/agent-context.md` right away.
 
 ### Step 1.2 — Run Spec Review Agent (Separate Session)
 
@@ -106,9 +104,9 @@ Return to Step 1.2 (run spec-review-agent again)
 
 The workspace property `"arc42.projected"` defaults to `"false"` in fresh DSL files and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
 
-As architecture decisions settle a charter entry — infrastructure, deployment
+As architecture decisions settle a project fact — infrastructure, deployment
 topology, a cloud provider — the architecture agent records it in
-`docs/agent-context.md` incrementally.
+`docs/agent-context.md` right away.
 
 ### Step 2.2 — Run Architecture Review Agent (Separate Session)
 
@@ -144,12 +142,12 @@ Return to Step 2.2 (run architecture-review-agent again)
 
 ```bash
 # In the active session (stakeholder present):
-capture-context --init
+capture-context --update --scan
 ```
 
-**Skill**: `capture-context` (`--init`; use `--update --scan` when `docs/agent-context.md` already exists)
-**Expected outputs**: `docs/agent-context.md` with every concern resolved to a concrete answer
-or an explicit deferral
+**Skill**: `capture-context` (`--update --scan`; Step 1.0 already created the file)
+**Expected outputs**: `docs/agent-context.md` updated with the decisions from requirements
+and architecture, with every `Read:` path resolving
 
 ### Step 2.6 — Planning Gate
 

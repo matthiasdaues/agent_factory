@@ -251,12 +251,12 @@ mechanical spec derivation without interactive round-trips. Each subagent
 suspend/resume cycle replays its full context; grilling inside a subagent
 multiplies cost by the number of questions asked.
 
-### Step 0.1a — Charter Amendment Check
+### Step 0.1a — Agent Context Amendment Check
 
-**Manual decision**: Does this feature require charter amendments?
+**Manual decision**: Does this feature require changes to `docs/agent-context.md`?
 
 Read project context from [`docs/agent-context.md`](../../../docs/agent-context.md) to understand current declarations
-for tech stack, development practices, and house rules.
+for the tech stack and development practices.
 
 **If no amendments needed** → Skip to Step 0.2.
 

@@ -336,7 +336,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2272
-    total_tokens: 19762
+    total_tokens: 19811
     inputs:
       required:
         - type: scope-map
@@ -392,7 +392,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1533
-    total_tokens: 18880
+    total_tokens: 18929
     inputs:
       required:
         - type: proposal
@@ -545,7 +545,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3781
-    total_tokens: 16937
+    total_tokens: 16986
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -578,7 +578,7 @@ skills:
     category: requirements
     description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 5915
+    tokens: 5964
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -887,8 +887,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 2919
-    total_tokens: 36535
+    tokens: 2921
+    total_tokens: 36586
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -910,7 +910,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 43465
+    total_tokens: 43514
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -926,8 +926,8 @@ playbooks:
       - code-review-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4627
-    total_tokens: 104314
+    tokens: 4632
+    total_tokens: 104417
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -944,8 +944,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2706
-    total_tokens: 103641
+    tokens: 2688
+    total_tokens: 103721
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
