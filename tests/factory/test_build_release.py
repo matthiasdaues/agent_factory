@@ -56,6 +56,16 @@ def _make_repo(tmp_path: Path, branch: str, version: str) -> Path:
     return repo
 
 
+def _commit_all(repo: Path, message: str) -> None:
+    """Commit every change in *repo*, deletions included."""
+    env = {**os.environ, "GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "t@t",
+           "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "t@t"}
+    subprocess.run(["git", "-C", str(repo), "add", "-A"],
+                   check=True, capture_output=True, env=env)
+    subprocess.run(["git", "-C", str(repo), "commit", "-m", message],
+                   check=True, capture_output=True, env=env)
+
+
 def _run_build(repo: Path, output: Path, extra_args: list[str] | None = None) -> subprocess.CompletedProcess:
     """Run build-release in *repo* with --output *output*."""
     script = REPO_ROOT / "packages" / "factory" / "scripts" / "build-release"
@@ -236,8 +246,102 @@ class TestFailureCleanup:
         repo = _make_repo(tmp_path, "main", "1.0.0")
         # Remove the install-agent-factory so build fails
         (repo / "packages" / "factory" / "scripts" / "install-agent-factory").unlink()
+        _commit_all(repo, "drop install script")
         out = tmp_path / "release"
         result = _run_build(repo, out)
         assert result.returncode != 0
         if out.exists():
             assert list(out.iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# Slice 5 — Existing output survives a failure (BUG-0073)
+# ---------------------------------------------------------------------------
+
+class TestExistingOutputSurvivesFailure:
+    """A failed build deletes only what it created and says why."""
+
+    def _existing_output(self, tmp_path: Path) -> Path:
+        out = tmp_path / "precious"
+        out.mkdir()
+        (out / "important.txt").write_text("keep me\n")
+        return out
+
+    def test_version_mismatch_keeps_existing_dir(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0-rc")
+        out = self._existing_output(tmp_path)
+        result = _run_build(repo, out)
+        assert result.returncode != 0
+        assert (out / "important.txt").read_text() == "keep me\n"
+        assert "1.0.0-rc" in result.stderr
+        assert "main" in result.stderr
+
+    def test_missing_install_script_keeps_existing_dir(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        (repo / "packages" / "factory" / "scripts" / "install-agent-factory").unlink()
+        _commit_all(repo, "drop install script")
+        out = self._existing_output(tmp_path)
+        result = _run_build(repo, out)
+        assert result.returncode != 0
+        assert (out / "important.txt").read_text() == "keep me\n"
+
+    def test_failure_while_writing_keeps_existing_files(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        out = self._existing_output(tmp_path)
+        # A directory in place of the last asset makes the final write fail
+        # after the first two assets are written.
+        (out / "SHA256SUMS").mkdir()
+        result = _run_build(repo, out)
+        assert result.returncode != 0
+        assert sorted(p.name for p in out.iterdir()) == ["SHA256SUMS", "important.txt"]
+        assert (out / "important.txt").read_text() == "keep me\n"
+        assert result.stderr.startswith("build-release: ")
+
+
+# ---------------------------------------------------------------------------
+# Slice 6 — Archive comes from the committed tree (BUG-0073)
+# ---------------------------------------------------------------------------
+
+class TestArchiveFromGit:
+    """The archive holds the committed files, not the working tree."""
+
+    def _names_and_example(self, out: Path) -> tuple[list[str], bytes]:
+        with tarfile.open(out / "agent-factory.tar.gz", "r:gz") as tf:
+            names = tf.getnames()
+            data = tf.extractfile("agents/example.md").read()
+        return names, data
+
+    def test_untracked_files_left_out(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        cache = repo / "packages" / "factory" / "scripts" / "__pycache__"
+        cache.mkdir()
+        (cache / "x.cpython-312.pyc").write_bytes(b"\x00")
+        (repo / "packages" / "factory" / "agents" / "draft.md").write_text("x\n")
+        out = tmp_path / "release"
+        result = _run_build(repo, out)
+        assert result.returncode == 0, result.stderr
+        names, _ = self._names_and_example(out)
+        assert not any("__pycache__" in n for n in names)
+        assert "agents/draft.md" not in names
+        assert "agents/example.md" in names
+
+    def test_uncommitted_changes_left_out(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        (repo / "packages" / "factory" / "agents" / "example.md").write_text("dirty\n")
+        out = tmp_path / "release"
+        result = _run_build(repo, out)
+        assert result.returncode == 0, result.stderr
+        _, data = self._names_and_example(out)
+        assert data == b"# Example agent\n"
+
+    def test_executable_mode_kept(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        out = tmp_path / "release"
+        result = _run_build(repo, out)
+        assert result.returncode == 0, result.stderr
+        with tarfile.open(out / "agent-factory.tar.gz", "r:gz") as tf:
+            install = tf.getmember("scripts/install-agent-factory")
+            agent = tf.getmember("agents/example.md")
+            assert tf.getmember("scripts").isdir()
+        assert install.mode == 0o755
+        assert agent.mode == 0o644
