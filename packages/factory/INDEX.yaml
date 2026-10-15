@@ -1006,7 +1006,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4721
+    tokens: 4757
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
