@@ -101,7 +101,3 @@ When `docs/spec/<feature-name>.feature` exists for this story, it is the accepta
 - Story references Use Case IDs, or the governing `.feature` file's Rules when no UC-XX files apply
 - Conventional Commit with story ID and `status: done`; all changes staged and tests green with `--no-commit`; or all changes unstaged and tests green with `--no-stage --no-commit`
 - Spec matches implementation
-
-## Note: Epic 0 Stories
-
-Epic 0 stories are implemented like any other story. No special handling is needed beyond what the charter provides — follow the standard workflow above.

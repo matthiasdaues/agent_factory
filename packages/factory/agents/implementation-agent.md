@@ -121,7 +121,6 @@ Resolve before Step 1 and state the effective mode and its source.
 
 2. **Plan wave** — Call `.agent-factory/factory/scripts/dispatch plan --backlog-dir backlog [--stories <ids>]`. Group ready stories by declared `touches:` overlap (in addition to dependency-readiness, not instead of it):
 
-   - **Epic 0 scheduling**: Stories with `epic: "Epic 0 — Project Setup"` go to **wave 1** with highest priority. No feature story dispatches until all must-have Epic 0 stories reach terminal state. Feature stories carry `deps:` on the final Epic 0 story, which chains from all others — the dependency graph enforces precedence automatically.
    - **Parallel-safe set**: file-disjoint stories → dispatch in parallel within the wave.
    - **Serial chain(s)**: stories sharing a touched directory → prepare, dispatch, verify, and merge one at a time, in dependency order.
      Never substitute EPIC for this grouping. Per [dispatch-contract.md § Wave Boundary As Hard Gate](../rulebooks/conventions/dispatch-contract.md#wave-boundary-as-hard-gate), every story in the **prior** wave must reach terminal state before this wave launches. Assign each story a model from its `tier` field, looked up in `model.conf` (`economy | standard | strong`). Developer sub-agents have no tier of their own — the story's `tier` is their sole axis.

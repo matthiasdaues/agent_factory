@@ -140,28 +140,26 @@ grep -l "status: open" docs/findings/ATAM-*.md
 
 Return to Step 2.2 (run architecture-review-agent again)
 
-### Step 2.5 — Charter Completeness Sweep
+### Step 2.5 — Agent Context
 
 ```bash
 # In the active session (stakeholder present):
-capture-context
+capture-context --init
 ```
 
-**Skill**: `capture-context` (completeness sweep mode, no flag)
-**Expected outputs**: `docs/agent-context.md` with every entry resolved to a concrete answer
-or an explicit deferral, Epic 0 stories
-(`epic: "Epic 0 — Project Setup"`) written to `backlog/ST-*.md`, including the
-closing "update development.md" story that depends on every other Epic 0 story
+**Skill**: `capture-context` (`--init`; use `--update --scan` when `docs/agent-context.md` already exists)
+**Expected outputs**: `docs/agent-context.md` with every concern resolved to a concrete answer
+or an explicit deferral
 
 ### Step 2.6 — Planning Gate
 
 ```bash
-.agent-factory/factory/scripts/charter-lint --planning-gate
+.agent-factory/factory/scripts/concern-lint
 ```
 
-**If exit code non-zero** → Return to Step 2.5, resolve the reported `To be decided.` entries
-**If exit code 0** → Present the completed charter and the Epic 0 batch to the
-stakeholder for approval together — same manual-approval pattern as Step 3.3
+**If exit code non-zero** → Return to Step 2.5 and resolve the reported findings
+**If exit code 0** → Present `docs/agent-context.md` to the stakeholder for
+approval — same manual-approval pattern as Step 3.3
 
 **If approved** → The planning-agent's preconditions are satisfied.
 **If changes needed** → Return to Step 2.5.
@@ -177,11 +175,10 @@ stakeholder for approval together — same manual-approval pattern as Step 3.3
 **Agent**: `planning-agent`
 **Expected outputs**: `backlog/ST-*.md` files
 
-The planning agent reads the project context from `docs/agent-context.md` and acknowledges that Epic 0
-stories already exist in `backlog/` — written by the charter completeness
-sweep in Step 2.5. It derives feature stories after them: each feature
-story's `deps:` chains to the closing Epic 0 "update development.md" story,
-so no feature story is dependency-ready until Epic 0 is done.
+The planning agent reads the project context from `docs/agent-context.md`.
+A new project has no test runner, CI, or linters yet. That setup work enters
+as a line item inside the first story that needs it, like any other
+infrastructure; there is no separate setup epic.
 
 ### Step 3.2 — Validate Backlog
 
@@ -209,11 +206,6 @@ so no feature story is dependency-ready until Epic 0 is done.
 
 **Agent**: `implementation-agent` (spawns parallel `developer-agent` subagents)
 **Expected outputs**: `src/**/*`, `tests/**/*`, commits per story
-
-Wave 1 is Epic 0 (`epic: "Epic 0 — Project Setup"`) — no feature story
-dispatches until every must-have Epic 0 story reaches a terminal state. This
-is enforced by the `deps:` chain the planning agent wrote in Step 3.1, not by
-separate scheduling logic.
 
 ### Step 4.2 — Run Code Review Agent (Separate Session)
 

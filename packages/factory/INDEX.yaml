@@ -9,8 +9,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1244
-    total_tokens: 8200
+    tokens: 1238
+    total_tokens: 8194
     inputs:
       required:
         - type: feature
@@ -154,8 +154,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 2008
-    total_tokens: 5089
+    tokens: 1971
+    total_tokens: 5052
     inputs:
       required:
         - type: feature
@@ -192,8 +192,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 3903
-    total_tokens: 12747
+    tokens: 3823
+    total_tokens: 12667
     inputs:
       required:
         - type: story
@@ -254,7 +254,7 @@ agents:
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
     tokens: 1582
-    total_tokens: 14408
+    total_tokens: 14257
     inputs:
       required:
         - type: feature
@@ -658,12 +658,12 @@ skills:
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 2188
+    tokens: 2158
   - name: create-backlog-epics
     category: planning
     description: Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
     path: skills/create-backlog-epics/SKILL.md
-    tokens: 2412
+    tokens: 2362
   - name: create-backlog-stories
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
@@ -678,7 +678,7 @@ skills:
     category: planning
     description: Write backlog/epics.md from the approved EPIC slicing approach. Phase 2 of 4 in the create-backlog sequence.
     path: skills/create-backlog-write-epics/SKILL.md
-    tokens: 1175
+    tokens: 1104
   - name: make-concrete
     category: planning
     description: "Incorporate grilling results into a backlog story: fill resolved contract decisions into their home sections, write concrete Required API Behavior, and prepare the story for slicing. Phase 6 of the create-backlog sequence."
@@ -768,7 +768,7 @@ skills:
     category: utility
     description: Scan project for test suites and record each one in testing.yaml (at docs/testing.yaml). Code is the source of truth; the record is derived.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 3191
+    tokens: 3190
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
@@ -876,7 +876,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 14965
+    total_tokens: 14959
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -887,8 +887,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 2957
-    total_tokens: 36579
+    tokens: 2919
+    total_tokens: 36535
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -898,7 +898,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15468
+    total_tokens: 15431
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -910,7 +910,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 43545
+    total_tokens: 43465
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -926,8 +926,8 @@ playbooks:
       - code-review-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4610
-    total_tokens: 104534
+    tokens: 4627
+    total_tokens: 104314
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -944,8 +944,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2858
-    total_tokens: 104030
+    tokens: 2706
+    total_tokens: 103641
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -961,7 +961,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15971
+    total_tokens: 15934
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1006,7 +1006,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4799
+    tokens: 4747
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md

@@ -249,25 +249,24 @@ The skill:
 2. Populates `docs/agent-context.md` with concern sections and `Read:` paths
 3. Presents findings to the stakeholder for confirmation
 
-**⚠️ No Epic 0 derivation in brownfield** — the mise en place (infrastructure,
-setup scripts, configurations) already exists in the scanned codebase. Unlike
-greenfield, which must *create* those artifacts, brownfield *documents* them.
-The agent context records reality as it stands.
+The setup (infrastructure, setup scripts, configurations) already exists in
+the scanned codebase, so brownfield documents it instead of planning it. The
+agent context records reality as it stands.
 
 **Expected output**: `docs/agent-context.md`, confirmed by stakeholder
 
 **If scan incomplete** → Stakeholder corrects or adds findings
 **If complete** → Proceed to Step 5.4
 
-### Step 5.4 — Planning Gate (Charter & Specification Readiness)
+### Step 5.4 — Planning Gate (Agent Context & Specification Readiness)
 
 **Manual**: Stakeholder approval + deterministic gate
 
-Present the completed charter to the stakeholder. Run the planning gate to
-verify no `To be decided.` entries remain in tech-stack.md or development.md:
+Present `docs/agent-context.md` to the stakeholder. Run the planning gate to
+verify that every concern resolves:
 
 ```bash
-.agent-factory/factory/scripts/charter-lint --planning-gate
+.agent-factory/factory/scripts/concern-lint
 ```
 
 This gate must pass before any specification work or planning decisions that

@@ -266,8 +266,9 @@ for tech stack, development practices, and house rules.
    the relevant sections of `docs/agent-context.md`.
 2. Run `.agent-factory/factory/scripts/concern-lint` on the changed document to
    ensure completeness.
-3. If new decisions emerge that imply infrastructure, setup, or configuration
-   artifacts not already in the repository, derive corresponding Epic 0 stories.
+3. If new decisions imply infrastructure, setup, or configuration artifacts
+   not already in the repository, record them in the proposal. The planning
+   agent adds each one as a line item to the first story that needs it.
 4. Proceed to Step 0.2.
 
 ### Decision Point 0.2 — Accept
