@@ -21,8 +21,8 @@ nothing more:
     `agent_factory_hook-*` `- repo: local` item is removed, leaving the
     project's own hooks untouched.
   - .claude/settings.json — if the project owned it, only Agent Factory's
-    git-safety PreToolUse hook and usage-capture Stop/SubagentStop hook entries
-    are removed; if init-factory created it, it went with .claude/.
+    git-safety and freshness-check PreToolUse hooks, step-guard hooks, and
+    usage-capture Stop/SubagentStop hook entries are removed; if init-factory created it, it went with .claude/.
   - .codex/hooks.json — if the project owned it, only Agent Factory's
     usage-capture Stop/SubagentStop entries are removed; a Factory-created file
     is deleted outright.
@@ -66,6 +66,9 @@ CLAUDE_GUARDRAIL_HOOK_COMMAND = (
 )
 CLAUDE_CAPTURE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/capture-usage.sh'
 CLAUDE_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
+CLAUDE_FRESHNESS_HOOK_COMMAND = (
+    '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-factory-freshness.sh'
+)
 CLAUDE_STEP_GUARD_HOOK_COMMANDS = {
     "Read": 'GUARD_TYPE=read "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
     "Edit": 'GUARD_TYPE=write "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
@@ -278,6 +281,8 @@ def strip_settings_hook(target: Path, manifest: dict) -> None:
     removed_events: list[str] = []
     if _strip_hook_command(hooks, "PreToolUse", CLAUDE_GUARDRAIL_HOOK_COMMAND):
         removed_events.append("git-safety PreToolUse")
+    if _strip_hook_command(hooks, "PreToolUse", CLAUDE_FRESHNESS_HOOK_COMMAND):
+        removed_events.append("freshness-check PreToolUse")
 
     for tool_name, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
         if _strip_hook_command(hooks, "PreToolUse", command):
@@ -507,6 +512,7 @@ def prune_empty_dirs(target: Path) -> None:
     # Directories init-factory may have added into but not owned wholesale.
     for rel in (
         ".github/hooks",
+        ".claude/hooks",
         ".agents/skills",
         ".codex/agents",
         ".codex/hooks",
