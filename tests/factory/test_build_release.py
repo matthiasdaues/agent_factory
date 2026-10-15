@@ -379,3 +379,16 @@ class TestReviewFixes:
             "SHA256SUMS", "agent-factory.tar.gz", "install-agent-factory"]
         for name, content in before.items():
             assert (out / name).read_bytes() == content
+
+    def test_warns_about_uncommitted_changes(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        clean = _run_build(repo, tmp_path / "clean")
+        assert clean.returncode == 0
+        assert clean.stderr == ""
+        (repo / "packages" / "factory" / "agents" / "example.md").write_text("dirty\n")
+        dirty = _run_build(repo, tmp_path / "dirty")
+        assert dirty.returncode == 0
+        lines = dirty.stderr.splitlines()
+        assert len(lines) == 1
+        assert lines[0].startswith("build-release: warning: ")
+        assert "uncommitted" in lines[0]

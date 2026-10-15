@@ -15,7 +15,8 @@ Produces three files in --output <dir> (default ./release/):
   SHA256SUMS              -- sha256 digest of agent-factory.tar.gz
 
 The assets come from the committed tree at HEAD, read through git.
-Untracked files and uncommitted changes stay out of the release.
+Untracked files and uncommitted changes stay out of the release; when
+packages/factory/ has any, the script prints a one-line warning on stderr.
 
 Deterministic tar: sorted entries, fixed timestamps (1970-01-01 00:00:00),
 fixed owner (root:root, uid/gid 0), modes 0755 for directories and
@@ -258,6 +259,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         files = committed_factory_files(repo_root)
+        if _git(repo_root, "status", "--porcelain", "--", _FACTORY_PREFIX):
+            print(f"build-release: warning: {_FACTORY_PREFIX} has uncommitted "
+                  "changes; the release holds HEAD only", file=sys.stderr)
         version = read_version(files)
         if not validate_version_branch(version, branch):
             expected = "N.N.N" if branch == "main" else "N.N.N-rc"
