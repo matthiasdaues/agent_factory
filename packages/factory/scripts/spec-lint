@@ -24,7 +24,8 @@
 #   ./spec-lint [--spec-dir docs/spec] [--context CONTEXT.md]
 #               [--format text|json] [--gate-todos] [--report-only]
 #
-# Exit code: number of ERROR-severity findings (0 = clean), unless --report-only.
+# Exit code: 1 when there is at least one ERROR-severity finding, 0 when
+# clean or with --report-only, 2 on a usage error.
 # Findings are grouped by code so the LLM reviewer and CI can both consume them.
 #
 # Every check is intentionally conservative: it flags only what is deterministically
@@ -600,7 +601,7 @@ def main(argv: list[str] | None = None) -> int:
             f"{counts['warning']} warning(s), {counts['info']} info "
             f"across {len(list(spec.rglob('*.md')))} spec file(s)."
         )
-    return 0 if args.report_only else counts["error"]
+    return 1 if counts["error"] and not args.report_only else 0
 
 
 if __name__ == "__main__":

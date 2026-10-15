@@ -407,8 +407,8 @@ def test_testing_yaml_gets_cx_parse_only_not_lifecycle_checks() -> None:
 # --- Exit codes and CLI plumbing -------------------------------------------
 
 
-def test_exit_code_equals_error_count(tmp_path: Path) -> None:
-    """The process exit code equals the number of error-severity findings."""
+def test_exit_code_is_1_with_error_findings(tmp_path: Path) -> None:
+    """Error-severity findings exit 1, whatever their number (BUG-0039)."""
     context_dir = _copy_fixture("missing_stack", tmp_path / "ctx")
 
     result = subprocess.run(
@@ -421,8 +421,8 @@ def test_exit_code_equals_error_count(tmp_path: Path) -> None:
     error_count = sum(
         1 for line in result.stderr.splitlines() if line.startswith("[ERROR")
     )
-    assert result.returncode == error_count
     assert error_count >= 1
+    assert result.returncode == 1
 
 
 def test_report_only_always_exits_zero(tmp_path: Path) -> None:
