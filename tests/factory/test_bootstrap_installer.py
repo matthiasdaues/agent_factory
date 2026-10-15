@@ -145,3 +145,77 @@ class TestClaudeIncludePaths:
         assert ("@../../.agent-factory/factory/config/AGENTS.claude.md\n"
                 in block)
         assert "@../../docs/agent-context.md\n" in block
+
+
+def _load_update_factory():
+    from conftest import load_script
+    return load_script("update-factory")
+
+
+class TestUpdateKeepsClaudeIncludePaths:
+    """BUG-0078: update-factory builds the same per-file block as the
+    installer, so an update never writes the old broken includes back."""
+
+    def test_BUG_0078_update_and_installer_share_include_list(self):
+        inst = _load_module()
+        uf = _load_update_factory()
+
+        assert uf.ORIENTATION_INCLUDE == inst.ORIENTATION_INCLUDE
+
+    def test_BUG_0078_update_builds_the_installer_block_per_file(
+            self, tmp_path):
+        inst = _load_module()
+        uf = _load_update_factory()
+        target = tmp_path / "project"
+        source = tmp_path / "source"
+        for rel in ("AGENTS.md", "packages/web/AGENTS.md",
+                    "a/b/c/AGENTS.md"):
+            filepath = target / rel
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            filepath.write_text("# Agents\n")
+
+            installed = inst._build_orientation_block(
+                target, filepath, "claude")
+            candidate = uf._candidate_orientation_block(
+                source, "claude", target=target, rel=rel)
+
+            assert candidate == installed, rel
+
+    def test_BUG_0078_install_then_update_leaves_header_unchanged(
+            self, tmp_path, monkeypatch):
+        inst = _load_module()
+        uf = _load_update_factory()
+        target = tmp_path / "project"
+        factory = target / ".agent-factory" / "factory"
+        (factory / "scripts").mkdir(parents=True)
+        (factory / "scripts" / "step-guard").write_text("pass\n")
+        uf._write_checksums(target, factory)
+        source = tmp_path / "source"
+        (source / "packages" / "factory").mkdir(parents=True)
+        (source / "packages" / "factory" / "VERSION").write_text("1.1.0\n")
+
+        orientation = {}
+        before = {}
+        for rel in ("AGENTS.md", "packages/web/AGENTS.md"):
+            filepath = target / rel
+            filepath.parent.mkdir(parents=True, exist_ok=True)
+            filepath.write_text("# mine\n")
+            injection = inst.inject_header(filepath, target, "claude")
+            orientation[rel] = {
+                "status": "injected",
+                "block_digest": injection["block_digest"],
+                "orig_final_newline": True,
+            }
+            before[rel] = filepath.read_bytes()
+        (target / uf.MANIFEST_PATH).write_text(json.dumps({
+            "factory_version": "1.0.0", "cli": "claude",
+            "source_selector": "local", "factory_source": str(source),
+            "orientation": orientation,
+        }))
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        assert uf.main(["--target", str(target)]) == 0
+
+        for rel, content in before.items():
+            assert (target / rel).read_bytes() == content, rel

@@ -182,8 +182,15 @@ INSTRUCTION_SCAN_SKIP_DIRS = frozenset({
 # comparison against the installed block_digest.
 ORIENTATION_BEGIN = "<!-- >>> agent_factory orientation >>>"
 ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
+# Files a CLI with @-include support pulls in, as paths from the project
+# root. Each include is written relative to the file that holds it, so the
+# block differs per file (BUG-0078). test_bootstrap_installer.py pins this
+# constant and the per-file block to install-agent-factory.
 ORIENTATION_INCLUDE = {
-    ".claude": "@../../.agent-factory/factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
+    ".claude": (
+        ".agent-factory/factory/config/AGENTS.claude.md",
+        "docs/agent-context.md",
+    ),
 }
 CLI_DOT_DIRS = {
     "claude": [".claude"],
@@ -607,7 +614,9 @@ def _apply_header_changes(
         fpath = target / rel
         if not fpath.is_file():
             continue
-        new_block = _candidate_orientation_block(candidate_source, cli_name)
+        new_block = _candidate_orientation_block(
+            candidate_source, cli_name, target=target, rel=rel,
+        )
         if new_block is None:
             continue
         original = fpath.read_bytes()
@@ -635,7 +644,9 @@ def _apply_header_changes(
         content = original.decode("utf-8")
         if ORIENTATION_BEGIN in content:
             continue
-        new_block = _candidate_orientation_block(candidate_source, cli_name)
+        new_block = _candidate_orientation_block(
+            candidate_source, cli_name, target=target, rel=rel,
+        )
         if new_block is None:
             continue
         orig_final_newline = content.endswith("\n") if content else True
@@ -1073,16 +1084,31 @@ def _discover_instruction_files(target: Path) -> list[str]:
     return sorted(found)
 
 
-def _candidate_orientation_block(source: Path, cli_name: str) -> str | None:
+def _candidate_orientation_block(
+    source: Path, cli_name: str, target: Path | None = None,
+    rel: str | None = None,
+) -> str | None:
     """Build the orientation block text a *local* candidate source would
     inject for cli_name, for digest comparison against the installed
     block_digest. Returns None when the CLI's config source is unavailable
-    in `source` — comparison is then skipped rather than guessed."""
+    in `source` — comparison is then skipped rather than guessed.
+
+    An @-include block depends on where the file sits, so it needs the
+    project root `target` and the file's path `rel` relative to it; without
+    them it returns None. The paths match install-agent-factory's
+    _build_orientation_block (BUG-0078)."""
     dot_dirs = CLI_DOT_DIRS.get(cli_name, [])
     dot_dir = dot_dirs[0] if dot_dirs else ""
 
     if dot_dir in ORIENTATION_INCLUDE:
-        content = ORIENTATION_INCLUDE[dot_dir]
+        if target is None or rel is None:
+            return None
+        file_dir = (target / rel).parent
+        content = "".join(
+            "@" + Path(os.path.relpath(target / include, file_dir)).as_posix()
+            + "\n"
+            for include in ORIENTATION_INCLUDE[dot_dir]
+        )
     else:
         cli_file = CLI_ORIENTATION_FILE.get(dot_dir, "")
         if not cli_file:
@@ -1129,18 +1155,21 @@ def _detect_header_changes(target: Path, manifest: dict, source: Path | None) ->
     cli_raw = manifest.get("cli")
     cli_name = cli_raw[0] if isinstance(cli_raw, list) and cli_raw else cli_raw
     if source is not None and cli_name:
-        candidate_block = _candidate_orientation_block(source, cli_name)
-        if candidate_block is not None:
+        for path in sorted(known & current):
+            candidate_block = _candidate_orientation_block(
+                source, cli_name, target=target, rel=path,
+            )
+            if candidate_block is None:
+                continue
             candidate_digest = hashlib.sha256(
                 candidate_block.encode("utf-8")
             ).hexdigest()
-            for path in sorted(known & current):
-                entry = orientation.get(path)
-                stored_digest = (
-                    entry.get("block_digest") if isinstance(entry, dict) else None
-                )
-                if stored_digest and stored_digest != candidate_digest:
-                    changed.append(path)
+            entry = orientation.get(path)
+            stored_digest = (
+                entry.get("block_digest") if isinstance(entry, dict) else None
+            )
+            if stored_digest and stored_digest != candidate_digest:
+                changed.append(path)
 
     return {"added": added, "removed": removed, "changed": changed}
 
