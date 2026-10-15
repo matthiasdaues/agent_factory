@@ -42,6 +42,7 @@ from dispatch_lib import (
     StoryEntry,
     StoryState,
     TransitionError,
+    _load_yaml,
     append_attempt,
     attempts_for_session,
     clear_manifest_force,
@@ -128,26 +129,90 @@ def _default_ledger() -> str:
     return ".current-work/dispatch-ledger.yaml"
 
 
-def _read_test_command(project_root: Path) -> str | None:
-    """Read test_command from config/project.json.
+_TEST_COMMAND_KEYS = ("test_command", "test_all")
 
-    Falls back to the main worktree when *project_root* is a linked worktree
-    and the file is gitignored (not present in the worktree checkout).
+
+def _testing_yaml_command(path: Path) -> str | None:
+    """Return the top-level test_command, or else test_all, of testing.yaml.
+
+    Only a non-empty string counts, so `test_command: null` falls through.
+    When the loader cannot read the whole file, the two keys are read on
+    their own, and a warning names the file and the parse error.
     """
-    config_path = project_root / "config" / "project.json"
-    if not config_path.exists():
-        # In a linked worktree, gitignored files live only in the main tree.
-        code, common_dir, _ = _git("rev-parse", "--git-common-dir")
-        if code == 0 and common_dir:
-            main_root = Path(common_dir).resolve().parent
-            config_path = main_root / "config" / "project.json"
-    if not config_path.exists():
+    try:
+        text = path.read_text()
+    except OSError:
         return None
     try:
-        data = json.loads(config_path.read_text())
-        return data.get("test_command")
+        data = _load_yaml(text)
+    except Exception as e:  # noqa: BLE001 - fall back to the two top-level keys
+        print(
+            f"warning: cannot parse {path} ({e}); reading only its "
+            f"top-level {' and '.join(_TEST_COMMAND_KEYS)} lines",
+            file=sys.stderr,
+        )
+        data = _top_level_entries(text, _TEST_COMMAND_KEYS)
+    for key in _TEST_COMMAND_KEYS:
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _top_level_entries(text: str, keys: tuple[str, ...]) -> dict:
+    """Read each of *keys* from its top-level line and indented lines below.
+
+    An entry that does not parse on its own is left out.
+    """
+    lines = text.splitlines()
+    entries: dict = {}
+    for index, line in enumerate(lines):
+        key = line.partition(":")[0]
+        if key not in keys or key in entries:
+            continue
+        end = index + 1
+        while end < len(lines) and (
+            not lines[end].strip() or lines[end].startswith((" ", "\t"))
+        ):
+            end += 1
+        try:
+            entries.update(_load_yaml("\n".join(lines[index:end])))
+        except Exception:  # noqa: BLE001, S112 - an unreadable entry counts as absent
+            continue
+    return entries
+
+
+def _project_json_command(path: Path) -> str | None:
+    try:
+        data = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
         return None
+    command = data.get("test_command") if isinstance(data, dict) else None
+    return command if isinstance(command, str) and command else None
+
+
+def _read_test_command(project_root: Path) -> str | None:
+    """Read the project's test command (BUG-0085).
+
+    init-factory records it in docs/testing.yaml. A config/project.json with
+    a test_command key, the layout before that, still works. In a linked
+    worktree, a file missing from the checkout is read from the main tree.
+    """
+    roots = [project_root]
+    code, common_dir, _ = _git("rev-parse", "--git-common-dir")
+    if code == 0 and common_dir:
+        main_root = Path(common_dir).resolve().parent
+        if main_root != project_root:
+            roots.append(main_root)
+    for root in roots:
+        command = _testing_yaml_command(root / "docs" / "testing.yaml")
+        if command:
+            return command
+    for root in roots:
+        command = _project_json_command(root / "config" / "project.json")
+        if command:
+            return command
+    return None
 
 
 def _story_frontmatter(project_root: Path, story_id: str) -> dict | None:
@@ -156,6 +221,17 @@ def _story_frontmatter(project_root: Path, story_id: str) -> dict | None:
     if not story_path.exists():
         return None
     return parse_story_frontmatter(story_path.read_text())
+
+
+def _story_deps(project_root: Path, story_id: str) -> list[str]:
+    """Return the backlog-declared dependencies for *story_id* (BUG-0082)."""
+    frontmatter = _story_frontmatter(project_root, story_id)
+    deps = frontmatter.get("deps") if frontmatter else None
+    if isinstance(deps, str):
+        deps = [deps]
+    if not isinstance(deps, list):
+        return []
+    return [str(dep).strip() for dep in deps if str(dep).strip()]
 
 
 def _story_declared_tier(project_root: Path, story_id: str) -> str | None:
@@ -357,7 +433,9 @@ def _story_handoff_contract(
             touches = list((story_fm or {}).get("impl_outputs") or [])
     test_command = _read_test_command(project_root)
     if not test_command:
-        return None, "error: config/project.json must contain a 'test_command' key"
+        return None, (
+            "error: no test command found; add test_command to docs/testing.yaml"
+        )
 
     try:
         contract = render_handoff_contract(
@@ -475,7 +553,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     test_cmd = _read_test_command(project_root)
     if not test_cmd:
         print(
-            "error: config/project.json must contain a 'test_command' key",
+            "error: no test command found; add test_command to docs/testing.yaml",
             file=sys.stderr,
         )
         return 1
@@ -600,7 +678,9 @@ def cmd_init(args: argparse.Namespace) -> int:
     ledger.branch_head = root_sha
     for sid in story_ids:
         ledger.stories[sid] = StoryEntry(
-            id=sid, tier=_story_declared_tier(project_root, sid)
+            id=sid,
+            tier=_story_declared_tier(project_root, sid),
+            deps=_story_deps(project_root, sid),
         )
     ledger_dir.mkdir(parents=True, exist_ok=True)
     ledger.save(ledger_path)
@@ -656,6 +736,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
     ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
+    # The backlog is the source of the dependencies; refresh them, so a
+    # story edited after init is gated by what it declares now.
+    for sid, entry in ledger.stories.items():
+        entry.deps = _story_deps(project_root, sid)
     assigned = 0
     for wave_entry in plan.waves:
         wave_num = wave_entry["wave"]
@@ -749,6 +833,65 @@ def _run_verify_base(
     return result.returncode, output
 
 
+@dataclass
+class _StoryWorkspace:
+    """What one _create_story_workspace call created, and its error."""
+
+    created_branch: bool
+    created_worktree: bool
+    error: str
+
+
+def _branch_tip(branch_name: str) -> str | None:
+    code, tip, _ = _git("rev-parse", "--verify", "--quiet", f"refs/heads/{branch_name}")
+    return tip if code == 0 and tip else None
+
+
+def _create_story_workspace(
+    branch_name: str, worktree_path: Path, base_sha: str
+) -> _StoryWorkspace:
+    """Create a story branch together with its worktree (BUG-0084).
+
+    A leftover branch from a failed run is reused when it holds no work,
+    that is, when it still points at *base_sha*. A leftover branch with
+    work is refused, so no commit is lost. git can create both and still
+    exit 1, for example when a post-checkout hook fails. So the result
+    reports what exists afterwards that did not exist before the call.
+    """
+    tip = _branch_tip(branch_name)
+    if tip is not None and tip != base_sha:
+        return _StoryWorkspace(False, False, (
+            f"branch {branch_name!r} already exists with commits that are not "
+            f"on the dispatch base; inspect it, then delete it or resume it"
+        ))
+    worktree_existed = (
+        worktree_path.exists() or _verify_worktree_registration(worktree_path)
+    )
+    if tip is not None:
+        code, _, err = _git("worktree", "add", str(worktree_path), branch_name)
+    else:
+        code, _, err = _git(
+            "worktree", "add", "-b", branch_name, str(worktree_path), base_sha
+        )
+    created_branch = tip is None and _branch_tip(branch_name) is not None
+    created_worktree = not worktree_existed and (
+        worktree_path.exists() or _verify_worktree_registration(worktree_path)
+    )
+    if code != 0 and not err:
+        err = "git worktree add failed"
+    return _StoryWorkspace(created_branch, created_worktree, err if code != 0 else "")
+
+
+def _remove_story_workspace(
+    branch_name: str, worktree_path: Path, workspace: _StoryWorkspace
+) -> None:
+    """Undo what one _create_story_workspace call created, and nothing else."""
+    if workspace.created_worktree:
+        _git("worktree", "remove", "--force", str(worktree_path))
+    if workspace.created_branch:
+        _git("branch", "-D", branch_name)
+
+
 def cmd_prepare_wave(args: argparse.Namespace) -> int:
     """Prepare every eligible story in one wave."""
     ledger_path = Path(args.ledger)
@@ -802,11 +945,27 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
     wave_story_ids = {entry.id for entry in stories_in_wave}
 
     for entry in stories_in_wave:
-        if entry.status == StoryState.PREPARED:
+        # Only a pending story gets a new workspace. A story past that state
+        # owns a worktree that may hold an agent's uncommitted work.
+        if entry.status != StoryState.PENDING:
             continue
 
         same_wave_deps = [dep for dep in entry.deps if dep in wave_story_ids]
         if same_wave_deps:
+            continue
+
+        unmet = [
+            dep for dep in entry.deps
+            if dep in ledger.stories
+            and ledger.stories[dep].status != StoryState.DONE
+        ]
+        if unmet:
+            print(
+                f"dispatch prepare-wave: skipped {entry.id}: dependency "
+                + ", ".join(
+                    f"{dep} is {ledger.stories[dep].status.value}" for dep in unmet
+                )
+            )
             continue
 
         branch_name = f"story/{entry.id}"
@@ -814,23 +973,18 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             main_root / ".current-work" / target_branch / branch_name
         )
 
-        code, _, err = _git("branch", branch_name, base_sha)
-        if code != 0:
+        workspace = _create_story_workspace(branch_name, worktree_path, base_sha)
+        if workspace.error:
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(
-                f"error: failed to create branch {branch_name!r} for {entry.id}: {err}",
-                file=sys.stderr,
-            )
-            return 1
-
-        code, _, err = _git("worktree", "add", str(worktree_path), branch_name)
-        if code != 0:
-            print(
-                f"error: failed to create worktree for {entry.id}: {err}",
+                f"error: failed to create {branch_name!r} and its worktree "
+                f"for {entry.id}: {workspace.error}",
                 file=sys.stderr,
             )
             return 1
 
         if not _verify_worktree_registration(worktree_path):
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(
                 f"error: git worktree list did not report {worktree_path} for {entry.id}",
                 file=sys.stderr,
@@ -841,6 +995,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             worktree_path, target_branch, base_sha
         )
         if verify_code != 0:
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             if verify_output:
                 print(verify_output, file=sys.stderr)
             print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
@@ -867,12 +1022,14 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
                 entry.active_session = "impl"
                 entry.active_tier = _story_declared_or_current_tier(project_root, entry)
         if manifest_code != 0:
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(f"error: {manifest_err}", file=sys.stderr)
             return 1
 
         try:
             ledger.transition(entry.id, StoryState.PREPARED)
         except TransitionError as e:
+            _remove_story_workspace(branch_name, worktree_path, workspace)
             print(f"error: {e}", file=sys.stderr)
             return 1
         save_code = _save_ledger(ledger, ledger_path)
@@ -943,6 +1100,20 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     if entry.status == StoryState.PREPARED:
         return 0
+    if entry.status == StoryState.FAILED:
+        print(
+            f"error: story {story_id} failed; prepare-story prepares only a "
+            f"pending story. Retry it with `dispatch re-dispatch {story_id}`",
+            file=sys.stderr,
+        )
+        return 1
+    if entry.status != StoryState.PENDING:
+        print(
+            f"error: story {story_id} is {entry.status.value}; prepare-story "
+            f"prepares only a pending story",
+            file=sys.stderr,
+        )
+        return 1
 
     if not entry.deps:
         print(
@@ -982,23 +1153,18 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     branch_name = f"story/{entry.id}"
     worktree_path = main_root / ".current-work" / feature_branch_for_path / branch_name
 
-    code, _, err = _git("branch", branch_name, merge_sha)
-    if code != 0:
+    workspace = _create_story_workspace(branch_name, worktree_path, merge_sha)
+    if workspace.error:
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(
-            f"error: failed to create branch {branch_name!r} for {entry.id}: {err}",
-            file=sys.stderr,
-        )
-        return 1
-
-    code, _, err = _git("worktree", "add", str(worktree_path), branch_name)
-    if code != 0:
-        print(
-            f"error: failed to create worktree for {entry.id}: {err}",
+            f"error: failed to create {branch_name!r} and its worktree "
+            f"for {entry.id}: {workspace.error}",
             file=sys.stderr,
         )
         return 1
 
     if not _verify_worktree_registration(worktree_path):
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(
             f"error: git worktree list did not report {worktree_path} for {entry.id}",
             file=sys.stderr,
@@ -1007,6 +1173,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     verify_code, verify_output = _run_verify_base(worktree_path, merge_sha, merge_sha)
     if verify_code != 0:
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         if verify_output:
             print(verify_output, file=sys.stderr)
         print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
@@ -1022,6 +1189,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         or _current_branch_name()
     )
     if not feature_branch:
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(
             f"error: unable to determine feature branch for {entry.id}",
             file=sys.stderr,
@@ -1032,6 +1200,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         project_root, entry, feature_branch, worktree_path
     )
     if manifest_code != 0:
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(f"error: {manifest_err}", file=sys.stderr)
         return 1
     entry.active_session = "impl"
@@ -1040,6 +1209,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     try:
         ledger.transition(entry.id, StoryState.PREPARED)
     except TransitionError as e:
+        _remove_story_workspace(branch_name, worktree_path, workspace)
         print(f"error: {e}", file=sys.stderr)
         return 1
     return _save_ledger(ledger, ledger_path)
@@ -1729,30 +1899,11 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     if not created:
         return 0
 
+    # The ledger is runtime state under the ignored .current-work/, so the
+    # closeout is saved, not committed (BUG-0083).
     if _save_ledger(ledger, ledger_path) != 0:
         return 1
-
-    project_root = _project_root()
-    rel_ledger_path = ledger_path.relative_to(project_root)
-    add_code, _, add_err = _git("add", "--", str(rel_ledger_path))
-    if add_code != 0:
-        print(
-            f"error: failed to stage ledger for wave {wave} closeout: {add_err}",
-            file=sys.stderr,
-        )
-        return 1
-
-    commit_code, _, commit_err = _git(
-        "commit",
-        "-m",
-        f"chore: dispatch ledger wave {wave} closeout",
-    )
-    if commit_code != 0:
-        print(
-            f"error: failed to commit wave {wave} closeout: {commit_err}",
-            file=sys.stderr,
-        )
-        return 1
+    print(f"dispatch close-wave: recorded wave {wave} in {ledger_path}")
     return 0
 
 
