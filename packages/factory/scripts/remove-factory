@@ -516,9 +516,10 @@ def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
 
 def prune_empty_dirs(target: Path, manifest: dict) -> None:
     # Directories init-factory may have added into but not owned wholesale.
-    # init-factory records a .codex/ or .claude/hooks/ it created in
-    # remove_paths; any other one belonged to the project before the install
-    # and stays.
+    # .codex/ and .claude/hooks/ are pruned only when remove_paths lists
+    # them; any other one belonged to the project before the install and
+    # stays. init-factory does not yet record a .claude/hooks/ it created;
+    # story ST-0307 adds that entry.
     created = set(manifest.get("remove_paths", []))
     for rel in (
         ".github/hooks",

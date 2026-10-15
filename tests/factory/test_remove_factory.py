@@ -93,9 +93,7 @@ def test_bug_0074_keeps_project_link_when_linked_entry_is_dictionary(
 # --- BUG-0075: freshness hook stays wired -----------------------------------
 
 
-def test_bug_0075_unwires_freshness_hook_and_prunes_hooks_dir(
-    remove_factory, tmp_path
-):
+def test_bug_0075_unwires_freshness_hook(remove_factory, tmp_path):
     hooks_dir = tmp_path / ".claude/hooks"
     hooks_dir.mkdir(parents=True)
     (hooks_dir / "check-factory-freshness.sh").symlink_to(
@@ -126,17 +124,14 @@ def test_bug_0075_unwires_freshness_hook_and_prunes_hooks_dir(
     _install(
         tmp_path,
         claude_settings_existed=True,
-        remove_paths=[
-            ".claude/hooks/check-factory-freshness.sh",
-            ".claude/hooks",
-        ],
+        remove_paths=[".claude/hooks/check-factory-freshness.sh"],
     )
 
     assert _run(remove_factory, tmp_path) == 0
 
     assert CLAUDE_FRESHNESS not in settings.read_text()
     assert json.loads(settings.read_text()) == {"hooks": {"PreToolUse": [project_hook]}}
-    assert not hooks_dir.exists()
+    assert not (hooks_dir / "check-factory-freshness.sh").is_symlink()
 
 
 # --- BUG-0076: a stale owner file blocks removal for good -------------------
@@ -289,12 +284,15 @@ def test_bug_0076_dead_pid_expires_only_on_the_same_host(
     assert remove_factory._claim_owner(owner) is claimed
 
 
-def test_bug_0075_keeps_empty_claude_hooks_dir_that_existed_before_install(
-    remove_factory, tmp_path
+# remove-factory prunes an empty .claude/hooks/ only when remove_paths lists
+# it. init-factory does not record that entry yet; story ST-0307 adds it.
+@pytest.mark.parametrize(("listed", "kept"), [(True, False), (False, True)])
+def test_bug_0075_prunes_empty_claude_hooks_dir_only_when_listed(
+    remove_factory, tmp_path, listed, kept
 ):
     (tmp_path / ".claude/hooks").mkdir(parents=True)
-    _install(tmp_path)
+    _install(tmp_path, remove_paths=[".claude/hooks"] if listed else [])
 
     assert _run(remove_factory, tmp_path) == 0
 
-    assert (tmp_path / ".claude/hooks").is_dir()
+    assert (tmp_path / ".claude/hooks").is_dir() is kept
