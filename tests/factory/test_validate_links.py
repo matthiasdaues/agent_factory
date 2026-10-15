@@ -126,6 +126,17 @@ VALID_LINKS = {
     "heading with an intraword underscore": {
         "doc.md": "## The snake_case name\n\n[name](#the-snake_case-name)\n",
     },
+    "heading with angle brackets inside a code span": {
+        "doc.md": "#### `dispatch prepare-story <story-id>`\n\n"
+        "[cmd](#dispatch-prepare-story-story-id)\n",
+    },
+    "heading with double underscores inside a code span": {
+        "doc.md": "## `__init__` method\n\n[init](#__init__-method)\n",
+    },
+    "heading with brackets and underscores inside a code span": {
+        "doc.md": "# `<cli>_<session_id>` as the name\n\n"
+        "[name](#cli_session_id-as-the-name)\n",
+    },
     "angle-bracket destination with a space": {
         "doc.md": "[file](<my file.md>)\n",
         "my file.md": "# Mine\n",

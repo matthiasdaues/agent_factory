@@ -30,6 +30,7 @@ REFERENCE_DEFINITION = re.compile(r"^ {0,3}\[([^\]^][^\]]*)\]:[ \t]*(<[^>\n]*>|\
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 INLINE_CODE = re.compile(r"`+[^`\n]*`+")
+CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
 HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
 SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
 HTML_ANCHOR = re.compile(r"""<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
@@ -90,14 +91,24 @@ def strip_code(text: str) -> str:
 
 
 def slugify(title: str) -> str:
-    """Slugify a heading the way GitHub does."""
-    text = re.sub(r"`([^`]*)`", r"\1", title)
-    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    """Slugify a heading the way GitHub does; code-span text stays literal."""
+    title = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", title)
+    parts: list[str] = []
+    end = 0
+    for span in CODE_SPAN.finditer(title):
+        parts.append(strip_inline_markup(title[end : span.start()]))
+        parts.append(span.group(2))
+        end = span.end()
+    parts.append(strip_inline_markup(title[end:]))
+    text = re.sub(r"[^\w\- ]", "", "".join(parts).lower(), flags=re.UNICODE)
+    return text.replace(" ", "-")
+
+
+def strip_inline_markup(text: str) -> str:
+    """Drop HTML tags and emphasis markers from heading text outside code."""
     text = re.sub(r"<[^>]+>", "", text)
     text = UNDERSCORE_EMPHASIS.sub(r"\2", text)
-    text = re.sub(r"[*~]", "", text)
-    text = re.sub(r"[^\w\- ]", "", text.lower(), flags=re.UNICODE)
-    return text.replace(" ", "-")
+    return re.sub(r"[*~]", "", text)
 
 
 def heading_titles(text: str) -> list[str]:
