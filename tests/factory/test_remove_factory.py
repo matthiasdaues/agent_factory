@@ -7,6 +7,9 @@ runs remove-factory against it, and checks what is left on disk.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -129,3 +132,42 @@ def test_bug_0075_unwires_freshness_hook_and_prunes_hooks_dir(
     assert CLAUDE_FRESHNESS not in settings.read_text()
     assert json.loads(settings.read_text()) == {"hooks": {"PreToolUse": [project_hook]}}
     assert not hooks_dir.exists()
+
+
+# --- BUG-0076: a stale owner file blocks removal for good -------------------
+
+
+def _dead_pid() -> int:
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    return child.pid
+
+
+def test_bug_0076_owner_file_of_dead_process_does_not_block(
+    remove_factory, tmp_path
+):
+    _install(tmp_path)
+    control = tmp_path / ".agent-factory/usage/control"
+    control.mkdir(parents=True)
+    (control / "state.json").write_text(
+        json.dumps({"mode": "active", "generation": "g1"})
+    )
+    (control / "remove-owner").write_text(str(_dead_pid()))
+
+    assert _run(remove_factory, tmp_path) == 0
+
+    assert not (tmp_path / ".agent-factory").exists()
+
+
+def test_bug_0076_owner_file_of_live_process_still_blocks(remove_factory, tmp_path):
+    _install(tmp_path)
+    control = tmp_path / ".agent-factory/usage/control"
+    control.mkdir(parents=True)
+    (control / "state.json").write_text(
+        json.dumps({"mode": "active", "generation": "g1"})
+    )
+    (control / "remove-owner").write_text(str(os.getpid()))
+
+    assert _run(remove_factory, tmp_path) == 1
+
+    assert (tmp_path / ".agent-factory/install.json").exists()

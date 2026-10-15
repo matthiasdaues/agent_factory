@@ -576,6 +576,39 @@ def _cancel_pending(target: Path, control: Path) -> int:
     return cancelled
 
 
+def _owner_is_stale(owner: Path) -> bool:
+    """True when the owner file names a process that no longer runs."""
+    try:
+        pid = int(owner.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return False  # unreadable or still being written: assume a live owner
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False  # the process exists but belongs to another user
+    return False
+
+
+def _claim_owner(owner: Path) -> bool:
+    """Create the owner file, replacing one left by a dead process."""
+    for _ in range(2):
+        try:
+            with owner.open("x", encoding="utf-8") as handle:
+                handle.write(str(os.getpid()))
+            owner.chmod(0o600)
+            return True
+        except FileExistsError:
+            if not _owner_is_stale(owner):
+                return False
+            owner.unlink(missing_ok=True)
+            log("removed a stale usage removal owner file")
+    return False
+
+
 def prepare_usage_removal(
     target: Path, disposition: str, timeout: float
 ) -> tuple[bool, Path | None]:
@@ -585,11 +618,7 @@ def prepare_usage_removal(
     if not state_path.is_file():
         return True, None
     owner = control / "remove-owner"
-    try:
-        with owner.open("x", encoding="utf-8") as handle:
-            handle.write(str(os.getpid()))
-        owner.chmod(0o600)
-    except FileExistsError:
+    if not _claim_owner(owner):
         print("remove-factory: usage removal already in progress", file=sys.stderr)
         return False, None
     try:
