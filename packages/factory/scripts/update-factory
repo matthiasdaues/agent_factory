@@ -801,11 +801,12 @@ def _restore_named_file(path: Path, entry: tuple) -> None:
 def _restore_wiring(target: Path, snapshot: dict) -> list[str]:
     """Undo the wiring a failed run left behind.
 
-    Named files go back to their recorded bytes, link, or absence. A path the run created in a tool directory is
-    removed only when it carries the generated-file marker or links into
-    the installed factory; any other new path is the developer's and stays.
-    Each path is restored on its own, so one failure does not stop the
-    rest. Returns the paths that could not be restored."""
+    Named files go back to their recorded bytes, link, or absence. A path
+    the run created in a tool directory is removed only when it carries the
+    generated-file marker or links into the installed factory; any other
+    new path is the developer's and stays. Each path is restored on its
+    own, so one failure does not stop the rest. Returns the paths that
+    could not be restored."""
     failed: list[str] = []
     kept: list[str] = []
     files = snapshot["files"]
