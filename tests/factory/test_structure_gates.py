@@ -6,6 +6,7 @@ fails on the code before the fix.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from conftest import load_script
@@ -76,4 +77,81 @@ class TestStatemachineEdgesAndRestoreCheck:
         rep = sm.Report()
         sm._check_file(rep, md)
         assert rep.items == []
+
+
+# ---------------------------------------------------------------------------
+# BUG-0053: block-style `concerns:` escapes backlog-lint and concern-lint
+# ---------------------------------------------------------------------------
+
+bl = load_script("backlog-lint")
+cl = load_script("concern-lint")
+
+CONCERN_FIXTURE = (
+    Path(__file__).resolve().parent.parent
+    / "fixtures"
+    / "concern-lint"
+    / "ctx_refs_unmatched"
+)
+
+
+def _story(concerns_block: str) -> str:
+    return (
+        "---\n"
+        "id: ST-0001\n"
+        "epic: Test EPIC\n"
+        "title: Test story\n"
+        "tier: standard\n"
+        "status: pending\n"
+        f"{concerns_block}"
+        "touches: [test.py]\n"
+        "---\n\n# Test story\n"
+    )
+
+
+class TestBlockStyleConcerns:
+    def test_backlog_lint_parses_block_mapping(self) -> None:
+        """BUG-0053: a nested block mapping becomes a mapping of lists."""
+        fm, _ = bl.parse_frontmatter(
+            _story("concerns:\n  domain: [billing]\n  technical:\n    - backend\n")
+        )
+        assert fm["concerns"] == {"domain": ["billing"], "technical": ["backend"]}
+        assert fm["touches"] == ["test.py"]
+
+    def test_backlog_lint_flags_unknown_block_key(self, tmp_path: Path) -> None:
+        """BUG-0053: an unknown key in block style is caught like in flow style."""
+        backlog = tmp_path / "backlog"
+        backlog.mkdir()
+        (backlog / "ST-0001.md").write_text(
+            _story("concerns:\n  bogus:\n    - billing\n")
+        )
+        findings, _ = bl.check_backlog(backlog)
+        assert any(
+            f.code == "BL-TYPE" and "unknown key 'bogus'" in f.message
+            for f in findings
+        )
+
+    def test_backlog_lint_accepts_valid_block_mapping(self, tmp_path: Path) -> None:
+        """BUG-0053: a valid block mapping passes without error."""
+        backlog = tmp_path / "backlog"
+        backlog.mkdir()
+        (backlog / "ST-0001.md").write_text(
+            _story("concerns:\n  domain:\n    - billing\n  technical: [backend]\n")
+        )
+        findings, _ = bl.check_backlog(backlog)
+        assert [f for f in findings if f.severity == "error"] == []
+
+    def test_concern_lint_flags_unmatched_block_names(self, tmp_path: Path) -> None:
+        """BUG-0053: concern-lint reads names from a block mapping."""
+        root = tmp_path / "proj"
+        shutil.copytree(CONCERN_FIXTURE, root)
+        (root / "backlog" / "ST-0001.md").write_text(
+            _story("concerns:\n  domain: [invoicing]\n  technical:\n    - frontend\n")
+        )
+        rc = cl.main(["--root", str(root), "--format", "json"])
+        assert rc == 1
+        text = (root / "docs" / "agent-context.md").read_text()
+        _, concerns = cl.parse_agent_context(text)
+        refs = cl.check_refs(concerns, root)
+        names = sorted(f.message.split("'")[1] for f in refs if f.code == "CTX-REFS")
+        assert names == ["frontend", "invoicing"]
 

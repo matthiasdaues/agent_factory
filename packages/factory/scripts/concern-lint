@@ -334,8 +334,9 @@ def check_legacy(root: Path) -> list[Finding]:
 def _parse_story_frontmatter(text: str) -> dict[str, str] | None:
     """Extract frontmatter dict from a story file's ---delimited YAML.
 
-    Minimal parser: handles inline flow sequences and flow mappings for the
-    concerns field.  Returns None when no frontmatter is found.
+    Minimal parser: handles flow mappings and nested block mappings for the
+    concerns field.  A nested value is either a flow sequence or a block
+    sequence.  Returns None when no frontmatter is found.
     """
     lines = text.split("\n")
     if not lines or lines[0].strip() != "---":
@@ -349,6 +350,8 @@ def _parse_story_frontmatter(text: str) -> dict[str, str] | None:
         return None
 
     fm: dict[str, object] = {}
+    block_parent: str | None = None
+    nested_key: str | None = None
     for ln in lines[1:end]:
         m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
         if m:
@@ -358,6 +361,33 @@ def _parse_story_frontmatter(text: str) -> dict[str, str] | None:
                 fm[key] = _parse_flow_mapping_simple(raw[1:-1])
             else:
                 fm[key] = raw
+            block_parent = key if not raw else None
+            nested_key = None
+            continue
+        if block_parent is None:
+            continue
+        item = re.match(r"^\s+-\s+(.+)$", ln)
+        if item:
+            mapping = fm.get(block_parent)
+            if nested_key is not None and isinstance(mapping, dict):
+                mapping[nested_key].append(item.group(1).strip())
+            continue
+        nested = re.match(r"^\s+([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$", ln)
+        if nested:
+            if not isinstance(fm.get(block_parent), dict):
+                fm[block_parent] = {}
+            mapping = fm[block_parent]
+            raw = nested.group(2).strip()
+            nested_key = None
+            if not raw:
+                mapping[nested.group(1)] = []
+                nested_key = nested.group(1)
+            elif raw.startswith("[") and raw.endswith("]"):
+                mapping[nested.group(1)] = [
+                    t.strip() for t in raw[1:-1].split(",") if t.strip()
+                ]
+            else:
+                mapping[nested.group(1)] = [raw]
     return fm
 
 
