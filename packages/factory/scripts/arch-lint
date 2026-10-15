@@ -46,7 +46,9 @@ Usage
   arch-lint --docs-dir docs/arc42
   arch-lint --docs-dir docs/arc42 --no-validate
 
-Exit non-zero iff at least one error-severity finding exists (gate contract).
+Exit 1 when at least one error-severity finding exists (gate contract), 2 when
+--docs-dir is not a directory and no docs/adr/ sits beside it, 0 otherwise. A
+missing --docs-dir next to an existing docs/adr/ gives an ARCH-NO-DIR warning.
 """
 
 from __future__ import annotations
@@ -435,7 +437,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     adr_dir = docs.parent / "adr"
 
+    # A missing --docs-dir is usually a typo. With no ADR directory beside it
+    # there is nothing to check, so the call is a usage error. With ADRs the
+    # ADR check still runs, and a warning names the missing directory.
+    if not docs.is_dir() and not adr_dir.is_dir():
+        print(f"arch-lint: --docs-dir {docs} is not a directory", file=sys.stderr)
+        return 2
+
     rep = Report()
+    if not docs.is_dir():
+        rep.warn(
+            "ARCH-NO-DIR",
+            f"{docs} is not a directory; arc42 checks skipped, ADR check runs",
+        )
 
     # Checks 1-3 (DSL <-> chapter-5 coupling) only apply when the project has
     # some arc42 in progress. Neither file present => arc42 isn't in use here,

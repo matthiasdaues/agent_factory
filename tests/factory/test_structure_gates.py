@@ -155,3 +155,44 @@ class TestBlockStyleConcerns:
         names = sorted(f.message.split("'")[1] for f in refs if f.code == "CTX-REFS")
         assert names == ["frontend", "invoicing"]
 
+
+# ---------------------------------------------------------------------------
+# BUG-0054: gates pass on a directory that does not exist
+# ---------------------------------------------------------------------------
+
+al = load_script("arch-lint")
+val = load_script("voice-anchor-lint")
+
+
+class TestMissingInputDirectory:
+    def test_arch_lint_missing_docs_dir_exits_2(self, tmp_path: Path) -> None:
+        """BUG-0054: a mistyped --docs-dir with nothing else to check exits 2."""
+        docs = tmp_path / "docs" / "arch42-typo"
+        assert al.main(["--docs-dir", str(docs), "--no-validate"]) == 2
+
+    def test_arch_lint_missing_docs_dir_with_adr_warns(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        """BUG-0054: with ADRs present, the ADR check runs and a warning names the dir."""
+        docs = tmp_path / "docs" / "arch42-typo"
+        adr = tmp_path / "docs" / "adr"
+        adr.mkdir(parents=True)
+        (adr / "adr-0001.md").write_text(
+            "---\nstatus: accepted\nevaluation: none\n---\nBody."
+        )
+        assert al.main(["--docs-dir", str(docs), "--no-validate"]) == 0
+        assert "ARCH-NO-DIR" in capsys.readouterr().out
+
+    def test_statemachine_lint_missing_spec_dir_exits_2(self, tmp_path: Path) -> None:
+        """BUG-0054: a missing --spec-dir exits 2."""
+        assert sm.main(["--spec-dir", str(tmp_path / "nope")]) == 2
+
+    def test_voice_anchor_lint_missing_factory_dir_exits_2(
+        self, tmp_path: Path
+    ) -> None:
+        """BUG-0054: a missing --factory-dir exits 2."""
+        assert val.main(["--factory-dir", str(tmp_path / "nope")]) == 2
+
+    def test_concern_lint_missing_root_exits_2(self, tmp_path: Path) -> None:
+        """BUG-0054: a missing --root exits 2."""
+        assert cl.main(["--root", str(tmp_path / "nope")]) == 2

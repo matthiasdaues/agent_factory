@@ -44,7 +44,8 @@ Usage
   statemachine-lint --spec-dir docs/spec
   statemachine-lint path/to/state-machines.md
 
-Exit non-zero iff at least one error-severity finding exists (gate contract).
+Exit 1 when at least one error-severity finding exists (gate contract), 2 when
+--spec-dir is not a directory, 0 otherwise.
 No third-party dependencies (Python 3.9+ stdlib only).
 """
 
@@ -322,6 +323,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.files:
         paths = args.files
     elif args.spec_dir:
+        if not args.spec_dir.is_dir():
+            print(
+                f"statemachine-lint: --spec-dir {args.spec_dir} is not a directory",
+                file=sys.stderr,
+            )
+            return 2
         paths = sorted(args.spec_dir.rglob("*.md"))
     else:
         ap.error("provide file path(s) or --spec-dir")

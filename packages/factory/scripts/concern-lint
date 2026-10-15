@@ -20,7 +20,8 @@ Usage:
   concern-lint --root .
   concern-lint --format json
 
-Exit code: 1 when there is at least one ERROR-severity finding, 0 when clean.
+Exit code: 1 when there is at least one ERROR-severity finding, 2 when --root
+is not a directory, 0 when clean.
 """
 
 from __future__ import annotations
@@ -508,6 +509,9 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
     root = args.root.resolve()
+    if not root.is_dir():
+        sys.stderr.write(f"concern-lint: --root {args.root} is not a directory\n")
+        return 2
 
     agent_context_path = root / "docs" / "agent-context.md"
 
