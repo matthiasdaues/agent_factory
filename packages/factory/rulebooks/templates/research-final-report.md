@@ -12,7 +12,7 @@ Skeleton for a research run's final report. Validated against
 
 ```yaml
 ---
-schema: factory/rulebooks/schemas/research-final-report.schema.json
+schema: .agent-factory/factory/rulebooks/schemas/research-final-report.schema.json
 ---
 ```
 

@@ -56,7 +56,7 @@ Example:
 
 ### Branching
 Branching policy and worktree discipline.
-Read: factory/rulebooks/conventions/branching-policy.md
+Read: .agent-factory/factory/rulebooks/conventions/branching-policy.md
 
 ### Testing discipline
 Risk-based testing, test admission, layer ownership.

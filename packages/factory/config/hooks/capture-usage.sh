@@ -8,7 +8,7 @@
 # required for the child record.
 #
 # This script mirrors block-dangerous-git.sh: factory-owned under
-# factory/config/hooks/, symlinked into a project by init-factory, and
+# .agent-factory/factory/config/hooks/, symlinked into a project by init-factory, and
 # resolving its target through $CLAUDE_PROJECT_DIR.
 #
 # Contract: Pure non-blocking side-effect. Always exits 0 with no stdout.
@@ -42,7 +42,8 @@ if [ -z "$PROJECT_DIR" ]; then
   HOOK_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
   PROJECT_DIR=$(git -C "$HOOK_DIR" rev-parse --show-toplevel 2>/dev/null)
   if [ -z "$PROJECT_DIR" ]; then
-    # Last resort: assume factory is three levels up from factory/config/hooks/.
+    # Last resort: the project root is four levels above
+    # .agent-factory/factory/config/hooks/.
     PROJECT_DIR="$(cd "$(dirname "$(readlink -f "$0")")/../../../.." && pwd)"
   fi
 fi

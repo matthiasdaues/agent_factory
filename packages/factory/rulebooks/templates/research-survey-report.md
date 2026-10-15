@@ -7,7 +7,7 @@ version: 1.0.0
 
 Skeleton for a cited survey-report JSON artifact. It reports what recorded
 sources say; it is not a claim register or a falsification result. Validate it
-with `factory/scripts/schema-validate` against
+with `.agent-factory/factory/scripts/schema-validate` against
 [research-survey-report.schema.json](../schemas/research-survey-report.schema.json).
 
 ## Fields

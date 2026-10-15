@@ -8,7 +8,7 @@ version: 1.0.0
 Skeleton for a single research-brief artifact (JSON), the playbook input that
 opens a research effort. Validated against
 [research-brief.schema.json](../schemas/research-brief.schema.json)
-via `factory/scripts/schema-validate`.
+via `.agent-factory/factory/scripts/schema-validate`.
 
 ## Fields
 

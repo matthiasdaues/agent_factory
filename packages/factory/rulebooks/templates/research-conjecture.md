@@ -7,7 +7,7 @@ version: 1.0.0
 
 Skeleton for a single conjecture JSON artifact — the claim-forming unit of the
 falsification-driven research playbook (Procedure Step 5). Validated by
-`factory/scripts/schema-validate` against
+`.agent-factory/factory/scripts/schema-validate` against
 [conjecture.schema.json](../schemas/research-conjecture.schema.json).
 
 ## Fields

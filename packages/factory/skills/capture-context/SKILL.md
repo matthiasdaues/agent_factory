@@ -471,7 +471,7 @@ untouched.
 
 ### Step 7 — Validate
 
-Run `factory/scripts/concern-lint`. If it reports any findings:
+Run `.agent-factory/factory/scripts/concern-lint`. If it reports any findings:
 
 1. Show the findings to the developer.
 2. Stop. Do not commit. The developer must fix the findings before

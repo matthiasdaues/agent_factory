@@ -179,7 +179,7 @@ such error:
 
 ```bash
 git log --oneline -5     # fresh commit from the child = work completed
-factory/scripts/verify-base <target> [--expect-base <sha>]
+.agent-factory/factory/scripts/verify-base <target> [--expect-base <sha>]
 # check the child's declared artifact_paths exist
 ```
 
@@ -227,7 +227,7 @@ The following sections do not apply in manual mode: Dispatch Ledger, Wave Bounda
 
 The dispatch ledger applies to **automated mode only**.
 
-The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `factory/scripts/dispatch` subcommands mutate it. The ledger is refreshed or committed after each mechanically observable transition.
+The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `.agent-factory/factory/scripts/dispatch` subcommands mutate it. The ledger is refreshed or committed after each mechanically observable transition.
 
 Schema:
 
@@ -309,7 +309,7 @@ QA that runs inside a story worktree validates against `packages/factory/` (sour
 
 When a dispatch touches files under `packages/factory/`, QA can pass in the worktree while the post-merge test suite fails in the main checkout — the installed copy is stale.
 
-**Mitigation.** Before the final `dispatch merge-story` of any wave that modified `packages/factory/` files, the dispatcher (or stakeholder) must run `factory/scripts/update-factory` on the main checkout to sync the installed copy from source. This is a manual step; no automated hook exists yet.
+**Mitigation.** Before the final `dispatch merge-story` of any wave that modified `packages/factory/` files, the dispatcher (or stakeholder) must run `.agent-factory/factory/scripts/update-factory` on the main checkout to sync the installed copy from source. This is a manual step; no automated hook exists yet.
 
 ## Enforcement
 

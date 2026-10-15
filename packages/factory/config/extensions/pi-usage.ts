@@ -128,7 +128,7 @@ function trustedInheritedRoot(
   const candidate = canonical(value);
   if (derived && candidate !== derived) return undefined;
   if (!derived && candidate !== cwd) return undefined;
-  if (!existsSync(join(candidate, ".agent-factory", "factory-install.json"))) return undefined;
+  if (!existsSync(join(candidate, ".agent-factory", "install.json"))) return undefined;
   if (!existsSync(join(candidate, ".agent-factory", "factory", "scripts", "usage-capture"))) return undefined;
   return candidate;
 }

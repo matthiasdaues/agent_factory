@@ -57,19 +57,19 @@ All operations run inside Docker via the project wrapper script — no local Str
 
 ```bash
 # Validate the DSL
-factory/scripts/structurizr validate
+.agent-factory/factory/scripts/structurizr validate
 
 # Export PNG to docs/assets/images/
-factory/scripts/structurizr export-png
+.agent-factory/factory/scripts/structurizr export-png
 
 # Export SVG to docs/assets/images/
-factory/scripts/structurizr export-svg
+.agent-factory/factory/scripts/structurizr export-svg
 
 # Export both SVG and PNG
-factory/scripts/structurizr export-all
+.agent-factory/factory/scripts/structurizr export-all
 
 # List all view keys defined in the workspace
-factory/scripts/structurizr list-views
+.agent-factory/factory/scripts/structurizr list-views
 ```
 
 The script defaults to `docs/arc42/architecture.dsl` and outputs to `docs/assets/images/`. Override the docs directory with `STRUCTURIZR_DOCS=<path>`.

@@ -38,7 +38,7 @@ remain worktree-only.
 
 `git merge <branch>` is blocked unless a passing `.current-work/premerge-check-ok` marker exists for that branch's current head.
 
-- Run `factory/scripts/premerge-check <target> <branch>` first; it writes the marker on PASS.
+- Run `.agent-factory/factory/scripts/premerge-check <target> <branch>` first; it writes the marker on PASS.
 - Then run `git merge <branch> --no-ff -m "…"` as a **lone** command.
 
 ## Blocked operations and their safe forms
@@ -64,7 +64,7 @@ The pre-commit hooks **rewrite staged files** as part of committing: `mdformat` 
 2. `git commit -m "<type>: … (<ID>)"`.
 3. If it aborts with "files were modified by this hook", run `git add -u` and re-commit the same message. The second pass is clean because the hooks already rewrote the files.
 
-Alternatively, pre-run the formatters on the staged set first (`factory/scripts/mdformat --number`, `factory/scripts/index-lint`) so the hooks are no-ops on the first pass. `factory/scripts/commit-safe` wraps the two-pass sequence into one command.
+Alternatively, pre-run the formatters on the staged set first (`.agent-factory/factory/scripts/mdformat --number`, `.agent-factory/factory/scripts/index-lint`) so the hooks are no-ops on the first pass. `.agent-factory/factory/scripts/commit-safe` wraps the two-pass sequence into one command.
 
 ## Close absorbed work immediately
 

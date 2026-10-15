@@ -71,7 +71,7 @@ export default function (pi: ExtensionAPI) {
         (!marker || !existsSync(marker))
       ) {
         return blocked(
-          "git commit in a worktree with no .current-work/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first.",
+          "git commit in a worktree with no .current-work/verify-base-ok marker. Run .agent-factory/factory/scripts/verify-base <target> [--expect-base <SHA>] first.",
         );
       }
     }
@@ -90,7 +90,7 @@ export default function (pi: ExtensionAPI) {
 
       if (!ok) {
         return blocked(
-          `git merge ${mergeBranch ?? "<branch>"} with no passing .current-work/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> ${mergeBranch ?? "<branch>"} first.`,
+          `git merge ${mergeBranch ?? "<branch>"} with no passing .current-work/premerge-check-ok marker for that branch's current head. Run .agent-factory/factory/scripts/premerge-check <target> ${mergeBranch ?? "<branch>"} first.`,
         );
       }
     }

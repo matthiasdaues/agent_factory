@@ -63,10 +63,10 @@ A feature branch name is not a working directory. The universal branch/worktree 
 
 Worktree isolation guarantees a subagent's commands run in the right *directory*; it does not guarantee that directory's HEAD is actually caught up with the branch it was meant to be cut from. A worktree can materialize against a stale base and reason against code that no longer exists on the target branch — a full agent run's worth of tokens spent before anyone notices. This recurred across three phases of the 2026-07-12 session, twice costing a full discarded run.
 
-The verify-base invocation is now **script-owned**, not prompt-owned. `factory/scripts/dispatch prepare-wave` and `factory/scripts/dispatch prepare-story` must run the fixed pre-spawn check before any developer-agent is launched:
+The verify-base invocation is now **script-owned**, not prompt-owned. `.agent-factory/factory/scripts/dispatch prepare-wave` and `.agent-factory/factory/scripts/dispatch prepare-story` must run the fixed pre-spawn check before any developer-agent is launched:
 
 ```bash
-factory/scripts/verify-base <target-branch> [--expect-base <declared-base-SHA>]
+.agent-factory/factory/scripts/verify-base <target-branch> [--expect-base <declared-base-SHA>]
 ```
 
 Exit `0` means the dispatcher may spawn the subagent into that prepared worktree. Any non-zero exit means: **stop — do not spawn the subagent.** Report the script's printed diagnosis and resolve the base mismatch before continuing. Dispatch prose may mention that the workspace already passed verify-base, but it must not rely on the developer-agent to remember and rerun the check manually.
@@ -89,7 +89,7 @@ A conflict or regression after a merge means the overlap analysis missed a real 
 Before merging any finished branch, run:
 
 ```bash
-factory/scripts/premerge-check <target> <branch> [--scope <declared-output-path> ...]
+.agent-factory/factory/scripts/premerge-check <target> <branch> [--scope <declared-output-path> ...]
 ```
 
 Exit `0` means clean to merge. Exit non-zero means **block the merge** and investigate — a stale base or unrequested out-of-scope work, not a real overlap collision. Both contaminated diffs in the 2026-07-12 session were real; both were caught only because someone remembered to run `git diff --stat` by hand, after the branch's full run had already finished. This check makes that habit a required, scripted step instead of something the dispatcher must remember, and runs it on the finished branch as a second, independent gate on top of the Verify-Base Preamble the subagent ran on its own first tool call.
@@ -111,7 +111,7 @@ Feature-branch commits follow [commit-conventions.md](commit-conventions.md) —
 
 Standalone branch creation is mechanically denied by the shared shell and Pi Git guardrails. `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>` is the supported creation primitive. Overlap-safe merge sequencing is enforced by the implementation-agent's own dispatch algorithm, not a git hook — it needs live backlog state (every ready story's declared outputs) that no static hook has access to. This rulebook states the **what** (branch/worktree pairing, branch scope, merge-order constraint, SHA tracking); `agents/implementation-agent.md` (Steps 1–5) and T-35 own the **how** — the actual overlap-detection and wave-planning algorithm.
 
-The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `factory/scripts/dispatch` owns the pre-spawn `verify-base` call, and `factory/scripts/premerge-check` owns the pre-merge scope check. Their success markers are written on success, and `factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
+The base-safety checks are mechanically enforced, per [foundational-principles.md § Agentic Creation, Deterministic Validation](foundational-principles.md#agentic-creation-deterministic-validation): `.agent-factory/factory/scripts/dispatch` owns the pre-spawn `verify-base` call, and `.agent-factory/factory/scripts/premerge-check` owns the pre-merge scope check. Their success markers are written on success, and `.agent-factory/factory/config/hooks/block-dangerous-git.sh` denies `git commit` (inside a linked worktree with no `verify-base-ok` marker) and `git merge <branch>` (with no `premerge-check-ok` marker for that branch's current head) — a `PreToolUse` hook, not agent compliance with a prompt instruction.
 
 Worktree cleanup after a merged branch is part of the larger dispatch lifecycle — see [dispatch-contract.md § Close](dispatch-contract.md#close) for the authoritative procedure for removing worktrees and branches at dispatch close time, which distinguishes merged branches (safe delete) from blocked branches (left for manual resolution).
 

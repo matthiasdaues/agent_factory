@@ -10,7 +10,7 @@ agents:
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
     tokens: 1244
-    total_tokens: 8196
+    total_tokens: 8200
     inputs:
       required:
         - type: feature
@@ -193,7 +193,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 3903
-    total_tokens: 12707
+    total_tokens: 12747
     inputs:
       required:
         - type: story
@@ -336,7 +336,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2272
-    total_tokens: 19746
+    total_tokens: 19762
     inputs:
       required:
         - type: scope-map
@@ -392,7 +392,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1533
-    total_tokens: 18876
+    total_tokens: 18880
     inputs:
       required:
         - type: proposal
@@ -439,7 +439,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1276
-    total_tokens: 8280
+    total_tokens: 8292
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -545,7 +545,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the project charter, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3781
-    total_tokens: 16933
+    total_tokens: 16937
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -578,7 +578,7 @@ skills:
     category: requirements
     description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 5911
+    tokens: 5915
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -876,7 +876,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 14961
+    total_tokens: 14965
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -888,7 +888,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2957
-    total_tokens: 36559
+    total_tokens: 36579
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -910,7 +910,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 43489
+    total_tokens: 43545
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -927,7 +927,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4610
-    total_tokens: 104470
+    total_tokens: 104534
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -945,7 +945,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2858
-    total_tokens: 103966
+    total_tokens: 104030
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -974,7 +974,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1106
-    total_tokens: 13183
+    total_tokens: 13195
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -995,7 +995,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 17425
+    total_tokens: 17437
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -1006,11 +1006,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4757
+    tokens: 4783
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
-    tokens: 1213
+    tokens: 1218
   - name: agent-lifecycle-protocol
     category: conventions
     path: rulebooks/conventions/agent-lifecycle-protocol.md
@@ -1018,7 +1018,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 2980
+    tokens: 3008
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -1038,7 +1038,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 5148
+    tokens: 5160
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md
@@ -1054,19 +1054,19 @@ rulebooks:
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 1425
+    tokens: 1442
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md
-    tokens: 1052
+    tokens: 1060
   - name: markdown-formatting
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md
-    tokens: 325
+    tokens: 333
   - name: mermaid-notation
     category: conventions
     path: rulebooks/conventions/mermaid-notation.md
-    tokens: 291
+    tokens: 295
   - name: report-format
     category: conventions
     path: rulebooks/conventions/report-format.md
@@ -1102,7 +1102,7 @@ rulebooks:
   - name: state-machine-notation
     category: conventions
     path: rulebooks/conventions/state-machine-notation.md
-    tokens: 742
+    tokens: 746
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
@@ -1114,7 +1114,7 @@ rulebooks:
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
-    tokens: 410
+    tokens: 414
   - name: touches-hygiene
     category: conventions
     path: rulebooks/conventions/touches-hygiene.md

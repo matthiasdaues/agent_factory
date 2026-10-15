@@ -12,7 +12,7 @@ Skeleton for a research run's claim register. Validated against
 
 ```yaml
 ---
-schema: factory/rulebooks/schemas/research-claim-register.schema.json
+schema: .agent-factory/factory/rulebooks/schemas/research-claim-register.schema.json
 ---
 ```
 

@@ -26,7 +26,7 @@ fi
 SOURCE_DIR="$PROJECT_DIR/packages/factory"
 [ -d "$SOURCE_DIR" ] || exit 0
 
-MANIFEST="$PROJECT_DIR/.agent-factory/factory-install.json"
+MANIFEST="$PROJECT_DIR/.agent-factory/install.json"
 [ -f "$MANIFEST" ] || exit 0
 
 # Once-per-session guard.

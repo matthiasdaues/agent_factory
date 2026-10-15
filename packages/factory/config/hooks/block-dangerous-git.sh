@@ -52,7 +52,7 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
      && [ -n "$TOP" ]; then
     MARKER="$TOP/.current-work/verify-base-ok"
     if [ ! -f "$MARKER" ]; then
-      deny "git commit in a worktree with no .current-work/verify-base-ok marker. Run factory/scripts/verify-base <target> [--expect-base <SHA>] first."
+      deny "git commit in a worktree with no .current-work/verify-base-ok marker. Run .agent-factory/factory/scripts/verify-base <target> [--expect-base <SHA>] first."
     fi
     # ST-0047: the marker must correspond to THIS worktree — its verified base
     # (head=) must be an ancestor of the current HEAD, so a stale or mismatched
@@ -60,7 +60,7 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
     # advancing during TDD still passes, since it descends from the verified base.
     MARKER_HEAD=$(sed -n 's/^head=//p' "$MARKER")
     if [ -z "$MARKER_HEAD" ] || ! git merge-base --is-ancestor "$MARKER_HEAD" HEAD 2>/dev/null; then
-      deny "git commit in a worktree whose verify-base-ok marker does not match its base (marker head is not an ancestor of HEAD). Re-run factory/scripts/verify-base <target> [--expect-base <SHA>]."
+      deny "git commit in a worktree whose verify-base-ok marker does not match its base (marker head is not an ancestor of HEAD). Re-run .agent-factory/factory/scripts/verify-base <target> [--expect-base <SHA>]."
     fi
     # ST-0214: story branches require a dispatch ledger in the main checkout.
     BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -70,7 +70,7 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
         if [ -n "$COMMON_DIR" ]; then
           MAIN_ROOT=$(cd "$COMMON_DIR" && cd .. && pwd)
           if ! find "$MAIN_ROOT/.current-work" -name dispatch-ledger.yaml -print -quit 2>/dev/null | grep -q .; then
-            deny "git commit on $BRANCH with no dispatch ledger. No .current-work/*/dispatch-ledger.yaml found in the main checkout ($MAIN_ROOT). Run factory/scripts/dispatch init first."
+            deny "git commit on $BRANCH with no dispatch ledger. No .current-work/*/dispatch-ledger.yaml found in the main checkout ($MAIN_ROOT). Run .agent-factory/factory/scripts/dispatch init first."
           fi
         fi
         ;;
@@ -127,7 +127,7 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
   if [ -z "$TOP" ] || [ ! -f "$MARKER" ] \
      || ! grep -qx "branch=$MERGE_BRANCH" "$MARKER" \
      || ! grep -qx "head=$MERGE_HEAD" "$MARKER"; then
-    deny "git merge $MERGE_BRANCH with no passing .current-work/premerge-check-ok marker for that branch's current head. Run factory/scripts/premerge-check <target> $MERGE_BRANCH first."
+    deny "git merge $MERGE_BRANCH with no passing .current-work/premerge-check-ok marker for that branch's current head. Run .agent-factory/factory/scripts/premerge-check <target> $MERGE_BRANCH first."
   fi
 fi
 
