@@ -4,8 +4,8 @@
 # ///
 """dependency-check — deterministic dependency-direction gate.
 
-What: Reads dependency rules from architecture.dsl and flags forbidden
-      Python imports.
+What: Reads dependency rules from docs/arc42/dependency-rules.dsl and flags
+      forbidden Python imports.
 When: After a developer commit and on demand while building semantic
       gate support.
 By:   implementation-agent dispatcher or a human/operator session.
@@ -51,7 +51,7 @@ EXCLUDED_DIRS = {
 
 @dataclass(frozen=True)
 class DependencyRule:
-    """Forbidden dependency declaration extracted from architecture.dsl."""
+    """Forbidden dependency declaration extracted from the rules DSL."""
 
     source_module: str
     target_module: str
