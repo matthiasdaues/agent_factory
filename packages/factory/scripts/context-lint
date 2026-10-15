@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
+# dependencies = ["pyyaml"]
 # ///
 """context-lint — deterministic validation gate for the agent context.
 
@@ -837,14 +838,21 @@ def resolve_testing_yaml(root: Path) -> Optional[Path]:
 def check_testing_yaml(path: Optional[Path]) -> List[Finding]:
     """Validate testing.yaml with CX-PARSE only — its lifecycle-exempt
     carve-out. No CX-SRC-EXIST, CX-NULL, or CX-KEYS checks apply:
-    testing.yaml is a peer file, not a Layer 2 index file."""
+    testing.yaml is a peer file, not a Layer 2 index file.
+
+    testing.yaml has no fixed shape, so a full YAML parser judges it, not
+    the restricted parse_yaml() subset (BUG-0062). The import stays local,
+    so callers of detect_format() do not need PyYAML."""
     if path is None:
         return []
+    import yaml
+
     rel = path.name
     try:
-        parse_yaml(path.read_text(encoding="utf-8"))
-    except YamlParseError as exc:
-        return [Finding("CX-PARSE", "error", rel, f"invalid YAML: {exc}")]
+        yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        reason = " ".join(str(exc).split())
+        return [Finding("CX-PARSE", "error", rel, f"invalid YAML: {reason}")]
     return []
 
 
