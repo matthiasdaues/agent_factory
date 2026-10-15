@@ -6,11 +6,18 @@ exit 2 and must not report a clean result (BUG-0055, BUG-0056).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from conftest import load_script
+import pytest
+from conftest import SOURCE_SCRIPTS_DIR, load_script
 
 mgc = load_script("module-graph-check")
+sv = load_script("schema-validate")
+
+USAGE_RECORD_SCHEMA = (
+    SOURCE_SCRIPTS_DIR.parent / "contracts" / "usage-record" / "v1.schema.json"
+)
 
 DSL_WITH_COMPONENT = """\
 workspace "test" {
@@ -89,3 +96,89 @@ class TestModuleGraphCheckUnreadableInput:
 
         assert code == 0
         assert "architecture_change=false" in capsys.readouterr().out
+
+
+class TestSchemaValidateTypeKeywords:
+    """BUG-0056: union types, null, and minimum."""
+
+    UNION = {"type": ["string", "null"]}
+
+    @pytest.mark.parametrize("value", ["text", None])
+    def test_union_type_accepts_each_member(self, value):
+        assert sv.validate(value, self.UNION) == []
+
+    def test_union_type_rejects_other_types(self):
+        errors = sv.validate(3, self.UNION)
+
+        assert len(errors) == 1
+        assert "string" in errors[0] and "null" in errors[0]
+
+    def test_null_type_rejects_string(self):
+        assert sv.validate("text", {"type": "null"}) != []
+
+    def test_null_type_accepts_null(self):
+        assert sv.validate(None, {"type": "null"}) == []
+
+    def test_minimum_rejects_smaller_number(self):
+        errors = sv.validate(-1, {"type": "integer", "minimum": 0})
+
+        assert len(errors) == 1
+        assert "minimum" in errors[0]
+
+    def test_minimum_accepts_boundary(self):
+        assert sv.validate(0, {"type": "integer", "minimum": 0}) == []
+
+    def test_minimum_skips_null_in_union(self):
+        assert sv.validate(None, {"type": ["integer", "null"], "minimum": 0}) == []
+
+
+def _usage_record(**overrides):
+    record = {
+        "record_id": "r-1",
+        "project_id": "p-1",
+        "project_name": "demo",
+        "normalized_input": 10,
+        "normalized_output": 5,
+        "normalized_total": 15,
+        "cli": "claude",
+        "session_id": None,
+        "parent_session_id": None,
+        "depth": 0,
+        "recorded_at": "2026-10-15T00:00:00Z",
+        "agent": None,
+        "model": "m",
+        "provider": None,
+        "reported_input": None,
+        "reported_output": 3,
+        "reported_cache_read": None,
+        "reported_cache_write": None,
+        "usage_granularity": None,
+        "usage_capability": None,
+        "cache_miss_turns": None,
+        "cache_miss_input_tokens": None,
+        "late_early_input_ratio": 0.5,
+        "exit_status": None,
+        "branch": None,
+        "commit_id": None,
+        "transcript_ref": None,
+    }
+    record.update(overrides)
+    return record
+
+
+class TestSchemaValidateUsageRecord:
+    """The shipped usage-record schema uses union types and minimum."""
+
+    def _main(self, tmp_path, record):
+        artifact = tmp_path / "record.json"
+        artifact.write_text(json.dumps(record), encoding="utf-8")
+        return sv.main([str(artifact), str(USAGE_RECORD_SCHEMA)])
+
+    def test_conforming_record_exits_0(self, tmp_path):
+        assert self._main(tmp_path, _usage_record()) == 0
+
+    def test_negative_count_exits_1(self, tmp_path, capsys):
+        code = self._main(tmp_path, _usage_record(depth=-1))
+
+        assert code == 1
+        assert "$.depth" in capsys.readouterr().out
