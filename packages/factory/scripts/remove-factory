@@ -508,8 +508,11 @@ def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
         log(f"removed: {rel}")
 
 
-def prune_empty_dirs(target: Path) -> None:
+def prune_empty_dirs(target: Path, manifest: dict) -> None:
     # Directories init-factory may have added into but not owned wholesale.
+    # init-factory records a .codex/ it created in remove_paths; any other
+    # .codex/ belonged to the project before the install and stays.
+    created = set(manifest.get("remove_paths", []))
     for rel in (
         ".github/hooks",
         ".claude/hooks",
@@ -523,6 +526,8 @@ def prune_empty_dirs(target: Path) -> None:
         ".codex",
         ".pi",
     ):
+        if rel == ".codex" and rel not in created:
+            continue
         path = target / rel
         if not path.is_symlink() and path.is_dir() and not any(path.iterdir()):
             path.rmdir()
@@ -702,7 +707,7 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(current_work_dir)
         log("removed: .current-work/")
 
-    prune_empty_dirs(target)
+    prune_empty_dirs(target, manifest)
 
     print(f"remove-factory: done, Agent Factory removed from {target}")
     return 0

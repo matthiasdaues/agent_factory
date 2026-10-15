@@ -171,3 +171,26 @@ def test_bug_0076_owner_file_of_live_process_still_blocks(remove_factory, tmp_pa
     assert _run(remove_factory, tmp_path) == 1
 
     assert (tmp_path / ".agent-factory/install.json").exists()
+
+
+# --- BUG-0079: a pre-existing .codex/ directory is deleted -------------------
+
+
+def test_bug_0079_keeps_codex_dir_that_existed_before_install(
+    remove_factory, tmp_path
+):
+    (tmp_path / ".codex").mkdir()
+    _install(tmp_path)
+
+    assert _run(remove_factory, tmp_path) == 0
+
+    assert (tmp_path / ".codex").is_dir()
+
+
+def test_bug_0079_removes_codex_dir_the_install_created(remove_factory, tmp_path):
+    (tmp_path / ".codex/hooks").mkdir(parents=True)
+    _install(tmp_path, remove_paths=[".codex"])
+
+    assert _run(remove_factory, tmp_path) == 0
+
+    assert not (tmp_path / ".codex").exists()
