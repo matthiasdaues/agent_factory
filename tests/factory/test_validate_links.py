@@ -137,6 +137,15 @@ VALID_LINKS = {
         "doc.md": "# `<cli>_<session_id>` as the name\n\n"
         "[name](#cli_session_id-as-the-name)\n",
     },
+    "heading with underscore emphasis around a code span": {
+        "doc.md": "## _`foo`_ bar\n\n[bar](#foo-bar)\n",
+    },
+    "heading with strong underscore emphasis around a code span": {
+        "doc.md": "## __`foo`__ bar\n\n[bar](#foo-bar)\n",
+    },
+    "heading with underscore emphasis spanning a code span": {
+        "doc.md": "## _see `x` here_\n\n[here](#see-x-here)\n",
+    },
     "angle-bracket destination with a space": {
         "doc.md": "[file](<my file.md>)\n",
         "my file.md": "# Mine\n",

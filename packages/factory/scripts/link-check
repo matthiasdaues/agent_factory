@@ -35,6 +35,10 @@ HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
 SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
 HTML_ANCHOR = re.compile(r"""<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 UNDERSCORE_EMPHASIS = re.compile(r"(?<![\w\\])(_{1,3})(?=\S)(.+?)(?<=\S)\1(?!\w)")
+# A code span waits behind a private-use placeholder while markup is stripped,
+# so emphasis around it still pairs up and its own text stays literal.
+SPAN_OPEN, SPAN_CLOSE = "\ue000", "\ue001"
+SPAN_PLACEHOLDER = re.compile(f"{SPAN_OPEN}(\\d+){SPAN_CLOSE}")
 
 
 class Unreadable(Exception):
@@ -93,20 +97,21 @@ def strip_code(text: str) -> str:
 def slugify(title: str) -> str:
     """Slugify a heading the way GitHub does; code-span text stays literal."""
     title = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", title)
-    parts: list[str] = []
-    end = 0
-    for span in CODE_SPAN.finditer(title):
-        parts.append(strip_inline_markup(title[end : span.start()]))
-        parts.append(span.group(2))
-        end = span.end()
-    parts.append(strip_inline_markup(title[end:]))
-    text = re.sub(r"[^\w\- ]", "", "".join(parts).lower(), flags=re.UNICODE)
+    spans: list[str] = []
+
+    def hold(span: re.Match[str]) -> str:
+        spans.append(span.group(2))
+        return f"{SPAN_OPEN}{len(spans) - 1}{SPAN_CLOSE}"
+
+    text = strip_inline_markup(CODE_SPAN.sub(hold, title))
+    text = SPAN_PLACEHOLDER.sub(lambda held: spans[int(held.group(1))], text)
+    text = re.sub(r"[^\w\- ]", "", text.lower(), flags=re.UNICODE)
     return text.replace(" ", "-")
 
 
 def strip_inline_markup(text: str) -> str:
     """Drop HTML tags and emphasis markers from heading text outside code."""
-    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(f"<[^>{SPAN_OPEN}{SPAN_CLOSE}]+>", "", text)
     text = UNDERSCORE_EMPHASIS.sub(r"\2", text)
     return re.sub(r"[*~]", "", text)
 
