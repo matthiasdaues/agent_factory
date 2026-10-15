@@ -871,7 +871,13 @@ def discover_instruction_files(target: Path) -> List[Path]:
     """Walk target for AGENTS.md and copilot-instructions.md files.
 
     VFO-017: visits regular files outside documented exclusions.
-    VFO-018: does not follow external symlinks or create missing files.
+    VFO-018: does not follow symlinks or create missing files.
+
+    Every symlink is skipped. An external link points at a file the
+    project does not own. A link inside the target either points into the
+    installed factory, where init-factory placed it, or at a regular file
+    the walk already visits. Writing through either link would change a
+    file the installer must leave alone (BUG-0077).
     """
     found = []
     for dirpath, dirnames, filenames in os.walk(target, followlinks=False):
@@ -884,14 +890,8 @@ def discover_instruction_files(target: Path) -> List[Path]:
         for fname in filenames:
             if fname in INSTRUCTION_FILENAMES:
                 fpath = current / fname
-                # Skip symlinks that point outside the target
                 if fpath.is_symlink():
-                    try:
-                        resolved = fpath.resolve()
-                        if not str(resolved).startswith(str(target.resolve())):
-                            continue
-                    except (OSError, ValueError):
-                        continue
+                    continue
                 if fpath.is_file():
                     found.append(fpath)
     return sorted(found)
