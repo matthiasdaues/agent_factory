@@ -1032,6 +1032,7 @@ class TestApplicationAndRollback:
             (template / "bug.md").write_text("# Bug\n")
             (tgt / ".claude" / "notes").symlink_to("../docs/notes")
             os.mkfifo(tgt / ".claude" / "ide.sock")
+            (tgt / ".agent-factory" / "config" / "my-notes.md").write_text("mine\n")
 
         code = self._fail_update(target, monkeypatch, _developer_works_meanwhile)
 
@@ -1041,6 +1042,7 @@ class TestApplicationAndRollback:
         assert (target / ".github" / "ISSUE_TEMPLATE" / "bug.md").is_file()
         assert (target / ".claude" / "notes").is_symlink()
         assert (target / ".claude" / "ide.sock").exists()
+        assert (target / ".agent-factory" / "config" / "my-notes.md").is_file()
         assert "left new paths in place" in capsys.readouterr().out
 
     def test_rollback_reports_a_path_it_cannot_restore_and_goes_on(
@@ -1064,7 +1066,7 @@ class TestApplicationAndRollback:
         assert code != 0
         assert "could not restore" in captured.out
         assert ".gitignore" in captured.out
-        assert "previous installation has been restored" in captured.err
+        assert "restored, except the paths listed above" in captured.err
         assert (
             (target / ".agent-factory" / "config" / "project-context.json").read_bytes()
             == before
