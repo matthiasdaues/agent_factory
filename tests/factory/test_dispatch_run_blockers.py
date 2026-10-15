@@ -14,6 +14,7 @@ from test_dispatch_merge_safety import STORY, _dispatch, _git
 
 DEPENDENT_STORY = STORY.replace("deps: []", "deps: [ST-0001]")
 TOUCHES_ONLY_STORY = STORY.replace('outputs: ["src/{id}.txt"]\n', "")
+FOLDER_TOUCHES_STORY = TOUCHES_ONLY_STORY.replace('touches: ["src/{id}.txt"]', 'touches: ["src/"]')
 TESTING_YAML = '# comment\ntest_all: "false"\ntest_command: "true"\n'
 
 
@@ -539,3 +540,31 @@ def test_merge_story_blocks_a_file_outside_touches(touches_only):
     assert result.returncode != 0
     assert "src/stray.txt" in result.stdout + result.stderr
     assert _story(_ledger(touches_only), "ST-0001")["status"] == "dispatched"
+
+
+@pytest.fixture()
+def folder_touches(tmp_path: Path) -> dict[str, Path]:
+    """ST-0001 declares only the folder entry src/ in touches."""
+    r = _repo(tmp_path, first_story=FOLDER_TOUCHES_STORY)
+    assert _prepare_wave_one(r).returncode == 0
+    return r
+
+
+def test_merge_story_matches_a_folder_entry_in_touches_by_prefix(folder_touches):
+    _commit_story_work(folder_touches, "ST-0001", ("src/a.py",))
+
+    result = _dispatch(folder_touches["inv"], folder_touches["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _story(_ledger(folder_touches), "ST-0001")["status"] == "done"
+
+
+@pytest.mark.parametrize("stray", ["srcx/a.py", "docs/a.md"])
+def test_merge_story_blocks_a_file_outside_a_folder_entry(folder_touches, stray):
+    _commit_story_work(folder_touches, "ST-0001", (stray,))
+
+    result = _dispatch(folder_touches["inv"], folder_touches["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode != 0
+    assert stray in result.stdout + result.stderr
+    assert _story(_ledger(folder_touches), "ST-0001")["status"] == "dispatched"
