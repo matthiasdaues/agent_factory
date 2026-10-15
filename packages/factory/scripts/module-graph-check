@@ -15,8 +15,11 @@ Output
   Writes JSON to .current-work/module-graph-check/<story-id>.json and to
   stdout.  Updates the proposal's impact.architecture_change field.
   Exits 0 on success; 2 on configuration or parse error.  A DSL with no
-  components or an interface-contracts file with no contract headings
-  counts as a parse error.
+  components counts as a parse error.  So does an interface-contracts file
+  with "## " headings of which none has the form ## `path`: that is format
+  drift.  An interface-contracts file with no "## " headings at all declares
+  no contracts; the check warns on stderr and reports on an empty contract
+  set.
 """
 
 from __future__ import annotations
@@ -296,6 +299,12 @@ def _extract_references_from_cell(cell_text: str, known_names: set[str]) -> list
         if re.match(r"^[a-z][a-z0-9-]+$", cleaned) and "-" in cleaned:
             refs.append(cleaned)
     return refs
+
+
+def _has_level_two_heading(contracts_path: Path) -> bool:
+    """Return True when the file has any "## " heading, in any form."""
+    text = contracts_path.read_text(encoding="utf-8")
+    return any(line.startswith("## ") for line in text.splitlines())
 
 
 def parse_interface_contracts(contracts_path: Path) -> list[ContractInfo]:
@@ -661,12 +670,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     if not contracts:
+        if _has_level_two_heading(contracts_path):
+            print(
+                "module-graph-check: no contract headings (## `path`) found in "
+                f"{contracts_path}",
+                file=sys.stderr,
+            )
+            return 2
         print(
-            "module-graph-check: no contract headings (## `path`) found in "
-            f"{contracts_path}",
+            "module-graph-check: warning: no ## headings in "
+            f"{contracts_path}; treating it as declaring no contracts",
             file=sys.stderr,
         )
-        return 2
 
     # Run check
     result = check_architecture_change(graph, contracts, entity_names)

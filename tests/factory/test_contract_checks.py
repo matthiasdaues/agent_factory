@@ -41,7 +41,21 @@ CONTRACTS_WITH_HEADING = """\
 | Reads | nothing |
 """
 
-CONTRACTS_WITHOUT_HEADING = "this file holds no contract headings\n"
+CONTRACTS_WITH_DRIFTED_HEADINGS = """\
+# Interface contracts
+
+## UserRepository
+
+| Field | Value |
+| ----- | ----- |
+| Reads | users |
+"""
+
+CONTRACTS_DECLARING_NONE = """\
+# Interface contracts
+
+This feature adds no interfaces.
+"""
 
 
 def _run_module_graph_check(tmp_path: Path, dsl: str, contracts: str) -> int:
@@ -71,7 +85,9 @@ class TestModuleGraphCheckUnreadableInput:
     """BUG-0055: input the script cannot parse must not read as no change."""
 
     def test_empty_dsl_and_unreadable_contracts_exit_2(self, tmp_path, capsys):
-        code = _run_module_graph_check(tmp_path, "", CONTRACTS_WITHOUT_HEADING)
+        code = _run_module_graph_check(
+            tmp_path, "", CONTRACTS_WITH_DRIFTED_HEADINGS
+        )
 
         assert code == 2
         assert "architecture_change=" not in capsys.readouterr().out
@@ -82,12 +98,26 @@ class TestModuleGraphCheckUnreadableInput:
 
         assert code == 2
 
-    def test_contracts_without_headings_exit_2(self, tmp_path):
+    def test_contracts_with_drifted_headings_exit_2(self, tmp_path):
         code = _run_module_graph_check(
-            tmp_path, DSL_WITH_COMPONENT, CONTRACTS_WITHOUT_HEADING
+            tmp_path, DSL_WITH_COMPONENT, CONTRACTS_WITH_DRIFTED_HEADINGS
         )
 
         assert code == 2
+        assert not (tmp_path / "reports").exists()
+
+    def test_contracts_declaring_none_warn_and_report_no_change(
+        self, tmp_path, capsys
+    ):
+        code = _run_module_graph_check(
+            tmp_path, DSL_WITH_COMPONENT, CONTRACTS_DECLARING_NONE
+        )
+
+        captured = capsys.readouterr()
+        assert code == 0
+        assert "architecture_change=false" in captured.out
+        assert "warning" in captured.err
+        assert (tmp_path / "reports" / "ST-TEST.json").is_file()
 
     def test_readable_input_still_reports_no_change(self, tmp_path, capsys):
         code = _run_module_graph_check(
