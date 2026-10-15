@@ -21,8 +21,8 @@ CAPTURE_SCRIPT = (
 @pytest.fixture()
 def capture_project(tmp_path: Path) -> Path:
     """Project directory with capture prerequisites but no analysis component."""
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
+    config_dir = tmp_path / ".agent-factory" / "config"
+    config_dir.mkdir(parents=True)
     (config_dir / "project.json").write_text(
         json.dumps(
             {

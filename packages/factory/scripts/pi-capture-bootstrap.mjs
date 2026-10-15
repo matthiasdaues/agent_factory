@@ -69,7 +69,7 @@ function validate(values, command) {
   if (handshake !== expectedHandshake || status !== expectedStatus || existsSync(handshake)) fail("invalid handshake");
   const registration = JSON.parse(readFileSync(marker, "utf-8"));
   if (registration.generation !== values.generation || registration.staged_source !== source) fail("registration mismatch");
-  const launcher = join(root, "factory", "scripts", "usage-capture-runtime");
+  const launcher = join(root, ".agent-factory", "factory", "scripts", "usage-capture-runtime");
   if (command[0] !== launcher) fail("invalid supervisor launcher");
   const timeout = Number(values["accept-timeout-ms"] || DEFAULT_TIMEOUT_MS);
   if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > DEFAULT_TIMEOUT_MS) fail("invalid timeout");
