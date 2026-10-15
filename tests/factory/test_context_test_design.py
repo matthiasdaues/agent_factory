@@ -15,6 +15,7 @@ from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent.parent.parent / "packages" / "factory" / "scripts"
 CONTEXT_LINT = SCRIPTS / "context-lint"
+TEST_DESIGN_VERIFY = SCRIPTS / "test-design-verify"
 
 
 # --- BUG-0062: context-lint parses testing.yaml as YAML ---------------------
@@ -58,3 +59,66 @@ def test_bug_0062_unclosed_quote_and_bracket_fails(tmp_path: Path) -> None:
     findings = _testing_yaml_findings(tmp_path, text)
 
     assert [f["code"] for f in findings] == ["CX-PARSE"]
+
+
+# --- BUG-0063: test-design-verify reads a tests: block list -----------------
+
+
+def _verify_story(tmp_path: Path, frontmatter_tests: str) -> tuple[int, dict]:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("", encoding="utf-8")
+    story = tmp_path / "ST-9999.md"
+    story.write_text(
+        "---\n"
+        "id: ST-9999\n"
+        "test-design-pass: done\n"
+        f"{frontmatter_tests}"
+        "---\n"
+        "\n"
+        "# Story\n",
+        encoding="utf-8",
+    )
+    report_dir = tmp_path / "reports"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(TEST_DESIGN_VERIFY),
+            "--story",
+            str(story),
+            "--repo-root",
+            str(tmp_path),
+            "--report-dir",
+            str(report_dir),
+            "--epics",
+            str(tmp_path / "epics.md"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    report = json.loads((report_dir / "ST-9999.json").read_text(encoding="utf-8"))
+    return result.returncode, report
+
+
+def test_bug_0063_indented_block_list_passes(tmp_path: Path) -> None:
+    code, report = _verify_story(tmp_path, "tests:\n  - tests/test_a.py\n")
+
+    assert report["findings"] == []
+    assert code == 0
+
+
+def test_bug_0063_block_list_checks_each_module(tmp_path: Path) -> None:
+    code, report = _verify_story(
+        tmp_path, "tests:\n- tests/test_a.py\n- 'tests/test_missing.py'\n"
+    )
+
+    assert [f["kind"] for f in report["findings"]] == ["missing_test_module"]
+    assert "tests/test_missing.py" in report["findings"][0]["message"]
+    assert code == 1
+
+
+def test_bug_0063_key_without_items_stays_empty(tmp_path: Path) -> None:
+    code, report = _verify_story(tmp_path, "tests:\nnext-key: x\n")
+
+    assert [f["kind"] for f in report["findings"]] == ["empty_tests_field"]
+    assert code == 1
