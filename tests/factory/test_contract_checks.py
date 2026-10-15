@@ -51,6 +51,8 @@ CONTRACTS_WITH_DRIFTED_HEADINGS = """\
 | Reads | users |
 """
 
+READS_TABLE = "| Field | Value |\n| ----- | ----- |\n| Reads | users |\n"
+
 CONTRACTS_DECLARING_NONE = """\
 # Interface contracts
 
@@ -151,6 +153,70 @@ class TestModuleGraphCheckUnreadableInput:
 
         assert code == 0
         assert "warning" in capsys.readouterr().err
+
+    @pytest.mark.parametrize(
+        "contracts",
+        [
+            pytest.param(
+                "# C\n\n### Script `scripts/new-tool`\n\n" + READS_TABLE,
+                id="backtick-not-first",
+            ),
+            pytest.param(
+                "# C\n\n`scripts/new-tool`\n---\n\n" + READS_TABLE,
+                id="setext-heading",
+            ),
+            pytest.param(
+                "# C\n\n### scripts/new-tool\n\n" + READS_TABLE,
+                id="no-backticks",
+            ),
+            pytest.param(
+                "# C\n\n```\nstray\n\n### `scripts/new-tool`\n\n" + READS_TABLE,
+                id="unclosed-fence",
+            ),
+            pytest.param(
+                "# C\n\n### scripts/new-tool\n\n| Writes | users |\n",
+                id="writes-row",
+            ),
+        ],
+    )
+    def test_reads_or_writes_row_without_parsed_contract_exits_2(
+        self, tmp_path, capsys, contracts
+    ):
+        code = _run_module_graph_check(tmp_path, DSL_WITH_COMPONENT, contracts)
+
+        assert code == 2
+        assert "architecture_change=" not in capsys.readouterr().out
+        assert not (tmp_path / "reports").exists()
+
+    def test_contract_shaped_heading_without_rows_exits_2(self, tmp_path):
+        contracts = "# C\n\n### `scripts/new-tool`\n\nA tool with no reads.\n"
+
+        code = _run_module_graph_check(tmp_path, DSL_WITH_COMPONENT, contracts)
+
+        assert code == 2
+
+    def test_fenced_reads_row_still_declares_none(self, tmp_path, capsys):
+        contracts = "# C\n\nUse this form:\n\n```md\n### `x`\n" + READS_TABLE + "```\n"
+
+        code = _run_module_graph_check(tmp_path, DSL_WITH_COMPONENT, contracts)
+
+        assert code == 0
+        assert "warning" in capsys.readouterr().err
+
+    def test_plain_table_without_reads_or_writes_declares_none(
+        self, tmp_path, capsys
+    ):
+        contracts = (
+            "# Interface contracts\n\n## Notes\n\nThis feature adds no interfaces.\n\n"
+            "| Field | Value |\n| ----- | ----- |\n| Owner | team-a |\n"
+        )
+
+        code = _run_module_graph_check(tmp_path, DSL_WITH_COMPONENT, contracts)
+
+        captured = capsys.readouterr()
+        assert code == 0
+        assert "architecture_change=false" in captured.out
+        assert "warning" in captured.err
 
     def test_readable_input_still_reports_no_change(self, tmp_path, capsys):
         code = _run_module_graph_check(

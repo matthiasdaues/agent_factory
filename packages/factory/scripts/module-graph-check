@@ -15,13 +15,12 @@ Output
   Writes JSON to .current-work/module-graph-check/<story-id>.json and to
   stdout.  Updates the proposal's impact.architecture_change field.
   Exits 0 on success; 2 on configuration or parse error.  A DSL with no
-  components counts as a parse error.  So does an interface-contracts file
-  with "## " headings of which none has the form ## `path`: that is format
-  drift.  So is a heading outside a code fence that names a backticked path
-  in another form: level 1 to 6, indented up to three spaces, no space
-  after the hashes, or behind a byte-order mark.  An interface-contracts
-  file with neither declares no contracts; the check warns on stderr and reports on an empty contract
-  set.
+  components counts as a parse error.  When no ## `path` heading parses,
+  the interface-contracts file counts as format drift if, outside a code
+  fence, it holds a Reads or Writes table row or a heading that names a
+  backticked path.  An unclosed fence hides nothing: its opening line
+  counts as plain text.  A file with neither declares no contracts; the
+  check warns on stderr and reports on an empty contract set.
 """
 
 from __future__ import annotations
@@ -130,9 +129,9 @@ _CONTRACT_HEADER_RE = re.compile(
     r"^##\s+`([^`]+)`"
 )
 
-# A heading that names a backticked path in any form: level 1 to 6, optional
-# byte-order mark, up to three spaces of indent, optional space after hashes.
-_CONTRACT_SHAPED_HEADING_RE = re.compile(r"^\ufeff? {0,3}#{1,6}[ \t]*`[^`]+`")
+# A heading that names a backticked path in any form: level 1 to 6, up to
+# three spaces of indent, optional space after the hashes.
+_CONTRACT_SHAPED_HEADING_RE = re.compile(r"^ {0,3}#{1,6}[ \t]*`[^`]+`")
 
 # Opening or closing code fence: ``` or ~~~, up to three spaces of indent.
 _FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
@@ -310,31 +309,48 @@ def _extract_references_from_cell(cell_text: str, known_names: set[str]) -> list
     return refs
 
 
-def _has_level_two_heading(contracts_path: Path) -> bool:
-    """Return True when the file has any "## " heading, in any form."""
-    text = contracts_path.read_text(encoding="utf-8")
-    return any(line.startswith("## ") for line in text.splitlines())
+def _lines_outside_fences(text: str) -> list[str]:
+    """Return the lines of text that sit outside a code fence.
 
-
-def _has_contract_shaped_heading(contracts_path: Path) -> bool:
-    """Return True when a heading outside a code fence names a backticked path.
-
-    Any level 1 to 6 counts, with an optional byte-order mark, up to three
-    spaces of indent, and an optional space after the hashes.  Such a line
-    is a contract written in the wrong form, not the absence of contracts.
+    A fence that never closes hides nothing: its opening line counts as
+    plain text and the scan resumes on the next line.
     """
-    text = contracts_path.read_text(encoding="utf-8")
+    lines = text.lstrip("\ufeff").splitlines()
+    outside: list[str] = []
     fence: str | None = None
-    for line in text.splitlines():
+    opener = 0
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         fence_match = _FENCE_RE.match(line)
         if fence_match:
             marker = fence_match.group(1)
             if fence is None:
-                fence = marker
+                fence, opener = marker, i
             elif marker[0] == fence[0] and len(marker) >= len(fence):
                 fence = None
-            continue
-        if fence is None and _CONTRACT_SHAPED_HEADING_RE.match(line):
+        elif fence is None:
+            outside.append(line)
+        i += 1
+        if i == len(lines) and fence is not None:
+            outside.append(lines[opener])
+            fence, i = None, opener + 1
+    return outside
+
+
+def _has_unparsed_contract(contracts_path: Path) -> bool:
+    """Return True when the file declares contracts the parser did not read.
+
+    Outside a code fence, a Reads or Writes table row or a heading that
+    names a backticked path is a contract written in the wrong form, not
+    the absence of contracts.
+    """
+    text = contracts_path.read_text(encoding="utf-8")
+    for line in _lines_outside_fences(text):
+        if _CONTRACT_SHAPED_HEADING_RE.match(line):
+            return True
+        row_match = _TABLE_ROW_RE.match(line)
+        if row_match and row_match.group(1).strip().lower() in ("reads", "writes"):
             return True
     return False
 
@@ -702,17 +718,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     if not contracts:
-        if _has_level_two_heading(contracts_path) or _has_contract_shaped_heading(
-            contracts_path
-        ):
+        if _has_unparsed_contract(contracts_path):
             print(
                 "module-graph-check: no contract headings (## `path`) found in "
-                f"{contracts_path}",
+                f"{contracts_path}, but it holds contract headings or Reads/Writes "
+                "rows in another form",
                 file=sys.stderr,
             )
             return 2
         print(
-            "module-graph-check: warning: no ## headings in "
+            "module-graph-check: warning: no contracts in "
             f"{contracts_path}; treating it as declaring no contracts",
             file=sys.stderr,
         )
