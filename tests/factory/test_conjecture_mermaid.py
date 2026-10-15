@@ -4,7 +4,22 @@ from __future__ import annotations
 
 import stat
 
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, load_script
+
+cl = load_script("conjecture-lint")
+
+
+class TestConjectureMarkersMatchWholeWords:
+    """BUG-0050: a marker inside another word must not count as a marker."""
+
+    def test_marker_inside_other_word_is_not_a_gap(self):
+        claim = "The Arduino platform supports the Singapore protocol"
+        assert cl.lint_claim(claim) == []
+
+    def test_real_capability_and_gap_bundle_is_still_flagged(self):
+        claim = "The adapter supports batch writes and no retry path exists"
+        findings = cl.lint_claim(claim)
+        assert any("bundles a capability" in finding for finding in findings)
 
 
 class TestScriptsAreExecutable:
