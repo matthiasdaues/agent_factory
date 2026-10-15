@@ -308,3 +308,36 @@ class TestChapterFiveComponents:
         rep = al.Report()
         al.check_coupling(rep, dsl, ch5)
         assert rep.n(al.ERROR) == 0
+
+
+# ---------------------------------------------------------------------------
+# BUG-0054: the validate skill's gate 7 fails a project with only docs/adr/
+# ---------------------------------------------------------------------------
+
+VALIDATE_SKILL = REPO_ROOT / "packages" / "factory" / "skills" / "validate" / "SKILL.md"
+
+
+def _gate_seven_args() -> list[str]:
+    """The arguments of gate 7's arch-lint call, read from the skill."""
+    for line in VALIDATE_SKILL.read_text().splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        if len(cells) > 2 and cells[1] == "7":
+            command = cells[-2].strip("`").split()
+            assert command[0].endswith("/arch-lint")
+            return command[1:]
+    raise AssertionError("gate 7 not found in the validate skill")
+
+
+class TestValidateGateSeven:
+    def test_adr_only_project_passes_gate_seven(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """BUG-0054: gate 7 passes a project with docs/adr/ and no docs/arc42/."""
+        adr = tmp_path / "docs" / "adr"
+        adr.mkdir(parents=True)
+        (adr / "adr-0001.md").write_text(
+            "---\nstatus: accepted\nevaluation: none\n---\nBody."
+        )
+        monkeypatch.chdir(tmp_path)
+        assert al.main(_gate_seven_args()) == 0
+
