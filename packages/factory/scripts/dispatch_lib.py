@@ -577,7 +577,9 @@ def _stdlib_load(text: str) -> dict[str, Any]:
 
     Handles: nested mappings, sequences of scalars, sequences of flat
     mappings (``- key: val`` with continuation lines), inline ``[]``
-    and ``{}``, and scalars (null, bool, int, str).
+    and ``{}``, flow sequences of scalars (``[a, "b"]``), block scalars
+    (``|`` and ``>`` with ``-`` or ``+`` chomping), and scalars (null,
+    bool, int, str).
     """
     result: dict[str, Any] = {}
     # (indent, dict) — the dict that owns children at deeper indents
@@ -590,7 +592,29 @@ def _stdlib_load(text: str) -> dict[str, Any]:
     current_list_indent: int = -1
     current_list_item: dict[str, Any] | None = None
 
-    for line in text.splitlines():
+    lines = text.splitlines()
+    index = 0
+
+    def value(rest: str, parent_indent: int) -> Any:
+        """Parse *rest* as a scalar, or read the block scalar it opens."""
+        nonlocal index
+        header = _block_scalar_header(rest)
+        if header is None:
+            return _parse_scalar(rest)
+        folded, chomping = header
+        result_text, index = _read_block_scalar(
+            lines,
+            index,
+            parent_indent,
+            folded=folded,
+            chomping=chomping,
+            final_newline=text.endswith("\n"),
+        )
+        return result_text
+
+    while index < len(lines):
+        line = lines[index]
+        index += 1
         stripped = line.lstrip()
         if not stripped or stripped.startswith("#") or stripped == "---":
             continue
@@ -618,12 +642,12 @@ def _stdlib_load(text: str) -> dict[str, Any]:
                 if ":" in item_text:
                     key, _, rest = item_text.partition(":")
                     item_dict: dict[str, Any] = {
-                        key.strip(): _parse_scalar(rest.strip())
+                        key.strip(): value(rest.strip(), indent + 2)
                     }
                     current_list.append(item_dict)
                     current_list_item = item_dict
                 else:
-                    current_list.append(_parse_scalar(item_text.strip()))
+                    current_list.append(value(item_text.strip(), indent))
                     current_list_item = None
             continue
 
@@ -634,7 +658,7 @@ def _stdlib_load(text: str) -> dict[str, Any]:
             and ":" in stripped
         ):
             key, _, rest = stripped.partition(":")
-            current_list_item[key.strip()] = _parse_scalar(rest.strip())
+            current_list_item[key.strip()] = value(rest.strip(), indent)
             continue
 
         # Left the list context
@@ -664,9 +688,101 @@ def _stdlib_load(text: str) -> dict[str, Any]:
         elif rest == "{}":
             parent[key] = {}
         else:
-            parent[key] = _parse_scalar(rest)
+            parent[key] = value(rest, indent)
 
     return result
+
+
+_BLOCK_HEADER_RE = re.compile(r"^([|>])([-+0-9]*)\s*(?:#.*)?$")
+
+
+def _block_scalar_header(text: str) -> tuple[bool, bool | None] | None:
+    """Return (folded, chomping) for a block scalar header, else None.
+
+    Chomping is None to clip, False to strip (``-``), True to keep (``+``).
+    """
+    match = _BLOCK_HEADER_RE.match(text)
+    if match is None:
+        return None
+    indicators = match.group(2)
+    if any(char.isdigit() for char in indicators):
+        raise ValueError(
+            f"unsupported YAML: explicit indentation indicator in {text!r}"
+        )
+    if len(indicators) > 1:
+        raise ValueError(f"malformed YAML: block scalar header {text!r}")
+    chomping = {"": None, "-": False, "+": True}[indicators]
+    return match.group(1) == ">", chomping
+
+
+def _indent_of(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def _read_block_scalar(
+    lines: list[str],
+    start: int,
+    parent_indent: int,
+    *,
+    folded: bool,
+    chomping: bool | None,
+    final_newline: bool = True,
+) -> tuple[str, int]:
+    """Read the body of a block scalar that starts at ``lines[start]``.
+
+    Follows PyYAML's scan_block_scalar. Returns (value, index of the first
+    line after the block).
+    """
+    min_indent = max(parent_indent + 1, 1)
+    first_content = next(
+        (line for line in lines[start:] if line.strip()), None
+    )
+    content_indent = _indent_of(first_content) if first_content else 0
+    content_indent = max(content_indent, min_indent)
+
+    def is_break(line: str) -> bool:
+        return not line.strip() and len(line) <= content_indent
+
+    def is_content(line: str) -> bool:
+        return not is_break(line) and _indent_of(line) >= content_indent
+
+    index = start
+    breaks: list[str] = []
+    while index < len(lines) and is_break(lines[index]):
+        breaks.append("\n")
+        index += 1
+    chunks: list[str] = []
+    line_break = ""
+    while index < len(lines) and is_content(lines[index]):
+        chunks.extend(breaks)
+        body = lines[index][content_indent:]
+        leading_non_space = not body.startswith((" ", "\t"))
+        chunks.append(body)
+        index += 1
+        # The last line of a text without a final newline has no break.
+        line_break = "\n" if index < len(lines) or final_newline else ""
+        breaks = []
+        while index < len(lines) and is_break(lines[index]):
+            breaks.append("\n")
+            index += 1
+        if index < len(lines) and is_content(lines[index]):
+            next_body = lines[index][content_indent:]
+            if (
+                folded
+                and leading_non_space
+                and not next_body.startswith((" ", "\t"))
+            ):
+                if not breaks:
+                    chunks.append(" ")
+            else:
+                chunks.append(line_break)
+        else:
+            break
+    if chomping is not False:
+        chunks.append(line_break)
+    if chomping is True:
+        chunks.extend(breaks)
+    return "".join(chunks), index
 
 
 def _quoted_scalar(text: str) -> tuple[str, str] | None:
@@ -689,6 +805,40 @@ def _quoted_scalar(text: str) -> tuple[str, str] | None:
     return None
 
 
+def _flow_sequence_items(inner: str) -> list[str] | None:
+    """Split the inside of a flow sequence of scalars at its commas.
+
+    Returns None for anything else, such as a nested collection, so the
+    caller keeps the text as a string.
+    """
+    if not inner.strip():
+        return []
+    items: list[str] = []
+    current = ""
+    quote = ""
+    for char in inner:
+        if quote:
+            current += char
+            if char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+            current += char
+        elif char in "[]{}":
+            return None
+        elif char == ",":
+            items.append(current.strip())
+            current = ""
+        else:
+            current += char
+    if quote:
+        return None
+    items.append(current.strip())
+    if any(not item for item in items):
+        return None
+    return items
+
+
 def _parse_scalar(text: str) -> Any:
     quoted = _quoted_scalar(text)
     if quoted is not None:
@@ -703,6 +853,10 @@ def _parse_scalar(text: str) -> Any:
         text = text[:comment].rstrip()
     if text in ("null", "~"):
         return None
+    if text.startswith("[") and text.endswith("]"):
+        items = _flow_sequence_items(text[1:-1])
+        if items is not None:
+            return [_parse_scalar(item) for item in items]
     if text == "true":
         return True
     if text == "false":

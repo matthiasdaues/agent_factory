@@ -136,16 +136,50 @@ def _testing_yaml_command(path: Path) -> str | None:
     """Return the top-level test_command, or else test_all, of testing.yaml.
 
     Only a non-empty string counts, so `test_command: null` falls through.
+    When the loader cannot read the whole file, the two keys are read on
+    their own, and a warning names the file and the parse error.
     """
     try:
-        data = _load_yaml(path.read_text())
-    except Exception:  # noqa: BLE001 - a missing or malformed file counts as absent
+        text = path.read_text()
+    except OSError:
         return None
+    try:
+        data = _load_yaml(text)
+    except Exception as e:  # noqa: BLE001 - fall back to the two top-level keys
+        print(
+            f"warning: cannot parse {path} ({e}); reading only its "
+            f"top-level {' and '.join(_TEST_COMMAND_KEYS)} lines",
+            file=sys.stderr,
+        )
+        data = _top_level_entries(text, _TEST_COMMAND_KEYS)
     for key in _TEST_COMMAND_KEYS:
         value = data.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
+
+
+def _top_level_entries(text: str, keys: tuple[str, ...]) -> dict:
+    """Read each of *keys* from its top-level line and indented lines below.
+
+    An entry that does not parse on its own is left out.
+    """
+    lines = text.splitlines()
+    entries: dict = {}
+    for index, line in enumerate(lines):
+        key = line.partition(":")[0]
+        if key not in keys or key in entries:
+            continue
+        end = index + 1
+        while end < len(lines) and (
+            not lines[end].strip() or lines[end].startswith((" ", "\t"))
+        ):
+            end += 1
+        try:
+            entries.update(_load_yaml("\n".join(lines[index:end])))
+        except Exception:  # noqa: BLE001, S112 - an unreadable entry counts as absent
+            continue
+    return entries
 
 
 def _project_json_command(path: Path) -> str | None:
@@ -1066,10 +1100,17 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     if entry.status == StoryState.PREPARED:
         return 0
-    if entry.status not in {StoryState.PENDING, StoryState.FAILED}:
+    if entry.status == StoryState.FAILED:
+        print(
+            f"error: story {story_id} failed; prepare-story prepares only a "
+            f"pending story. Retry it with `dispatch re-dispatch {story_id}`",
+            file=sys.stderr,
+        )
+        return 1
+    if entry.status != StoryState.PENDING:
         print(
             f"error: story {story_id} is {entry.status.value}; prepare-story "
-            f"prepares only a pending or failed story",
+            f"prepares only a pending story",
             file=sys.stderr,
         )
         return 1

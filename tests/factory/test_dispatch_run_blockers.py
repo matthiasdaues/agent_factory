@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from test_dispatch_merge_safety import STORY, _dispatch, _git
 
 DEPENDENT_STORY = STORY.replace("deps: []", "deps: [ST-0001]")
@@ -101,6 +100,11 @@ def _prepare_wave_one(r: dict[str, Path], cwd: Path | None = None):
         ('test_all: "true && echo x"   # composite command\n', "true && echo x"),
         ("test_command: null\ntest_all: 'true'\n", "true"),
         ("test_command: \"\"\ntest_all: true-cmd\n", "true-cmd"),
+        ("test_all: >-\n  true &&\n  echo folded\nsuites: []\n", "true && echo folded"),
+        (
+            'test_command: "true && echo x"\nsuites: []\nnotes: >-\n  prose\n\n  more\n',
+            "true && echo x",
+        ),
     ],
 )
 def test_prepare_wave_takes_the_test_command_from_testing_yaml(
@@ -139,6 +143,21 @@ def test_stdlib_yaml_dump_round_trips_strings(value):
     import dispatch_lib as lib
 
     assert lib._stdlib_load(lib._stdlib_dump({"key": value})) == {"key": value}
+
+
+def test_an_unreadable_testing_yaml_still_yields_its_test_command(tmp_path):
+    r = _repo(
+        tmp_path,
+        testing_yaml='test_command: "true && echo x"  # c\nnotes: |2\n   indented\n',
+    )
+
+    result = _prepare_wave_one(r)
+
+    assert result.returncode == 0, result.stderr
+    assert _contract_test_command(r, "ST-0001") == "true && echo x"
+    assert "warning: cannot parse" in result.stderr
+    assert str(r["repo"] / "docs" / "testing.yaml") in result.stderr
+    assert "explicit indentation indicator" in result.stderr
 
 
 def test_a_null_testing_yaml_command_falls_back_to_project_json(tmp_path):
@@ -442,6 +461,18 @@ def test_prepare_story_again_keeps_the_worktree_of_a_dispatching_story(chain):
     assert "dispatching" in result.stderr
     assert work.read_text() == "uncommitted agent work\n"
     assert _story(_ledger(chain), "ST-0002")["status"] == "dispatching"
+
+
+def test_prepare_story_points_a_failed_story_to_re_dispatch(chain):
+    data = _ledger(chain)
+    _story(data, "ST-0002")["status"] = "failed"
+    chain["ledger"].write_text(yaml.safe_dump(data))
+
+    result = _dispatch(chain["repo"], chain["ledger"], "prepare-story", "ST-0002")
+
+    assert result.returncode != 0
+    assert "dispatch re-dispatch ST-0002" in result.stderr
+    assert _git(chain["repo"], "branch", "--list", "story/ST-0002") == ""
 
 
 def test_prepare_story_rolls_back_when_the_manifest_step_fails(chain):
