@@ -14,7 +14,9 @@ By:   The session hosting the feature-addition playbook.
 Output
   Writes JSON to .current-work/module-graph-check/<story-id>.json and to
   stdout.  Updates the proposal's impact.architecture_change field.
-  Exits 0 on success; 2 on configuration or parse error.
+  Exits 0 on success; 2 on configuration or parse error.  A DSL with no
+  components or an interface-contracts file with no contract headings
+  counts as a parse error.
 """
 
 from __future__ import annotations
@@ -649,6 +651,22 @@ def main(argv: list[str] | None = None) -> int:
     graph = parse_dsl(dsl_path)
     contracts = parse_interface_contracts(contracts_path)
     entity_names = parse_entity_model(entity_model_path)
+
+    # An empty parse means the input is unreadable, not unchanged. Reporting
+    # "no change" here would let the routing gate skip the architecture phase.
+    if not graph.components:
+        print(
+            f"module-graph-check: no components found in {dsl_path}",
+            file=sys.stderr,
+        )
+        return 2
+    if not contracts:
+        print(
+            "module-graph-check: no contract headings (## `path`) found in "
+            f"{contracts_path}",
+            file=sys.stderr,
+        )
+        return 2
 
     # Run check
     result = check_architecture_change(graph, contracts, entity_names)
