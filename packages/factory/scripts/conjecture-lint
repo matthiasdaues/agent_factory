@@ -67,7 +67,7 @@ _CAP_MARKERS = (
 _GAP_MARKERS = (
     "no ", "not ", "lacks", "absent", "gap", "gaps", "unpackaged", "unmaintained",
     "does not", "cannot", "no admissible", "no maintained", "no turnkey",
-    "infeasible", "unproven",
+    "infeasible", "unproven", "must-not",
 )
 
 
@@ -94,7 +94,8 @@ def _sentence_count(text: str) -> int:
 def _find_markers(text: str, markers: Tuple[str, ...]) -> List[str]:
     # A marker counts only as a whole word or phrase, so "no " does not match
     # inside "arduino ". A hyphen joins words too, so "no" does not match
-    # inside "no-op", "--no-ff" or "not-yet".
+    # inside "no-op", "--no-ff" or "not-yet". A negation spelled with a
+    # hyphen, such as "must-not", is listed as its own marker.
     low = text.lower()
     return [
         m.strip() for m in markers

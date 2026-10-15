@@ -29,6 +29,11 @@ class TestConjectureMarkersMatchWholeWords:
         claim = "The queue handles not-yet-acknowledged messages"
         assert cl.lint_claim(claim) == []
 
+    def test_must_not_is_a_gap(self):
+        claim = "The adapter supports batch writes and must-not retry them"
+        findings = cl.lint_claim(claim)
+        assert any("near 'must-not'" in finding for finding in findings)
+
     def test_real_capability_and_gap_bundle_is_still_flagged(self):
         claim = "The adapter supports batch writes and no retry path exists"
         findings = cl.lint_claim(claim)
