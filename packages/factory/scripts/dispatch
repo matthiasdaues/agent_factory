@@ -1534,11 +1534,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     already_merged = second_parent_code == 0 and second_parent == branch_tip
     contained_code, _, _ = _git("merge-base", "--is-ancestor", entry.branch, "HEAD")
     if contained_code == 0 and not already_merged:
-        print(
-            f"error: {entry.branch} has no commits ahead of {target_branch}; "
-            "nothing to merge",
-            file=sys.stderr,
-        )
+        if entry.base_sha and branch_tip == entry.base_sha:
+            reason = "it has no commits of its own; nothing to merge"
+        else:
+            reason = (
+                "it is already part of the branch, but HEAD is not its merge "
+                "commit; check the history by hand before marking the story"
+            )
+        print(f"error: {entry.branch} cannot be merged into {target_branch}: {reason}",
+              file=sys.stderr)
         return 1
 
     if not already_merged:
@@ -1693,7 +1697,12 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     if ledger is None:
         return 1
 
-    branch_head_code, branch_head, branch_head_err = _git("rev-parse", "HEAD")
+    # Read the invocation branch by name, so the result does not depend on
+    # which checkout the caller runs from.
+    head_ref = (
+        f"refs/heads/{ledger.invocation_branch}" if ledger.invocation_branch else "HEAD"
+    )
+    branch_head_code, branch_head, branch_head_err = _git("rev-parse", head_ref)
     if branch_head_code != 0:
         print(
             f"error: unable to read current branch head: {branch_head_err}",

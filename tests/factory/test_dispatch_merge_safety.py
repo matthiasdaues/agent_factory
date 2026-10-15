@@ -170,3 +170,35 @@ def test_close_wave_records_branch_head(dispatched):
     ledger.close_wave(1, head)
 
     assert ledger.branch_head == head
+
+
+def test_close_wave_from_main_checkout_keeps_the_merged_head(dispatched):
+    """BUG-0038: close-wave run from the main checkout records the
+    invocation branch's head, not dev."""
+    repo, inv, ledger = dispatched["repo"], dispatched["inv"], dispatched["ledger"]
+    sha = _commit_story_work(dispatched["story"])
+    assert _dispatch(repo, ledger, "verify-story", "ST-0001", "--sha", sha).returncode == 0
+    assert _dispatch(inv, ledger, "merge-story", "ST-0001").returncode == 0
+    merged_head = _git(inv, "rev-parse", "HEAD")
+
+    _dispatch(repo, ledger, "close-wave", "1")
+
+    data = yaml.safe_load(ledger.read_text())
+    assert data["branch_head"] == merged_head
+
+
+def test_merge_story_completes_an_interrupted_merge(dispatched):
+    """BUG-0037: a merge commit made by an interrupted run is recognised and
+    the story completes without a second merge."""
+    repo, inv, ledger = dispatched["repo"], dispatched["inv"], dispatched["ledger"]
+    sha = _commit_story_work(dispatched["story"])
+    assert _dispatch(repo, ledger, "verify-story", "ST-0001", "--sha", sha).returncode == 0
+    _git(inv, "merge", "--no-ff", "-q", "story/ST-0001", "-m", "interrupted merge")
+    merge_commit = _git(inv, "rev-parse", "HEAD")
+
+    result = _dispatch(inv, ledger, "merge-story", "ST-0001")
+
+    assert result.returncode == 0, result.stderr
+    assert _git(inv, "rev-parse", "HEAD") == merge_commit
+    data = yaml.safe_load(ledger.read_text())
+    assert data["stories"]["ST-0001"]["status"] == "done"
