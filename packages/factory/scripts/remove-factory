@@ -511,8 +511,9 @@ def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
 
 def prune_empty_dirs(target: Path, manifest: dict) -> None:
     # Directories init-factory may have added into but not owned wholesale.
-    # init-factory records a .codex/ it created in remove_paths; any other
-    # .codex/ belonged to the project before the install and stays.
+    # init-factory records a .codex/ or .claude/hooks/ it created in
+    # remove_paths; any other one belonged to the project before the install
+    # and stays.
     created = set(manifest.get("remove_paths", []))
     for rel in (
         ".github/hooks",
@@ -527,7 +528,7 @@ def prune_empty_dirs(target: Path, manifest: dict) -> None:
         ".codex",
         ".pi",
     ):
-        if rel == ".codex" and rel not in created:
+        if rel in (".codex", ".claude/hooks") and rel not in created:
             continue
         path = target / rel
         if not path.is_symlink() and path.is_dir() and not any(path.iterdir()):

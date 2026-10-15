@@ -124,7 +124,10 @@ def test_bug_0075_unwires_freshness_hook_and_prunes_hooks_dir(
     _install(
         tmp_path,
         claude_settings_existed=True,
-        remove_paths=[".claude/hooks/check-factory-freshness.sh"],
+        remove_paths=[
+            ".claude/hooks/check-factory-freshness.sh",
+            ".claude/hooks",
+        ],
     )
 
     assert _run(remove_factory, tmp_path) == 0
@@ -250,3 +253,14 @@ def test_bug_0076_dead_pid_expires_only_on_the_same_host(
     )
 
     assert remove_factory._claim_owner(owner) is claimed
+
+
+def test_bug_0075_keeps_empty_claude_hooks_dir_that_existed_before_install(
+    remove_factory, tmp_path
+):
+    (tmp_path / ".claude/hooks").mkdir(parents=True)
+    _install(tmp_path)
+
+    assert _run(remove_factory, tmp_path) == 0
+
+    assert (tmp_path / ".claude/hooks").is_dir()
