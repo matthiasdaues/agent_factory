@@ -2989,7 +2989,7 @@ def _fresh_precommit_text(template: Path) -> str:
 
 def _scan_test_entrypoints(target: Path) -> list[tuple[str, str]]:
     """Deterministic subset of the detect-test-regime skill's step-1 scan
-    (factory/skills/detect-test-regime/SKILL.md): check each conventional
+    (.agent-factory/factory/skills/detect-test-regime/SKILL.md): check each conventional
     test entrypoint for concrete evidence — never mere file presence — and
     return one (label, command) pair per entrypoint found. init-factory has
     no AI in the loop, so this mirrors the skill's table mechanically rather

@@ -110,7 +110,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
 - **MUST** run the full test suite after every merge, before the next.
 - **MUST** track exactly two commit IDs per invocation — branch root and branch head.
-- **MUST** run `.agent-factory/factory/scripts/verify-base` as a worktree-isolated subagent's first tool call, against its target branch and its declared base SHA; halt on any non-zero exit before reading, editing, or committing anything.
+- **MUST** run the main checkout's `.agent-factory/factory/scripts/verify-base` (a linked worktree has no copy of its own) as a worktree-isolated subagent's first tool call, against its target branch and its declared base SHA; halt on any non-zero exit before reading, editing, or committing anything.
 - **MUST** run `.agent-factory/factory/scripts/premerge-check` on a finished branch before merging it; a non-zero exit blocks the merge until investigated.
 
 ## Dispatch

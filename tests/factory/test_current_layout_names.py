@@ -13,7 +13,13 @@ import pytest
 from conftest import REPO_ROOT
 
 FACTORY = REPO_ROOT / "packages" / "factory"
-SHIPPED_SUFFIXES = {".md", ".sh", ".ts", ".yaml"}
+SHIPPED_SUFFIXES = {".md", ".sh", ".ts", ".yaml", ".py", ".conf", ""}
+# Lines that name the old layout on purpose, to recognise or migrate it.
+LEGACY_ALLOWED = {
+    ("scripts/init-factory", "``factory/config/``"),
+    ("scripts/init-factory", "factory/config/AGENTS"),
+    ("scripts/merge-precommit-config", '"factory/scripts/" in entry'),
+}
 OLD_LAYOUT = re.compile(r"(?<![\w./-])factory/(scripts|agents|skills|playbooks|rulebooks|config|docs)/")
 
 
@@ -33,6 +39,10 @@ def test_no_shipped_text_names_the_old_factory_layout():
         for path in _shipped_files()
         for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
         if OLD_LAYOUT.search(line)
+        and not any(
+            str(path.relative_to(FACTORY)) == name and marker in line
+            for name, marker in LEGACY_ALLOWED
+        )
     ]
     assert hits == []
 
