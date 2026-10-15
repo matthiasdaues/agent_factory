@@ -1,4 +1,4 @@
-"""Dispatch can run a fix wave (BUG-0082, BUG-0083, BUG-0084, BUG-0085).
+"""Dispatch can run a fix wave (BUG-0082 to BUG-0085, BUG-0087).
 
 Each test builds a scratch repository with an invocation branch in its own
 worktree and drives dispatch the way the implementation agent does.
@@ -13,23 +13,28 @@ import yaml
 from test_dispatch_merge_safety import STORY, _dispatch, _git
 
 DEPENDENT_STORY = STORY.replace("deps: []", "deps: [ST-0001]")
+TOUCHES_ONLY_STORY = STORY.replace('outputs: ["src/{id}.txt"]\n', "")
 TESTING_YAML = '# comment\ntest_all: "false"\ntest_command: "true"\n'
 
 
 def _repo(
-    tmp_path: Path, *, testing_yaml: str | None = None, project_json: bool = True
+    tmp_path: Path,
+    *,
+    testing_yaml: str | None = None,
+    project_json: bool = True,
+    first_story: str = STORY,
 ) -> dict[str, Path]:
     """A repo with ST-0001 and ST-0002 (which depends on ST-0001).
 
     *testing_yaml* is committed as docs/testing.yaml when given. Without it,
     config/project.json carries the test command, unless *project_json* is
-    False.
+    False. *first_story* is the backlog template for ST-0001.
     """
     repo = tmp_path / "repo"
     (repo / "backlog").mkdir(parents=True)
     (repo / "src").mkdir()
     _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
-    (repo / "backlog" / "ST-0001.md").write_text(STORY.format(id="ST-0001"))
+    (repo / "backlog" / "ST-0001.md").write_text(first_story.format(id="ST-0001"))
     (repo / "backlog" / "ST-0002.md").write_text(
         DEPENDENT_STORY.format(id="ST-0002")
     )
@@ -415,18 +420,27 @@ def test_prepare_wave_again_keeps_the_worktree_of_a_dispatching_story(tmp_path):
     assert _story(_ledger(r), "ST-0001")["status"] == "dispatching"
 
 
-def _finish_story(r: dict[str, Path], story_id: str) -> None:
-    """Dispatch, commit, verify, and merge *story_id* into feat/x."""
+def _commit_story_work(
+    r: dict[str, Path], story_id: str, extra_paths: tuple[str, ...] = ()
+) -> None:
+    """Dispatch *story_id*, commit its work plus *extra_paths*, and verify it."""
     for args in (("mark-dispatching", story_id), ("mark-dispatched", story_id)):
         result = _dispatch(r["repo"], r["ledger"], *args)
         assert result.returncode == 0, (args, result.stderr)
     story = _story_worktree(r, story_id)
-    (story / "src" / f"{story_id}.txt").write_text("work\n")
+    for rel in (f"src/{story_id}.txt", *extra_paths):
+        (story / rel).parent.mkdir(parents=True, exist_ok=True)
+        (story / rel).write_text("work\n")
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "story work")
     sha = _git(story, "rev-parse", "HEAD")
     result = _dispatch(r["repo"], r["ledger"], "verify-story", story_id, "--sha", sha)
     assert result.returncode == 0, result.stderr
+
+
+def _finish_story(r: dict[str, Path], story_id: str) -> None:
+    """Dispatch, commit, verify, and merge *story_id* into feat/x."""
+    _commit_story_work(r, story_id)
     result = _dispatch(r["inv"], r["ledger"], "merge-story", story_id)
     assert result.returncode == 0, result.stderr
 
@@ -487,3 +501,41 @@ def test_prepare_story_rolls_back_when_the_manifest_step_fails(chain):
     assert result.returncode != 0
     _assert_no_story_workspace(chain, "ST-0002")
     assert _story(_ledger(chain), "ST-0002")["status"] == "pending"
+
+
+# -- BUG-0087: merge-story reads touches when outputs is absent -------------
+
+
+@pytest.fixture()
+def touches_only(tmp_path: Path) -> dict[str, Path]:
+    """ST-0001 declares only touches and waits, dispatched, in wave 1."""
+    r = _repo(tmp_path, first_story=TOUCHES_ONLY_STORY)
+    assert _prepare_wave_one(r).returncode == 0
+    return r
+
+
+def test_merge_story_scopes_a_story_by_its_touches(touches_only):
+    _commit_story_work(touches_only, "ST-0001")
+
+    result = _dispatch(touches_only["inv"], touches_only["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _story(_ledger(touches_only), "ST-0001")["status"] == "done"
+
+
+def test_merge_story_allows_the_index_yaml_a_hook_rewrites(touches_only):
+    _commit_story_work(touches_only, "ST-0001", ("packages/factory/INDEX.yaml",))
+
+    result = _dispatch(touches_only["inv"], touches_only["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_merge_story_blocks_a_file_outside_touches(touches_only):
+    _commit_story_work(touches_only, "ST-0001", ("src/stray.txt",))
+
+    result = _dispatch(touches_only["inv"], touches_only["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode != 0
+    assert "src/stray.txt" in result.stdout + result.stderr
+    assert _story(_ledger(touches_only), "ST-0001")["status"] == "dispatched"

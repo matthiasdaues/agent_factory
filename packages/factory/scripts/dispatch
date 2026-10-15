@@ -253,10 +253,15 @@ def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
     if not frontmatter:
         return []
     outputs = frontmatter.get("outputs") or frontmatter.get("touches") or []
+    if isinstance(outputs, str):
+        return [outputs]
     return outputs if isinstance(outputs, list) else []
 
 
 DEFAULT_MAX_FILES = 20
+
+# The index-lint pre-commit hook rewrites this file during a story commit.
+HOOK_REWRITTEN_INDEX = "packages/factory/INDEX.yaml"
 
 def _scaled_max_files(output_count: int) -> int:
     """Recommend a per-story ``--max-files`` threshold from an output count.
@@ -1628,7 +1633,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
     Runs ``premerge-check`` with the story's declared output globs
-    immediately before merging (`--scope-glob`, gitignore-style matching).
+    (``outputs``, else ``touches``) immediately before merging (`--scope-glob`, gitignore-style matching).
     On a merge conflict, aborts the merge and marks the story ``blocked``
     with reason "merge conflict"; the current branch is left unchanged. On a
     red test suite after a clean merge, resets the current branch back to
@@ -1687,12 +1692,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     fm = (
         parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
     )
-    raw_outputs = (fm or {}).get("outputs")
-    outputs = (
-        raw_outputs
-        if isinstance(raw_outputs, list)
-        else ([raw_outputs] if raw_outputs else [])
-    )
+    outputs = _story_output_globs(project_root, entry.id)
 
     # Interrupted-merge recovery: a prior run created the merge commit (and
     # may have amended the status update into it) but was interrupted before
@@ -1721,8 +1721,10 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         for glob in outputs:
             premerge_cmd += ["--scope-glob", glob]
         # The dispatch contract requires updating the story's own backlog file
-        # (status: done) in the implementation commit — always in scope.
+        # (status: done) in the implementation commit — always in scope. The
+        # index-lint hook rewrites INDEX.yaml during commits — also in scope.
         premerge_cmd += ["--scope-glob", f"backlog/{entry.id}.md"]
+        premerge_cmd += ["--scope-glob", HOOK_REWRITTEN_INDEX]
         premerge_cmd += ["--max-files", str(_scaled_max_files(len(outputs)))]
 
         premerge_result = subprocess.run(
