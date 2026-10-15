@@ -205,22 +205,30 @@ def _create_dirs(path: Path) -> list[Path]:
 def write_assets(output_dir: Path, assets: dict[str, tuple[bytes, int]]) -> None:
     """Write *assets* ({name: (content, mode)}) into *output_dir*.
 
-    On failure removes only what this call created and re-raises.
+    Writes every asset to a temp file first and renames them into place
+    only when all temp files exist and no target is a directory.  On
+    failure removes the temp files and the directories this call created,
+    then re-raises.  Files already in *output_dir* stay.
     """
     created_dirs: list[Path] = []
-    created_files: list[Path] = []
+    temp_files: list[Path] = []
     try:
         created_dirs = _create_dirs(output_dir)
+        staged: list[tuple[Path, Path]] = []
         for name, (content, mode) in assets.items():
-            target = output_dir / name
             tmp = output_dir / f".{name}.build-release-tmp"
-            created_files.append(tmp)
+            temp_files.append(tmp)
             tmp.write_bytes(content)
             os.chmod(tmp, mode)
+            staged.append((tmp, output_dir / name))
+        for _, target in staged:
+            if target.is_dir() and not target.is_symlink():
+                raise IsADirectoryError(f"{target} is a directory")
+        for tmp, target in staged:
             os.replace(tmp, target)
-            created_files[-1] = target
+            temp_files.remove(tmp)
     except BaseException:
-        for path in created_files:
+        for path in temp_files:
             try:
                 path.unlink()
             except OSError:

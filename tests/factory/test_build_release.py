@@ -362,3 +362,20 @@ class TestReviewFixes:
         assert result.returncode == 0, result.stderr
         with tarfile.open(out / "agent-factory.tar.gz", "r:gz") as tf:
             assert tf.extractfile("VERSION").read() == b"1.0.0"
+
+    def test_failed_rebuild_keeps_earlier_assets(self, tmp_path):
+        repo = _make_repo(tmp_path, "main", "1.0.0")
+        out = tmp_path / "release"
+        assert _run_build(repo, out).returncode == 0
+        before = {name: (out / name).read_bytes()
+                  for name in ("install-agent-factory", "agent-factory.tar.gz")}
+        (repo / "packages" / "factory" / "agents" / "example.md").write_text("v2\n")
+        _commit_all(repo, "change content")
+        (out / "SHA256SUMS").unlink()
+        (out / "SHA256SUMS").mkdir()
+        result = _run_build(repo, out)
+        assert result.returncode == 1
+        assert sorted(p.name for p in out.iterdir()) == [
+            "SHA256SUMS", "agent-factory.tar.gz", "install-agent-factory"]
+        for name, content in before.items():
+            assert (out / name).read_bytes() == content
