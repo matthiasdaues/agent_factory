@@ -9,7 +9,6 @@ Owned contracts:
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -61,10 +60,7 @@ class TestStructuredDeclarationsPresent:
     def test_every_agent_has_structured_inputs(self):
         for path in sorted(AGENTS_DIR.glob("*.md")):
             lines = _read_frontmatter_lines(path)
-            has_inputs = any(
-                line.strip().startswith("inputs:")
-                for line in lines
-            )
+            has_inputs = any(line.strip().startswith("inputs:") for line in lines)
             assert has_inputs, f"{path.name} missing 'inputs:'"
 
     def test_no_agent_has_flat_inputs(self):
@@ -78,18 +74,19 @@ class TestStructuredDeclarationsPresent:
                     continue
                 if in_inputs:
                     if stripped.startswith("- ") and not stripped.startswith("- type:"):
-                        pytest.fail(
-                            f"{path.name} uses flat 'inputs:' list (rejected)"
-                        )
-                    elif stripped and not stripped.startswith("-") and not stripped.startswith(" "):
+                        pytest.fail(f"{path.name} uses flat 'inputs:' list (rejected)")
+                    elif (
+                        stripped
+                        and not stripped.startswith("-")
+                        and not stripped.startswith(" ")
+                    ):
                         break
 
     def test_no_agent_has_eligible_cycles(self):
         for path in sorted(AGENTS_DIR.glob("*.md")):
             lines = _read_frontmatter_lines(path)
             has_eligible = any(
-                line.strip().startswith("eligible_cycles")
-                for line in lines
+                line.strip().startswith("eligible_cycles") for line in lines
             )
             assert not has_eligible, (
                 f"{path.name} still has 'eligible_cycles' (removed)"
@@ -100,25 +97,43 @@ class TestIndexLintConsistency:
     def test_index_lint_check_passes(self, tmp_path):
         out = tmp_path / "INDEX.yaml"
         gen = subprocess.run(
-            [sys.executable, str(INDEX_LINT),
-             "--agents-dir", str(FACTORY_AGENTS),
-             "--skills-dir", str(FACTORY_SKILLS),
-             "--playbooks-dir", str(FACTORY_PLAYBOOKS),
-             "--rulebooks-dir", str(FACTORY_RULEBOOKS),
-             "--out", str(out)],
-            capture_output=True, text=True,
+            [
+                sys.executable,
+                str(INDEX_LINT),
+                "--agents-dir",
+                str(FACTORY_AGENTS),
+                "--skills-dir",
+                str(FACTORY_SKILLS),
+                "--playbooks-dir",
+                str(FACTORY_PLAYBOOKS),
+                "--rulebooks-dir",
+                str(FACTORY_RULEBOOKS),
+                "--out",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
         )
         assert gen.returncode == 0, f"index-lint generate failed: {gen.stderr}"
 
         check = subprocess.run(
-            [sys.executable, str(INDEX_LINT),
-             "--agents-dir", str(FACTORY_AGENTS),
-             "--skills-dir", str(FACTORY_SKILLS),
-             "--playbooks-dir", str(FACTORY_PLAYBOOKS),
-             "--rulebooks-dir", str(FACTORY_RULEBOOKS),
-             "--out", str(out),
-             "--check"],
-            capture_output=True, text=True,
+            [
+                sys.executable,
+                str(INDEX_LINT),
+                "--agents-dir",
+                str(FACTORY_AGENTS),
+                "--skills-dir",
+                str(FACTORY_SKILLS),
+                "--playbooks-dir",
+                str(FACTORY_PLAYBOOKS),
+                "--rulebooks-dir",
+                str(FACTORY_RULEBOOKS),
+                "--out",
+                str(out),
+                "--check",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert check.returncode == 0, (
             f"index-lint --check failed: {check.stdout}\n{check.stderr}"
@@ -127,13 +142,22 @@ class TestIndexLintConsistency:
     def test_generated_index_has_structured_inputs(self, tmp_path):
         out = tmp_path / "INDEX.yaml"
         subprocess.run(
-            [sys.executable, str(INDEX_LINT),
-             "--agents-dir", str(FACTORY_AGENTS),
-             "--skills-dir", str(FACTORY_SKILLS),
-             "--playbooks-dir", str(FACTORY_PLAYBOOKS),
-             "--rulebooks-dir", str(FACTORY_RULEBOOKS),
-             "--out", str(out)],
-            capture_output=True, text=True,
+            [
+                sys.executable,
+                str(INDEX_LINT),
+                "--agents-dir",
+                str(FACTORY_AGENTS),
+                "--skills-dir",
+                str(FACTORY_SKILLS),
+                "--playbooks-dir",
+                str(FACTORY_PLAYBOOKS),
+                "--rulebooks-dir",
+                str(FACTORY_RULEBOOKS),
+                "--out",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
         )
         content = out.read_text()
         assert "inputs:" in content
@@ -148,13 +172,22 @@ class TestNamePreservation:
     def _generate_index(tmp_path) -> Path:
         out = tmp_path / "INDEX.yaml"
         subprocess.run(
-            [sys.executable, str(INDEX_LINT),
-             "--agents-dir", str(FACTORY_AGENTS),
-             "--skills-dir", str(FACTORY_SKILLS),
-             "--playbooks-dir", str(FACTORY_PLAYBOOKS),
-             "--rulebooks-dir", str(FACTORY_RULEBOOKS),
-             "--out", str(out)],
-            capture_output=True, text=True,
+            [
+                sys.executable,
+                str(INDEX_LINT),
+                "--agents-dir",
+                str(FACTORY_AGENTS),
+                "--skills-dir",
+                str(FACTORY_SKILLS),
+                "--playbooks-dir",
+                str(FACTORY_PLAYBOOKS),
+                "--rulebooks-dir",
+                str(FACTORY_RULEBOOKS),
+                "--out",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
         )
         return out
 

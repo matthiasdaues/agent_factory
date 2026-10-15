@@ -10,8 +10,8 @@ import pytest
 
 _HAS_PYARROW = True
 try:
-    import pyarrow  # noqa: F401
-    import pyarrow.parquet  # noqa: F401
+    import pyarrow
+    import pyarrow.parquet
 except ImportError:
     _HAS_PYARROW = False
 
@@ -21,13 +21,20 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         [sys.executable, "-c", "from usage.cli import main; main()", *args],
         capture_output=True,
         text=True,
+        check=False,
     )
 
 
 @pytest.fixture()
 def pi_dir(tmp_path: Path) -> Path:
     import shutil
-    src = Path(__file__).resolve().parent.parent.parent / "fixtures" / "multi-cli" / "pi_sessions.jsonl"
+
+    src = (
+        Path(__file__).resolve().parent.parent.parent
+        / "fixtures"
+        / "multi-cli"
+        / "pi_sessions.jsonl"
+    )
     shutil.copy(src, tmp_path / "pi.jsonl")
     return tmp_path
 
@@ -36,11 +43,10 @@ def pi_dir(tmp_path: Path) -> Path:
 # CLI validation
 # ---------------------------------------------------------------------------
 
-class TestParquetCliValidation:
 
+class TestParquetCliValidation:
     def test_parquet_without_output_rejected(self, pi_dir: Path) -> None:
-        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
-                      "--format", "parquet")
+        r = _run_cli("session_usage", "--usage-dir", str(pi_dir), "--format", "parquet")
         assert r.returncode == 2
         assert "-o" in r.stderr or "OUTPUT" in r.stderr
 
@@ -49,13 +55,20 @@ class TestParquetCliValidation:
 # Parquet export (requires PyArrow)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(not _HAS_PYARROW, reason="pyarrow not installed")
 class TestParquetExport:
-
     def test_successful_export(self, pi_dir: Path, tmp_path: Path) -> None:
         dest = tmp_path / "out.parquet"
-        r = _run_cli("session_usage", "--usage-dir", str(pi_dir),
-                      "--format", "parquet", "-o", str(dest))
+        r = _run_cli(
+            "session_usage",
+            "--usage-dir",
+            str(pi_dir),
+            "--format",
+            "parquet",
+            "-o",
+            str(dest),
+        )
         assert r.returncode == 0, r.stderr
         assert dest.exists()
         tbl = pyarrow.parquet.read_table(str(dest))
@@ -63,20 +76,30 @@ class TestParquetExport:
 
     def test_provenance_metadata(self, pi_dir: Path, tmp_path: Path) -> None:
         dest = tmp_path / "out.parquet"
-        _run_cli("session_usage", "--usage-dir", str(pi_dir),
-                 "--format", "parquet", "-o", str(dest))
+        _run_cli(
+            "session_usage",
+            "--usage-dir",
+            str(pi_dir),
+            "--format",
+            "parquet",
+            "-o",
+            str(dest),
+        )
         meta = pyarrow.parquet.read_metadata(str(dest))
         kv = meta.metadata
         assert b"query_model_version" in kv
         assert kv[b"query_model_version"] == b"v1"
         assert b"input_digest" in kv
 
-    def test_atomic_replacement_preserves_prior(self, pi_dir: Path, tmp_path: Path) -> None:
+    def test_atomic_replacement_preserves_prior(
+        self, pi_dir: Path, tmp_path: Path
+    ) -> None:
         dest = tmp_path / "out.parquet"
         dest.write_text("prior content")
         from usage.parquet_exporter import export_parquet
         from usage.preflight import run_preflight
         from usage.views.session_usage import session_usage
+
         paths = sorted(pi_dir.glob("*.jsonl"))
         pf = run_preflight(paths)
         session_usage(pf)
@@ -89,16 +112,19 @@ class TestParquetExport:
 # Dependency check gate
 # ---------------------------------------------------------------------------
 
-class TestDependencyCheck:
 
+class TestDependencyCheck:
     def test_gate_passes(self) -> None:
         script = (
             Path(__file__).resolve().parent.parent.parent
-            / "scripts" / "usage-dependency-check"
+            / "scripts"
+            / "usage-dependency-check"
         )
         r = subprocess.run(
             [sys.executable, str(script)],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
+            check=False,
         )
         assert r.returncode == 0
         assert "OK" in r.stdout

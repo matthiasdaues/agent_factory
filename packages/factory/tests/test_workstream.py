@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 import yaml
-
 from engine.workstream import (
     SCHEMA_VERSION,
     WorkstreamExistsError,
@@ -27,7 +26,12 @@ def test_create_workstream_writes_four_fields(ws_dir):
     assert path.exists()
 
     data = yaml.safe_load(path.read_text())
-    assert set(data.keys()) == {"schema_version", "workstream_id", "topic", "origin_ref"}
+    assert set(data.keys()) == {
+        "schema_version",
+        "workstream_id",
+        "topic",
+        "origin_ref",
+    }
     assert data["schema_version"] == SCHEMA_VERSION
     assert data["workstream_id"] == "my-stream"
     assert data["topic"] == "My Topic"
@@ -52,13 +56,17 @@ def test_load_workstream_valid(ws_dir):
 def test_load_workstream_rejects_extra_fields(ws_dir):
     ws_dir.mkdir(parents=True, exist_ok=True)
     state_file = ws_dir / "bad.yaml"
-    state_file.write_text(yaml.safe_dump({
-        "schema_version": SCHEMA_VERSION,
-        "workstream_id": "bad",
-        "topic": "Bad",
-        "origin_ref": None,
-        "extra_field": "not allowed",
-    }))
+    state_file.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": SCHEMA_VERSION,
+                "workstream_id": "bad",
+                "topic": "Bad",
+                "origin_ref": None,
+                "extra_field": "not allowed",
+            }
+        )
+    )
 
     with pytest.raises(WorkstreamValidationError, match="unexpected fields"):
         load_workstream("bad", base_dir=ws_dir)

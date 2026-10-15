@@ -32,8 +32,7 @@ def latest_run_snapshots(preflight_result: PreflightResult | None) -> dict:
     select = ", ".join(f'"{c}"' for c in col_names)
 
     rows = conn.execute(
-        f"SELECT {select} FROM latest_run_snapshots "
-        "ORDER BY cli, session_id, record_id"
+        f"SELECT {select} FROM latest_run_snapshots ORDER BY cli, session_id, record_id"
     ).fetchall()
 
     return {

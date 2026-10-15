@@ -7,14 +7,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 from usage.preflight import run_preflight
 from usage.views.cache_efficiency import cache_efficiency
 from usage.views.latest_run_snapshots import latest_run_snapshots
 from usage.views.raw_usage_snapshots import raw_usage_snapshots
 from usage.views.usage_by_dimension import (
-    SUPPORTED_DIMENSIONS,
     usage_by_dimension,
 )
 
@@ -24,6 +21,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         [sys.executable, "-c", "from usage.cli import main; main()", *args],
         capture_output=True,
         text=True,
+        check=False,
     )
 
 
@@ -62,8 +60,8 @@ def _write_fixture(tmp_path: Path, name: str, records: list[dict]) -> Path:
 # raw_usage_snapshots
 # ---------------------------------------------------------------------------
 
-class TestRawUsageSnapshots:
 
+class TestRawUsageSnapshots:
     def test_empty_returns_empty(self) -> None:
         result = raw_usage_snapshots(None)
         assert result == {"view": "raw_usage_snapshots", "rows": []}
@@ -84,14 +82,18 @@ class TestRawUsageSnapshots:
         assert "_line_number" in row
 
     def test_cli_exit_zero(self, multi_cli_dir: Path) -> None:
-        r = _run_cli("raw_usage_snapshots", "--usage-dir",
-                      str(multi_cli_dir / ".."))
+        _run_cli("raw_usage_snapshots", "--usage-dir", str(multi_cli_dir / ".."))
         # multi-cli has unknown_cli.jsonl — use single-cli subset
-        pass
 
     def test_cli_single_cli(self, tmp_path: Path) -> None:
         import shutil
-        src = Path(__file__).resolve().parent.parent / "fixtures" / "multi-cli" / "pi_sessions.jsonl"
+
+        src = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "multi-cli"
+            / "pi_sessions.jsonl"
+        )
         shutil.copy(src, tmp_path / "pi.jsonl")
         r = _run_cli("raw_usage_snapshots", "--usage-dir", str(tmp_path))
         assert r.returncode == 0
@@ -104,8 +106,8 @@ class TestRawUsageSnapshots:
 # latest_run_snapshots
 # ---------------------------------------------------------------------------
 
-class TestLatestRunSnapshots:
 
+class TestLatestRunSnapshots:
     def test_empty_returns_empty(self) -> None:
         result = latest_run_snapshots(None)
         assert result == {"view": "latest_run_snapshots", "rows": []}
@@ -136,44 +138,72 @@ class TestLatestRunSnapshots:
 # usage_by_dimension — validation
 # ---------------------------------------------------------------------------
 
-class TestDimensionValidation:
 
+class TestDimensionValidation:
     def test_duplicate_dimension_rejected(self, tmp_path: Path) -> None:
         rec = _base_record(
-            record_id="r1", cli="pi", session_id="s1",
-            parent_session_id=None, depth=0,
+            record_id="r1",
+            cli="pi",
+            session_id="s1",
+            parent_session_id=None,
+            depth=0,
             recorded_at="2026-01-15T10:00:00Z",
-            normalized_input=10, normalized_output=5, normalized_total=15,
+            normalized_input=10,
+            normalized_output=5,
+            normalized_total=15,
         )
         _write_fixture(tmp_path, "data.jsonl", [rec])
-        r = _run_cli("usage_by_dimension", "--dimensions", "cli,cli",
-                      "--usage-dir", str(tmp_path))
+        r = _run_cli(
+            "usage_by_dimension",
+            "--dimensions",
+            "cli,cli",
+            "--usage-dir",
+            str(tmp_path),
+        )
         assert r.returncode == 2
         assert "duplicate" in r.stderr.lower()
 
     def test_unsupported_dimension_rejected(self, tmp_path: Path) -> None:
         rec = _base_record(
-            record_id="r1", cli="pi", session_id="s1",
-            parent_session_id=None, depth=0,
+            record_id="r1",
+            cli="pi",
+            session_id="s1",
+            parent_session_id=None,
+            depth=0,
             recorded_at="2026-01-15T10:00:00Z",
-            normalized_input=10, normalized_output=5, normalized_total=15,
+            normalized_input=10,
+            normalized_output=5,
+            normalized_total=15,
         )
         _write_fixture(tmp_path, "data.jsonl", [rec])
-        r = _run_cli("usage_by_dimension", "--dimensions", "bogus",
-                      "--usage-dir", str(tmp_path))
+        r = _run_cli(
+            "usage_by_dimension", "--dimensions", "bogus", "--usage-dir", str(tmp_path)
+        )
         assert r.returncode == 2
         assert "unsupported" in r.stderr.lower()
 
     def test_time_with_none_granularity_rejected(self, tmp_path: Path) -> None:
         rec = _base_record(
-            record_id="r1", cli="pi", session_id="s1",
-            parent_session_id=None, depth=0,
+            record_id="r1",
+            cli="pi",
+            session_id="s1",
+            parent_session_id=None,
+            depth=0,
             recorded_at="2026-01-15T10:00:00Z",
-            normalized_input=10, normalized_output=5, normalized_total=15,
+            normalized_input=10,
+            normalized_output=5,
+            normalized_total=15,
         )
         _write_fixture(tmp_path, "data.jsonl", [rec])
-        r = _run_cli("usage_by_dimension", "--dimensions", "time",
-                      "--granularity", "none", "--usage-dir", str(tmp_path))
+        r = _run_cli(
+            "usage_by_dimension",
+            "--dimensions",
+            "time",
+            "--granularity",
+            "none",
+            "--usage-dir",
+            str(tmp_path),
+        )
         assert r.returncode == 2
         assert "time" in r.stderr.lower()
 
@@ -182,22 +212,30 @@ class TestDimensionValidation:
 # usage_by_dimension — additive totals
 # ---------------------------------------------------------------------------
 
-class TestDimensionAdditivity:
 
+class TestDimensionAdditivity:
     def test_no_dimensions_gives_one_total(self, tmp_path: Path) -> None:
         recs = [
             _base_record(
-                record_id="r1", cli="pi", session_id="s1",
-                parent_session_id=None, depth=0,
+                record_id="r1",
+                cli="pi",
+                session_id="s1",
+                parent_session_id=None,
+                depth=0,
                 recorded_at="2026-01-15T10:00:00Z",
-                normalized_input=100, normalized_output=50,
+                normalized_input=100,
+                normalized_output=50,
                 normalized_total=150,
             ),
             _base_record(
-                record_id="r2", cli="pi", session_id="s2",
-                parent_session_id="s1", depth=1,
+                record_id="r2",
+                cli="pi",
+                session_id="s2",
+                parent_session_id="s1",
+                depth=1,
                 recorded_at="2026-01-15T10:01:00Z",
-                normalized_input=30, normalized_output=20,
+                normalized_input=30,
+                normalized_output=20,
                 normalized_total=50,
             ),
         ]
@@ -209,16 +247,22 @@ class TestDimensionAdditivity:
 
     def test_cli_dimension_totals_match_session_usage(self, tmp_path: Path) -> None:
         import shutil
+
         src_dir = Path(__file__).resolve().parent.parent / "fixtures" / "multi-cli"
-        for name in ("claude_code_capture1.jsonl", "claude_code_capture2.jsonl",
-                      "pi_sessions.jsonl", "codex_sessions.jsonl",
-                      "copilot_sessions.jsonl"):
+        for name in (
+            "claude_code_capture1.jsonl",
+            "claude_code_capture2.jsonl",
+            "pi_sessions.jsonl",
+            "codex_sessions.jsonl",
+            "copilot_sessions.jsonl",
+        ):
             shutil.copy(src_dir / name, tmp_path / name)
 
         paths = sorted(tmp_path.glob("*.jsonl"))
         pf = run_preflight(paths)
 
         from usage.views.session_usage import session_usage
+
         canon = session_usage(pf)
         canonical_total = sum(r["normalized_total"] for r in canon["rows"])
 
@@ -231,10 +275,14 @@ class TestDimensionAdditivity:
     def test_time_dimension_with_day_granularity(self, tmp_path: Path) -> None:
         recs = [
             _base_record(
-                record_id="r1", cli="pi", session_id="s1",
-                parent_session_id=None, depth=0,
+                record_id="r1",
+                cli="pi",
+                session_id="s1",
+                parent_session_id=None,
+                depth=0,
                 recorded_at="2026-01-15T10:00:00Z",
-                normalized_input=100, normalized_output=50,
+                normalized_input=100,
+                normalized_output=50,
                 normalized_total=150,
             ),
         ]
@@ -250,18 +298,22 @@ class TestDimensionAdditivity:
 # cache_efficiency — null preservation
 # ---------------------------------------------------------------------------
 
-class TestCacheEfficiency:
 
+class TestCacheEfficiency:
     def test_empty_returns_empty(self) -> None:
         result = cache_efficiency(None)
         assert result == {"view": "cache_efficiency", "rows": []}
 
     def test_preserves_null_cache_fields(self, tmp_path: Path) -> None:
         rec = _base_record(
-            record_id="r1", cli="pi", session_id="s1",
-            parent_session_id=None, depth=0,
+            record_id="r1",
+            cli="pi",
+            session_id="s1",
+            parent_session_id=None,
+            depth=0,
             recorded_at="2026-01-15T10:00:00Z",
-            normalized_input=100, normalized_output=50,
+            normalized_input=100,
+            normalized_output=50,
             normalized_total=150,
             reported_cache_read=None,
             reported_cache_write=None,
@@ -300,19 +352,27 @@ class TestCacheEfficiency:
 # Stable query surface — six views
 # ---------------------------------------------------------------------------
 
-class TestStableQuerySurface:
 
+class TestStableQuerySurface:
     def test_six_views_available(self) -> None:
         from usage.cli import AVAILABLE_VIEWS
+
         expected = {
-            "raw_usage_snapshots", "latest_run_snapshots",
-            "session_usage", "usage_by_dimension",
-            "cache_efficiency", "capture_health",
+            "raw_usage_snapshots",
+            "latest_run_snapshots",
+            "session_usage",
+            "usage_by_dimension",
+            "cache_efficiency",
+            "capture_health",
         }
         assert set(AVAILABLE_VIEWS) == expected
 
     def test_all_views_listed_in_stderr_on_unknown(self) -> None:
         r = _run_cli("bogus_view", "--usage-dir", "/tmp")
-        for v in ("raw_usage_snapshots", "latest_run_snapshots",
-                   "usage_by_dimension", "cache_efficiency"):
+        for v in (
+            "raw_usage_snapshots",
+            "latest_run_snapshots",
+            "usage_by_dimension",
+            "cache_efficiency",
+        ):
             assert v in r.stderr

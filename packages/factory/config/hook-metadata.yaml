@@ -1,0 +1,85 @@
+---
+# Hook presentation metadata (ST-0290, Value-First Session epic).
+#
+# Companion file to pre-commit-config.yaml. Maps each `agent_factory_hook-*`
+# id to the data fitting needs to present hooks grouped by protected outcome
+# and to ask consent only where it matters:
+#
+#   outcome      — the protected-outcome group shown in the session
+#                  (e.g. "Formatting", "Specification consistency").
+#   trade_off    — auto-fix (modifies files), material-cost (slow or
+#                  resource-heavy), or none. Hooks with trade_off: none are
+#                  auto-included without asking; auto-fix and material-cost
+#                  each require separate consent.
+#   availability — "always", or "requires-path:<relative-path>" when the
+#                  hook is only relevant if that path exists in the target
+#                  project. An unavailable hook is described, not offered
+#                  as a choice, and excluded from the generated config.
+#   description  — one line shown to the newcomer.
+#
+# Parsed by packages/factory/scripts/hook-subset with a purpose-built
+# reader, not a general YAML library (ADR-0006 zero-dependency approach,
+# same rationale as merge-precommit-config). Keep each hook's block to
+# exactly these four `key: value` lines — no nesting, no multi-line
+# scalars, no lists.
+
+hooks:
+  agent_factory_hook-mdformat:
+    outcome: Formatting
+    trade_off: auto-fix
+    availability: always
+    description: Normalizes markdown formatting (headings, lists, tables) so style doesn't drift across authors and agents.
+
+  agent_factory_hook-link-check:
+    outcome: Specification consistency
+    trade_off: none
+    availability: always
+    description: Verifies relative links between markdown files resolve, catching renames, moves, and typos.
+
+  agent_factory_hook-mermaid-lint:
+    outcome: Specification consistency
+    trade_off: none
+    availability: always
+    description: Flags raw semicolons inside Mermaid code fences, which Mermaid silently swallows, producing broken diagrams.
+
+  agent_factory_hook-spec-lint:
+    outcome: Specification consistency
+    trade_off: none
+    availability: requires-path:docs/spec
+    description: Validates Gherkin feature files and supplementary specs in docs/spec/ - required sections, cross-references, and traceability IDs.
+
+  agent_factory_hook-arch-lint:
+    outcome: Architecture consistency
+    trade_off: material-cost
+    availability: requires-path:docs/arc42
+    description: Compares architecture docs against the Structurizr C4 model and validates ADR frontmatter; can auto-export diagrams and use Docker.
+
+  agent_factory_hook-backlog-lint:
+    outcome: Backlog consistency
+    trade_off: none
+    availability: requires-path:backlog
+    description: Validates backlog story files - required frontmatter fields, allowed status values, and dependency references.
+
+  agent_factory_hook-concern-lint:
+    outcome: Agent context consistency
+    trade_off: none
+    availability: requires-path:docs/agent-context.md
+    description: Validates docs/agent-context.md, the concern-based routing interface between agents and project knowledge.
+
+  agent_factory_hook-matrix-lint:
+    outcome: Model configuration consistency
+    trade_off: none
+    availability: always
+    description: Validates config/model.conf for well-formed CLI/tier/model rows. Runs after model configuration and before dispatch (BUG-0029).
+
+  agent_factory_hook-statemachine-lint:
+    outcome: Specification consistency
+    trade_off: none
+    availability: requires-path:docs/spec
+    description: When a spec file has both pseudocode and a Mermaid state diagram, verifies they describe the same states and transitions.
+
+  agent_factory_hook-index-lint:
+    outcome: Factory index maintenance
+    trade_off: none
+    availability: always
+    description: Regenerates INDEX.yaml, the Factory routing table. Consumers don't edit the installed Factory index, so this hook is source-repo only.

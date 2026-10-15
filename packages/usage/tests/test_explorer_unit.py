@@ -10,7 +10,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from usage import explorer
 from usage.explorer import _EvidenceWatcher
 
@@ -63,9 +62,11 @@ class TestLoop:
             else:
                 raise StopIteration("break")
 
-        with patch.object(time, "sleep", side_effect=mock_sleep):
-            with pytest.raises(StopIteration):
-                w._loop()
+        with (
+            patch.object(time, "sleep", side_effect=mock_sleep),
+            pytest.raises(StopIteration),
+        ):
+            w._loop()
 
         w._rebuild.assert_called_once()
 
@@ -81,9 +82,11 @@ class TestLoop:
             if call_count[0] >= 2:
                 raise StopIteration("break")
 
-        with patch.object(time, "sleep", side_effect=mock_sleep):
-            with pytest.raises(StopIteration):
-                w._loop()
+        with (
+            patch.object(time, "sleep", side_effect=mock_sleep),
+            pytest.raises(StopIteration),
+        ):
+            w._loop()
 
         w._rebuild.assert_not_called()
 
@@ -100,7 +103,9 @@ class TestRebuild:
         mock_result = SimpleNamespace(conn=mock_conn)
 
         with (
-            patch("usage.input_snapshot.snapshot", return_value=([Path("a.jsonl")], "d")),
+            patch(
+                "usage.input_snapshot.snapshot", return_value=([Path("a.jsonl")], "d")
+            ),
             patch("usage.contract_check.main", return_value=0),
             patch("usage.preflight.run_preflight", return_value=mock_result),
             patch("usage.accounting.select_latest_snapshots"),
@@ -125,7 +130,9 @@ class TestRebuild:
         w = _EvidenceWatcher(tmp_path, tmp_path / "db.duckdb")
         v = w.version
         with (
-            patch("usage.input_snapshot.snapshot", return_value=([Path("a.jsonl")], "d")),
+            patch(
+                "usage.input_snapshot.snapshot", return_value=([Path("a.jsonl")], "d")
+            ),
             patch("usage.contract_check.main", return_value=1),
         ):
             w._rebuild()
@@ -137,10 +144,15 @@ class TestRebuild:
         mock_conn = MagicMock()
         mock_result = SimpleNamespace(conn=mock_conn)
         with (
-            patch("usage.input_snapshot.snapshot", return_value=([Path("a.jsonl")], "d")),
+            patch(
+                "usage.input_snapshot.snapshot", return_value=([Path("a.jsonl")], "d")
+            ),
             patch("usage.contract_check.main", return_value=0),
             patch("usage.preflight.run_preflight", return_value=mock_result),
-            patch("usage.accounting.select_latest_snapshots", side_effect=RuntimeError("boom")),
+            patch(
+                "usage.accounting.select_latest_snapshots",
+                side_effect=RuntimeError("boom"),
+            ),
         ):
             w._rebuild()
         assert w.version == v
@@ -161,7 +173,8 @@ class TestMain:
         db = tmp_path / "test.duckdb"
         db.touch()
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["usage-explore", str(db), "--watch", "/no/such/dir"],
         )
         with pytest.raises(SystemExit) as exc_info:
@@ -176,7 +189,9 @@ class TestMain:
         mock_server.serve_forever.side_effect = KeyboardInterrupt
 
         monkeypatch.setattr(
-            explorer, "_ThreadingHTTPServer", lambda addr, handler: mock_server,
+            explorer,
+            "_ThreadingHTTPServer",
+            lambda addr, handler: mock_server,
         )
         monkeypatch.setattr(explorer.webbrowser, "open", lambda url: None)
         monkeypatch.setattr(sys, "argv", ["usage-explore", str(db)])
@@ -196,12 +211,15 @@ class TestMain:
         mock_server.serve_forever.side_effect = KeyboardInterrupt
 
         monkeypatch.setattr(
-            explorer, "_ThreadingHTTPServer", lambda addr, handler: mock_server,
+            explorer,
+            "_ThreadingHTTPServer",
+            lambda addr, handler: mock_server,
         )
         monkeypatch.setattr(explorer.webbrowser, "open", lambda url: None)
         monkeypatch.setattr(threading.Thread, "start", lambda self: None)
         monkeypatch.setattr(
-            sys, "argv",
+            sys,
+            "argv",
             ["usage-explore", str(db), "--watch", str(watch_dir)],
         )
 

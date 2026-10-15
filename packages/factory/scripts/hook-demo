@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+"""hook-demo — one-minute gate demonstration for newcomer onboarding
+(ST-0289, Value-First Session epic).
+
+What: Creates a Factory-owned disposable markdown fixture with a
+      deliberate formatting error, runs the real `mdformat --check` gate
+      against it (the same check the `agent_factory_hook-mdformat`
+      pre-commit hook runs), shows the failure, corrects the fixture with
+      `mdformat --number`, shows the gate pass, then removes the fixture
+      and verifies it is gone. The target project is never touched.
+When: Offered during the first Factory session, after project insight and
+      context capture, before hook configuration (VFO-030).
+By:   run by the CLI-invoked session agent (Virgil) after the newcomer
+      gives affirmative consent; consent itself lives in the session, not
+      in this script — skipping the demonstration means never invoking it.
+
+Design (see backlog/ST-0289.md "Resolve Before Implementation"):
+  - Gate: `mdformat --check`. Single file, clear pass/fail exit code, no
+    tooling beyond what preflight already verified (uvx).
+  - Correction is automatic (`mdformat --number`); the newcomer observes
+    the cycle rather than fixing markdown by hand mid-onboarding.
+  - Fixture lives under `.current-work/hook-demo/` — inside the project,
+    gitignored, Factory-managed, deterministic, and disposable.
+
+Usage
+  hook-demo [--repo-root PATH]
+
+Exit codes
+  0: the full failure-to-pass cycle ran and the fixture was removed
+  1: the gate did not behave as expected, or cleanup failed
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+DEFAULT_FIXTURE_BASE = ".current-work/hook-demo"
+FIXTURE_NAME = "demo-fixture.md"
+
+# Deliberate formatting error: mdformat's canonical bullet marker is `-`;
+# this fixture uses `*`. mdformat --check fails on it, and mdformat
+# --number rewrites it to the canonical marker without changing meaning.
+FIXTURE_CONTENT = """# Gate Demonstration Fixture
+
+This file is owned by Factory, not the target project. A real gate runs
+against it to show what a hook catches.
+
+* deliberately uses an asterisk bullet marker
+* mdformat's canonical style uses a dash instead
+"""
+
+
+class HookDemoError(Exception):
+    """Raised when the demonstration does not behave as expected."""
+
+
+@dataclass
+class DemonstrationResult:
+    fixture_path: Path
+    failure_returncode: int
+    failure_output: str
+    pass_returncode: int
+    pass_output: str
+    cleaned_up: bool
+
+
+def create_fixture(repo_root: str | Path, base: str = DEFAULT_FIXTURE_BASE) -> Path:
+    """Write the disposable fixture under <repo_root>/<base>/. Returns its path."""
+    base_dir = Path(repo_root) / base
+    base_dir.mkdir(parents=True, exist_ok=True)
+    fixture = base_dir / FIXTURE_NAME
+    fixture.write_text(FIXTURE_CONTENT)
+    return fixture
+
+
+def fixture_base_dir(repo_root: str | Path, base: str = DEFAULT_FIXTURE_BASE) -> Path:
+    return Path(repo_root) / base
+
+
+def run_gate_check(
+    fixture: Path, script_dir: Path = SCRIPT_DIR
+) -> subprocess.CompletedProcess:
+    """Run the real `mdformat --check` gate against the fixture."""
+    return subprocess.run(
+        [str(script_dir / "mdformat"), "--check", str(fixture)],
+        capture_output=True,
+        text=True,
+    )
+
+
+def correct_fixture(
+    fixture: Path, script_dir: Path = SCRIPT_DIR
+) -> subprocess.CompletedProcess:
+    """Correct the fixture in place with the real `mdformat --number` gate."""
+    return subprocess.run(
+        [str(script_dir / "mdformat"), "--number", str(fixture)],
+        capture_output=True,
+        text=True,
+    )
+
+
+def remove_fixture_dir(base_dir: Path) -> None:
+    """Remove the fixture directory and verify it is gone."""
+    shutil.rmtree(base_dir, ignore_errors=True)
+    if base_dir.exists():
+        raise HookDemoError(f"cleanup failed — {base_dir} still exists")
+
+
+def run_demonstration(
+    repo_root: str | Path,
+    base: str = DEFAULT_FIXTURE_BASE,
+    script_dir: Path = SCRIPT_DIR,
+) -> DemonstrationResult:
+    """Run the full failure-to-pass-to-cleanup cycle.
+
+    Always removes the fixture directory before returning or raising —
+    on the happy path (step 5 of the demonstration sequence) and as a
+    cleanup-on-interrupt/exception safety net.
+    """
+    base_dir = fixture_base_dir(repo_root, base)
+    fixture = create_fixture(repo_root, base)
+
+    try:
+        failure = run_gate_check(fixture, script_dir)
+        if failure.returncode == 0:
+            raise HookDemoError(
+                "expected the gate to fail on the disposable fixture, "
+                "but it passed"
+            )
+
+        correction = correct_fixture(fixture, script_dir)
+        if correction.returncode != 0:
+            raise HookDemoError(
+                f"automatic correction failed: {correction.stderr.strip()}"
+            )
+
+        passed = run_gate_check(fixture, script_dir)
+        if passed.returncode != 0:
+            raise HookDemoError(
+                "gate still fails after automatic correction: "
+                f"{passed.stderr.strip()}"
+            )
+    finally:
+        remove_fixture_dir(base_dir)
+
+    return DemonstrationResult(
+        fixture_path=fixture,
+        failure_returncode=failure.returncode,
+        failure_output=(failure.stdout + failure.stderr).strip(),
+        pass_returncode=passed.returncode,
+        pass_output=(passed.stdout + passed.stderr).strip(),
+        cleaned_up=not base_dir.exists(),
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument(
+        "--repo-root",
+        default=".",
+        help="target project root; the fixture is created and removed "
+        "under <repo-root>/.current-work/hook-demo/ (default: cwd)",
+    )
+    args = ap.parse_args(argv)
+
+    repo_root = Path(args.repo_root).resolve()
+
+    print(f"hook-demo: creating disposable fixture under {repo_root / DEFAULT_FIXTURE_BASE}")
+    print("hook-demo: running `mdformat --check` on the fixture")
+
+    try:
+        result = run_demonstration(repo_root)
+    except HookDemoError as exc:
+        print(f"hook-demo: FAIL — {exc}", file=sys.stderr)
+        return 1
+
+    print(result.failure_output)
+    print("hook-demo: gate reports a failure, as expected")
+    print("hook-demo: correcting the fixture with `mdformat --number`")
+    print("hook-demo: re-running `mdformat --check` on the corrected fixture")
+    print(result.pass_output or "hook-demo: gate reports no formatting violations")
+    print("hook-demo: gate passes on the corrected fixture")
+    print(f"hook-demo: removed {result.fixture_path.parent} and verified its absence")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

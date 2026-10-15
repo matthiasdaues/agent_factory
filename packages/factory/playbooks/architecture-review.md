@@ -155,7 +155,7 @@ Check remaining open findings:
 grep -l "status: open" docs/findings/ATAM-*.md
 ```
 
-**If high/medium risks remain** → Loop to Step 4.1
+**If high/medium risks remain** → Return to Step 4.1
 **If acceptable** → Go to Step 5
 
 ## Step 5 — DONE (Review Complete)

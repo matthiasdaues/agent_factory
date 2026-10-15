@@ -7,7 +7,7 @@
 
 **Session scope**: <one-line summary of what the session accomplished>
 **Duration**: <approximate session length>
-**Mode**: <interactive / autonomous / mixed>
+**Mode**: <interactive / automated / manual / mixed>
 ```
 
 ## Sections

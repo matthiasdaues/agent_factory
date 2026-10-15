@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 import os
-import textwrap
-
-import pytest
 
 from conftest import load_script
 
@@ -25,7 +22,7 @@ def _write_agent(tmp_path, name, inputs_required=None, description=""):
         lines.append("  required:")
         for req in inputs_required:
             lines.append(f"    - type: {req['type']}")
-            lines.append(f"      path_pattern: \"{req['path_pattern']}\"")
+            lines.append(f'      path_pattern: "{req["path_pattern"]}"')
             if "conditions" in req:
                 cond = req["conditions"]
                 lines.append("      conditions:")
@@ -76,11 +73,14 @@ class TestSelectSatisfiedEvidence:
         proposal.write_text("---\nstatus: accepted\n---\n# Proposal\n")
 
         agents_dir = _write_agent(
-            tmp_path, "test-agent",
-            inputs_required=[{
-                "type": "proposal",
-                "path_pattern": str(target / "*.md"),
-            }],
+            tmp_path,
+            "test-agent",
+            inputs_required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": str(target / "*.md"),
+                }
+            ],
         )
 
         os.chdir(tmp_path)
@@ -95,11 +95,14 @@ class TestSelectSatisfiedEvidence:
 class TestSelectUnsatisfiedEvidence:
     def test_shows_unsatisfied_input(self, tmp_path, capsys):
         agents_dir = _write_agent(
-            tmp_path, "test-agent",
-            inputs_required=[{
-                "type": "story",
-                "path_pattern": str(tmp_path / "nonexistent/*.md"),
-            }],
+            tmp_path,
+            "test-agent",
+            inputs_required=[
+                {
+                    "type": "story",
+                    "path_pattern": str(tmp_path / "nonexistent/*.md"),
+                }
+            ],
         )
 
         result = intent.main(["select", "--agents-dir", str(agents_dir)])
@@ -126,11 +129,15 @@ class TestSelectWorkstreamFlag:
     def test_workstream_flag_accepted(self, tmp_path, capsys):
         agents_dir = _write_agent(tmp_path, "scoped-agent")
 
-        result = intent.main([
-            "select",
-            "--agents-dir", str(agents_dir),
-            "--workstream", "my-workstream",
-        ])
+        result = intent.main(
+            [
+                "select",
+                "--agents-dir",
+                str(agents_dir),
+                "--workstream",
+                "my-workstream",
+            ]
+        )
 
         assert result == 0
 

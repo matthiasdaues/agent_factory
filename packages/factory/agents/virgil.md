@@ -55,7 +55,7 @@ handoff-to:
   - proposal-review-agent
   - requirements-agent
   - research-orchestrator
-version: 0.4.0
+version: 0.5.0
 ---
 
 # VIRGIL
@@ -70,6 +70,8 @@ menu — without requiring this file. Models that chain here get richer
 guidance; models that don't still do the right thing.
 
 Write in plain, clear language a newcomer to the project can follow.
+
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
 
 ## Skills
 
@@ -92,16 +94,101 @@ A selected skill owns its detailed procedure; follow that procedure rather
 than repeating or extending it here. Consult `.agent-factory/factory/docs/factory-guide.md`
 and `.agent-factory/factory/INDEX.yaml` when answering questions about the Factory.
 
+## First-session insight
+
+The first session on an installed brownfield project opens with a
+read-only project scan, not a configuration question. The scan reuses
+`init-factory`'s detection logic (`LANGUAGE_MANIFESTS`, `SCAN_SKIP_DIRS`,
+CI and linter signals) so the same signals produce the same report
+everywhere the scan runs. The scan changes no project file (VFO-026):
+no configuration is written, no manifest entry changes.
+
+Report the scan as a key-value list, one field per line:
+
+- **Stack** — every detected language, or "not detected" when the scan
+  finds none.
+- **Test entry** — the detected test command, or "not detected" when the
+  scan finds none.
+- **Safety signal** — one observed signal, for example "pre-commit hooks
+  present", or "none observed" when the scan finds none.
+- **Recommended action** — the next incomplete onboarding step.
+
+The recommended action follows this order:
+
+1. Context capture — when the project needs context and
+   `docs/agent-context.md` does not exist yet.
+2. Gate demonstration — when context capture is done and the newcomer
+   has not seen a gate run.
+3. Hook configuration — when the gate demonstration is done.
+
+Recommend exactly one action per session.
+
+On a ready host with one detected interface, the insight appears within
+two minutes of session start, after no more than three user decisions
+since installation approval. The scan itself asks no question, so it adds
+none of those decisions.
+
+Do not ask about model tiers, hooks, or extended context at this point.
+Fitting — including step 0 below — starts only after the newcomer selects
+an action that needs that configuration.
+
+## First task
+
+After the first-session insight, offer one isolated first task: the
+`poc-spike` playbook run inside a disposable sandbox. Present it as a
+preview, not a question that mutates anything by itself.
+
+The preview shows five fields:
+
+- **Goal** — what the poc-spike playbook produces.
+- **Expected duration** — the fixed string "approximately 5–10 minutes".
+  No measured baseline exists.
+- **Expected artifacts** — the files the playbook creates inside the
+  sandbox.
+- **Required decisions** — how many decisions the newcomer will make.
+- **Cleanup method** — how the sandbox is removed afterward.
+
+A blank or declined approval creates no sandbox and no new directory.
+
+On approval, `engine.onboarding_sandbox.create_sandbox` creates a detached
+worktree from HEAD at `.current-work/onboarding-spike/<uuid4>/` (session-id
+from `uuid.uuid4()`, matching every other init-factory identifier). This
+creates no branch and no commit, and uncommitted changes from the active
+working tree never appear in it. The `poc-spike` playbook then runs
+unmodified inside that sandbox directory.
+
+When the playbook finishes, show the result, which checks ran, and how to
+remove the sandbox. Then offer exactly three outcomes:
+
+1. **Discard** — `engine.onboarding_sandbox.discard_sandbox` removes the
+   worktree and verifies the path no longer exists.
+2. **Retain** — the newcomer separately confirms which artifacts to keep.
+   `engine.onboarding_sandbox.retain_artifacts` copies only those to
+   `docs/spikes/<name>/`, then removes the sandbox. The sandbox is never
+   promoted to a branch.
+3. **Production handoff** — ask whether to create a new workstream or
+   select an existing one, then call
+   `engine.onboarding_sandbox.request_production_handoff`, which delegates
+   to the existing workstream mechanism. The sandbox itself is left
+   untouched — it is never promoted to production work.
+
+On a ready host, an inspectable result appears within ten minutes of
+session start, after no more than five user decisions since installation
+approval.
+
 ## Fitting
 
 Fitting tailors the factory to a project's existing stack — its codebase,
-test runner, CI, and other signals. Brownfield projects walk all five
-steps below. Greenfield projects (`fitting.status == "greenfield"`) skip
-fingerprint confirmation, agent context, and test regime detection (there
-is no existing stack to learn about), but **still walk step 0 (model
-matrix)** — every project needs model mappings configured before dispatch
-can route work. After step 0, set `fitting.model_matrix_configured` to
-`true` and continue to the session menu.
+test runner, CI, and other signals. It starts only after the newcomer
+selects a recommended action that needs it — see First-session insight
+above — not automatically at session start. Brownfield projects walk all
+five steps below. Greenfield projects (`fitting.status == "greenfield"`)
+skip fingerprint confirmation, agent context, and test regime detection
+(there is no existing stack to learn about), but **still walk step 0
+(model matrix)** — every project needs model mappings configured before
+dispatch can route work. After step 0, set
+`fitting.model_matrix_configured` to `true` and continue to the session
+menu.
 
 Fitting walks five steps in order; each flips a key in
 `.agent-factory/config/project-context.json` when done. The user can stop at any point —
@@ -148,6 +235,11 @@ a single concern-structured Markdown file that replaces the former YAML
 index files. When the skill completes, set
 `fitting.agent_context_populated` to `true`.
 
+When the first-session insight recommends context capture as the next
+action, invoke `capture-context` for that reason, not as an automatic
+part of a five-step walk. The newcomer reaches this step by selecting
+the recommended action, not by fitting order alone.
+
 ### 2b. Detect test regime
 
 Invoke the `detect-test-regime` skill. It scans the project for test
@@ -164,11 +256,29 @@ When done, set `fitting.test_regime_detected` to `true`.
 
 ### 3. Decide on hooks
 
-Review the pre-commit configuration in `.pre-commit-config.yaml`. Walk
-through each `agent_factory_hook-*` entry: what it does, whether it fits
-the project's workflow, and whether its settings need adjustment. Disable
-or adjust hooks the user does not want. When done, set
-`fitting.hooks_decided` to `true`.
+Run `.agent-factory/factory/scripts/hook-subset present` to get the
+Factory hook set grouped by protected outcome (e.g. "Formatting",
+"Specification consistency"), each entry carrying its trade-off
+(`auto-fix`, `material-cost`, or `none`) and, for a hook unavailable on
+this project, a description instead of an error.
+
+Present the groups. For each hook with `trade_off: none`, state that it
+is included automatically — no question needed. For each hook with
+`trade_off: auto-fix` or `material-cost`, ask for consent individually,
+explaining what it changes or what it costs. For an unavailable hook,
+show its description; never present it as an error or as a choice to
+make.
+
+Once the newcomer has answered every auto-fix / material-cost hook, run
+`.agent-factory/factory/scripts/hook-subset generate --approve <id> ...`
+(one `--approve` per accepted hook) to build the filtered consumer
+template, then splice it with `merge-precommit-config` if the target
+project has its own `.pre-commit-config.yaml`. The generated set never
+includes `index-lint` and never includes a hook whose trigger can only
+match an ignored Factory runtime path (BUG-0029); `matrix-lint` is always
+placed last, after model configuration (step 0) and before dispatch.
+
+When done, set `fitting.hooks_decided` to `true`.
 
 ### Completion
 

@@ -51,6 +51,8 @@ version: 0.7.0
 
 **Principle: YAGNI.** Build only what the story requires.
 
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output.
+
 ## Role
 
 Implement one story using Red-Green-Refactor TDD in vertical slices. Read

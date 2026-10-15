@@ -10,7 +10,6 @@ import os
 import stat
 
 import pytest
-
 from conftest import SCRIPTS_DIR, load_script
 
 SAFETY_SCRIPTS = ["verify-base", "premerge-check"]

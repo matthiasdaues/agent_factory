@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
-
 from usage import cli, preflight
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
@@ -20,6 +17,7 @@ SNAPSHOT_DIR = FIXTURES / "snapshot"
 
 # ── _parse_args ──────────────────────────────────────────────────────
 
+
 class TestParseArgs:
     def test_minimal(self):
         args = cli._parse_args(["capture_health"])
@@ -28,16 +26,24 @@ class TestParseArgs:
         assert args.diagnostic is False
 
     def test_all_flags(self):
-        args = cli._parse_args([
-            "usage_by_dimension",
-            "--usage-dir", "/tmp/u",
-            "--diagnostic",
-            "--dimensions", "cli,model",
-            "--granularity", "day",
-            "--format", "table",
-            "-o", "/tmp/out.parquet",
-            "--persist", "/tmp/db.duckdb",
-        ])
+        args = cli._parse_args(
+            [
+                "usage_by_dimension",
+                "--usage-dir",
+                "/tmp/u",
+                "--diagnostic",
+                "--dimensions",
+                "cli,model",
+                "--granularity",
+                "day",
+                "--format",
+                "table",
+                "-o",
+                "/tmp/out.parquet",
+                "--persist",
+                "/tmp/db.duckdb",
+            ]
+        )
         assert args.view == "usage_by_dimension"
         assert args.usage_dir == "/tmp/u"
         assert args.diagnostic is True
@@ -50,14 +56,15 @@ class TestParseArgs:
 
 # ── _validate_args ───────────────────────────────────────────────────
 
+
 class TestValidateArgs:
     def _args(self, **overrides):
-        defaults = dict(
-            view="capture_health",
-            output_format="json",
-            output=None,
-            diagnostic=False,
-        )
+        defaults = {
+            "view": "capture_health",
+            "output_format": "json",
+            "output": None,
+            "diagnostic": False,
+        }
         defaults.update(overrides)
         return SimpleNamespace(**defaults)
 
@@ -80,13 +87,14 @@ class TestValidateArgs:
 
 # ── _validate_parquet_args ───────────────────────────────────────────
 
+
 class TestValidateParquetArgs:
     def _args(self, **overrides):
-        defaults = dict(
-            view="session_usage",
-            output_format="json",
-            output=None,
-        )
+        defaults = {
+            "view": "session_usage",
+            "output_format": "json",
+            "output": None,
+        }
         defaults.update(overrides)
         return SimpleNamespace(**defaults)
 
@@ -104,12 +112,16 @@ class TestValidateParquetArgs:
         assert "capture_health" in err
 
     def test_parquet_valid(self):
-        assert cli._validate_parquet_args(
-            self._args(output_format="parquet", output="/tmp/x"),
-        ) is None
+        assert (
+            cli._validate_parquet_args(
+                self._args(output_format="parquet", output="/tmp/x"),
+            )
+            is None
+        )
 
 
 # ── _resolve_usage_dir ───────────────────────────────────────────────
+
 
 class TestResolveUsageDir:
     def test_existing_dir(self, tmp_path):
@@ -123,6 +135,7 @@ class TestResolveUsageDir:
 
 # ── _find_project_root ───────────────────────────────────────────────
 
+
 class TestFindProjectRoot:
     def test_finds_marker(self, tmp_path, monkeypatch):
         (tmp_path / ".agent-factory").mkdir()
@@ -135,6 +148,7 @@ class TestFindProjectRoot:
 
 
 # ── _route ───────────────────────────────────────────────────────────
+
 
 def _pi_preflight(tmp_path: Path):
     """Build a real PreflightResult from the pi fixture."""
@@ -178,7 +192,9 @@ class TestRoute:
     def test_usage_by_dimension(self, tmp_path):
         pr = _pi_preflight(tmp_path)
         args = SimpleNamespace(
-            view="usage_by_dimension", dimensions=None, granularity="none",
+            view="usage_by_dimension",
+            dimensions=None,
+            granularity="none",
         )
         result = cli._route(args, pr)
         assert result["view"] == "usage_by_dimension"
@@ -198,6 +214,7 @@ class TestRoute:
 
 # ── _exit_on_unknown_cli ─────────────────────────────────────────────
 
+
 class TestExitOnUnknownCli:
     def test_no_error_noop(self):
         cli._exit_on_unknown_cli({"view": "session_usage", "rows": []})
@@ -210,6 +227,7 @@ class TestExitOnUnknownCli:
 
 # ── _duckdb_view_name ────────────────────────────────────────────────
 
+
 class TestDuckdbViewName:
     def test_valid_views(self):
         assert cli._duckdb_view_name("session_usage") == "session_usage"
@@ -221,6 +239,7 @@ class TestDuckdbViewName:
 
 
 # ── _ensure_view_materialized ────────────────────────────────────────
+
 
 class TestEnsureViewMaterialized:
     def test_session_usage_calls_accounting(self, tmp_path):
@@ -239,6 +258,7 @@ class TestEnsureViewMaterialized:
 
 
 # ── _format_and_output ───────────────────────────────────────────────
+
 
 class TestFormatAndOutput:
     def test_json_output(self, capsys):
@@ -266,6 +286,7 @@ class TestFormatAndOutput:
 
 
 # ── _persist_if_requested ────────────────────────────────────────────
+
 
 class TestPersistIfRequested:
     def test_noop_without_flag(self, tmp_path):
@@ -296,6 +317,7 @@ class TestPersistIfRequested:
 
 # ── _run_preflight ───────────────────────────────────────────────────
 
+
 class TestRunPreflight:
     def test_empty_paths_returns_none(self):
         assert cli._run_preflight([], "session_usage") is None
@@ -309,6 +331,7 @@ class TestRunPreflight:
 
 
 # ── main (integration-level, direct import) ──────────────────────────
+
 
 class TestMainDirect:
     def test_capture_health_json(self, tmp_path, capsys):

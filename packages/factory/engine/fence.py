@@ -49,6 +49,7 @@ class FenceResult:
 
 def _glob_pattern(path_pattern: str) -> list[str]:
     import re
+
     expanded = re.sub(r"\{[^}]+\}", "*", path_pattern)
     return sorted(glob_module.glob(expanded, recursive=True))
 
@@ -89,9 +90,7 @@ def _find_changed(
 ) -> list[str]:
     changed = []
     for path, mtime in post.items():
-        if path not in pre:
-            changed.append(path)
-        elif mtime > pre[path]:
+        if path not in pre or mtime > pre[path]:
             changed.append(path)
     return sorted(changed)
 
@@ -101,19 +100,24 @@ def _run_validator(
     changed_files: list[str],
     warnings: list[str],
 ) -> bool:
-    _fr = Path(".agent-factory/factory/scripts") if Path(".agent-factory/factory").is_dir() else Path("factory/scripts")
+    _fr = (
+        Path(".agent-factory/factory/scripts")
+        if Path(".agent-factory/factory").is_dir()
+        else Path("factory/scripts")
+    )
     script_path = _fr / validator_name
     if not script_path.exists():
-        warnings.append(
-            f"validator '{validator_name}' not found at {script_path}"
-        )
+        warnings.append(f"validator '{validator_name}' not found at {script_path}")
         return True
 
     for fpath in changed_files:
         try:
             result = subprocess.run(
                 [str(script_path), "--check", fpath],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
             )
             if result.returncode != 0:
                 return False
@@ -179,16 +183,18 @@ def run_fence(
                 validator_passed = None
                 status = "passed"
 
-        results.append(DeclarationResult(
-            path_pattern=pattern,
-            required=required,
-            validator=validator,
-            pre_snapshot=pre_snap,
-            post_snapshot=post_snap,
-            changed_files=changed,
-            validator_passed=validator_passed,
-            status=status,
-        ))
+        results.append(
+            DeclarationResult(
+                path_pattern=pattern,
+                required=required,
+                validator=validator,
+                pre_snapshot=pre_snap,
+                post_snapshot=post_snap,
+                changed_files=changed,
+                validator_passed=validator_passed,
+                status=status,
+            )
+        )
 
     if decls_changed < minimum_changed:
         failure_reasons.append(
@@ -230,14 +236,16 @@ def _atomic_write(path: Path, content: str) -> None:
 def _result_to_dict(result: FenceResult) -> dict:
     decls = []
     for d in result.declarations:
-        decls.append({
-            "path_pattern": d.path_pattern,
-            "required": d.required,
-            "validator": d.validator,
-            "changed_files": d.changed_files,
-            "validator_passed": d.validator_passed,
-            "status": d.status,
-        })
+        decls.append(
+            {
+                "path_pattern": d.path_pattern,
+                "required": d.required,
+                "validator": d.validator,
+                "changed_files": d.changed_files,
+                "validator_passed": d.validator_passed,
+                "status": d.status,
+            }
+        )
 
     return {
         "agent_name": result.agent_name,

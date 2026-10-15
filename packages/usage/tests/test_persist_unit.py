@@ -7,8 +7,7 @@ from pathlib import Path
 
 import duckdb
 import pytest
-
-from usage.persist import persist_to_duckdb, _escape_path
+from usage.persist import _escape_path, persist_to_duckdb
 
 
 class TestEscapePath:
@@ -70,7 +69,8 @@ class TestPersistToDuckdb:
         assert count == 1
         check = duckdb.connect(str(dest), read_only=True)
         tables = [
-            r[0] for r in check.execute(
+            r[0]
+            for r in check.execute(
                 "SELECT table_name FROM information_schema.tables "
                 "WHERE table_schema = 'main'"
             ).fetchall()

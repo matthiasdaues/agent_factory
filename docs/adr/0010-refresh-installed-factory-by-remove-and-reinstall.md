@@ -1,6 +1,6 @@
 ---
 id: 0010
-status: accepted
+status: superseded by ADR-0023
 evaluation: none
 ---
 

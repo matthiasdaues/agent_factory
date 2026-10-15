@@ -12,15 +12,17 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
-_SOURCE = REPO_ROOT / "packages" / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+_SOURCE = (
+    REPO_ROOT / "packages" / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
+)
 _INSTALLED = REPO_ROOT / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
 HOOK_PATH = _SOURCE if _SOURCE.exists() else _INSTALLED
 
 
-def _run_hook(command: str, cwd: str | Path | None = None, env: dict | None = None) -> subprocess.CompletedProcess:
+def _run_hook(
+    command: str, cwd: str | Path | None = None, env: dict | None = None
+) -> subprocess.CompletedProcess:
     payload = json.dumps({"tool_input": {"command": command}})
     run_env = {k: v for k, v in os.environ.items()}
     run_env.pop("GIT_DIR", None)
@@ -40,11 +42,25 @@ def _run_hook(command: str, cwd: str | Path | None = None, env: dict | None = No
 
 def _init_repo(path: Path) -> None:
     subprocess.run(["git", "init", str(path)], capture_output=True, check=True)
-    subprocess.run(["git", "-C", str(path), "config", "user.email", "test@test"], capture_output=True, check=True)
-    subprocess.run(["git", "-C", str(path), "config", "user.name", "Test"], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(path), "config", "user.email", "test@test"],
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(path), "config", "user.name", "Test"],
+        capture_output=True,
+        check=True,
+    )
     (path / "README.md").write_text("init\n")
-    subprocess.run(["git", "-C", str(path), "add", "."], capture_output=True, check=True)
-    subprocess.run(["git", "-C", str(path), "commit", "-m", "init", "--no-verify"], capture_output=True, check=True)
+    subprocess.run(
+        ["git", "-C", str(path), "add", "."], capture_output=True, check=True
+    )
+    subprocess.run(
+        ["git", "-C", str(path), "commit", "-m", "init", "--no-verify"],
+        capture_output=True,
+        check=True,
+    )
 
 
 def _create_worktree(main: Path, branch: str, wt_path: Path) -> None:
@@ -60,7 +76,9 @@ def _place_verify_base_marker(wt_path: Path) -> None:
     marker_dir.mkdir(parents=True, exist_ok=True)
     head_sha = subprocess.run(
         ["git", "-C", str(wt_path), "rev-parse", "HEAD"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
     (marker_dir / "verify-base-ok").write_text(f"head={head_sha}\n")
 
@@ -85,7 +103,10 @@ class TestLedgerGateOnStoryBranch:
 
         result = _run_hook("git commit -m test", cwd=wt)
         assert result.returncode == 2
-        assert "dispatch ledger" in result.stderr.lower() or "dispatch" in result.stderr.lower()
+        assert (
+            "dispatch ledger" in result.stderr.lower()
+            or "dispatch" in result.stderr.lower()
+        )
 
     def test_story_branch_with_ledger_is_allowed(self, tmp_path):
         main = tmp_path / "main"
@@ -160,7 +181,8 @@ class TestLedgerGateDoesNotAffectMainCheckout:
         _init_repo(main)
         subprocess.run(
             ["git", "-C", str(main), "checkout", "-b", "story/ST-0002"],
-            capture_output=True, check=True,
+            capture_output=True,
+            check=True,
         )
 
         result = _run_hook("git commit -m test", cwd=main)

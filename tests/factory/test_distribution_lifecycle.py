@@ -52,9 +52,7 @@ def target(tmp_path: Path) -> Path:
         "installed_components": {},
         "remove_paths": [],
     }
-    (af / "install.json").write_text(
-        json.dumps(manifest, indent=2) + "\n"
-    )
+    (af / "install.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return t
 
 
@@ -93,9 +91,7 @@ class TestReadPackageVersion:
 
 
 class TestInstallUsageComponent:
-    def test_installs_component(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_installs_component(self, target: Path, source_root: Path) -> None:
         install = _make_install_dict()
         report: list[str] = []
         inf.install_usage_component(target, source_root, install, report)
@@ -116,9 +112,7 @@ class TestInstallUsageComponent:
 
         assert "usage" in install["installed_components"]
 
-    def test_idempotent_skip(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_idempotent_skip(self, target: Path, source_root: Path) -> None:
         install = _make_install_dict()
         report: list[str] = []
         inf.install_usage_component(target, source_root, install, report)
@@ -136,9 +130,7 @@ class TestInstallUsageComponent:
 
 
 class TestDoUpdateComponent:
-    def test_compatible_update(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_compatible_update(self, target: Path, source_root: Path) -> None:
         install = _make_install_dict()
         report: list[str] = []
         inf.install_usage_component(target, source_root, install, report)
@@ -187,23 +179,17 @@ class TestDoUpdateComponent:
         )
         assert meta["contract_version"] == "v1"
 
-    def test_update_not_installed(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_update_not_installed(self, target: Path, source_root: Path) -> None:
         rc = inf.do_update_component(target, source_root, "usage")
         assert rc == 1
 
-    def test_unknown_component(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_unknown_component(self, target: Path, source_root: Path) -> None:
         rc = inf.do_update_component(target, source_root, "bogus")
         assert rc == 1
 
 
 class TestDoRemoveComponent:
-    def test_removes_component(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_removes_component(self, target: Path, source_root: Path) -> None:
         install = _make_install_dict()
         report: list[str] = []
         inf.install_usage_component(target, source_root, install, report)
@@ -220,9 +206,7 @@ class TestDoRemoveComponent:
         manifest = json.loads(manifest_path.read_text())
         assert "usage" not in manifest.get("installed_components", {})
 
-    def test_preserves_raw_evidence(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_preserves_raw_evidence(self, target: Path, source_root: Path) -> None:
         install = _make_install_dict()
         report: list[str] = []
         inf.install_usage_component(target, source_root, install, report)
@@ -246,9 +230,7 @@ class TestDoRemoveComponent:
         rc = inf.do_remove_component(target, "bogus")
         assert rc == 1
 
-    def test_remove_idempotent(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_remove_idempotent(self, target: Path, source_root: Path) -> None:
         install = _make_install_dict()
         report: list[str] = []
         inf.install_usage_component(target, source_root, install, report)
@@ -263,9 +245,7 @@ class TestDoRemoveComponent:
 
 
 class TestReadComponentMeta:
-    def test_reads_installed_meta(
-        self, target: Path, source_root: Path
-    ) -> None:
+    def test_reads_installed_meta(self, target: Path, source_root: Path) -> None:
         install = _make_install_dict()
         report: list[str] = []
         inf.install_usage_component(target, source_root, install, report)

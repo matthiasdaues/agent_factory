@@ -20,7 +20,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
 import yaml
 
 PACKAGES_DIR = Path(__file__).resolve().parents[2] / "packages" / "factory"
@@ -36,7 +35,9 @@ def _write_frontmatter(path: Path, data: dict) -> None:
     path.write_text(f"---\n{fm}---\n\n# Content\n")
 
 
-def _agent(name: str, required: list | None = None, context: list | None = None) -> dict:
+def _agent(
+    name: str, required: list | None = None, context: list | None = None
+) -> dict:
     inputs: dict = {}
     if required is not None:
         inputs["required"] = required
@@ -63,10 +64,15 @@ class TestGlobExpansion:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "my-idea.md", {"status": "draft"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is True
         assert len(result["requirements"]) == 1
@@ -81,10 +87,15 @@ class TestScopeFiltering:
         _write_frontmatter(proposals / "a.md", {"scope": "ws-1"})
         _write_frontmatter(proposals / "b.md", {"scope": "ws-2"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent, workstream_id="ws-1")
         assert result["eligible"] is True
         assert len(result["requirements"][0]["candidates"]) == 1
@@ -96,10 +107,15 @@ class TestScopeFiltering:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "a.md", {"scope": "global"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent, workstream_id="ws-1")
         assert result["eligible"] is True
 
@@ -110,10 +126,15 @@ class TestScopeFiltering:
         _write_frontmatter(proposals / "a.md", {"scope": "ws-1"})
         _write_frontmatter(proposals / "b.md", {"scope": "ws-2"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent, workstream_id=None)
         assert result["eligible"] is True
         assert len(result["requirements"][0]["candidates"]) == 2
@@ -124,10 +145,15 @@ class TestScopeFiltering:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "a.md", {"status": "draft"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent, workstream_id="ws-1")
         assert result["eligible"] is True
 
@@ -139,11 +165,16 @@ class TestConditionFieldValue:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "x.md", {"status": "accepted"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-            "conditions": {"field": "status", "value": "accepted"},
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                    "conditions": {"field": "status", "value": "accepted"},
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is True
         assert result["requirements"][0]["condition_result"] == "pass"
@@ -154,11 +185,16 @@ class TestConditionFieldValue:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "x.md", {"status": "draft"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-            "conditions": {"field": "status", "value": "accepted"},
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                    "conditions": {"field": "status", "value": "accepted"},
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is False
         assert result["requirements"][0]["condition_result"] == "fail"
@@ -171,11 +207,16 @@ class TestConditionFieldOneOf:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "x.md", {"status": "accepted"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-            "conditions": {"field": "status", "one_of": ["accepted", "open"]},
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                    "conditions": {"field": "status", "one_of": ["accepted", "open"]},
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is True
 
@@ -185,11 +226,16 @@ class TestConditionFieldOneOf:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "x.md", {"status": "draft"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-            "conditions": {"field": "status", "one_of": ["accepted", "open"]},
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                    "conditions": {"field": "status", "one_of": ["accepted", "open"]},
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is False
 
@@ -197,10 +243,15 @@ class TestConditionFieldOneOf:
 class TestCardinality:
     def test_zero_unsatisfied(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is False
         assert result["requirements"][0]["satisfied"] is False
@@ -212,10 +263,15 @@ class TestCardinality:
         proposals.mkdir(parents=True)
         _write_frontmatter(proposals / "x.md", {"status": "draft"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is True
         assert len(result["requirements"][0]["candidates"]) == 1
@@ -227,10 +283,15 @@ class TestCardinality:
         _write_frontmatter(proposals / "a.md", {"status": "draft"})
         _write_frontmatter(proposals / "b.md", {"status": "draft"})
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is True
         assert len(result["requirements"][0]["candidates"]) == 2
@@ -243,11 +304,16 @@ class TestMalformedFrontmatter:
         proposals.mkdir(parents=True)
         (proposals / "bad.md").write_text("not yaml at all\n")
 
-        agent = _agent("test", required=[{
-            "type": "proposal",
-            "path_pattern": "docs/proposals/{name}.md",
-            "conditions": {"field": "status", "value": "accepted"},
-        }])
+        agent = _agent(
+            "test",
+            required=[
+                {
+                    "type": "proposal",
+                    "path_pattern": "docs/proposals/{name}.md",
+                    "conditions": {"field": "status", "value": "accepted"},
+                }
+            ],
+        )
         result = evaluate_agent(agent)
         assert result["eligible"] is False
         assert len(result["warnings"]) > 0
@@ -268,10 +334,15 @@ class TestEvaluateAll:
         monkeypatch.chdir(tmp_path)
         agents = [
             _agent("always", required=[]),
-            _agent("blocked", required=[{
-                "type": "proposal",
-                "path_pattern": "nonexistent/{name}.md",
-            }]),
+            _agent(
+                "blocked",
+                required=[
+                    {
+                        "type": "proposal",
+                        "path_pattern": "nonexistent/{name}.md",
+                    }
+                ],
+            ),
         ]
         results = evaluate_all(agents)
         names = {r["agent_name"]: r["eligible"] for r in results}

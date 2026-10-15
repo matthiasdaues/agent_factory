@@ -12,49 +12,29 @@ Operational procedure for **new project development** from requirements through 
 ## Prerequisites
 
 - [ ] Project repository initialized
-- [ ] `CONTEXT.md` exists (or will be created in Phase 1)
+- [ ] `CONTEXT.md` exists (or will be created during requirements work)
 - [ ] Session management ready
 
-## Phase Boundary Contract
+## Session Boundaries
 
-Every transition in the table below is a Factory workflow phase boundary. The
-outgoing participant must invoke `handoff`, obtain a clean `handoff-lint`
-result and independent semantic review, then make a hard stop before doing any
-work from the next row. The incoming participant starts a fresh session and
-must read the handoff first, verify its Git state, and read referenced artifacts
-through an initial bounded chunk, expanding further only on demand. Do not
-replay a prior transcript.
+When work moves from one agent to another, the outgoing session writes a
+handoff per [handoff-format.md](../rulebooks/conventions/handoff-format.md),
+obtains a clean `handoff-lint` result and independent semantic review, then
+makes a hard stop. The incoming agent starts a fresh session, reads the handoff
+first, verifies its Git state, and reads referenced artifacts in bounded,
+on-demand chunks. Do not replay a prior transcript.
 
 Before any child returns, it persists its complete reports and findings in
 canonical tracked artifacts. Its parent receives only disposition, severity
 counts, every artifact path, and a one-to-three-sentence next action; finding
-detail and full reasoning remain in the artifacts. No in-place transcript
-compaction, prose-only cache-restabilisation ritual, or live cache control is
-introduced.
+detail and full reasoning remain in the artifacts.
 
-| Transition                                     | Route                                                                           |
-| ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| requirements-agent → spec-review-agent         | Requirements authoring completes                                                |
-| spec-review-agent → requirements-agent         | Open specification findings require remedies                                    |
-| spec-review-agent → architecture-agent         | Specification review is clean                                                   |
-| architecture-agent → architecture-review-agent | Architecture authoring completes                                                |
-| architecture-review-agent → architecture-agent | Open architecture findings require remedies                                     |
-| architecture-review-agent → planning-agent     | Architecture review is clean, charter completeness sweep and planning gate pass |
-| planning-agent → implementation-agent          | Backlog is approved                                                             |
-| implementation-agent → code-review-agent       | Implementation wave completes                                                   |
-| code-review-agent → implementation-agent       | Code review finds defects                                                       |
-| code-review-agent → reconciliation-agent       | Code review is clean                                                            |
-| reconciliation-agent → implementation-agent    | Reconciliation finds code defects                                               |
-| reconciliation-agent → qa-agent                | Reconciliation is clean                                                         |
-| qa-agent → implementation-agent                | Quality review finds defects                                                    |
-| implementation-agent → qa-agent                | Quality remedies are ready for retest                                           |
+A handoff is required whenever the next activity is performed by a different
+agent — for example, an author handing artifacts to a reviewer, or a reviewer
+returning findings to an author for remediation. Work that continues within the
+same agent's session needs no handoff.
 
-Each listed route requires the reviewed handoff and restart even where agent
-frontmatter groups author and reviewer roles under one broader phase name.
-Work that remains inside one route's outgoing phase is exempt under
-[handoff-format.md](../rulebooks/conventions/handoff-format.md).
-
-## Phase 1: Requirements
+## Requirements
 
 ### Step 1.0 — Scaffold Project Charter
 
@@ -100,7 +80,8 @@ grep -l "status: open" docs/findings/SPEC-*.md
 ```
 
 **If open findings exist** → Go to Step 1.4
-**If no open findings** (or all `status: resolved`) → Go to Phase 2
+**If no open findings** (or all `status: resolved`) → The architecture-agent's
+preconditions are satisfied.
 
 ### Step 1.4 — Loop: Address Findings
 
@@ -112,7 +93,7 @@ grep -l "status: open" docs/findings/SPEC-*.md
 
 Return to Step 1.2 (run spec-review-agent again)
 
-## Phase 2: Architecture
+## Architecture
 
 ### Step 2.1 — Run Architecture Agent
 
@@ -182,10 +163,10 @@ closing "update development.md" story that depends on every other Epic 0 story
 **If exit code 0** → Present the completed charter and the Epic 0 batch to the
 stakeholder for approval together — same manual-approval pattern as Step 3.3
 
-**If approved** → Go to Phase 3
-**If changes needed** → Return to Step 2.5
+**If approved** → The planning-agent's preconditions are satisfied.
+**If changes needed** → Return to Step 2.5.
 
-## Phase 3: Planning
+## Planning
 
 ### Step 3.1 — Run Planning Agent
 
@@ -215,10 +196,10 @@ so no feature story is dependency-ready until Epic 0 is done.
 
 **Manual approval required**: Review backlog with stakeholder
 
-**If approved** → Go to Phase 4
-**If changes needed** → Return to Step 3.1
+**If approved** → The implementation-agent's preconditions are satisfied.
+**If changes needed** → Return to the planning-agent (Step 3.1).
 
-## Phase 4: Implementation
+## Implementation
 
 ### Step 4.1 — Run Implementation Agent (Dispatcher)
 
@@ -252,7 +233,7 @@ grep -l "status: open" docs/findings/IMPL-*.md
 ```
 
 **If implementation defects exist** → Go to Step 4.4
-**If no defects** → Go to Step 4.5
+**If no defects** → The reconciliation-agent's preconditions are satisfied.
 
 ### Step 4.4 — Loop: Fix Implementation Defects
 
@@ -282,7 +263,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 ```
 
 **If code defects exist** → Go to Step 4.7
-**If no defects** → Go to Phase 5
+**If no defects** → The qa-agent's preconditions are satisfied.
 
 ### Step 4.7 — Loop: Fix Reconciliation Defects
 
@@ -294,7 +275,7 @@ grep -l "status: open" docs/findings/RECON-*.md
 
 Return to Step 4.5 (run reconciliation-agent again)
 
-## Phase 5: Quality
+## Quality
 
 ### Step 5.1 — Run QA Agent
 
@@ -314,7 +295,7 @@ grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 ```
 
 **If open defects exist** → Go to Step 5.3
-**If no defects** → Go to Step 5.4 (DONE)
+**If no defects** → DONE (Step 5.4).
 
 ### Step 5.3 — Loop: Fix Defects
 
@@ -349,7 +330,7 @@ The playbook ends when the following terminal artifacts exist:
 - [ ] All tests pass
 - [ ] No open findings
 
-**Next Phase:**
+**Next:**
 
 After this playbook completes, **all feature work enters through the `feature-addition` playbook**. Each feature-addition slice produces a per-feature `.feature` file from one or more deferred Rules in the scope map. The scope map is the specification baseline that guides feature delivery.
 
@@ -360,7 +341,7 @@ After this playbook completes, **all feature work enters through the `feature-ad
 1. Adapter auth failure (not author-fixable)
 2. Adapter config error (not author-fixable)
 3. Circular dependencies detected in backlog
-4. Iteration cap exceeded (e.g., 5 loops on same phase)
+4. Iteration cap exceeded (e.g., 5 review-fix loops on the same activity)
 
 **Action**: Escalate to the user.
 
@@ -378,6 +359,6 @@ Run ad-hoc at end of any session. The coaching-agent runs in the current session
 
 ## State Tracking
 
-**Current phase**: Track in session notes
+**Current activity**: Track in session notes
 **Open findings**: `grep -r "status: open" docs/findings/`
-**Loop count**: Track manually
+**Eligible agents**: Run `intent select` to see precondition status

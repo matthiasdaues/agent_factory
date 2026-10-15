@@ -14,6 +14,7 @@ def pytest_sessionstart(session):
         config_file = str(Path(__file__).resolve().parent.parent / "pyproject.toml")
         os.environ["COVERAGE_PROCESS_START"] = config_file
 
+
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 SNAPSHOT_DIR = FIXTURES_DIR / "snapshot"
 ANCESTRY_DIR = FIXTURES_DIR / "ancestry"

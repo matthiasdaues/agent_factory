@@ -14,6 +14,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         [sys.executable, "-c", "from usage.cli import main; main()", *args],
         capture_output=True,
         text=True,
+        check=False,
     )
 
 
@@ -98,13 +99,19 @@ class TestDiagnosticFlag:
 
     def test_diagnostic_capture_health_exit_zero(self, snapshot_dir: Path) -> None:
         result = _run_cli(
-            "capture_health", "--diagnostic", "--usage-dir", str(snapshot_dir),
+            "capture_health",
+            "--diagnostic",
+            "--usage-dir",
+            str(snapshot_dir),
         )
         assert result.returncode == 0
 
     def test_diagnostic_capture_health_output(self, snapshot_dir: Path) -> None:
         result = _run_cli(
-            "capture_health", "--diagnostic", "--usage-dir", str(snapshot_dir),
+            "capture_health",
+            "--diagnostic",
+            "--usage-dir",
+            str(snapshot_dir),
         )
         data = json.loads(result.stdout)
         assert data["diagnostic"] is True
@@ -118,13 +125,19 @@ class TestDiagnosticFlag:
         # that would otherwise be an unknown-view error — the diagnostic
         # check should fire first or at least produce exit 2.
         result = _run_cli(
-            "some_future_view", "--diagnostic", "--usage-dir", str(snapshot_dir),
+            "some_future_view",
+            "--diagnostic",
+            "--usage-dir",
+            str(snapshot_dir),
         )
         assert result.returncode == 2
 
     def test_diagnostic_with_failures_still_works(self, ancestry_dir: Path) -> None:
         result = _run_cli(
-            "capture_health", "--diagnostic", "--usage-dir", str(ancestry_dir),
+            "capture_health",
+            "--diagnostic",
+            "--usage-dir",
+            str(ancestry_dir),
         )
         assert result.returncode == 0
         data = json.loads(result.stdout)
@@ -138,23 +151,32 @@ class TestSessionUsage:
     def test_exit_zero_valid_input(self, multi_cli_dir: Path) -> None:
         """Valid multi-cli fixtures produce exit 0 and JSON output."""
         # Use pi_sessions.jsonl — single CLI, clean ancestry.
-        result = _run_cli(
-            "session_usage", "--usage-dir", str(multi_cli_dir / ".."),
+        _run_cli(
+            "session_usage",
+            "--usage-dir",
+            str(multi_cli_dir / ".."),
         )
         # multi_cli_dir has mixed CLIs including unknown; use a tmp subset.
         # Instead, pass a dir containing only known CLIs.
-        pass  # covered by targeted fixture test below
+        # covered by targeted fixture test below
 
     def test_session_usage_output_structure(self, tmp_path: Path) -> None:
         """Golden path: valid pi data produces correct JSON structure."""
         import shutil
 
         # Copy only pi fixture to a clean directory.
-        src = Path(__file__).resolve().parent.parent / "fixtures" / "multi-cli" / "pi_sessions.jsonl"
+        src = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "multi-cli"
+            / "pi_sessions.jsonl"
+        )
         shutil.copy(src, tmp_path / "pi_sessions.jsonl")
 
         result = _run_cli(
-            "session_usage", "--usage-dir", str(tmp_path),
+            "session_usage",
+            "--usage-dir",
+            str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         data = json.loads(result.stdout)
@@ -169,11 +191,18 @@ class TestSessionUsage:
         """Unknown CLI in input exits 1 with error on stderr."""
         import shutil
 
-        src = Path(__file__).resolve().parent.parent / "fixtures" / "multi-cli" / "unknown_cli.jsonl"
+        src = (
+            Path(__file__).resolve().parent.parent
+            / "fixtures"
+            / "multi-cli"
+            / "unknown_cli.jsonl"
+        )
         shutil.copy(src, tmp_path / "unknown_cli.jsonl")
 
         result = _run_cli(
-            "session_usage", "--usage-dir", str(tmp_path),
+            "session_usage",
+            "--usage-dir",
+            str(tmp_path),
         )
         assert result.returncode == 1
         assert "mystery-tool" in result.stderr
@@ -181,7 +210,9 @@ class TestSessionUsage:
     def test_stable_view_refusal_with_failures(self, ancestry_dir: Path) -> None:
         """session_usage on data with failures exits 1 (stable-view refusal)."""
         result = _run_cli(
-            "session_usage", "--usage-dir", str(ancestry_dir),
+            "session_usage",
+            "--usage-dir",
+            str(ancestry_dir),
         )
         assert result.returncode == 1
         assert "preflight" in result.stderr
@@ -189,6 +220,7 @@ class TestSessionUsage:
     def test_available_in_view_list(self) -> None:
         """session_usage is in AVAILABLE_VIEWS."""
         from usage.cli import AVAILABLE_VIEWS
+
         assert "session_usage" in AVAILABLE_VIEWS
 
 

@@ -88,7 +88,7 @@ Check for new defects:
 grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md | grep -v "BUG-NNNN"
 ```
 
-**If new defects found** → Loop to Step 2.1
+**If new defects found** → Return to Step 2.1
 **If clean** → Go to Step 4
 
 ## Step 4 — Mark Bug Resolved

@@ -6,8 +6,6 @@ import json
 import os
 import textwrap
 
-import pytest
-
 from conftest import load_script
 
 intent = load_script("intent")
@@ -17,7 +15,8 @@ def _write_proposal(tmp_path, name="my-proposal", status="accepted"):
     docs = tmp_path / "docs" / "proposals"
     docs.mkdir(parents=True, exist_ok=True)
     path = docs / f"{name}.md"
-    path.write_text(textwrap.dedent(f"""\
+    path.write_text(
+        textwrap.dedent(f"""\
         ---
         title: {name}
         status: {status}
@@ -32,14 +31,15 @@ def _write_proposal(tmp_path, name="my-proposal", status="accepted"):
 
         ## Scope
         Everything.
-    """))
+    """)
+    )
     return path
 
 
 def _write_story(tmp_path, story_id="ST-0001", scope=None):
     backlog = tmp_path / "backlog"
     backlog.mkdir(parents=True, exist_ok=True)
-    fm = f"---\ntitle: test story\nstatus: ready\n"
+    fm = "---\ntitle: test story\nstatus: ready\n"
     if scope:
         fm += f"scope: {scope}\n"
     fm += "---\n# Story\n"

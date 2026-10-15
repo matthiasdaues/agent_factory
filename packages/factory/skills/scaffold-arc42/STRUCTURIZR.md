@@ -36,7 +36,7 @@ workspace "System Name" "One-line description" {
             autoLayout
         }
 
-        theme default
+        theme themes/default/theme.json
     }
 }
 ```

@@ -441,9 +441,7 @@ class TestMainRoundTrip:
         for name in ("agents", "skills", "playbooks", "rulebooks"):
             (tmp_path / name).mkdir()
         (tmp_path / "agents" / "old.md").write_text(
-            "---\nname: old\ntitle: Old Agent\n"
-            "inputs:\n  - docs/foo.md\n"
-            "---\nBody"
+            "---\nname: old\ntitle: Old Agent\ninputs:\n  - docs/foo.md\n---\nBody"
         )
         out = tmp_path / "INDEX.yaml"
         rc = il.main(

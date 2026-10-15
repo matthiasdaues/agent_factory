@@ -60,7 +60,7 @@ not the full QA phase.
 
 ## Review gates
 
-Every finding must pass the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) before it is filed.
+Apply the [writing quality gates](../rulebooks/conventions/writing-quality-gates.md) to all written output — the review report and every finding filed from it.
 
 ## Lifecycle
 
