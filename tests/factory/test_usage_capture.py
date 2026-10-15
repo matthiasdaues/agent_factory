@@ -180,3 +180,28 @@ class TestClaudeCodeUsageOncePerMessage:
         assert result.reported_input == 20
         assert len(result.eligible_turns) == 2
 
+
+# ---------------------------------------------------------------------------
+# Normalizers — a cut-off final character skips only that line (BUG-0066)
+# ---------------------------------------------------------------------------
+
+
+class TestTruncatedMultibyteCharacter:
+    @pytest.mark.parametrize("cli", list(uc.SUPPORTED_CLIS))
+    def test_BUG_0066_cut_off_character_does_not_fail_parse(self, tmp_path, cli):
+        transcript = tmp_path / "t.jsonl"
+        transcript.write_bytes(
+            b'{"type": "user", "message": {"role": "user", "content": "ok"}}\n'
+            b'{"type": "user", "message": {"content": "caf\xc3'
+        )
+        result = uc.get_normalizer(cli).parse(transcript)
+        assert isinstance(result, uc.NormalizedTranscript)
+
+    def test_BUG_0066_claude_code_keeps_lines_before_the_cut(self, tmp_path):
+        transcript = tmp_path / "t.jsonl"
+        transcript.write_bytes(
+            b'{"type": "user", "message": {"role": "user", "content": "ok"}}\n'
+            b'{"type": "user", "message": {"content": "caf\xc3'
+        )
+        result = uc.ClaudeCodeNormalizer().parse(transcript)
+        assert result.input_text == "ok"

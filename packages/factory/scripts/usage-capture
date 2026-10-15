@@ -929,6 +929,8 @@ class ClaudeCodeNormalizer:
 
     Best-effort by contract: a line that is not valid JSON is skipped, never
     raised on, so one corrupt line cannot fail the capture of a whole run.
+    Every normalizer decodes with ``errors="replace"``, so a final line cut
+    inside a multi-byte character becomes one invalid line, not a failure.
     """
 
     def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
@@ -941,7 +943,7 @@ class ClaudeCodeNormalizer:
         eligible_turns: list[ProviderUsageTurn] = []
         messages: dict[tuple[str, object], tuple[bool, object]] = {}
 
-        raw = Path(transcript_path).read_text(encoding="utf-8")
+        raw = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
         for line_number, line in enumerate(raw.splitlines()):
             line = line.strip()
             if not line:
@@ -1076,7 +1078,7 @@ class CopilotNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
 
-        raw = Path(transcript_path).read_text(encoding="utf-8")
+        raw = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
         for line in raw.splitlines():
             try:
                 event = json.loads(line)
@@ -1197,7 +1199,7 @@ class CodexNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
 
-        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+        for line in Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 event = json.loads(line)
             except (ValueError, TypeError):
@@ -1311,7 +1313,7 @@ class PiNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
 
-        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+        for line in Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 event = json.loads(line)
             except (ValueError, TypeError):
