@@ -135,6 +135,8 @@ Rules in this section apply to both modes unless marked **(automated only)**. In
 
 ## Step boundaries
 
+No hook enforces these rules yet. The `step-guard` hook is installed, but it does not find or apply the manifests. Agents keep to the step boundary by discipline.
+
 - **MUST** write a step manifest from the playbook's declared `inputs`, `outputs`, and `max_input_tokens` for non-dispatch steps.
 - **MUST** write a step manifest from the story frontmatter's `outputs` and `tests` for dispatch steps.
 - **MUST** treat the active step manifest as the read and write boundary for the running step agent.

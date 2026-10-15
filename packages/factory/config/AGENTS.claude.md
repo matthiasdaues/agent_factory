@@ -13,7 +13,7 @@ You are running in Claude Code. Use these capabilities:
 - **Task tracking:** use `TaskCreate` and `TaskUpdate` to break work into steps and track progress.
 - **Workflow orchestration:** the `Workflow` tool runs multi-agent scripts when the user opts in.
 - **Memory:** persistent file-based memory across sessions. Save and recall as instructed.
-- **Hooks:** PreToolUse guardrails and step-guards run automatically via `.claude/settings.json`.
+- **Hooks:** PreToolUse guardrails run automatically via `.claude/settings.json`. The step-guard hook is installed but does not enforce step manifests yet, so keep to the step boundary yourself.
 - **Tools:** `Read`, `Edit`, `Write`, `Bash` (PascalCase).
 
 ## Session start
