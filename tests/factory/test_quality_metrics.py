@@ -7,6 +7,7 @@ import json
 from conftest import load_script
 
 dc = load_script("dependency-check")
+cs = load_script("crap-score")
 
 RULES = "core must_not_depend_on adapters\n"
 
@@ -76,3 +77,78 @@ def test_BUG_0071_latin1_file_does_not_crash_the_gate(tmp_path):
     }
     assert failing["core/declared.py"]["imported_module"] == "adapters.db"
     assert failing["core/undeclared.py"]["parse_error"]
+
+
+COVERED_SOURCE = """\
+def choose(flag):
+    if flag:
+        return 1
+    return 2
+"""
+
+
+def test_BUG_0072_coverage_keys_relative_to_project_root_match(tmp_path, monkeypatch):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "module.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    coverage = tmp_path / "coverage.json"
+    coverage.write_text(
+        json.dumps(
+            {
+                "files": {
+                    "src/module.py": {
+                        "executed_lines": [1, 2, 3, 4],
+                        "missing_lines": [],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    reports = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path)
+
+    code = cs.main(
+        [
+            "--source-root",
+            "src",
+            "--coverage-json",
+            "coverage.json",
+            "--report-dir",
+            str(reports),
+            "--story-id",
+            "ST-0000",
+            "--threshold",
+            "2",
+        ]
+    )
+
+    rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
+    assert rows[0]["coverage_pct"] == 100.0
+    assert code == 0
+
+
+def test_BUG_0072_syntax_error_file_does_not_crash_the_gate(tmp_path, capsys):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "broken.py").write_text("def broken(:\n    pass\n", encoding="utf-8")
+    (src / "good.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    reports = tmp_path / "reports"
+
+    code = cs.main(
+        [
+            "--source-root",
+            str(src),
+            "--report-dir",
+            str(reports),
+            "--story-id",
+            "ST-0000",
+            "--threshold",
+            "1000",
+        ]
+    )
+
+    rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
+    assert [row["function"] for row in rows] == ["choose"]
+    assert code == 0
+    assert "broken.py" in capsys.readouterr().err

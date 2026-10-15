@@ -16,7 +16,14 @@ Formula
 
 Output
   Writes JSON to .current-work/crap-score/<story-id>.json and to
-  stdout. Exits 1 when any function exceeds the threshold.
+  stdout. Exits 1 when any function exceeds the threshold. A file that
+  cannot be parsed is named on stderr and skipped; the other files are
+  still scored.
+
+Coverage lookup
+  coverage.json keys are resolved to absolute paths, first against the
+  current directory and then against the directory holding coverage.json,
+  and matched against each scanned file's absolute path.
 """
 
 from __future__ import annotations
@@ -109,9 +116,7 @@ def read_threshold_from_testing_yaml(source_root: Path) -> float | None:
             # Find crap_score section within gates
             gates_pos = gates_match.start()
             remaining = text[gates_pos:]
-            crap_match = re.search(
-                r"^\s+crap_score:\s*$", remaining, re.MULTILINE
-            )
+            crap_match = re.search(r"^\s+crap_score:\s*$", remaining, re.MULTILINE)
             if not crap_match:
                 return None
 
@@ -162,8 +167,13 @@ def iter_python_files(source_root: Path) -> list[Path]:
 
 
 def load_coverage(coverage_json_path: Path) -> dict:
+    """Return coverage.py file entries keyed by absolute path."""
     data = json.loads(coverage_json_path.read_text(encoding="utf-8"))
-    return data.get("files", {})
+    by_absolute: dict = {}
+    for base in (Path.cwd(), coverage_json_path.parent):
+        for key, entry in data.get("files", {}).items():
+            by_absolute.setdefault(str((base / key).resolve()), entry)
+    return by_absolute
 
 
 def function_coverage(
@@ -259,10 +269,14 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, UnicodeDecodeError):
             continue
 
-        blocks = flatten_blocks(cc_visit(source))
+        try:
+            blocks = flatten_blocks(cc_visit(source))
+        except (SyntaxError, ValueError) as exc:
+            print(f"crap-score: skipped {relative}: {exc}", file=sys.stderr)
+            continue
         for block in blocks:
             cov = function_coverage(
-                relative,
+                str(file_path.resolve()),
                 block.lineno,
                 block.endline,
                 coverage_files,
