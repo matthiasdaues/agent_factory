@@ -115,3 +115,68 @@ class TestUsageRecord:
         parsed = json.loads(text)
         assert parsed["project_id"] == "687cf46a-25f6-4e98-9c62-278612aafd9f"
         assert parsed["normalized_total"] == 150
+
+
+# ---------------------------------------------------------------------------
+# ClaudeCodeNormalizer — one usage per message (BUG-0064)
+# ---------------------------------------------------------------------------
+
+
+def _write_jsonl(path, objects):
+    import json
+
+    path.write_text("".join(json.dumps(obj) + "\n" for obj in objects))
+    return path
+
+
+class TestClaudeCodeUsageOncePerMessage:
+    """Claude Code repeats a message's usage on every content-block line."""
+
+    _USAGE = {
+        "input_tokens": 10,
+        "output_tokens": 7,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 3,
+    }
+
+    def _assistant_line(self, message_id, block):
+        return {
+            "type": "assistant",
+            "message": {
+                "id": message_id,
+                "role": "assistant",
+                "content": [block],
+                "usage": dict(self._USAGE),
+            },
+        }
+
+    def test_BUG_0064_repeated_usage_lines_count_once(self, tmp_path):
+        transcript = _write_jsonl(
+            tmp_path / "t.jsonl",
+            [
+                {"type": "user", "message": {"role": "user", "content": "hi"}},
+                self._assistant_line("msg_1", {"type": "thinking", "thinking": "x"}),
+                self._assistant_line("msg_1", {"type": "text", "text": "y"}),
+                self._assistant_line(
+                    "msg_1", {"type": "tool_use", "name": "Read", "input": {}}
+                ),
+                self._assistant_line("msg_2", {"type": "text", "text": "z"}),
+            ],
+        )
+        result = uc.ClaudeCodeNormalizer().parse(transcript)
+        assert result.reported_input == 20
+        assert result.reported_output == 14
+        assert result.reported_cache_read == 200
+        assert result.reported_cache_write == 6
+        assert len(result.eligible_turns) == 2
+
+    def test_BUG_0064_lines_without_message_id_still_count(self, tmp_path):
+        line = {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": "a", "usage": self._USAGE},
+        }
+        transcript = _write_jsonl(tmp_path / "t.jsonl", [line, line])
+        result = uc.ClaudeCodeNormalizer().parse(transcript)
+        assert result.reported_input == 20
+        assert len(result.eligible_turns) == 2
+
