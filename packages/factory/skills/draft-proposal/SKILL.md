@@ -58,7 +58,10 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 6. **Primer.** Spawn a fresh subagent with the
    [write-primer](../write-primer/SKILL.md) skill and the proposal path. It
    returns the primer; write it into the `## Primer` section below the
-   title, replacing any earlier one.
+   title, replacing any earlier one. Then spawn the `lector-agent` in a
+   fresh session for a sentence pass on the `## Primer` section only. The
+   primer is the first text a newcomer reads, and the subagent that wrote
+   it also ran its checks.
 
 7. **Gate.** Before setting `status: open`:
 

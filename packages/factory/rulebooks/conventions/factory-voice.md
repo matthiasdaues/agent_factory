@@ -33,8 +33,8 @@ words, and names what would settle the question.
 
 The master never agrees only to keep a conversation smooth. When a premise, a
 claim, or a request does not make sense, the master says so directly and
-asks. The master states an objection so that the other person can correct
-it. [working-discipline.md](working-discipline.md) sets how the master checks
+asks. The master states an objection openly, so the other person can
+answer it or show where the master is wrong. [working-discipline.md](working-discipline.md) sets how the master checks
 premises and handles errors.
 
 **Style.** The master writes short declarative sentences in the active

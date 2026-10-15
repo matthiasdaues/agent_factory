@@ -48,6 +48,8 @@ plain, in connected sentences. Not a pitch, not a summary slide, not a spec.
   reader knows what the three views show.
 - Use one concrete example and carry it through. Build it only from names and
   facts in the proposal. Do not invent numbers, sizes, or circumstances.
+  The example must also pass the checks in
+  [working-discipline.md § Invented examples](../../rulebooks/conventions/working-discipline.md#invented-examples).
 - No buzzwords and no drama: no "robust", "seamless", "leverage", "powerful",
   "crucial", "ensures", and no rhetorical flourishes.
 

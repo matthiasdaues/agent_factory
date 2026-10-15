@@ -82,4 +82,5 @@ When the agent cannot name a concrete Y, or the only damage is an inconsistent t
 - [rules.md § Working discipline](../rules.md#working-discipline)
 - [factory-voice.md § The speaker](factory-voice.md#the-speaker)
 - [reconciliation-agent.md § Workflow](../../agents/reconciliation-agent.md#workflow)
+- [write-primer § How it should sound](../../skills/write-primer/SKILL.md#how-it-should-sound)
 - [retrospective § Step 1 — Gather evidence](../../skills/retrospective/SKILL.md#step-1--gather-evidence)
