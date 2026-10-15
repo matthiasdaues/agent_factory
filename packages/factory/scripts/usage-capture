@@ -918,7 +918,9 @@ class ClaudeCodeNormalizer:
           just the boundary prompt and final output. In the same pass, any
           per-message `usage` object is summed into the `reported_*` totals
           and `usage_granularity` is set to `full`; a transcript carrying no
-          usage leaves them null.
+          usage leaves them null. Claude Code writes one line per content
+          block and repeats the message's usage on each, so usage counts
+          once per `message.id`; the last usage seen for an id wins.
     When: Selected by `get_normalizer("claude-code")` from a capture site
           (ST-0038 wires the Claude Code `Stop`/`SubagentStop` hooks to it).
     By:   `docs/proposals/implemented/token-usage-tracking.md` ("The Capture
@@ -927,6 +929,8 @@ class ClaudeCodeNormalizer:
 
     Best-effort by contract: a line that is not valid JSON is skipped, never
     raised on, so one corrupt line cannot fail the capture of a whole run.
+    Every normalizer decodes with ``errors="replace"``, so a final line cut
+    inside a multi-byte character becomes one invalid line, not a failure.
     """
 
     def parse(self, transcript_path: Union[str, Path]) -> NormalizedTranscript:
@@ -937,9 +941,10 @@ class ClaudeCodeNormalizer:
         saw_usage = False
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
+        messages: dict[tuple[str, object], tuple[bool, object]] = {}
 
-        raw = Path(transcript_path).read_text(encoding="utf-8")
-        for line in raw.splitlines():
+        raw = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
+        for line_number, line in enumerate(raw.splitlines()):
             line = line.strip()
             if not line:
                 continue
@@ -976,7 +981,24 @@ class ClaudeCodeNormalizer:
             usage = message.get("usage")
             if usage is None:
                 usage = obj.get("usage")
-            if role == "assistant" and not obj.get("isSidechain", False):
+            eligible = role == "assistant" and not obj.get("isSidechain", False)
+            if not eligible and not isinstance(usage, dict):
+                continue
+            # Claude Code writes one line per content block and repeats the
+            # message's usage on each, so usage counts once per message id.
+            message_id = message.get("id")
+            key = (
+                ("message", message_id)
+                if isinstance(message_id, str) and message_id
+                else ("line", line_number)
+            )
+            previous = messages.get(key)
+            if previous is not None and not isinstance(usage, dict):
+                usage = previous[1]
+            messages[key] = (eligible, usage)
+
+        for eligible, usage in messages.values():
+            if eligible:
                 eligible_turns.append(
                     ProviderUsageTurn(
                         _optional_usage_int(usage, "input_tokens"),
@@ -1056,7 +1078,7 @@ class CopilotNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
 
-        raw = Path(transcript_path).read_text(encoding="utf-8")
+        raw = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
         for line in raw.splitlines():
             try:
                 event = json.loads(line)
@@ -1177,7 +1199,7 @@ class CodexNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
 
-        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+        for line in Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 event = json.loads(line)
             except (ValueError, TypeError):
@@ -1291,7 +1313,7 @@ class PiNormalizer:
         model: Optional[str] = None
         eligible_turns: list[ProviderUsageTurn] = []
 
-        for line in Path(transcript_path).read_text(encoding="utf-8").splitlines():
+        for line in Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 event = json.loads(line)
             except (ValueError, TypeError):
