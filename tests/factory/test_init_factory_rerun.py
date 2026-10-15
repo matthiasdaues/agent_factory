@@ -49,3 +49,20 @@ def test_explicit_cli_still_overrides_the_record(tmp_path):
 
     assert rerun.returncode == 0, rerun.stderr
     assert sorted(_recorded_clis(target)) == ["claude", "codex"]
+
+
+def test_rerun_keeps_the_record_for_all_tools(tmp_path):
+    """A recorded cli of null means "wire all tools" and survives a rerun."""
+    target = tmp_path / "project"
+    target.mkdir()
+    subprocess.run(["git", "init", "-q", str(target)], check=True)
+    assert _init(target, "--cli", "claude", "--project-name", "demo").returncode == 0
+    record = target / ".agent-factory" / "install.json"
+    data = json.loads(record.read_text())
+    data["cli"] = None
+    record.write_text(json.dumps(data))
+
+    rerun = _init(target)
+
+    assert rerun.returncode == 0, rerun.stderr
+    assert json.loads(record.read_text())["cli"] is None

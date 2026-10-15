@@ -4389,13 +4389,16 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── Section 2: CLI selection ────────────────────────────────────────
     clis: list[str] | None = args.cli
+    # A rerun keeps the tools the user chose, including None for "all";
+    # guessing from folders would add tools the user never asked for
+    # (BUG-0044). install["cli"] exists only when a prior record had it.
     recorded = install.get("cli")
-    from_record = clis is None and isinstance(recorded, list) and bool(recorded)
+    from_record = clis is None and "cli" in install and (
+        recorded is None or (isinstance(recorded, list) and bool(recorded))
+    )
     if from_record:
-        # A rerun keeps the tools the user chose; guessing from folders would
-        # add tools the user never asked for (BUG-0044).
-        clis = list(recorded)
-    if clis is None:
+        clis = list(recorded) if recorded is not None else None
+    elif clis is None:
         detected = detect_cli(target)
         if detected:
             clis = detected

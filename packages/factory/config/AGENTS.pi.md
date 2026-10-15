@@ -38,7 +38,7 @@ If the file exists and `fitting.status` is `"fitting"`:
 Read the five fitting keys from `config/project-context.json` → `fitting`.
 These values are cached; `init-factory` re-derives them from tracked
 artifacts on each run. If fitting progress looks stale after a pull,
-suggest running `.agent-factory/factory/scripts/init-factory --target .` to reconcile.
+suggest that the developer runs `.agent-factory/factory/scripts/update-factory --target .` in their own terminal to reconcile. The update asks for confirmation, so an agent cannot run it.
 
 Keys:
 

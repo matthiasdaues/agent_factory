@@ -51,7 +51,7 @@ Rerun all five fitting steps: model matrix, fingerprint, agent context, test reg
 
 ### Update Factory
 
-Run `.agent-factory/factory/scripts/update-factory --target <project-root>`. Relay the command's stdout and exit status to the developer. If it stops because it found changes the developer made to the factory files, ask the developer before rerunning it with `--force`; `--force` keeps those changes under `.agent-factory/factory-user-changes/`. On success, rerun About to show the refreshed factory state.
+Ask the developer to run `.agent-factory/factory/scripts/update-factory --target <project-root>` in their own terminal. The update asks for confirmation, so an agent cannot run it; in Claude Code the developer can type `! ` followed by the command. If the update stops because it found changes the developer made to the factory files, explain that rerunning with `--force` keeps those changes under `.agent-factory/factory-user-changes/`. When the developer reports success, rerun About to show the refreshed factory state.
 
 ### Update agent context
 
