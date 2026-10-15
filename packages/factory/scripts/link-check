@@ -6,8 +6,13 @@ URI schemes are intentionally left to dedicated online crawlers; this fast
 gate catches broken repository paths and broken heading anchors, in the same
 document and across documents.
 
-Fenced code blocks and inline code spans are skipped: a link inside them is an
-example, not a reference.
+It checks inline links and reference definitions. Anchors come from ATX and
+setext headings and from <a id> or <a name> tags. Fenced code blocks, inline
+code spans, and front matter are skipped: a link inside them is an example,
+not a reference.
+
+The script uses only the standard library. It reads files as UTF-8 and
+reports a missing or non-UTF-8 input file as a problem.
 """
 
 from __future__ import annotations
@@ -20,28 +25,63 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+LINK_START = re.compile(r"!?\[[^\]]*\]\(")
+REFERENCE_DEFINITION = re.compile(r"^ {0,3}\[([^\]^][^\]]*)\]:[ \t]*(<[^>\n]*>|\S+)", re.MULTILINE)
 SCHEME = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
-FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 INLINE_CODE = re.compile(r"`+[^`\n]*`+")
 HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
+SETEXT_UNDERLINE = re.compile(r"^ {0,3}(=+|-+)[ \t]*$")
+HTML_ANCHOR = re.compile(r"""<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
+UNDERSCORE_EMPHASIS = re.compile(r"(?<![\w\\])(_{1,3})(?=\S)(.+?)(?<=\S)\1(?!\w)")
+
+
+class Unreadable(Exception):
+    """A Markdown file that does not exist or is not UTF-8."""
+
+
+def read_markdown(path: Path) -> str:
+    """Read a Markdown file as UTF-8, dropping a byte order mark."""
+    try:
+        return path.read_text(encoding="utf-8-sig")
+    except FileNotFoundError as error:
+        raise Unreadable(f"{path}: file not found") from error
+    except UnicodeDecodeError as error:
+        raise Unreadable(f"{path}: not valid UTF-8 ({error.reason} at byte {error.start})") from error
+    except OSError as error:
+        raise Unreadable(f"{path}: cannot read ({error.strerror})") from error
 
 
 def without_fences(text: str) -> str:
-    """Blank out fenced code blocks, preserving line count."""
-    lines: list[str] = []
-    fence: str | None = None
-    for line in text.splitlines():
-        match = FENCE.match(line)
-        if match:
-            if fence is None:
-                fence = match.group(1)[0] * 3
-            elif line.strip().startswith(fence):
-                fence = None
-            lines.append("")
-            continue
-        lines.append("" if fence else line)
-    return "\n".join(lines)
+    """Blank out front matter and fenced code blocks, preserving line count.
+
+    A fence closes only on a line of the same character, at least as long as
+    the opening run, with nothing after it, as CommonMark specifies.
+    """
+    lines = text.splitlines()
+    out: list[str] = []
+    index = 0
+    if lines and lines[0].strip() == "---":
+        for end in range(1, len(lines)):
+            if lines[end].strip() in ("---", "..."):
+                out.extend([""] * (end + 1))
+                index = end + 1
+                break
+    closing: re.Pattern[str] | None = None
+    for line in lines[index:]:
+        if closing is None:
+            match = FENCE_OPEN.match(line)
+            if match and not (match.group(1)[0] == "`" and "`" in match.group(2)):
+                run = match.group(1)
+                closing = re.compile(rf"^ {{0,3}}{re.escape(run[0])}{{{len(run)},}}[ \t]*$")
+                out.append("")
+                continue
+            out.append(line)
+        else:
+            if closing.match(line):
+                closing = None
+            out.append("")
+    return "\n".join(out)
 
 
 def strip_code(text: str) -> str:
@@ -53,23 +93,89 @@ def slugify(title: str) -> str:
     """Slugify a heading the way GitHub does."""
     text = re.sub(r"`([^`]*)`", r"\1", title)
     text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = UNDERSCORE_EMPHASIS.sub(r"\2", text)
     text = re.sub(r"[*~]", "", text)
     text = re.sub(r"[^\w\- ]", "", text.lower(), flags=re.UNICODE)
     return text.replace(" ", "-")
 
 
+def heading_titles(text: str) -> list[str]:
+    """Every ATX and setext heading title, in document order."""
+    titles: list[str] = []
+    previous = ""
+    for line in without_fences(text).splitlines():
+        heading = HEADING.match(line)
+        if heading:
+            titles.append(heading.group(2).strip())
+            previous = ""
+            continue
+        if previous.strip() and SETEXT_UNDERLINE.match(line):
+            titles.append(previous.strip())
+            previous = ""
+            continue
+        previous = line
+    return titles
+
+
 def anchors(path: Path) -> set[str]:
     """Every anchor a Markdown document offers, duplicates suffixed as GitHub does."""
+    text = read_markdown(path)
     found: set[str] = set()
     counts: dict[str, int] = {}
-    for line in without_fences(path.read_text(encoding="utf-8")).splitlines():
-        heading = HEADING.match(line)
-        if not heading:
-            continue
-        slug = slugify(heading.group(2).strip())
+    for title in heading_titles(text):
+        slug = slugify(title)
         seen = counts.get(slug, 0)
         counts[slug] = seen + 1
         found.add(slug if seen == 0 else f"{slug}-{seen}")
+    found.update(HTML_ANCHOR.findall(without_fences(text)))
+    return found
+
+
+def destination_at(text: str, start: int) -> str | None:
+    """Parse the link destination that begins at text[start], after the "(".
+
+    Handles <angle bracket> destinations, which may hold spaces, and bare
+    destinations with balanced parentheses, such as file(1).md.
+    """
+    position = start
+    while position < len(text) and text[position] in " \t\n":
+        position += 1
+    if position < len(text) and text[position] == "<":
+        end = text.find(">", position + 1)
+        if end == -1 or "\n" in text[position:end]:
+            return None
+        return text[position + 1 : end]
+    depth = 0
+    chars: list[str] = []
+    while position < len(text):
+        char = text[position]
+        if char == "\\" and position + 1 < len(text):
+            chars.append(text[position + 1])
+            position += 2
+            continue
+        if char.isspace():
+            break
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            if depth == 0:
+                break
+            depth -= 1
+        chars.append(char)
+        position += 1
+    return "".join(chars)
+
+
+def destinations(text: str) -> list[str]:
+    """Every inline link and reference definition destination in the text."""
+    found: list[str] = []
+    for match in LINK_START.finditer(text):
+        destination = destination_at(text, match.end())
+        if destination is not None:
+            found.append(destination)
+    for _label, raw in REFERENCE_DEFINITION.findall(text):
+        found.append(raw[1:-1] if raw.startswith("<") else raw)
     return found
 
 
@@ -106,9 +212,12 @@ def _installed_copy_in_main_checkout(target: Path) -> Path | None:
 
 def check(path: Path) -> list[str]:
     errors: list[str] = []
-    text = strip_code(path.read_text(encoding="utf-8"))
-    for raw in LINK.findall(text):
-        destination = raw.strip().split(maxsplit=1)[0].strip("<>")
+    try:
+        text = strip_code(read_markdown(path))
+    except Unreadable as error:
+        return [str(error)]
+    for destination in destinations(text):
+        destination = destination.strip()
         if not destination or SCHEME.match(destination):
             continue
         parsed = urlsplit(destination)
@@ -122,7 +231,12 @@ def check(path: Path) -> list[str]:
             target = fallback
         if not parsed.fragment or target.is_dir() or target.suffix.lower() != ".md":
             continue
-        if unquote(parsed.fragment) not in anchors(target):
+        try:
+            offered = anchors(target)
+        except Unreadable as error:
+            errors.append(f"{path}: cannot check anchor {destination!r}: {error}")
+            continue
+        if unquote(parsed.fragment) not in offered:
             errors.append(f"{path}: broken anchor {destination!r}")
     return errors
 
@@ -134,11 +248,13 @@ def main(argv: list[str] | None = None) -> int:
     errors: list[str] = []
     for name in args.files:
         path = Path(name)
-        if path.is_file() and path.suffix.lower() == ".md":
+        if not path.exists():
+            errors.append(f"{path}: file not found")
+        elif path.is_file() and path.suffix.lower() == ".md":
             errors.extend(check(path))
     if errors:
         print("\n".join(errors), file=sys.stderr)
-        print(f"link-check: {len(errors)} broken local link(s)", file=sys.stderr)
+        print(f"link-check: {len(errors)} problem(s) with local links", file=sys.stderr)
         return 1
     print("link-check: all local links resolve")
     return 0
