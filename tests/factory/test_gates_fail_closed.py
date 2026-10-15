@@ -170,7 +170,7 @@ def test_link_check_does_not_map_a_nested_agent_factory_folder(project_with_work
     project, worktree = project_with_worktree["project"], project_with_worktree["worktree"]
     (project / ".agent-factory" / "factory" / "x.md").write_text("# X\n")
     doc = worktree / "docs" / "note.md"
-    doc.parent.mkdir()
+    (worktree / "docs" / "sub").mkdir(parents=True)
     doc.write_text("[x](sub/.agent-factory/factory/x.md)\n")
 
     result = _run([str(SOURCE_SCRIPTS_DIR / "link-check"), "docs/note.md"], worktree)
