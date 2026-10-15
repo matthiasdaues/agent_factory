@@ -45,10 +45,13 @@ they run whenever their own preconditions hold.
 Usage
   arch-lint --docs-dir docs/arc42
   arch-lint --docs-dir docs/arc42 --no-validate
+  arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir
 
 Exit 1 when at least one error-severity finding exists (gate contract), 2 when
---docs-dir is not a directory and no docs/adr/ sits beside it, 0 otherwise. A
-missing --docs-dir next to an existing docs/adr/ gives an ARCH-NO-DIR warning.
+--docs-dir is not a directory, 0 otherwise. With --allow-missing-docs-dir, a
+missing --docs-dir gives an ARCH-NO-DIR warning instead of exit 2, and the ADR
+check still runs when docs/adr/ exists. The pre-commit hook passes this flag,
+because it also fires in projects without arc42.
 """
 
 from __future__ import annotations
@@ -424,6 +427,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--no-validate", action="store_true", help="skip structurizr validate"
     )
+    ap.add_argument(
+        "--allow-missing-docs-dir",
+        action="store_true",
+        help="warn instead of exit 2 when --docs-dir does not exist",
+    )
     args = ap.parse_args(argv)
 
     docs = args.docs_dir
@@ -437,10 +445,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     adr_dir = docs.parent / "adr"
 
-    # A missing --docs-dir is usually a typo. With no ADR directory beside it
-    # there is nothing to check, so the call is a usage error. With ADRs the
-    # ADR check still runs, and a warning names the missing directory.
-    if not docs.is_dir() and not adr_dir.is_dir():
+    # A missing --docs-dir is usually a typo, so it is a usage error. Callers
+    # that also run in projects without arc42 opt in to a warning instead.
+    if not docs.is_dir() and not args.allow_missing_docs_dir:
         print(f"arch-lint: --docs-dir {docs} is not a directory", file=sys.stderr)
         return 2
 

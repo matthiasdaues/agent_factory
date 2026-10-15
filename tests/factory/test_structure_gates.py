@@ -170,18 +170,49 @@ class TestMissingInputDirectory:
         docs = tmp_path / "docs" / "arch42-typo"
         assert al.main(["--docs-dir", str(docs), "--no-validate"]) == 2
 
-    def test_arch_lint_missing_docs_dir_with_adr_warns(
-        self, tmp_path: Path, capsys
+    def test_arch_lint_missing_docs_dir_beside_adr_exits_2(
+        self, tmp_path: Path
     ) -> None:
-        """BUG-0054: with ADRs present, the ADR check runs and a warning names the dir."""
+        """BUG-0054: a typo exits 2 without the flag, even when docs/adr/ exists."""
         docs = tmp_path / "docs" / "arch42-typo"
         adr = tmp_path / "docs" / "adr"
         adr.mkdir(parents=True)
         (adr / "adr-0001.md").write_text(
             "---\nstatus: accepted\nevaluation: none\n---\nBody."
         )
-        assert al.main(["--docs-dir", str(docs), "--no-validate"]) == 0
+        assert al.main(["--docs-dir", str(docs), "--no-validate"]) == 2
+
+    def test_arch_lint_allow_missing_docs_dir_warns(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        """BUG-0054: with the opt-in flag, a missing dir warns and exits 0."""
+        docs = tmp_path / "docs" / "arc42"
+        args = ["--docs-dir", str(docs), "--no-validate", "--allow-missing-docs-dir"]
+        assert al.main(args) == 0
         assert "ARCH-NO-DIR" in capsys.readouterr().out
+
+    def test_arch_lint_allow_missing_docs_dir_runs_adr_check(
+        self, tmp_path: Path, capsys
+    ) -> None:
+        """BUG-0054: with the flag, the ADR check still runs beside a missing dir."""
+        docs = tmp_path / "docs" / "arc42"
+        adr = tmp_path / "docs" / "adr"
+        adr.mkdir(parents=True)
+        (adr / "adr-0001.md").write_text("---\nstatus: accepted\n---\nBody.")
+        args = ["--docs-dir", str(docs), "--no-validate", "--allow-missing-docs-dir"]
+        assert al.main(args) == 1
+        assert "ARCH-ADR-EVAL" in capsys.readouterr().out
+
+    def test_arch_lint_image_only_project_with_flag_exits_0(
+        self, tmp_path: Path
+    ) -> None:
+        """BUG-0054: screenshots without arc42 or ADRs pass the hook's call."""
+        images = tmp_path / "docs" / "assets" / "images"
+        images.mkdir(parents=True)
+        (images / "screenshot.png").write_bytes(b"\x89PNG")
+        docs = tmp_path / "docs" / "arc42"
+        args = ["--docs-dir", str(docs), "--no-validate", "--allow-missing-docs-dir"]
+        assert al.main(args) == 0
 
     def test_statemachine_lint_missing_spec_dir_exits_2(self, tmp_path: Path) -> None:
         """BUG-0054: a missing --spec-dir exits 2."""
