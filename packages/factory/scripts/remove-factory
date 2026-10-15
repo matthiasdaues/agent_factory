@@ -581,12 +581,12 @@ def _cancel_pending(target: Path, control: Path) -> int:
     return cancelled
 
 
-def _owner_is_stale(owner: Path) -> bool:
-    """True when the owner file names a process that no longer runs."""
-    try:
-        pid = int(owner.read_text(encoding="utf-8").strip())
-    except (OSError, ValueError):
-        return False  # unreadable or still being written: assume a live owner
+def _owner_pid(text: str) -> int | None:
+    text = text.strip()
+    return int(text) if text.isdigit() else None
+
+
+def _pid_is_dead(pid: int) -> bool:
     if pid <= 0:
         return False
     try:
@@ -598,20 +598,65 @@ def _owner_is_stale(owner: Path) -> bool:
     return False
 
 
-def _claim_owner(owner: Path) -> bool:
-    """Create the owner file, replacing one left by a dead process."""
-    for _ in range(2):
+def _stale_snapshot(owner: Path) -> tuple[int, int, int, str] | None:
+    """Identify the owner file when it is stale; None when it may be live."""
+    try:
+        with owner.open(encoding="utf-8") as handle:
+            info = os.fstat(handle.fileno())
+            text = handle.read()
+    except (OSError, UnicodeError):
+        return None  # unreadable: assume a live owner
+    snapshot = (info.st_dev, info.st_ino, info.st_mtime_ns, text)
+    pid = _owner_pid(text)
+    if pid is None:
+        return None  # still being written: assume a live owner
+    return snapshot if _pid_is_dead(pid) else None
+
+
+def _move_aside(owner: Path, snapshot: tuple[int, int, int, str]) -> bool:
+    """Atomically take the stale file away; False when another removal won."""
+    aside = owner.with_name(f"{owner.name}.stale-{uuid.uuid4().hex}")
+    try:
+        os.rename(owner, aside)
+    except FileNotFoundError:
+        return False
+    try:
+        with aside.open(encoding="utf-8") as handle:
+            info = os.fstat(handle.fileno())
+            moved = (info.st_dev, info.st_ino, info.st_mtime_ns, handle.read())
+    except (OSError, UnicodeError):
+        moved = None
+    if moved != snapshot:
+        # Another removal replaced the stale file first; hand its file back.
         try:
-            with owner.open("x", encoding="utf-8") as handle:
-                handle.write(str(os.getpid()))
-            owner.chmod(0o600)
-            return True
-        except FileExistsError:
-            if not _owner_is_stale(owner):
-                return False
-            owner.unlink(missing_ok=True)
-            log("removed a stale usage removal owner file")
-    return False
+            os.link(aside, owner)
+        except OSError:
+            pass
+        aside.unlink(missing_ok=True)
+        return False
+    aside.unlink(missing_ok=True)
+    return True
+
+
+def _create_owner(owner: Path) -> bool:
+    try:
+        with owner.open("x", encoding="utf-8") as handle:
+            handle.write(str(os.getpid()))
+    except FileExistsError:
+        return False
+    owner.chmod(0o600)
+    return True
+
+
+def _claim_owner(owner: Path) -> bool:
+    """Create the owner file, taking over one left by a dead removal."""
+    if _create_owner(owner):
+        return True
+    snapshot = _stale_snapshot(owner)
+    if snapshot is None or not _move_aside(owner, snapshot):
+        return False
+    log("removed a stale usage removal owner file")
+    return _create_owner(owner)
 
 
 def prepare_usage_removal(

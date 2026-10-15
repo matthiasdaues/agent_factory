@@ -194,3 +194,30 @@ def test_bug_0079_removes_codex_dir_the_install_created(remove_factory, tmp_path
     assert _run(remove_factory, tmp_path) == 0
 
     assert not (tmp_path / ".codex").exists()
+
+
+def test_bug_0076_concurrent_takeover_of_stale_owner_lets_one_removal_win(
+    remove_factory, tmp_path, monkeypatch
+):
+    owner = tmp_path / "remove-owner"
+    owner.write_text(str(_dead_pid()))
+    real_snapshot = remove_factory._stale_snapshot
+    competitor: list[bool] = []
+    calls: list[Path] = []
+
+    def snapshot_then_competitor_claims(path):
+        snapshot = real_snapshot(path)
+        calls.append(path)
+        if len(calls) == 1:
+            # Removal B runs its whole claim between A's read and A's takeover.
+            competitor.append(remove_factory._claim_owner(path))
+        return snapshot
+
+    monkeypatch.setattr(
+        remove_factory, "_stale_snapshot", snapshot_then_competitor_claims
+    )
+    first_claim = remove_factory._claim_owner(owner)
+
+    assert competitor == [True]
+    assert first_claim is False
+    assert [p.name for p in tmp_path.iterdir()] == ["remove-owner"]
