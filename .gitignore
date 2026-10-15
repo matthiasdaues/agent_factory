@@ -1,24 +1,231 @@
+# 1. Compressed code and packages
+# 2. Python and Jupyter
+# 3. IDEs
+# 4. Logs, Backups and Archives
+# 5. Linting, type hinting and unit-tests
+# 6. Terraform and Terragrunt
+# 7. aws
+# 8. database related
+# 9. related to AI coding factory & LLms
+# 10. WIZ
+# 11. Factory specific
+
+#####################
+
+
+# 1. Compressed code and packages
+
+# it's better to unpack these files and commit the raw source
+# git has its own built in compression methods
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+*.whl
+
+# Distribution / packaging
+.Python
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+# lib/ and lib64/ intentionally NOT ignored — they may contain project source code.
+# Python virtualenvs are already covered by **/.venv/ and **/venv/ below.
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+env/
+.env
+build/
+/venv/
+
+# --- uv Configuration ---
+# Ignore environments in root and all subdirectories
+**/.venv/
+**/venv/
+
+# Ignore uv cache folders everywhere
+**/.uv/
+**/.uv_cache/
+
+# Ignore generated version files in any package
+src/**/_version.py
+
+# --- IMPORTANT ---
+# Do NOT use **/uv.lock
+# You want to track the lockfile(s) to ensure builds are deterministic.
+
+# 2. Python and Jupyter
+
+*.pyc
+.cache
+prof
+__pycache__
+*.ipynb_checkpoints* 
+
+# Python coverage
+.coverage
+.coverage.*
+ 
+
+# 3. IDEs
+
+# IntelliJ
+.idea
+.idea/
+*.iml
+ 
+#  VS Code
+.vscode/**/* 
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+**/.history
+ 
+# 4. Logs, backups and archives
+
+*.log
+*.out
+**/logs/
+*nohup.out*
+nohup.out
+*.bak
+*.back
+# NOTE: *.txt intentionally NOT ignored — requirements.txt, constraints.txt etc. are source files
+# NOTE: *.lock intentionally NOT ignored — uv.lock, poetry.lock etc. must be tracked for reproducibility (see section 1 comment)
+*.lck
+*/archive/
+
+.DS_Store
+
+# Documentation (auto-generated files)
+
+docs/_site
+docs/.jekyll-metadata
+docs/.sass-cache
+docs/api
+docs-api/autogen
+docs-api/_build
+
+
+# 5. Linting, type hinting and unit-tests
+
+# mypy
+*.mypy_cache/
+.dmypy.json
+dmypy.json 
+
+# ruff
+**.ruff_cache
+
+# pytest
+**.pytest_cache
+
+# tox
+**.tox
+
+# README (README.md must always be written in capital letters- this is a convention)
+[Rr][Ee][Aa][Dd][Mm][Ee].md 
+!README.md
+
+# 6. Terraform and Terragrunt
+
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Cloud Function zip
+terraform/*.zip
+
+# terragrunt
+*.terragrunt-cache
+*.terragrunt.lock.hcl
+
+# 7. aws
+*.aws
+
+# 8. databaserelated
+*.pgsql
+
+# 9. related to AI coding factory & LLMs
+
+.claude
+
+# Keep repository-managed GitHub configuration tracked by default.
+# Ignore broader local/generated AI Coding Factory artifacts under .github.
+.github/copilot/
+.github/ai-coding-factory/
+.github/**/*.local.*
+.github/**/session-log.jsonl
+.github/**/playbook-state.yml
+
 # Local ephemeral notes
 session-scratchpad.md
 
-# Agent Factory local state — .agent-factory/ holds factory system of
-# record (install manifest, usage); .current-work/ holds project-work
-# ephemera (playbook state, dispatch ledger, gate results, worktrees).
+# Agent Factory local run state — neither portable across
+# machines nor meant to be reviewed; see factory/docs/proposals/.
 .agent-factory/
-.current-work/
 
-# Exported architecture diagrams — SVG only, ignore PNGs
-docs/assets/images/*.png
+# Generic AI stuff
+.openai/
+.anthropic/
+.azureai/
+.vercel_ai/
+*.ai.json
+*.ai.yaml
+*.ai.yml
+*.llm.json
+*.llm.yaml
+*.llm.yml
+chat_history/
+ai_logs/
+ai_cache/
 
-# Python specific folders and files
-__pycache__/
-*.pyc
-.ruff_cache/
-.pytest_cache/
-.coverage
-coverage.json
-htmlcov/
-uv.lock
+# 10. WIZ
+
+# Wiz CLI State, Auth Tokens, and Configuration
+.wiz/
+.wizcli/
+
+# Performance Caching Engines
+.wiz-cache/
+.wizcli-cache/
+
+# Output Directories, Reports, and Artifacts (Hardened)
+wiz-output/
+wiz-sbom/
+wiz-*.json
+wiz-*.html
+scan_dir.json
+
+# Execution Logs and Troubleshooting Telemetry (Hardened)
+wizcli*.log
+wiz-cli*.log
+
+# Local Binary Executables
+wizcli
+wizcli.exe
+
+# 11. Factory specific
 
 # Ephemeral database files
 *.duckdb
