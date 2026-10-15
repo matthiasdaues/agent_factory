@@ -466,7 +466,8 @@ class TestFactoryRoot:
     arguments regenerates the tracked packages/factory/INDEX.yaml."""
 
     def test_source_tree_wins_over_installed_copy(self, tmp_path, monkeypatch):
-        (tmp_path / "packages" / "factory").mkdir(parents=True)
+        (tmp_path / "packages" / "factory" / "scripts").mkdir(parents=True)
+        (tmp_path / "packages" / "factory" / "scripts" / "index-lint").touch()
         (tmp_path / ".agent-factory" / "factory").mkdir(parents=True)
         monkeypatch.chdir(tmp_path)
         assert il._factory_root() == "packages/factory"
@@ -478,8 +479,9 @@ class TestFactoryRoot:
 
     def test_new_rulebook_reaches_tracked_index(self, tmp_path, monkeypatch):
         factory = tmp_path / "packages" / "factory"
-        for sub in ("agents", "skills", "playbooks", "rulebooks/conventions"):
+        for sub in ("agents", "skills", "playbooks", "rulebooks/conventions", "scripts"):
             (factory / sub).mkdir(parents=True)
+        (factory / "scripts" / "index-lint").touch()
         (factory / "rulebooks" / "conventions" / "new-rule.md").write_text(
             "# New Rule\n", encoding="utf-8"
         )
@@ -487,3 +489,11 @@ class TestFactoryRoot:
         assert il.main([]) == 0
         index = (factory / "INDEX.yaml").read_text(encoding="utf-8")
         assert "name: new-rule" in index
+
+    def test_consumer_with_own_packages_factory_keeps_installed_root(
+        self, tmp_path, monkeypatch
+    ):
+        (tmp_path / "packages" / "factory" / "src").mkdir(parents=True)
+        (tmp_path / ".agent-factory" / "factory").mkdir(parents=True)
+        monkeypatch.chdir(tmp_path)
+        assert il._factory_root() == ".agent-factory/factory"

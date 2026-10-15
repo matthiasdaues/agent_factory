@@ -3,10 +3,12 @@
 # requires-python = ">=3.10"
 # dependencies = ["tiktoken"]
 # ///
-"""index-lint - Generate/verify .agent-factory/factory/INDEX.yaml from .agent-factory/factory/agents/,
-.agent-factory/factory/skills/, .agent-factory/factory/playbooks/, and .agent-factory/factory/rulebooks/ frontmatter.
+"""index-lint - Generate/verify the factory's INDEX.yaml from the agents/, skills/,
+playbooks/, and rulebooks/ frontmatter under the factory root. The root is
+packages/factory/ in the factory source repository and .agent-factory/factory/
+in an installed project.
 
-What: Regenerates .agent-factory/factory/INDEX.yaml from that frontmatter, with per-entry
+What: Regenerates <root>/INDEX.yaml from that frontmatter, with per-entry
       token counts; --check verifies it is current instead of rewriting.
 When: On commit when those frontmatter files change; --check in /validate;
       run plain to regenerate.
@@ -796,8 +798,12 @@ def render_index(
 
 def _factory_root() -> str:
     """Return the factory root: packages/factory in the factory source
-    repository, .agent-factory/factory in an installed project, else factory."""
-    if Path("packages/factory").is_dir():
+    repository, .agent-factory/factory in an installed project, else factory.
+
+    The source repository is recognised by its own copy of this script, so a
+    consumer project with an unrelated packages/factory/ is not mistaken for
+    it (BUG-0030)."""
+    if Path("packages/factory/scripts/index-lint").is_file():
         return "packages/factory"
     if Path(".agent-factory/factory").is_dir():
         return ".agent-factory/factory"
