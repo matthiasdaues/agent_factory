@@ -171,6 +171,9 @@ def parse_frontmatter(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
     nested_key: Optional[str] = None
 
     for ln in lines[1:end]:
+        # Blank and comment lines carry no data and must not end a block.
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
         # Block-sequence continuation: "  - item"
         list_item = re.match(r"^\s+-\s+(.+)$", ln)
         if list_item and nested_key is not None and block_parent is not None:

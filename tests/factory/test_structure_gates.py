@@ -130,6 +130,19 @@ class TestBlockStyleConcerns:
             for f in findings
         )
 
+    def test_backlog_lint_comment_keeps_block_parent(self, tmp_path: Path) -> None:
+        """BUG-0053: a comment line inside the block does not end the block."""
+        backlog = tmp_path / "backlog"
+        backlog.mkdir()
+        (backlog / "ST-0001.md").write_text(
+            _story("concerns:\n  # note\n\n  bogus: [billing]\n")
+        )
+        findings, _ = bl.check_backlog(backlog)
+        assert any(
+            f.code == "BL-TYPE" and "unknown key 'bogus'" in f.message
+            for f in findings
+        )
+
     def test_backlog_lint_accepts_valid_block_mapping(self, tmp_path: Path) -> None:
         """BUG-0053: a valid block mapping passes without error."""
         backlog = tmp_path / "backlog"
