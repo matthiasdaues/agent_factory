@@ -43,7 +43,8 @@ function parse(argv) {
   return { values, command: argv.slice(split + 1) };
 }
 
-function validate(values, command) {
+/** Validate the registration paths; a returned ctx is cleanup authority. */
+function validateRegistration(values) {
   const root = realpathSync(values.root);
   if (!isAbsolute(values.root) || normalize(resolve(values.root)) !== values.root || root !== values.root) {
     fail("invalid root");
@@ -69,11 +70,15 @@ function validate(values, command) {
   if (handshake !== expectedHandshake || status !== expectedStatus || existsSync(handshake)) fail("invalid handshake");
   const registration = JSON.parse(readFileSync(marker, "utf-8"));
   if (registration.generation !== values.generation || registration.staged_source !== source) fail("registration mismatch");
+  return { root, control, pending, scratch, marker, source, handshake, status, generation: values.generation };
+}
+
+function validateLaunch({ root }, values, command) {
   const launcher = join(root, ".agent-factory", "factory", "scripts", "usage-capture-runtime");
-  if (command[0] !== launcher) fail("invalid supervisor launcher");
+  if (command[0] !== launcher) fail("invalid-supervisor-launcher");
   const timeout = Number(values["accept-timeout-ms"] || DEFAULT_TIMEOUT_MS);
-  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > DEFAULT_TIMEOUT_MS) fail("invalid timeout");
-  return { root, control, pending, scratch, marker, source, handshake, status, generation: values.generation, timeout };
+  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > DEFAULT_TIMEOUT_MS) fail("invalid-timeout");
+  return timeout;
 }
 
 function unlinkValidated(path, parent, suffix) {
@@ -147,7 +152,13 @@ async function bootstrap() {
   let transferred = false;
   try {
     const { values, command } = parse(process.argv.slice(2));
-    ctx = validate(values, command);
+    ctx = validateRegistration(values);
+    try {
+      ctx.timeout = validateLaunch(ctx, values, command);
+    } catch (error) {
+      diagnostic(ctx, error.message, null);
+      throw error;
+    }
     const result = await new Promise((resolveResult) => {
       const child = spawn(command[0], command.slice(1), { cwd: ctx.root, stdio: "ignore" });
       supervisor = child;
@@ -174,7 +185,7 @@ async function bootstrap() {
     }
     if (!transferred && result.reason !== "cancelled") diagnostic(ctx, result.reason, result.code);
   } catch {
-    // Invalid/untrusted paths are never cleanup authority.
+    // Invalid/untrusted paths never set ctx, so they are never cleanup authority.
   } finally {
     if (ctx && !transferred) cleanup(ctx);
   }
