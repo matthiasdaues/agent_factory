@@ -152,7 +152,8 @@ class TestDocument:
     def test_numbering_off_and_toc_after_title_page(self, docs: Path, tmp_path: Path):
         qd, _, _ = build(docs, tmp_path)
         assert "- headings: none" in qd and "- tables: none" in qd
-        assert qd.index("Built from") < qd.index(".pagebreak") < qd.index(".tableofcontents")
+        assert qd.index("Built from") < qd.index(".tableofcontents")
+        assert ".pagebreak" not in qd
 
     def test_provenance_line_clean_tree(self, docs: Path, tmp_path: Path):
         qd, _, _ = build(docs, tmp_path)

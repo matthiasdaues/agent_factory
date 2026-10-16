@@ -264,9 +264,7 @@ def assemble(docs: Path, out: Path, views: Path | None, provenance: Provenance, 
     parts += [
         f".container classname:{{title-page}}\n    .text {{{manifest.title}}} size:{{huge}}\n\n    {provenance.line()}",
         "",
-        ".pagebreak",
-        "",
-        ".tableofcontents",
+        ".tableofcontents",  # its heading starts a new page
         "",
     ]
     parts += [build.rewrite(p) for p in manifest.chapters]
