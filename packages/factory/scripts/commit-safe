@@ -4,10 +4,13 @@
 #
 # This repo's pre-commit hooks REWRITE staged files (mdformat, ruff, index-lint,
 # arch-lint), which aborts the commit with "files were modified by this hook".
-# commit-safe stages, commits, and — if that abort happens — re-stages the
-# paths that were staged before the first pass and commits once more. Other
-# modified files stay out of the commit. It never bypasses a hook; a
-# genuine hook failure surfaces as a non-zero exit on the second pass.
+# commit-safe stages, commits, and — if that abort happens — stages the
+# hook's rewrites and commits once more. A hook may rewrite a tracked file
+# outside the staged set (index-lint rewrites INDEX.yaml), so the second pass
+# stages every modified tracked file except those that already had unstaged
+# changes before the first pass. That work in progress stays out of the
+# commit. It never bypasses a hook; a genuine hook failure surfaces as a
+# non-zero exit on the second pass.
 #
 # Usage: commit-safe -m "<message>" [<path>...]
 #   -m MSG   commit message (required; Conventional Commits with an ID)
@@ -34,23 +37,45 @@ if [ "${#PATHS[@]}" -gt 0 ]; then
   git add -- "${PATHS[@]}"
 fi
 
-# Remember what this commit is meant to contain. The second pass re-stages
-# only these paths, so work in progress elsewhere stays out (BUG-0080).
-# Staged deletions stay staged on their own; a hook cannot rewrite them.
+# Remember what this commit is meant to contain, and which tracked files
+# already had unstaged changes: that work in progress stays out (BUG-0080).
+# Untracked files need no record; `git add -u` never stages them. Staged
+# deletions stay staged on their own; a hook cannot rewrite them.
 STAGED=()
 while IFS= read -r -d '' path; do
   STAGED+=("$path")
 done < <(git diff --cached --name-only -z --diff-filter=d)
+DIRTY=()
+while IFS= read -r -d '' path; do
+  DIRTY+=("$path")
+done < <(git diff --name-only -z)
+
+is_dirty() {
+  local dirty
+  for dirty in ${DIRTY[@]+"${DIRTY[@]}"}; do
+    if [ "$dirty" = "$1" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 # First pass. A hook rewrite aborts it; the `if` keeps set -e from exiting.
 if git commit -m "$MSG"; then
   exit 0
 fi
 
-# Second pass: re-stage the hook's modifications to the paths staged before
-# the first pass and commit once more. No third pass — a still-failing commit
+# Second pass: stage the hook's rewrites — the paths staged before the first
+# pass plus every tracked file modified since that had no unstaged changes
+# before it — and commit once more. No third pass — a still-failing commit
 # surfaces its error.
-if [ "${#STAGED[@]}" -gt 0 ]; then
-  git add -u -- "${STAGED[@]}"
+RESTAGE=(${STAGED[@]+"${STAGED[@]}"})
+while IFS= read -r -d '' path; do
+  if ! is_dirty "$path"; then
+    RESTAGE+=("$path")
+  fi
+done < <(git diff --name-only -z)
+if [ "${#RESTAGE[@]}" -gt 0 ]; then
+  git add -u -- "${RESTAGE[@]}"
 fi
 git commit -m "$MSG"

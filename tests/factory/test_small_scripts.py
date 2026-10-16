@@ -280,3 +280,54 @@ def test_bug_0075_removal_keeps_a_project_file_in_the_claude_hooks_dir(tmp_path)
     assert own_hook.read_text() == "#!/bin/sh\nexit 0\n"
     assert [p.name for p in (target / ".claude/hooks").iterdir()] == ["my-hook.sh"]
 
+
+# --- BUG-0080: commit-safe stages a tracked file a hook regenerates ----------
+
+# A pre-commit hook that regenerates a tracked index outside the staged set,
+# the way index-lint rewrites packages/factory/INDEX.yaml.
+INDEX_PRECOMMIT_CONFIG = """\
+repos:
+  - repo: local
+    hooks:
+      - id: index
+        name: index
+        entry: ./regen.sh
+        language: system
+        pass_filenames: false
+        files: ^agents/
+"""
+
+
+def test_bug_0080_second_pass_stages_a_tracked_file_the_hook_regenerated(tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "agents").mkdir(parents=True)
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test")
+    (repo / "agents/a.md").write_text("a\n")
+    (repo / "regen.sh").write_text("#!/bin/sh\nls agents > INDEX.txt\n")
+    (repo / "regen.sh").chmod(0o755)
+    (repo / "INDEX.txt").write_text("a.md\n")
+    (repo / "wip.txt").write_text("start\n")
+    (repo / ".pre-commit-config.yaml").write_text(INDEX_PRECOMMIT_CONFIG)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "initial")
+    subprocess.run(
+        ["pre-commit", "install"], cwd=repo, check=True,
+        capture_output=True, env=_clean_env(),
+    )
+    (repo / "wip.txt").write_text("work in progress\n")
+    (repo / "notes.txt").write_text("untracked\n")
+    (repo / "agents/b.md").write_text("b\n")
+
+    result = _commit_safe(repo, "-m", "feat: add b (BUG-0080)", "agents/b.md")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert sorted(_git(repo, "show", "--name-only", "--format=", "HEAD").split()) == [
+        "INDEX.txt", "agents/b.md",
+    ]
+    assert _git(repo, "show", "HEAD:INDEX.txt") == "a.md\nb.md\n"
+    assert sorted(_git(repo, "status", "--porcelain").splitlines()) == [
+        " M wip.txt", "?? notes.txt",
+    ]
+
