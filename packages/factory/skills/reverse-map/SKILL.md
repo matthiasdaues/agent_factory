@@ -1,6 +1,6 @@
 ---
 name: reverse-map
-description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
 category: requirements
 ---
 
@@ -112,6 +112,27 @@ The confidence level for each scope-map row follows this hierarchy:
 - Discrepancies are surfaced as questions to the stakeholder, not filed as findings.
 - The stakeholder controls depth — "that's enough" is always valid.
 - The skill does not modify code, tests, or any implementation artifact.
+
+## Unattended mode
+
+Use this mode when a subagent runs the skill from a brief and no stakeholder is present to answer. The attended steps above stay as they are; the mode changes only where they ask a person.
+
+- **Steps 1 and 2:** run unchanged.
+- **Step 3:** infer the domain areas from module and package boundaries. Group the rows by those areas without asking; the grouping stays part of the draft until a stakeholder confirms it.
+- **Step 4:** do not present batches. Write each discrepancy into the scope map as an open question under a `## Open questions` heading, one bullet per question, naming the rows it concerns.
+- **Step 5:** read only the extra sources the brief names, with the confidence the evidence hierarchy gives them. Skip the step when the brief names none.
+- **Step 6:** write the scope map without waiting for "that's enough", and put the draft marker into its frontmatter:
+
+```markdown
+---
+status: draft
+---
+```
+
+- Seed `docs/CONTEXT.md` as in the attended mode.
+- Report to the caller: the inventory count, the open questions, and that the map awaits confirmation.
+
+A stakeholder confirms the draft by walking the domain grouping and the open questions, then removing the `status` field or setting it to `status: confirmed`. Until then `spec-lint` reports the map as `SCOPE001`, and the brownfield Stage 1 exit does not pass.
 
 ## UX principles
 

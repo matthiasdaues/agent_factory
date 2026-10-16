@@ -74,7 +74,7 @@ Move all pre-existing documentation artifacts to `~archive/`, preserving each fi
 
 ### Step 2.1 — Populate Scope Map via Reverse-Map
 
-Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then code entry points, then accepts additional sources from the stakeholder. Results are presented in batches by domain area for stakeholder confirmation.
+Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then code entry points, then accepts additional sources from the stakeholder. Results are presented in batches by domain area for stakeholder confirmation. When a subagent runs the skill from a brief, it uses the skill's unattended mode and writes the scope map as a draft; the stakeholder confirms it before the Stage 1 exit.
 
 **Expected outputs**:
 
@@ -135,6 +135,7 @@ Verify the three anchor files exist and are valid:
 - [ ] `docs/CONTEXT.md` exists seeded with domain vocabulary
 - [ ] `docs/arc42/architecture.dsl` exists with system context and container views
 - [ ] Structurizr validation passes on the DSL
+- [ ] The scope map is confirmed: its frontmatter carries no `status: draft`. Check it with `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec --report-only` and look for `SCOPE001`; an unattended `reverse-map` run leaves that marker until a stakeholder confirms the map.
 
 ### Stage 1 Exit Point
 
