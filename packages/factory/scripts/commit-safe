@@ -5,7 +5,8 @@
 # This repo's pre-commit hooks REWRITE staged files (mdformat, ruff, index-lint,
 # arch-lint), which aborts the commit with "files were modified by this hook".
 # commit-safe stages, commits, and — if that abort happens — re-stages the
-# hook's own modifications and commits once more. It never bypasses a hook; a
+# paths that were staged before the first pass and commits once more. Other
+# modified files stay out of the commit. It never bypasses a hook; a
 # genuine hook failure surfaces as a non-zero exit on the second pass.
 #
 # Usage: commit-safe -m "<message>" [<path>...]
@@ -18,7 +19,7 @@ MSG=""
 PATHS=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    -m) MSG="${2:-}"; shift 2 ;;
+    -m) MSG="${2:-}"; shift; if [ $# -gt 0 ]; then shift; fi ;;
     -m*) MSG="${1#-m}"; shift ;;
     *) PATHS+=("$1"); shift ;;
   esac
@@ -33,12 +34,23 @@ if [ "${#PATHS[@]}" -gt 0 ]; then
   git add -- "${PATHS[@]}"
 fi
 
+# Remember what this commit is meant to contain. The second pass re-stages
+# only these paths, so work in progress elsewhere stays out (BUG-0080).
+# Staged deletions stay staged on their own; a hook cannot rewrite them.
+STAGED=()
+while IFS= read -r -d '' path; do
+  STAGED+=("$path")
+done < <(git diff --cached --name-only -z --diff-filter=d)
+
 # First pass. A hook rewrite aborts it; the `if` keeps set -e from exiting.
 if git commit -m "$MSG"; then
   exit 0
 fi
 
-# Second pass: re-stage the hook's modifications to already-tracked files and
-# commit once more. No third pass — a still-failing commit surfaces its error.
-git add -u
+# Second pass: re-stage the hook's modifications to the paths staged before
+# the first pass and commit once more. No third pass — a still-failing commit
+# surfaces its error.
+if [ "${#STAGED[@]}" -gt 0 ]; then
+  git add -u -- "${STAGED[@]}"
+fi
 git commit -m "$MSG"
