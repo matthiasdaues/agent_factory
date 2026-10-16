@@ -298,7 +298,7 @@ repos:
 """
 
 
-def test_bug_0080_second_pass_stages_a_tracked_file_the_hook_regenerated(tmp_path):
+def _repo_with_index_hook(tmp_path: Path, *tracked: str) -> Path:
     repo = tmp_path / "repo"
     (repo / "agents").mkdir(parents=True)
     _git(repo, "init", "-q")
@@ -308,7 +308,8 @@ def test_bug_0080_second_pass_stages_a_tracked_file_the_hook_regenerated(tmp_pat
     (repo / "regen.sh").write_text("#!/bin/sh\nls agents > INDEX.txt\n")
     (repo / "regen.sh").chmod(0o755)
     (repo / "INDEX.txt").write_text("a.md\n")
-    (repo / "wip.txt").write_text("start\n")
+    for name in tracked:
+        (repo / name).write_text("start\n")
     (repo / ".pre-commit-config.yaml").write_text(INDEX_PRECOMMIT_CONFIG)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "initial")
@@ -316,6 +317,11 @@ def test_bug_0080_second_pass_stages_a_tracked_file_the_hook_regenerated(tmp_pat
         ["pre-commit", "install"], cwd=repo, check=True,
         capture_output=True, env=_clean_env(),
     )
+    return repo
+
+
+def test_bug_0080_second_pass_stages_a_tracked_file_the_hook_regenerated(tmp_path):
+    repo = _repo_with_index_hook(tmp_path, "wip.txt")
     (repo / "wip.txt").write_text("work in progress\n")
     (repo / "notes.txt").write_text("untracked\n")
     (repo / "agents/b.md").write_text("b\n")
@@ -330,6 +336,23 @@ def test_bug_0080_second_pass_stages_a_tracked_file_the_hook_regenerated(tmp_pat
     assert sorted(_git(repo, "status", "--porcelain").splitlines()) == [
         " M wip.txt", "?? notes.txt",
     ]
+
+
+def test_bug_0080_second_pass_keeps_unstaged_lines_of_a_staged_file_out(tmp_path):
+    repo = _repo_with_index_hook(tmp_path, "mixed.txt")
+    (repo / "mixed.txt").write_text("start\nstaged line\n")
+    _git(repo, "add", "mixed.txt")
+    (repo / "mixed.txt").write_text("start\nstaged line\nwork in progress\n")
+    (repo / "agents/b.md").write_text("b\n")
+
+    result = _commit_safe(repo, "-m", "feat: add b (BUG-0080)", "agents/b.md")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert sorted(_git(repo, "show", "--name-only", "--format=", "HEAD").split()) == [
+        "INDEX.txt", "agents/b.md", "mixed.txt",
+    ]
+    assert _git(repo, "show", "HEAD:mixed.txt") == "start\nstaged line\n"
+    assert _git(repo, "status", "--porcelain").splitlines() == [" M mixed.txt"]
 
 
 # --- BUG-0091: spec-lint counts entries in the todo-entry template form -------

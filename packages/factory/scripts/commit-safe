@@ -65,11 +65,21 @@ if git commit -m "$MSG"; then
   exit 0
 fi
 
-# Second pass: stage the hook's rewrites — the paths staged before the first
-# pass plus every tracked file modified since that had no unstaged changes
-# before it — and commit once more. No third pass — a still-failing commit
-# surfaces its error.
-RESTAGE=(${STAGED[@]+"${STAGED[@]}"})
+# Second pass: stage the hook's rewrites — every staged or modified tracked
+# file that had no unstaged changes before the first pass — and commit once
+# more. No third pass — a still-failing commit surfaces its error.
+# A staged path that also had unstaged changes is not re-staged: `git add -u`
+# would stage those changes too. Its staged part stays in the index from the
+# first pass. If a hook rewrites such a path, the rewrite stays out of the
+# index, the hook rewrites it again on the second pass, and commit-safe exits
+# non-zero. The developer then stages the rewrite by hand; the work in
+# progress is never committed silently.
+RESTAGE=()
+for path in ${STAGED[@]+"${STAGED[@]}"}; do
+  if ! is_dirty "$path"; then
+    RESTAGE+=("$path")
+  fi
+done
 while IFS= read -r -d '' path; do
   if ! is_dirty "$path"; then
     RESTAGE+=("$path")
