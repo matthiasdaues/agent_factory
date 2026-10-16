@@ -95,13 +95,46 @@ def _indent_level(line: str) -> int:
     return len(line) - len(line.lstrip())
 
 
+def _parse_scalar(value: str) -> object:
+    value = value.strip().strip('"').strip("'")
+    if value == "null":
+        return None
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    if value.isdigit():
+        return int(value)
+    return value
+
+
+def _parse_any_of(lines: list[str], start: int) -> tuple[list[dict], int]:
+    """Parse the alternatives of an `any_of` required input.
+
+    Each alternative is a list item of scalar keys (type, path_pattern),
+    indented at least 8 spaces under `    - any_of:`.
+    Returns (alternatives, next_line_index).
+    """
+    alternatives: list[dict] = []
+    i = start
+    while i < len(lines) and _indent_level(lines[i]) >= 8:
+        am = re.match(r"^\s+(-\s+)?([a-z_-]+):\s*(.*)", lines[i])
+        if am:
+            if am.group(1) or not alternatives:
+                alternatives.append({})
+            alternatives[-1][am.group(2)] = _parse_scalar(am.group(3))
+        i += 1
+    return alternatives, i
+
+
 def _parse_structured_block(lines: list[str], start: int) -> tuple[dict, int]:
     """Parse a nested YAML-like block (inputs or outputs) from frontmatter.
 
     Returns (parsed_dict, next_line_index).
 
     Handles:
-    - inputs.required: list of objects with type, path_pattern, conditions
+    - inputs.required: list of objects with type, path_pattern, conditions,
+      or `any_of` objects listing alternatives of type and path_pattern
     - inputs.context: list of strings
     - outputs.minimum_changed: integer
     - outputs.declarations: list of objects with path_pattern, validator, required
@@ -128,7 +161,10 @@ def _parse_structured_block(lines: list[str], start: int) -> tuple[dict, int]:
             while i < len(lines) and _indent_level(lines[i]) >= 4:
                 item_line = lines[i]
                 lm = re.match(r"^\s+-\s+(\S+):\s*(.*)", item_line)
-                if lm:
+                if lm and lm.group(1) == "any_of" and not lm.group(2).strip():
+                    alternatives, i = _parse_any_of(lines, i + 1)
+                    items.append({"any_of": alternatives})
+                elif lm:
                     obj: dict = {lm.group(1): lm.group(2).strip().strip('"').strip("'")}
                     i += 1
                     while i < len(lines) and _indent_level(lines[i]) >= 6:
@@ -526,6 +562,14 @@ def _render_structured_field(prefix: str, key: str, value: dict) -> list[str]:
         if "required" in value and value["required"]:
             lines.append(f"{indent}required:")
             for r in value["required"]:
+                if "any_of" in r:
+                    lines.append(f"{indent}  - any_of:")
+                    for alt in r["any_of"]:
+                        lines.append(f"{indent}      - type: {_yaml_scalar(alt.get('type', ''))}")
+                        lines.append(
+                            f"{indent}        path_pattern: {_yaml_scalar(alt.get('path_pattern', ''))}"
+                        )
+                    continue
                 lines.append(f"{indent}  - type: {_yaml_scalar(r.get('type', ''))}")
                 lines.append(f"{indent}    path_pattern: {_yaml_scalar(r.get('path_pattern', ''))}")
                 if "conditions" in r:

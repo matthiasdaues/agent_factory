@@ -13,10 +13,11 @@ skills:
   - handoff
 inputs:
   required:
-    - type: feature
-      path_pattern: "docs/spec/*.feature"
-    - type: scope-map
-      path_pattern: docs/spec/scope-map.md
+    - any_of:
+        - type: feature
+          path_pattern: "docs/spec/*.feature"
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
   context:
     - docs/CONTEXT.md
     - docs/spec/prd.md
