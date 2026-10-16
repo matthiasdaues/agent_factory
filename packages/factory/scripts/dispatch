@@ -253,10 +253,15 @@ def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
     if not frontmatter:
         return []
     outputs = frontmatter.get("outputs") or frontmatter.get("touches") or []
+    if isinstance(outputs, str):
+        return [outputs]
     return outputs if isinstance(outputs, list) else []
 
 
 DEFAULT_MAX_FILES = 20
+
+# The index-lint pre-commit hook rewrites this file during a story commit.
+HOOK_REWRITTEN_INDEX = "packages/factory/INDEX.yaml"
 
 def _scaled_max_files(output_count: int) -> int:
     """Recommend a per-story ``--max-files`` threshold from an output count.
@@ -1624,17 +1629,118 @@ def _update_story_status_in_file(
     return False
 
 
+REFRESHABLE_STATES = {StoryState.PREPARED, StoryState.DISPATCHING, StoryState.DISPATCHED}
+
+
+def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str) -> int:
+    """Merge *target_branch* into the story branch inside its worktree.
+
+    Returns 0 when the branch already contains the target tip or the merge
+    succeeds, 1 otherwise. It refuses, unchanged, a dirty worktree, a
+    worktree on another branch, and a target whose tip is the story's merge
+    commit (an interrupted ``merge-story``; its rerun recovers). On a
+    conflict the merge is aborted and the story is marked ``blocked`` with
+    reason "refresh conflict"; the caller saves the ledger.
+    """
+    if not entry.branch or not entry.worktree:
+        print(f"error: story {entry.id} has no branch or worktree recorded", file=sys.stderr)
+        return 1
+    _, branch_tip, _ = _git("rev-parse", entry.branch)
+    second_code, second_parent, _ = _git("rev-parse", "--verify", "-q", f"{target_branch}^2")
+    if second_code == 0 and second_parent == branch_tip:
+        print(
+            f"error: {target_branch} already ends in the merge of {entry.branch}; "
+            f"an interrupted merge-story left it there, so rerun merge-story {entry.id}",
+            file=sys.stderr,
+        )
+        return 1
+    contained, _, _ = _git("merge-base", "--is-ancestor", target_branch, entry.branch)
+    if contained == 0:
+        print(f"{entry.branch} already contains {target_branch}")
+        return 0
+    worktree = entry.worktree
+    head_code, head_branch, _ = _git("-C", worktree, "symbolic-ref", "-q", "--short", "HEAD")
+    if head_code != 0 or head_branch != entry.branch:
+        checked_out = head_branch if head_code == 0 else "a detached HEAD"
+        print(
+            f"error: {worktree} is on {checked_out}, not {entry.branch}; "
+            f"check out {entry.branch} before refreshing it",
+            file=sys.stderr,
+        )
+        return 1
+    code, dirty, err = _git("-C", worktree, "status", "--porcelain")
+    if code != 0:
+        print(f"error: cannot read the status of {worktree}: {err}", file=sys.stderr)
+        return 1
+    if dirty:
+        print(
+            f"error: {worktree} has uncommitted changes; commit or remove them "
+            f"before refreshing {entry.branch}",
+            file=sys.stderr,
+        )
+        return 1
+    merge_code, _, merge_err = _git(
+        "-C", worktree, "merge", "--no-ff", "--no-edit",
+        "-m", f"merge: {target_branch} into story/{entry.id}", target_branch,
+    )
+    if merge_code == 0:
+        print(f"merged {target_branch} into {entry.branch}")
+        return 0
+    _git("-C", worktree, "merge", "--abort")
+    entry.reason = "refresh conflict"
+    try:
+        ledger.transition(entry.id, StoryState.BLOCKED)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    print(
+        f"error: merge conflict merging {target_branch} into {entry.branch}; "
+        f"aborted and blocked ({merge_err})",
+        file=sys.stderr,
+    )
+    return 1
+
+
+def cmd_refresh_story(args: argparse.Namespace) -> int:
+    """Bring a story branch up to the invocation branch tip (BUG-0089)."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_automated_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    if entry.status not in REFRESHABLE_STATES:
+        print(
+            f"error: story {entry.id} cannot be refreshed in status {entry.status.value} "
+            "(expected: prepared, dispatching, or dispatched)",
+            file=sys.stderr,
+        )
+        return 1
+    if not ledger.invocation_branch:
+        print("error: the ledger records no invocation_branch", file=sys.stderr)
+        return 1
+    code = _refresh_story_branch(ledger, entry, ledger.invocation_branch)
+    if entry.status == StoryState.BLOCKED:
+        _save_ledger(ledger, ledger_path)
+    return code
+
+
 def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
-    Runs ``premerge-check`` with the story's declared output globs
-    immediately before merging (`--scope-glob`, gitignore-style matching).
+    Refreshes the story branch first (see ``cmd_refresh_story``) when it
+    lacks the invocation tip; a refresh conflict blocks the story. Then runs
+    ``premerge-check`` with the story's declared scope entries
+    (``outputs``, else ``touches``) immediately before merging: plain entries as
+    ``--scope`` path prefixes, entries with ``*`` or ``?`` as ``--scope-glob``.
     On a merge conflict, aborts the merge and marks the story ``blocked``
     with reason "merge conflict"; the current branch is left unchanged. On a
     red test suite after a clean merge, resets the current branch back to
     its pre-merge commit and marks the story ``blocked`` with reason
     "post-merge test failure". ``--dry-run`` runs premerge-check only and
-    never merges, touches the ledger, or cleans up the worktree/branch.
+    never refreshes, merges, touches the ledger, or cleans up the worktree/branch.
     Idempotent across interruption: if HEAD is a merge commit whose second
     parent is the story's tip (a prior run created the merge commit but was
     interrupted before the test suite finished), the merge is not repeated.
@@ -1687,12 +1793,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     fm = (
         parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
     )
-    raw_outputs = (fm or {}).get("outputs")
-    outputs = (
-        raw_outputs
-        if isinstance(raw_outputs, list)
-        else ([raw_outputs] if raw_outputs else [])
-    )
+    outputs = _story_output_globs(project_root, entry.id)
 
     # Interrupted-merge recovery: a prior run created the merge commit (and
     # may have amended the status update into it) but was interrupted before
@@ -1716,13 +1817,25 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
+    if not already_merged and not args.dry_run:
+        if _refresh_story_branch(ledger, entry, target_branch) != 0:
+            if entry.status == StoryState.BLOCKED:
+                _save_ledger(ledger, ledger_path)
+            return 1
+
     if not already_merged:
         premerge_cmd = [str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch]
-        for glob in outputs:
-            premerge_cmd += ["--scope-glob", glob]
+        # An entry without ``*`` or ``?`` is a path or folder prefix
+        # (``--scope``); only real patterns go through ``--scope-glob``.
+        # glob_match has no bracket classes, so ``[`` stays literal.
+        for entry_path in outputs:
+            flag = "--scope-glob" if any(c in entry_path for c in "*?") else "--scope"
+            premerge_cmd += [flag, entry_path]
         # The dispatch contract requires updating the story's own backlog file
-        # (status: done) in the implementation commit — always in scope.
+        # (status: done) in the implementation commit — always in scope. The
+        # index-lint hook rewrites INDEX.yaml during commits — also in scope.
         premerge_cmd += ["--scope-glob", f"backlog/{entry.id}.md"]
+        premerge_cmd += ["--scope-glob", HOOK_REWRITTEN_INDEX]
         premerge_cmd += ["--max-files", str(_scaled_max_files(len(outputs)))]
 
         premerge_result = subprocess.run(
@@ -1989,6 +2102,11 @@ def main(argv: list[str] | None = None) -> int:
     p_es = sub.add_parser("escalate", help="escalate a story to the next tier")
     p_es.add_argument("story_id")
 
+    p_rs = sub.add_parser(
+        "refresh-story", help="merge the invocation branch into a story branch"
+    )
+    p_rs.add_argument("story_id")
+
     p_ms = sub.add_parser("merge-story", help="merge a story's feature branch")
     p_ms.add_argument("story_id")
     p_ms.add_argument(
@@ -2036,6 +2154,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_verify_story(args)
     if args.subcommand == "escalate":
         return cmd_escalate(args)
+    if args.subcommand == "refresh-story":
+        return cmd_refresh_story(args)
     if args.subcommand == "merge-story":
         return cmd_merge_story(args)
     if args.subcommand == "close-wave":

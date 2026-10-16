@@ -1,4 +1,4 @@
-"""Dispatch can run a fix wave (BUG-0082, BUG-0083, BUG-0084, BUG-0085).
+"""Dispatch can run a fix wave (BUG-0082 to BUG-0085, BUG-0087, BUG-0089).
 
 Each test builds a scratch repository with an invocation branch in its own
 worktree and drives dispatch the way the implementation agent does.
@@ -6,32 +6,41 @@ worktree and drives dispatch the way the implementation agent does.
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
 import yaml
+from conftest import SOURCE_SCRIPTS_DIR
 from test_dispatch_merge_safety import STORY, _dispatch, _git
 
 DEPENDENT_STORY = STORY.replace("deps: []", "deps: [ST-0001]")
+TOUCHES_ONLY_STORY = STORY.replace('outputs: ["src/{id}.txt"]\n', "")
 TESTING_YAML = '# comment\ntest_all: "false"\ntest_command: "true"\n'
 
 
 def _repo(
-    tmp_path: Path, *, testing_yaml: str | None = None, project_json: bool = True
+    tmp_path: Path,
+    *,
+    testing_yaml: str | None = None,
+    project_json: bool = True,
+    first_story: str = STORY,
+    second_story: str = DEPENDENT_STORY,
 ) -> dict[str, Path]:
     """A repo with ST-0001 and ST-0002 (which depends on ST-0001).
 
     *testing_yaml* is committed as docs/testing.yaml when given. Without it,
     config/project.json carries the test command, unless *project_json* is
-    False.
+    False. *first_story* and *second_story* are the backlog templates for
+    ST-0001 and ST-0002.
     """
     repo = tmp_path / "repo"
     (repo / "backlog").mkdir(parents=True)
     (repo / "src").mkdir()
     _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
-    (repo / "backlog" / "ST-0001.md").write_text(STORY.format(id="ST-0001"))
+    (repo / "backlog" / "ST-0001.md").write_text(first_story.format(id="ST-0001"))
     (repo / "backlog" / "ST-0002.md").write_text(
-        DEPENDENT_STORY.format(id="ST-0002")
+        second_story.format(id="ST-0002")
     )
     if testing_yaml is not None:
         (repo / "docs").mkdir()
@@ -415,18 +424,27 @@ def test_prepare_wave_again_keeps_the_worktree_of_a_dispatching_story(tmp_path):
     assert _story(_ledger(r), "ST-0001")["status"] == "dispatching"
 
 
-def _finish_story(r: dict[str, Path], story_id: str) -> None:
-    """Dispatch, commit, verify, and merge *story_id* into feat/x."""
+def _commit_story_work(
+    r: dict[str, Path], story_id: str, extra_paths: tuple[str, ...] = ()
+) -> None:
+    """Dispatch *story_id*, commit its work plus *extra_paths*, and verify it."""
     for args in (("mark-dispatching", story_id), ("mark-dispatched", story_id)):
         result = _dispatch(r["repo"], r["ledger"], *args)
         assert result.returncode == 0, (args, result.stderr)
     story = _story_worktree(r, story_id)
-    (story / "src" / f"{story_id}.txt").write_text("work\n")
+    for rel in (f"src/{story_id}.txt", *extra_paths):
+        (story / rel).parent.mkdir(parents=True, exist_ok=True)
+        (story / rel).write_text("work\n")
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "story work")
     sha = _git(story, "rev-parse", "HEAD")
     result = _dispatch(r["repo"], r["ledger"], "verify-story", story_id, "--sha", sha)
     assert result.returncode == 0, result.stderr
+
+
+def _finish_story(r: dict[str, Path], story_id: str) -> None:
+    """Dispatch, commit, verify, and merge *story_id* into feat/x."""
+    _commit_story_work(r, story_id)
     result = _dispatch(r["inv"], r["ledger"], "merge-story", story_id)
     assert result.returncode == 0, result.stderr
 
@@ -487,3 +505,225 @@ def test_prepare_story_rolls_back_when_the_manifest_step_fails(chain):
     assert result.returncode != 0
     _assert_no_story_workspace(chain, "ST-0002")
     assert _story(_ledger(chain), "ST-0002")["status"] == "pending"
+
+
+# -- BUG-0087: merge-story reads touches when outputs is absent -------------
+
+
+@pytest.fixture()
+def touches_only(tmp_path: Path) -> dict[str, Path]:
+    """ST-0001 declares only touches and waits, dispatched, in wave 1."""
+    r = _repo(tmp_path, first_story=TOUCHES_ONLY_STORY)
+    assert _prepare_wave_one(r).returncode == 0
+    return r
+
+
+def test_merge_story_scopes_a_story_by_its_touches(touches_only):
+    _commit_story_work(touches_only, "ST-0001")
+
+    result = _dispatch(touches_only["inv"], touches_only["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _story(_ledger(touches_only), "ST-0001")["status"] == "done"
+
+
+def test_merge_story_allows_the_index_yaml_a_hook_rewrites(touches_only):
+    _commit_story_work(touches_only, "ST-0001", ("packages/factory/INDEX.yaml",))
+
+    result = _dispatch(touches_only["inv"], touches_only["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_merge_story_blocks_a_file_outside_touches(touches_only):
+    _commit_story_work(touches_only, "ST-0001", ("src/stray.txt",))
+
+    result = _dispatch(touches_only["inv"], touches_only["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode != 0
+    assert "src/stray.txt" in result.stdout + result.stderr
+    assert _story(_ledger(touches_only), "ST-0001")["status"] == "dispatched"
+
+
+def _touches_story(entry: str) -> str:
+    return TOUCHES_ONLY_STORY.replace('touches: ["src/{id}.txt"]', f'touches: ["{entry}"]')
+
+
+@pytest.fixture(params=["src/", "src"])
+def folder_touches(tmp_path: Path, request) -> dict[str, Path]:
+    """ST-0001 declares only the folder entry src/ (or src) in touches."""
+    r = _repo(tmp_path, first_story=_touches_story(request.param))
+    assert _prepare_wave_one(r).returncode == 0
+    return r
+
+
+def test_merge_story_matches_a_folder_entry_in_touches_by_prefix(folder_touches):
+    _commit_story_work(folder_touches, "ST-0001", ("src/a.py",))
+
+    result = _dispatch(folder_touches["inv"], folder_touches["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _story(_ledger(folder_touches), "ST-0001")["status"] == "done"
+
+
+@pytest.mark.parametrize("stray", ["srcx/a.py", "docs/a.md"])
+def test_merge_story_blocks_a_file_outside_a_folder_entry(folder_touches, stray):
+    _commit_story_work(folder_touches, "ST-0001", (stray,))
+
+    result = _dispatch(folder_touches["inv"], folder_touches["ledger"], "merge-story", "ST-0001")
+
+    assert result.returncode != 0
+    assert stray in result.stdout + result.stderr
+    assert _story(_ledger(folder_touches), "ST-0001")["status"] == "dispatched"
+
+
+@pytest.mark.parametrize(
+    ("entry", "work", "stray"),
+    [
+        ("src/*.py", "src/a.py", "src/sub/b.py"),
+        ("app/[id]/", "app/[id]/page.tsx", "app/i/page.tsx"),
+    ],
+)
+def test_merge_story_scopes_glob_and_bracket_entries_in_touches(
+    tmp_path, entry, work, stray
+):
+    """A glob entry goes to --scope-glob; a bracket entry without * or ? is a
+    literal folder, because glob_match has no bracket classes."""
+    r = _repo(tmp_path, first_story=_touches_story(entry))
+    assert _prepare_wave_one(r).returncode == 0
+    _commit_story_work(r, "ST-0001", (work,))
+    # The story's own src/ST-0001.txt lies outside these entries; drop it.
+    story = _story_worktree(r, "ST-0001")
+    _git(story, "rm", "-q", "src/ST-0001.txt")
+    _git(story, "commit", "-qm", "drop")
+
+    result = _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0001", "--dry-run")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    (story / stray).parent.mkdir(parents=True, exist_ok=True)
+    (story / stray).write_text("stray\n")
+    _git(story, "add", "-A")
+    _git(story, "commit", "-qm", "stray")
+    result = _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0001", "--dry-run")
+    assert result.returncode != 0
+    assert stray in result.stdout + result.stderr
+
+
+# -- BUG-0089: a story branch takes in the moved invocation branch ----------
+
+
+@pytest.fixture()
+def parallel(tmp_path: Path) -> dict[str, Path]:
+    """ST-0001 and ST-0002 share wave 1; ST-0001 is merged, ST-0002 is
+    dispatched and committed on a branch that lacks that merge."""
+    r = _repo(tmp_path, second_story=STORY)
+    assert _prepare_wave_one(r).returncode == 0
+    _commit_story_work(r, "ST-0002")
+    _finish_story(r, "ST-0001")
+    return r
+
+
+def test_merge_story_refreshes_a_parallel_story_behind_the_invocation_branch(parallel):
+    first_merge = _story(_ledger(parallel), "ST-0001")["commit_sha"]
+
+    result = _dispatch(parallel["inv"], parallel["ledger"], "merge-story", "ST-0002")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "done"
+    story_tip = _git(parallel["inv"], "rev-parse", "HEAD^2")
+    _git(parallel["inv"], "merge-base", "--is-ancestor", first_merge, story_tip)
+
+
+def test_refresh_story_lets_verify_base_pass_in_the_story_worktree(parallel):
+    story = _story_worktree(parallel, "ST-0002")
+    base = _story(_ledger(parallel), "ST-0002")["base_sha"]
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _git(story, "log", "-1", "--format=%s") == "merge: feat/x into story/ST-0002"
+    verify = subprocess.run(
+        [str(SOURCE_SCRIPTS_DIR / "verify-base"), "feat/x", "--expect-base", base],
+        cwd=story, capture_output=True, text=True, check=False,
+    )
+    assert verify.returncode == 0, verify.stdout + verify.stderr
+
+    again = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+    assert again.returncode == 0, again.stderr
+    assert _git(story, "log", "-1", "--format=%s") == "merge: feat/x into story/ST-0002"
+
+
+def test_refresh_story_blocks_a_story_whose_merge_conflicts(tmp_path):
+    r = _repo(tmp_path, second_story=STORY)
+    assert _prepare_wave_one(r).returncode == 0
+    # ST-0002 writes the same file ST-0001 writes, with other content.
+    _commit_story_work(r, "ST-0002", ("src/ST-0001.txt",))
+    story = _story_worktree(r, "ST-0002")
+    (story / "src" / "ST-0001.txt").write_text("other\n")
+    _git(story, "commit", "-qam", "other")
+    _finish_story(r, "ST-0001")
+    tip = _git(r["repo"], "rev-parse", "story/ST-0002")
+
+    result = _dispatch(r["repo"], r["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    entry = _story(_ledger(r), "ST-0002")
+    assert (entry["status"], entry["reason"]) == ("blocked", "refresh conflict")
+    assert _git(story, "status", "--porcelain") == ""
+    assert _git(r["repo"], "rev-parse", "story/ST-0002") == tip
+
+
+def test_refresh_story_refuses_a_dirty_worktree(parallel):
+    story = _story_worktree(parallel, "ST-0002")
+    (story / "src" / "ST-0002.txt").write_text("uncommitted\n")
+    tip = _git(parallel["repo"], "rev-parse", "story/ST-0002")
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    assert "uncommitted" in result.stderr
+    assert _git(parallel["repo"], "rev-parse", "story/ST-0002") == tip
+    assert (story / "src" / "ST-0002.txt").read_text() == "uncommitted\n"
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "dispatched"
+
+
+def test_refresh_story_refuses_a_worktree_on_another_branch(parallel):
+    story = _story_worktree(parallel, "ST-0002")
+    _git(story, "checkout", "-q", "-b", "side")
+    tip = _git(parallel["repo"], "rev-parse", "story/ST-0002")
+    side = _git(story, "rev-parse", "HEAD")
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    assert "side" in result.stderr
+    assert _git(parallel["repo"], "rev-parse", "story/ST-0002") == tip
+    assert _git(story, "rev-parse", "HEAD") == side
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "dispatched"
+
+
+def _interrupt_merge_story(r: dict[str, Path], tmp_path: Path) -> None:
+    """Run merge-story for ST-0002 and kill it after the merge commit."""
+    sentinel = tmp_path / "killed"
+    (r["inv"] / "config" / "project.json").write_text(
+        '{"test_command": "test -f %s || { touch %s; kill -9 $PPID; }"}'
+        % (sentinel, sentinel)
+    )
+    _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0002")
+    assert _git(r["inv"], "rev-parse", "HEAD^2") == _git(r["repo"], "rev-parse", "story/ST-0002")
+
+
+def test_refresh_story_refuses_after_an_interrupted_merge_story(parallel, tmp_path):
+    _interrupt_merge_story(parallel, tmp_path)
+    tip = _git(parallel["repo"], "rev-parse", "story/ST-0002")
+
+    result = _dispatch(parallel["repo"], parallel["ledger"], "refresh-story", "ST-0002")
+
+    assert result.returncode != 0
+    assert "rerun merge-story" in result.stderr
+    assert _git(parallel["repo"], "rev-parse", "story/ST-0002") == tip
+
+    rerun = _dispatch(parallel["inv"], parallel["ledger"], "merge-story", "ST-0002")
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    assert _story(_ledger(parallel), "ST-0002")["status"] == "done"
+    assert _git(parallel["inv"], "rev-parse", "HEAD^2") == tip

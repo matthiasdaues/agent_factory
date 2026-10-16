@@ -154,6 +154,8 @@ For a mechanized implementation dispatch, the script-enforced checkpoints are:
 2. `dispatch verify-story <story-id> --sha <sha>` confirms the reported commit object exists and belongs to the expected story branch.
 3. `dispatch merge-story <story-id>` runs `premerge-check <target> <branch> --scope ...` immediately before merge, then runs the post-merge test command.
 
+`dispatch refresh-story <story-id>` merges the invocation branch into the story branch inside the story's worktree. Run it when the invocation branch has moved, for example after another story of the wave merged. It refuses a dirty worktree and a worktree on another branch. After an interrupted `merge-story` it refuses and points to a rerun of `merge-story`. On a conflict it aborts the merge and blocks the story. `merge-story` runs the same step before `premerge-check`.
+
 Any failed checkpoint means the report is false or incomplete, or the work landed somewhere unexpected — investigate before merging or closing the story.
 
 ### Do Not Supersede A Running Agent
