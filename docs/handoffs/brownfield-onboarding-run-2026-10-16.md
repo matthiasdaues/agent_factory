@@ -44,6 +44,9 @@ brief-storage run. The plan is
   marker there that would let an unchecked commit through.
 - `update-factory`'s last question did not show behind the `!` prefix.
 - The handoff contract named bare `uv run pytest` (BUG-0109).
+- `update-factory` never refreshes a project's hook block (BUG-0110), and
+  hooks pass silently when the factory folder is missing (BUG-0111). In
+  another project every gate passed unchecked for this reason.
 
 ## Next work
 
