@@ -263,3 +263,20 @@ def test_bug_0075_keeps_claude_hooks_dir_the_project_already_had(tmp_path):
 
     assert removed.returncode == 0, removed.stderr
     assert (target / ".claude/hooks").is_dir()
+
+
+def test_bug_0075_removal_keeps_a_project_file_in_the_claude_hooks_dir(tmp_path):
+    target = _new_project(tmp_path)
+    (target / ".claude").mkdir()
+    (target / ".claude/CLAUDE.md").write_text("# Project rules\n")
+    installed = _init_factory(target, "--cli", "claude", "--project-name", "demo")
+    assert installed.returncode == 0, installed.stderr
+    own_hook = target / ".claude/hooks/my-hook.sh"
+    own_hook.write_text("#!/bin/sh\nexit 0\n")
+
+    removed = _remove_factory(target)
+
+    assert removed.returncode == 0, removed.stderr
+    assert own_hook.read_text() == "#!/bin/sh\nexit 0\n"
+    assert [p.name for p in (target / ".claude/hooks").iterdir()] == ["my-hook.sh"]
+
