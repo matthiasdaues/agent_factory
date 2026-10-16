@@ -392,15 +392,18 @@ agents:
     tier: strong
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1533
-    total_tokens: 19326
+    tokens: 1721
+    total_tokens: 19945
     inputs:
       required:
-        - type: proposal
-          path_pattern: docs/proposals/{name}.md
-          conditions:
-            field: status
-            value: accepted
+        - any_of:
+            - type: proposal
+              path_pattern: docs/proposals/{name}.md
+              conditions:
+                field: status
+                value: accepted
+            - type: scope-map
+              path_pattern: docs/spec/scope-map.md
       context:
         - docs/CONTEXT.md
         - docs/spec/todos.md
@@ -592,9 +595,9 @@ skills:
     tokens: 517
   - name: derive-feature
     category: requirements
-    description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
+    description: Derive a Gherkin .feature file from a proposal, or in brownfield from the scope map, using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
-    tokens: 2029
+    tokens: 2460
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
@@ -890,11 +893,12 @@ playbooks:
     path: playbooks/brownfield-onboarding.md
     agents:
       - architecture-agent
+      - requirements-agent
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3181
-    total_tokens: 37105
+    tokens: 3209
+    total_tokens: 57078
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -933,7 +937,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4632
-    total_tokens: 105232
+    total_tokens: 105851
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -951,7 +955,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 104585
+    total_tokens: 105204
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
