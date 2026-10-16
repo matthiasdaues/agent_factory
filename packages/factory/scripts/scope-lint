@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -132,10 +133,38 @@ def extract_scope_top_level_yaml(path: Path) -> Optional[str]:
 # --- Workstream discovery -----------------------------------------------------
 
 
+def _main_checkout(worktree_root: Path) -> Path | None:
+    """Return the main checkout of a linked worktree, or None.
+
+    .agent-factory/ is ignored by git, so only the main checkout has it.
+    Mirrors concern-lint's _main_checkout.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(worktree_root), "rev-parse", "--show-toplevel", "--git-common-dir"],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return None
+    lines = result.stdout.splitlines()
+    if result.returncode != 0 or len(lines) != 2:
+        return None
+    toplevel = Path(lines[0]).resolve()
+    if toplevel != worktree_root.resolve():
+        return None
+    main_root = (worktree_root / lines[1]).resolve().parent
+    return None if main_root == toplevel else main_root
+
+
 def discover_workstreams(base_dir: Path) -> set[str]:
     ws_dir = base_dir / ".agent-factory" / "workstreams"
     if not ws_dir.is_dir():
-        return set()
+        main_root = _main_checkout(base_dir)
+        if main_root is None:
+            return set()
+        ws_dir = main_root / ".agent-factory" / "workstreams"
+        if not ws_dir.is_dir():
+            return set()
     return {p.stem for p in ws_dir.glob("*.yaml") if p.stem != "sessions" and p.is_file()}
 
 
