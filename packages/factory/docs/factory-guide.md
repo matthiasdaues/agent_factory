@@ -473,7 +473,7 @@ Greenfield and brownfield are **onboarding playbooks** — they bring a project 
 | [`greenfield-development.md`](../playbooks/greenfield-development.md) | A brand-new project with no code or docs.               | Scope map (all Rules `deferred`), `architecture.dsl`, arc42 prose.                              |
 | [`brownfield-onboarding.md`](../playbooks/brownfield-onboarding.md)   | An existing codebase with no spec or architecture docs. | Scope map (Rules backfilled `implemented`), reverse-engineered `architecture.dsl`, arc42 prose. |
 
-Brownfield has two stages. **Stage 1** produces the three anchor files — architecture DSL, scope map (via the `reverse-map` skill), and `CONTEXT.md` — and then offers an explicit exit. The user can start `feature-addition` from this lightweight baseline. **Stage 2** (opt-in) goes deeper: full specification extraction, component resolution, ATAM review, and reconciliation.
+Brownfield has two stages. **Stage 1** produces the three anchor files — scope map (via the `reverse-map` skill), `CONTEXT.md`, and then the architecture DSL — and then offers an explicit exit. The user can start `feature-addition` from this lightweight baseline. **Stage 2** (opt-in) goes deeper: full specification extraction, component resolution, ATAM review, and reconciliation.
 
 After either playbook completes (or after brownfield Stage 1), all feature work enters through `feature-addition`.
 
