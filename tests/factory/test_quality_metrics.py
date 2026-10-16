@@ -215,3 +215,61 @@ def test_BUG_0072_undecodable_file_fails_the_gate(tmp_path):
     assert rows[0]["pass_fail"] == "fail"
     assert "utf-8" in rows[0]["function"]
     assert code == 1
+
+
+def _write_coverage(path, keys_to_executed):
+    files = {
+        key: {
+            "executed_lines": [1, 2, 3, 4] if covered else [],
+            "missing_lines": [] if covered else [1, 2, 3, 4],
+        }
+        for key, covered in keys_to_executed.items()
+    }
+    path.write_text(json.dumps({"files": files}), encoding="utf-8")
+
+
+def _run_crap_score_with_coverage(source_root, coverage_json, reports):
+    return cs.main(
+        [
+            "--source-root",
+            source_root,
+            "--coverage-json",
+            coverage_json,
+            "--report-dir",
+            str(reports),
+            "--story-id",
+            "ST-0000",
+            "--threshold",
+            "2",
+        ]
+    )
+
+
+def test_BUG_0072_same_named_file_in_cwd_does_not_take_coverage(tmp_path, monkeypatch):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "m.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    (tmp_path / "src" / "m.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    _write_coverage(tmp_path / "coverage.json", {"m.py": True, "src/m.py": False})
+    reports = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path / "src")
+
+    code = _run_crap_score_with_coverage(".", "../coverage.json", reports)
+
+    rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
+    assert [(row["file"], row["coverage_pct"]) for row in rows] == [("m.py", 0.0)]
+    assert code == 1
+
+
+def test_BUG_0072_uncovered_file_does_not_borrow_root_namesake(tmp_path, monkeypatch):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "m.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    (tmp_path / "src" / "m.py").write_text(COVERED_SOURCE, encoding="utf-8")
+    _write_coverage(tmp_path / "coverage.json", {"m.py": True})
+    reports = tmp_path / "reports"
+    monkeypatch.chdir(tmp_path)
+
+    code = _run_crap_score_with_coverage("src", "coverage.json", reports)
+
+    rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
+    assert [(row["file"], row["coverage_pct"]) for row in rows] == [("m.py", 0.0)]
+    assert code == 1

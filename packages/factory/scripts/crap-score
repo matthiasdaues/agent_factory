@@ -169,11 +169,22 @@ def iter_python_files(source_root: Path) -> list[Path]:
 
 
 def load_coverage(coverage_json_path: Path, source_root: Path) -> dict:
-    """Return coverage.py file entries keyed by absolute path."""
+    """Return coverage.py file entries keyed by absolute path.
+
+    Keys resolve against one base: the first of the current directory, the
+    folder holding coverage.json, and the source root under which every key
+    names an existing file. Only when no base fits does each key take the
+    first base that produces a path, in that order.
+    """
     data = json.loads(coverage_json_path.read_text(encoding="utf-8"))
+    entries = data.get("files", {})
+    bases = (Path.cwd(), coverage_json_path.parent, source_root)
+    for base in bases:
+        if all((base / key).is_file() for key in entries):
+            return {str((base / key).resolve()): entry for key, entry in entries.items()}
     by_absolute: dict = {}
-    for base in (Path.cwd(), coverage_json_path.parent, source_root):
-        for key, entry in data.get("files", {}).items():
+    for base in bases:
+        for key, entry in entries.items():
             by_absolute.setdefault(str((base / key).resolve()), entry)
     return by_absolute
 
