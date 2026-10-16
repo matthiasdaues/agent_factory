@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -135,6 +136,13 @@ class TestRewriteRules:
         assert "## First decision\n\n**Status:** accepted" in qd
         assert "### Context" in qd
 
+    def test_each_appendix_document_starts_a_new_page(self, docs: Path, tmp_path: Path):
+        write(docs, "adr/0002-second.md", "---\nstatus: proposed\n---\n\n# Second decision\n")
+        qd, _, _ = build(docs, tmp_path)
+        assert qd.count(".pagebreak") == 2
+        appendix = qd.split("# Architecture decisions\n", 1)[1]
+        assert len(re.findall(r"\.pagebreak\n+## ", appendix)) == 2
+
     def test_fresh_view_replaces_committed_svg(self, docs: Path, tmp_path: Path):
         views = write(tmp_path, "views/Containers.svg", "<svg>fresh</svg>").parent
         qd, _, out = build(docs, tmp_path, views)
@@ -153,7 +161,7 @@ class TestDocument:
         qd, _, _ = build(docs, tmp_path)
         assert "- headings: none" in qd and "- tables: none" in qd
         assert qd.index("Built from") < qd.index(".tableofcontents")
-        assert ".pagebreak" not in qd
+        assert ".pagebreak" not in qd.split("# Architecture decisions\n", 1)[0]
 
     def test_provenance_line_clean_tree(self, docs: Path, tmp_path: Path):
         qd, _, _ = build(docs, tmp_path)
