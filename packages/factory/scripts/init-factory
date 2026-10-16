@@ -859,6 +859,22 @@ def _ensure_project_directory(path: Path, install: dict, report: list[str]) -> N
     log(report, f"{_relpath(path, install)}/: created")
 
 
+def _ensure_claude_hooks_dir(target: Path, install: dict, report: list[str]) -> Path:
+    """Create .claude/hooks/ and record it for removal when the install made it.
+
+    remove-factory prunes an empty .claude/hooks/ only when remove_paths lists
+    it, so a directory the project already had survives the removal (BUG-0075).
+    """
+    hooks_dir = target / ".claude" / "hooks"
+    if not hooks_dir.exists():
+        hooks_dir.mkdir(parents=True)
+        rel = _relpath(hooks_dir, install)
+        if rel not in install["remove_paths"]:
+            install["remove_paths"].append(rel)
+        log(report, f"{rel}/: created")
+    return hooks_dir
+
+
 def _preflight_codex_link(link: Path, dest: Path) -> None:
     """Accept an absent or exact Factory link, rejecting every foreign path."""
     if link.is_symlink():
@@ -1303,8 +1319,7 @@ def install_usage_capture(target: Path, install: dict, report: list[str],
                           clis: list[str] | None = None) -> None:
     """Install native usage-capture triggers for the selected CLIs."""
     if _wants(clis, "claude"):
-        hooks_dir = target / ".claude" / "hooks"
-        hooks_dir.mkdir(parents=True, exist_ok=True)
+        hooks_dir = _ensure_claude_hooks_dir(target, install, report)
         link = hooks_dir / "capture-usage.sh"
         dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "capture-usage.sh"
         ensure_symlink(link, dest, report, install=install)
@@ -1577,8 +1592,7 @@ def _install_copilot_usage_capture(
 
 
 def _install_claude_guardrail(target: Path, install: dict, report: list[str]) -> None:
-    hooks_dir = target / ".claude" / "hooks"
-    hooks_dir.mkdir(parents=True, exist_ok=True)
+    hooks_dir = _ensure_claude_hooks_dir(target, install, report)
 
     link = hooks_dir / "block-dangerous-git.sh"
     dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
@@ -1588,8 +1602,7 @@ def _install_claude_guardrail(target: Path, install: dict, report: list[str]) ->
 
 
 def _install_claude_step_guard(target: Path, install: dict, report: list[str]) -> None:
-    hooks_dir = target / ".claude" / "hooks"
-    hooks_dir.mkdir(parents=True, exist_ok=True)
+    hooks_dir = _ensure_claude_hooks_dir(target, install, report)
 
     link = hooks_dir / "step-guard.sh"
     dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "step-guard.sh"
@@ -1714,8 +1727,7 @@ def install_pi_invocation_layer(target: Path, install: dict, report: list[str]) 
 def _install_claude_freshness_check(
     target: Path, install: dict, report: list[str]
 ) -> None:
-    hooks_dir = target / ".claude" / "hooks"
-    hooks_dir.mkdir(parents=True, exist_ok=True)
+    hooks_dir = _ensure_claude_hooks_dir(target, install, report)
 
     link = hooks_dir / "check-factory-freshness.sh"
     dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "check-factory-freshness.sh"

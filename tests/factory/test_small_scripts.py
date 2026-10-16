@@ -228,3 +228,38 @@ def test_bug_0079_migrate_layout_dry_run_reads_the_old_manifest(tmp_path, capsys
     assert "MANIFEST remove_paths: factory → .agent-factory/factory" in out
     assert json.loads(old_manifest.read_text()) == {"remove_paths": ["factory"]}
     assert (tmp_path / "factory").is_dir()
+
+
+# --- BUG-0075: init-factory records the .claude/hooks/ it creates -------------
+
+
+def test_bug_0075_removal_leaves_no_claude_hooks_dir_the_install_created(tmp_path):
+    target = _new_project(tmp_path)
+    (target / ".claude").mkdir()
+    (target / ".claude/CLAUDE.md").write_text("# Project rules\n")
+
+    installed = _init_factory(target, "--cli", "claude", "--project-name", "demo")
+    assert installed.returncode == 0, installed.stderr
+    manifest = json.loads((target / ".agent-factory/install.json").read_text())
+    assert ".claude/hooks" in manifest["remove_paths"]
+
+    removed = _remove_factory(target)
+
+    assert removed.returncode == 0, removed.stderr
+    assert not (target / ".claude/hooks").exists()
+    assert (target / ".claude/CLAUDE.md").read_text().endswith("# Project rules\n")
+
+
+def test_bug_0075_keeps_claude_hooks_dir_the_project_already_had(tmp_path):
+    target = _new_project(tmp_path)
+    (target / ".claude/hooks").mkdir(parents=True)
+
+    installed = _init_factory(target, "--cli", "claude", "--project-name", "demo")
+    assert installed.returncode == 0, installed.stderr
+    manifest = json.loads((target / ".agent-factory/install.json").read_text())
+    assert ".claude/hooks" not in manifest["remove_paths"]
+
+    removed = _remove_factory(target)
+
+    assert removed.returncode == 0, removed.stderr
+    assert (target / ".claude/hooks").is_dir()
