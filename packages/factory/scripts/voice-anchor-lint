@@ -5,6 +5,8 @@ Each agent file and each skill file must contain the fixed sentence that
 tells the reader to load factory-voice.md. One fixed wording keeps the
 anchor identical everywhere and lets this script check it. Skills whose
 output is mechanical, or exempt from the voice, are listed in EXEMPT_SKILLS.
+
+Exit 1 when an anchor is missing, 2 when --factory-dir is not a directory.
 """
 
 from __future__ import annotations
@@ -60,6 +62,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--factory-dir", type=Path, default=FACTORY_DIR)
     args = parser.parse_args(argv)
 
+    if not args.factory_dir.is_dir():
+        print(
+            f"voice-anchor-lint: --factory-dir {args.factory_dir} is not a directory",
+            file=sys.stderr,
+        )
+        return 2
     errors = check(args.factory_dir)
     if errors:
         print("\n".join(errors), file=sys.stderr)

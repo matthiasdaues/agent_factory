@@ -82,6 +82,8 @@ The concern names in `agent-context.md` form a controlled vocabulary. The
 planning-agent writes a `concerns` field into each story's frontmatter,
 picking from this vocabulary:
 
+<!-- yaml-excerpt -->
+
 ```yaml
 concerns:
   domain: [payments]

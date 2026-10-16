@@ -234,6 +234,7 @@ The dispatcher must maintain a machine-readable ledger at `.current-work/<featur
 Schema:
 
 ```yaml
+---
 mode: automated
 closed: false | true
 invocation_branch: <branch-name>
@@ -265,6 +266,8 @@ At the end of each wave (even a single-story wave), the dispatcher calls `dispat
 4. Current branch head SHA.
 
 This record is not a separate artifact — it is logged as a YAML list under the `waves:` key in the dispatch ledger, appended after each wave:
+
+<!-- yaml-excerpt -->
 
 ```yaml
 waves:

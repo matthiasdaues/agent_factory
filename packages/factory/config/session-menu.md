@@ -41,7 +41,7 @@ Run `.agent-factory/factory/scripts/housekeeping-about` and display its output t
 - **Factory version** and source path — from `.agent-factory/install.json`
 - **Fitting status** — from `.agent-factory/config/project-context.json` (X/5 with step names)
 - **CLI integrations** — from `.agent-factory/install.json`
-- **Usage pipeline health** — from `.agent-factory/usage/` directory existence
+- **Usage pipeline health** — from the usage runtime under `.agent-factory/usage/runtime/` and the newest usage record in `.agent-factory/usage/`
 
 Each source is read independently. When a source is unreadable, its line shows `unknown` with the error message.
 

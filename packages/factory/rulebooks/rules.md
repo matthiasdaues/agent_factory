@@ -224,6 +224,12 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 - **MUST** keep the git tag and version file identical — no mismatches.
 - **MUST NOT** tag feature branches, or apply release/pre-release tag formats on a non-main branch.
 
+## YAML document start
+
+→ [yaml-format.md](conventions/yaml-format.md)
+
+- **MUST** begin every YAML file the factory writes, and every whole-file YAML example, with `---`; mark an excerpt with `<!-- yaml-excerpt -->` and leave the marker out.
+
 ## Referenced from
 
 - [foundational-principles.md](conventions/foundational-principles.md)
@@ -240,3 +246,4 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 - [review-loop-discipline.md § Rule](conventions/review-loop-discipline.md#rule)
 - [state-machine-notation.md § Canonical Format](conventions/state-machine-notation.md#canonical-format)
 - [versioning-policy.md § Git Tag Must Match Version File](conventions/versioning-policy.md#git-tag-must-match-version-file)
+- [yaml-format.md § Rule](conventions/yaml-format.md#rule)

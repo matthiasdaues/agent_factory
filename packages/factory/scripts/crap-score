@@ -16,7 +16,16 @@ Formula
 
 Output
   Writes JSON to .current-work/crap-score/<story-id>.json and to
-  stdout. Exits 1 when any function exceeds the threshold.
+  stdout. Exits 1 when any function exceeds the threshold. A file that
+  cannot be read or parsed fails the gate: it gets one failing row whose
+  function field reads "<parse error: ...>", and the other files are
+  still scored.
+
+Coverage lookup
+  coverage.json keys are resolved to absolute paths, first against the
+  current directory, then against the directory holding coverage.json,
+  then against --source-root, and matched against each scanned file's
+  absolute path.
 """
 
 from __future__ import annotations
@@ -27,6 +36,7 @@ import os
 import re
 import subprocess
 import sys
+import tokenize
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -109,9 +119,7 @@ def read_threshold_from_testing_yaml(source_root: Path) -> float | None:
             # Find crap_score section within gates
             gates_pos = gates_match.start()
             remaining = text[gates_pos:]
-            crap_match = re.search(
-                r"^\s+crap_score:\s*$", remaining, re.MULTILINE
-            )
+            crap_match = re.search(r"^\s+crap_score:\s*$", remaining, re.MULTILINE)
             if not crap_match:
                 return None
 
@@ -161,9 +169,25 @@ def iter_python_files(source_root: Path) -> list[Path]:
     return sorted(files)
 
 
-def load_coverage(coverage_json_path: Path) -> dict:
+def load_coverage(coverage_json_path: Path, source_root: Path) -> dict:
+    """Return coverage.py file entries keyed by absolute path.
+
+    Keys resolve against one base: the first of the current directory, the
+    folder holding coverage.json, and the source root under which every key
+    names an existing file. Only when no base fits does each key take the
+    first base that produces a path, in that order.
+    """
     data = json.loads(coverage_json_path.read_text(encoding="utf-8"))
-    return data.get("files", {})
+    entries = data.get("files", {})
+    bases = (Path.cwd(), coverage_json_path.parent, source_root)
+    for base in bases:
+        if all((base / key).is_file() for key in entries):
+            return {str((base / key).resolve()): entry for key, entry in entries.items()}
+    by_absolute: dict = {}
+    for base in bases:
+        for key, entry in entries.items():
+            by_absolute.setdefault(str((base / key).resolve()), entry)
+    return by_absolute
 
 
 def function_coverage(
@@ -201,6 +225,18 @@ def crap_formula(complexity: int, coverage_pct: float) -> float:
 def flatten_blocks(blocks: list) -> list:
     # cc_visit already lists each method as its own block; drop the classes.
     return [block for block in blocks if not hasattr(block, "methods")]
+
+
+def parse_failure(relative: str, exc: Exception) -> FunctionCrap:
+    """Return a failing row for a file whose functions cannot be scored."""
+    return FunctionCrap(
+        file=relative,
+        function=f"<parse error: {exc}>",
+        complexity=0,
+        coverage_pct=0.0,
+        crap_score=0.0,
+        pass_fail="fail",
+    )
 
 
 def detect_story_id(explicit: str | None) -> str:
@@ -247,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
         if not cov_path.is_file():
             print(f"crap-score: coverage.json not found: {cov_path}", file=sys.stderr)
             return 2
-        coverage_files = load_coverage(cov_path)
+        coverage_files = load_coverage(cov_path, source_root)
 
     threshold = resolve_threshold(args.threshold, source_root)
     results: list[FunctionCrap] = []
@@ -255,14 +291,17 @@ def main(argv: list[str] | None = None) -> int:
     for file_path in iter_python_files(source_root):
         relative = str(file_path.relative_to(source_root))
         try:
-            source = file_path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            # tokenize.open honours a PEP 263 coding line, as Python does.
+            with tokenize.open(file_path) as handle:
+                source = handle.read()
+            blocks = flatten_blocks(cc_visit(source))
+        except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+            print(f"crap-score: cannot parse {relative}: {exc}", file=sys.stderr)
+            results.append(parse_failure(relative, exc))
             continue
-
-        blocks = flatten_blocks(cc_visit(source))
         for block in blocks:
             cov = function_coverage(
-                relative,
+                str(file_path.resolve()),
                 block.lineno,
                 block.endline,
                 coverage_files,
