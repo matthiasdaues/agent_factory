@@ -89,7 +89,9 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Workflow
 
-### When neither an accepted proposal nor a scope map exists
+Branch order: if the caller passes `docs/spec/scope-map.md`, from the scope map; else an accepted proposal, even when a scope map exists; else a draft proposal stops at the proposal-acceptance pause point; else the first branch.
+
+### Without an accepted proposal
 
 1. **Capture Vision** — Invoke `capture-vision`: interview across six facets (Problem, Target audience, Desired outcome, Constraints, Boundaries, Inspiration).
 2. **Clarify Requirements** — Invoke `clarify-requirements` to select and run the branch (Socratic / `grill-me` / `grill-with-docs`).
@@ -110,7 +112,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ### From the scope map (brownfield)
 
-A brownfield project has no proposal; the code is the specification. Brownfield Step 3.3 starts here once Stage 1 has confirmed `docs/spec/scope-map.md`.
+Brownfield Step 3.3 starts here. The Brownfield Entry stops on a map with `status: draft`.
 
 1. **Derive Feature Spec** — Invoke `derive-feature docs/spec/scope-map.md`. The skill follows its [Brownfield Entry](../skills/derive-feature/SKILL.md#brownfield-entry): it writes `docs/spec/<project-name>.feature` and `docs/spec/<project-name>-gaps.md`, keeps every row `implemented`, and fills each matched row's Feature Link.
 2. **Produce supplementary specs and QA strategy** — Continue with steps 1d and 2 above, using `<project-name>` as the feature name.

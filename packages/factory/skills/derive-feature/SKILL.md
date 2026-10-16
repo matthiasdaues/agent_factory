@@ -29,10 +29,12 @@ proposal. Follow the [Brownfield Entry](#brownfield-entry).
 
 ## Brownfield Entry
 
-A brownfield project has no proposal; the code is the specification.
-Brownfield Step 3.3 invokes `derive-feature docs/spec/scope-map.md` after
-Stage 1 has confirmed the scope map. Steps 1 to 6 run as written below, with
-these sources in place of the proposal:
+Brownfield Step 3.3 invokes `derive-feature docs/spec/scope-map.md`.
+
+First, read the scope map's frontmatter. If it carries `status: draft`,
+stop and derive nothing; send the user to brownfield playbook Step 2.6 to
+confirm the map. Otherwise, Steps 1 to 6 run as written below, with these
+sources in place of the proposal:
 
 | Proposal field             | Brownfield source                                                                                                                                  |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |

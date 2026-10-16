@@ -392,8 +392,8 @@ agents:
     tier: strong
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1721
-    total_tokens: 19945
+    tokens: 1753
+    total_tokens: 19995
     inputs:
       required:
         - any_of:
@@ -597,7 +597,7 @@ skills:
     category: requirements
     description: Derive a Gherkin .feature file from a proposal, or in brownfield from the scope map, using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
-    tokens: 2460
+    tokens: 2478
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
@@ -898,7 +898,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3209
-    total_tokens: 57078
+    total_tokens: 57128
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -937,7 +937,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4632
-    total_tokens: 105851
+    total_tokens: 105901
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -955,7 +955,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 105204
+    total_tokens: 105254
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
