@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, load_script
 
 
 def _clean_env() -> dict[str, str]:
@@ -77,3 +77,35 @@ def test_bug_0080_message_flag_without_value_explains_itself(tmp_path):
 
     assert result.returncode == 2
     assert "-m <message> is required" in result.stderr
+
+
+# --- BUG-0081: merge-precommit-config adds no duplicate hooks ----------------
+
+FACTORY_TEMPLATE = (
+    REPO_ROOT / "packages/factory/config/pre-commit-config.yaml"
+).read_text(encoding="utf-8")
+
+PROJECT_WITH_OWN_MDFORMAT = """\
+repos:
+  - repo: local
+    hooks:
+      - id: mdformat
+        name: mdformat
+        entry: mdformat --wrap 80
+        language: system
+        types: [markdown]
+"""
+
+
+def test_bug_0081_repeated_merges_and_update_keep_one_copy_of_each_hook():
+    mpc = load_script("merge-precommit-config")
+
+    text = mpc.merge(PROJECT_WITH_OWN_MDFORMAT, FACTORY_TEMPLATE)
+    again = mpc.merge(text, FACTORY_TEMPLATE)
+    text = again if again is not None else text
+    text = mpc.merge(text, FACTORY_TEMPLATE, update=True)
+
+    assert again is None
+    assert text.count("id: agent_factory_hook-link-check") == 1
+    assert "id: agent_factory_hook-mdformat" not in text
+    assert text.count("id: mdformat\n") == 1

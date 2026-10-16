@@ -21,13 +21,16 @@ list. Anything else about `--target`'s structure is left untouched — this
 script only ever inserts one new list item at the top of that one list.
 
 Algorithm
-  1. Derive the no-op marker from `--template` itself: its own first
-     top-level hook id (the first `- id: <name>` line inside its
-     `- repo: local` block). If that exact `id: <name>` string already
-     appears in `--target`, treat it as already merged: no-op. Deriving the
-     marker from the template (rather than a hardcoded id) is what makes the
-     splice direction-agnostic — the same script works factory-into-project
-     and subproject-into-root, each with its own template and its own marker.
+  1. Derive the no-op markers from `--template` itself: the hook ids inside
+     its `- repo: local` block. If `--target` already declares any of them,
+     or any id with the `agent_factory_hook-` prefix when the template
+     carries that prefix, treat it as already merged: no-op. One id is not
+     enough, because the merge can drop a hook the project runs itself
+     (mdformat), and a later run would splice the block in a second time.
+     Deriving the markers from the template (rather than a hardcoded id) is
+     what makes the splice direction-agnostic — the same script works
+     factory-into-project and subproject-into-root, each with its own
+     template and its own markers.
   2. Otherwise find the line that is exactly `repos:` at column 0. Missing,
      or `repos:` written with inline content (flow style, e.g. `repos: []`)
      → abort; this shape isn't understood, merge by hand.
@@ -78,16 +81,19 @@ def find_template_block(template_text: str) -> list[str]:
     )
 
 
-def extract_marker_id(template_lines: list[str]) -> str:
-    """Return the `"id: <name>"` string for `--template`'s own first
-    top-level hook id, found inside its `- repo: local` block (the same
-    block `find_template_block()` extracts).
+FACTORY_HOOK_PREFIX = "agent_factory_hook-"
 
-    Used as the already-merged marker instead of a hardcoded hook id, so
-    the no-op check is derived from whichever template is actually passed —
-    the same script serves factory-into-project and subproject-into-root
-    without either direction stepping on the other's marker.
+
+def template_hook_ids(template_lines: list[str]) -> set[str]:
+    """Return every hook id inside `--template`'s own `- repo: local` block
+    (the same block `find_template_block()` extracts).
+
+    These ids are the already-merged markers. Deriving them from whichever
+    template is passed, rather than hardcoding one, lets the same script
+    serve factory-into-project and subproject-into-root without either
+    direction stepping on the other's markers.
     """
+    ids: set[str] = set()
     in_block = False
 
     for line in template_lines:
@@ -102,12 +108,37 @@ def extract_marker_id(template_lines: list[str]) -> str:
             m = HOOK_ID_LINE.match(line)
 
             if m:
-                return f"id: {m.group(1)}"
+                ids.add(m.group(1))
 
-    raise ValueError(
-        "--template has no `- id: <name>` hook inside its `- repo: local` "
-        "block — can't derive an already-merged marker from it"
-    )
+    if not ids:
+        raise ValueError(
+            "--template has no `- id: <name>` hook inside its `- repo: local` "
+            "block — can't derive an already-merged marker from it"
+        )
+
+    return ids
+
+
+def already_merged(target_lines: list[str], template_ids: set[str]) -> bool:
+    """True when `--target` declares a hook from an earlier merge.
+
+    Any template hook id counts. When the template carries the
+    `agent_factory_hook-` prefix, any id with that prefix counts too, so a
+    template that gained or lost hooks since the last merge still matches."""
+    prefixed = any(i.startswith(FACTORY_HOOK_PREFIX) for i in template_ids)
+
+    for line in target_lines:
+        m = HOOK_ID_LINE.match(line)
+
+        if not m:
+            continue
+
+        hook_id = m.group(1)
+
+        if hook_id in template_ids or (prefixed and hook_id.startswith(FACTORY_HOOK_PREFIX)):
+            return True
+
+    return False
 
 
 def find_repos_list_bounds(target_lines: list[str]) -> tuple[int, int] | None:
@@ -244,13 +275,13 @@ def merge(target_text: str, template_text: str, *, update: bool = False) -> str 
     When update=True and the factory block already exists, strip it first and
     re-splice from the current template — this is how update-factory refreshes
     guarded entries."""
-    marker = extract_marker_id(template_text.splitlines())
+    template_ids = template_hook_ids(template_text.splitlines())
 
-    if marker in target_text:
+    if already_merged(target_text.splitlines(), template_ids):
         if not update:
             return None
         target_text = "\n".join(_strip_factory_block(target_text.splitlines()))
-        if marker in target_text:
+        if already_merged(target_text.splitlines(), template_ids):
             raise ValueError(
                 "the existing agent_factory_hook-* block could not be stripped "
                 "cleanly — merge by hand to avoid duplication"
