@@ -38,8 +38,13 @@ REMOTE_TIMEOUT = 30
 ORIENTATION_BEGIN = "<!-- >>> agent_factory orientation >>>"
 ORIENTATION_END = "<!-- <<< agent_factory orientation <<< -->"
 
+# Files a CLI with @-include support pulls in, as paths from the project
+# root. Each include is written relative to the file that holds it.
 ORIENTATION_INCLUDE = {
-    ".claude": "@../../.agent-factory/factory/config/AGENTS.claude.md\n@../docs/agent-context.md\n",
+    ".claude": (
+        ".agent-factory/factory/config/AGENTS.claude.md",
+        "docs/agent-context.md",
+    ),
 }
 
 ORIENTATION_FILE = {
@@ -872,8 +877,17 @@ def discover_instruction_files(target: Path) -> List[Path]:
 
     VFO-017: visits regular files outside documented exclusions.
     VFO-018: does not follow external symlinks or create missing files.
+
+    A symlink is skipped when it resolves outside the target or under
+    .agent-factory/: the first points at a file the project does not own,
+    the second at the installed factory, where init-factory placed it.
+    Any other link is the developer's own and keeps its header. Paths that
+    resolve to the same file count once, and a regular file wins over a
+    link to it (BUG-0077). update-factory mirrors this rule.
     """
-    found = []
+    target_root = target.resolve()
+    factory_root = target_root / ".agent-factory"
+    by_resolved: Dict[Path, List[Path]] = {}
     for dirpath, dirnames, filenames in os.walk(target, followlinks=False):
         # Prune excluded directories
         dirnames[:] = [
@@ -884,17 +898,22 @@ def discover_instruction_files(target: Path) -> List[Path]:
         for fname in filenames:
             if fname in INSTRUCTION_FILENAMES:
                 fpath = current / fname
-                # Skip symlinks that point outside the target
-                if fpath.is_symlink():
-                    try:
-                        resolved = fpath.resolve()
-                        if not str(resolved).startswith(str(target.resolve())):
-                            continue
-                    except (OSError, ValueError):
-                        continue
-                if fpath.is_file():
-                    found.append(fpath)
-    return sorted(found)
+                if not fpath.is_file():
+                    continue
+                try:
+                    resolved = fpath.resolve(strict=True)
+                except (OSError, RuntimeError):
+                    continue
+                if fpath.is_symlink() and (
+                    not resolved.is_relative_to(target_root)
+                    or resolved.is_relative_to(factory_root)
+                ):
+                    continue
+                by_resolved.setdefault(resolved, []).append(fpath)
+    return sorted(
+        min(paths, key=lambda p: (p.is_symlink(), str(p)))
+        for paths in by_resolved.values()
+    )
 
 
 def _build_orientation_block(target: Path, filepath: Path,
@@ -905,8 +924,12 @@ def _build_orientation_block(target: Path, filepath: Path,
     dot_dir = dot_dirs[0] if dot_dirs else ""
 
     if dot_dir in ORIENTATION_INCLUDE:
-        # CLI supports @-includes — compute relative path
-        content = ORIENTATION_INCLUDE[dot_dir]
+        # CLI supports @-includes; resolve each from the file's directory.
+        content = "".join(
+            "@" + Path(os.path.relpath(target / include,
+                                       filepath.parent)).as_posix() + "\n"
+            for include in ORIENTATION_INCLUDE[dot_dir]
+        )
     else:
         # Inline the CLI-specific orientation content
         # Read from the source's config directory

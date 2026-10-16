@@ -21,6 +21,7 @@ Checks
                    .agent-factory/factory/scripts/structurizr export-all (deterministic validation).
   2. Coupling    — the core components and the ports named in chapter 5
                    (05_building_block_view.md) must match the model, both ways.
+                   A chapter 5 that names no component is an error.
   3. Validate    — run `structurizr validate` when Docker is available; skip otherwise.
   4. ADR         — every docs/adr/*.md has `status` and `evaluation` (pugh-matrix |
                    none) in frontmatter, and a matrix-shaped table is present iff
@@ -45,8 +46,13 @@ they run whenever their own preconditions hold.
 Usage
   arch-lint --docs-dir docs/arc42
   arch-lint --docs-dir docs/arc42 --no-validate
+  arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir
 
-Exit non-zero iff at least one error-severity finding exists (gate contract).
+Exit 1 when at least one error-severity finding exists (gate contract), 2 when
+--docs-dir is not a directory, 0 otherwise. With --allow-missing-docs-dir, a
+missing --docs-dir gives an ARCH-NO-DIR warning instead of exit 2, and the ADR
+check still runs when docs/adr/ exists. The pre-commit hook passes this flag,
+because it also fires in projects without arc42.
 """
 
 from __future__ import annotations
@@ -173,14 +179,42 @@ def _section(md: str, start: str, end: str) -> str:
     return md[i : j if j != -1 else len(md)]
 
 
+# A GFM separator row: every cell is dashes with optional alignment colons.
+_TABLE_SEPARATOR = re.compile(r"^\|(?:\s*:?-+:?\s*\|)+\s*$")
+
+
+def _first_cell(line: str) -> str:
+    return re.split(r"(?<!\\)\|", line.strip())[1].strip()
+
+
 def ch5_core_components(md: str) -> set[str]:
-    # Scan all §5.x component tables and sections after the Level 1 container table
+    """Component names from the tables of chapter 5 from `## 5.2` on.
+
+    A body row names a component when its first cell starts with a bold name
+    (`| **Worker** |`), in any table, or when its first cell is plain text and
+    the table's header calls that column `Component`. Header and separator
+    rows never count.
+    """
     sec = _section(md, "## 5.2", "## Referenced from")
+    lines = sec.splitlines()
     names = set()
-    for line in sec.splitlines():
-        m = re.search(r"\|\s*\*\*([^*]+)\*\*.*?\|", line)
-        if m:
-            names.add(m.group(1).strip())
+    header = None
+    for i, line in enumerate(lines):
+        if not line.strip().startswith("|"):
+            header = None
+            continue
+        if _TABLE_SEPARATOR.match(line.strip()):
+            continue
+        cell = _first_cell(line)
+        following = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        if _TABLE_SEPARATOR.match(following):
+            header = cell
+            continue
+        bold = re.match(r"\*\*([^*]+)\*\*", cell)
+        if bold:
+            names.add(bold.group(1).strip())
+        elif cell and header is not None and header.lower() == "component":
+            names.add(cell)
     return names
 
 
@@ -307,6 +341,14 @@ def check_coupling(rep: Report, dsl: str, ch5: str) -> None:
         ("component", dsl_core_components(dsl), ch5_core_components(ch5)),
         ("port", dsl_ports(dsl), ch5_ports(ch5)),
     ):
+        if kind == "component" and dset and not cset:
+            rep.error(
+                "ARCH-CH5-EMPTY",
+                "architecture.dsl declares components but chapter 5 names none; "
+                "use a table whose first column is headed 'Component' "
+                "(see scaffold-arc42)",
+            )
+            continue
         if not dset or not cset:
             rep.warn("ARCH-PARSE", f"could not extract {kind}s from DSL or chapter 5")
             continue
@@ -422,6 +464,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--no-validate", action="store_true", help="skip structurizr validate"
     )
+    ap.add_argument(
+        "--allow-missing-docs-dir",
+        action="store_true",
+        help="warn instead of exit 2 when --docs-dir does not exist",
+    )
     args = ap.parse_args(argv)
 
     docs = args.docs_dir
@@ -435,7 +482,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     adr_dir = docs.parent / "adr"
 
+    # A missing --docs-dir is usually a typo, so it is a usage error. Callers
+    # that also run in projects without arc42 opt in to a warning instead.
+    if not docs.is_dir() and not args.allow_missing_docs_dir:
+        print(f"arch-lint: --docs-dir {docs} is not a directory", file=sys.stderr)
+        return 2
+
     rep = Report()
+    if not docs.is_dir():
+        rep.warn(
+            "ARCH-NO-DIR",
+            f"{docs} is not a directory; arc42 checks skipped, ADR check runs",
+        )
 
     # Checks 1-3 (DSL <-> chapter-5 coupling) only apply when the project has
     # some arc42 in progress. Neither file present => arc42 isn't in use here,

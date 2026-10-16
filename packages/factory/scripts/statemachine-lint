@@ -44,7 +44,8 @@ Usage
   statemachine-lint --spec-dir docs/spec
   statemachine-lint path/to/state-machines.md
 
-Exit non-zero iff at least one error-severity finding exists (gate contract).
+Exit 1 when at least one error-severity finding exists (gate contract), 2 when
+--spec-dir is not a directory, 0 otherwise.
 No third-party dependencies (Python 3.9+ stdlib only).
 """
 
@@ -185,7 +186,8 @@ def _parse_pseudocode(
 # Mermaid stateDiagram parser
 # ---------------------------------------------------------------------------
 
-_RE_MERMAID_EDGE = re.compile(r"^\s*(\S+)\s+-->\s+(\S+)\s*(?::.*)?$")
+# Spaces around the arrow are optional: `A-->B` and `A --> B` are both edges.
+_RE_MERMAID_EDGE = re.compile(r"^\s*([^\s:]+?)\s*-->\s*([^\s:]+)\s*(?::.*)?$")
 
 
 def _parse_mermaid(text: str) -> tuple[set[str], set[tuple[str, str]]]:
@@ -260,6 +262,14 @@ def _check_file(rep: Report, path: Path) -> None:
         p_trans |= t
         p_halted |= h
 
+    # --- RestoreState needs at least one SetHaltedFrom to restore to ---
+    if not p_halted and any(_RE_RESTORE.search(b) for b in pseudo_blocks):
+        rep.warn(
+            "SM-RESTORE-OOB",
+            f"{rel}: RestoreState is used but no SetHaltedFrom records a "
+            f"state to restore",
+        )
+
     m_states: set[str] = set()
     m_trans: set[tuple[str, str]] = set()
     for block in mermaid_blocks:
@@ -313,6 +323,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.files:
         paths = args.files
     elif args.spec_dir:
+        if not args.spec_dir.is_dir():
+            print(
+                f"statemachine-lint: --spec-dir {args.spec_dir} is not a directory",
+                file=sys.stderr,
+            )
+            return 2
         paths = sorted(args.spec_dir.rglob("*.md"))
     else:
         ap.error("provide file path(s) or --spec-dir")

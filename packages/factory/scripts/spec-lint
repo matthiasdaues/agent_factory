@@ -499,22 +499,36 @@ def check_state_machines(spec: Path) -> List[Finding]:
     return out
 
 
+# todo-format.md names docs/spec/todo.md, and templates/todo-entry.md marks
+# an open entry with `- status: open`. Several agents and playbooks still
+# write `- [ ]` items into docs/spec/todos.md, so the check reads that file
+# too and counts both forms there (BUG-0091).
+OPEN_ENTRY = r"^\s*-\s*status:\s*open\s*$"
+OPEN_CHECKBOX = r"^\s*-\s*\[\s\]"
+TODO_FILES = (
+    ("todo.md", re.compile(OPEN_ENTRY, re.M)),
+    ("todos.md", re.compile(f"{OPEN_ENTRY}|{OPEN_CHECKBOX}", re.M)),
+)
+
+
 def check_todos(spec: Path, gate: bool) -> List[Finding]:
-    todos = spec / "todos.md"
-    if not todos.exists():
-        return []
-    open_items = len(re.findall(r"^\s*-\s*\[\s\]", read(todos), re.M))
-    if open_items:
-        sev = "error" if gate else "info"
-        return [
-            Finding(
-                "TODO001",
-                sev,
-                "docs/spec/todos.md",
-                f"{open_items} unresolved todo item(s) remain",
+    findings: List[Finding] = []
+    for name, open_item in TODO_FILES:
+        todos = spec / name
+        if not todos.exists():
+            continue
+        open_items = len(open_item.findall(read(todos)))
+        if open_items:
+            sev = "error" if gate else "info"
+            findings.append(
+                Finding(
+                    "TODO001",
+                    sev,
+                    f"docs/spec/{name}",
+                    f"{open_items} unresolved todo item(s) remain",
+                )
             )
-        ]
-    return []
+    return findings
 
 
 def check_glossary(spec: Path, context: Path) -> List[Finding]:

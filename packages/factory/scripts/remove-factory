@@ -21,8 +21,8 @@ nothing more:
     `agent_factory_hook-*` `- repo: local` item is removed, leaving the
     project's own hooks untouched.
   - .claude/settings.json — if the project owned it, only Agent Factory's
-    git-safety PreToolUse hook and usage-capture Stop/SubagentStop hook entries
-    are removed; if init-factory created it, it went with .claude/.
+    git-safety and freshness-check PreToolUse hooks, step-guard hooks, and
+    usage-capture Stop/SubagentStop hook entries are removed; if init-factory created it, it went with .claude/.
   - .codex/hooks.json — if the project owned it, only Agent Factory's
     usage-capture Stop/SubagentStop entries are removed; a Factory-created file
     is deleted outright.
@@ -52,12 +52,18 @@ import json
 import os
 import re
 import shutil
+import socket
 import stat
 import subprocess
 import sys
 import time
 import uuid
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:  # Windows has no flock
+    fcntl = None
 
 MANIFEST_PATH = ".agent-factory/install.json"
 HOOK_ID_PREFIX = "agent_factory_hook-"
@@ -66,6 +72,9 @@ CLAUDE_GUARDRAIL_HOOK_COMMAND = (
 )
 CLAUDE_CAPTURE_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/capture-usage.sh'
 CLAUDE_CAPTURE_HOOK_EVENTS = ("Stop", "SubagentStop")
+CLAUDE_FRESHNESS_HOOK_COMMAND = (
+    '"$CLAUDE_PROJECT_DIR"/.claude/hooks/check-factory-freshness.sh'
+)
 CLAUDE_STEP_GUARD_HOOK_COMMANDS = {
     "Read": 'GUARD_TYPE=read "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
     "Edit": 'GUARD_TYPE=write "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
@@ -118,6 +127,11 @@ def strip_gitignore_block(target: Path, manifest: dict) -> None:
         log(".gitignore: removed (held only the agent_factory block)")
 
 
+def _orientation_status(entry: object) -> object:
+    """Read an orientation entry: a bare string (v1) or a dictionary (v2)."""
+    return entry.get("status") if isinstance(entry, dict) else entry
+
+
 def strip_orientation_block(target: Path, manifest: dict) -> None:
     orientation = manifest.get("orientation", {})
     markers = manifest.get("orientation_markers", {})
@@ -125,8 +139,8 @@ def strip_orientation_block(target: Path, manifest: dict) -> None:
     end = markers.get("end", ORIENTATION_END)
     orig_newlines = manifest.get("orientation_orig_final_newline", {})
 
-    for rel, status in orientation.items():
-        if status != "injected":
+    for rel, entry in orientation.items():
+        if _orientation_status(entry) != "injected":
             continue
         path = target / rel
         if not path.exists():
@@ -141,7 +155,10 @@ def strip_orientation_block(target: Path, manifest: dict) -> None:
         if restored:
             restored += "\n"
         restored += post
-        had_nl = orig_newlines.get(rel, True)
+        if isinstance(entry, dict) and "orig_final_newline" in entry:
+            had_nl = entry["orig_final_newline"]
+        else:
+            had_nl = orig_newlines.get(rel, True)
         restored = restored.rstrip("\n")
         if restored and had_nl:
             restored += "\n"
@@ -270,6 +287,8 @@ def strip_settings_hook(target: Path, manifest: dict) -> None:
     removed_events: list[str] = []
     if _strip_hook_command(hooks, "PreToolUse", CLAUDE_GUARDRAIL_HOOK_COMMAND):
         removed_events.append("git-safety PreToolUse")
+    if _strip_hook_command(hooks, "PreToolUse", CLAUDE_FRESHNESS_HOOK_COMMAND):
+        removed_events.append("freshness-check PreToolUse")
 
     for tool_name, command in CLAUDE_STEP_GUARD_HOOK_COMMANDS.items():
         if _strip_hook_command(hooks, "PreToolUse", command):
@@ -430,7 +449,8 @@ def _symlink_points_to(path: Path, expected: Path) -> bool:
 def _codex_artifact_owned(path: Path, rel: str, target: Path, manifest: dict) -> bool:
     if (
         rel == "AGENTS.md"
-        and manifest.get("orientation", {}).get("AGENTS.md") == "linked"
+        and _orientation_status(manifest.get("orientation", {}).get("AGENTS.md"))
+        == "linked"
     ):
         return _symlink_points_to(path, target / ".agent-factory/factory/config/AGENTS.md")
     if rel.startswith(".agents/skills/"):
@@ -467,9 +487,17 @@ def _codex_artifact_owned(path: Path, rel: str, target: Path, manifest: dict) ->
     return rel != ".codex/hooks.json"
 
 
+# Directories init-factory creates for files it records one by one. The
+# project may add its own files there, so removal never deletes one
+# wholesale; prune_empty_dirs removes it once it is empty (BUG-0075).
+PRUNE_ONLY_DIRS = frozenset({".claude/hooks"})
+
+
 def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
     merged_dirs = set(manifest.get("merged_dirs", []))
     for rel in remove_paths:
+        if rel in PRUNE_ONLY_DIRS:
+            continue
         path = target / rel
         if (
             rel == "AGENTS.md" or rel.startswith((".agents/", ".codex/"))
@@ -494,10 +522,15 @@ def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
         log(f"removed: {rel}")
 
 
-def prune_empty_dirs(target: Path) -> None:
+def prune_empty_dirs(target: Path, manifest: dict) -> None:
     # Directories init-factory may have added into but not owned wholesale.
+    # .codex/ and .claude/hooks/ are pruned only when remove_paths lists
+    # them, which init-factory does when the install created them. Any other
+    # one belonged to the project before the install and stays.
+    created = set(manifest.get("remove_paths", []))
     for rel in (
         ".github/hooks",
+        ".claude/hooks",
         ".agents/skills",
         ".codex/agents",
         ".codex/hooks",
@@ -508,6 +541,8 @@ def prune_empty_dirs(target: Path) -> None:
         ".codex",
         ".pi",
     ):
+        if rel in (".codex", ".claude/hooks") and rel not in created:
+            continue
         path = target / rel
         if not path.is_symlink() and path.is_dir() and not any(path.iterdir()):
             path.rmdir()
@@ -561,6 +596,114 @@ def _cancel_pending(target: Path, control: Path) -> int:
     return cancelled
 
 
+# An owner file from an older remove-factory was created empty and written
+# right after. One that is still empty or unparsable after this many seconds
+# was left by a crash.
+OWNER_WRITE_GRACE_SECONDS = 5.0
+
+
+def _owner_record(text: str) -> tuple[int, str | None] | None:
+    """Return (pid, host) from an owner file; host is None in the old format."""
+    text = text.strip()
+    if text.isdigit():
+        return int(text), None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    pid, host = data.get("pid"), data.get("host")
+    if not isinstance(pid, int) or isinstance(pid, bool) or not isinstance(host, str):
+        return None
+    return pid, host
+
+
+def _pid_is_dead(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False  # the process exists but belongs to another user
+    return False
+
+
+def _owner_state(owner: Path) -> str:
+    """Return "absent", "stale" or "live" for the owner file."""
+    try:
+        with owner.open(encoding="utf-8") as handle:
+            info = os.fstat(handle.fileno())
+            text = handle.read()
+    except FileNotFoundError:
+        return "absent"
+    except (OSError, UnicodeError):
+        return "live"  # unreadable: assume a live owner
+    record = _owner_record(text)
+    if record is None:
+        age = time.time() - info.st_mtime
+        return "stale" if age > OWNER_WRITE_GRACE_SECONDS else "live"
+    pid, host = record
+    if host is not None and host != socket.gethostname():
+        return "live"  # a process on another host cannot be checked from here
+    return "stale" if _pid_is_dead(pid) else "live"
+
+
+def _publish_owner(owner: Path) -> bool:
+    """Write the owner file complete and private, then link it into place."""
+    temp = owner.with_name(f"{owner.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temp.write_text(
+            json.dumps({"pid": os.getpid(), "host": socket.gethostname()}),
+            encoding="utf-8",
+        )
+        temp.chmod(0o600)
+        os.link(temp, owner)  # fails when the name exists; never overwrites
+    except FileExistsError:
+        return False
+    finally:
+        temp.unlink(missing_ok=True)
+    return True
+
+
+def _claim_owner(owner: Path) -> bool:
+    """Create the owner file, taking over one left by a dead removal.
+
+    Every claim holds an exclusive flock on a lock file next to the owner
+    file while it reads, judges, removes and creates the owner file, so no
+    two removals ever act on a stale file at once. The lock file stays in
+    place; removing it would let two claims lock two different files. The
+    owner file, not the lock, records who owns the removal.
+    """
+    if fcntl is None:
+        # Without flock, the takeover of a stale file cannot be made safe.
+        # Claim only an absent owner file; a stale one needs a manual delete.
+        if _publish_owner(owner):
+            return True
+        if _owner_state(owner) == "stale":
+            print(
+                f"remove-factory: {owner} was left by a removal that ended; "
+                "delete it and run remove-factory again",
+                file=sys.stderr,
+            )
+        return False
+    lock_path = owner.with_name(f"{owner.name}.lock")
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        state = _owner_state(owner)
+        if state == "live":
+            return False
+        if state == "stale":
+            owner.unlink(missing_ok=True)
+            log("removed a stale usage removal owner file")
+        return _publish_owner(owner)
+    finally:
+        os.close(fd)  # closing the descriptor releases the flock
+
+
 def prepare_usage_removal(
     target: Path, disposition: str, timeout: float
 ) -> tuple[bool, Path | None]:
@@ -570,11 +713,7 @@ def prepare_usage_removal(
     if not state_path.is_file():
         return True, None
     owner = control / "remove-owner"
-    try:
-        with owner.open("x", encoding="utf-8") as handle:
-            handle.write(str(os.getpid()))
-        owner.chmod(0o600)
-    except FileExistsError:
+    if not _claim_owner(owner):
         print("remove-factory: usage removal already in progress", file=sys.stderr)
         return False, None
     try:
@@ -658,7 +797,7 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(current_work_dir)
         log("removed: .current-work/")
 
-    prune_empty_dirs(target)
+    prune_empty_dirs(target, manifest)
 
     print(f"remove-factory: done, Agent Factory removed from {target}")
     return 0

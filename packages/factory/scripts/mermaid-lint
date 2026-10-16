@@ -14,8 +14,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-FENCE_OPEN = re.compile(r"^(`{3,})\s*mermaid\s*$", re.IGNORECASE)
-FENCE_CLOSE = re.compile(r"^(`{3,})\s*$")
+# A fence is three or more backticks or tildes, optionally indented (for
+# example inside a list item). A block closes only with the same character.
+FENCE_OPEN = re.compile(r"^\s*(`{3,}|~{3,})\s*mermaid\s*$", re.IGNORECASE)
+FENCE_CLOSE = re.compile(r"^\s*(`{3,}|~{3,})\s*$")
 ENTITY = re.compile(r"#(?:[A-Za-z][A-Za-z0-9]*|[0-9]+);")
 
 
@@ -28,6 +30,7 @@ def raw_semicolon_columns(line: str) -> list[int]:
 def check(path: Path) -> list[str]:
     errors: list[str] = []
     inside = False
+    fence_char = ""
     fence_len = 0
 
     for line_number, line in enumerate(
@@ -35,7 +38,11 @@ def check(path: Path) -> list[str]:
     ):
         if inside:
             close = FENCE_CLOSE.match(line)
-            if close and len(close.group(1)) >= fence_len:
+            if (
+                close
+                and close.group(1)[0] == fence_char
+                and len(close.group(1)) >= fence_len
+            ):
                 inside = False
                 continue
             for column in raw_semicolon_columns(line):
@@ -48,6 +55,7 @@ def check(path: Path) -> list[str]:
         opening = FENCE_OPEN.match(line)
         if opening:
             inside = True
+            fence_char = opening.group(1)[0]
             fence_len = len(opening.group(1))
 
     return errors
