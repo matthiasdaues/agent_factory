@@ -19,8 +19,8 @@ The rule covers three things:
    `docs/testing.yaml`, a new `.pre-commit-config.yaml`, the dispatch
    ledger, and `INDEX.yaml`.
 3. Every YAML example the factory gives agents in a skill, template, or
-   rulebook, including front matter excerpts. Agents copy examples, so an
-   example without the marker spreads the gap.
+   rulebook. Agents copy examples, so an example without the marker
+   spreads the gap.
 
 Write `---` on the first line. Comments follow it.
 
@@ -30,3 +30,7 @@ Write `---` on the first line. Comments follow it.
   factory merges hooks into an existing `.pre-commit-config.yaml`, it does
   not add the marker.
 - The factory does not enforce the marker inside target projects.
+- An excerpt omits the marker. An excerpt is a fragment shown to be added
+  to an existing file or front matter; a pasted `---` would close that
+  front matter early. Put the line `<!-- yaml-excerpt -->` directly above
+  the excerpt's fence so the test can tell it from a whole file.

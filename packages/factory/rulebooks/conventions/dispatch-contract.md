@@ -267,8 +267,9 @@ At the end of each wave (even a single-story wave), the dispatcher calls `dispat
 
 This record is not a separate artifact — it is logged as a YAML list under the `waves:` key in the dispatch ledger, appended after each wave:
 
+<!-- yaml-excerpt -->
+
 ```yaml
----
 waves:
   - number: 1
     completed:

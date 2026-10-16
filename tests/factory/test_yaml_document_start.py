@@ -6,6 +6,11 @@ checked: the factory's YAML writers, run against a scratch target, and every
 fenced `yaml`/`yml` block in the factory's markdown (skills, templates,
 rulebooks, agents, playbooks, config). The first line that is neither blank
 nor a comment must be `---`.
+
+An excerpt is exempt: a fragment shown to be added to an existing file or
+front matter. It is marked by the line `<!-- yaml-excerpt -->` directly above
+its fence (blank lines between them are allowed). An excerpt must not begin
+with `---`, because a pasted marker would close the front matter early.
 """
 
 from __future__ import annotations
@@ -23,8 +28,10 @@ PRECOMMIT_TEMPLATE = FACTORY / "config" / "pre-commit-config.yaml"
 
 inf = load_script("init-factory")
 index_lint = load_script("index-lint")
+concern_lint = load_script("concern-lint")
 
 _FENCE = re.compile(r"^(?P<indent>[ \t]*)```[ \t]*ya?ml[ \t]*\n(?P<body>.*?)^(?P=indent)```", re.DOTALL | re.MULTILINE)
+EXCERPT_MARK = "<!-- yaml-excerpt -->"
 
 
 def _first_content_line(text: str) -> str | None:
@@ -35,8 +42,14 @@ def _first_content_line(text: str) -> str | None:
     return None
 
 
-def _yaml_examples() -> list[tuple[str, int]]:
-    examples: list[tuple[str, int]] = []
+def _is_excerpt(text: str, fence_start: int) -> bool:
+    before = [line.strip() for line in text[:fence_start].splitlines()]
+    previous = next((line for line in reversed(before) if line), "")
+    return previous == EXCERPT_MARK
+
+
+def _yaml_blocks() -> list[tuple[str, str, bool]]:
+    blocks: list[tuple[str, str, bool]] = []
     for md in sorted(FACTORY.rglob("*.md")):
         text = md.read_text(encoding="utf-8")
         for match in _FENCE.finditer(text):
@@ -44,11 +57,14 @@ def _yaml_examples() -> list[tuple[str, int]]:
             body = match.group("body")
             indent = match.group("indent")
             body = "\n".join(line.removeprefix(indent) for line in body.splitlines())
-            examples.append((f"{md.relative_to(REPO_ROOT)}:{line_no}", body))
-    return examples
+            where = f"{md.relative_to(REPO_ROOT)}:{line_no}"
+            blocks.append((where, body, _is_excerpt(text, match.start())))
+    return blocks
 
 
-EXAMPLES = _yaml_examples()
+BLOCKS = _yaml_blocks()
+EXAMPLES = [(where, body) for where, body, excerpt in BLOCKS if not excerpt]
+EXCERPTS = [(where, body) for where, body, excerpt in BLOCKS if excerpt]
 
 
 def test_yaml_examples_exist():
@@ -58,6 +74,32 @@ def test_yaml_examples_exist():
 @pytest.mark.parametrize(("where", "body"), EXAMPLES, ids=[w for w, _ in EXAMPLES])
 def test_yaml_example_begins_with_document_marker(where, body):
     assert _first_content_line(body) == "---", f"{where}: yaml example lacks leading ---"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "packages/factory/rulebooks/conventions/agent-context-composition.md",
+        "packages/factory/rulebooks/conventions/dispatch-contract.md",
+    ],
+)
+def test_known_excerpts_are_marked(path):
+    assert any(where.startswith(f"{path}:") for where, _ in EXCERPTS), f"{path}: excerpt lacks {EXCERPT_MARK}"
+
+
+@pytest.mark.parametrize(("where", "body"), EXCERPTS, ids=[w for w, _ in EXCERPTS])
+def test_yaml_excerpt_omits_document_marker(where, body):
+    assert _first_content_line(body) != "---", f"{where}: excerpt begins with ---"
+
+
+def test_concerns_excerpt_pasted_into_story_front_matter_keeps_concerns():
+    path = "packages/factory/rulebooks/conventions/agent-context-composition.md"
+    excerpt = next(body for where, body, _ in BLOCKS if where.startswith(f"{path}:") and "concerns:" in body)
+    story = f"---\nid: ST-9999\ntitle: Example\n{excerpt.strip()}\nstatus: pending\n---\n\n# Example\n"
+    front_matter = concern_lint._parse_story_frontmatter(story)
+    assert front_matter is not None
+    assert front_matter.get("concerns") == {"domain": ["payments"], "technical": ["backend", "frontend"]}
+    assert front_matter.get("status") == "pending"
 
 
 def test_init_factory_testing_yaml_begins_with_document_marker(tmp_path):
@@ -72,10 +114,15 @@ def test_init_factory_fresh_precommit_config_begins_with_document_marker():
     assert _first_content_line(written) == "---"
 
 
-@pytest.mark.parametrize("pyyaml", [True, False], ids=["pyyaml", "stdlib"])
-def test_dispatch_ledger_and_manifest_begin_with_document_marker(monkeypatch, pyyaml):
-    if not pyyaml:
-        monkeypatch.setattr(lib, "yaml", None)
+def test_dispatch_ledger_and_manifest_begin_with_document_marker_pyyaml():
+    pytest.importorskip("yaml")
+    assert lib.yaml is not None
+    written = lib._dump_yaml({"mode": "automated", "stories": []})
+    assert _first_content_line(written) == "---"
+
+
+def test_dispatch_ledger_and_manifest_begin_with_document_marker_stdlib(monkeypatch):
+    monkeypatch.setattr(lib, "yaml", None)
     written = lib._dump_yaml({"mode": "automated", "stories": []})
     assert _first_content_line(written) == "---"
 
