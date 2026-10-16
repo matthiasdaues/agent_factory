@@ -487,9 +487,17 @@ def _codex_artifact_owned(path: Path, rel: str, target: Path, manifest: dict) ->
     return rel != ".codex/hooks.json"
 
 
+# Directories init-factory creates for files it records one by one. The
+# project may add its own files there, so removal never deletes one
+# wholesale; prune_empty_dirs removes it once it is empty (BUG-0075).
+PRUNE_ONLY_DIRS = frozenset({".claude/hooks"})
+
+
 def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
     merged_dirs = set(manifest.get("merged_dirs", []))
     for rel in remove_paths:
+        if rel in PRUNE_ONLY_DIRS:
+            continue
         path = target / rel
         if (
             rel == "AGENTS.md" or rel.startswith((".agents/", ".codex/"))
@@ -517,9 +525,8 @@ def delete_paths(target: Path, manifest: dict, remove_paths: list[str]) -> None:
 def prune_empty_dirs(target: Path, manifest: dict) -> None:
     # Directories init-factory may have added into but not owned wholesale.
     # .codex/ and .claude/hooks/ are pruned only when remove_paths lists
-    # them; any other one belonged to the project before the install and
-    # stays. init-factory does not yet record a .claude/hooks/ it created;
-    # story ST-0307 adds that entry.
+    # them, which init-factory does when the install created them. Any other
+    # one belonged to the project before the install and stays.
     created = set(manifest.get("remove_paths", []))
     for rel in (
         ".github/hooks",

@@ -91,11 +91,14 @@ def move_path(target: Path, old: str, new: str, *, dry: bool) -> bool:
 
 def rewrite_manifest(target: Path, *, dry: bool) -> None:
     new_path = target / ".agent-factory" / "install.json"
-    if not new_path.exists():
+    # A dry run moved nothing, so the manifest still sits at its old path.
+    old_path = target / ".agent-factory" / "factory-install.json"
+    read_path = old_path if dry and not new_path.exists() else new_path
+    if not read_path.exists():
         log("SKIP manifest rewrite (install.json not found)", dry=dry)
         return
 
-    data = json.loads(new_path.read_text(encoding="utf-8"))
+    data = json.loads(read_path.read_text(encoding="utf-8"))
     changed = False
 
     remove_paths = data.get("remove_paths", [])
