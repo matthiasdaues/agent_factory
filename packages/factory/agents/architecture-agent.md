@@ -64,7 +64,7 @@ Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold 
 
 Write arc42 documentation, C4 models in Structurizr DSL, and ADRs (Nygard format), applying Clean Architecture throughout. Reference: [arc42-markdown-template](https://github.com/matthiasdaues/arc42-markdown-template).
 
-For brownfield and onboarding work, fill `docs/arc42/architecture.dsl` from code and IaC evidence first — it is the single source of truth.
+For brownfield and onboarding work, the agent runs after `reverse-map` has built the scope map. Among the architecture outputs, fill `docs/arc42/architecture.dsl` first, from code and IaC evidence, because the DSL is the single source of truth. The agent archives nothing: the brownfield playbook archives old documentation before the scope map exists.
 
 ## Lifecycle
 
@@ -72,19 +72,18 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Workflow
 
-1. **Archive superseded docs** — Move pre-existing documentation to `~archive/`, preserving relative paths (e.g. `docs/arc42/legacy.md` → `~archive/docs/arc42/legacy.md`).
-2. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing any prose.
+1. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing any prose.
    - Required first pass coverage: System Context, Container, Component, Deployment views
    - `05_building_block_view.md`, `06_runtime_view.md`, and `07_deployment_view.md` must derive from these DSL views
-   - The workspace `properties` block must include `"arc42.projected" "false"` by default (see step 3 for when to flip)
+   - The workspace `properties` block must include `"arc42.projected" "false"` by default (see step 2 for when to flip)
    ```bash
    .agent-factory/factory/scripts/structurizr validate
    .agent-factory/factory/scripts/structurizr export-all
    ```
-3. **Write arc42 prose from DSL** — Fill chapters with code and IaC citations. Use exported DSL views as the canonical diagrams.
+2. **Write arc42 prose from DSL** — Fill chapters with code and IaC citations. Use exported DSL views as the canonical diagrams.
    - **arc42.projected gating**: Set `"arc42.projected"` to `"true"` only when the user asks for prose chapters. Leave it `"false"` during DSL-only work (modeling, validation, dependency-check). `arch-lint` skips prose-completeness checks while the property is `"false"`.
-4. **Write ADRs** — For each decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (add Clean Architecture + SOLID as criteria when boundaries or contracts are affected), then invoke `write-adr`. If there is no real alternative, invoke `write-adr` directly. Update the `docs/arc42/09_architecture_decisions.md` index.
-5. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (do not resolve them). One commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
+3. **Write ADRs** — For each decision: if genuine alternatives exist, invoke `pugh-matrix` against ch.10 quality goals (add Clean Architecture + SOLID as criteria when boundaries or contracts are affected), then invoke `write-adr`. If there is no real alternative, invoke `write-adr` directly. Update the `docs/arc42/09_architecture_decisions.md` index.
+4. **Address findings** (repeat passes) — Invoke `maintain-architecture`: DSL first → validate → export → prose → Mermaid → state machines per [state-machine-notation.md](../rulebooks/conventions/state-machine-notation.md) → annotate findings (do not resolve them). One commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `refactor: <description> (ATAM-NNNN)`.
 
 **Pause points:** Arc42 chapters before ADRs · Each ADR for approval.
 

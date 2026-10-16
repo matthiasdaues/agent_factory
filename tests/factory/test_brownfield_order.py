@@ -5,6 +5,8 @@ Owned contracts:
   - Overview and factory guide name the same order (standard risk)
   - index-lint parses and renders an any_of required input (standard risk)
   - INDEX.yaml carries the architecture agent's any_of input (standard risk)
+  - The architecture agent archives nothing; playbook Step 2.0 owns the
+    archive (standard risk)
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FACTORY = REPO_ROOT / "packages" / "factory"
 PLAYBOOK = FACTORY / "playbooks" / "brownfield-onboarding.md"
 GUIDE = FACTORY / "docs" / "factory-guide.md"
+ARCH_AGENT = FACTORY / "agents" / "architecture-agent.md"
 INDEX_YAML = FACTORY / "INDEX.yaml"
 
 il = load_script("index-lint")
@@ -69,6 +72,27 @@ class TestPlaybookStage1Order:
         text = GUIDE.read_text(encoding="utf-8")
         para = next(ln for ln in text.splitlines() if ln.startswith("Brownfield has two stages"))
         assert para.index("scope map") < para.index("architecture DSL")
+
+
+class TestArchitectureAgentWorkflow:
+    """The agent runs after reverse-map, so an archive step would sweep away
+    the fresh scope map and CONTEXT.md."""
+
+    def _workflow(self) -> str:
+        text = ARCH_AGENT.read_text(encoding="utf-8")
+        start = text.index("## Workflow")
+        end = text.index("\n## ", start + 1)
+        return text[start:end]
+
+    def test_workflow_names_no_archive_step(self):
+        steps = re.findall(r"^\d+\. .+$", self._workflow(), re.M)
+        assert steps
+        for step in steps:
+            assert "archive" not in step.lower(), step
+
+    def test_workflow_steps_are_numbered_from_one(self):
+        numbers = [int(n) for n in re.findall(r"^(\d+)\. ", self._workflow(), re.M)]
+        assert numbers == list(range(1, len(numbers) + 1))
 
 
 _ANY_OF_FRONTMATTER = (

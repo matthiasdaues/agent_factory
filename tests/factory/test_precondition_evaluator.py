@@ -14,6 +14,7 @@ Owned contracts:
   - Malformed frontmatter means unsatisfied with warning (standard risk)
   - Missing scope passes all candidates (standard risk)
   - any_of entry is met when one alternative exists (standard risk)
+  - Malformed any_of is unmet with a warning, never a crash (standard risk)
   - architecture-agent is eligible from a scope map alone (standard risk)
 """
 
@@ -396,6 +397,23 @@ class TestAnyOf:
         monkeypatch.chdir(tmp_path)
         (tmp_path / "docs" / "spec").mkdir(parents=True)
         (tmp_path / "docs" / "spec" / "scope-map.md").write_text("# Scope\n")
+        (tmp_path / "docs" / "arc42").mkdir(parents=True)
+        (tmp_path / "docs" / "arc42" / "architecture.dsl").write_text("workspace {}\n")
+        agent = _agent(
+            "arch",
+            required=[
+                _FEATURE_OR_SCOPE_MAP,
+                {"type": "dsl", "path_pattern": "docs/arc42/architecture.dsl"},
+            ],
+        )
+        result = evaluate_agent(agent)
+        assert result["eligible"] is True
+        assert [r["satisfied"] for r in result["requirements"]] == [True, True]
+
+    def test_plain_entry_still_blocks(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "docs" / "spec").mkdir(parents=True)
+        (tmp_path / "docs" / "spec" / "scope-map.md").write_text("# Scope\n")
         agent = _agent(
             "arch",
             required=[
@@ -404,6 +422,41 @@ class TestAnyOf:
             ],
         )
         assert evaluate_agent(agent)["eligible"] is False
+
+
+class TestAnyOfMalformed:
+    """BUG-0093: a malformed any_of never crashes. The requirement is unmet
+    and the result carries a warning."""
+
+    def _assert_unmet_with_warning(self, tmp_path, monkeypatch, any_of) -> None:
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "docs" / "spec").mkdir(parents=True)
+        (tmp_path / "docs" / "spec" / "scope-map.md").write_text("# Scope\n")
+        result = evaluate_agent(_agent("arch", required=[{"any_of": any_of}]))
+        assert result["eligible"] is False
+        assert result["requirements"][0]["satisfied"] is False
+        assert any("any_of" in w for w in result["warnings"])
+
+    def test_not_a_list(self, tmp_path, monkeypatch):
+        self._assert_unmet_with_warning(tmp_path, monkeypatch, "docs/spec/scope-map.md")
+
+    def test_null(self, tmp_path, monkeypatch):
+        self._assert_unmet_with_warning(tmp_path, monkeypatch, None)
+
+    def test_empty_list(self, tmp_path, monkeypatch):
+        self._assert_unmet_with_warning(tmp_path, monkeypatch, [])
+
+    def test_alternative_not_a_mapping(self, tmp_path, monkeypatch):
+        self._assert_unmet_with_warning(
+            tmp_path, monkeypatch, ["docs/spec/scope-map.md"]
+        )
+
+    def test_alternative_without_path_pattern(self, tmp_path, monkeypatch):
+        self._assert_unmet_with_warning(
+            tmp_path,
+            monkeypatch,
+            [{"type": "feature"}, {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"}],
+        )
 
 
 def _architecture_agent() -> dict:
