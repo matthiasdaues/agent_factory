@@ -273,8 +273,12 @@ def assemble(docs: Path, out: Path, views: Path | None, provenance: Provenance, 
     ]
     parts += [build.rewrite(p) for p in manifest.chapters]
     if manifest.appendix:
+        # The appendix title stands alone as a divider page. Demoted headings
+        # get no page break from Quarkdown, so each appendix document gets one
+        # here. Chapters need none: a break before a top-level heading
+        # produces a blank page.
         parts += [f"# {manifest.appendix_title}", ""]
-        parts += [build.rewrite(p, demote=True) for p in manifest.appendix]
+        parts += [f".pagebreak\n\n{build.rewrite(p, demote=True)}" for p in manifest.appendix]
     (out / "main.qd").write_text("\n".join(parts), encoding="utf-8")
     expected = {"mermaid": build.mermaid, "raster": build.raster}
     (out / "expected.json").write_text(json.dumps(expected) + "\n", encoding="utf-8")

@@ -137,6 +137,18 @@ The documentation needs a paged PDF.
 
 Quarkdown renders the documentation reliably.
 """,
+    "adr/0002-split-the-appendix.md": """\
+---
+id: 0002
+status: proposed
+---
+
+# Start each decision on its own page
+
+## Decision
+
+Every appendix document begins on a new page.
+""",
     "assets/images/Containers.svg": (
         '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40">'
         '<text x="5" y="25">STALE-COMMITTED-SVG</text></svg>\n'
@@ -234,6 +246,15 @@ class TestPublishedPdf:
         order = ["1. Introduction", "5. Building Blocks", "6. Runtime", "Entity model", "Architecture decisions", "Use Quarkdown for the PDF"]
         positions = [text.index(entry) for entry in order]
         assert positions == sorted(positions)
+
+    def test_appendix_title_and_each_adr_start_a_page(self, published):
+        root, _ = published
+        pages = int(re.search(r"Pages:\s+(\d+)", poppler(root, "pdfinfo", PDF)).group(1))
+        tops = [pdf_text(root, PDF, n).strip().splitlines()[0].strip() for n in range(4, pages + 1)]
+        for title in ("Architecture decisions", "Use Quarkdown for the PDF", "Start each decision on its own page"):
+            assert title in tops, f"{title!r} does not open a page: {tops}"
+        divider = tops.index("Architecture decisions")
+        assert tops[divider + 1] == "Use Quarkdown for the PDF"
 
     def test_no_repository_path_is_a_link(self, published):
         root, _ = published
