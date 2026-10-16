@@ -273,7 +273,7 @@ Feature: Activity-graph orchestration
     Scenario: Structurizr DSL carries scope as first-line comment
       Given docs/arc42/architecture.dsl exists
       When the scope lint runs
-      Then the first line is a comment in the form "// scope: global"
+      Then the first line is a comment in the form "# scope: global"
 
     Scenario: Entity model carries scope as top-level YAML field
       Given docs/spec/entity-model.yaml exists
