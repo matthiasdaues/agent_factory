@@ -1,0 +1,19 @@
+/* House style for publish-docs PDFs, on top of Quarkdown's LaTeX theme.
+   A project overrides any rule in docs/publish-docs.css, which loads after
+   this file. paged.js rewrites sibling selectors such as `tr + tr`, so rules
+   here use :not(:first-child) instead. */
+
+:root {
+  --qd-main-font-size: 10pt;
+  /* The theme's drop shadow makes Chromium print diagram boxes as bitmaps. */
+  --qd-mermaid-node-filter: none;
+}
+
+.quarkdown table:not(pre table) > tbody > tr:not(:first-child) > th,
+.quarkdown table:not(pre table) > tbody > tr:not(:first-child) > td {
+  border-top: 0.5pt dotted #777;
+}
+
+.quarkdown .title-page {
+  margin-top: 30vh;
+}

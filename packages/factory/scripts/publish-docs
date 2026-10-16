@@ -1,0 +1,119 @@
+#!/bin/bash
+# publish-docs - publish a project's arc42 documentation as one checked PDF
+#
+# What: Validates and exports the Structurizr model, assembles the documents
+#       listed in docs/publish-docs.yaml, renders them with Quarkdown and
+#       writes docs/dist/<project>-architecture.pdf when every check passes.
+# When: When someone needs the architecture documentation outside the
+#       repository, as a PDF.
+# By:   the developer, or an agent through the publish-docs skill.
+#
+# Usage:
+#   publish-docs pdf
+#
+# Run it in the project root. Docker is the only tool it needs on the host.
+#
+# Exit codes:
+#   0  PDF written
+#   1  a check failed; no PDF written, details on stderr
+#   2  a precondition failed (Docker, docs/, manifest, architecture.dsl)
+#
+# Environment:
+#   PUBLISH_DOCS_IMAGE  render image to use instead of building one
+#   STRUCTURIZR_IMAGE   passed on to the structurizr wrapper
+
+set -euo pipefail
+
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+FACTORY="$(dirname "$(dirname "${SELF}")")"
+DOCKER_DIR="${FACTORY}/docker/publish-docs"
+ROOT="$(pwd)"
+DOCS="${ROOT}/docs"
+BUILD="${ROOT}/.current-work/publish-docs/build"
+PROJECT="$(basename "${ROOT}")"
+
+usage() {
+    sed -n '2,/^$/p' "${SELF}" | sed 's/^# \{0,1\}//' >&2
+}
+
+fail_pre() {
+    echo "publish-docs: $*" >&2
+    exit 2
+}
+
+[ "${1:-}" = "pdf" ] || { usage; exit 2; }
+
+# --- Stage 0: preflight -------------------------------------------------------
+command -v docker >/dev/null 2>&1 || fail_pre "Docker is not installed or not in PATH"
+docker info >/dev/null 2>&1 || fail_pre "the Docker daemon is not running"
+[ -d "${DOCS}" ] || fail_pre "no docs/ directory in $(pwd)"
+
+image="${PUBLISH_DOCS_IMAGE:-}"
+if [ -z "${image}" ]; then
+    image="agent-factory/publish-docs:$(sha256sum "${DOCKER_DIR}/Dockerfile" | cut -c1-12)"
+    if ! docker image inspect "${image}" >/dev/null 2>&1; then
+        echo "publish-docs: building render image ${image} (first use only)" >&2
+        docker build -q -t "${image}" "${DOCKER_DIR}" >/dev/null || fail_pre "render image build failed"
+    fi
+fi
+
+rm -rf "${BUILD}"
+mkdir -p "${BUILD}/model"
+
+# --- Stage 1: model -----------------------------------------------------------
+# Without a manifest the assembler prints a starter and exits 2, so the model
+# stage is skipped.
+if [ -f "${DOCS}/publish-docs.yaml" ]; then
+    [ -f "${DOCS}/arc42/architecture.dsl" ] || fail_pre "missing docs/arc42/architecture.dsl"
+    cp -r "${DOCS}/arc42" "${BUILD}/model/arc42"
+    if ! STRUCTURIZR_DOCS="${BUILD}/model" "${FACTORY}/scripts/structurizr" validate >"${BUILD}/structurizr.log" 2>&1; then
+        cat "${BUILD}/structurizr.log" >&2
+        echo "FAIL structurizr-validate: docs/arc42/architecture.dsl is not valid" >&2
+        exit 1
+    fi
+    if ! STRUCTURIZR_DOCS="${BUILD}/model" "${FACTORY}/scripts/structurizr" export-svg >>"${BUILD}/structurizr.log" 2>&1; then
+        cat "${BUILD}/structurizr.log" >&2
+        echo "FAIL structurizr-export: view export failed" >&2
+        exit 1
+    fi
+fi
+
+# --- Provenance -----------------------------------------------------------------
+if git -C "${ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    if ! git -C "${ROOT}" check-ignore -q docs/dist/x.pdf; then
+        printf '\n# publish-docs output\ndocs/dist/\n' >>"${ROOT}/.gitignore"
+        echo "publish-docs: added docs/dist/ to .gitignore" >&2
+    fi
+    sha="$(git -C "${ROOT}" rev-parse HEAD 2>/dev/null || echo "no-commit")"
+    branch="$(git -C "${ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")"
+    dirty=0
+    [ -n "$(git -C "${ROOT}" status --porcelain -- docs/)" ] && dirty=1
+else
+    sha="not-a-git-repository"
+    branch="none"
+    dirty=0
+fi
+
+# --- Stages 2 to 5: assemble, render, check (inside the render image) ---------------
+set +e
+docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    -v "${DOCS}:/docs:ro" \
+    -v "${FACTORY}:/factory:ro" \
+    -v "${BUILD}:/build" \
+    -e PUBLISH_PROJECT="${PROJECT}" \
+    -e PUBLISH_SHA="${sha}" \
+    -e PUBLISH_BRANCH="${branch}" \
+    -e PUBLISH_BUILT_AT="$(date -u '+%Y-%m-%d %H:%M')" \
+    -e PUBLISH_DIRTY="${dirty}" \
+    --entrypoint /factory/docker/publish-docs/pipeline.sh \
+    "${image}"
+status=$?
+set -e
+[ "${status}" -eq 0 ] || exit "${status}"
+
+# --- Stage 6: emit -------------------------------------------------------------
+mkdir -p "${DOCS}/dist"
+target="${DOCS}/dist/${PROJECT}-architecture.pdf"
+mv "${BUILD}/out.pdf" "${target}"
+echo "publish-docs: wrote ${target#"${ROOT}"/}"
