@@ -133,7 +133,7 @@ status: draft
 - Seed `docs/CONTEXT.md` as in the attended mode.
 - Report to the caller: the inventory count, the open questions, and that the map awaits confirmation.
 
-A stakeholder confirms the draft by walking the domain grouping and the open questions, then removing the `status` field or setting it to `status: confirmed`. Until then `spec-lint` reports the map as `SCOPE001`, and the brownfield Stage 1 exit check fails on that code. The `scope` field stays in either case, because `scope-lint` requires it.
+A stakeholder confirms the draft by walking the domain grouping and the open questions, then removing the `status` field or setting it to `status: confirmed`. Until then `spec-lint` reports the map as `SCOPE001`, and the brownfield Stage 1 exit check fails on that code. The check also fails when `spec-lint` crashes, so a broken install never passes a draft. The `scope` field stays in either case, because `scope-lint` requires it.
 
 ## UX principles
 

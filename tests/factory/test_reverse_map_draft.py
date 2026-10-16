@@ -88,10 +88,9 @@ def _stage1_project(tmp_path: Path, frontmatter: str) -> Path:
     return tmp_path
 
 
-def _run_exit_check(project: Path) -> subprocess.CompletedProcess:
-    command = _stage1_exit_command().replace(
-        INSTALLED_SPEC_LINT, str(SOURCE_SCRIPTS_DIR / "spec-lint")
-    )
+def _run_exit_check(project: Path, script: Path | None = None) -> subprocess.CompletedProcess:
+    script = script or SOURCE_SCRIPTS_DIR / "spec-lint"
+    command = _stage1_exit_command().replace(INSTALLED_SPEC_LINT, str(script))
     return subprocess.run(
         ["bash", "-c", command], cwd=project, capture_output=True, text=True, check=False
     )
@@ -108,6 +107,19 @@ def test_stage1_exit_command_passes_a_confirmed_scope_map_despite_other_errors(t
     findings, _ = sl.run(spec_dir, Path("missing-context.md"), False)
     assert "STRUCT005" in [f.code for f in findings]
     assert _run_exit_check(project).returncode == 0
+
+
+def test_stage1_exit_command_fails_when_spec_lint_is_missing(tmp_path):
+    project = _stage1_project(tmp_path, "---\nscope: global\nstatus: draft\n---\n\n")
+    assert _run_exit_check(project, tmp_path / "no-such-spec-lint").returncode != 0
+
+
+def test_stage1_exit_command_fails_when_spec_lint_crashes_silently(tmp_path):
+    project = _stage1_project(tmp_path, "---\nscope: global\nstatus: draft\n---\n\n")
+    crashing = tmp_path / "crashing-spec-lint"
+    crashing.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    crashing.chmod(0o755)
+    assert _run_exit_check(project, crashing).returncode != 0
 
 
 def test_unattended_frontmatter_example_passes_scope_lint(tmp_path):
