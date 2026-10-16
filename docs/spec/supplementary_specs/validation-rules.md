@@ -285,7 +285,7 @@ Rules for governed artifacts in the closed first-release set: proposals, epics, 
 4. Epics, stories, and `scope-map.md` carry `scope` in YAML frontmatter alongside other fields.
 5. `entity-model.yaml` carries `scope` as a top-level YAML field.
 6. Gherkin feature files carry `scope` as a first-line comment: `# scope: <value>`.
-7. Structurizr DSL (`architecture.dsl`) carries `scope` as a first-line comment: `// scope: global`.
+7. Structurizr DSL (`architecture.dsl`) carries `scope` as a first-line comment in the same form as feature files: `# scope: global`. The older `// scope: global` form still passes.
 8. A governed artifact missing the declaration or carrying an unknown value is rejected at artifact creation time.
 9. Non-governed artifacts (ADRs, reviews, findings, research records, etc.) need no scope declaration.
 

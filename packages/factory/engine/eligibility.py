@@ -61,7 +61,7 @@ def _extract_scope(path: Path) -> str | None:
 
     if suffix == ".dsl":
         first_line = text.split("\n", 1)[0].strip()
-        m = re.match(r"^//\s*scope:\s*(.+)$", first_line)
+        m = re.match(r"^(?:#|//)\s*scope:\s*(.+)$", first_line)
         return m.group(1).strip() if m else None
 
     if suffix in (".yaml", ".yml") and not text.startswith("---"):
