@@ -19,11 +19,14 @@ skills:
   - handoff
 inputs:
   required:
-    - type: proposal
-      path_pattern: "docs/proposals/{name}.md"
-      conditions:
-        field: status
-        value: accepted
+    - any_of:
+        - type: proposal
+          path_pattern: "docs/proposals/{name}.md"
+          conditions:
+            field: status
+            value: accepted
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
   context:
     - docs/CONTEXT.md
     - docs/spec/todos.md
@@ -86,7 +89,9 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Workflow
 
-### When no accepted proposal exists
+Branch order: if the caller passes `docs/spec/scope-map.md`, from the scope map; else an accepted proposal, even when a scope map exists; else a draft proposal stops at the proposal-acceptance pause point; else the first branch.
+
+### Without an accepted proposal
 
 1. **Capture Vision** — Invoke `capture-vision`: interview across six facets (Problem, Target audience, Desired outcome, Constraints, Boundaries, Inspiration).
 2. **Clarify Requirements** — Invoke `clarify-requirements` to select and run the branch (Socratic / `grill-me` / `grill-with-docs`).
@@ -104,6 +109,13 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 2. **Produce QA Strategy** — Invoke `qa-strategy-from-spec` with the feature name (e.g. `qa-strategy-from-spec activity-graph-orchestration`). Reads the `.feature` file, entity model, and interface contracts. Writes `docs/spec/<feature-name>-qa-strategy.md` with six sections: Feature, Test Layers in Scope, Contract Owners, Boundary Cases, Defect Severity Triage, and Test Retention Policy.
 3. **Address review findings** (repeat passes) — Re-run steps 1–2 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
    - **Grep before fixing**: when a finding names an inconsistency, `rg` all of `docs/spec/` for every occurrence before editing. Fix them in one pass — a missed occurrence forces another full review cycle.
+
+### From the scope map (brownfield)
+
+Brownfield Step 3.3 starts here. The Brownfield Entry stops on a map with `status: draft`.
+
+1. **Derive Feature Spec** — Invoke `derive-feature docs/spec/scope-map.md`. The skill follows its [Brownfield Entry](../skills/derive-feature/SKILL.md#brownfield-entry): it writes `docs/spec/<project-name>.feature` and `docs/spec/<project-name>-gaps.md`, keeps every row `implemented`, and fills each matched row's Feature Link.
+2. **Produce supplementary specs and QA strategy** — Continue with steps 1d and 2 above, using `<project-name>` as the feature name.
 
 **Pause points:** Scope map review · Feature file review · QA strategy review.
 

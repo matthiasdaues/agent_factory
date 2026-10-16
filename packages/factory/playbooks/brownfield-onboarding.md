@@ -169,6 +169,9 @@ Analyze domain entities in code — relationships, attributes, constraints.
 
 ### Step 3.3 — Derive Feature Spec
 
+**Agent**: `requirements-agent`
+**Skill**: `derive-feature docs/spec/scope-map.md` (the skill's Brownfield Entry)
+
 Derive a consolidated Gherkin feature file from test names, API endpoints, and user flows in code. Use Cockburn actor-goal reasoning as internal process; output Rule-per-actor-goal `.feature` structure with `@`-references to existing code. Update the scope map with all Rules marked `implemented`.
 
 **Output**: `docs/spec/<project-name>.feature`, `docs/spec/scope-map.md` (updated), `docs/spec/<project-name>-gaps.md`
