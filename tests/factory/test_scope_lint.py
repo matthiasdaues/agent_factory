@@ -139,6 +139,17 @@ class TestDslScope:
         findings = scope_lint.validate_scope(tmp_path)
         assert len(findings) == 0
 
+    def test_hash_comment_dsl_scope(self, tmp_path: Path) -> None:
+        _write_dsl(tmp_path, "# scope: global")
+        findings = scope_lint.validate_scope(tmp_path)
+        assert len(findings) == 0
+
+    def test_hash_comment_dsl_unknown_value(self, tmp_path: Path) -> None:
+        _write_dsl(tmp_path, "# scope: no-such-workstream")
+        findings = scope_lint.validate_scope(tmp_path)
+        assert len(findings) == 1
+        assert findings[0].error_type == "unknown"
+
     def test_missing_dsl_scope(self, tmp_path: Path) -> None:
         _write_dsl(tmp_path)
         findings = scope_lint.validate_scope(tmp_path)

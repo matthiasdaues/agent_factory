@@ -153,6 +153,28 @@ def check_required_artifacts(spec: Path) -> List[Finding]:
     return out
 
 
+# Unattended reverse-map writes `status: draft` into the scope map's
+# frontmatter. A stakeholder confirms the map by removing the field or setting
+# it to `confirmed`; until then the brownfield Stage 1 exit must fail (BUG-0096).
+RE_FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\s*$", re.S | re.M)
+RE_DRAFT_STATUS = re.compile(r"^status:\s*['\"]?draft['\"]?\s*$", re.M)
+
+
+def check_scope_map_draft(spec: Path) -> List[Finding]:
+    m = RE_FRONTMATTER.match(read(spec / "scope-map.md"))
+    if not m or not RE_DRAFT_STATUS.search(m.group(1)):
+        return []
+    return [
+        Finding(
+            "SCOPE001",
+            "error",
+            "scope-map.md",
+            "scope map is a draft (frontmatter status: draft); a stakeholder "
+            "must confirm it before the brownfield Stage 1 exit",
+        )
+    ]
+
+
 def check_use_cases(spec: Path, graph: Graph) -> List[Finding]:
     out = []
     uc_dir = spec / "use_cases"
@@ -559,6 +581,7 @@ def run(spec: Path, context: Path, gate_todos: bool) -> (List[Finding], Graph):
     graph = Graph()
     findings: List[Finding] = []
     findings += check_required_artifacts(spec)
+    findings += check_scope_map_draft(spec)
     collect_graph(spec, graph)
     findings += check_use_cases(spec, graph)
     findings += check_traceability(spec, graph)
