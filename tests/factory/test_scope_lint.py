@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 from conftest import load_script
@@ -137,6 +139,17 @@ class TestDslScope:
         findings = scope_lint.validate_scope(tmp_path)
         assert len(findings) == 0
 
+    def test_hash_comment_dsl_scope(self, tmp_path: Path) -> None:
+        _write_dsl(tmp_path, "# scope: global")
+        findings = scope_lint.validate_scope(tmp_path)
+        assert len(findings) == 0
+
+    def test_hash_comment_dsl_unknown_value(self, tmp_path: Path) -> None:
+        _write_dsl(tmp_path, "# scope: no-such-workstream")
+        findings = scope_lint.validate_scope(tmp_path)
+        assert len(findings) == 1
+        assert findings[0].error_type == "unknown"
+
     def test_missing_dsl_scope(self, tmp_path: Path) -> None:
         _write_dsl(tmp_path)
         findings = scope_lint.validate_scope(tmp_path)
@@ -239,6 +252,50 @@ class TestMainCli:
         data = json.loads(capsys.readouterr().out)
         assert data["errors"] == 1
         assert len(data["findings"]) == 1
+
+
+class TestLinkedWorktree:
+    """BUG-0095: .agent-factory/ is ignored by git, so a linked worktree has
+    no workstreams of its own. scope-lint reads them from the main checkout."""
+
+    @staticmethod
+    def _git(cwd: Path, *args: str) -> None:
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        subprocess.run(["git", "-C", str(cwd), *args], check=True,
+                       capture_output=True, text=True, env=env)
+
+    def _main_with_worktree(self, tmp_path: Path) -> tuple[Path, Path]:
+        main = tmp_path / "main"
+        main.mkdir()
+        self._git(main, "init", "-q")
+        self._git(main, "-c", "user.name=t", "-c", "user.email=t@t",
+                  "commit", "-q", "--allow-empty", "-m", "init")
+        worktree = tmp_path / "wt"
+        self._git(main, "worktree", "add", "-q", "-b", "story", str(worktree))
+        return main, worktree
+
+    def test_known_workstream_passes_in_a_linked_worktree(self, tmp_path: Path) -> None:
+        main, worktree = self._main_with_worktree(tmp_path)
+        _setup_workstream(main, "main-ws")
+        _write_proposal(worktree, "p", "scope: main-ws\n")
+        findings = scope_lint.validate_scope(worktree)
+        assert findings == []
+
+    def test_unknown_workstream_still_fails_in_a_linked_worktree(self, tmp_path: Path) -> None:
+        main, worktree = self._main_with_worktree(tmp_path)
+        _setup_workstream(main, "main-ws")
+        _write_proposal(worktree, "p", "scope: other-ws\n")
+        findings = scope_lint.validate_scope(worktree)
+        assert [f.error_type for f in findings] == ["unknown"]
+
+    def test_main_checkout_without_workstreams_leaves_only_global(self, tmp_path: Path) -> None:
+        _, worktree = self._main_with_worktree(tmp_path)
+        assert scope_lint.discover_workstreams(worktree) == set()
+
+    def test_outside_a_repository_nothing_changes(self, tmp_path: Path) -> None:
+        _write_proposal(tmp_path, "p", "scope: some-ws\n")
+        findings = scope_lint.validate_scope(tmp_path)
+        assert [f.error_type for f in findings] == ["unknown"]
 
 
 import json

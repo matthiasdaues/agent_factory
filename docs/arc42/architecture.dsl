@@ -1,4 +1,4 @@
-// scope: global
+# scope: global
 workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, validation, and usage capture for Agent Factory" {
 
     properties {

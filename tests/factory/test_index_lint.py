@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import yaml
 from conftest import load_script
 
 il = load_script("index-lint")
@@ -497,3 +498,114 @@ class TestFactoryRoot:
         (tmp_path / ".agent-factory" / "factory").mkdir(parents=True)
         monkeypatch.chdir(tmp_path)
         assert il._factory_root() == ".agent-factory/factory"
+
+
+_ARCH_LIKE_HEAD = "---\nname: arch\ntitle: Arch\ninputs:\n  required:\n"
+
+
+class TestAnyOfValidation:
+    """BUG-0093: index-lint rejects a malformed `any_of` required input
+    instead of writing `null` or `""` into INDEX.yaml."""
+
+    def _run(self, tmp_path, required_block: str, capsys) -> tuple[int, str]:
+        for name in ("agents", "skills", "playbooks", "rulebooks"):
+            (tmp_path / name).mkdir()
+        agent = tmp_path / "agents" / "arch.md"
+        agent.write_text(_ARCH_LIKE_HEAD + required_block + "---\nBody")
+        args = [
+            "--agents-dir",
+            str(tmp_path / "agents"),
+            "--skills-dir",
+            str(tmp_path / "skills"),
+            "--playbooks-dir",
+            str(tmp_path / "playbooks"),
+            "--rulebooks-dir",
+            str(tmp_path / "rulebooks"),
+            "--out",
+            str(tmp_path / "INDEX.yaml"),
+        ]
+        il.main(args)
+        capsys.readouterr()
+        rc = il.main([*args, "--check"])
+        return rc, capsys.readouterr().err
+
+    def _assert_rejected(self, tmp_path, block: str, capsys) -> None:
+        rc, err = self._run(tmp_path, block, capsys)
+        assert rc == 1
+        assert "agents/arch.md: inputs.required entry 1: any_of" in err
+        assert "any_of" in err
+
+    def test_alternatives_indented_as_sibling_entries_fail(self, tmp_path, capsys):
+        block = (
+            "    - any_of:\n"
+            "    - type: feature\n"
+            "      path_pattern: docs/spec/*.feature\n"
+        )
+        self._assert_rejected(tmp_path, block, capsys)
+
+    def test_empty_list_fails_without_crash(self, tmp_path, capsys):
+        self._assert_rejected(tmp_path, "    - any_of: []\n", capsys)
+
+    def test_nested_any_of_fails(self, tmp_path, capsys):
+        block = (
+            "    - any_of:\n"
+            "        - any_of:\n"
+            "            - type: feature\n"
+            "              path_pattern: docs/spec/*.feature\n"
+        )
+        self._assert_rejected(tmp_path, block, capsys)
+
+    def test_alternative_without_path_pattern_fails(self, tmp_path, capsys):
+        block = "    - any_of:\n        - type: feature\n"
+        self._assert_rejected(tmp_path, block, capsys)
+
+    def test_alternative_with_unknown_key_fails(self, tmp_path, capsys):
+        block = (
+            "    - any_of:\n"
+            "        - type: feature\n"
+            "          path_pattern: docs/spec/*.feature\n"
+            "          pattern: docs/spec/*.feature\n"
+        )
+        self._assert_rejected(tmp_path, block, capsys)
+
+    def test_alternatives_at_key_column_are_parsed(self, tmp_path, capsys):
+        block = (
+            "    - any_of:\n"
+            "      - type: feature\n"
+            "        path_pattern: docs/spec/*.feature\n"
+        )
+        rc, _ = self._run(tmp_path, block, capsys)
+        assert rc == 0
+        index = yaml.safe_load((tmp_path / "INDEX.yaml").read_text())
+        assert index["agents"][0]["inputs"]["required"] == [
+            {"any_of": [{"type": "feature", "path_pattern": "docs/spec/*.feature"}]}
+        ]
+
+    def test_conditions_inside_alternative_are_kept(self, tmp_path, capsys):
+        block = (
+            "    - any_of:\n"
+            "        - type: feature\n"
+            "          path_pattern: docs/spec/*.feature\n"
+            "          conditions:\n"
+            "            field: status\n"
+            "            one_of:\n"
+            "              - approved\n"
+            "              - done\n"
+            "        - type: scope-map\n"
+            "          path_pattern: docs/spec/scope-map.md\n"
+        )
+        rc, _ = self._run(tmp_path, block, capsys)
+        assert rc == 0
+        index = yaml.safe_load((tmp_path / "INDEX.yaml").read_text())
+        assert index["agents"][0]["inputs"]["required"] == [
+            {
+                "any_of": [
+                    {
+                        "type": "feature",
+                        "path_pattern": "docs/spec/*.feature",
+                        "conditions": {"field": "status", "one_of": ["approved", "done"]},
+                    },
+                    {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
+                ]
+            }
+        ]

@@ -1,6 +1,6 @@
 ---
 name: derive-feature
-description: Derive a Gherkin .feature file from a proposal using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
+description: Derive a Gherkin .feature file from a proposal, or in brownfield from the scope map, using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
 category: requirements
 ---
 
@@ -23,6 +23,39 @@ if you can state the actor-goal-scenario sequence without reading.
 - **From proposal frontmatter:** `impact.boundaries` — list of files and
   modules the feature touches
 - **From `impact.boundaries`:** scanned modules in `src/` (or equivalent)
+
+In brownfield, the argument is `docs/spec/scope-map.md` instead of a
+proposal. Follow the [Brownfield Entry](#brownfield-entry).
+
+## Brownfield Entry
+
+Brownfield Step 3.3 invokes `derive-feature docs/spec/scope-map.md`.
+
+First, read the scope map's frontmatter. If it carries `status: draft`,
+stop and derive nothing; send the user to brownfield playbook Step 2.6 to
+confirm the map. Otherwise, Steps 1 to 6 run as written below, with these
+sources in place of the proposal:
+
+| Proposal field             | Brownfield source                                                                                                                                  |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invocation argument        | `docs/spec/scope-map.md`                                                                                                                           |
+| `impact.boundaries`        | The code and test paths in the scope map's Sources column. If no row names a path, scan the project root as Step 2 describes for a missing `src/`. |
+| Actors and goals           | The scope-map rows and the entry points their Sources name                                                                                         |
+| `<feature-name>`           | `<project-name>`                                                                                                                                   |
+| Gaps report `Source:` line | `docs/spec/scope-map.md`                                                                                                                           |
+
+Four rules differ from the proposal entry:
+
+- **Status:** write each new Rule into the scope map as `implemented`, not
+  `specified`. The code exists. Leave the status of existing rows as it is.
+- **Feature Link:** fill the Feature Link of every scope-map row that a Rule
+  matches with `docs/spec/<project-name>.feature`.
+- **One file:** write one consolidated `docs/spec/<project-name>.feature`
+  for the whole project, not a per-slice file. The
+  [Slice Lifecycle](#slice-lifecycle) does not apply.
+- **@-references:** every Scenario carries an @-reference to existing code.
+  A Scenario without one describes behavior the code lacks; record it in the
+  gaps report instead of the `.feature` file.
 
 ## Outputs
 
@@ -190,8 +223,9 @@ Source: <proposal file path>
 
 ## Scope Map Integration
 
-After the `.feature` file is written, update `docs/spec/scope-map.md` if it
-exists. For each Rule in the new feature:
+In brownfield, the [Brownfield Entry](#brownfield-entry) rules replace this
+section. After the `.feature` file is written, update `docs/spec/scope-map.md`
+if it exists. For each Rule in the new feature:
 
 1. If the Rule is not in the scope map, add it with status `specified`
    and a link to the new `.feature` file.
