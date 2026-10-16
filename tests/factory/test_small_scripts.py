@@ -355,6 +355,23 @@ def test_bug_0080_second_pass_keeps_unstaged_lines_of_a_staged_file_out(tmp_path
     assert _git(repo, "status", "--porcelain").splitlines() == [" M mixed.txt"]
 
 
+def test_bug_0080_paths_are_literal_not_patterns(tmp_path):
+    repo = _repo_with_index_hook(tmp_path, "ab.md", "a[b].md")
+    (repo / "ab.md").write_text("work in progress\n")
+    (repo / "a[b].md").write_text("changed\n")
+    (repo / "agents/b.md").write_text("b\n")
+
+    result = _commit_safe(
+        repo, "-m", "feat: add b (BUG-0080)", "a[b].md", "agents/b.md"
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert sorted(_git(repo, "show", "--name-only", "--format=", "HEAD").split()) == [
+        "INDEX.txt", "a[b].md", "agents/b.md",
+    ]
+    assert _git(repo, "status", "--porcelain").splitlines() == [" M ab.md"]
+
+
 # --- BUG-0091: spec-lint counts entries in the todo-entry template form -------
 
 

@@ -34,7 +34,8 @@ if [ -z "$MSG" ]; then
 fi
 
 if [ "${#PATHS[@]}" -gt 0 ]; then
-  git add -- "${PATHS[@]}"
+  # Literal pathspecs: `a[b].md` names that file, not a pattern matching ab.md.
+  git --literal-pathspecs add -- "${PATHS[@]}"
 fi
 
 # Remember what this commit is meant to contain, and which tracked files
@@ -86,6 +87,6 @@ while IFS= read -r -d '' path; do
   fi
 done < <(git diff --name-only -z)
 if [ "${#RESTAGE[@]}" -gt 0 ]; then
-  git add -u -- "${RESTAGE[@]}"
+  git --literal-pathspecs add -u -- "${RESTAGE[@]}"
 fi
 git commit -m "$MSG"
