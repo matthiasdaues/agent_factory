@@ -141,7 +141,9 @@ BUG-0067 stay open as design decisions.
     text. Evidence from this run: the back-merge and the ST-0308 refresh
     needed the stakeholder's `!`; a manual refresh cannot be committed inside
     the guard; ST-0308 was blocked by a conflict in `INDEX.yaml` alone and
-    reopened by hand (ledger backup
+    reopened by hand. In the brownfield run an agent ran
+    `uv run pytest <file>`; the hook blocks bare `pytest` but not this form.
+    (ledger backup
     `.current-work/feature/bug-hunt-fixes/scratch/dispatch-ledger.before-st0308-edit.yaml`).
     23c. `tests/factory/test_yaml_document_start.py` (low): the
     `<!-- yaml-excerpt -->` exemption has no upper bound; one comment line

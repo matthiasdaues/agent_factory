@@ -108,6 +108,7 @@ models/
 /.agents/skills/mutation-testing
 /.agents/skills/newcomer-tour
 /.agents/skills/process-transcript
+/.agents/skills/publish-docs
 /.agents/skills/pugh-matrix
 /.agents/skills/qa-strategy-from-spec
 /.agents/skills/reconcile-spec
