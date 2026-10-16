@@ -385,3 +385,30 @@ class TestAlignedSeparator:
         al.check_coupling(rep, DSL, ch5)
         assert not any(c == "ARCH-CH5-EMPTY" for _, c, _ in rep.items)
         assert rep.n(al.ERROR) == 0
+
+
+# ---------------------------------------------------------------------------
+# BUG-0090: a container-only model has no components for chapter 5 to name
+# ---------------------------------------------------------------------------
+
+
+class TestContainerOnlyModel:
+    def test_container_only_model_passes(self, tmp_path: Path) -> None:
+        """BUG-0090: no DSL components and a 5.1 container table exit 0."""
+        docs = tmp_path / "docs" / "arc42"
+        docs.mkdir(parents=True)
+        (docs / "architecture.dsl").write_text(
+            "workspace {\n  model {\n    s = softwareSystem \"S\" {\n"
+            "      web = container \"Web\"\n      db = container \"Database\"\n"
+            "    }\n  }\n}\n"
+        )
+        (docs / "05_building_block_view.md").write_text(
+            "# 5. Building Block View\n\n"
+            "## 5.1 Level 1: Container View\n\n"
+            "| Container | Responsibility |\n"
+            "| --------- | -------------- |\n"
+            "| Web       | Serve pages    |\n"
+            "| Database  | Store data     |\n"
+        )
+        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
+        assert rc == 0

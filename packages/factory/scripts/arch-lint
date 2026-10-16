@@ -341,11 +341,12 @@ def check_coupling(rep: Report, dsl: str, ch5: str) -> None:
         ("component", dsl_core_components(dsl), ch5_core_components(ch5)),
         ("port", dsl_ports(dsl), ch5_ports(ch5)),
     ):
-        if kind == "component" and not cset:
+        if kind == "component" and dset and not cset:
             rep.error(
                 "ARCH-CH5-EMPTY",
-                "chapter 5 names no component; use a table whose first column "
-                "is headed 'Component' (see scaffold-arc42)",
+                "architecture.dsl declares components but chapter 5 names none; "
+                "use a table whose first column is headed 'Component' "
+                "(see scaffold-arc42)",
             )
             continue
         if not dset or not cset:

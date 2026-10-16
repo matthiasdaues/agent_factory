@@ -48,7 +48,7 @@ Rules:
 
 - Fill each chapter from the specification in `docs/spec/` — **no placeholder text**.
 
-- In chapter 5, list components in tables under `## 5.2` and later headings. Head the first column `Component`, and write each name exactly as in `architecture.dsl`, plain or bold. `arch-lint` reads these names and compares them with the model. It also counts a bold first cell in any other table. A chapter 5 without a single component fails the gate.
+- In chapter 5, list components in tables under `## 5.2` and later headings. Head the first column `Component`, and write each name exactly as in `architecture.dsl`, plain or bold. `arch-lint` reads these names and compares them with the model. It also counts a bold first cell in any other table. When the model declares components and chapter 5 names none, the gate fails.
 
   ```markdown
   | Component  | Responsibility |
