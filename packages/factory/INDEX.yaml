@@ -193,7 +193,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 3823
-    total_tokens: 12680
+    total_tokens: 12682
     inputs:
       required:
         - type: story
@@ -336,7 +336,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2272
-    total_tokens: 19848
+    total_tokens: 19850
     inputs:
       required:
         - type: scope-map
@@ -439,7 +439,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1276
-    total_tokens: 8305
+    total_tokens: 8307
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -768,7 +768,7 @@ skills:
     category: utility
     description: Scan project for test suites and record each one in testing.yaml (at docs/testing.yaml). Code is the source of truth; the record is derived.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 3190
+    tokens: 3191
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
@@ -888,7 +888,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 2921
-    total_tokens: 36739
+    total_tokens: 36741
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -910,7 +910,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 43564
+    total_tokens: 43568
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -927,7 +927,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4632
-    total_tokens: 104609
+    total_tokens: 104613
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -945,7 +945,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 103962
+    total_tokens: 103966
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -974,7 +974,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1106
-    total_tokens: 13208
+    total_tokens: 13210
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -995,7 +995,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 17450
+    total_tokens: 17452
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -1010,7 +1010,7 @@ rulebooks:
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
-    tokens: 1218
+    tokens: 1219
   - name: agent-lifecycle-protocol
     category: conventions
     path: rulebooks/conventions/agent-lifecycle-protocol.md
@@ -1038,7 +1038,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 5173
+    tokens: 5175
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md
@@ -1127,6 +1127,10 @@ rulebooks:
     category: conventions
     path: rulebooks/conventions/working-discipline.md
     tokens: 1268
+  - name: yaml-format
+    category: conventions
+    path: rulebooks/conventions/yaml-format.md
+    tokens: 261
   - name: cockburn-reasoning
     category: principles
     path: rulebooks/principles/cockburn-reasoning.md

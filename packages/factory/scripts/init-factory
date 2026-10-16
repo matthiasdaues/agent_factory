@@ -2996,6 +2996,7 @@ def _fresh_precommit_text(template: Path) -> str:
         )
 
     header = (
+        "---\n"
         "# Created by Agent Factory init-factory. The agent_factory_hook-* hooks\n"
         "# below are added here and removed by .agent-factory/factory/scripts/remove-factory\n"
         "# (extricable by their id prefix). Safe to delete if it holds nothing else.\n"
@@ -3072,6 +3073,7 @@ def _write_testing_yaml(target: Path, command: str) -> None:
     path = _resolve_testing_yaml(target)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
+        "---\n"
         "# docs/testing.yaml — project test command declaration\n"
         "# Detected by Agent Factory's detect-test-regime scan during init-factory.\n"
         "# Code is the source of truth; this file is a derived record — re-run\n"

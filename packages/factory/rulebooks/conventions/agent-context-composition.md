@@ -83,6 +83,7 @@ planning-agent writes a `concerns` field into each story's frontmatter,
 picking from this vocabulary:
 
 ```yaml
+---
 concerns:
   domain: [payments]
   technical: [backend, frontend]
