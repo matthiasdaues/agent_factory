@@ -132,6 +132,8 @@ import uuid
 from pathlib import Path
 
 MANIFEST_PATH = ".agent-factory/install.json"
+# install.json keys that install-agent-factory writes and init-factory does not.
+INSTALLER_RECORD_KEYS = ("version", "resolved_source", "archive_sha256")
 CHECKSUMS_PATH = ".agent-factory/checksums.json"
 USER_CHANGES_DIR = ".agent-factory/user-changes"
 CHECKSUM_SKIP_PREFIXES = ("__pycache__/",)
@@ -1605,7 +1607,14 @@ def main(argv: list[str] | None = None) -> int:
     # init-factory rewrote install.json with the wiring it installed. Build
     # the receipt on that record, not on the copy read before the run, or
     # the next update meets agent files whose records were dropped.
+    before_init = manifest
     manifest = _reread_manifest_after_init(target, manifest)
+    # init-factory writes neither the installer's schema version nor its
+    # remote-source records. Carry them over, or a local update drops them
+    # (BUG-0079).
+    for key in INSTALLER_RECORD_KEYS:
+        if key in before_init:
+            manifest[key] = before_init[key]
     manifest["factory_version"] = candidate_version
     manifest["source_selector"] = source_selector
     if is_remote:

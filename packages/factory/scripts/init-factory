@@ -1481,8 +1481,13 @@ def _load_codex_hooks(target: Path, install: dict) -> tuple[Path, dict, dict, bo
     if existed:
         install.setdefault("codex_hooks_existed", True)
         raw = path.read_text(encoding="utf-8")
-        if install.get("codex_hooks_existed", True):
-            install.setdefault("codex_hooks_original", raw)
+        # An install without Codex records no original bytes, only None. A
+        # later run that adds Codex saves the project's bytes then (BUG-0079).
+        if (
+            install.get("codex_hooks_existed", True)
+            and install.get("codex_hooks_original") is None
+        ):
+            install["codex_hooks_original"] = raw
         try:
             config = json.loads(raw)
         except json.JSONDecodeError as exc:

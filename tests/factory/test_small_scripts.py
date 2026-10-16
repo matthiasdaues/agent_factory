@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, load_script
@@ -18,6 +20,31 @@ def _git(repo: Path, *args: str) -> str:
         ["git", "-C", str(repo), *args],
         check=True, capture_output=True, text=True, env=_clean_env(),
     ).stdout
+
+
+def _init_factory(target: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(SOURCE_SCRIPTS_DIR / "init-factory"),
+         "--source", str(REPO_ROOT), "--target", str(target), *args],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+        env=_clean_env(), check=False,
+    )
+
+
+def _remove_factory(target: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(SOURCE_SCRIPTS_DIR / "remove-factory"),
+         "--target", str(target)],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True,
+        env=_clean_env(), check=False,
+    )
+
+
+def _new_project(tmp_path: Path) -> Path:
+    target = tmp_path / "project"
+    target.mkdir()
+    subprocess.run(["git", "init", "-q", str(target)], check=True, env=_clean_env())
+    return target
 
 
 # --- BUG-0080: commit-safe commits only what was staged ----------------------
@@ -123,3 +150,81 @@ def test_bug_0091_todo_check_reads_todo_md(tmp_path):
     assert len(findings) == 1
     assert findings[0].artifact == "docs/spec/todo.md"
     assert "1 unresolved todo item(s)" in findings[0].message
+
+
+# --- BUG-0079: install faults outside remove-factory -------------------------
+
+
+def test_bug_0079_codex_added_after_claude_restores_project_hooks_json(tmp_path):
+    target = _new_project(tmp_path)
+    (target / ".codex").mkdir()
+    original = '{\n    "hooks": {\n        "Stop": []\n    }\n}\n'
+    (target / ".codex/hooks.json").write_text(original)
+
+    first = _init_factory(target, "--cli", "claude", "--project-name", "demo")
+    assert first.returncode == 0, first.stderr
+    second = _init_factory(target, "--cli", "claude", "codex")
+    assert second.returncode == 0, second.stderr
+    assert (target / ".codex/hooks.json").read_text() != original
+
+    removed = _remove_factory(target)
+
+    assert removed.returncode == 0, removed.stderr
+    assert (target / ".codex/hooks.json").read_text() == original
+
+
+def test_bug_0079_local_update_keeps_installer_records(tmp_path, monkeypatch):
+    uf = load_script("update-factory")
+    target = tmp_path / "target"
+    factory = target / ".agent-factory" / "factory"
+    (factory / "scripts").mkdir(parents=True)
+    (factory / "scripts" / "step-guard").write_text("pass\n")
+    uf._write_checksums(target, factory)
+    source = tmp_path / "source"
+    (source / "packages" / "factory").mkdir(parents=True)
+    (source / "packages" / "factory" / "VERSION").write_text("1.1.0\n")
+    manifest_path = target / uf.MANIFEST_PATH
+    manifest_path.write_text(json.dumps({
+        "version": 2,
+        "factory_version": "1.0.0",
+        "source_selector": "local",
+        "factory_source": str(source),
+        "resolved_source": "https://example.com/releases/1.0.0/",
+        "archive_sha256": "abc123",
+        "orientation": {},
+    }))
+
+    def _init_rewrites_manifest(src, tgt):
+        # init-factory's write_manifest writes a fixed set of keys.
+        (tgt / uf.MANIFEST_PATH).write_text(json.dumps({
+            "version": 1, "factory_version": "1.0.0", "orientation": {},
+            "factory_source": str(src),
+        }))
+        return 0
+
+    monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+    monkeypatch.setattr(uf, "_run_init", _init_rewrites_manifest)
+
+    assert uf.main(["--target", str(target)]) == 0
+
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["version"] == 2
+    assert manifest["resolved_source"] == "https://example.com/releases/1.0.0/"
+    assert manifest["archive_sha256"] == "abc123"
+    assert manifest["factory_version"] == "1.1.0"
+
+
+def test_bug_0079_migrate_layout_dry_run_reads_the_old_manifest(tmp_path, capsys):
+    migrate = load_script("migrate-layout")
+    (tmp_path / "factory").mkdir()
+    (tmp_path / ".agent-factory").mkdir()
+    old_manifest = tmp_path / ".agent-factory/factory-install.json"
+    old_manifest.write_text(json.dumps({"remove_paths": ["factory"]}))
+
+    assert migrate.main(["--dry-run", str(tmp_path)]) == 0
+
+    out = capsys.readouterr().out
+    assert "install.json not found" not in out
+    assert "MANIFEST remove_paths: factory → .agent-factory/factory" in out
+    assert json.loads(old_manifest.read_text()) == {"remove_paths": ["factory"]}
+    assert (tmp_path / "factory").is_dir()
