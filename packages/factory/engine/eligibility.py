@@ -3,6 +3,11 @@
 Reads `inputs.required` declarations from agent definitions, resolves
 each path pattern against the filesystem, and returns per-agent,
 per-requirement evidence marking each input satisfied or unsatisfied.
+
+A required entry is either one input (`type`, `path_pattern`, optional
+`conditions`) or an `any_of` list of such inputs. An `any_of` entry is
+satisfied when at least one alternative is satisfied. A malformed `any_of`
+is unmet, and the result carries a warning that names the problem.
 """
 
 from __future__ import annotations
@@ -178,6 +183,59 @@ def _evaluate_requirement(
     return evidence
 
 
+def _any_of_problem(alternatives: object) -> str | None:
+    """Name what is wrong with the shape of an `any_of` list, or None."""
+    if not isinstance(alternatives, list) or not alternatives:
+        return "is not a non-empty list"
+    for alt in alternatives:
+        if not isinstance(alt, dict):
+            return "has an alternative that is not a mapping"
+        path_pattern = alt.get("path_pattern")
+        if not isinstance(path_pattern, str) or not path_pattern.strip():
+            return "has an alternative without a path_pattern"
+    return None
+
+
+def _evaluate_any_of(
+    alternatives: object,
+    workstream_id: str | None,
+    warnings: list[str],
+) -> dict:
+    problem = _any_of_problem(alternatives)
+    if problem is not None:
+        warnings.append(f"any_of {problem}; the requirement is treated as unmet")
+        return {
+            "type": "any_of",
+            "path_pattern": "",
+            "satisfied": False,
+            "candidates": [],
+            "alternatives": [],
+        }
+    evidence = [
+        _evaluate_requirement(alt, workstream_id, warnings) for alt in alternatives
+    ]
+    candidates: list[str] = []
+    for e in evidence:
+        candidates.extend(e["candidates"])
+    return {
+        "type": " | ".join(e["type"] for e in evidence),
+        "path_pattern": " | ".join(e["path_pattern"] for e in evidence),
+        "satisfied": any(e["satisfied"] for e in evidence),
+        "candidates": candidates,
+        "alternatives": evidence,
+    }
+
+
+def _evaluate_entry(
+    req: dict,
+    workstream_id: str | None,
+    warnings: list[str],
+) -> dict:
+    if "any_of" in req:
+        return _evaluate_any_of(req["any_of"], workstream_id, warnings)
+    return _evaluate_requirement(req, workstream_id, warnings)
+
+
 def evaluate_agent(
     agent: dict,
     workstream_id: str | None = None,
@@ -196,7 +254,7 @@ def evaluate_agent(
 
     warnings: list[str] = []
     requirements = [
-        _evaluate_requirement(req, workstream_id, warnings) for req in required
+        _evaluate_entry(req, workstream_id, warnings) for req in required
     ]
     eligible = all(r["satisfied"] for r in requirements)
 

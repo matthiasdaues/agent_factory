@@ -18,11 +18,11 @@ Operational procedure for **documenting an existing undocumented system** (rever
 
 ## Overview
 
-**Reverse order workflow**: Code → Architecture baseline → Scope map → (optional) Spec → Architecture deepening → Review → Reconciliation
+**Reverse order workflow**: Code → Scope map → Architecture baseline → (optional) Spec → Architecture deepening → Review → Reconciliation
 
 Unlike greenfield (Spec → Architecture → Code), brownfield starts with existing code and works backwards. The playbook is split into two stages with an explicit exit point between them:
 
-- **Stage 1 — Enough to work**: produces three anchor files (`docs/arc42/architecture.dsl`, `docs/spec/scope-map.md`, `docs/CONTEXT.md`). The user can start feature work from here.
+- **Stage 1 — Enough to work**: produces three anchor files (`docs/spec/scope-map.md`, `docs/CONTEXT.md`, `docs/arc42/architecture.dsl`). The user can start feature work from here.
 - **Stage 2 — Full reverse engineering** (opt-in): specification extraction, component resolution, ATAM review, and reconciliation. Available when the user or the change warrants it.
 
 ## Stage 1 — Enough to Work
@@ -66,15 +66,28 @@ grep -r "^func " **/*.go
 
 Document discovered seams in `docs/spec/todos.md`.
 
+## Scope Map and Domain Vocabulary
+
+### Step 2.0 — Archive Superseded Documentation
+
+Move all pre-existing documentation artifacts to `~archive/`, preserving each file's original relative path (for example, `docs/arc42/legacy.md` → `~archive/docs/arc42/legacy.md`). The archive runs first so that it does not sweep away the scope map built in the next step.
+
+### Step 2.1 — Populate Scope Map via Reverse-Map
+
+Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then code entry points, then accepts additional sources from the stakeholder. Results are presented in batches by domain area for stakeholder confirmation.
+
+**Expected outputs**:
+
+- `docs/spec/scope-map.md` (5-column format: Rule, Status, Confidence, Sources, Feature Link)
+- `docs/CONTEXT.md` (domain vocabulary seeded from type names, class names, module names)
+
+The scope map meets the architecture agent's required input, so `run-step` can offer that agent without a `.feature` file. Proceed to Step 2.2.
+
 ## Architecture Docs Baseline
 
 First architecture pass: structural skeleton from code and infrastructure-as-code. Scope is system context, containers, and deployment nodes. Component-level detail is deferred to the component-resolution pass.
 
-### Step 2.0 — Archive Superseded Documentation
-
-Move all pre-existing documentation artifacts to `~archive/`, preserving each file's original relative path (for example, `docs/arc42/legacy.md` → `~archive/docs/arc42/legacy.md`).
-
-### Step 2.1 — Locate Infrastructure-as-Code
+### Step 2.2 — Locate Infrastructure-as-Code
 
 Before dispatching the architecture agent, ask the user:
 
@@ -83,7 +96,7 @@ Before dispatching the architecture agent, ask the user:
 
 Record the answer. If IaC exists, pass the path to the architecture agent so it can model deployment nodes and connections from IaC.
 
-### Step 2.2 — Build architecture.dsl First
+### Step 2.3 — Build architecture.dsl
 
 **Agent**: `architecture-agent`
 **Task**: Analyze code and IaC. Create `docs/arc42/architecture.dsl` with system context and container views. Derive initial arc42 prose chapters from the DSL. Document discovered architectural decisions as ADRs.
@@ -96,40 +109,31 @@ The workspace property `"arc42.projected"` defaults to `"false"` and is set to `
 - `docs/arc42/01-12*.md` (arc42 chapters derived from DSL)
 - `docs/adr/` (discovered decisions)
 
-### Step 2.3 — Validate and Export Structurizr Model
+### Step 2.4 — Validate and Export Structurizr Model
 
 ```bash
 .agent-factory/factory/scripts/structurizr validate
 .agent-factory/factory/scripts/structurizr export-all
 ```
 
-### Step 2.4 — Validate Architecture
+### Step 2.5 — Validate Architecture
 
 ```bash
 .agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
 **If errors** → Fix and re-validate
-**If clean** → Proceed to the scope map and domain vocabulary pass.
+**If clean** → Proceed to Step 2.6.
 
-## Scope Map and Domain Vocabulary
-
-### Step 2.5 — Populate Scope Map via Reverse-Map
-
-Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then code entry points, then accepts additional sources from the stakeholder. Results are presented in batches by domain area for stakeholder confirmation.
-
-**Expected outputs**:
-
-- `docs/spec/scope-map.md` (5-column format: Rule, Status, Confidence, Sources, Feature Link)
-- `docs/CONTEXT.md` (domain vocabulary seeded from type names, class names, module names)
+## Stage 1 Exit
 
 ### Step 2.6 — Validate Stage 1 Exit
 
 Verify the three anchor files exist and are valid:
 
-- [ ] `docs/arc42/architecture.dsl` exists with system context and container views
 - [ ] `docs/spec/scope-map.md` exists with Rules marked `implemented`
 - [ ] `docs/CONTEXT.md` exists seeded with domain vocabulary
+- [ ] `docs/arc42/architecture.dsl` exists with system context and container views
 - [ ] Structurizr validation passes on the DSL
 
 ### Stage 1 Exit Point

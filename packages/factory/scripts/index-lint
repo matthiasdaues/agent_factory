@@ -37,7 +37,8 @@ Usage (run from the repo root)
 
 Exit code: 0 if INDEX.yaml is (now, or already) up to date; 1 in --check
 mode if it was stale, and 1 in any mode if an agent uses the rejected flat
-format or two agents or two skills share a name. A file without a `name`
+format, declares a malformed `any_of` required input, or two agents or two
+skills share a name. A file without a `name`
 is left out of the index with a warning.
 """
 
@@ -95,13 +96,108 @@ def _indent_level(line: str) -> int:
     return len(line) - len(line.lstrip())
 
 
+def _parse_scalar(value: str) -> object:
+    value = value.strip().strip('"').strip("'")
+    if value == "null":
+        return None
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    if value.isdigit():
+        return int(value)
+    return value
+
+
+_ENTRY_LINE = re.compile(r"^\s*-\s+([A-Za-z0-9_-]+):\s*(.*)$")
+_PROP_LINE = re.compile(r"^\s+([A-Za-z0-9_-]+):\s*(.*)$")
+
+
+def _strip_quotes(value: str) -> str:
+    return value.strip().strip('"').strip("'")
+
+
+def _parse_conditions(lines: list[str], i: int, col: int) -> tuple[dict, int]:
+    """Parse a `conditions:` block whose key sits at column `col`."""
+    conds: dict = {}
+    while i < len(lines) and _indent_level(lines[i]) >= col + 2:
+        cm = _PROP_LINE.match(lines[i])
+        if not cm:
+            i += 1
+            continue
+        ck, cv = cm.group(1), _strip_quotes(cm.group(2))
+        i += 1
+        if ck == "one_of":
+            vals = []
+            while i < len(lines) and _indent_level(lines[i]) >= col + 4:
+                vm = re.match(r"^\s+-\s+(.+)", lines[i])
+                if vm:
+                    vals.append(_strip_quotes(vm.group(1)))
+                i += 1
+            conds[ck] = vals
+        else:
+            conds[ck] = cv
+    return conds, i
+
+
+def _parse_alternatives(lines: list[str], i: int, col: int) -> tuple[list[dict], int]:
+    """Parse the alternatives of an `any_of:` key that sits at column `col`.
+
+    Alternatives are list entries indented at least as far as the key.
+    The list ends at the first line that is neither an entry nor a comment.
+    """
+    alternatives: list[dict] = []
+    while i < len(lines) and _indent_level(lines[i]) >= col:
+        if lines[i].lstrip().startswith("#"):
+            i += 1
+        elif _ENTRY_LINE.match(lines[i]):
+            alt, i = _parse_entry(lines, i)
+            alternatives.append(alt)
+        else:
+            break
+    return alternatives, i
+
+
+def _parse_entry(lines: list[str], i: int) -> tuple[dict, int]:
+    """Parse one list entry whose dash sits at the indent of `lines[i]`.
+
+    The first key keeps its value as a string. Later keys turn null, true,
+    false, and digits into Python values. `conditions` and an empty
+    `any_of` open nested blocks. Returns (entry, next_line_index).
+    """
+    col = _indent_level(lines[i]) + 2
+    m = _ENTRY_LINE.match(lines[i])
+    obj: dict = {}
+    first = True
+    while m:
+        key, rest = m.group(1), m.group(2).strip()
+        i += 1
+        if key == "any_of" and not rest:
+            obj[key], i = _parse_alternatives(lines, i, col)
+        elif key == "conditions":
+            obj[key], i = _parse_conditions(lines, i, col)
+        elif first:
+            obj[key] = _strip_quotes(rest)
+        else:
+            obj[key] = _parse_scalar(rest)
+        first = False
+        m = None
+        while i < len(lines) and _indent_level(lines[i]) >= col:
+            m = _PROP_LINE.match(lines[i])
+            if m:
+                break
+            i += 1
+    return obj, i
+
+
 def _parse_structured_block(lines: list[str], start: int) -> tuple[dict, int]:
     """Parse a nested YAML-like block (inputs or outputs) from frontmatter.
 
     Returns (parsed_dict, next_line_index).
 
     Handles:
-    - inputs.required: list of objects with type, path_pattern, conditions
+    - inputs.required: list of objects with type, path_pattern, conditions,
+      or `any_of` objects listing alternatives of such objects
     - inputs.context: list of strings
     - outputs.minimum_changed: integer
     - outputs.declarations: list of objects with path_pattern, validator, required
@@ -126,52 +222,8 @@ def _parse_structured_block(lines: list[str], start: int) -> tuple[dict, int]:
             items = []
             i += 1
             while i < len(lines) and _indent_level(lines[i]) >= 4:
-                item_line = lines[i]
-                lm = re.match(r"^\s+-\s+(\S+):\s*(.*)", item_line)
-                if lm:
-                    obj: dict = {lm.group(1): lm.group(2).strip().strip('"').strip("'")}
-                    i += 1
-                    while i < len(lines) and _indent_level(lines[i]) >= 6:
-                        pm = re.match(r"^\s+([a-z_-]+):\s*(.*)", lines[i])
-                        if pm:
-                            pk, pv = pm.group(1), pm.group(2).strip().strip('"').strip("'")
-                            if pk == "conditions":
-                                conds = {}
-                                i += 1
-                                while i < len(lines) and _indent_level(lines[i]) >= 8:
-                                    cm = re.match(r"^\s+([a-z_-]+):\s*(.*)", lines[i])
-                                    if cm:
-                                        ck = cm.group(1)
-                                        cv = cm.group(2).strip().strip('"').strip("'")
-                                        if ck == "one_of":
-                                            vals = []
-                                            i += 1
-                                            while i < len(lines) and _indent_level(lines[i]) >= 10:
-                                                vm = re.match(r"^\s+-\s+(.+)", lines[i])
-                                                if vm:
-                                                    vals.append(vm.group(1).strip().strip('"').strip("'"))
-                                                i += 1
-                                            conds[ck] = vals
-                                        else:
-                                            conds[ck] = cv
-                                            i += 1
-                                    else:
-                                        i += 1
-                                obj["conditions"] = conds
-                            else:
-                                if pv == "null":
-                                    obj[pk] = None
-                                elif pv == "true":
-                                    obj[pk] = True
-                                elif pv == "false":
-                                    obj[pk] = False
-                                elif pv.isdigit():
-                                    obj[pk] = int(pv)
-                                else:
-                                    obj[pk] = pv
-                                i += 1
-                        else:
-                            i += 1
+                if _ENTRY_LINE.match(lines[i]):
+                    obj, i = _parse_entry(lines, i)
                     items.append(obj)
                 else:
                     i += 1
@@ -517,6 +569,24 @@ def _render_list_of_dicts(items: list[dict], key_order: list[str]) -> list[str]:
     return lines
 
 
+def _render_required_entry(indent: str, r: dict) -> list[str]:
+    """Render one required input (type, path_pattern, conditions)."""
+    lines = [
+        f"{indent}  - type: {_yaml_scalar(r.get('type', ''))}",
+        f"{indent}    path_pattern: {_yaml_scalar(r.get('path_pattern', ''))}",
+    ]
+    if "conditions" in r:
+        lines.append(f"{indent}    conditions:")
+        for ck, cv in r["conditions"].items():
+            if isinstance(cv, list):
+                lines.append(f"{indent}      {ck}:")
+                for v in cv:
+                    lines.append(f"{indent}        - {_yaml_scalar(v)}")
+            else:
+                lines.append(f"{indent}      {ck}: {_yaml_scalar(cv)}")
+    return lines
+
+
 def _render_structured_field(prefix: str, key: str, value: dict) -> list[str]:
     """Render a structured field (inputs or outputs) as nested YAML."""
     lines = [f"{prefix}{key}:"]
@@ -526,18 +596,12 @@ def _render_structured_field(prefix: str, key: str, value: dict) -> list[str]:
         if "required" in value and value["required"]:
             lines.append(f"{indent}required:")
             for r in value["required"]:
-                lines.append(f"{indent}  - type: {_yaml_scalar(r.get('type', ''))}")
-                lines.append(f"{indent}    path_pattern: {_yaml_scalar(r.get('path_pattern', ''))}")
-                if "conditions" in r:
-                    c = r["conditions"]
-                    lines.append(f"{indent}    conditions:")
-                    for ck, cv in c.items():
-                        if isinstance(cv, list):
-                            lines.append(f"{indent}      {ck}:")
-                            for v in cv:
-                                lines.append(f"{indent}        - {_yaml_scalar(v)}")
-                        else:
-                            lines.append(f"{indent}      {ck}: {_yaml_scalar(cv)}")
+                if "any_of" in r:
+                    lines.append(f"{indent}  - any_of:")
+                    for alt in r["any_of"]:
+                        lines += _render_required_entry(f"{indent}    ", alt)
+                    continue
+                lines += _render_required_entry(indent, r)
         if "context" in value and value["context"]:
             lines.append(f"{indent}context:")
             for c in value["context"]:
@@ -565,6 +629,45 @@ def _render_section(key: str, items: list[dict], key_order: list[str]) -> list[s
 def _is_flat_format(inputs_value: object) -> bool:
     """Detect old flat inputs/outputs format (a plain list of strings)."""
     return isinstance(inputs_value, list)
+
+
+_ANY_OF_ALTERNATIVE_KEYS = {"type", "path_pattern", "conditions"}
+
+
+def _any_of_errors(agent: dict) -> list[str]:
+    """Return one error per malformed `any_of` in the agent's required inputs.
+
+    An `any_of` is a non-empty list. Each alternative is a mapping with a
+    non-empty `path_pattern` and only the keys a plain required input allows.
+    """
+    inputs = agent.get("inputs")
+    required = inputs.get("required") if isinstance(inputs, dict) else None
+    errors: list[str] = []
+    for n, entry in enumerate(required or [], 1):
+        if not isinstance(entry, dict) or "any_of" not in entry:
+            continue
+        where = f"{agent['_path']}: inputs.required entry {n}: any_of"
+        if set(entry) != {"any_of"}:
+            extra = ", ".join(sorted(set(entry) - {"any_of"}))
+            errors.append(f"{where} has sibling key(s) {extra}; put them in an alternative")
+        alternatives = entry["any_of"]
+        if not isinstance(alternatives, list) or not alternatives:
+            errors.append(f"{where} must be a non-empty list of alternatives")
+            continue
+        for k, alt in enumerate(alternatives, 1):
+            here = f"{where} alternative {k}"
+            if not isinstance(alt, dict):
+                errors.append(f"{here} must be a mapping")
+                continue
+            if "any_of" in alt:
+                errors.append(f"{here} nests another any_of, which is not allowed")
+            unknown = sorted(set(alt) - _ANY_OF_ALTERNATIVE_KEYS - {"any_of"})
+            if unknown:
+                errors.append(f"{here} has unknown key(s): {', '.join(unknown)}")
+            path_pattern = alt.get("path_pattern")
+            if not isinstance(path_pattern, str) or not path_pattern.strip():
+                errors.append(f"{here} has no path_pattern")
+    return errors
 
 
 def build_agents_data(
@@ -617,8 +720,11 @@ def build_agents_data(
                 f"{a['_path']}: total_tokens {total} exceeds {AGENT_TOTAL_TOKENS_WARN}"
             )
 
-        # Include structured inputs and outputs
-        if isinstance(inputs, dict) and inputs:
+        # Include structured inputs and outputs; a malformed any_of keeps the
+        # inputs out of the index, and main() fails on the error.
+        any_of_errors = _any_of_errors(a)
+        warnings += any_of_errors
+        if isinstance(inputs, dict) and inputs and not any_of_errors:
             entry["inputs"] = inputs
 
         outputs = a.get("outputs", {})
@@ -868,6 +974,7 @@ def main(argv: list[str] | None = None) -> int:
     # Check for flat-format rejections and duplicate names
     flat_format_errors = [w for w in warnings if "rejected flat" in w]
     duplicate_errors = [w for w in warnings if w.startswith("duplicate ")]
+    any_of_errors = [w for w in warnings if ": inputs.required entry " in w]
 
     for w in warnings:
         print(f"[WARNING] {w}", file=sys.stderr)
@@ -882,7 +989,12 @@ def main(argv: list[str] | None = None) -> int:
             f"index-lint: {len(duplicate_errors)} name(s) used by more than one entry",
             file=sys.stderr,
         )
-    if flat_format_errors or duplicate_errors:
+    if any_of_errors:
+        print(
+            f"index-lint: {len(any_of_errors)} malformed any_of required input(s)",
+            file=sys.stderr,
+        )
+    if flat_format_errors or duplicate_errors or any_of_errors:
         return 1
 
     current = args.out.read_text(encoding="utf-8") if args.out.exists() else None
