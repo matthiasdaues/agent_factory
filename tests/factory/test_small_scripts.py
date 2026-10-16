@@ -109,3 +109,17 @@ def test_bug_0081_repeated_merges_and_update_keep_one_copy_of_each_hook():
     assert text.count("id: agent_factory_hook-link-check") == 1
     assert "id: agent_factory_hook-mdformat" not in text
     assert text.count("id: mdformat\n") == 1
+
+
+# --- BUG-0091: spec-lint reads docs/spec/todo.md -----------------------------
+
+
+def test_bug_0091_todo_check_reads_todo_md(tmp_path):
+    spec_lint = load_script("spec-lint")
+    (tmp_path / "todo.md").write_text("- [ ] Decide the retry policy\n")
+
+    findings = spec_lint.check_todos(tmp_path, gate=True)
+
+    assert len(findings) == 1
+    assert findings[0].artifact == "docs/spec/todo.md"
+    assert "1 unresolved todo item(s)" in findings[0].message
