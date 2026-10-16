@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import shutil
+import subprocess
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -18,6 +20,23 @@ SCRIPTS_DIR = SOURCE_SCRIPTS_DIR
 # check the source, so only the source directory goes on sys.path.
 if str(SOURCE_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_SCRIPTS_DIR))
+
+
+def _docker_available() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    try:
+        probe = subprocess.run(["docker", "info"], capture_output=True, check=False, timeout=20)
+    except subprocess.TimeoutExpired:
+        return False
+    return probe.returncode == 0
+
+
+# Explicit precondition for tests that run containers: skipped, with the
+# reason named, when no Docker daemon answers.
+requires_docker = pytest.mark.skipif(
+    not _docker_available(), reason="Docker daemon not available"
+)
 
 
 def load_script(name: str):

@@ -129,8 +129,12 @@ def starter_manifest(docs: Path, project: str) -> str:
 
 
 def quarkdown_slug(text: str) -> str:
-    """Heading id as Quarkdown derives it; `_` precedes a leading digit."""
-    slug = re.sub(r"[^a-z0-9]+", "-", _plain(text).lower()).strip("-")
+    """Heading id as Quarkdown derives it: GitHub's rule, `_` before a leading digit.
+
+    "6.1 Approval flow" becomes "_61-approval-flow". The dead-anchor render
+    check catches any heading where the two schemes differ.
+    """
+    slug = github_slug(text)
     return "_" + slug if slug[:1].isdigit() else slug
 
 

@@ -107,7 +107,7 @@ class TestRewriteRules:
 
     def test_github_fragment_becomes_quarkdown_id(self, docs: Path, tmp_path: Path):
         qd, _, _ = build(docs, tmp_path)
-        assert "[lookup](#_6-2-public-lookup)" in qd
+        assert "[lookup](#_62-public-lookup)" in qd
 
     def test_link_to_markdown_outside_manifest_becomes_plain_text(self, docs: Path, tmp_path: Path):
         qd, _, _ = build(docs, tmp_path)
@@ -180,7 +180,7 @@ class TestDocument:
 
 @pytest.mark.parametrize(
     ("heading", "slug"),
-    [("5. Building Block View", "_5-building-block-view"), ("Alembic owns schema evolution", "alembic-owns-schema-evolution"), ("6.2 `Public` lookup", "_6-2-public-lookup")],
+    [("5. Building Block View", "_5-building-block-view"), ("Alembic owns schema evolution", "alembic-owns-schema-evolution"), ("6.2 `Public` lookup", "_62-public-lookup")],
 )
 def test_quarkdown_slug(heading: str, slug: str):
     assert da.quarkdown_slug(heading) == slug
