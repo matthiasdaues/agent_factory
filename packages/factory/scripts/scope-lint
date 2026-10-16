@@ -14,7 +14,8 @@ Seven governed artifact types:
   - Epics            (backlog/epics-*.md)             — YAML frontmatter scope
   - Stories          (backlog/ST-*.md)                 — YAML frontmatter scope
   - Feature files    (docs/spec/*.feature)            — first-line # scope: <v>
-  - Structurizr DSL  (docs/arc42/architecture.dsl)    — first-line // scope: <v>
+  - Structurizr DSL  (docs/arc42/architecture.dsl)    — first-line # scope: <v>
+                                                        (legacy // scope: <v> still passes)
   - Entity model     (docs/spec/supplementary_specs/entity-model.{md,yaml})
   - Scope map        (docs/spec/scope-map.md)         — YAML frontmatter scope
 
@@ -105,13 +106,14 @@ def extract_scope_yaml_frontmatter(path: Path) -> Optional[str]:
     return fm.get("scope")
 
 
-def extract_scope_first_line_comment(path: Path, prefix: str) -> Optional[str]:
+def extract_scope_first_line_comment(path: Path, *prefixes: str) -> Optional[str]:
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return None
     first_line = text.split("\n", 1)[0].strip()
-    pattern = re.compile(rf"^{re.escape(prefix)}\s*scope:\s*(.+)$")
+    alternatives = "|".join(re.escape(p) for p in prefixes)
+    pattern = re.compile(rf"^(?:{alternatives})\s*scope:\s*(.+)$")
     m = pattern.match(first_line)
     if m:
         return m.group(1).strip()
@@ -198,7 +200,7 @@ def _discover_governed(base_dir: Path) -> list[tuple[Path, str, str]]:
 
     dsl = base_dir / "docs" / "arc42" / "architecture.dsl"
     if dsl.is_file():
-        artifacts.append((dsl, "Structurizr DSL", "first-line comment (// scope:)"))
+        artifacts.append((dsl, "Structurizr DSL", "first-line comment (# scope:)"))
 
     entity_yaml = base_dir / "docs" / "spec" / "supplementary_specs" / "entity-model.yaml"
     entity_md = base_dir / "docs" / "spec" / "supplementary_specs" / "entity-model.md"
@@ -216,7 +218,7 @@ def _extract_scope(path: Path, type_label: str) -> Optional[str]:
     elif type_label == "feature file":
         return extract_scope_first_line_comment(path, "#")
     elif type_label == "Structurizr DSL":
-        return extract_scope_first_line_comment(path, "//")
+        return extract_scope_first_line_comment(path, "#", "//")
     elif type_label == "entity model":
         return extract_scope_top_level_yaml(path)
     return None

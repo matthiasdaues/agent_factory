@@ -45,6 +45,11 @@ class TestExtractScope:
         p.write_text('// scope: global\nworkspace "Test" {\n}\n')
         assert _extract_scope(p) == "global"
 
+    def test_dsl_hash_comment_first_line(self, tmp_path):
+        p = tmp_path / "arch.dsl"
+        p.write_text('# scope: global\nworkspace "Test" {\n}\n')
+        assert _extract_scope(p) == "global"
+
     def test_dsl_missing_scope(self, tmp_path):
         p = tmp_path / "arch.dsl"
         p.write_text('workspace "Test" {\n}\n')
