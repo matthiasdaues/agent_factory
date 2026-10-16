@@ -213,7 +213,7 @@ def test_BUG_0072_undecodable_file_fails_the_gate(tmp_path):
     rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
     assert [row["file"] for row in rows] == ["latin.py"]
     assert rows[0]["pass_fail"] == "fail"
-    assert "utf-8" in rows[0]["function"]
+    assert "encoding declaration" in rows[0]["function"]
     assert code == 1
 
 
@@ -273,3 +273,18 @@ def test_BUG_0072_uncovered_file_does_not_borrow_root_namesake(tmp_path, monkeyp
     rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
     assert [(row["file"], row["coverage_pct"]) for row in rows] == [("m.py", 0.0)]
     assert code == 1
+
+
+def test_BUG_0072_file_with_coding_line_is_scored(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    source = "# -*- coding: latin-1 -*-\nNAME = 'caf\xe9'\n\n\n" + COVERED_SOURCE
+    (src / "latin.py").write_bytes(source.encode("latin-1"))
+    reports = tmp_path / "reports"
+
+    code = _run_crap_score_on(src, reports)
+
+    rows = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
+    assert [(row["file"], row["function"]) for row in rows] == [("latin.py", "choose")]
+    assert rows[0]["pass_fail"] == "pass"
+    assert code == 0

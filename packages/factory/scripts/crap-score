@@ -36,6 +36,7 @@ import os
 import re
 import subprocess
 import sys
+import tokenize
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -290,7 +291,10 @@ def main(argv: list[str] | None = None) -> int:
     for file_path in iter_python_files(source_root):
         relative = str(file_path.relative_to(source_root))
         try:
-            blocks = flatten_blocks(cc_visit(file_path.read_text(encoding="utf-8")))
+            # tokenize.open honours a PEP 263 coding line, as Python does.
+            with tokenize.open(file_path) as handle:
+                source = handle.read()
+            blocks = flatten_blocks(cc_visit(source))
         except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
             print(f"crap-score: cannot parse {relative}: {exc}", file=sys.stderr)
             results.append(parse_failure(relative, exc))
