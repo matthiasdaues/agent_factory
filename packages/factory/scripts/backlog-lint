@@ -162,14 +162,44 @@ def parse_frontmatter(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
     fm: Dict[str, Any] = {}
     current_key: Optional[str] = None
     current_list: Optional[List[str]] = None
+    # Nested block mapping under a key with an empty value, e.g.
+    #   concerns:
+    #     domain: [billing]
+    #     technical:
+    #       - backend
+    block_parent: Optional[str] = None
+    nested_key: Optional[str] = None
 
     for ln in lines[1:end]:
+        # Blank and comment lines carry no data and must not end a block.
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
         # Block-sequence continuation: "  - item"
         list_item = re.match(r"^\s+-\s+(.+)$", ln)
+        if list_item and nested_key is not None and block_parent is not None:
+            mapping = fm[block_parent]
+            if not isinstance(mapping.get(nested_key), list):
+                mapping[nested_key] = []
+            mapping[nested_key].append(_unquote(list_item.group(1).strip()))
+            continue
         if list_item and current_key is not None:
             if current_list is None:
                 current_list = []
             current_list.append(_unquote(list_item.group(1).strip()))
+            continue
+
+        # Nested mapping entry: "  key: value" under a key with no value
+        nested = re.match(r"^\s+([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$", ln)
+        if nested and block_parent is not None and current_list is None:
+            if not isinstance(fm.get(block_parent), dict):
+                fm[block_parent] = {}
+            raw_nested = nested.group(2).strip()
+            if raw_nested:
+                fm[block_parent][nested.group(1)] = _parse_yaml_value(raw_nested)
+                nested_key = None
+            else:
+                fm[block_parent][nested.group(1)] = None
+                nested_key = nested.group(1)
             continue
 
         # Flush pending list
@@ -177,15 +207,18 @@ def parse_frontmatter(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
             fm[current_key] = current_list
             current_list = None
             current_key = None
+        block_parent = None
+        nested_key = None
 
         m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)?$", ln)
         if m:
             key = m.group(1)
             raw_val = (m.group(2) or "").strip()
             if not raw_val:
-                # Could be followed by block sequence lines
+                # Could be followed by a block sequence or a block mapping
                 current_key = key
                 current_list = None
+                block_parent = key
                 fm[key] = None  # placeholder
             else:
                 current_key = key
