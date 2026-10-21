@@ -72,7 +72,7 @@ repos:
       # point to existing stories.
       - id: agent_factory_hook-backlog-lint
         name: "agent_factory: backlog-lint (story schema & traceability gate)"
-        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/backlog-lint --backlog-dir backlog' --
+        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/backlog-lint --backlog-dir backlog "$@"' --
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$

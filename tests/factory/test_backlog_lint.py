@@ -410,3 +410,53 @@ class TestMainRoundTrip:
         _write_story(backlog, "ST-0002", deps=["ST-0001"])
         rc = bl.main(["--backlog-dir", str(backlog)])
         assert rc > 0
+
+
+class TestExclude:
+    """--exclude skips companion files that only look like stories."""
+
+    def _backlog_with_details(self, tmp_path):
+        backlog = tmp_path / "backlog"
+        backlog.mkdir()
+        _write_story(backlog, "ST-0001")
+        (backlog / "ST-0001-details.md").write_text(
+            "---\ntitle: Details\nstatus: pending\nstory: ST-0001.md\n---\nNotes."
+        )
+        return backlog
+
+    def test_without_exclude_details_file_is_linted(self, tmp_path):
+        backlog = self._backlog_with_details(tmp_path)
+        rc = bl.main(["--backlog-dir", str(backlog)])
+        assert rc > 0
+
+    def test_exclude_skips_details_file(self, tmp_path):
+        backlog = self._backlog_with_details(tmp_path)
+        rc = bl.main(["--backlog-dir", str(backlog), "--exclude", "ST-*-details.md"])
+        assert rc == 0
+
+    def test_excluded_file_is_not_counted(self, tmp_path):
+        backlog = self._backlog_with_details(tmp_path)
+        findings, count = bl.check_backlog(backlog, ["ST-*-details.md"])
+        assert count == 1
+        assert findings == []
+
+    def test_exclude_does_not_hide_other_bad_names(self, tmp_path):
+        backlog = self._backlog_with_details(tmp_path)
+        (backlog / "ST-12.md").write_text("---\nid: ST-12\n---\n")
+        findings, _ = bl.check_backlog(backlog, ["ST-*-details.md"])
+        assert any(f.code == "BL-NAME" and f.artifact == "ST-12.md" for f in findings)
+
+    def test_exclude_is_repeatable(self, tmp_path):
+        backlog = self._backlog_with_details(tmp_path)
+        (backlog / "ST-0001-notes.md").write_text("---\ntitle: n\n---\n")
+        rc = bl.main(
+            [
+                "--backlog-dir",
+                str(backlog),
+                "--exclude",
+                "ST-*-details.md",
+                "--exclude",
+                "ST-*-notes.md",
+            ]
+        )
+        assert rc == 0
