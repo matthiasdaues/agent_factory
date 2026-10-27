@@ -1,8 +1,40 @@
 # Changelog
 
-## Unreleased — 2026-10-16
+## 1.3.0 — 2026-10-27
 
 ### Features
+
+- **Factory hooks tell a colleague from a broken install.** `init-factory`
+  sets `agent-factory.installed` in the clone's local git config, and
+  `remove-factory` unsets it. When `.agent-factory/` is missing, a hook
+  in a clone without the key passes in silence, so a colleague without
+  the factory commits untouched. A hook in a clone with the key fails and
+  names `update-factory` and `SKIP`. Before, every hook passed in silence,
+  and a broken install looked like a clean commit. Existing installs get
+  the key on their next `update-factory` (BUG-0111).
+
+- **update-factory refreshes the project's hooks.** After the update,
+  `update-factory` compares the project's `agent_factory_hook-*` block
+  with the new template. When they differ, it shows the diff and writes
+  only on an explicit yes. `merge-precommit-config --update` replaces the
+  block where it stands and keeps the comments around it. Before, a
+  project kept its first hook block through every update (BUG-0110).
+
+- **backlog-lint can skip files.** New option `--exclude GLOB` (repeatable)
+  skips files in `backlog/` whose name matches the glob. Before, a file
+  like `ST-0003B-details.md` was linted as a story and failed the hook.
+  The pre-commit hook now passes `args:` on to `backlog-lint` (`"$@"`).
+  `update-factory` offers the new hook entry. Without `--exclude`, nothing
+  changes (GB-5494).
+
+- **Brownfield onboarding builds the scope map from code.** Stage 1 of
+  the brownfield playbook runs the archive step, `reverse-map`, and then
+  the Structurizr model. `reverse-map` has an unattended mode that writes
+  a scope map with `status: draft`. The Stage 1 exit fails on a draft map
+  (`SCOPE001`) and on a `spec-lint` crash. `derive-feature` has a
+  brownfield entry from the scope map and stops on a draft. The
+  requirements agent takes the brownfield branch only when it receives
+  the scope map as input (ST-0313 to ST-0317, BUG-0093 to BUG-0096).
 
 - **Architecture docs as one PDF.** The new skill `publish-docs` builds
   the arc42 documentation into `docs/dist/<project>-architecture.pdf`.
@@ -12,21 +44,26 @@
   Render checks remove the PDF when a check fails. The layout uses 10 pt
   type and dotted table rules. Each appendix document, such as an ADR,
   starts on a new page (ST-0309 to ST-0312).
+
 - **A primer for every proposal.** The new skill `write-primer` writes a
   plain-language introduction of 400 to 500 words for a reader who knows
   nothing about the project. `draft-proposal` runs it in a fresh subagent
   before the gate, and the gate checks that the primer still matches.
+
 - **Proposals separate design from record.** The proposal states the
   design in the present tense. An appendix holds the Decisions, Review
   findings, and Review passes tables. A review finding moves from open to
   fixed to resolved, so an unchecked fix stays visible.
+
 - **Subagents start fresh by default.** Every CLI starts a subagent with a
   brief file. A Claude Code fork is used only when the child needs the
   conversation itself.
+
 - **Working discipline.** The new rulebook `working-discipline.md` and six
   rules in `rules.md` set how agents check premises, handle errors, and
   stop a failing approach. An agent marks a claim about an external tool
   as unchecked unless it checked the claim in the session.
+
 - **YAML files begin with `---`.** `init-factory` writes `testing.yaml` and
   a new `.pre-commit-config.yaml` with the document marker. The new
   convention `yaml-format.md` states the rule. An excerpt meant for
@@ -34,6 +71,15 @@
   (ST-0308).
 
 ### Fixes
+
+- **Brownfield checks hold.** `scope-lint` reads workstream IDs from the
+  main checkout when it runs in a linked worktree. A `.dsl` file declares
+  its scope with `# scope:` on line 1; `// scope:` still passes. Agent
+  definitions accept an `any_of` form for required inputs, and
+  `index-lint` rejects a malformed one. The architecture agent no longer
+  archives the new scope map (BUG-0093 to BUG-0096).
+- **urllib3 2.8.0.** The usage runtime requirements pin urllib3 2.8.0,
+  which resolves one vulnerability finding.
 
 The bug-hunt fix run (ST-0295 to ST-0308) resolves 31 findings. BUG-0076
 and BUG-0079 are partly fixed and stay open.
@@ -214,13 +260,6 @@ reinstalls.
 
 ### Fixes
 
-- **backlog-lint can skip files.** New option `--exclude GLOB` (repeatable)
-  skips files in `backlog/` whose name matches the glob. Before, a file
-  like `ST-0003B-details.md` was linted as a story and failed the hook.
-  The pre-commit hook now passes `args:` on to `backlog-lint` (`"$@"`).
-  `update-factory` does not change a project's `.pre-commit-config.yaml`.
-  Projects add `"$@"` to the hook `entry` by hand to use `args:`. Without
-  `--exclude`, nothing changes.
 - **build-release branch constraint.** Relaxed to allow `-rc` suffix
   builds on non-main, non-dev branches (feature branches).
 - **Greenfield routing in orientation files.** `AGENTS.*.md` orientation
