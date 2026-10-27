@@ -59,8 +59,13 @@ const CANCELLATION_GRACE_MS = 250;
 const CANCELLATION_DRAIN_MS = 750;
 /** The agent each wave item runs unless it names another. */
 const DEFAULT_AGENT = "developer-agent";
-/** Where per-item worktrees are cut, under the project's git-ignored dir. */
-const WORKTREE_DIR = join(".current-work", "worktrees");
+/**
+ * Per-item worktrees are cut under `.current-work/<target>/`, the
+ * git-ignored folder rules.md names for the invocation branch (BUG-0102).
+ */
+function worktreeDir(cwd: string, target: string): string {
+  return join(cwd, ".current-work", target);
+}
 /** Canonical tracked report that closes blocked waves under BR-040. */
 const BLOCKED_WAVE_REPORT = ".agent-factory/factory/reports/dispatch-wave-blocked.md";
 
@@ -166,7 +171,7 @@ export default function (pi: ExtensionAPI) {
       }));
 
       // Phase A — create every worktree serially (git worktree takes a repo lock).
-      mkdirSync(join(cwd, WORKTREE_DIR), { recursive: true });
+      mkdirSync(worktreeDir(cwd, params.target), { recursive: true });
       for (let i = 0; i < params.items.length; i++) {
         const item = params.items[i];
         const r = results[i];
@@ -184,7 +189,7 @@ export default function (pi: ExtensionAPI) {
         }
         r.model = resolved.model || "(pi default)";
 
-        const wtPath = join(cwd, WORKTREE_DIR, sanitizeBranch(item.branch));
+        const wtPath = join(worktreeDir(cwd, params.target), sanitizeBranch(item.branch));
         const add = gitResult(cwd, ["worktree", "add", "-b", item.branch, wtPath, item.base]);
         if (add.status !== 0) {
           r.error = `git worktree add failed: ${add.stderr.trim() || `exit ${add.status}`}`;

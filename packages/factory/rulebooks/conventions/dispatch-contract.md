@@ -92,9 +92,11 @@ the session knows.
 ### Brief File
 
 Before the parent starts a fresh agent, it writes the brief to
-`<scratchpad>/briefs/<task>.md`, or to `.current-work/<branch>/briefs/` when
-the CLI has no scratchpad. The prompt then says only: "Read `<brief path>`
-and follow it." Other agents and later rounds can reuse the same file.
+`.current-work/<branch>/briefs/<task>.md` in the main checkout, never to
+`/tmp`, which the system can empty. The prompt says only: "Read
+`<absolute brief path>` and follow it." Scratch files go to
+`.current-work/<branch>/scratch/<agent-or-story>/` there, never into a
+worktree.
 
 A brief holds:
 
@@ -105,7 +107,8 @@ A brief holds:
    records what the session has settled. The parent keeps that record
    current before each round.
 4. **Inputs.** The documents to read, with sections where a whole file is
-   not needed.
+   not needed. Factory files by absolute path under
+   `<main checkout>/.agent-factory/factory/`: a linked worktree has none.
 5. **Output.** The report format, its length limit, and the instance ID to
    report to (see Sub-Agent Addressing).
 6. **Stop conditions.** When the child stops and asks instead of deciding.
