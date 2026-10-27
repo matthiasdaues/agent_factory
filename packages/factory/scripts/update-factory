@@ -414,6 +414,74 @@ def _run_init(source: Path, target: Path) -> int:
 # ── Approval and preview ────────────────────────────────────────────────
 
 
+def refresh_precommit_hooks(target: Path, factory_dir: Path, input_func=None) -> bool:
+    """Re-splice the project's agent_factory_hook-* block from the freshly
+    installed template (BUG-0110). init-factory leaves an existing
+    .pre-commit-config.yaml alone, so without this an old block survives
+    every update.
+
+    Shows the diff and writes only on an explicit yes. Leaves alone a
+    project without the file or without factory hooks in it. Returns True
+    when the file was written."""
+    config = target / ".pre-commit-config.yaml"
+    if config.is_symlink() or not config.is_file():
+        return False
+
+    import difflib
+    import importlib.machinery
+    import importlib.util
+
+    script = factory_dir / "scripts" / "merge-precommit-config"
+    if not script.is_file():
+        return False
+    loader = importlib.machinery.SourceFileLoader("merge_precommit_config", str(script))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    mpc = importlib.util.module_from_spec(spec)
+    loader.exec_module(mpc)
+
+    text = config.read_text(encoding="utf-8")
+    template_text = (factory_dir / "config" / "pre-commit-config.yaml").read_text(encoding="utf-8")
+    template_ids = mpc.template_hook_ids(template_text.splitlines())
+    if not mpc.already_merged(text.splitlines(), template_ids):
+        return False
+
+    manual = (
+        ".agent-factory/factory/scripts/merge-precommit-config --target "
+        ".pre-commit-config.yaml --template "
+        ".agent-factory/factory/config/pre-commit-config.yaml --update"
+    )
+    try:
+        merged = mpc.merge(text, template_text, update=True)
+    except ValueError as exc:
+        log(f"factory hooks not refreshed: {exc}")
+        return False
+    if merged == text:
+        log("factory hooks in .pre-commit-config.yaml are current")
+        return False
+
+    print("\nThe factory hooks in .pre-commit-config.yaml differ from this release:\n")
+    for line in difflib.unified_diff(
+        text.splitlines(), merged.splitlines(),
+        ".pre-commit-config.yaml", ".pre-commit-config.yaml (refreshed)", lineterm="",
+    ):
+        print(line)
+    print()
+
+    if input_func is None:
+        input_func = input
+    try:
+        answer = input_func("Refresh the factory hooks? (yes to confirm): ")
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if answer.strip().lower() not in ("yes", "y"):
+        log(f"factory hooks left unchanged; to refresh them later, run: {manual}")
+        return False
+
+    config.write_text(merged, encoding="utf-8")
+    log("refreshed the factory hooks in .pre-commit-config.yaml")
+    return True
+
+
 def _show_update_preview(
     installed_version: str,
     candidate_version: str,
@@ -1632,6 +1700,8 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(scratch_root, ignore_errors=True)
 
     changed_paths = [".agent-factory/factory/"] + changed_header_paths
+    if refresh_precommit_hooks(target, target_factory):
+        changed_paths.append(".pre-commit-config.yaml")
     _show_receipt(
         source_label, source_selector, candidate_version, digest,
         changed_paths, preserved_path, preserved_files,

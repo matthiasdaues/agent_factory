@@ -419,6 +419,20 @@ def uninstall_pre_commit(target: Path, manifest: dict) -> None:
         log("uvx pre-commit uninstall: done")
 
 
+def unmark_clone_installed(target: Path) -> None:
+    """Unset the `agent-factory.installed` key init-factory set, so the
+    factory hooks pass again in this clone (BUG-0111)."""
+    result = subprocess.run(
+        ["git", "config", "--local", "--unset", "agent-factory.installed"],
+        cwd=target,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        log("git config agent-factory.installed: unset")
+
+
 def _validated_remove_paths(target: Path, manifest: dict) -> list[str]:
     """Validate containment and reject symlinked ancestors before mutation."""
     validated: list[str] = []
@@ -785,6 +799,7 @@ def main(argv: list[str] | None = None) -> int:
     strip_settings_hook(target, manifest)
     strip_codex_hooks(target, manifest)
     uninstall_pre_commit(target, manifest)
+    unmark_clone_installed(target)
     delete_paths(target, manifest, remove_paths)
 
     agent_factory_dir = target / ".agent-factory"
