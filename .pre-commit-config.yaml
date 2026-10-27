@@ -203,10 +203,22 @@ repos:
         types: [yaml]
         exclude: ^(tests/fixtures/|\.claude/worktrees/|\.current-work/)
 
-      # Run the test suite when factory scripts or tests change.
+      # Run the test suite when factory scripts or tests change, in
+      # parallel and without the container renders.
       - id: run-tests
         name: run-tests
-        entry: uv run pytest --tb=short --quiet
+        entry: uv run pytest --tb=short --quiet -n auto -m "not container"
         language: system
         pass_filenames: false
         files: ^(packages/factory/scripts/|tests?/)
+
+      # Run the container renders on demand, before a release or after a
+      # change to publish-docs:
+      #   pre-commit run run-container-tests --all-files --hook-stage manual
+      - id: run-container-tests
+        name: run-container-tests
+        entry: uv run pytest --tb=short --quiet -m container
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
