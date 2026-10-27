@@ -6,10 +6,22 @@ dependencies = [
     "mdformat-frontmatter>=2.1.2",
 ]
 
+# uv run installs the dev group, so the run-tests hook gets the same test
+# environment in every clone and worktree.
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.6",
+    "pyyaml>=6.0",
+    "radon>=6.0",
+    "tiktoken>=0.13",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
     "spec(id): traces a test to its ACX-* contract-owner row in docs/spec/agent-context-qa-strategy.md",
+    "container: renders in a container; skipped by the run-tests hook, run with the manual run-container-tests hook",
 ]
 
 [tool.ruff.lint.per-file-ignores]

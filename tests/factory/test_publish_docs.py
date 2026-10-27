@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, requires_docker
 
-pytestmark = requires_docker
+pytestmark = [requires_docker, pytest.mark.container]
 
 SCRIPT = SOURCE_SCRIPTS_DIR / "publish-docs"
 DOCKERFILE = REPO_ROOT / "packages/factory/docker/publish-docs/Dockerfile"
