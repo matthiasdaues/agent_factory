@@ -1,5 +1,84 @@
 # Changelog
 
+## Unreleased — 2026-10-16
+
+### Features
+
+- **Architecture docs as one PDF.** The new skill `publish-docs` builds
+  the arc42 documentation into `docs/dist/<project>-architecture.pdf`.
+  The manifest `docs/publish-docs.yaml` lists the documents. The script
+  validates and exports the Structurizr model, assembles a Quarkdown
+  build, and renders it in a container with Quarkdown 2.6.4 and Chromium.
+  Render checks remove the PDF when a check fails. The layout uses 10 pt
+  type and dotted table rules. Each appendix document, such as an ADR,
+  starts on a new page (ST-0309 to ST-0312).
+- **A primer for every proposal.** The new skill `write-primer` writes a
+  plain-language introduction of 400 to 500 words for a reader who knows
+  nothing about the project. `draft-proposal` runs it in a fresh subagent
+  before the gate, and the gate checks that the primer still matches.
+- **Proposals separate design from record.** The proposal states the
+  design in the present tense. An appendix holds the Decisions, Review
+  findings, and Review passes tables. A review finding moves from open to
+  fixed to resolved, so an unchecked fix stays visible.
+- **Subagents start fresh by default.** Every CLI starts a subagent with a
+  brief file. A Claude Code fork is used only when the child needs the
+  conversation itself.
+- **Working discipline.** The new rulebook `working-discipline.md` and six
+  rules in `rules.md` set how agents check premises, handle errors, and
+  stop a failing approach. An agent marks a claim about an external tool
+  as unchecked unless it checked the claim in the session.
+- **YAML files begin with `---`.** `init-factory` writes `testing.yaml` and
+  a new `.pre-commit-config.yaml` with the document marker. The new
+  convention `yaml-format.md` states the rule. An excerpt meant for
+  existing front matter carries `<!-- yaml-excerpt -->` and no marker
+  (ST-0308).
+
+### Fixes
+
+The bug-hunt fix run (ST-0295 to ST-0308) resolves 31 findings. BUG-0076
+and BUG-0079 are partly fixed and stay open.
+
+- **Gates fail closed.** A gate whose input directory is missing now exits
+  2 instead of passing. Gates in a story worktree find the installed
+  factory (BUG-0039 to BUG-0041, BUG-0054).
+- **Lint scripts read their input correctly.** `arch-lint`, `backlog-lint`,
+  `concern-lint`, `conjecture-lint`, `context-lint`, `dependency-check`,
+  `handoff-lint`, `index-lint`, `link-check`, `mermaid-lint`,
+  `module-graph-check`, `schema-validate`, `spec-lint`,
+  `statemachine-lint`, and `test-design-verify` each fix a parsing or
+  exit-code defect (BUG-0049 to BUG-0063, BUG-0071, BUG-0090, BUG-0091).
+- **crap-score finds the right coverage.** It resolves coverage keys
+  against one base where every key exists. It reads PEP 263 coding lines
+  and fails on a file it cannot parse (BUG-0072).
+- **commit-safe commits only staged work.** The second pass re-stages only
+  the paths staged before the first pass. Unstaged lines of a staged file
+  stay out of the commit (BUG-0080).
+- **dispatch runs a wave end to end.** `merge-story` is safe against
+  interrupted merges and scopes by `touches` when `outputs` is absent. The
+  new `refresh-story` command refreshes a story branch before merge
+  (BUG-0036 to BUG-0038, BUG-0082 to BUG-0085, BUG-0087,
+  BUG-0089).
+- **Install, update, and removal keep project files.** `init-factory` and
+  `remove-factory` keep a `.claude/hooks` or `.codex` directory that
+  existed before the install. `update-factory` keeps the install record
+  and restores only factory-owned wiring on rollback. Claude include paths
+  are relative to each instruction file. A stale removal owner file is
+  taken over atomically. `merge-precommit-config` detects an earlier merge
+  by any factory hook id (BUG-0048, BUG-0074 to BUG-0079, BUG-0081).
+- **build-release builds from HEAD.** It reads the version from HEAD,
+  keeps earlier assets when a rebuild fails, and warns about uncommitted
+  changes in `packages/factory/` (BUG-0073).
+- **Usage capture works in installed projects.** Claude Code usage counts
+  once per message id. A cut-off character in a transcript skips one line.
+  Usage capture reports itself as broken, idle, or healthy (BUG-0033 to
+  BUG-0035, BUG-0064, BUG-0066, BUG-0068 to BUG-0070).
+- **Retired charter gates removed.** Epic 0 and the gates that depended on
+  the charter are gone. The new planning gate passes on a fresh project
+  (BUG-0047).
+- **Instructions name commands that exist.** Update instructions point to
+  `update-factory`, which the developer runs. The guide states that the
+  step guard does not enforce step manifests yet (BUG-0042 to BUG-0046).
+
 ## 1.2.0-rc — 2026-10-01
 
 ### Features
