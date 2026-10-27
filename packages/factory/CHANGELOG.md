@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.3.3 — 2026-10-27
+
+### Fixes
+
+- **Briefs stay in the main checkout.** The dispatch contract puts every
+  brief in `.current-work/<branch>/briefs/<task>.md` and every scratch
+  file in `.current-work/<branch>/scratch/<agent-or-story>/` in the main
+  checkout, on every CLI. The prompt names the brief by absolute path.
+  Before, briefs sat in a scratchpad under `/tmp`, which the system can
+  empty.
+- **Briefs name factory files in the main checkout.** A linked worktree
+  holds no `.agent-factory/`, so a brief names each factory input by
+  absolute path under `<main checkout>/.agent-factory/factory/`. Before,
+  dispatched agents in a worktree stopped because they found no factory
+  tooling (BUG-0092).
+- **Pi worktrees follow the rulebook.** Pi's `dispatch-wave` cuts
+  worktrees under `.current-work/<target>/`, and its git guard accepts any
+  path under `.current-work/`, as `rules.md` and the Claude guard do
+  (BUG-0102).
+- **One main-checkout helper.** `scope-lint`, `concern-lint`, and
+  `link-check` share the new module `_main_checkout.py` instead of three
+  copies (BUG-0103).
+
 ## 1.3.2 — 2026-10-27
 
 ### Fixes
