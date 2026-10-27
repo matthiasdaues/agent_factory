@@ -69,6 +69,12 @@ class TestParseHookStanzas:
         stanzas = {s.id: s for s in hs.parse_hook_stanzas(PRE_COMMIT_TEXT)}
         assert stanzas["agent_factory_hook-matrix-lint"].files == r"^\.agent-factory/config/model\.conf$"
 
+    def test_folded_files_pattern_captured(self):
+        """BUG-0113: a long regex sits on its own line under `files: >-`."""
+        stanzas = {s.id: s for s in hs.parse_hook_stanzas(PRE_COMMIT_TEXT)}
+        assert stanzas["agent_factory_hook-index-lint"].files.startswith(r"^(\.agent-factory/factory/agents/")
+        assert stanzas["agent_factory_hook-arch-lint"].files.startswith("^docs/(arc42/")
+
     def test_mdformat_has_no_files_key(self):
         stanzas = {s.id: s for s in hs.parse_hook_stanzas(PRE_COMMIT_TEXT)}
         assert stanzas["agent_factory_hook-mdformat"].files is None

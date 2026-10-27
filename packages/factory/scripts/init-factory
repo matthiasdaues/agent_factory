@@ -3022,8 +3022,9 @@ def _fresh_precommit_text(template: Path) -> str:
     header = (
         "---\n"
         "# Created by Agent Factory init-factory. The agent_factory_hook-* hooks\n"
-        "# below are added here and removed by .agent-factory/factory/scripts/remove-factory\n"
-        "# (extricable by their id prefix). Safe to delete if it holds nothing else.\n"
+        "# below are added here and removed by\n"
+        "# .agent-factory/factory/scripts/remove-factory (extricable by their id\n"
+        "# prefix). Safe to delete if it holds nothing else.\n"
         "repos:\n"
     )
     return header + block + "\n"

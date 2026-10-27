@@ -9,12 +9,12 @@ folder fails the hook with a message that names the way out.
 
 from __future__ import annotations
 
-import re
 import shlex
 import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 from conftest import REPO_ROOT, load_script
 
 inf = load_script("init-factory")
@@ -24,24 +24,16 @@ TEMPLATE = REPO_ROOT / "packages" / "factory" / "config" / "pre-commit-config.ya
 REPO_CONFIG = REPO_ROOT / ".pre-commit-config.yaml"
 GUIDE = REPO_ROOT / "packages" / "factory" / "docs" / "factory-guide.md"
 
-ID_LINE = re.compile(r"^\s*- id:\s*(agent_factory_hook-\S+)\s*$")
-ENTRY_LINE = re.compile(r"^\s*entry:\s*(bash -c .+)$")
-
-
 def _factory_entries(path: Path) -> list[tuple[str, str]]:
-    """(hook id, entry) for every agent_factory_hook-* stanza in `path`."""
-    pairs: list[tuple[str, str]] = []
-    hook_id: str | None = None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        m = ID_LINE.match(line)
-        if m:
-            hook_id = m.group(1)
-            continue
-        m = ENTRY_LINE.match(line)
-        if m and hook_id:
-            pairs.append((hook_id, m.group(1)))
-            hook_id = None
-    return pairs
+    """(hook id, entry) for every agent_factory_hook-* hook in `path`,
+    read as YAML, so a folded entry (BUG-0113) counts as its value."""
+    config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return [
+        (hook["id"], hook["entry"])
+        for repo in config["repos"]
+        for hook in repo.get("hooks", [])
+        if hook["id"].startswith("agent_factory_hook-")
+    ]
 
 
 TEMPLATE_ENTRIES = _factory_entries(TEMPLATE)
@@ -149,3 +141,90 @@ class TestRemoveUnmarksClone:
 
     def test_unset_key_is_not_an_error(self, bare_clone):
         rf.unmark_clone_installed(bare_clone)
+
+
+# ---------------------------------------------------------------------------
+# BUG-0113: the generated block passes yamllint and still runs from a
+# linked worktree
+# ---------------------------------------------------------------------------
+
+mpc = load_script("merge-precommit-config")
+
+STALE_CONFIG = """\
+---
+repos:
+  - repo: local
+    hooks:
+      - id: agent_factory_hook-backlog-lint
+        name: "agent_factory: backlog-lint"
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/backlog-lint' --
+        language: system
+        args: [--exclude, "ST-*-details.md"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+"""
+
+
+def _yamllint_default(path: Path) -> subprocess.CompletedProcess:
+    import sys
+
+    return subprocess.run(
+        [sys.executable, "-m", "yamllint", "--strict", "-d", "default", str(path)],
+        capture_output=True, text=True, check=False,
+    )
+
+
+def test_refreshed_config_passes_yamllint_defaults(tmp_path):
+    template = TEMPLATE.read_text(encoding="utf-8")
+    config = tmp_path / ".pre-commit-config.yaml"
+    config.write_text(mpc.merge(STALE_CONFIG, template, update=True), encoding="utf-8")
+
+    result = _yamllint_default(config)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_fresh_config_passes_yamllint_defaults(tmp_path):
+    config = tmp_path / ".pre-commit-config.yaml"
+    config.write_text(inf._fresh_precommit_text(TEMPLATE), encoding="utf-8")
+
+    result = _yamllint_default(config)
+
+    assert result.returncode == 0, result.stdout
+
+
+def _gate_names() -> set[str]:
+    import re
+
+    return {
+        m.group(1)
+        for _, entry in TEMPLATE_ENTRIES
+        for m in re.finditer(r'factory/scripts/([\w-]+)', entry)
+    }
+
+
+@pytest.mark.parametrize("hook_id,entry", TEMPLATE_ENTRIES, ids=[i for i, _ in TEMPLATE_ENTRIES])
+def test_hook_runs_the_gate_from_a_linked_worktree(hook_id, entry, tmp_path):
+    """`.agent-factory/` exists only in the main checkout; the hook finds
+    it through the git common directory and runs the gate."""
+    main = tmp_path / "main"
+    main.mkdir()
+    _git(main, "init", "-q")
+    _git(main, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "base")
+    scripts = main / ".agent-factory" / "factory" / "scripts"
+    scripts.mkdir(parents=True)
+    for name in _gate_names():
+        stub = scripts / name
+        stub.write_text('#!/bin/sh\necho "ran $(basename "$0")"\n', encoding="utf-8")
+        stub.chmod(0o755)
+    worktree = tmp_path / "story"
+    _git(main, "worktree", "add", "-q", "-b", "story", str(worktree))
+    _git(main, "config", "--local", "agent-factory.installed", "true")
+
+    result = _run_entry(entry, worktree)
+
+    assert result.returncode == 0, result.stderr
+    assert "ran " in result.stdout
