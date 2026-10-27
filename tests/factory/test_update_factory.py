@@ -24,7 +24,7 @@ import tarfile
 from pathlib import Path
 
 import pytest
-from conftest import load_script
+from conftest import REPO_ROOT, load_script
 
 uf = load_script("update-factory")
 inf = load_script("init-factory")
@@ -1637,3 +1637,139 @@ class TestMutuallyExclusiveFromFlags:
             assert exc.code != 0
         else:
             raise AssertionError("expected argparse to reject both flags together")
+
+
+# ---------------------------------------------------------------------------
+# BUG-0110: update-factory refreshes the project's factory hook block
+# ---------------------------------------------------------------------------
+
+
+SOURCE_FACTORY = REPO_ROOT / "packages" / "factory"
+PROJECT_HOOK = """\
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+"""
+STALE_FACTORY_BLOCK = """\
+  - repo: local
+    hooks:
+      - id: agent_factory_hook-spec-lint
+        name: "agent_factory: spec-lint"
+        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/spec-lint' --
+        language: system
+        pass_filenames: false
+"""
+
+
+def _factory_with_merge_tooling(target: Path) -> Path:
+    """An installed factory tree carrying the real merge script and the
+    real hook template, as the freshly applied update leaves it."""
+    factory = target / ".agent-factory" / "factory"
+    (factory / "scripts").mkdir(parents=True)
+    (factory / "config").mkdir(parents=True)
+    for rel in ("scripts/merge-precommit-config", "config/pre-commit-config.yaml"):
+        (factory / rel).write_text((SOURCE_FACTORY / rel).read_text(encoding="utf-8"))
+    return factory
+
+
+def _write_config(target: Path, factory_block: str) -> Path:
+    config = target / ".pre-commit-config.yaml"
+    config.write_text("repos:\n" + factory_block + "\n" + PROJECT_HOOK, encoding="utf-8")
+    return config
+
+
+def _never_asked(_prompt):
+    raise AssertionError("no question expected")
+
+
+class TestRefreshPrecommitHooks:
+    def test_stale_block_is_refreshed_on_yes(self, tmp_path, capsys):
+        factory = _factory_with_merge_tooling(tmp_path)
+        config = _write_config(tmp_path, STALE_FACTORY_BLOCK)
+
+        changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=lambda _: "yes")
+
+        text = config.read_text(encoding="utf-8")
+        assert changed is True
+        assert "[ -d factory ]" not in text
+        assert "agent_factory_hook-index-lint" in text
+        assert "trailing-whitespace" in text
+        out = capsys.readouterr().out
+        assert "-        entry: bash -c '[ -d factory ]" in out
+
+    def test_declined_refresh_writes_nothing(self, tmp_path, capsys):
+        factory = _factory_with_merge_tooling(tmp_path)
+        config = _write_config(tmp_path, STALE_FACTORY_BLOCK)
+        before = config.read_text(encoding="utf-8")
+
+        changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=lambda _: "")
+
+        assert changed is False
+        assert config.read_text(encoding="utf-8") == before
+        out = capsys.readouterr().out
+        assert "scripts/merge-precommit-config --target" in out
+        assert out.rstrip().endswith("--update")
+
+    def test_current_block_asks_nothing(self, tmp_path):
+        factory = _factory_with_merge_tooling(tmp_path)
+        config = _write_config(tmp_path, STALE_FACTORY_BLOCK)
+        uf.refresh_precommit_hooks(tmp_path, factory, input_func=lambda _: "yes")
+        before = config.read_text(encoding="utf-8")
+
+        changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=_never_asked)
+
+        assert changed is False
+        assert config.read_text(encoding="utf-8") == before
+
+    def test_config_without_factory_hooks_is_left_alone(self, tmp_path):
+        factory = _factory_with_merge_tooling(tmp_path)
+        config = tmp_path / ".pre-commit-config.yaml"
+        config.write_text("repos:\n" + PROJECT_HOOK, encoding="utf-8")
+        before = config.read_text(encoding="utf-8")
+
+        changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=_never_asked)
+
+        assert changed is False
+        assert config.read_text(encoding="utf-8") == before
+
+    def test_missing_config_is_left_alone(self, tmp_path):
+        factory = _factory_with_merge_tooling(tmp_path)
+
+        changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=_never_asked)
+
+        assert changed is False
+        assert not (tmp_path / ".pre-commit-config.yaml").exists()
+
+    def test_this_repository_needs_no_refresh(self, tmp_path):
+        """This repo's own config already carries the template block, so
+        an update here asks nothing and loses none of its local lines."""
+        factory = _factory_with_merge_tooling(tmp_path)
+        (tmp_path / ".pre-commit-config.yaml").write_text(
+            (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+        )
+
+        changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=_never_asked)
+
+        assert changed is False
+
+
+class TestMainRefreshesHooksAfterInit:
+    def test_refresh_runs_after_a_successful_init(self, tmp_path, monkeypatch):
+        target = tmp_path / "target"
+        target.mkdir()
+        source = tmp_path / "source"
+        TestMainSkipsForceGateForIndexYamlOnlyChanges()._install(target, source)
+
+        order: list[str] = []
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: order.append("init") or 0)
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(
+            uf, "refresh_precommit_hooks",
+            lambda tgt, fac, input_func=None: order.append(f"refresh:{tgt == target}") or False,
+        )
+
+        code = uf.main(["--target", str(target)])
+
+        assert code == 0
+        assert order == ["init", "refresh:True"]

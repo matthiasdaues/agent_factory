@@ -6,8 +6,9 @@ project already had.
 What: Appends Agent Factory's `- repo: local` hook block to a project's own
       pre-commit config, idempotently.
 When: During init-factory, only when the target already has its own
-      pre-commit config.
-By:   init-factory — never run standalone in normal use.
+      pre-commit config; with --update, after every update-factory run.
+By:   init-factory and update-factory (which loads merge() and asks before
+      writing) — never run standalone in normal use.
 
 Only handles the one case that actually needs merge logic: a *real*,
 pre-existing `--target` file. If `--target` doesn't exist yet, the caller
@@ -238,54 +239,62 @@ def _stanza_uses_tool(stanza: list[str], tools: set[str]) -> bool:
     return False
 
 
-def _strip_factory_block(lines: list[str]) -> list[str]:
-    """Remove the existing agent_factory_hook-* repo block from parsed lines."""
+def _replace_factory_block(lines: list[str], template_text: str) -> list[str] | None:
+    """Replace the existing agent_factory_hook-* repo block with the
+    template's, in place (BUG-0110). Comment and blank lines that end the
+    old block head the next item, so they stay. Returns None when no repo
+    item consists of factory hooks alone."""
     bounds = find_repos_list_bounds(lines)
     if bounds is None:
-        return lines
+        return None
     start, end = bounds
     item_starts = [i for i in range(start + 1, end) if REPO_ITEM_START.match(lines[i])]
-    item_bounds = []
+    drop: list[tuple[int, int]] = []
     for n, s in enumerate(item_starts):
         e = item_starts[n + 1] if n + 1 < len(item_starts) else end
-        item_bounds.append((s, e))
-
-    drop: list[tuple[int, int]] = []
-    for s, e in item_bounds:
         ids = [m.group(1) for m in (HOOK_ID_LINE.match(ln) for ln in lines[s:e]) if m]
-        if ids and all(i.startswith("agent_factory_hook-") for i in ids):
-            drop.append((s, e))
-
-    if not drop:
-        return lines
-    kept = [
-        ln for idx, ln in enumerate(lines) if not any(s <= idx < e for s, e in drop)
-    ]
-    out: list[str] = []
-    for ln in kept:
-        if ln.strip() == "" and out and out[-1].strip() == "":
+        if not ids or not all(i.startswith(FACTORY_HOOK_PREFIX) for i in ids):
             continue
-        out.append(ln)
+        while e > s + 1 and re.match(r"^\s*(#|$)", lines[e - 1]):
+            e -= 1
+        drop.append((s, e))
+    if not drop:
+        return None
+
+    block = find_template_block(template_text)
+    while block and not block[-1].strip():
+        block.pop()
+    block = _filter_template_block(block, _tools_in_target(lines))
+
+    out: list[str] = []
+    prev = 0
+    for n, (s, e) in enumerate(drop):
+        out.extend(lines[prev:s])
+        if n == 0:
+            out.extend(block)
+        prev = e
+    out.extend(lines[prev:])
     return out
 
 
 def merge(target_text: str, template_text: str, *, update: bool = False) -> str | None:
     """Return the merged text, or None if already merged and not updating.
 
-    When update=True and the factory block already exists, strip it first and
-    re-splice from the current template — this is how update-factory refreshes
-    guarded entries."""
+    When update=True and the factory block already exists, replace it in
+    place with the current template's block — this is how update-factory
+    refreshes guarded entries."""
     template_ids = template_hook_ids(template_text.splitlines())
 
     if already_merged(target_text.splitlines(), template_ids):
         if not update:
             return None
-        target_text = "\n".join(_strip_factory_block(target_text.splitlines()))
-        if already_merged(target_text.splitlines(), template_ids):
+        replaced = _replace_factory_block(target_text.splitlines(), template_text)
+        if replaced is None:
             raise ValueError(
                 "the existing agent_factory_hook-* block could not be stripped "
                 "cleanly — merge by hand to avoid duplication"
             )
+        return "\n".join(replaced) + "\n"
 
     target_lines = target_text.splitlines()
     bounds = find_repos_list_bounds(target_lines)

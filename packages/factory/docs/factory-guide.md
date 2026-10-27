@@ -662,12 +662,17 @@ The `.pre-commit-config.yaml` is tracked, so everyone who clones the repo gets t
 Every hook that calls a `.agent-factory/factory/scripts/*` gate starts with a short bash guard:
 
 ```bash
-bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || exit 0; exec "$AF"/factory/scripts/<gate> "$@"' --
+bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/<gate> "$@"' --
 ```
 
-The guard looks for `.agent-factory/` in the current checkout first. A linked worktree has no copy of its own, so the guard then looks in the main checkout. If neither has the factory, the hook exits 0 — a silent pass. Pre-commit moves on to the next hook. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved. The `mdformat` hook carries the same guard, so even the formatter stays quiet when the factory directory is absent.
+The guard looks for `.agent-factory/` in the current checkout first. A linked worktree has no copy of its own, so the guard then looks in the main checkout. If neither has the factory, the guard asks the clone whether it installed the factory.
 
-This is deliberate. The `.pre-commit-config.yaml` is tracked because it must survive clones and branch switches. The `.agent-factory/factory/` directory is untracked because it is local tooling, not project source. The guard bridges the two: hooks exist in the config for anyone who has the factory, and vanish for anyone who does not.
+`init-factory` answers that question once per clone. It sets the key `agent-factory.installed` in the clone's local `.git/config`, which git never commits or shares. Linked worktrees read the same file. `remove-factory` unsets the key.
+
+- **Key not set:** a colleague without the factory. The hook exits 0 in silence. Your colleague commits normally, with no error, no warning, and no trace that Agent Factory was ever involved.
+- **Key set:** this clone installed the factory, so a missing folder is a fault. The hook fails and names two ways out: run `update-factory`, or set `SKIP` to the hook id that pre-commit prints above the message, which bypasses that hook for one run. A broken install never passes a commit unchecked.
+
+This is deliberate. The `.pre-commit-config.yaml` is tracked because it must survive clones and branch switches. The `.agent-factory/factory/` directory is untracked because it is local tooling, not project source. The guard bridges the two: hooks run for anyone who installed the factory, and vanish for anyone who did not.
 
 #### Your existing hooks are preserved
 

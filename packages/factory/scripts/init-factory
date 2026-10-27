@@ -2982,6 +2982,30 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
     )
 
 
+def mark_clone_installed(target: Path, report: list[str]) -> None:
+    """Set `agent-factory.installed` in the clone's local git config.
+
+    The factory hooks read this key when `.agent-factory/` is missing: set,
+    the hook fails, because the install broke; unset, it passes, because a
+    colleague never installed the factory (BUG-0111). The local config is
+    never committed, and linked worktrees share it."""
+    result = subprocess.run(
+        ["git", "config", "--local", "agent-factory.installed", "true"],
+        cwd=target,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        log(
+            report,
+            "git config agent-factory.installed: SKIPPED — "
+            f"{result.stderr.strip() or 'not a git repository'}",
+        )
+        return
+    log(report, "git config agent-factory.installed: set for this clone")
+
+
 def _fresh_precommit_text(template: Path) -> str:
     """A standalone .pre-commit-config.yaml carrying only Agent Factory's
     `- repo: local` block (extracted verbatim from the template)."""
@@ -4530,6 +4554,7 @@ def main(argv: list[str] | None = None) -> int:
     except Collision as e:
         print(f"\n  STOPPED — {e}", file=sys.stderr)
         return 1
+    mark_clone_installed(target, report)
 
     # ── Finalize (silent) ──────────────────────────────────────────────
     _out.quiet = True

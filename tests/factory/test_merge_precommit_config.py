@@ -132,8 +132,47 @@ class TestMerge:
         assert "agent_factory_hook-mdformat" not in result
         assert "agent_factory_hook-link-check" in result
 
+    def test_update_replaces_the_block_in_place(self):
+        """BUG-0110: an update keeps the block where it stands and leaves
+        each comment above the block it heads."""
+        target = (
+            "repos:\n"
+            "  # Project formatting\n"
+            "  - repo: https://github.com/pre-commit/pre-commit-hooks\n"
+            "    rev: v4.6.0\n"
+            "    hooks:\n"
+            "      - id: trailing-whitespace\n"
+            "\n"
+            "  # Factory gates\n"
+            "  - repo: local\n"
+            "    hooks:\n"
+            "      - id: agent_factory_hook-link-check\n"
+            "        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/link-check' --\n"
+            "        language: system\n"
+            "\n"
+            "  # Project tests\n"
+            "  - repo: local\n"
+            "    hooks:\n"
+            "      - id: run-tests\n"
+            "        entry: pytest\n"
+            "        language: system\n"
+        )
+        result = mpc.merge(target, TEMPLATE, update=True)
+        lines = result.splitlines()
+
+        assert "[ -d factory ]" not in result
+        assert lines.index("  # Project formatting") == 1
+        factory_at = lines.index("  # Factory gates")
+        assert lines[factory_at + 1] == "  - repo: local"
+        assert "agent_factory_hook-mdformat" in lines[factory_at + 3]
+        tests_at = lines.index("  # Project tests")
+        assert lines[tests_at - 1] == ""
+        assert lines[tests_at + 1] == "  - repo: local"
+        assert lines[tests_at + 3] == "      - id: run-tests"
+        assert mpc.merge(result, TEMPLATE, update=True) == result
+
     def test_strip_failure_raises_instead_of_duplicating(self):
-        """If _strip_factory_block can't remove the marker, merge must abort
+        """If _replace_factory_block can't remove the marker, merge must abort
         rather than splice on top and duplicate."""
         target = (
             "repos:\n"
