@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.2 — 2026-10-27
+
+### Fixes
+
+- **The hook refresh keeps a project's keys.** `update-factory` replaces
+  only the keys the factory's template uses on its hooks: `id`, `name`,
+  `entry`, `language`, `pass_filenames`, `files`, `exclude`, `types`, and
+  `stages`. It keeps every other key a project set on a factory hook,
+  such as `args:`. Before, the 1.3.1 refresh dropped the `args:` that
+  passes `--exclude` to `backlog-lint`, and commits touching `backlog/`
+  failed. Add such a line once more after this update; later refreshes
+  keep it (BUG-0112).
+- **Factory hook lines fit in 80 columns.** Each hook `entry` is a folded
+  YAML scalar broken at spaces, so the command stays the same. Three hook
+  names are shorter, and two long `files:` regexes sit on their own line.
+  A fresh or refreshed `.pre-commit-config.yaml` passes yamllint with its
+  default rules. A per-file yamllint ignore for that file can go after
+  the refresh (BUG-0113).
+
 ## 1.3.1 — 2026-10-27
 
 ### Fixes
