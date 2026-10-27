@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.1 — 2026-10-27
+
+### Fixes
+
+- **The test hook runs in parallel.** The `run-tests` hook runs pytest
+  with `-n auto` and skips the tests marked `container`. The 15
+  `publish-docs` tests that render a PDF in a container now run on demand
+  with `pre-commit run run-container-tests --all-files --hook-stage manual`.
+  `docs/testing.yaml` uses the same command, so dispatch verifies stories
+  the same way.
+- **Test dependencies are declared.** `pyproject.toml` lists pytest,
+  pytest-xdist, PyYAML, Radon, and tiktoken in uv's `dev` group, which
+  `uv run` installs. Before, the hook used whatever pytest was on the
+  developer's PATH.
+
 ## 1.3.0 — 2026-10-27
 
 ### Features
