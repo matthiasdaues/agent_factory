@@ -214,6 +214,13 @@ reinstalls.
 
 ### Fixes
 
+- **backlog-lint can skip files.** New option `--exclude GLOB` (repeatable)
+  skips files in `backlog/` whose name matches the glob. Before, a file
+  like `ST-0003B-details.md` was linted as a story and failed the hook.
+  The pre-commit hook now passes `args:` on to `backlog-lint` (`"$@"`).
+  `update-factory` does not change a project's `.pre-commit-config.yaml`.
+  Projects add `"$@"` to the hook `entry` by hand to use `args:`. Without
+  `--exclude`, nothing changes.
 - **build-release branch constraint.** Relaxed to allow `-rc` suffix
   builds on non-main, non-dev branches (feature branches).
 - **Greenfield routing in orientation files.** `AGENTS.*.md` orientation

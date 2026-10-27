@@ -20,6 +20,12 @@ arch-lint (ADR-0006).
 Usage
   backlog-lint --backlog-dir backlog
   backlog-lint --backlog-dir backlog --format json --report-only
+  backlog-lint --backlog-dir backlog --exclude 'ST-*-details.md'
+
+--exclude GLOB skips files whose name matches GLOB. Repeat it for more
+patterns. Use it for files in backlog/ that look like stories by name but are
+not (for example companion notes). Excluded files are not linted and not
+counted.
 
 Exit code: 1 when there is at least one ERROR-severity finding, 0 when
 clean or with --report-only, 2 on a usage error.
@@ -28,12 +34,13 @@ clean or with --report-only, 2 on a usage error.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import re
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
@@ -499,8 +506,13 @@ def check_story(
     return out
 
 
-def check_backlog(backlog_dir: Path) -> Tuple[List[Finding], int]:
-    """Validate all stories in the backlog directory."""
+def check_backlog(
+    backlog_dir: Path, exclude: Sequence[str] = ()
+) -> Tuple[List[Finding], int]:
+    """Validate all stories in the backlog directory.
+
+    Files whose name matches any glob in ``exclude`` are skipped.
+    """
     findings: List[Finding] = []
 
     if not backlog_dir.is_dir():
@@ -511,7 +523,11 @@ def check_backlog(backlog_dir: Path) -> Tuple[List[Finding], int]:
         )
         return findings, 0
 
-    story_files = sorted(backlog_dir.glob("ST-*.md"))
+    story_files = [
+        sf
+        for sf in sorted(backlog_dir.glob("ST-*.md"))
+        if not any(fnmatch.fnmatchcase(sf.name, pat) for pat in exclude)
+    ]
     if not story_files:
         findings.append(
             Finding(
@@ -635,9 +651,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="always exit 0 (report without gating)",
     )
+    p.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="skip files whose name matches GLOB (repeatable)",
+    )
     args = p.parse_args(argv)
 
-    findings, count = check_backlog(args.backlog_dir)
+    findings, count = check_backlog(args.backlog_dir, args.exclude)
     counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
 
     if args.fmt == "json":
