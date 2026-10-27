@@ -27,11 +27,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+# The main-checkout helpers live beside this script (BUG-0103).
+_HERE = str(Path(__file__).resolve().parent)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+from _main_checkout import main_checkout as _main_checkout  # noqa: E402
 
 
 @dataclass
@@ -133,29 +138,6 @@ def extract_scope_top_level_yaml(path: Path) -> Optional[str]:
 
 
 # --- Workstream discovery -----------------------------------------------------
-
-
-def _main_checkout(worktree_root: Path) -> Path | None:
-    """Return the main checkout of a linked worktree, or None.
-
-    .agent-factory/ is ignored by git, so only the main checkout has it.
-    Mirrors concern-lint's _main_checkout.
-    """
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(worktree_root), "rev-parse", "--show-toplevel", "--git-common-dir"],
-            capture_output=True, text=True, check=False,
-        )
-    except OSError:
-        return None
-    lines = result.stdout.splitlines()
-    if result.returncode != 0 or len(lines) != 2:
-        return None
-    toplevel = Path(lines[0]).resolve()
-    if toplevel != worktree_root.resolve():
-        return None
-    main_root = (worktree_root / lines[1]).resolve().parent
-    return None if main_root == toplevel else main_root
 
 
 def discover_workstreams(base_dir: Path) -> set[str]:

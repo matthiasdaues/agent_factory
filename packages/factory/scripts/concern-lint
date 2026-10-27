@@ -27,14 +27,18 @@ is not a directory, 0 when clean.
 from __future__ import annotations
 
 import argparse
-import functools
 import glob
 import json
 import re
-import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+# The main-checkout helpers live beside this script (BUG-0103).
+_HERE = str(Path(__file__).resolve().parent)
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+from _main_checkout import installed_copy_in_main_checkout as _installed_copy_in_main_checkout  # noqa: E402
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
@@ -236,37 +240,6 @@ def check_paths(concerns: list[ConcernSection], root: Path) -> list[Finding]:
                 )
 
     return findings
-
-
-@functools.lru_cache(maxsize=None)
-def _main_checkout(worktree_root: Path) -> Path | None:
-    """Return the main checkout of a linked worktree, or None.
-
-    The installed factory under .agent-factory/ is untracked, so only the
-    main checkout has it. A linked worktree reaches it there.
-    """
-    result = subprocess.run(
-        ["git", "-C", str(worktree_root), "rev-parse", "--show-toplevel", "--git-common-dir"],
-        capture_output=True, text=True, check=False,
-    )
-    lines = result.stdout.splitlines()
-    if result.returncode != 0 or len(lines) != 2:
-        return None
-    toplevel = Path(lines[0]).resolve()
-    if toplevel != worktree_root.resolve():
-        return None  # .agent-factory is a subfolder, not the installed copy
-    main_root = (worktree_root / lines[1]).resolve().parent
-    return None if main_root == toplevel else main_root
-
-
-def _installed_copy_in_main_checkout(target: Path) -> Path | None:
-    """Map a missing path under .agent-factory/ to the main checkout's copy."""
-    parts = target.parts
-    if ".agent-factory" not in parts:
-        return None
-    index = parts.index(".agent-factory")
-    main_root = _main_checkout(Path(*parts[:index]))
-    return None if main_root is None else main_root.joinpath(*parts[index:])
 
 
 def _path_resolves(path_str: str, root: Path) -> bool:

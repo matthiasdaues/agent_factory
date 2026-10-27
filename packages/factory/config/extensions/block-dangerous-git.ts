@@ -48,15 +48,15 @@ export default function (pi: ExtensionAPI) {
 
     if (createsStandaloneBranch(command)) {
       return blocked(
-        "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .current-work/worktrees/<branch> <base>.",
+        "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>.",
       );
     }
 
     if (/^git\s+worktree\s+add\s/.test(command)) {
       const wtPath = extractWorktreePath(command);
-      if (wtPath && !wtPath.startsWith(".current-work/worktrees/")) {
+      if (wtPath && !wtPath.startsWith(".current-work/")) {
         return blocked(
-          `worktrees must be created under .current-work/worktrees/. Got: ${wtPath}`,
+          `worktrees must be created under .current-work/<feature-branch>/. Got: ${wtPath}`,
         );
       }
     }
