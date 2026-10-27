@@ -118,10 +118,14 @@ def parse_hook_stanzas(pre_commit_text: str) -> list[HookStanza]:
     def flush() -> None:
         if current_id is not None:
             files = None
-            for ln in current_lines:
+            for n, ln in enumerate(current_lines):
                 m = FILES_LINE.match(ln)
                 if m:
                     files = m.group(2)
+                    # A long regex sits on its own line under `files: >-`
+                    # (BUG-0113); it holds no spaces, so folding keeps it.
+                    if files in (">", ">-") and n + 1 < len(current_lines):
+                        files = current_lines[n + 1].strip()
                     break
             stanzas.append(HookStanza(id=current_id, lines=list(current_lines), files=files))
 

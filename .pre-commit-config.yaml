@@ -20,7 +20,13 @@ repos:
       # Prevents style drift across authors and agents.
       - id: agent_factory_hook-mdformat
         name: "agent_factory: mdformat"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; "$AF"/factory/scripts/mdformat --number "$@"; rc=$?; git add "$@" 2>/dev/null; exit $rc' --
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; "$AF"/factory/scripts/mdformat
+          --number "$@"; rc=$?; git add "$@" 2>/dev/null; exit $rc' --
         language: system
         types: [markdown]
         stages: [pre-commit, pre-merge-commit]
@@ -29,7 +35,13 @@ repos:
       # Catches renames, moves, and typos before they reach review.
       - id: agent_factory_hook-link-check
         name: "agent_factory: link-check (local Markdown links)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/link-check "$@"' --
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/link-check "$@"' --
         language: system
         types: [markdown]
         exclude: ^(\.agent-factory/factory/|docs/~archive/)
@@ -38,7 +50,13 @@ repos:
       # Mermaid silently swallows them, producing broken diagrams.
       - id: agent_factory_hook-mermaid-lint
         name: "agent_factory: mermaid-lint (no raw semicolons)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/mermaid-lint "$@"' --
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/mermaid-lint "$@"' --
         language: system
         types: [markdown]
 
@@ -46,8 +64,14 @@ repos:
       # docs/spec/ — required sections, cross-references between
       # files, and traceability IDs that link specs to stories.
       - id: agent_factory_hook-spec-lint
-        name: "agent_factory: spec-lint (specification consistency & traceability)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/spec-lint' --
+        name: "agent_factory: spec-lint (spec consistency & traceability)"
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/spec-lint' --
         language: system
         pass_filenames: false
         files: ^docs/spec/
@@ -56,11 +80,20 @@ repos:
       # (the Structurizr DSL file). Catches names that appear in
       # one but not the other. Also validates ADR frontmatter.
       - id: agent_factory_hook-arch-lint
-        name: "agent_factory: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; "$AF"/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg 2>/dev/null; exit $rc'
+        name: "agent_factory: arch-lint (arc42, Structurizr, ADR frontmatter)"
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; };
+          "$AF"/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate
+          --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg
+          2>/dev/null; exit $rc'
         language: system
         pass_filenames: false
-        files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
+        files: >-
+          ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
         stages: [pre-commit, pre-merge-commit]
 
       # Validate backlog story files — required frontmatter fields,
@@ -68,7 +101,13 @@ repos:
       # point to existing stories.
       - id: agent_factory_hook-backlog-lint
         name: "agent_factory: backlog-lint (story schema & traceability gate)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/backlog-lint --backlog-dir backlog "$@"' --
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/backlog-lint --backlog-dir backlog "$@"' --
         language: system
         pass_filenames: false
         files: ^backlog/ST-.*\.md$
@@ -77,7 +116,13 @@ repos:
       # interface between agents and project knowledge.
       - id: agent_factory_hook-concern-lint
         name: "agent_factory: concern-lint (agent-context validation gate)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/concern-lint' --
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/concern-lint' --
         language: system
         pass_filenames: false
         files: ^docs/agent-context\.md$
@@ -87,7 +132,13 @@ repos:
       # unknown tier names, and duplicate entries.
       - id: agent_factory_hook-matrix-lint
         name: "agent_factory: matrix-lint (model matrix consistency gate)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/matrix-lint --matrix "$AF"/config/model.conf' --
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/matrix-lint --matrix "$AF"/config/model.conf' --
         language: system
         pass_filenames: false
         files: ^\.agent-factory/config/model\.conf$
@@ -95,8 +146,14 @@ repos:
       # When a spec file contains both pseudocode and a Mermaid state
       # diagram, verify they describe the same states and transitions.
       - id: agent_factory_hook-statemachine-lint
-        name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid consistency)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/statemachine-lint --spec-dir docs/spec' --
+        name: "agent_factory: statemachine-lint (pseudocode <-> Mermaid)"
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/statemachine-lint --spec-dir docs/spec' --
         language: system
         pass_filenames: false
         files: ^docs/spec/.*\.md$
@@ -106,10 +163,17 @@ repos:
       # each CLI where to find factory content.
       - id: agent_factory_hook-index-lint
         name: "agent_factory: index-lint (regenerate INDEX.yaml)"
-        entry: bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/index-lint' --
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; exec
+          "$AF"/factory/scripts/index-lint' --
         language: system
         pass_filenames: false
-        files: ^(\.agent-factory/factory/agents/.*\.md|\.agent-factory/factory/skills/.*/SKILL\.md|\.agent-factory/factory/playbooks/.*\.md)$
+        files: >-
+          ^(\.agent-factory/factory/agents/.*\.md|\.agent-factory/factory/skills/.*/SKILL\.md|\.agent-factory/factory/playbooks/.*\.md)$
         stages: [pre-commit, pre-merge-commit]
 
   # ── Development hooks (this repo only) ─────────────────────────

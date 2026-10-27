@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from conftest import load_script
 
@@ -170,6 +172,52 @@ class TestMerge:
         assert lines[tests_at + 1] == "  - repo: local"
         assert lines[tests_at + 3] == "      - id: run-tests"
         assert mpc.merge(result, TEMPLATE, update=True) == result
+
+    def test_update_keeps_project_keys_on_factory_hooks(self):
+        """BUG-0112: a refresh replaces the keys the factory uses and keeps
+        the keys a project added, such as `args:` on backlog-lint."""
+        args = '        args: [--exclude, "ST-*-details.md"]'
+        verbose = "        verbose: true"
+        target = (
+            "repos:\n"
+            "  - repo: local\n"
+            "    hooks:\n"
+            "      - id: agent_factory_hook-backlog-lint\n"
+            "        name: old name\n"
+            "        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/backlog-lint' --\n"
+            f"{args}\n"
+            "        language: system\n"
+            "      - id: agent_factory_hook-link-check\n"
+            "        entry: bash -c 'exec factory/scripts/link-check' --\n"
+            f"{verbose}\n"
+            "        additional_dependencies:\n"
+            "          - some-package\n"
+            "        language: system\n"
+        )
+        real_template = (
+            Path(mpc.__file__).resolve().parent.parent / "config" / "pre-commit-config.yaml"
+        ).read_text(encoding="utf-8")
+
+        result = mpc.merge(target, real_template, update=True)
+        lines = result.splitlines()
+
+        def stanza(hook_id):
+            start = lines.index(f"      - id: {hook_id}")
+            end = next(
+                (i for i in range(start + 1, len(lines)) if lines[i].startswith("      - id:")),
+                len(lines),
+            )
+            return lines[start:end]
+
+        backlog = stanza("agent_factory_hook-backlog-lint")
+        link = stanza("agent_factory_hook-link-check")
+        assert args in backlog
+        assert "old name" not in result
+        assert "[ -d factory ]" not in result
+        assert verbose in link
+        assert "          - some-package" in link
+        assert result.count(args) == 1
+        assert mpc.merge(result, real_template, update=True) == result
 
     def test_strip_failure_raises_instead_of_duplicating(self):
         """If _replace_factory_block can't remove the marker, merge must abort

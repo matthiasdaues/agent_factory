@@ -61,8 +61,10 @@ TOP_LEVEL_KEY = re.compile(r"^\S")
 REPOS_KEY = re.compile(r"^repos:\s*$")
 LIST_ITEM_INDENT = re.compile(r"^( *)- ")
 HOOK_ID_LINE = re.compile(r"^\s*- id:\s*(\S+)\s*$")
-HOOK_ENTRY_LINE = re.compile(r"^\s*entry:\s*(.+)$")
+HOOK_ENTRY_LINE = re.compile(r"^(\s*)entry:\s*(.+)$")
 REPO_ITEM_START = re.compile(r"^  - repo:\s*\S")
+HOOK_KEY_LINE = re.compile(r"^( *)([A-Za-z_]+):")
+BLOCK_SCALAR = re.compile(r"^[>|][+-]?$")
 
 # Tools that projects commonly provide their own hooks for.  When the target
 # already has a hook whose entry invokes one of these, the corresponding
@@ -187,15 +189,14 @@ def _tools_in_target(target_lines: list[str]) -> set[str]:
     tools, not independent project tools)."""
     found: set[str] = set()
     in_factory_block = False
-    for line in target_lines:
+    for i, line in enumerate(target_lines):
         m = HOOK_ID_LINE.match(line)
         if m:
             in_factory_block = m.group(1).startswith("agent_factory_hook-")
         if in_factory_block:
             continue
-        m = HOOK_ENTRY_LINE.match(line)
-        if m:
-            entry = m.group(1)
+        entry = _entry_at(target_lines, i)
+        if entry is not None:
             if ".agent-factory/factory/scripts/" in entry or "factory/scripts/" in entry:
                 continue
             for tool in DEDUP_TOOLS:
@@ -231,19 +232,90 @@ def _filter_template_block(block: list[str], skip_tools: set[str]) -> list[str]:
 
 
 def _stanza_uses_tool(stanza: list[str], tools: set[str]) -> bool:
-    for line in stanza:
-        m = HOOK_ENTRY_LINE.match(line)
-        if m:
-            entry = m.group(1)
+    for i in range(len(stanza)):
+        entry = _entry_at(stanza, i)
+        if entry is not None:
             return any(tool in entry for tool in tools)
     return False
+
+
+def _entry_at(lines: list[str], i: int) -> str | None:
+    """The value of the `entry:` key on line i, or None. A block scalar
+    (`entry: >-`, BUG-0113) yields its more-indented lines joined by
+    spaces, as a folded scalar reads."""
+    m = HOOK_ENTRY_LINE.match(lines[i])
+    if not m:
+        return None
+    indent, value = len(m.group(1)), m.group(2).strip()
+    if not BLOCK_SCALAR.match(value):
+        return value
+    parts: list[str] = []
+    for line in lines[i + 1:]:
+        if line.strip() and len(line) - len(line.lstrip()) <= indent:
+            break
+        parts.append(line.strip())
+    return " ".join(p for p in parts if p)
+
+
+def _hook_stanzas(lines: list[str]) -> list[tuple[str, int, int]]:
+    """(hook id, start, end) of each `- id:` stanza in `lines`. A stanza
+    ends before the comment and blank lines that head the next one."""
+    starts = [(i, m.group(1)) for i, m in ((i, HOOK_ID_LINE.match(ln)) for i, ln in enumerate(lines)) if m]
+    stanzas: list[tuple[str, int, int]] = []
+    for n, (s, hook_id) in enumerate(starts):
+        e = starts[n + 1][0] if n + 1 < len(starts) else len(lines)
+        while e > s + 1 and re.match(r"^\s*(#|$)", lines[e - 1]):
+            e -= 1
+        stanzas.append((hook_id, s, e))
+    return stanzas
+
+
+def _stanza_keys(stanza: list[str]) -> list[tuple[str, list[str]]]:
+    """Split a hook stanza into (key, lines) pairs. The first line, `- id:`,
+    is the key `id`; a key's more-indented lines travel with it."""
+    key_indent = len(stanza[0]) - len(stanza[0].lstrip()) + 2
+    keys: list[tuple[str, list[str]]] = [("id", [stanza[0]])]
+    for line in stanza[1:]:
+        m = HOOK_KEY_LINE.match(line)
+        if m and len(m.group(1)) == key_indent:
+            keys.append((m.group(2), [line]))
+        else:
+            keys[-1][1].append(line)
+    return keys
+
+
+def _project_keys(old_items: list[list[str]], template_block: list[str]) -> dict[str, list[str]]:
+    """The lines of each key a project set on a factory hook that the
+    factory's template does not use on any hook (BUG-0112), by hook id.
+    The factory owns every key its template uses; the project owns the
+    rest, such as `args:` or `exclude:`."""
+    owned = {"id"}
+    for _, s, e in _hook_stanzas(template_block):
+        owned.update(key for key, _ in _stanza_keys(template_block[s:e]))
+    kept: dict[str, list[str]] = {}
+    for item in old_items:
+        for hook_id, s, e in _hook_stanzas(item):
+            for key, key_lines in _stanza_keys(item[s:e]):
+                if key not in owned:
+                    kept.setdefault(hook_id, []).extend(key_lines)
+    return kept
+
+
+def _add_project_keys(block: list[str], kept: dict[str, list[str]]) -> list[str]:
+    """Append each hook's kept project keys to the end of its stanza."""
+    out = list(block)
+    for hook_id, _, e in reversed(_hook_stanzas(block)):
+        if hook_id in kept:
+            out[e:e] = kept[hook_id]
+    return out
 
 
 def _replace_factory_block(lines: list[str], template_text: str) -> list[str] | None:
     """Replace the existing agent_factory_hook-* repo block with the
     template's, in place (BUG-0110). Comment and blank lines that end the
-    old block head the next item, so they stay. Returns None when no repo
-    item consists of factory hooks alone."""
+    old block head the next item, so they stay. Keys a project set on a
+    factory hook carry over (BUG-0112). Returns None when no repo item
+    consists of factory hooks alone."""
     bounds = find_repos_list_bounds(lines)
     if bounds is None:
         return None
@@ -264,7 +336,9 @@ def _replace_factory_block(lines: list[str], template_text: str) -> list[str] | 
     block = find_template_block(template_text)
     while block and not block[-1].strip():
         block.pop()
+    kept = _project_keys([lines[s:e] for s, e in drop], block)
     block = _filter_template_block(block, _tools_in_target(lines))
+    block = _add_project_keys(block, kept)
 
     out: list[str] = []
     prev = 0
