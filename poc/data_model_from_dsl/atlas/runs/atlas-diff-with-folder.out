@@ -1,0 +1,47 @@
+-- Create enum type "domain_state"
+CREATE TYPE "domain_state" AS ENUM ('DRAFT', 'ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "task_state"
+CREATE TYPE "task_state" AS ENUM ('ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "folder_kind"
+CREATE TYPE "folder_kind" AS ENUM ('ROOT', 'REGULAR', 'SMART');
+-- Create enum type "folder_state"
+CREATE TYPE "folder_state" AS ENUM ('ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "plan_state"
+CREATE TYPE "plan_state" AS ENUM ('PENDING', 'OPEN', 'CLOSED');
+-- Create enum type "task_instance_state"
+CREATE TYPE "task_instance_state" AS ENUM ('WAITING', 'QUEUED', 'RUN', 'NO_RUN');
+-- Create enum type "attempt_state"
+CREATE TYPE "attempt_state" AS ENUM ('DISPATCHING', 'DISPATCHED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'UNKNOWN');
+-- Create enum type "outbox_message_type"
+CREATE TYPE "outbox_message_type" AS ENUM ('COMMAND', 'COMMAND_OFFER', 'CONTROL');
+-- Create enum type "outbox_delivery_state"
+CREATE TYPE "outbox_delivery_state" AS ENUM ('PENDING', 'LEASED', 'SENT', 'ACKED');
+-- Modify "domain" table
+ALTER TABLE "domain" ALTER COLUMN "domain_id" DROP IDENTITY, ALTER COLUMN "state" TYPE "domain_state" USING "state"::"domain_state", ALTER COLUMN "state_changed_at" SET NOT NULL;
+-- Create "folder" table
+CREATE TABLE "folder" (
+  "folder_id" bigint NOT NULL,
+  "domain_id" bigint NOT NULL,
+  "kind" "folder_kind" NOT NULL,
+  "state" "folder_state" NOT NULL,
+  "created_at" timestamptz NOT NULL,
+  "state_changed_at" timestamptz NOT NULL,
+  PRIMARY KEY ("folder_id"),
+  CONSTRAINT "uq_folder_domain" UNIQUE ("domain_id", "folder_id"),
+  CONSTRAINT "uq_folder_kind" UNIQUE ("folder_id", "kind"),
+  CONSTRAINT "folder_domain_fk" FOREIGN KEY ("domain_id") REFERENCES "domain" ("domain_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "ck_folder_kind" CHECK (kind = ANY (ARRAY['ROOT'::folder_kind, 'REGULAR'::folder_kind, 'SMART'::folder_kind])),
+  CONSTRAINT "ck_folder_state" CHECK ((kind = 'SMART'::folder_kind) OR (state = 'ACTIVE'::folder_state))
+);
+-- Create index "uq_folder_root_per_domain" to table: "folder"
+CREATE UNIQUE INDEX "uq_folder_root_per_domain" ON "folder" ("domain_id") WHERE (kind = 'ROOT'::folder_kind);
+-- Set comment to table: "folder"
+COMMENT ON TABLE "folder" IS 'domain-owned';
+-- Modify "task" table
+ALTER TABLE "task" DROP CONSTRAINT "task_domain_id_fkey", ALTER COLUMN "task_id" DROP IDENTITY, DROP COLUMN "name", ALTER COLUMN "state" TYPE "task_state" USING "state"::"task_state", ALTER COLUMN "state_changed_at" SET NOT NULL, ADD CONSTRAINT "task_domain_fk" FOREIGN KEY ("domain_id") REFERENCES "domain" ("domain_id") ON UPDATE NO ACTION ON DELETE NO ACTION;
+-- Set comment to table: "task"
+COMMENT ON TABLE "task" IS 'domain-owned';
+-- Modify "task_version" table
+ALTER TABLE "task_version" ADD CONSTRAINT "ck_task_version_range" CHECK ((runs_until IS NULL) OR (runs_until >= runs_from)), ALTER COLUMN "task_version_id" DROP IDENTITY, ALTER COLUMN "folder_id" SET NOT NULL, ALTER COLUMN "created_by" SET NOT NULL, ADD COLUMN "name" character varying NOT NULL, ADD COLUMN "runs_until_set_by_folder_id" bigint NULL, ADD CONSTRAINT "ex_task_version_range" EXCLUDE USING GIST ("task_id" WITH =, (daterange(runs_from, runs_until)) WITH &&), ADD CONSTRAINT "task_version_folder_fk" FOREIGN KEY ("domain_id", "folder_id") REFERENCES "folder" ("domain_id", "folder_id") ON UPDATE NO ACTION ON DELETE NO ACTION, ADD CONSTRAINT "task_version_set_by_folder_fk" FOREIGN KEY ("domain_id", "runs_until_set_by_folder_id") REFERENCES "folder" ("domain_id", "folder_id") ON UPDATE NO ACTION ON DELETE NO ACTION;
+-- Set comment to table: "task_version"
+COMMENT ON TABLE "task_version" IS 'domain-owned';

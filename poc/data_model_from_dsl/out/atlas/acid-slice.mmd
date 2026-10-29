@@ -1,0 +1,130 @@
+erDiagram
+    attempt {
+      bigint task_instance_id PK,FK
+      integer attempt_no PK
+      bigint agent_id
+      attempt_state attempt_state
+      integer exit_code
+      timestamptz dispatching_at
+      timestamptz dispatched_at
+      timestamptz running_at
+      timestamptz unknown_at
+      timestamptz finished_at
+      timestamptz started_at
+      timestamptz ended_at
+      timestamptz updated_at
+    }
+    attempt |o--o| task_instance : attempt_task_instance_fk
+    audit_event {
+      bigint audit_event_id PK
+      smallint event_type_id
+      smallint audited_entity_id
+      bigint entity_id
+      character_varying from_state
+      character_varying to_state
+      character_varying principal
+      character_varying ticket_ref
+      jsonb detail
+      timestamptz recorded_at
+      timestamptz effective_at
+      bigint supersedes_event_id FK
+    }
+    audit_event }o--o| audit_event : audit_event_supersedes_fk
+    domain {
+      bigint domain_id PK
+      character_varying name
+      character_varying timezone
+      time odate_boundary_time
+      integer projection_horizon
+      integer heartbeat_interval
+      integer liveness_threshold
+      domain_state state
+      timestamptz created_at
+      timestamptz state_changed_at
+      timestamptz updated_at
+    }
+    folder {
+      bigint folder_id PK
+      bigint domain_id FK
+      folder_kind kind
+      folder_state state
+      timestamptz created_at
+      timestamptz state_changed_at
+    }
+    folder |o--o| domain : folder_domain_fk
+    outbox {
+      bigint message_id PK
+      bigint task_instance_id FK
+      integer attempt_no FK
+      bigint agent_id
+      outbox_message_type message_type
+      jsonb payload
+      outbox_delivery_state delivery_state
+      timestamptz leased_until
+      timestamptz created_at
+      timestamptz leased_at
+      timestamptz sent_at
+      timestamptz acked_at
+      timestamptz updated_at
+    }
+    outbox |o--o| attempt : outbox_attempt_fk
+    plan {
+      bigint plan_id PK
+      bigint domain_id FK
+      date odate
+      plan_state state
+      timestamptz created_at
+      timestamptz updated_at
+    }
+    plan }o--o| domain : plan_domain_fk
+    task {
+      bigint task_id PK
+      bigint domain_id FK
+      task_state state
+      timestamptz created_at
+      timestamptz state_changed_at
+    }
+    task }o--o| domain : task_domain_fk
+    task_instance {
+      bigint task_instance_id PK
+      bigint plan_id FK
+      bigint task_version_id FK
+      bigint folder_version_id
+      jsonb filled_values
+      task_instance_state state
+      character_varying result
+      timestamptz queued_at
+      timestamptz run_at
+      timestamptz no_run_at
+      timestamptz result_at
+      timestamptz wake_at
+      character_varying wake_on
+      timestamptz created_at
+      timestamptz updated_at
+    }
+    task_instance }o--o| plan : task_instance_plan_fk
+    task_instance }o--o| task_version : task_instance_task_version_fk
+    task_version {
+      bigint task_version_id PK
+      bigint task_id FK
+      bigint domain_id FK
+      bigint folder_id FK
+      integer version
+      character_varying name
+      character_varying dispatch_target
+      jsonb identity
+      jsonb scheduling
+      jsonb execution
+      jsonb dependencies
+      jsonb event_handling
+      jsonb constraints
+      timestamptz published_at
+      timestamptz superseded_at
+      date runs_from
+      date runs_until
+      bigint runs_until_set_by_folder_id FK
+      character_varying created_by
+    }
+    task_version }o--o| folder : task_version_folder_fk
+    task_version }o--o| folder : task_version_set_by_folder_fk
+    task_version }o--o| task : task_version_task_fk

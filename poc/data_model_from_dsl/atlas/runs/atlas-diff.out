@@ -1,0 +1,28 @@
+-- Create enum type "domain_state"
+CREATE TYPE "domain_state" AS ENUM ('DRAFT', 'ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "task_state"
+CREATE TYPE "task_state" AS ENUM ('ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "folder_kind"
+CREATE TYPE "folder_kind" AS ENUM ('ROOT', 'REGULAR', 'SMART');
+-- Create enum type "folder_state"
+CREATE TYPE "folder_state" AS ENUM ('ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "plan_state"
+CREATE TYPE "plan_state" AS ENUM ('PENDING', 'OPEN', 'CLOSED');
+-- Create enum type "task_instance_state"
+CREATE TYPE "task_instance_state" AS ENUM ('WAITING', 'QUEUED', 'RUN', 'NO_RUN');
+-- Create enum type "attempt_state"
+CREATE TYPE "attempt_state" AS ENUM ('DISPATCHING', 'DISPATCHED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'UNKNOWN');
+-- Create enum type "outbox_message_type"
+CREATE TYPE "outbox_message_type" AS ENUM ('COMMAND', 'COMMAND_OFFER', 'CONTROL');
+-- Create enum type "outbox_delivery_state"
+CREATE TYPE "outbox_delivery_state" AS ENUM ('PENDING', 'LEASED', 'SENT', 'ACKED');
+-- Modify "domain" table
+ALTER TABLE "domain" ALTER COLUMN "domain_id" DROP IDENTITY, ALTER COLUMN "state" TYPE "domain_state" USING "state"::"domain_state", ALTER COLUMN "state_changed_at" SET NOT NULL;
+-- Modify "task_version" table
+ALTER TABLE "task_version" ADD CONSTRAINT "ck_task_version_range" CHECK ((runs_until IS NULL) OR (runs_until >= runs_from)), ALTER COLUMN "task_version_id" DROP IDENTITY, ALTER COLUMN "folder_id" SET NOT NULL, ALTER COLUMN "created_by" SET NOT NULL, ADD COLUMN "name" character varying NOT NULL, ADD COLUMN "runs_until_set_by_folder_id" bigint NULL, ADD CONSTRAINT "ex_task_version_range" EXCLUDE USING GIST ("task_id" WITH =, (daterange(runs_from, runs_until)) WITH &&);
+-- Set comment to table: "task_version"
+COMMENT ON TABLE "task_version" IS 'domain-owned';
+-- Modify "task" table
+ALTER TABLE "task" DROP CONSTRAINT "task_domain_id_fkey", ALTER COLUMN "task_id" DROP IDENTITY, DROP COLUMN "name", ALTER COLUMN "state" TYPE "task_state" USING "state"::"task_state", ALTER COLUMN "state_changed_at" SET NOT NULL, ADD CONSTRAINT "task_domain_fk" FOREIGN KEY ("domain_id") REFERENCES "domain" ("domain_id") ON UPDATE NO ACTION ON DELETE NO ACTION;
+-- Set comment to table: "task"
+COMMENT ON TABLE "task" IS 'domain-owned';

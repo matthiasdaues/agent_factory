@@ -1,0 +1,4 @@
+Notice: Skipping triggers, functions, stored procedures and other advanced objects.
+Upgrade to Pro to enable these features and more. See: https://atlasgo.io/features.
+
+To upgrade run: atlas login
