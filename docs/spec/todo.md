@@ -71,3 +71,8 @@ source is `docs/spec/entity-model.yaml`. `docs/spec/entity-model.md` and
 live scenarios, templates, and legacy paths is pending. Structured
 JSON payloads are LinkML value-object classes validated by generated Pydantic
 models and persisted in JSON or JSONB columns.
+
+**Note (2026-10-29):** the LinkML choice is an assumption until the
+[data-model DSL PoC](../../poc/data_model_from_dsl/proposal-data-model-dsl-technical-poc.md)
+ends with a Pugh Matrix and an ADR confirms it (DEC-01 there). No migration
+work starts before then.
