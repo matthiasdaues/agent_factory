@@ -1,0 +1,142 @@
+%% Spike code for the data-model DSL PoC. The acid slice in Mermaid erDiagram.
+%% Copied unchanged from Gigacron entity-model.md at 40954f18.
+%% domain-owned: TASK FOLDER TASK_VERSION PLAN
+erDiagram
+    DOMAIN {
+        bigint domain_id PK
+        string name
+        string timezone
+        time odate_boundary_time
+        int projection_horizon
+        int heartbeat_interval
+        int liveness_threshold
+        enum state
+        timestamptz created_at
+        timestamptz state_changed_at
+        timestamptz updated_at
+    }
+
+    TASK {
+        bigint task_id PK
+        bigint domain_id FK
+        enum state
+        timestamptz created_at
+        timestamptz state_changed_at
+    }
+
+    TASK_VERSION {
+        bigint task_version_id PK
+        bigint task_id FK
+        bigint domain_id FK
+        bigint folder_id FK
+        int version
+        string name
+        string dispatch_target
+        jsonb identity
+        jsonb scheduling
+        jsonb execution
+        jsonb dependencies
+        jsonb event_handling
+        jsonb constraints
+        timestamptz published_at
+        timestamptz superseded_at
+        date runs_from
+        date runs_until
+        bigint runs_until_set_by_folder_id FK
+        string created_by
+    }
+
+    FOLDER {
+        bigint folder_id PK
+        bigint domain_id FK
+        enum kind
+        enum state
+        timestamptz created_at
+        timestamptz state_changed_at
+    }
+
+    PLAN {
+        bigint plan_id PK
+        bigint domain_id FK
+        date odate
+        enum state
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    TASK_INSTANCE {
+        bigint task_instance_id PK
+        bigint plan_id FK
+        bigint task_version_id FK
+        bigint folder_version_id FK
+        jsonb filled_values
+        enum state
+        string result
+        timestamptz queued_at
+        timestamptz run_at
+        timestamptz no_run_at
+        timestamptz result_at
+        timestamptz wake_at
+        string wake_on
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    ATTEMPT {
+        bigint task_instance_id PK, FK
+        int attempt_no PK
+        bigint agent_id FK
+        enum attempt_state
+        int exit_code
+        timestamptz dispatching_at
+        timestamptz dispatched_at
+        timestamptz running_at
+        timestamptz unknown_at
+        timestamptz finished_at
+        timestamptz started_at
+        timestamptz ended_at
+        timestamptz updated_at
+    }
+
+    OUTBOX {
+        bigint message_id PK
+        bigint task_instance_id FK
+        int attempt_no
+        bigint agent_id FK
+        enum message_type
+        jsonb payload
+        enum delivery_state
+        timestamptz leased_until
+        timestamptz created_at
+        timestamptz leased_at
+        timestamptz sent_at
+        timestamptz acked_at
+        timestamptz updated_at
+    }
+
+    AUDIT_EVENT {
+        bigint audit_event_id PK
+        smallint event_type_id FK
+        smallint audited_entity_id FK
+        bigint entity_id
+        string from_state
+        string to_state
+        string principal
+        string ticket_ref
+        jsonb detail
+        timestamptz recorded_at
+        timestamptz effective_at
+        bigint supersedes_event_id
+    }
+
+    DOMAIN ||--o{ TASK : contains
+    DOMAIN ||--|{ FOLDER : contains
+    DOMAIN ||--o{ PLAN : bounds
+    TASK ||--|{ TASK_VERSION : versions
+    FOLDER ||--o{ TASK_VERSION : holds
+    FOLDER ||--o{ TASK_VERSION : ends_by_retirement
+    TASK_VERSION ||--o{ TASK_INSTANCE : materializes
+    PLAN ||--o{ TASK_INSTANCE : contains
+    TASK_INSTANCE ||--o{ ATTEMPT : tried_by
+    ATTEMPT ||--o| OUTBOX : dispatches_with
+    AGENT ||--o{ ATTEMPT : executes
