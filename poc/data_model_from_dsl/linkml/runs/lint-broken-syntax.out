@@ -1,0 +1,5 @@
+/w/broken-syntax.yaml
+  error    mapping values are not allowed here
+  in "/w/broken-syntax.yaml", line 42, column 16  (valid-schema)
+
+✖ Found 1 problem in 1 schema

@@ -1,0 +1,119 @@
+erDiagram
+Any {
+
+}
+Attempt {
+    integer agent_id  
+    integer attempt_no  
+    AttemptState attempt_state  
+    datetime dispatched_at  
+    datetime dispatching_at  
+    datetime ended_at  
+    integer exit_code  
+    datetime finished_at  
+    datetime running_at  
+    datetime started_at  
+    datetime unknown_at  
+    datetime updated_at  
+}
+AuditEvent {
+    integer audit_event_id  
+    integer audited_entity_id  
+    datetime effective_at  
+    integer entity_id  
+    integer event_type_id  
+    string from_state  
+    string principal  
+    datetime recorded_at  
+    string ticket_ref  
+    string to_state  
+}
+Domain {
+    string name  
+    datetime created_at  
+    integer domain_id  
+    integer heartbeat_interval  
+    integer liveness_threshold  
+    time odate_boundary_time  
+    integer projection_horizon  
+    DomainState state  
+    datetime state_changed_at  
+    string timezone  
+    datetime updated_at  
+}
+Folder {
+    datetime created_at  
+    integer folder_id  
+    FolderKind kind  
+    FolderState state  
+    datetime state_changed_at  
+}
+Outbox {
+    datetime acked_at  
+    integer agent_id  
+    integer attempt_no  
+    datetime created_at  
+    OutboxDeliveryState delivery_state  
+    datetime leased_at  
+    datetime leased_until  
+    integer message_id  
+    OutboxMessageType message_type  
+    datetime sent_at  
+    integer task_instance_id  
+    datetime updated_at  
+}
+Plan {
+    datetime created_at  
+    date odate  
+    integer plan_id  
+    PlanState state  
+    datetime updated_at  
+}
+Task {
+    datetime created_at  
+    TaskState state  
+    datetime state_changed_at  
+    integer task_id  
+}
+TaskInstance {
+    datetime created_at  
+    integer folder_version_id  
+    datetime no_run_at  
+    datetime queued_at  
+    string result  
+    datetime result_at  
+    datetime run_at  
+    TaskInstanceState state  
+    integer task_instance_id  
+    datetime updated_at  
+    datetime wake_at  
+    string wake_on  
+}
+TaskVersion {
+    string name  
+    string created_by  
+    string dispatch_target  
+    datetime published_at  
+    date runs_from  
+    date runs_until  
+    datetime superseded_at  
+    integer task_version_id  
+    integer version  
+}
+
+Attempt ||--|| TaskInstance : "task_instance_id"
+AuditEvent ||--|o Any : "detail"
+AuditEvent ||--|o AuditEvent : "supersedes_event_id"
+Folder ||--|| Domain : "domain_id"
+Outbox ||--|| Any : "payload"
+Plan ||--|| Domain : "domain_id"
+Task ||--|| Domain : "domain_id"
+TaskInstance ||--|| Any : "filled_values"
+TaskInstance ||--|| Plan : "plan_id"
+TaskInstance ||--|| TaskVersion : "task_version_id"
+TaskVersion ||--|o Any : "constraints, dependencies, event_handling, execution, identity, scheduling"
+TaskVersion ||--|o Folder : "runs_until_set_by_folder_id"
+TaskVersion ||--|| Domain : "domain_id"
+TaskVersion ||--|| Folder : "folder_id"
+TaskVersion ||--|| Task : "task_id"
+

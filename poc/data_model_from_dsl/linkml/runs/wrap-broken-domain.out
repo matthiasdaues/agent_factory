@@ -1,0 +1,1 @@
+Error: class Plan is domain-owned but has no slot domain_id
