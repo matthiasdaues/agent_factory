@@ -59,7 +59,10 @@ SQL file, and still exits 0. The wrapper parses with `@dbml/core`, whose
 **5. PNG.** `dbml-renderer` writes SVG only. No PNG.
 
 **6. Generation.** `dbml2sql` generates DDL for PostgreSQL. The DDL keeps
-constructs 1 to 7, 9, and 10, with these changes: multi-column UNIQUE becomes
+constructs 1 to 7 and 10. Construct 9 comes out reversed: `dbml2sql` puts
+`outbox_attempt_fk` on `attempt`, pointing to `outbox`, because the model
+writes it with `-` (see [the validation note](validation.md#finding-for-the-dbml-story)).
+Two more changes: multi-column UNIQUE becomes
 `CREATE UNIQUE INDEX`, and every foreign key is `DEFERRABLE INITIALLY IMMEDIATE`
 (11 of 11 in [acid-slice.sql](../dbml/runs/acid-slice.sql)). DBML has no
 first-party generator for application types.

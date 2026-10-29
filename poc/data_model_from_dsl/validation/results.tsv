@@ -1,0 +1,13 @@
+case	dbml2sql	dbml_core	dbml_message	linkml_lint	linkml_wrapper	linkml_message
+E01	0	1	Error: E01.dbml(263,45): Column 'domain_key' does not exist in Table 'public.domain'	n/a	n/a	not applicable
+E02	0	1	Error: E02.dbml(164,17): No column named 'odate_x' inside Table 'plan'	0	0	
+E03	0	1	Error: E03.dbml(260,27): Unequal fields in ref endpoints	n/a	n/a	not applicable
+E04	0	0		n/a	n/a	not applicable
+E05	0	1	Error: E05.dbml(277,7): Table 'plan' already exists in schema 'public'	2	2	error    Duplicate key: "Plan"
+E06	0	1	Error: E06.dbml(157,3): Duplicate column 'odate'	2	2	error    Duplicate key: "odate"
+E07	0	0		2	2	error    Class 'Plan' slot 'state' range 'PlanStatus' is not defined.  (no_undeclared_ranges)
+E08	0	1	Error: E08.dbml(36,3): Duplicate enum field 'OPEN'	2	2	error    Duplicate key: "OPEN"
+E09	0	1	Error: E09.dbml(163,5): No column named 'plan_key' inside Table 'plan'	n/a	n/a	not applicable
+E10	0	0		0	0	
+E11	0	0		2	2	error    Class 'Plan' has more than one 'identifier' slot: odate, plan_id  (one_identifier_per_class)
+E12	0	1	Error: E12.dbml(272,3): Table 'task_x' does not exist in Schema 'public'	n/a	n/a	not applicable

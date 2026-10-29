@@ -1,0 +1,2 @@
+Error: E08.dbml(36,3): Duplicate enum field 'OPEN'
+Error: E08.dbml(38,3): Duplicate enum field 'OPEN'
