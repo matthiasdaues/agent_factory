@@ -1,0 +1,275 @@
+// Spike code for the data-model DSL PoC. The DBML acid slice with Oracle types.
+// Source: acid-slice.md (Gigacron 40954f18).
+// A comment "NOT EXPRESSED" marks a constraint DBML has no construct for.
+
+Project acid_slice {
+  database_type: 'Oracle'
+}
+
+Enum domain_state {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+Enum task_state {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+Enum folder_kind {
+  ROOT
+  REGULAR
+  SMART
+}
+
+Enum folder_state {
+  ACTIVE
+  INACTIVE
+  RETIRED
+}
+
+Enum plan_state {
+  PENDING
+  OPEN
+  CLOSED
+}
+
+Enum task_instance_state {
+  WAITING
+  QUEUED
+  RUN
+  NO_RUN
+}
+
+Enum attempt_state {
+  DISPATCHING
+  DISPATCHED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  UNKNOWN
+}
+
+Enum outbox_message_type {
+  COMMAND
+  COMMAND_OFFER
+  CONTROL
+}
+
+Enum outbox_delivery_state {
+  PENDING
+  LEASED
+  SENT
+  ACKED
+}
+
+Table domain {
+  domain_id NUMBER(19) [not null]
+  name VARCHAR2(4000) [not null]
+  timezone VARCHAR2(4000) [not null]
+  odate_boundary_time VARCHAR2(8) [not null]
+  projection_horizon NUMBER(10) [not null]
+  heartbeat_interval NUMBER(10) [not null]
+  liveness_threshold NUMBER(10) [not null]
+  state domain_state [not null]
+  created_at "TIMESTAMP WITH TIME ZONE" [not null]
+  state_changed_at "TIMESTAMP WITH TIME ZONE" [not null]
+  updated_at "TIMESTAMP WITH TIME ZONE" [not null]
+
+  indexes {
+    domain_id [pk, name: 'domain_pkey']
+    name [unique, name: 'uq_domain_name']
+  }
+}
+
+Table task {
+  task_id NUMBER(19) [not null]
+  domain_id NUMBER(19) [not null]
+  state task_state [not null]
+  created_at "TIMESTAMP WITH TIME ZONE" [not null]
+  state_changed_at "TIMESTAMP WITH TIME ZONE" [not null]
+
+  indexes {
+    task_id [pk, name: 'task_pkey']
+    (domain_id, task_id) [unique, name: 'uq_task_domain']
+  }
+}
+
+Table folder {
+  folder_id NUMBER(19) [not null]
+  domain_id NUMBER(19) [not null]
+  kind folder_kind [not null]
+  state folder_state [not null]
+  created_at "TIMESTAMP WITH TIME ZONE" [not null]
+  state_changed_at "TIMESTAMP WITH TIME ZONE" [not null]
+
+  indexes {
+    folder_id [pk, name: 'folder_pkey']
+    (domain_id, folder_id) [unique, name: 'uq_folder_domain']
+    (folder_id, kind) [unique, name: 'uq_folder_kind']
+    // NOT EXPRESSED: uq_folder_root_per_domain (partial UNIQUE)
+  }
+
+  checks {
+    `kind = 'SMART' OR state = 'ACTIVE'` [name: 'ck_folder_state']
+  }
+}
+
+Table task_version {
+  task_version_id NUMBER(19) [not null]
+  task_id NUMBER(19) [not null]
+  domain_id NUMBER(19) [not null]
+  folder_id NUMBER(19) [not null]
+  version NUMBER(10) [not null]
+  name VARCHAR2(4000) [not null]
+  dispatch_target VARCHAR2(4000)
+  identity CLOB
+  scheduling CLOB
+  execution CLOB
+  dependencies CLOB
+  event_handling CLOB
+  constraints CLOB
+  published_at "TIMESTAMP WITH TIME ZONE" [not null]
+  superseded_at "TIMESTAMP WITH TIME ZONE"
+  runs_from date [not null]
+  runs_until date
+  runs_until_set_by_folder_id NUMBER(19)
+  created_by VARCHAR2(4000) [not null]
+
+  indexes {
+    task_version_id [pk, name: 'task_version_pkey']
+    (task_id, version) [unique, name: 'uq_task_version_number']
+    // NOT EXPRESSED: uq_task_version_current (partial UNIQUE)
+    // NOT EXPRESSED: ex_task_version_range (exclusion constraint)
+  }
+
+  checks {
+    `runs_until IS NULL OR runs_until >= runs_from` [name: 'ck_task_version_range']
+  }
+}
+
+Table plan {
+  plan_id NUMBER(19) [not null]
+  domain_id NUMBER(19) [not null]
+  odate date [not null]
+  state plan_state [not null]
+  created_at "TIMESTAMP WITH TIME ZONE" [not null]
+  updated_at "TIMESTAMP WITH TIME ZONE" [not null]
+
+  indexes {
+    plan_id [pk, name: 'plan_pkey']
+    (domain_id, odate) [unique, name: 'uq_plan_domain_odate']
+  }
+}
+
+Table task_instance {
+  task_instance_id NUMBER(19) [not null]
+  plan_id NUMBER(19) [not null]
+  task_version_id NUMBER(19) [not null]
+  folder_version_id NUMBER(19)
+  filled_values CLOB [not null]
+  state task_instance_state [not null]
+  result VARCHAR2(4000)
+  queued_at "TIMESTAMP WITH TIME ZONE"
+  run_at "TIMESTAMP WITH TIME ZONE"
+  no_run_at "TIMESTAMP WITH TIME ZONE"
+  result_at "TIMESTAMP WITH TIME ZONE"
+  wake_at "TIMESTAMP WITH TIME ZONE"
+  wake_on VARCHAR2(4000)
+  created_at "TIMESTAMP WITH TIME ZONE" [not null]
+  updated_at "TIMESTAMP WITH TIME ZONE" [not null]
+
+  indexes {
+    task_instance_id [pk, name: 'task_instance_pkey']
+  }
+}
+
+Table attempt {
+  task_instance_id NUMBER(19) [not null]
+  attempt_no NUMBER(10) [not null]
+  agent_id NUMBER(19) [not null]
+  attempt_state attempt_state [not null]
+  exit_code NUMBER(10)
+  dispatching_at "TIMESTAMP WITH TIME ZONE" [not null]
+  dispatched_at "TIMESTAMP WITH TIME ZONE"
+  running_at "TIMESTAMP WITH TIME ZONE"
+  unknown_at "TIMESTAMP WITH TIME ZONE"
+  finished_at "TIMESTAMP WITH TIME ZONE"
+  started_at "TIMESTAMP WITH TIME ZONE"
+  ended_at "TIMESTAMP WITH TIME ZONE"
+  updated_at "TIMESTAMP WITH TIME ZONE" [not null]
+
+  indexes {
+    (task_instance_id, attempt_no) [pk, name: 'attempt_pkey']
+    // NOT EXPRESSED: uq_attempt_open (partial UNIQUE)
+  }
+}
+
+Table outbox {
+  message_id NUMBER(19) [not null]
+  task_instance_id NUMBER(19)
+  attempt_no NUMBER(10)
+  agent_id NUMBER(19) [not null]
+  message_type outbox_message_type [not null]
+  payload CLOB [not null]
+  delivery_state outbox_delivery_state [not null]
+  leased_until "TIMESTAMP WITH TIME ZONE"
+  created_at "TIMESTAMP WITH TIME ZONE" [not null]
+  leased_at "TIMESTAMP WITH TIME ZONE"
+  sent_at "TIMESTAMP WITH TIME ZONE"
+  acked_at "TIMESTAMP WITH TIME ZONE"
+  updated_at "TIMESTAMP WITH TIME ZONE" [not null]
+
+  indexes {
+    message_id [pk, name: 'outbox_pkey']
+    // uq_outbox_attempt is partial in the model (WHERE task_instance_id IS
+    // NOT NULL). PostgreSQL treats NULLs as distinct in a UNIQUE, so a full
+    // UNIQUE has the same meaning here. The predicate itself is not expressed.
+    (task_instance_id, attempt_no) [unique, name: 'uq_outbox_attempt']
+  }
+
+  checks {
+    `(message_type = 'COMMAND') = (task_instance_id IS NOT NULL) AND (task_instance_id IS NULL) = (attempt_no IS NULL)` [name: 'ck_outbox_attempt']
+  }
+}
+
+Table audit_event {
+  audit_event_id NUMBER(19) [not null]
+  event_type_id NUMBER(5) [not null]
+  audited_entity_id NUMBER(5) [not null]
+  entity_id NUMBER(19) [not null]
+  from_state VARCHAR2(4000)
+  to_state VARCHAR2(4000) [not null]
+  principal VARCHAR2(4000) [not null]
+  ticket_ref VARCHAR2(4000)
+  detail CLOB
+  recorded_at "TIMESTAMP WITH TIME ZONE" [not null]
+  effective_at "TIMESTAMP WITH TIME ZONE" [not null]
+  supersedes_event_id NUMBER(19)
+
+  indexes {
+    audit_event_id [pk, name: 'audit_event_pkey']
+  }
+}
+
+Ref task_domain_fk: task.domain_id > domain.domain_id
+Ref folder_domain_fk: folder.domain_id > domain.domain_id
+Ref task_version_task_fk: task_version.(domain_id, task_id) > task.(domain_id, task_id)
+Ref task_version_folder_fk: task_version.(domain_id, folder_id) > folder.(domain_id, folder_id)
+Ref task_version_set_by_folder_fk: task_version.(domain_id, runs_until_set_by_folder_id) > folder.(domain_id, folder_id)
+Ref plan_domain_fk: plan.domain_id > domain.domain_id
+Ref task_instance_plan_fk: task_instance.plan_id > plan.plan_id
+Ref task_instance_task_version_fk: task_instance.task_version_id > task_version.task_version_id
+Ref attempt_task_instance_fk: attempt.task_instance_id > task_instance.task_instance_id
+Ref outbox_attempt_fk: outbox.(task_instance_id, attempt_no) - attempt.(task_instance_id, attempt_no)
+Ref audit_event_supersedes_fk: audit_event.supersedes_event_id > audit_event.audit_event_id
+
+TableGroup domain_owned {
+  task
+  folder
+  task_version
+  plan
+}
