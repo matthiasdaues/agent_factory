@@ -4,6 +4,14 @@ title: "Comparison Note: Atlas HCL"
 
 # Comparison Note: Atlas HCL
 
+**Excluded from the Pugh Matrix.** On 2026-10-29 the stakeholder set a licence
+rule: only MIT, Apache-2.0, and similar fully permissive licences, and no
+paywalled features. The build tested here is licensed under the Ariga End User
+License Agreement and gates `schema lint` and extensions behind Atlas Pro or a
+login. The Apache-2.0 community build was checked briefly but not recorded,
+and the stakeholder dropped Atlas from the comparison. This note stays as
+evidence.
+
 **Tool:** `arigaio/atlas:latest`, which reports `atlas version v1.3.7-1696d6d-canary`. **Gigacron:** `40954f18`. **Run on:** 2026-10-29.
 
 ## Result in short
