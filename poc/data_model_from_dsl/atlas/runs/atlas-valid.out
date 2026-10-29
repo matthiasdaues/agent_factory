@@ -1,0 +1,188 @@
+Notice: Skipping triggers, functions, stored procedures and other advanced objects.
+Upgrade to Pro to enable these features and more. See: https://atlasgo.io/features.
+
+To upgrade run: atlas login
+-- Create enum type "domain_state"
+CREATE TYPE "domain_state" AS ENUM ('DRAFT', 'ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "task_state"
+CREATE TYPE "task_state" AS ENUM ('ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "folder_kind"
+CREATE TYPE "folder_kind" AS ENUM ('ROOT', 'REGULAR', 'SMART');
+-- Create enum type "folder_state"
+CREATE TYPE "folder_state" AS ENUM ('ACTIVE', 'INACTIVE', 'RETIRED');
+-- Create enum type "plan_state"
+CREATE TYPE "plan_state" AS ENUM ('PENDING', 'OPEN', 'CLOSED');
+-- Create enum type "task_instance_state"
+CREATE TYPE "task_instance_state" AS ENUM ('WAITING', 'QUEUED', 'RUN', 'NO_RUN');
+-- Create enum type "attempt_state"
+CREATE TYPE "attempt_state" AS ENUM ('DISPATCHING', 'DISPATCHED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'UNKNOWN');
+-- Create enum type "outbox_message_type"
+CREATE TYPE "outbox_message_type" AS ENUM ('COMMAND', 'COMMAND_OFFER', 'CONTROL');
+-- Create enum type "outbox_delivery_state"
+CREATE TYPE "outbox_delivery_state" AS ENUM ('PENDING', 'LEASED', 'SENT', 'ACKED');
+-- Create "audit_event" table
+CREATE TABLE "audit_event" (
+  "audit_event_id" bigint NOT NULL,
+  "event_type_id" smallint NOT NULL,
+  "audited_entity_id" smallint NOT NULL,
+  "entity_id" bigint NOT NULL,
+  "from_state" character varying NULL,
+  "to_state" character varying NOT NULL,
+  "principal" character varying NOT NULL,
+  "ticket_ref" character varying NULL,
+  "detail" jsonb NULL,
+  "recorded_at" timestamptz NOT NULL,
+  "effective_at" timestamptz NOT NULL,
+  "supersedes_event_id" bigint NULL,
+  PRIMARY KEY ("audit_event_id"),
+  CONSTRAINT "audit_event_supersedes_fk" FOREIGN KEY ("supersedes_event_id") REFERENCES "audit_event" ("audit_event_id") ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+-- Create "domain" table
+CREATE TABLE "domain" (
+  "domain_id" bigint NOT NULL,
+  "name" character varying NOT NULL,
+  "timezone" character varying NOT NULL,
+  "odate_boundary_time" time NOT NULL,
+  "projection_horizon" integer NOT NULL,
+  "heartbeat_interval" integer NOT NULL,
+  "liveness_threshold" integer NOT NULL,
+  "state" "domain_state" NOT NULL,
+  "created_at" timestamptz NOT NULL,
+  "state_changed_at" timestamptz NOT NULL,
+  "updated_at" timestamptz NOT NULL,
+  PRIMARY KEY ("domain_id"),
+  CONSTRAINT "uq_domain_name" UNIQUE ("name")
+);
+-- Create "plan" table
+CREATE TABLE "plan" (
+  "plan_id" bigint NOT NULL,
+  "domain_id" bigint NOT NULL,
+  "odate" date NOT NULL,
+  "state" "plan_state" NOT NULL,
+  "created_at" timestamptz NOT NULL,
+  "updated_at" timestamptz NOT NULL,
+  PRIMARY KEY ("plan_id"),
+  CONSTRAINT "uq_plan_domain_odate" UNIQUE ("domain_id", "odate"),
+  CONSTRAINT "plan_domain_fk" FOREIGN KEY ("domain_id") REFERENCES "domain" ("domain_id") ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+-- Create "folder" table
+CREATE TABLE "folder" (
+  "folder_id" bigint NOT NULL,
+  "domain_id" bigint NOT NULL,
+  "kind" "folder_kind" NOT NULL,
+  "state" "folder_state" NOT NULL,
+  "created_at" timestamptz NOT NULL,
+  "state_changed_at" timestamptz NOT NULL,
+  PRIMARY KEY ("folder_id"),
+  CONSTRAINT "uq_folder_domain" UNIQUE ("domain_id", "folder_id"),
+  CONSTRAINT "uq_folder_kind" UNIQUE ("folder_id", "kind"),
+  CONSTRAINT "folder_domain_fk" FOREIGN KEY ("domain_id") REFERENCES "domain" ("domain_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "ck_folder_kind" CHECK (kind = ANY (ARRAY['ROOT'::folder_kind, 'REGULAR'::folder_kind, 'SMART'::folder_kind])),
+  CONSTRAINT "ck_folder_state" CHECK ((kind = 'SMART'::folder_kind) OR (state = 'ACTIVE'::folder_state))
+);
+-- Create index "uq_folder_root_per_domain" to table: "folder"
+CREATE UNIQUE INDEX "uq_folder_root_per_domain" ON "folder" ("domain_id") WHERE (kind = 'ROOT'::folder_kind);
+-- Create "task" table
+CREATE TABLE "task" (
+  "task_id" bigint NOT NULL,
+  "domain_id" bigint NOT NULL,
+  "state" "task_state" NOT NULL,
+  "created_at" timestamptz NOT NULL,
+  "state_changed_at" timestamptz NOT NULL,
+  PRIMARY KEY ("task_id"),
+  CONSTRAINT "uq_task_domain" UNIQUE ("domain_id", "task_id"),
+  CONSTRAINT "task_domain_fk" FOREIGN KEY ("domain_id") REFERENCES "domain" ("domain_id") ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+-- Create "task_version" table
+CREATE TABLE "task_version" (
+  "task_version_id" bigint NOT NULL,
+  "task_id" bigint NOT NULL,
+  "domain_id" bigint NOT NULL,
+  "folder_id" bigint NOT NULL,
+  "version" integer NOT NULL,
+  "name" character varying NOT NULL,
+  "dispatch_target" character varying NULL,
+  "identity" jsonb NULL,
+  "scheduling" jsonb NULL,
+  "execution" jsonb NULL,
+  "dependencies" jsonb NULL,
+  "event_handling" jsonb NULL,
+  "constraints" jsonb NULL,
+  "published_at" timestamptz NOT NULL,
+  "superseded_at" timestamptz NULL,
+  "runs_from" date NOT NULL,
+  "runs_until" date NULL,
+  "runs_until_set_by_folder_id" bigint NULL,
+  "created_by" character varying NOT NULL,
+  PRIMARY KEY ("task_version_id"),
+  CONSTRAINT "ex_task_version_range" EXCLUDE USING GIST ("task_id" WITH =, (daterange(runs_from, runs_until)) WITH &&),
+  CONSTRAINT "uq_task_version_number" UNIQUE ("task_id", "version"),
+  CONSTRAINT "task_version_folder_fk" FOREIGN KEY ("domain_id", "folder_id") REFERENCES "folder" ("domain_id", "folder_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "task_version_set_by_folder_fk" FOREIGN KEY ("domain_id", "runs_until_set_by_folder_id") REFERENCES "folder" ("domain_id", "folder_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "task_version_task_fk" FOREIGN KEY ("domain_id", "task_id") REFERENCES "task" ("domain_id", "task_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "ck_task_version_range" CHECK ((runs_until IS NULL) OR (runs_until >= runs_from))
+);
+-- Create index "uq_task_version_current" to table: "task_version"
+CREATE UNIQUE INDEX "uq_task_version_current" ON "task_version" ("task_id") WHERE (superseded_at IS NULL);
+-- Create "task_instance" table
+CREATE TABLE "task_instance" (
+  "task_instance_id" bigint NOT NULL,
+  "plan_id" bigint NOT NULL,
+  "task_version_id" bigint NOT NULL,
+  "folder_version_id" bigint NULL,
+  "filled_values" jsonb NOT NULL,
+  "state" "task_instance_state" NOT NULL,
+  "result" character varying NULL,
+  "queued_at" timestamptz NULL,
+  "run_at" timestamptz NULL,
+  "no_run_at" timestamptz NULL,
+  "result_at" timestamptz NULL,
+  "wake_at" timestamptz NULL,
+  "wake_on" character varying NULL,
+  "created_at" timestamptz NOT NULL,
+  "updated_at" timestamptz NOT NULL,
+  PRIMARY KEY ("task_instance_id"),
+  CONSTRAINT "task_instance_plan_fk" FOREIGN KEY ("plan_id") REFERENCES "plan" ("plan_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "task_instance_task_version_fk" FOREIGN KEY ("task_version_id") REFERENCES "task_version" ("task_version_id") ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+-- Create "attempt" table
+CREATE TABLE "attempt" (
+  "task_instance_id" bigint NOT NULL,
+  "attempt_no" integer NOT NULL,
+  "agent_id" bigint NOT NULL,
+  "attempt_state" "attempt_state" NOT NULL,
+  "exit_code" integer NULL,
+  "dispatching_at" timestamptz NOT NULL,
+  "dispatched_at" timestamptz NULL,
+  "running_at" timestamptz NULL,
+  "unknown_at" timestamptz NULL,
+  "finished_at" timestamptz NULL,
+  "started_at" timestamptz NULL,
+  "ended_at" timestamptz NULL,
+  "updated_at" timestamptz NOT NULL,
+  PRIMARY KEY ("task_instance_id", "attempt_no"),
+  CONSTRAINT "attempt_task_instance_fk" FOREIGN KEY ("task_instance_id") REFERENCES "task_instance" ("task_instance_id") ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+-- Create index "uq_attempt_open" to table: "attempt"
+CREATE UNIQUE INDEX "uq_attempt_open" ON "attempt" ("task_instance_id") WHERE (attempt_state <> ALL (ARRAY['SUCCEEDED'::attempt_state, 'FAILED'::attempt_state]));
+-- Create "outbox" table
+CREATE TABLE "outbox" (
+  "message_id" bigint NOT NULL,
+  "task_instance_id" bigint NULL,
+  "attempt_no" integer NULL,
+  "agent_id" bigint NOT NULL,
+  "message_type" "outbox_message_type" NOT NULL,
+  "payload" jsonb NOT NULL,
+  "delivery_state" "outbox_delivery_state" NOT NULL,
+  "leased_until" timestamptz NULL,
+  "created_at" timestamptz NOT NULL,
+  "leased_at" timestamptz NULL,
+  "sent_at" timestamptz NULL,
+  "acked_at" timestamptz NULL,
+  "updated_at" timestamptz NOT NULL,
+  PRIMARY KEY ("message_id"),
+  CONSTRAINT "outbox_attempt_fk" FOREIGN KEY ("task_instance_id", "attempt_no") REFERENCES "attempt" ("task_instance_id", "attempt_no") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "ck_outbox_attempt" CHECK (((message_type = 'COMMAND'::outbox_message_type) = (task_instance_id IS NOT NULL)) AND ((task_instance_id IS NULL) = (attempt_no IS NULL)))
+);
+-- Create index "uq_outbox_attempt" to table: "outbox"
+CREATE UNIQUE INDEX "uq_outbox_attempt" ON "outbox" ("task_instance_id", "attempt_no") WHERE (task_instance_id IS NOT NULL);
