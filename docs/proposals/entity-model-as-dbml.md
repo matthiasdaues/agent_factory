@@ -54,8 +54,8 @@ The factory keeps a project's entity model as one DBML file, checked the way
 errors the parser misses, a pre-commit hook, and one SVG per named view. The
 question it answers is one the factory cannot answer today: does the entity
 model still hold together after this commit? The first release covers the
-tooling, the factory's agents and playbooks, and a pilot on Gigacron's full
-model.
+tooling, the factory's agents and playbooks, and a pilot on a pinned copy of
+Gigacron's full model.
 
 ## Motivation
 
@@ -169,6 +169,11 @@ only how its schema gets built (DEC-11):
    nullability, primary keys, foreign keys, unique keys, indexes, and CHECK
    constraints by name.
 
+When `schema.comments` is `true`, `compare` also checks that each table and
+column note matches the database comment on that table or column. The key
+defaults to `false`, because a project that sets no comments would see every
+note as a difference (DEC-18).
+
 The built-in dump step covers PostgreSQL (`pg_dump --schema-only`). For any
 other database, the project names a full dump command under `schema.dump`
 instead, and steps 2 and 3 are skipped. The factory ships no reference to a
@@ -248,8 +253,12 @@ changes. `merge-precommit-config` adds it to installed projects, next to
 
 ### Gigacron pilot
 
-Gigacron's 29-entity model is ported to DBML, validated, linted, and rendered.
-The port runs in Gigacron's repository and follows Gigacron's own process.
+The factory reads Gigacron at one pinned commit and never writes to it, as the
+PoC did. It ports all 29 entities of Gigacron's `entity-model.md`, prose
+included, into a fixture at `packages/factory/fixtures/entity-model/gigacron/`.
+The fixture's README names the pinned commit. Every `entity-model` subcommand
+runs on the fixture. The fixture is a frozen test input; it does not follow
+Gigacron (DEC-20).
 
 ## Scope
 
@@ -269,12 +278,13 @@ The port runs in Gigacron's repository and follows Gigacron's own process.
 - The Gigacron pilot.
 - `entity-model compare`, the drift check.
 
-The slices run in this order: validator and hook on the PoC's acid slice;
-renderer; core layout and migration; factory wiring; state-machine link;
-Gigacron pilot; drift check (DEC-02). The drift check opens with a probe:
-`sql2dbml --postgres` on the PoC's `live-schema.sql`. If `sql2dbml` cannot
-read that dump, the drift check moves to the deferred list, with the probe's
-output as the reason (DEC-10).
+The slices run in this order: validator and hook on the PoC's acid slice,
+with the drift-check probe alongside; renderer; core layout and migration;
+factory wiring; state-machine link; drift check; Gigacron pilot (DEC-02,
+DEC-19). The probe runs `sql2dbml --postgres` on the PoC's `live-schema.sql`.
+If `sql2dbml` cannot read that dump, the drift check moves to the deferred
+list with the probe's output as the reason, and the pilot runs without it
+(DEC-10).
 
 **Explicitly deferred (do NOT plan stories for these):**
 
@@ -293,6 +303,8 @@ output as the reason (DEC-10).
   project-named dump command covers them; a built-in step follows when a
   project needs one.
 - **Schema formats other than JSON Schema.** No project uses one yet.
+- **Gigacron's own adoption.** Gigacron moves to DBML through its own
+  proposal, once the factory release exists. It may start from the fixture.
 - **Project-specific rules,** such as Gigacron's Domain-owned rule. They need a
   rule-configuration format, which no second project has asked for yet.
 
@@ -314,33 +326,42 @@ None.
 - `entity-model validate` exits 1 on each of the PoC's cases E01–E09, E11,
   and E12, and 0 on the valid acid slice.
 - `entity-model render` writes one SVG for the full model and one per
-  `DiagramView` in the acid slice.
+  `DiagramView` in the PoC's `acid-slice-views.dbml`.
 - `entity-model import --dialect oracle` turns the PoC's
   `legacy.oracle.sql` into a file that `validate` accepts.
 - A commit that breaks the DBML file is rejected by the `entity-model-lint`
   hook in a project installed with `init-factory`.
+- `validate` reports a one-to-one reference written with `-`.
 - `enum-matches-state` reports an enum value that a linked state machine lacks.
 - `prose-in-notes` reports every `//` and `/* */` comment in the DBML file.
 - The spec-review agent's instructions name the review rule for notes.
 - `payload-schema` reports a `jsonb` column without a schema, and a schema name
   with no file in `docs/spec/schemas/`.
-- No factory agent, skill, playbook, or template writes or reads
-  `entity-model.md`; `grep` finds no reference outside the changelog.
+- `grep -r entity-model.md packages/factory/` finds nothing outside
+  `CHANGELOG.md`.
 - After migration, `docs/spec/` holds the eight single-file core artifacts at
   the top, the feature files in `features/`, payload schemas in `schemas/`,
   working output in `work/`, and nothing else. `link-check` passes.
+- `arch-lint` and `structurizr validate` pass on the factory's own repository
+  after its migration.
 - The migration script runs on a copy of an installed project, moves its
   files, and leaves `link-check` passing. It lists each old path found outside
   Markdown, and `--dry-run` changes no file.
 - T-0006 is resolved with `docs/spec/entity-model.dbml`.
-- Gigacron's ported model keeps every explanatory passage of its
-  `entity-model.md` as a note.
-- Gigacron's full model passes `entity-model validate` and renders.
+- The fixture's README maps each prose paragraph of `entity-model.md` at the
+  pinned commit to the note that holds it, and no paragraph is unmapped.
+- The Gigacron fixture passes `entity-model validate` and renders, and
+  `entity-model compare` runs on it, unless the probe deferred the drift
+  check.
+- With `schema.comments: true`, `compare` reports a column whose note differs
+  from its database comment; with the key absent, it reports no comment
+  difference.
+- With `schema.dump` set, `compare` runs that command and starts no container.
 - `detect-test-regime` rewrites a `docs/testing.yaml` that has `schema` keys
   and keeps them.
 - `entity-model compare` on the PoC's acid slice, against Gigacron's live
   schema at the pinned commit, reports each of the 16 differences in the PoC's
-  `expected-differences.md` and no other. Or the probe's output is recorded as
+  `expected-differences.md` and no other, under that file's matching rules. Or the probe's output is recorded as
   the reason for deferral.
 
 ## Guiding Rule
@@ -371,6 +392,9 @@ not done.
 | DEC-15 | 2026-10-30 | assumption | Matthias Daues | A note is limited to one sentence of at most 160 characters. Replaced by DEC-17: the limit would leave no room for the model's explanatory prose.                                                                                                           | Draft, follows DEC-14                                  |
 | DEC-16 | 2026-10-30 | decision   | Matthias Daues | The choice of a validatable state-machine language is a separate question (T-0007), outside this proposal. A soundness check for the current pseudocode waits for it.                                                                                       | Grilling, question 2                                   |
 | DEC-17 | 2026-10-30 | decision   | Matthias Daues | Notes carry all explanatory prose, with no limit on length or position. `prose-in-notes` replaces `note-shape` and forbids comments, because the parser drops them and every export loses them.                                                             | Grilling, question 3                                   |
+| DEC-18 | 2026-10-30 | decision   | Matthias Daues | `compare` checks notes against database comments only when `schema.comments` is `true`; the default is `false`.                                                                                                                                             | Grilling, structure and scope, question 1              |
+| DEC-19 | 2026-10-30 | decision   | Matthias Daues | The drift-check probe runs alongside slice 1, and the drift check comes before the Gigacron pilot, so the pilot exercises every tool.                                                                                                                       | Grilling, structure and scope, question 2              |
+| DEC-20 | 2026-10-30 | decision   | Matthias Daues | The pilot ports Gigacron's model at a pinned commit into a factory fixture and writes nothing to Gigacron. Gigacron adopts DBML through its own proposal.                                                                                                   | Grilling, structure and scope, question 3              |
 
 ## Review findings
 
