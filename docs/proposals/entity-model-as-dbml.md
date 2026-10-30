@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Entity Model as DBML
-status: draft
+status: open
 owner: Matthias Daues
 created: 2026-10-30
 updated: 2026-10-30
@@ -45,7 +45,54 @@ estimate:
 
 ## Primer
 
-Written by `write-primer` once the design is settled.
+The factory is Agent Factory, a set of agents, scripts, and checks that work on
+a project's specification and code. A project that uses the factory describes
+its data in an entity model: the tables, their columns, the keys that link
+them, and the allowed values. Today the entity model is a Markdown file with
+prose tables and diagrams in Mermaid, a text notation for diagrams.
+
+Such a model goes wrong silently. Mermaid checks only that the text is well
+formed. It draws a link to a missing table without an error, and nothing checks
+the prose tables. A project called Gigacron shows the cost. Its entity model
+and its code disagree in 16 places on three tables, and no factory check
+noticed.
+
+Two boundaries shape the proposal. The first separates the specification core
+from all other files. The core is the few files that people edit by hand. Every
+other file derives from them. An automatic check, called a gate, covers or
+should cover each core file. All core files move into one folder, and a script
+moves installed projects there. The second keeps the entity model to structure.
+Behaviour, such as which state a record may move to next, stays in the state
+machines and feature files.
+
+This proposal moves the entity model to DBML, the Database Markup Language, and
+checks it as strictly as the architecture model. A factory script parses the
+file, checks for errors the parser misses, and draws the diagrams. A pre-commit
+hook runs the check whenever the file changes, so a broken model cannot be
+committed. The pilot copies all 29 entities of Gigacron's model into a frozen
+test fixture and runs every tool on it.
+
+The factory retires the old Markdown file, because every part has a new home.
+Its diagrams become generated pictures, its tables become the DBML file, and
+its explanations become DBML notes.
+
+The design rests on a few rules. Explanations go into notes, never into
+comments, because the parser drops comments. A note explains and never states a
+rule of behaviour. No program can tell the two apart, so the spec-review agent
+reads every note. When the factory imports a model from a database or derives
+it from code, the stakeholder confirms the result, because the model becomes
+the source. The developer confirms the move into the new folder, because the
+script moves files and rewrites links.
+
+A drift check keeps the model and the code in step. The project names how its
+database schema gets built. The factory builds that schema in a throwaway
+container, reads it back as DBML, and lists every difference. On part of
+Gigacron's model, the drift check must report the 16 known differences and no others.
+
+The proposal lists no open questions. One condition remains: the drift check
+needs the import tool to read a real database dump. A probe during the first
+piece of work settles this. If the probe fails, the drift check is deferred,
+and the pilot runs without it.
 
 ## Summary
 
@@ -361,6 +408,8 @@ None.
   with no file in `docs/spec/schemas/`.
 - `grep -r entity-model.md packages/factory/` finds nothing outside
   `CHANGELOG.md`.
+- `grep -rE 'supplementary_specs|docs/arc42/(architecture|dependency-rules)\.dsl' packages/factory/`
+  finds nothing outside `CHANGELOG.md`.
 - After migration, `docs/spec/` holds the eight single-file core artifacts at
   the top, the feature files in `features/`, payload schemas in `schemas/`,
   working output in `work/`, and nothing else. `link-check` passes.
