@@ -17,9 +17,9 @@ the slice directly. Both are licensed under Apache-2.0 (`@dbml/core` and
 `@dbml/cli` 11.0.0; `linkml` 1.12.1, with `linkml-runtime` under CC0-1.0), so
 both pass the licence filter (DEC-14).
 
-**Next step.** The stakeholder re-accepts the proposal with DEC-14 and DEC-15.
-Then `write-adr` records the decision in the factory's `docs/adr/`, and T-0006
-in `docs/spec/todo.md` changes from LinkML to DBML.
+**Status.** The proposal is re-accepted (DEC-16).
+[ADR-0024](../../docs/adr/0024-dbml-as-entity-model-language.md) records the
+decision, and T-0006 in `docs/spec/todo.md` now names DBML.
 
 ## Pugh Matrix
 

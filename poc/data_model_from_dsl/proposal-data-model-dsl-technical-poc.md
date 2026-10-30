@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Data-Model DSL Technical Proof-of-Concept
-status: open
+status: accepted
 owner: Matthias Daues
 created: 2026-08-14
 updated: 2026-10-30
@@ -251,6 +251,7 @@ None.
 | DEC-13 | 2026-10-29 | decision | Matthias Daues | A story that finds evidence against an excluded candidate records a finding for the stakeholder and starts no fifth story.                                                                                                                                                                                                                                                                                              | PROP-07                                                         |
 | DEC-14 | 2026-10-29 | decision | Matthias Daues | Only candidates under MIT, Apache-2.0, or a similar fully permissive licence, with no paywalled feature, enter the Pugh Matrix. Atlas is excluded: its image is under the Ariga End User License Agreement, and `schema lint` and extensions need a login. Its story, note, and files stay as evidence.                                                                                                                 | Atlas licence check in `notes/atlas.md`                         |
 | DEC-15 | 2026-10-30 | decision | Matthias Daues | The entity model must work as the single source of truth the way `architecture.dsl` does: one file, a validator with exit codes, named views as SVG, and a lint hook for drift. The criteria and weights are validation depth 40, legacy and dialect coverage 15, named views 14, constructs 14, lint hook 10, and comparison with the live schema 7. Two comparison cases test views and validation depth with Oracle. | Stakeholder goal statement and the confirmed weights            |
+| DEC-16 | 2026-10-30 | decision | Matthias Daues | The proposal is re-accepted with DEC-14 and DEC-15. The stakeholder delegated the re-acceptance, the ADR, and the T-0006 update to the orchestrating session.                                                                                                                                                                                                                                                           | Stakeholder instruction after the confirmed matrix              |
 
 ## Review findings
 
