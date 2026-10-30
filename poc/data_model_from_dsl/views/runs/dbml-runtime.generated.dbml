@@ -1,0 +1,99 @@
+Enum attempt_state {
+  DISPATCHING
+  DISPATCHED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  UNKNOWN
+}
+
+Enum outbox_delivery_state {
+  PENDING
+  LEASED
+  SENT
+  ACKED
+}
+
+Enum outbox_message_type {
+  COMMAND
+  COMMAND_OFFER
+  CONTROL
+}
+
+Enum task_instance_state {
+  WAITING
+  QUEUED
+  RUN
+  NO_RUN
+}
+
+Table task_instance {
+  task_instance_id bigint [not null]
+  plan_id bigint [not null]
+  task_version_id bigint [not null]
+  folder_version_id bigint
+  filled_values jsonb [not null]
+  state task_instance_state [not null]
+  result varchar
+  queued_at timestamptz
+  run_at timestamptz
+  no_run_at timestamptz
+  result_at timestamptz
+  wake_at timestamptz
+  wake_on varchar
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  indexes {
+    task_instance_id [pk, name: 'task_instance_pkey']
+  }
+}
+
+Table attempt {
+  task_instance_id bigint [not null]
+  attempt_no integer [not null]
+  agent_id bigint [not null]
+  attempt_state attempt_state [not null]
+  exit_code integer
+  dispatching_at timestamptz [not null]
+  dispatched_at timestamptz
+  running_at timestamptz
+  unknown_at timestamptz
+  finished_at timestamptz
+  started_at timestamptz
+  ended_at timestamptz
+  updated_at timestamptz [not null]
+
+  indexes {
+    (task_instance_id, attempt_no) [pk, name: 'attempt_pkey']
+    // NOT EXPRESSED: uq_attempt_open (partial UNIQUE)
+  }
+}
+
+Table outbox {
+  message_id bigint [not null]
+  task_instance_id bigint
+  attempt_no integer
+  agent_id bigint [not null]
+  message_type outbox_message_type [not null]
+  payload jsonb [not null]
+  delivery_state outbox_delivery_state [not null]
+  leased_until timestamptz
+  created_at timestamptz [not null]
+  leased_at timestamptz
+  sent_at timestamptz
+  acked_at timestamptz
+  updated_at timestamptz [not null]
+
+  indexes {
+    message_id [pk, name: 'outbox_pkey']
+    // uq_outbox_attempt is partial in the model (WHERE task_instance_id IS
+    // NOT NULL). PostgreSQL treats NULLs as distinct in a UNIQUE, so a full
+    // UNIQUE has the same meaning here. The predicate itself is not expressed.
+    (task_instance_id, attempt_no) [unique, name: 'uq_outbox_attempt']
+  }
+
+}
+
+Ref attempt_task_instance_fk: attempt.task_instance_id > task_instance.task_instance_id
+Ref outbox_attempt_fk: outbox.(task_instance_id, attempt_no) - attempt.(task_instance_id, attempt_no)

@@ -31,6 +31,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0021 | [Skill placement at `.agents/skills/`](../adr/0021-skill-placement-at-agents-skills.md)                                                                       | proposed               | pugh-matrix |
 | 0022 | [Layered installation: bootstrap wraps init-factory](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)                                        | superseded by ADR-0023 | pugh-matrix |
 | 0023 | [Update transaction with approval, staging, and rollback](../adr/0023-update-transaction-with-approval-staging-and-rollback.md)                               | accepted               | none        |
+| 0024 | [DBML as the entity-model language](../adr/0024-dbml-as-entity-model-language.md)                                                                             | accepted               | pugh-matrix |
 
 ## Key Decisions
 
@@ -197,6 +198,13 @@ transaction requires its own approval gate.
 ### Cycle-Based Orchestration (no longer active)
 
 ADR-0017 and ADR-0018 describe the cycle-based orchestration design that was evaluated and partially implemented. This design is no longer active; the Eligibility Engine with precondition-based agent selection is the current mechanism. The ADRs remain as historical records.
+
+### Entity-Model Language
+
+**ADR-0024** makes DBML the factory standard for a project's entity model,
+with `docs/spec/entity-model.dbml` as the canonical source. A technical PoC
+scored DBML +193 and LinkML +120 against the Mermaid baseline. Atlas was
+excluded by its licence.
 
 ## Superseded Decisions
 

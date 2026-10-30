@@ -1,0 +1,53 @@
+erDiagram
+Any {
+
+}
+Attempt {
+    integer agent_id  
+    integer attempt_no  
+    AttemptState attempt_state  
+    datetime dispatched_at  
+    datetime dispatching_at  
+    datetime ended_at  
+    integer exit_code  
+    datetime finished_at  
+    datetime running_at  
+    datetime started_at  
+    datetime unknown_at  
+    datetime updated_at  
+}
+Outbox {
+    datetime acked_at  
+    integer agent_id  
+    integer attempt_no  
+    datetime created_at  
+    OutboxDeliveryState delivery_state  
+    datetime leased_at  
+    datetime leased_until  
+    integer message_id  
+    OutboxMessageType message_type  
+    datetime sent_at  
+    integer task_instance_id  
+    datetime updated_at  
+}
+TaskInstance {
+    datetime created_at  
+    integer folder_version_id  
+    datetime no_run_at  
+    datetime queued_at  
+    string result  
+    datetime result_at  
+    datetime run_at  
+    TaskInstanceState state  
+    integer task_instance_id  
+    datetime updated_at  
+    datetime wake_at  
+    string wake_on  
+}
+
+Attempt ||--|| TaskInstance : "task_instance_id"
+Outbox ||--|| Any : "payload"
+TaskInstance ||--|| Any : "filled_values"
+TaskInstance ||--|| Plan : "plan_id"
+TaskInstance ||--|| TaskVersion : "task_version_id"
+

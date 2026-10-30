@@ -1,0 +1,5 @@
+table task: column name in the live schema, not in the model
+table task_version: column name in the model, not in the live schema
+table task_version: column runs_until_set_by_folder_id in the model, not in the live schema
+table folder: not in the live schema
+4 difference(s)

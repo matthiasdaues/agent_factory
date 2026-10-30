@@ -1,0 +1,5 @@
+Error: broken-syntax.dbml(90,20): Expect an identifier
+Error: broken-syntax.dbml(89,19): Custom setting 'not null domain_id bigint' must be a string, a color literal, a number literal, or a boolean literal
+Error: broken-syntax.dbml(97,6): No column named 'domain_id' inside Table 'task'
+Error: broken-syntax.dbml(258,26): Column 'domain_id' does not exist in Table 'public.task'
+Error: broken-syntax.dbml(260,69): Column 'domain_id' does not exist in Table 'public.task'

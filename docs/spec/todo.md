@@ -76,3 +76,8 @@ models and persisted in JSON or JSONB columns.
 [data-model DSL PoC](../../poc/data_model_from_dsl/proposal-data-model-dsl-technical-poc.md)
 ends with a Pugh Matrix and an ADR confirms it (DEC-01 there). No migration
 work starts before then.
+
+**Revision (2026-10-30):** [ADR-0024](../adr/0024-dbml-as-entity-model-language.md)
+replaces LinkML with DBML. The canonical source is `docs/spec/entity-model.dbml`;
+`entity-model.md` and the SVG stay derived projections. How structured JSON
+payloads are described is open; the PoC did not test it.

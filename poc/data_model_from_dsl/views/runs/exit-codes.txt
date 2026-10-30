@@ -1,0 +1,4 @@
+1 renderer-on-view exit=1
+2 dbml-views wrapper exit=0
+3 gen-erdiagram subset exit=0
+4 mmdc linkml subset exit=0

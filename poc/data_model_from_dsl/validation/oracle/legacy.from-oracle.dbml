@@ -1,0 +1,49 @@
+Table "domain" {
+  "domain_id" NUMBER(19) [not null]
+  "name" VARCHAR2(200) [not null]
+  "state" VARCHAR2(16) [not null]
+
+  Checks {
+    `state IN ('DRAFT', 'ACTIVE', 'INACTIVE', 'RETIRED')` [name: 'ck_domain_state']
+  }
+
+  Indexes {
+    domain_id [pk, name: "domain_pkey"]
+    name [unique, name: "uq_domain_name"]
+  }
+}
+
+Table "task" {
+  "task_id" NUMBER(19) [not null]
+  "domain_id" NUMBER(19) [not null]
+
+  Indexes {
+    task_id [pk, name: "task_pkey"]
+    (domain_id, task_id) [unique, name: "uq_task_domain"]
+  }
+}
+
+Table "task_version" {
+  "task_version_id" NUMBER(19) [not null]
+  "task_id" NUMBER(19) [not null]
+  "domain_id" NUMBER(19) [not null]
+  "version" NUMBER(10) [not null]
+  "scheduling" CLOB
+  "runs_from" DATE [not null]
+  "runs_until" DATE
+  "superseded_at" "TIMESTAMP WITH TIME ZONE"
+
+  Checks {
+    `runs_until IS NULL OR runs_until >= runs_from` [name: 'ck_task_version_range']
+  }
+
+  Indexes {
+    task_version_id [pk, name: "task_version_pkey"]
+    (task_id, version) [unique, name: "uq_task_version_number"]
+    `CASE WHEN superseded_at IS NULL THEN task_id END` [unique, name: "uq_task_version_current"]
+  }
+}
+
+Ref "task_domain_fk":"domain"."domain_id" <? "task"."domain_id"
+
+Ref "task_version_task_fk":"task".("domain_id", "task_id") <? "task_version".("domain_id", "task_id")

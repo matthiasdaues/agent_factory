@@ -1,0 +1,18 @@
+
+Error: Parse error on line 16:
+...at    }    TASK {{        bigint tas
+--------------------^
+Expecting 'BLOCK_STOP', 'ATTRIBUTE_WORD', got '{'
+Parser.parseError (https://mermaid-cli-intercept.invalid/home/mermaidcli/node_modules/mermaid/dist/chunks/mermaid.esm/erDiagram-VZDIDQZ7.mjs:323:21)
+Parser.parse (https://mermaid-cli-intercept.invalid/home/mermaidcli/node_modules/mermaid/dist/chunks/mermaid.esm/erDiagram-VZDIDQZ7.mjs:395:16)
+    at #evaluate (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/cdp/ExecutionContext.js:402:19)
+    at async ExecutionContext.evaluate (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/cdp/ExecutionContext.js:288:16)
+    at async IsolatedWorld.evaluate (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/cdp/IsolatedWorld.js:104:16)
+    at async CdpJSHandle.evaluate (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/api/JSHandle.js:154:20)
+    at async CdpElementHandle.evaluate (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/api/ElementHandle.js:344:20)
+    at async CdpElementHandle.$eval (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/api/ElementHandle.js:498:24)
+    at async CdpFrame.$eval (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/api/Frame.js:469:20)
+    at async CdpPage.$eval (file:///home/mermaidcli/node_modules/puppeteer-core/lib/puppeteer/api/Page.js:462:20)
+    at async renderMermaid (file:///home/mermaidcli/node_modules/@mermaid-js/mermaid-cli/src/index.js:690:22)
+    at fromText (https://mermaid-cli-intercept.invalid/home/mermaidcli/node_modules/mermaid/dist/mermaid.esm.mjs:1337:17)
+

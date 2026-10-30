@@ -1,0 +1,13 @@
+case	description	dbml_file	linkml_file
+E01	reference to a column that does not exist	E01.dbml	n/a
+E02	unique key on a column that does not exist	E02.dbml	E02.yaml
+E03	composite reference with mismatched column counts	E03.dbml	n/a
+E04	foreign key whose column type differs from the target	E04.dbml	n/a
+E05	duplicate table	E05.dbml	E05.yaml
+E06	duplicate column in one table	E06.dbml	E06.yaml
+E07	column type that is not defined	E07.dbml	E07.yaml
+E08	duplicate enum value	E08.dbml	E08.yaml
+E09	primary key on a column that does not exist	E09.dbml	n/a
+E10	check or rule that names a column that does not exist	E10.dbml	E10.yaml
+E11	two primary keys in one table	E11.dbml	E11.yaml
+E12	group member that does not exist	E12.dbml	n/a

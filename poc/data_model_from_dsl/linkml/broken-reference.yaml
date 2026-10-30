@@ -1,0 +1,227 @@
+---
+# Spike code for the data-model DSL PoC. The acid slice as a LinkML schema.
+# Source: acid-slice.md (Gigacron 40954f18).
+# A comment "NOT EXPRESSED" marks a constraint LinkML has no construct for.
+id: https://example.org/gigacron/acid-slice
+name: acid_slice
+prefixes:
+  linkml: https://w3id.org/linkml/
+  gc: https://example.org/gigacron/
+default_prefix: gc
+default_range: string
+imports:
+  - linkml:types
+
+classes:
+  Any:
+    class_uri: linkml:Any
+    description: Opaque JSON payload.
+
+  Domain:
+    annotations:
+      sql_table: domain
+    attributes:
+      domain_id: {identifier: true, range: integer}
+      name: {required: true}
+      timezone: {required: true}
+      odate_boundary_time: {required: true, range: time}
+      projection_horizon: {required: true, range: integer}
+      heartbeat_interval: {required: true, range: integer}
+      liveness_threshold: {required: true, range: integer}
+      state: {required: true, range: DomainState}
+      created_at: {required: true, range: datetime}
+      state_changed_at: {required: true, range: datetime}
+      updated_at: {required: true, range: datetime}
+    unique_keys:
+      uq_domain_name: {unique_key_slots: [name]}
+
+  Task:
+    annotations:
+      sql_table: task
+      domain_owned: true
+    attributes:
+      task_id: {identifier: true, range: integer}
+      domain_id: {required: true, range: Domain}
+      state: {required: true, range: TaskState}
+      created_at: {required: true, range: datetime}
+      state_changed_at: {required: true, range: datetime}
+    unique_keys:
+      uq_task_domain: {unique_key_slots: [domain_id, task_id]}
+
+  Folder:
+    annotations:
+      sql_table: folder
+      domain_owned: true
+    attributes:
+      folder_id: {identifier: true, range: integer}
+      domain_id: {required: true, range: Domain}
+      kind: {required: true, range: FolderKind}
+      state: {required: true, range: FolderState}
+      created_at: {required: true, range: datetime}
+      state_changed_at: {required: true, range: datetime}
+    unique_keys:
+      uq_folder_domain: {unique_key_slots: [domain_id, folder_id]}
+      uq_folder_kind: {unique_key_slots: [folder_id, kind]}
+    # NOT EXPRESSED: uq_folder_root_per_domain (partial UNIQUE)
+    rules:
+      - title: ck_folder_state
+        description: kind = 'SMART' OR state = 'ACTIVE'
+        preconditions:
+          slot_conditions:
+            kind: {none_of: [{equals_string: SMART}]}
+        postconditions:
+          slot_conditions:
+            state: {equals_string: ACTIVE}
+
+  TaskVersion:
+    annotations:
+      sql_table: task_version
+      domain_owned: true
+    attributes:
+      task_version_id: {identifier: true, range: integer}
+      # NOT EXPRESSED: task_version_task_fk is (domain_id, task_id); LinkML
+      # has single-slot references only, so task_id references Task alone.
+      task_id: {required: true, range: Task}
+      domain_id: {required: true, range: Domain}
+      # NOT EXPRESSED: task_version_folder_fk (domain_id, folder_id), see above.
+      folder_id: {required: true, range: Folder}
+      version: {required: true, range: integer}
+      name: {required: true}
+      dispatch_target: {}
+      identity: {range: Any}
+      scheduling: {range: Any}
+      execution: {range: Any}
+      dependencies: {range: Any}
+      event_handling: {range: Any}
+      constraints: {range: Any}
+      published_at: {required: true, range: datetime}
+      superseded_at: {range: datetime}
+      runs_from: {required: true, range: date}
+      runs_until: {range: date}
+      # NOT EXPRESSED: task_version_set_by_folder_fk is composite, see above.
+      runs_until_set_by_folder_id: {range: Folder}
+      created_by: {required: true}
+    unique_keys:
+      uq_task_version_number: {unique_key_slots: [task_id, version]}
+    # NOT EXPRESSED: uq_task_version_current (partial UNIQUE)
+    # NOT EXPRESSED: ex_task_version_range (exclusion constraint)
+    # NOT EXPRESSED: ck_task_version_range (runs_until >= runs_from compares
+    # two slots; slot_conditions compare a slot with constants only)
+
+  Plan:
+    annotations:
+      sql_table: plan
+      domain_owned: true
+    attributes:
+      plan_id: {identifier: true, range: integer}
+      domain_id: {required: true, range: Domain}
+      odate: {required: true, range: date}
+      state: {required: true, range: PlanState}
+      created_at: {required: true, range: datetime}
+      updated_at: {required: true, range: datetime}
+    unique_keys:
+      uq_plan_domain_odate: {unique_key_slots: [domain_id, odate]}
+
+  TaskInstance:
+    annotations:
+      sql_table: task_instance
+    attributes:
+      task_instance_id: {identifier: true, range: integer}
+      plan_id: {required: true, range: Plan}
+      task_version_id: {required: true, range: TaskVersion}
+      folder_version_id: {range: integer}
+      filled_values: {required: true, range: Any}
+      state: {required: true, range: TaskInstanceState}
+      result: {}
+      queued_at: {range: datetime}
+      run_at: {range: datetime}
+      no_run_at: {range: datetime}
+      result_at: {range: datetime}
+      wake_at: {range: datetime}
+      wake_on: {}
+      created_at: {required: true, range: datetime}
+      updated_at: {required: true, range: datetime}
+
+  Attempt:
+    annotations:
+      sql_table: attempt
+    # NOT EXPRESSED: attempt_pkey (task_instance_id, attempt_no). A class has
+    # at most one identifier, so the pair is a unique key instead.
+    attributes:
+      task_instance_id: {required: true, range: TaskInstance}
+      attempt_no: {required: true, range: integer}
+      agent_id: {required: true, range: Agent}
+      attempt_state: {required: true, range: AttemptState}
+      exit_code: {range: integer}
+      dispatching_at: {required: true, range: datetime}
+      dispatched_at: {range: datetime}
+      running_at: {range: datetime}
+      unknown_at: {range: datetime}
+      finished_at: {range: datetime}
+      started_at: {range: datetime}
+      ended_at: {range: datetime}
+      updated_at: {required: true, range: datetime}
+    unique_keys:
+      attempt_pkey: {unique_key_slots: [task_instance_id, attempt_no]}
+    # NOT EXPRESSED: uq_attempt_open (partial UNIQUE)
+
+  Outbox:
+    annotations:
+      sql_table: outbox
+    attributes:
+      message_id: {identifier: true, range: integer}
+      # NOT EXPRESSED: outbox_attempt_fk (task_instance_id, attempt_no) ->
+      # attempt; Attempt has no single identifier to reference.
+      task_instance_id: {range: integer}
+      attempt_no: {range: integer}
+      agent_id: {required: true, range: integer}
+      message_type: {required: true, range: OutboxMessageType}
+      payload: {required: true, range: Any}
+      delivery_state: {required: true, range: OutboxDeliveryState}
+      leased_until: {range: datetime}
+      created_at: {required: true, range: datetime}
+      leased_at: {range: datetime}
+      sent_at: {range: datetime}
+      acked_at: {range: datetime}
+      updated_at: {required: true, range: datetime}
+    # NOT EXPRESSED: uq_outbox_attempt (partial UNIQUE), and with it the
+    # one-to-zero-or-one relationship from Attempt.
+    rules:
+      - title: ck_outbox_attempt (COMMAND names its Attempt)
+        description: part of ck_outbox_attempt
+        preconditions:
+          slot_conditions:
+            message_type: {equals_string: COMMAND}
+        postconditions:
+          slot_conditions:
+            task_instance_id: {required: true}
+            attempt_no: {required: true}
+
+  AuditEvent:
+    annotations:
+      sql_table: audit_event
+    attributes:
+      audit_event_id: {identifier: true, range: integer}
+      event_type_id: {required: true, range: integer}
+      audited_entity_id: {required: true, range: integer}
+      entity_id: {required: true, range: integer}
+      from_state: {}
+      to_state: {required: true}
+      principal: {required: true}
+      ticket_ref: {}
+      detail: {range: Any}
+      recorded_at: {required: true, range: datetime}
+      effective_at: {required: true, range: datetime}
+      supersedes_event_id: {range: AuditEvent}
+
+enums:
+  DomainState: {permissible_values: {DRAFT: {}, ACTIVE: {}, INACTIVE: {}, RETIRED: {}}}
+  TaskState: {permissible_values: {ACTIVE: {}, INACTIVE: {}, RETIRED: {}}}
+  FolderKind: {permissible_values: {ROOT: {}, REGULAR: {}, SMART: {}}}
+  FolderState: {permissible_values: {ACTIVE: {}, INACTIVE: {}, RETIRED: {}}}
+  PlanState: {permissible_values: {PENDING: {}, OPEN: {}, CLOSED: {}}}
+  TaskInstanceState: {permissible_values: {WAITING: {}, QUEUED: {}, RUN: {}, NO_RUN: {}}}
+  AttemptState:
+    permissible_values: {DISPATCHING: {}, DISPATCHED: {}, RUNNING: {}, SUCCEEDED: {}, FAILED: {}, UNKNOWN: {}}
+  OutboxMessageType: {permissible_values: {COMMAND: {}, COMMAND_OFFER: {}, CONTROL: {}}}
+  OutboxDeliveryState: {permissible_values: {PENDING: {}, LEASED: {}, SENT: {}, ACKED: {}}}
