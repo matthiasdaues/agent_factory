@@ -21,6 +21,11 @@ impact:
     - packages/factory/skills/spec-feedback/SKILL.md
     - packages/factory/scripts/merge-precommit-config
     - packages/factory/agents/spec-review-agent.md
+    - packages/factory/rulebooks/conventions/state-machine-notation.md
+    - packages/factory/rulebooks/templates/state-machine.md
+    - packages/factory/scripts/statemachine-lint
+    - packages/factory/skills/detect-test-regime/SKILL.md
+    - docs/testing.yaml
 
 governance:
   assurance: elevated
@@ -118,9 +123,12 @@ the second routes agents rather than specifying the system.
 
 ### Moving installed projects
 
-A migration script moves an installed project's files into this layout and
-rewrites the local links that point at the old paths. `update-factory` offers
-it and runs it only after the developer confirms (DEC-09). The factory's own
+A migration script moves an installed project's files into this layout with
+`git mv` and rewrites the local Markdown links that point at the old paths. It
+lists every other occurrence of an old path, for example in CI files or
+scripts, for the developer to fix; it never rewrites those. `--dry-run` prints
+the moves and rewrites without making them. `update-factory` offers the script
+and runs it only after the developer confirms (DEC-09). The factory's own
 repository is migrated the same way, as the first project.
 
 ### The `entity-model` script
@@ -144,16 +152,30 @@ neither. The PoC's `dbml-render.sh` and `dbml-views.sh` show both steps.
 ### Drift check
 
 `compare` checks the model against the code without knowing the project's
-stack (DEC-10):
+stack (DEC-10). The factory owns the database container; the project names
+only how its schema gets built (DEC-11):
 
-1. The project names one command that dumps its live schema as DDL, built by
-   whatever the project uses: migrations, an ORM, or plain SQL. The command
-   lives in `.agent-factory/config/project.json` under
-   `entity_model.schema_dump` (DEC-11).
-2. `compare` runs the command and turns the dump into DBML with `sql2dbml`.
-3. It parses both files with `@dbml/core` and compares tables, columns, types,
+1. `docs/testing.yaml` names, under `schema`, the database image
+   (`database_image`, for example `postgres:16`) and the project's apply
+   command (`apply`, for example `alembic upgrade head`, `flyway migrate`, or
+   `psql -f schema.sql`).
+2. `compare` starts the image as a throwaway container and runs the apply
+   command with `DATABASE_URL` pointing at it. The command runs in the
+   project's own toolchain and may itself be a `docker run`.
+3. `compare` dumps the schema with the database's own client from the same
+   image, removes the container, and turns the dump into DBML with
+   `sql2dbml`.
+4. It parses both files with `@dbml/core` and compares tables, columns, types,
    nullability, primary keys, foreign keys, unique keys, indexes, and CHECK
    constraints by name.
+
+The built-in dump step covers PostgreSQL (`pg_dump --schema-only`). For any
+other database, the project names a full dump command under `schema.dump`
+instead, and steps 2 and 3 are skipped. The factory ships no reference to a
+database image under a non-permissive licence, such as Oracle's.
+
+`detect-test-regime` keeps the `schema` keys when it rewrites
+`docs/testing.yaml`.
 
 Every difference prints as one line, `<table>.<column or constraint>: <model> ≠ <live>`. Items the model leaves open, such as identity generation or column
 order, do not count as differences.
@@ -163,15 +185,15 @@ order, do not count as differences.
 The parser caught 8 of the PoC's 12 semantic errors. The lint adds rules that
 the `@dbml/core` model can answer:
 
-| Rule                 | Checks                                                                                                                    | PoC case |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `fk-type-match`      | A foreign-key column has the same type as the column it references.                                                       | E04      |
-| `single-primary-key` | A table declares at most one primary key.                                                                                 | E11      |
-| `known-type`         | Each column type is in the allowed list for the file's `database_type`.                                                   | E07      |
-| `one-to-one-owner`   | A one-to-one reference is written with `>` and a UNIQUE index, never `-`.                                                 | PoC note |
-| `enum-matches-state` | Each enum linked to a state machine has exactly that machine's states.                                                    | none     |
-| `payload-schema`     | Each `json` or `jsonb` column names a schema in its note, and that file exists in `docs/spec/schemas/` and is valid.      | none     |
-| `note-shape`         | A note is one sentence of at most 160 characters, sits on a table or column, and carries no keyword other than `schema:`. | none     |
+| Rule                 | Checks                                                                                                               | PoC case |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- | -------- |
+| `fk-type-match`      | A foreign-key column has the same type as the column it references.                                                  | E04      |
+| `single-primary-key` | A table declares at most one primary key.                                                                            | E11      |
+| `known-type`         | Each column type is in the allowed list for the file's `database_type`.                                              | E07      |
+| `one-to-one-owner`   | A one-to-one reference is written with `>` and a UNIQUE index, never `-`.                                            | PoC note |
+| `enum-matches-state` | Each enum linked to a state machine has exactly that machine's states.                                               | none     |
+| `payload-schema`     | Each `json` or `jsonb` column names a schema in its note, and that file exists in `docs/spec/schemas/` and is valid. | none     |
+| `prose-in-notes`     | The file has no `//` or `/* */` comment. Every explanation is a note, because the parser drops comments.             | none     |
 
 E10, a CHECK expression that names a missing column, needs an SQL expression
 parser and stays out of this release.
@@ -181,17 +203,30 @@ A payload column names its schema in its note, for example
 format. This release checks JSON Schema files only; another format gets a rule
 when a project needs one (DEC-13).
 
-`note-shape` keeps long rule texts out of the model. A short rule such as
-"FORWARD ONLY" still fits in a note, so the spec-review agent also checks that
-no note states behaviour: transitions, ordering, or conditions. Behaviour
-belongs in `state-machines.md`, `validation-rules.md`, or a feature file
-(DEC-14).
+### Explanations in the model
+
+The entity model's explanatory prose lives in DBML notes. A note may sit on
+the project, a table, a column, an index, an enum value, or a table group, or
+stand alone; it may span several lines and use Markdown. The parser keeps
+every note, while it drops comments, so `prose-in-notes` forbids comments
+(DEC-17). `dbml2sql` exports table and column notes as the database's own
+comments, and `sql2dbml` imports those comments back as notes.
+
+A note explains; it never states behaviour. A note such as "FORWARD ONLY"
+states a transition rule, which belongs in `state-machines.md`. No lint can
+tell an explanation from a rule, so the spec-review agent checks every note
+for transitions, ordering, and conditions (DEC-14). Behaviour belongs in
+`state-machines.md`, `validation-rules.md`, or a feature file.
 
 ### State-machine link
 
-`statemachine-lint` already reads `state-machines.md`. A state machine names
-the DBML enum it governs, for example `enum: task_state`. `enum-matches-state`
-compares the two sets and reports values missing on either side (DEC-04).
+A state machine whose state is stored names the DBML enum that stores it. The
+line `Enum: task_state` opens its pseudocode block; a machine without a stored
+state has no such line. `statemachine-lint` reads the line, and
+`enum-matches-state` compares the machine's `State:` declarations with the
+enum's values. It reports a value missing on either side, and an `Enum:` name
+that the DBML file does not define (DEC-04). `state-machine-notation.md` and
+the state-machine template describe the line.
 
 ### Pre-commit hook
 
@@ -203,12 +238,13 @@ changes. `merge-precommit-config` adds it to installed projects, next to
 
 - `requirements-agent` writes the DBML file instead of `entity-model.md`.
 - Brownfield onboarding imports with `entity-model import` when DDL or a
-  database dump exists, and lets an agent derive the model from code
-  otherwise. Either result goes to the stakeholder for confirmation.
+  database dump exists, so existing database comments arrive as notes. It
+  lets an agent derive the model from code otherwise. Either result goes to the stakeholder for confirmation.
 - `reverse-map`, `reconcile-spec`, `spec-feedback`, `qa-strategy-from-spec`,
   and `create-backlog-story-slices` read the DBML file.
-- `entity-model.md` is no longer written. Short descriptions go into DBML
-  `Note` fields on tables and columns (DEC-05).
+- `entity-model.md` is no longer written. Its diagrams become the rendered
+  SVGs, its tables the DBML file, and its explanatory prose the DBML notes
+  (DEC-05). An existing `entity-model.md` is ported in full, prose included.
 
 ### Gigacron pilot
 
@@ -248,6 +284,14 @@ output as the reason (DEC-10).
   each project migrates when it next touches its model.
 - **Generating application code or migrations from DBML.** ADR-0024 makes DBML
   the model, not a code generator.
+- **A state-machine language, and a soundness check for the current
+  pseudocode.** Whether a validatable language replaces the pseudocode is its
+  own question, tracked as T-0007. A soundness check written now would be
+  thrown away if the notation changes. The `Enum:` line carries over to any
+  notation.
+- **Built-in dump steps for databases other than PostgreSQL.** The
+  project-named dump command covers them; a built-in step follows when a
+  project needs one.
 - **Schema formats other than JSON Schema.** No project uses one yet.
 - **Project-specific rules,** such as Gigacron's Domain-owned rule. They need a
   rule-configuration format, which no second project has asked for yet.
@@ -276,8 +320,7 @@ None.
 - A commit that breaks the DBML file is rejected by the `entity-model-lint`
   hook in a project installed with `init-factory`.
 - `enum-matches-state` reports an enum value that a linked state machine lacks.
-- `note-shape` reports a note longer than one sentence or 160 characters, and
-  a note on the project or on a table group.
+- `prose-in-notes` reports every `//` and `/* */` comment in the DBML file.
 - The spec-review agent's instructions name the review rule for notes.
 - `payload-schema` reports a `jsonb` column without a schema, and a schema name
   with no file in `docs/spec/schemas/`.
@@ -287,9 +330,14 @@ None.
   the top, the feature files in `features/`, payload schemas in `schemas/`,
   working output in `work/`, and nothing else. `link-check` passes.
 - The migration script runs on a copy of an installed project, moves its
-  files, and leaves `link-check` passing.
+  files, and leaves `link-check` passing. It lists each old path found outside
+  Markdown, and `--dry-run` changes no file.
 - T-0006 is resolved with `docs/spec/entity-model.dbml`.
+- Gigacron's ported model keeps every explanatory passage of its
+  `entity-model.md` as a note.
 - Gigacron's full model passes `entity-model validate` and renders.
+- `detect-test-regime` rewrites a `docs/testing.yaml` that has `schema` keys
+  and keeps them.
 - `entity-model compare` on the PoC's acid slice, against Gigacron's live
   schema at the pinned commit, reports each of the 16 differences in the PoC's
   `expected-differences.md` and no other. Or the probe's output is recorded as
@@ -304,23 +352,25 @@ not done.
 
 ## Decisions
 
-| ID     | Date       | Kind       | Decided by     | Decision                                                                                                                                                                                                                                | Raised by                        |
-| ------ | ---------- | ---------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| DEC-01 | 2026-10-30 | decision   | Matthias Daues | Adopt DBML as the entity-model language, as ADR-0024 records.                                                                                                                                                                           | Data-model DSL PoC               |
-| DEC-02 | 2026-10-30 | decision   | Matthias Daues | The first slice is the validator and the pre-commit hook, tested on the PoC's acid slice.                                                                                                                                               | Planning after the PoC           |
-| DEC-03 | 2026-10-30 | assumption | Matthias Daues | One script named after its role, `entity-model`, wraps all DBML tools, so callers do not depend on the tool's name.                                                                                                                     | Draft                            |
-| DEC-04 | 2026-10-30 | assumption | Matthias Daues | A state machine names its DBML enum explicitly; the lint does not guess the link from column names.                                                                                                                                     | Draft                            |
-| DEC-05 | 2026-10-30 | assumption | Matthias Daues | `entity-model.md` is retired, not kept as a derived view. DBML `Note` fields carry short descriptions; the rendered SVGs carry the picture.                                                                                             | Draft                            |
-| DEC-06 | 2026-10-30 | decision   | Matthias Daues | The core artifact set and its storage root are settled before the DBML path is fixed.                                                                                                                                                   | Stakeholder, planning session    |
-| DEC-07 | 2026-10-30 | decision   | Matthias Daues | ADRs are not part of the core artifact set. They are a record of decisions, not a model, and `docs/adr/` already makes them easy to find.                                                                                               | Open Question 1                  |
-| DEC-08 | 2026-10-30 | decision   | Matthias Daues | `docs/spec/` holds the nine core artifacts and nothing else, with `.feature` files under `features/`. Working output moves to `docs/spec/work/`. `architecture.dsl` and `dependency-rules.dsl` move in from `docs/arc42/`.              | Open Question 1                  |
-| DEC-09 | 2026-10-30 | assumption | Matthias Daues | Installed projects move through a migration script that `update-factory` offers and runs only after the developer confirms.                                                                                                             | Draft, follows DEC-08            |
-| DEC-10 | 2026-10-30 | decision   | Matthias Daues | The drift check compares DBML with DBML: the live schema is dumped as DDL, imported with `sql2dbml`, and diffed. It is the last slice and opens with a probe on the PoC's `live-schema.sql`; if the probe fails, the check is deferred. | Open Question on the drift check |
-| DEC-11 | 2026-10-30 | assumption | Matthias Daues | The schema dump command lives in `.agent-factory/config/project.json` under `entity_model.schema_dump`.                                                                                                                                 | Draft, follows DEC-10            |
-| DEC-12 | 2026-10-30 | decision   | Matthias Daues | Working output lives in `docs/spec/work/`, not in a sibling folder. The core files are the only files at the top of `docs/spec/`.                                                                                                       | Stakeholder, refines DEC-08      |
-| DEC-13 | 2026-10-30 | decision   | Matthias Daues | Schemas for structured payloads join the core in `docs/spec/schemas/`. The folder name does not tie it to one format; this release checks JSON Schema only.                                                                             | Open Question on JSON payloads   |
-| DEC-14 | 2026-10-30 | decision   | Matthias Daues | "No behaviour in a note" is enforced twice: the `note-shape` lint limits a note's form, and the spec-review agent judges its content.                                                                                                   | Open Question on notes           |
-| DEC-15 | 2026-10-30 | assumption | Matthias Daues | A note is limited to one sentence of at most 160 characters.                                                                                                                                                                            | Draft, follows DEC-14            |
+| ID     | Date       | Kind       | Decided by     | Decision                                                                                                                                                                                                                                                    | Raised by                                              |
+| ------ | ---------- | ---------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| DEC-01 | 2026-10-30 | decision   | Matthias Daues | Adopt DBML as the entity-model language, as ADR-0024 records.                                                                                                                                                                                               | Data-model DSL PoC                                     |
+| DEC-02 | 2026-10-30 | decision   | Matthias Daues | The first slice is the validator and the pre-commit hook, tested on the PoC's acid slice.                                                                                                                                                                   | Planning after the PoC                                 |
+| DEC-03 | 2026-10-30 | decision   | Matthias Daues | One script named after its role, `entity-model`, wraps all DBML tools, so callers do not depend on the tool's name.                                                                                                                                         | Draft                                                  |
+| DEC-04 | 2026-10-30 | decision   | Matthias Daues | A state machine names its DBML enum with an `Enum:` line in its pseudocode block. Behaviour points at structure; the DBML file names no state machine, and `note-shape` keeps one keyword.                                                                  | Grilling, question 2                                   |
+| DEC-05 | 2026-10-30 | decision   | Matthias Daues | `entity-model.md` is retired, not kept as a derived view. Its explanatory prose moves into DBML notes; the rendered SVGs carry the picture.                                                                                                                 | Grilling, question 3                                   |
+| DEC-06 | 2026-10-30 | decision   | Matthias Daues | The core artifact set and its storage root are settled before the DBML path is fixed.                                                                                                                                                                       | Stakeholder, planning session                          |
+| DEC-07 | 2026-10-30 | decision   | Matthias Daues | ADRs are not part of the core artifact set. They are a record of decisions, not a model, and `docs/adr/` already makes them easy to find.                                                                                                                   | Open Question 1                                        |
+| DEC-08 | 2026-10-30 | decision   | Matthias Daues | `docs/spec/` holds the nine core artifacts and nothing else, with `.feature` files under `features/`. Working output moves to `docs/spec/work/`. `architecture.dsl` and `dependency-rules.dsl` move in from `docs/arc42/`.                                  | Open Question 1                                        |
+| DEC-09 | 2026-10-30 | decision   | Matthias Daues | Installed projects move through a migration script that `update-factory` offers and runs only after the developer confirms. It rewrites Markdown links, lists other hits without changing them, and has `--dry-run`.                                        | Grilling, question 4                                   |
+| DEC-10 | 2026-10-30 | decision   | Matthias Daues | The drift check compares DBML with DBML: the live schema is dumped as DDL, imported with `sql2dbml`, and diffed. It is the last slice and opens with a probe on the PoC's `live-schema.sql`; if the probe fails, the check is deferred.                     | Open Question on the drift check                       |
+| DEC-11 | 2026-10-30 | decision   | Matthias Daues | `docs/testing.yaml` holds the drift check's settings under `schema`: `database_image` and `apply`, or `dump` as the fallback. The factory starts the container and dumps PostgreSQL itself. `.agent-factory/config/` was rejected because it is gitignored. | Grilling, question 5                                   |
+| DEC-12 | 2026-10-30 | decision   | Matthias Daues | Working output lives in `docs/spec/work/`, not in a sibling folder. The core files are the only files at the top of `docs/spec/`.                                                                                                                           | Stakeholder, refines DEC-08                            |
+| DEC-13 | 2026-10-30 | decision   | Matthias Daues | Schemas for structured payloads join the core in `docs/spec/schemas/`. The folder name does not tie it to one format; this release checks JSON Schema only.                                                                                                 | Open Question on JSON payloads                         |
+| DEC-14 | 2026-10-30 | decision   | Matthias Daues | "No behaviour in a note" is checked by the spec-review agent. No lint judges a note's content; DEC-17 revises the mechanical half.                                                                                                                          | Open Question on notes, revised in grilling question 3 |
+| DEC-15 | 2026-10-30 | assumption | Matthias Daues | A note is limited to one sentence of at most 160 characters. Replaced by DEC-17: the limit would leave no room for the model's explanatory prose.                                                                                                           | Draft, follows DEC-14                                  |
+| DEC-16 | 2026-10-30 | decision   | Matthias Daues | The choice of a validatable state-machine language is a separate question (T-0007), outside this proposal. A soundness check for the current pseudocode waits for it.                                                                                       | Grilling, question 2                                   |
+| DEC-17 | 2026-10-30 | decision   | Matthias Daues | Notes carry all explanatory prose, with no limit on length or position. `prose-in-notes` replaces `note-shape` and forbids comments, because the parser drops them and every export loses them.                                                             | Grilling, question 3                                   |
 
 ## Review findings
 

@@ -79,5 +79,22 @@ work starts before then.
 
 **Revision (2026-10-30):** [ADR-0024](../adr/0024-dbml-as-entity-model-language.md)
 replaces LinkML with DBML. The canonical source is `docs/spec/entity-model.dbml`;
-`entity-model.md` and the SVG stay derived projections. How structured JSON
-payloads are described is open; the PoC did not test it.
+`entity-model.md` is retired: its prose moves into DBML notes, its diagrams
+into rendered SVGs. Payload schemas live in `docs/spec/schemas/`. Details are
+in the proposal [entity-model-as-dbml.md](../proposals/entity-model-as-dbml.md).
+
+## T-0007 — Choose a validatable state-machine language
+
+- status: open
+- source: grilling of [entity-model-as-dbml.md](../proposals/entity-model-as-dbml.md) (DEC-04 there)
+
+`state-machines.md` holds a home-grown pseudocode. `statemachine-lint` checks
+only that the derived Mermaid diagram matches it. Nothing checks whether a
+machine is sound: unreachable states, dead ends, or transitions to undeclared
+states. The entity model had the same gap before ADR-0024.
+
+**Action:** run a survey of state-machine languages under the licence rule
+(MIT, Apache-2.0, or similar; no paywalled features), then a technical PoC on
+Gigacron's state machines, scored with the criteria of the `architecture.dsl`
+pattern. Known candidates, unverified: SCXML, XState, Umple, P, TLA+/PlusCal.
+A soundness check for the current pseudocode waits for this result.
