@@ -49,14 +49,16 @@ Written by `write-primer` once the design is settled.
 
 ## Summary
 
-The factory keeps a project's entity model as one DBML file, checked the way
-`architecture.dsl` is checked: a validator with exit codes, a lint for the
-errors the parser misses, a pre-commit hook, and one SVG per named view. The
-question it answers is one the factory cannot answer today: does the entity
-model still hold together after this commit? The first release covers the
-tooling, a single home for the specification core in `docs/spec/` with a
-migration for installed projects, the factory's agents and playbooks, and a
-pilot on a pinned copy of Gigacron's full model.
+The factory keeps a project's entity model as one DBML file. It checks the
+file the way it checks `architecture.dsl`: with a validator with exit codes, a
+lint for the errors the parser misses, a pre-commit hook, and one SVG per named
+view. These checks answer a question no factory gate answers today: does the
+entity model still hold together after this commit?
+
+The first release covers the tooling and the factory's agents and playbooks.
+It also gives the specification core a single home in `docs/spec/`, with a
+migration for installed projects. A pilot runs the tools on a pinned copy of
+Gigacron's full model.
 
 ## Motivation
 
@@ -71,14 +73,14 @@ ADR-0024 chose DBML after a
 [technical PoC](../../poc/data_model_from_dsl/proposal-data-model-dsl-technical-poc.md).
 The PoC ported the
 [acid slice](../../poc/data_model_from_dsl/acid-slice.md), nine entities of
-Gigacron's model, and ran each tool on twelve semantic error cases built from
-it, E01 to E12. The PoC's wrappers prove each piece
-works, but they are spike code. They assume Gigacron's tables, run only by
+Gigacron's model. It ran each tool on twelve semantic error cases built from
+that slice, E01 to E12. The PoC's wrapper scripts show that each piece works,
+but they are throwaway code. They assume Gigacron's tables, run only by
 hand, and live under `poc/`. No project can use them.
 
 T-0006 asked for one canonical entity-model path across all scenarios. The
-path is chosen, but no scenario uses it yet, and the factory today scatters its specification artifacts across
-`docs/spec/`, `docs/spec/supplementary_specs/`, `docs/arc42/`, and `docs/`
+path is chosen, but no scenario uses it yet. The factory also scatters its
+specification artifacts across `docs/spec/`, `docs/spec/supplementary_specs/`, `docs/arc42/`, and `docs/`
 itself. `CONTEXT.md` is referenced at both `docs/CONTEXT.md` and
 `docs/arc42/CONTEXT.md`.
 
@@ -102,12 +104,13 @@ itself. `CONTEXT.md` is referenced at both `docs/CONTEXT.md` and
 
 ### The core artifact set
 
-A project's specification core is the set of files that people edit by hand,
-that every other artifact derives from or is checked against, and that a gate
-checks or should check. All of them live in `docs/spec/`: the feature files in `features/`,
-the schemas for structured payloads in `schemas/`, and every other core file
-at the top. The only other folder is `work/`, which holds no core file
-(DEC-08, DEC-13):
+A project's specification core is the set of files that meet three
+conditions. People edit them by hand. Every other artifact derives from them or
+is checked against them. A gate checks them or should check them.
+
+All core files live in `docs/spec/` (DEC-08, DEC-13). The feature files sit in
+`features/`, the schemas for structured payloads in `schemas/`, and every other
+core file at the top:
 
 | File                     | Holds                                             | Gate                       |
 | ------------------------ | ------------------------------------------------- | -------------------------- |
@@ -122,27 +125,29 @@ at the top. The only other folder is `work/`, which holds no core file
 | `schemas/*`              | Structure inside payload columns, such as `jsonb` | `entity-model validate`    |
 | `CONTEXT.md`             | The domain vocabulary all of the above uses       | none yet                   |
 
-Working output that agents write while they derive or review the core lives
-in `docs/spec/work/`: gaps reports, QA strategies, `prd.md`, and update
-summaries. ADRs stay in `docs/adr/` (DEC-07). The arc42 prose stays in
-`docs/arc42/` and refers to `docs/spec/architecture.dsl`. `testing.yaml` and
-`agent-context.md` stay in `docs/`, because the first is derived from code and
-the second routes agents rather than specifying the system.
+The only other folder in `docs/spec/` is `work/`. It holds no core file, only
+the working output that agents write while they derive or review the core:
+gaps reports, QA strategies, `prd.md`, and update summaries.
+
+ADRs live in `docs/adr/` (DEC-07). The arc42 prose lives in `docs/arc42/` and
+refers to `docs/spec/architecture.dsl`. `testing.yaml` and `agent-context.md`
+live in `docs/`. They are not core files: `testing.yaml` is derived from code,
+and `agent-context.md` routes agents and does not specify the system.
 
 ### Moving installed projects
 
 A migration script moves an installed project's files into this layout with
-`git mv` and rewrites the local Markdown links that point at the old paths. It
-lists every other occurrence of an old path, for example in CI files or
-scripts, for the developer to fix; it never rewrites those. `--dry-run` prints
+`git mv`. It also rewrites the local Markdown links that point at the old
+paths. It lists every other occurrence of an old path, for example in CI files
+or scripts, for the developer to fix. It never rewrites those. `--dry-run` prints
 the moves and rewrites without making them. `update-factory` offers the script
 and runs it only after the developer confirms (DEC-09). The factory's own
-repository is migrated the same way, as the first project.
+repository is the first project to migrate this way.
 
 ### The `entity-model` script
 
 One factory script, `packages/factory/scripts/entity-model`, wraps the DBML
-tools in a pinned `node` container (DEC-03). Its subcommands:
+tools in a pinned `node` container (DEC-03). It has four subcommands:
 
 | Subcommand | Does                                                                          | Exit code                           |
 | ---------- | ----------------------------------------------------------------------------- | ----------------------------------- |
@@ -151,12 +156,12 @@ tools in a pinned `node` container (DEC-03). Its subcommands:
 | `import`   | Runs `sql2dbml` on DDL for a named dialect and writes a DBML file for review. | 0 written, 1 errors                 |
 | `compare`  | Compares the model with the project's live schema and lists every difference. | 0 equal, 1 differences, 2 tool fail |
 
-It reads `docs/spec/entity-model.dbml` unless a path is given. A
+It reads `docs/spec/entity-model.dbml` unless the caller gives a path. A
 `DiagramView` is a DBML block that names a subset of tables for one diagram.
 
+The renderer reads neither `checks` blocks nor `DiagramView` blocks. So
 `render` removes the `checks` blocks and copies each view's tables into a
-temporary model before it calls the renderer, because the renderer reads
-neither. The PoC's `dbml-render.sh` and `dbml-views.sh` show both steps.
+temporary model before it calls the renderer. The PoC's `dbml-render.sh` and `dbml-views.sh` show both steps.
 
 - The container image and the `@dbml/core` version are pinned in the script.
   The PoC used `node:20-bookworm` and `@dbml/core` 11.0.0.
@@ -168,34 +173,34 @@ neither. The PoC's `dbml-render.sh` and `dbml-views.sh` show both steps.
 ### Lint rules
 
 The parser caught 8 of the PoC's 12 semantic errors. The lint adds rules that
-the `@dbml/core` model can answer:
+it answers from the `@dbml/core` model:
 
-| Rule                 | Checks                                                                                                                             | PoC case |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `fk-type-match`      | A foreign-key column has the same type as the column it references.                                                                | E04      |
-| `single-primary-key` | A table declares at most one primary key.                                                                                          | E11      |
-| `known-type`         | Each column type is in the allowed list for the file's `database_type`.                                                            | E07      |
-| `one-to-one-owner`   | A one-to-one reference is written with `>` and a UNIQUE index, never `-`.                                                          | PoC note |
-| `enum-matches-state` | Each enum linked to a state machine has exactly that machine's states; see [State-machine link](#state-machine-link).              | none     |
-| `payload-schema`     | Each `json` or `jsonb` column names a schema in its note, and that file exists in `docs/spec/schemas/` and is valid.               | none     |
-| `prose-in-notes`     | The file has no `//` or `/* */` comment. Every explanation is a note; see [Explanations in the model](#explanations-in-the-model). | none     |
+| Rule                 | Checks                                                                                                                              | PoC case                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `fk-type-match`      | A foreign-key column has the same type as the column it references.                                                                 | E04                                                                                         |
+| `single-primary-key` | A table declares at most one primary key.                                                                                           | E11                                                                                         |
+| `known-type`         | Each column type is in the allowed list for the file's `database_type`.                                                             | E07                                                                                         |
+| `one-to-one-owner`   | A one-to-one reference is written with `>` and a UNIQUE index, never `-`.                                                           | [PoC finding](../../poc/data_model_from_dsl/notes/validation.md#finding-for-the-dbml-story) |
+| `enum-matches-state` | Each enum linked to a state machine has exactly that machine's states (see [State-machine link](#state-machine-link)).              | none                                                                                        |
+| `payload-schema`     | Each `json` or `jsonb` column names a schema in its note, and that file exists in `docs/spec/schemas/` and is valid.                | none                                                                                        |
+| `prose-in-notes`     | The file has no `//` or `/* */` comment. Every explanation is a note (see [Explanations in the model](#explanations-in-the-model)). | none                                                                                        |
 
-E10 is deferred; see [Scope](#scope).
+E10, a CHECK expression that names a missing column, is deferred (see [Scope](#scope)).
 
 A payload column names its schema in its note, for example
-`note: 'schema: task-trigger'`. The folder is named `schemas/`, not after one
-format. This release checks JSON Schema files only (DEC-13).
+`note: 'schema: task-trigger'`. The folder name `schemas/` does not tie the
+folder to one format. This release checks JSON Schema files only (DEC-13).
 
 ### Explanations in the model
 
 The entity model's explanatory prose lives in DBML notes. A note may sit on
 the project, a table, a column, an index, an enum value, or a table group, or
-stand alone; it may span several lines and use Markdown. The parser keeps
-every note, while it drops comments, so `prose-in-notes` forbids comments
+stand alone. It may span several lines and use Markdown. The parser keeps
+every note but drops comments, so `prose-in-notes` forbids comments
 (DEC-17). `dbml2sql` exports table and column notes as the database's own
 comments, and `sql2dbml` imports those comments back as notes.
 
-A note explains; it never states behaviour. A note such as "FORWARD ONLY"
+A note explains. It never states behaviour. A note such as "FORWARD ONLY"
 states a transition rule, which belongs in `state-machines.md`. No lint can
 tell an explanation from a rule, so the spec-review agent checks every note
 for transitions, ordering, and conditions (DEC-14).
@@ -203,7 +208,7 @@ for transitions, ordering, and conditions (DEC-14).
 ### State-machine link
 
 A state machine whose state is stored names the DBML enum that stores it. The
-line `Enum: task_state` opens its pseudocode block; a machine without a stored
+line `Enum: task_state` opens its pseudocode block. A machine without a stored
 state has no such line. `statemachine-lint` reads the line, and
 `enum-matches-state` compares the machine's `State:` declarations with the
 enum's values. It reports a value missing on either side, and an `Enum:` name
@@ -212,14 +217,14 @@ the state-machine template describe the line.
 
 ### Pre-commit hook
 
-A hook `entity-model-lint` runs `entity-model validate` when the DBML file
+The pre-commit hook `entity-model-lint` runs `entity-model validate` when the DBML file
 changes. `merge-precommit-config` adds it to installed projects, next to
 `arch-lint`.
 
 ### Drift check
 
 `compare` checks the model against the code without knowing the project's
-stack (DEC-10). The factory owns the database container; the project names
+stack (DEC-10). The factory owns the database container. The project names
 only how its schema gets built (DEC-11):
 
 1. `docs/testing.yaml` names, under `schema`, the database image
@@ -248,7 +253,8 @@ note as a difference (DEC-18).
 
 The built-in dump step covers PostgreSQL (`pg_dump --schema-only`). For any
 other database, the project names a full dump command under `schema.dump`
-instead, and steps 2 and 3 are skipped. The factory ships no reference to a
+instead. `compare` then runs that command in place of steps 2 and 3, starts
+no container, and turns the dump into DBML with `sql2dbml` as in step 3. The factory ships no reference to a
 database image under a non-permissive licence, such as Oracle's.
 
 `detect-test-regime` keeps the `schema` keys when it rewrites
@@ -256,15 +262,16 @@ database image under a non-permissive licence, such as Oracle's.
 
 The drift check opens with a probe: `sql2dbml --postgres` on the PoC's
 `live-schema.sql`. If `sql2dbml` cannot read that dump, the drift check moves
-to the deferred list with the probe's output as the reason, and the pilot runs
-without it (DEC-10).
+to the deferred list, with the probe's output as the reason. The pilot then
+runs without it (DEC-10).
 
 ### Factory wiring
 
 - `requirements-agent` writes the DBML file instead of `entity-model.md`.
 - Brownfield onboarding imports with `entity-model import` when DDL or a
-  database dump exists, so existing database comments arrive as notes. It
-  lets an agent derive the model from code otherwise. Either result goes to the stakeholder for confirmation.
+  database dump exists, so existing database comments arrive as notes.
+  Otherwise, it lets an agent derive the model from code. The stakeholder
+  confirms either result.
 - `reverse-map`, `reconcile-spec`, `spec-feedback`, `qa-strategy-from-spec`,
   and `create-backlog-story-slices` read the DBML file.
 - The factory writes no `entity-model.md`. Its diagrams become the rendered
@@ -277,7 +284,7 @@ The factory reads Gigacron at one pinned commit and never writes to it, as the
 PoC did. It ports all 29 entities of Gigacron's `entity-model.md`, prose
 included, into a fixture at `packages/factory/fixtures/entity-model/gigacron/`.
 The fixture's README names the pinned commit. Every `entity-model` subcommand
-runs on the fixture. The fixture is a frozen test input; it does not follow
+runs on the fixture. The fixture is a frozen test input. It does not follow later changes in
 Gigacron (DEC-20).
 
 ## Scope
@@ -294,22 +301,29 @@ Gigacron (DEC-20).
 - The `entity-model-lint` pre-commit hook, installed through
   `merge-precommit-config`.
 - The state-machine link in `state-machines.md` and `statemachine-lint`.
-- The factory wiring listed above, and T-0006 closed.
+- The factory wiring above, and the closure of T-0006.
 - The Gigacron pilot.
 - `entity-model compare`, the drift check.
 
-The slices run in this order: validator and hook on the PoC's acid slice,
-with the drift-check probe alongside; renderer; core layout and migration;
-factory wiring; state-machine link; drift check; Gigacron pilot (DEC-02,
-DEC-19). The drift check opens with a probe; see
-[Drift check](#drift-check).
+The slices run in this order (DEC-02, DEC-19):
+
+1. The validator and the hook, tested on the PoC's acid slice, with the
+   drift-check probe alongside.
+2. The renderer.
+3. The core layout and the migration.
+4. The factory wiring.
+5. The state-machine link.
+6. The drift check.
+7. The Gigacron pilot.
+
+[Drift check](#drift-check) describes the probe.
 
 **Explicitly deferred (do NOT plan stories for these):**
 
-- **E10, CHECK expressions.** It needs an SQL expression parser; no
+- **E10, CHECK expressions.** It needs an SQL expression parser. No
   permissively licensed one has been tested.
-- **Migration of other projects' Mermaid models.** The pilot shows the path;
-  each project migrates when it next touches its model.
+- **Migration of other projects' Mermaid models.** The pilot shows the path.
+  Each project migrates when it next touches its model.
 - **Generating application code or migrations from DBML.** ADR-0024 makes DBML
   the model, not a code generator.
 - **A state-machine language, and a soundness check for the current
@@ -322,7 +336,7 @@ DEC-19). The drift check opens with a probe; see
 - **Schema formats other than JSON Schema.** No project uses one yet.
 - **Gigacron's own adoption.** Gigacron moves to DBML through its own
   proposal, once the factory release exists. It may start from the fixture.
-- **Project-specific rules,** such as Gigacron's Domain-owned rule. They need a
+- **Project-specific rules,** such as Gigacron's rule that every Domain-owned table carries `domain_id`. They need a
   rule-configuration format, which no second project has asked for yet.
 
 ## Open Questions
@@ -337,8 +351,8 @@ None.
   `DiagramView` in the PoC's `acid-slice-views.dbml`.
 - `entity-model import --dialect oracle` turns the PoC's
   `legacy.oracle.sql` into a file that `validate` accepts.
-- A commit that breaks the DBML file is rejected by the `entity-model-lint`
-  hook in a project installed with `init-factory`.
+- In a project installed with `init-factory`, the `entity-model-lint` hook
+  rejects a commit that breaks the DBML file.
 - `validate` reports a one-to-one reference written with `-`.
 - `enum-matches-state` reports an enum value that a linked state machine lacks.
 - `prose-in-notes` reports every `//` and `/* */` comment in the DBML file.
@@ -362,15 +376,16 @@ None.
   `entity-model compare` runs on it, unless the probe deferred the drift
   check.
 - With `schema.comments: true`, `compare` reports a column whose note differs
-  from its database comment; with the key absent, it reports no comment
+  from its database comment. With the key absent, it reports no comment
   difference.
 - With `schema.dump` set, `compare` runs that command and starts no container.
 - `detect-test-regime` rewrites a `docs/testing.yaml` that has `schema` keys
   and keeps them.
 - `entity-model compare` on the PoC's acid slice, against Gigacron's live
   schema at the pinned commit, reports each of the 16 differences in the PoC's
-  `expected-differences.md` and no other, under that file's matching rules. Or the probe's output is recorded as
-  the reason for deferral.
+  `expected-differences.md` and no other, under that file's matching rules.
+  If the probe failed, its output is recorded instead as the reason for
+  deferral.
 
 ## Guiding Rule
 
