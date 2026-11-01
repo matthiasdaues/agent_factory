@@ -64,10 +64,10 @@ Written by `write-primer` once the design is settled.
 All of a project's specification core lives in `docs/spec/`, and nothing
 else lives at the top of that folder. Feature files live in
 `docs/spec/features/`, payload schemas in `docs/spec/schemas/`, area specs in
-`docs/spec/areas/`, and the working output that agents write in `docs/spec/work/`. A migration script
-moves an installed project into this layout. The question the layout answers
-is one a newcomer cannot answer today: which files are the source, and where
-are they?
+`docs/spec/areas/`, and the working output of agents in `docs/spec/work/`.
+A migration script moves an installed project into this layout. A newcomer
+can then see which files are the source and where they are. Today a newcomer
+cannot.
 
 ## Motivation
 
@@ -79,11 +79,10 @@ refer to `CONTEXT.md` at two paths, `docs/CONTEXT.md` (67 references) and
 `docs/arc42/CONTEXT.md` (7). The convention `context-format.md` names one
 path, and the `grilling` and `domain-modeling` skills name the other. Two
 files route agents: `agent-context.md` and `CONTEXT-MAP.md`. The factory
-refers to the todo list as both `todo.md` and
-`todos.md`.
+keeps two todo lists, `todo.md` and `todos.md`, with two ID schemes.
 
 The proposal [entity-model-as-dbml.md](entity-model-as-dbml.md) needs one
-canonical path for its DBML file in every project (todo T-0006). It builds on
+fixed path for its DBML file in every project (todo T-0006). It builds on
 this layout, which ships first (DEC-01).
 
 ## Core Principles
@@ -99,10 +98,10 @@ this layout, which ships first (DEC-01).
 
 ### The core artifact set
 
-A project's specification core is the set of files that people edit by hand,
-that every other artifact derives from or is checked against, and that a gate
-checks or should check (DEC-02). ADRs are not core; they are a record of
-decisions and stay in `docs/adr/` (DEC-03).
+A project's specification core is a set of files with three marks (DEC-02).
+People edit them by hand. Every other artifact derives from them or is checked
+against them. A gate checks them or should check them. ADRs are not core. They
+record decisions and stay in `docs/adr/` (DEC-03).
 
 | File                     | Holds                                        | Gate                       |
 | ------------------------ | -------------------------------------------- | -------------------------- |
@@ -123,25 +122,24 @@ The entity-model proposal replaces `entity-model.md` with
 
 ### Files outside the core
 
-Working output that agents write while they derive or review the core lives
+Agents write working output while they derive or review the core. It lives
 in `docs/spec/work/`: gaps reports, QA strategies, `prd.md`, and update
 summaries (DEC-05). The two todo lists are records of open work, not sources,
-so they live in `work/` too. Merging them would renumber one ID scheme and
-break its references (DEC-09).
+so they live in `work/` too (DEC-09).
 
 An area spec describes one subsystem in depth. It is core and lives in
-`docs/spec/areas/`, so the top of `docs/spec/` keeps its fixed set and the
-move stays mechanical. A project may fold an area spec into the standard
-files later, when it works on that area (DEC-09).
+`docs/spec/areas/`. So the top of `docs/spec/` keeps its fixed set of files,
+and the move stays mechanical. A project may fold an area spec into the
+single-file core artifacts later, when it works on that area (DEC-09).
 
 The arc42 prose stays in `docs/arc42/` and refers to
 `docs/spec/architecture.dsl`. `testing.yaml` and `agent-context.md` stay in
-`docs/`: the first is derived from code, and the second routes agents rather
-than specifying the system.
+`docs/`, because neither specifies the system. `testing.yaml` is derived from
+code, and `agent-context.md` routes agents.
 
-The actor-goal list and the use-case files belong to the method before the
-scope map and the feature files. No factory step produces them (ST-0098), and
-they do not fit the scope map and feature files, so the move removes them
+The actor-goal list and the use-case files belong to the factory's earlier
+specification method, which the scope map and the feature files replaced. No factory step produces them (ST-0098), and
+they do not fit the scope map and feature files. So the move removes them
 (DEC-10).
 
 ### Routing and vocabulary
@@ -158,7 +156,7 @@ a project with arc42, chapter `12_glossary.md` keeps one line that links to
 
 ### Path table
 
-Every move the layout makes:
+The table lists every move the layout makes.
 
 | Old path                                                   | New path                                                             |
 | ---------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -185,26 +183,29 @@ Every move the layout makes:
 ### The migration script
 
 `packages/factory/scripts/migrate-spec-layout` moves an installed project's
-files with `git mv`, following the path table (DEC-06). It rewrites the local Markdown
-links that point at an old path. It lists every other occurrence of an old
-path, for example in CI files or scripts, for the developer to fix; it never
-rewrites those. `--dry-run` prints the moves and rewrites without making
-them. It removes the files the path table marks as removed with `git rm`, so
-history keeps them. A Markdown link to a removed file becomes its link text
-in a code span, so `link-check` still passes.
+files with `git mv`, following the path table (DEC-06). It removes the files
+that the path table marks as removed with `git rm`, so the git history keeps
+them. It rewrites the local Markdown links that point at an old path. A
+Markdown link to a removed file becomes its link text in a code span, so
+`link-check` still passes. The script lists every other occurrence of an old
+path, for example in CI files or scripts, for the developer to fix. It never
+rewrites those occurrences. `--dry-run` prints the moves and rewrites without
+making them.
 
 The script moves `docs/arc42/12_glossary.md` to `docs/spec/glossary.md` and
 writes a new chapter 12 with one line that links to it. A `CONTEXT.md` holds
-terms when it has a `## Language` section, as the CONTEXT.md template
+terms when it has a `## Language` section, as the
+[`CONTEXT.md` template](../../packages/factory/rulebooks/templates/context.md)
 defines. The script moves such a file to `docs/spec/glossary.md` when no
-glossary exists. When a glossary exists too, it stops and lists both files
-for the developer to merge. A `CONTEXT.md` without a `## Language` section
+glossary exists. When a glossary exists too, the script stops and lists
+both files for the developer to merge. A `CONTEXT.md` without a `## Language` section
 holds routing only and does not stop the script.
 
-Folding routing into `agent-context.md` is not mechanical. It leaves `CONTEXT-MAP.md` and any routing in `CONTEXT.md` in place
-and names `capture-context --update` as the next step. That skill turns each
-listed context into a domain concern; the developer then deletes the old
-file (DEC-08).
+Folding routing into `agent-context.md` is not mechanical, so the script
+leaves `CONTEXT-MAP.md` and any routing in `CONTEXT.md` in place. It names
+`capture-context --update` as the next step. That skill turns each listed
+context into a domain concern. Then the developer deletes the old file
+(DEC-08).
 
 `update-factory` offers the script and runs it only after the developer
 confirms (DEC-04). The factory's own repository moves first, with the same
@@ -237,7 +238,7 @@ their fallback to the use-case files (DEC-10).
   layout.
 - **A gate for `glossary.md`.** No check for a glossary has been designed.
 - **One todo list.** Merging `todo.md` and `todos.md` changes one ID scheme
-  and its references. Todo T-0008 holds it (DEC-09).
+  and its references. Todo T-0008 tracks the merge (DEC-09).
 
 ## Open Questions
 
@@ -264,7 +265,8 @@ None.
 - On a project with a `CONTEXT.md` that holds terms and an existing
   glossary, the script stops and lists both before it moves either one.
 - The factory's own migration runs without stopping, because its
-  `docs/CONTEXT.md` has no `## Language` section. Afterwards,
+  `docs/CONTEXT.md` has no `## Language` section. After the migration and the
+  `capture-context --update` run that follows it,
   `docs/spec/glossary.md` holds the terms of the old
   `docs/arc42/12_glossary.md`, `docs/agent-context.md` has one domain
   concern per context of the old `CONTEXT-MAP.md`, and `concern-lint` passes.
@@ -292,7 +294,7 @@ the top.
 | DEC-06 | 2026-11-01 | decision | Matthias Daues | The migration script is named `migrate-spec-layout`.                                                                                                                                                                                              | Draft                                       |
 | DEC-07 | 2026-11-01 | decision | Matthias Daues | `docs/agent-context.md` is the one routing file; `CONTEXT.md` and `CONTEXT-MAP.md` fold into its domain concerns. Term definitions live in the core file `docs/spec/glossary.md`.                                                                 | Open Question 1, `CONTEXT-MAP.md`           |
 | DEC-08 | 2026-11-01 | decision | Matthias Daues | The script moves terms to `glossary.md` but leaves routing to `capture-context --update`, because folding routing into domain concerns needs judgment.                                                                                            | Draft, follows DEC-07                       |
-| DEC-09 | 2026-11-01 | decision | Matthias Daues | `todo.md` and `todos.md` move to `docs/spec/work/`; merging them is a separate todo. Area specs move to `docs/spec/areas/`, their QA strategies to `work/`.                                                                                       | Open Question 1                             |
+| DEC-09 | 2026-11-01 | decision | Matthias Daues | `todo.md` and `todos.md` move to `docs/spec/work/`; merging them is a separate todo. Area specs move to `docs/spec/areas/`, their QA strategies to `work/`. A project may fold an area spec into the single-file core artifacts later.            | Open Question 1                             |
 | DEC-10 | 2026-11-01 | decision | Matthias Daues | The actor-goal list and the use-case files are removed, along with the agents' use-case fallbacks. They do not fit the scope map and feature files.                                                                                               | Open Question 1                             |
 
 ## Review findings
