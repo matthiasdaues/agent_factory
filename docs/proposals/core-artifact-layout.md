@@ -23,6 +23,8 @@ impact:
     - packages/factory/scripts/statemachine-lint
     - packages/factory/agents/requirements-agent.md
     - packages/factory/agents/spec-review-agent.md
+    - packages/factory/agents/developer-agent.md
+    - packages/factory/agents/reconciliation-agent.md
     - packages/factory/playbooks/brownfield-onboarding.md
     - packages/factory/skills/derive-feature/SKILL.md
     - packages/factory/skills/domain-modeling/SKILL.md
@@ -141,25 +143,39 @@ a project with arc42, chapter `12_glossary.md` keeps one line that links to
 
 Every move the layout makes:
 
-| Old path                                               | New path                                                             |
-| ------------------------------------------------------ | -------------------------------------------------------------------- |
-| `docs/spec/scope-map.md`                               | unchanged                                                            |
-| `docs/spec/<name>.feature`                             | `docs/spec/features/<name>.feature`                                  |
-| `docs/spec/supplementary_specs/entity-model.md`        | `docs/spec/entity-model.md`                                          |
-| `docs/spec/supplementary_specs/state-machines.md`      | `docs/spec/state-machines.md`                                        |
-| `docs/spec/supplementary_specs/validation-rules.md`    | `docs/spec/validation-rules.md`                                      |
-| `docs/spec/supplementary_specs/interface-contracts.md` | `docs/spec/interface-contracts.md`                                   |
-| `docs/arc42/architecture.dsl`                          | `docs/spec/architecture.dsl`                                         |
-| `docs/arc42/dependency-rules.dsl`                      | `docs/spec/dependency-rules.dsl`                                     |
-| `docs/arc42/12_glossary.md`                            | `docs/spec/glossary.md`; chapter 12 links to it                      |
-| `docs/CONTEXT.md`, `docs/arc42/CONTEXT.md`             | terms to `docs/spec/glossary.md`, routing to `docs/agent-context.md` |
-| `docs/arc42/CONTEXT-MAP.md`                            | domain concerns in `docs/agent-context.md`                           |
-| `docs/spec/prd.md`                                     | `docs/spec/work/prd.md`                                              |
-| `docs/spec/<name>-gaps.md`                             | `docs/spec/work/<name>-gaps.md`                                      |
-| `docs/spec/<name>-qa-strategy.md`                      | `docs/spec/work/<name>-qa-strategy.md`                               |
-| `docs/spec/SPEC-UPDATE-SUMMARY.md`                     | `docs/spec/work/SPEC-UPDATE-SUMMARY.md`                              |
+| Old path                                                   | New path                                                             |
+| ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| `docs/spec/scope-map.md`                                   | unchanged                                                            |
+| `docs/spec/<name>.feature`                                 | `docs/spec/features/<name>.feature`                                  |
+| `docs/spec/supplementary_specs/entity-model.md`            | `docs/spec/entity-model.md`                                          |
+| `docs/spec/supplementary_specs/state-machines.md`          | `docs/spec/state-machines.md`                                        |
+| `docs/spec/supplementary_specs/validation-rules.md`        | `docs/spec/validation-rules.md`                                      |
+| `docs/spec/supplementary_specs/interface-contracts.md`     | `docs/spec/interface-contracts.md`                                   |
+| `docs/arc42/architecture.dsl`                              | `docs/spec/architecture.dsl`                                         |
+| `docs/arc42/dependency-rules.dsl`                          | `docs/spec/dependency-rules.dsl`                                     |
+| `docs/arc42/12_glossary.md`                                | `docs/spec/glossary.md`; chapter 12 links to it                      |
+| `docs/CONTEXT.md`, `docs/arc42/CONTEXT.md`                 | terms to `docs/spec/glossary.md`, routing to `docs/agent-context.md` |
+| `docs/arc42/CONTEXT-MAP.md`                                | domain concerns in `docs/agent-context.md`                           |
+| `docs/spec/prd.md`                                         | `docs/spec/work/prd.md`                                              |
+| `docs/spec/<name>-gaps.md`                                 | `docs/spec/work/<name>-gaps.md`                                      |
+| `docs/spec/<name>-qa-strategy.md`                          | `docs/spec/work/<name>-qa-strategy.md`                               |
+| `docs/spec/SPEC-UPDATE-SUMMARY.md`                         | `docs/spec/work/SPEC-UPDATE-SUMMARY.md`                              |
+| `docs/spec/todo.md`, `docs/spec/todos.md`                  | `docs/spec/work/todo.md`, `docs/spec/work/todos.md`                  |
+| `docs/spec/supplementary_specs/<area>.md`                  | `docs/spec/areas/<area>.md`                                          |
+| `docs/spec/supplementary_specs/<area>-qa-strategy.md`      | `docs/spec/work/<area>-qa-strategy.md`                               |
+| `actor-goal-list.md`, `use_cases/`, anywhere under `docs/` | removed                                                              |
 
-Open Question 1 settles the files this table does not yet place.
+The two todo lists are records of open work, not sources, so they live in
+`work/`. Merging them would renumber one ID scheme and break its references;
+that is filed as its own todo (DEC-09). An area spec describes one subsystem
+in depth. It lives in `docs/spec/areas/`, so the top of `docs/spec/` keeps
+its fixed set and the move stays mechanical. A project may fold an area spec
+into the standard files later, when it works on that area (DEC-09).
+
+The actor-goal list and the use-case files belong to the method before the
+scope map and the feature files. No factory step produces them since
+ST-0098, and they do not fit the scope map and feature files, so the move
+removes them (DEC-10).
 
 ### The migration script
 
@@ -168,7 +184,9 @@ files with `git mv`, following the path table. It rewrites the local Markdown
 links that point at an old path. It lists every other occurrence of an old
 path, for example in CI files or scripts, for the developer to fix; it never
 rewrites those. `--dry-run` prints the moves and rewrites without making
-them.
+them. It removes the files the path table marks as removed with `git rm`, so
+history keeps them. A Markdown link to a removed file becomes its link text
+in a code span, so `link-check` still passes.
 
 Folding routing into `agent-context.md` is not mechanical. The script moves a
 `CONTEXT.md` that holds terms to `docs/spec/glossary.md` when no glossary
@@ -193,7 +211,10 @@ and `statemachine-lint`.
 
 **In the first release:**
 
-- The layout in `docs/spec/`, with `features/`, `schemas/`, and `work/`.
+- The layout in `docs/spec/`, with `features/`, `schemas/`, `areas/`, and
+  `work/`.
+- The actor-goal list and the use-case files removed, and the use-case
+  fallbacks removed from `developer-agent` and `reconciliation-agent`.
 - The migration script, offered by `update-factory`.
 - Every factory reference updated to the new paths.
 - The factory's own repository migrated.
@@ -207,17 +228,15 @@ and `statemachine-lint`.
 
 ## Open Questions
 
-1. **Files without a home.** The path table does not place `todo.md`,
-   `todos.md`, and the area specs in `supplementary_specs/`, such as `mechanized-dispatch.md` with
-   its QA strategy. Raised by PROP-06 of the entity-model proposal.
-   `use_cases/` and `actor-goal-list.md` need no home: the first is archived
-   in `~archive/`, and no factory step produces the second since ST-0098.
+None.
 
 ## Completion Criteria
 
 - After the factory's own migration, `docs/spec/` holds only the core files
-  of the table at its top, plus the folders `features/`, `schemas/`, and
-  `work/`.
+  of the table at its top, plus the folders `features/`, `schemas/`,
+  `areas/`, and `work/`.
+- `find docs -name actor-goal-list.md -o -name use_cases` finds nothing in
+  the factory's own repository, and `grep -rE 'UC-XX|use_cases|actor-goal-list' packages/factory/` finds nothing outside `CHANGELOG.md` and `reports/`.
 - For every old path in the path table,
   `grep -r <old path> packages/factory/` finds nothing outside `CHANGELOG.md`.
 - `link-check`, `arch-lint`, `structurizr validate`, `dependency-check`,
@@ -257,6 +276,8 @@ the top.
 | DEC-06 | 2026-11-01 | assumption | Matthias Daues | The migration script is named `migrate-spec-layout`.                                                                                                                                                                                              | Draft                                       |
 | DEC-07 | 2026-11-01 | decision   | Matthias Daues | `docs/agent-context.md` is the one routing file; `CONTEXT.md` and `CONTEXT-MAP.md` fold into its domain concerns. Term definitions live in the core file `docs/spec/glossary.md`.                                                                 | Open Question 1, `CONTEXT-MAP.md`           |
 | DEC-08 | 2026-11-01 | assumption | Matthias Daues | The script moves terms to `glossary.md` but leaves routing to `capture-context --update`, because folding routing into domain concerns needs judgment.                                                                                            | Draft, follows DEC-07                       |
+| DEC-09 | 2026-11-01 | decision   | Matthias Daues | `todo.md` and `todos.md` move to `docs/spec/work/`; merging them is a separate todo. Area specs move to `docs/spec/areas/`, their QA strategies to `work/`.                                                                                       | Open Question 1                             |
+| DEC-10 | 2026-11-01 | decision   | Matthias Daues | The actor-goal list and the use-case files are removed, along with the agents' use-case fallbacks. They do not fit the scope map and feature files.                                                                                               | Open Question 1                             |
 
 ## Review findings
 

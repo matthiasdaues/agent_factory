@@ -98,3 +98,14 @@ states. The entity model had the same gap before ADR-0024.
 Gigacron's state machines, scored with the criteria of the `architecture.dsl`
 pattern. Known candidates, unverified: SCXML, XState, Umple, P, TLA+/PlusCal.
 A soundness check for the current pseudocode waits for this result.
+
+## T-0008 — Merge `todo.md` and `todos.md`
+
+- status: open
+- source: [core-artifact-layout.md](../proposals/core-artifact-layout.md) (DEC-09 there)
+
+The factory keeps two todo lists with two ID schemes: `todo.md` (`T-0001`…)
+and `todos.md` (`T-01`…). Agents and skills refer to both names.
+
+**Action:** merge them into one list with one ID scheme, and update every
+reference to a renumbered entry.
