@@ -27,6 +27,13 @@ impact:
     - packages/factory/skills/derive-feature/SKILL.md
     - packages/factory/skills/domain-modeling/SKILL.md
     - packages/factory/skills/write-adr/SKILL.md
+    - packages/factory/skills/grilling/SKILL.md
+    - packages/factory/skills/capture-context/SKILL.md
+    - packages/factory/rulebooks/conventions/context-format.md
+    - packages/factory/rulebooks/templates/context.md
+    - packages/factory/rulebooks/templates/context-map.md
+    - packages/factory/scripts/concern-lint
+    - docs/agent-context.md
 
 governance:
   assurance: elevated
@@ -65,7 +72,10 @@ The factory spreads a project's specification over five places:
 `docs/agent-context/`. `docs/spec/` mixes sources such as `scope-map.md` with
 working output such as `*-gaps.md` and `prd.md`. The factory's own files
 refer to `CONTEXT.md` at two paths, `docs/CONTEXT.md` (67 references) and
-`docs/arc42/CONTEXT.md` (7), and to the todo list as both `todo.md` and
+`docs/arc42/CONTEXT.md` (7). The convention `context-format.md` names one
+path, and the `grilling` and `domain-modeling` skills name the other. Two
+files route agents: `agent-context.md` and `CONTEXT-MAP.md`. The factory
+refers to the todo list as both `todo.md` and
 `todos.md`.
 
 T-0006 asked for one canonical entity-model path across all scenarios. The
@@ -101,7 +111,7 @@ decisions and stay in `docs/adr/` (DEC-03).
 | `architecture.dsl`       | Building blocks, views, deployment           | `arch-lint`, `structurizr` |
 | `dependency-rules.dsl`   | Allowed dependencies between building blocks | `dependency-check`         |
 | `schemas/*`              | Structure inside payload columns             | none yet                   |
-| `CONTEXT.md`             | The domain vocabulary all of the above uses  | none yet                   |
+| `glossary.md`            | The domain vocabulary all of the above uses  | none yet                   |
 
 The entity-model proposal replaces `entity-model.md` with
 `entity-model.dbml` and adds gates for it and for `schemas/`.
@@ -113,25 +123,41 @@ summaries (DEC-05). The arc42 prose stays in `docs/arc42/` and refers to
 `docs/`: the first is derived from code, and the second routes agents rather
 than specifying the system.
 
+### Routing and vocabulary
+
+`docs/agent-context.md` is the project's one routing file (DEC-07). It
+absorbs the two files that routed before it. `CONTEXT-MAP.md` listed the
+bounded contexts and where their documents live; each context becomes a
+domain concern in `agent-context.md`, with its description and `Read:` paths.
+`CONTEXT.md` pointed at the glossary; the domain concerns now route there.
+Neither file exists after the move.
+
+The term definitions live in `docs/spec/glossary.md`, a core file. A project
+with several bounded contexts keeps one section per context in that file. In
+a project with arc42, chapter `12_glossary.md` keeps one line that links to
+`docs/spec/glossary.md`.
+
 ### Path table
 
 Every move the layout makes:
 
-| Old path                                               | New path                                |
-| ------------------------------------------------------ | --------------------------------------- |
-| `docs/spec/scope-map.md`                               | unchanged                               |
-| `docs/spec/<name>.feature`                             | `docs/spec/features/<name>.feature`     |
-| `docs/spec/supplementary_specs/entity-model.md`        | `docs/spec/entity-model.md`             |
-| `docs/spec/supplementary_specs/state-machines.md`      | `docs/spec/state-machines.md`           |
-| `docs/spec/supplementary_specs/validation-rules.md`    | `docs/spec/validation-rules.md`         |
-| `docs/spec/supplementary_specs/interface-contracts.md` | `docs/spec/interface-contracts.md`      |
-| `docs/arc42/architecture.dsl`                          | `docs/spec/architecture.dsl`            |
-| `docs/arc42/dependency-rules.dsl`                      | `docs/spec/dependency-rules.dsl`        |
-| `docs/CONTEXT.md`, `docs/arc42/CONTEXT.md`             | `docs/spec/CONTEXT.md`                  |
-| `docs/spec/prd.md`                                     | `docs/spec/work/prd.md`                 |
-| `docs/spec/<name>-gaps.md`                             | `docs/spec/work/<name>-gaps.md`         |
-| `docs/spec/<name>-qa-strategy.md`                      | `docs/spec/work/<name>-qa-strategy.md`  |
-| `docs/spec/SPEC-UPDATE-SUMMARY.md`                     | `docs/spec/work/SPEC-UPDATE-SUMMARY.md` |
+| Old path                                               | New path                                                             |
+| ------------------------------------------------------ | -------------------------------------------------------------------- |
+| `docs/spec/scope-map.md`                               | unchanged                                                            |
+| `docs/spec/<name>.feature`                             | `docs/spec/features/<name>.feature`                                  |
+| `docs/spec/supplementary_specs/entity-model.md`        | `docs/spec/entity-model.md`                                          |
+| `docs/spec/supplementary_specs/state-machines.md`      | `docs/spec/state-machines.md`                                        |
+| `docs/spec/supplementary_specs/validation-rules.md`    | `docs/spec/validation-rules.md`                                      |
+| `docs/spec/supplementary_specs/interface-contracts.md` | `docs/spec/interface-contracts.md`                                   |
+| `docs/arc42/architecture.dsl`                          | `docs/spec/architecture.dsl`                                         |
+| `docs/arc42/dependency-rules.dsl`                      | `docs/spec/dependency-rules.dsl`                                     |
+| `docs/arc42/12_glossary.md`                            | `docs/spec/glossary.md`; chapter 12 links to it                      |
+| `docs/CONTEXT.md`, `docs/arc42/CONTEXT.md`             | terms to `docs/spec/glossary.md`, routing to `docs/agent-context.md` |
+| `docs/arc42/CONTEXT-MAP.md`                            | domain concerns in `docs/agent-context.md`                           |
+| `docs/spec/prd.md`                                     | `docs/spec/work/prd.md`                                              |
+| `docs/spec/<name>-gaps.md`                             | `docs/spec/work/<name>-gaps.md`                                      |
+| `docs/spec/<name>-qa-strategy.md`                      | `docs/spec/work/<name>-qa-strategy.md`                               |
+| `docs/spec/SPEC-UPDATE-SUMMARY.md`                     | `docs/spec/work/SPEC-UPDATE-SUMMARY.md`                              |
 
 Open Question 1 settles the files this table does not yet place.
 
@@ -142,8 +168,15 @@ files with `git mv`, following the path table. It rewrites the local Markdown
 links that point at an old path. It lists every other occurrence of an old
 path, for example in CI files or scripts, for the developer to fix; it never
 rewrites those. `--dry-run` prints the moves and rewrites without making
-them. When a project has both `docs/CONTEXT.md` and `docs/arc42/CONTEXT.md`,
-the script stops and asks the developer which one survives.
+them.
+
+Folding routing into `agent-context.md` is not mechanical. The script moves a
+`CONTEXT.md` that holds terms to `docs/spec/glossary.md` when no glossary
+exists yet; otherwise it stops and lists both files for the developer to
+merge. It leaves `CONTEXT-MAP.md` and any routing in `CONTEXT.md` in place
+and names `capture-context --update` as the next step. That skill turns each
+listed context into a domain concern; the developer then deletes the old
+file (DEC-08).
 
 `update-factory` offers the script and runs it only after the developer
 confirms (DEC-04). The factory's own repository moves first, with the same
@@ -170,14 +203,15 @@ and `statemachine-lint`.
 - **DBML and its gates.** They belong to
   [entity-model-as-dbml.md](entity-model-as-dbml.md), which builds on this
   layout.
-- **A gate for `CONTEXT.md`.** No check for a glossary has been designed.
+- **A gate for `glossary.md`.** No check for a glossary has been designed.
 
 ## Open Questions
 
 1. **Files without a home.** The path table does not place `todo.md`,
-   `todos.md`, `use_cases/`, `actor-goal-list.md`, `CONTEXT-MAP.md`, and the
-   area specs in `supplementary_specs/`, such as `mechanized-dispatch.md` with
+   `todos.md`, and the area specs in `supplementary_specs/`, such as `mechanized-dispatch.md` with
    its QA strategy. Raised by PROP-06 of the entity-model proposal.
+   `use_cases/` and `actor-goal-list.md` need no home: the first is archived
+   in `~archive/`, and no factory step produces the second since ST-0098.
 
 ## Completion Criteria
 
@@ -194,8 +228,13 @@ and `statemachine-lint`.
 - `migrate-spec-layout` on a copy of an installed project moves its files,
   leaves `link-check` passing, and lists each old path found outside
   Markdown.
-- On a project with both `CONTEXT.md` files, the script stops and asks
-  before it moves either one.
+- On a project with a `CONTEXT.md` that holds terms and an existing
+  glossary, the script stops and lists both before it moves either one.
+- After the factory's own migration, `docs/spec/glossary.md` holds the terms
+  of `docs/arc42/12_glossary.md`, `docs/agent-context.md` has one domain
+  concern per context of the old `CONTEXT-MAP.md`, and `concern-lint` passes.
+- `grep -rE 'CONTEXT(-MAP)?\.md' packages/factory/` finds nothing outside
+  `CHANGELOG.md`.
 - `update-factory` offers the migration and runs it only after the developer
   confirms.
 
@@ -215,7 +254,9 @@ the top.
 | DEC-03 | 2026-10-30 | decision   | Matthias Daues | ADRs are not core and stay in `docs/adr/`.                                                                                                                                                                                                        | DEC-07 of `entity-model-as-dbml.md`         |
 | DEC-04 | 2026-10-30 | decision   | Matthias Daues | Installed projects move through a migration script that `update-factory` offers and runs only after the developer confirms. It rewrites Markdown links, lists other hits without changing them, and has `--dry-run`.                              | DEC-09 of `entity-model-as-dbml.md`         |
 | DEC-05 | 2026-10-30 | decision   | Matthias Daues | Working output lives in `docs/spec/work/`.                                                                                                                                                                                                        | DEC-12 of `entity-model-as-dbml.md`         |
-| DEC-06 | 2026-11-01 | assumption | Matthias Daues | The script is named `migrate-spec-layout`, and it stops to ask when a project has two `CONTEXT.md` files.                                                                                                                                         | Draft                                       |
+| DEC-06 | 2026-11-01 | assumption | Matthias Daues | The migration script is named `migrate-spec-layout`.                                                                                                                                                                                              | Draft                                       |
+| DEC-07 | 2026-11-01 | decision   | Matthias Daues | `docs/agent-context.md` is the one routing file; `CONTEXT.md` and `CONTEXT-MAP.md` fold into its domain concerns. Term definitions live in the core file `docs/spec/glossary.md`.                                                                 | Open Question 1, `CONTEXT-MAP.md`           |
+| DEC-08 | 2026-11-01 | assumption | Matthias Daues | The script moves terms to `glossary.md` but leaves routing to `capture-context --update`, because folding routing into domain concerns needs judgment.                                                                                            | Draft, follows DEC-07                       |
 
 ## Review findings
 
