@@ -25,6 +25,8 @@ impact:
     - packages/factory/agents/spec-review-agent.md
     - packages/factory/agents/developer-agent.md
     - packages/factory/agents/reconciliation-agent.md
+    - packages/factory/agents/coaching-agent.md
+    - packages/factory/skills/write-prd/SKILL.md
     - packages/factory/playbooks/brownfield-onboarding.md
     - packages/factory/skills/derive-feature/SKILL.md
     - packages/factory/skills/domain-modeling/SKILL.md
@@ -61,8 +63,8 @@ Written by `write-primer` once the design is settled.
 
 All of a project's specification core lives in `docs/spec/`, and nothing
 else lives at the top of that folder. Feature files live in
-`docs/spec/features/`, payload schemas in `docs/spec/schemas/`, and the
-working output that agents write in `docs/spec/work/`. A migration script
+`docs/spec/features/`, payload schemas in `docs/spec/schemas/`, area specs in
+`docs/spec/areas/`, and the working output that agents write in `docs/spec/work/`. A migration script
 moves an installed project into this layout. The question the layout answers
 is one a newcomer cannot answer today: which files are the source, and where
 are they?
@@ -80,16 +82,16 @@ files route agents: `agent-context.md` and `CONTEXT-MAP.md`. The factory
 refers to the todo list as both `todo.md` and
 `todos.md`.
 
-T-0006 asked for one canonical entity-model path across all scenarios. The
-proposal [entity-model-as-dbml.md](entity-model-as-dbml.md) needs that path
-for its DBML file. It was split off this proposal so that each can be
-reviewed on its own, and it builds on this layout (DEC-01).
+The proposal [entity-model-as-dbml.md](entity-model-as-dbml.md) needs one
+canonical path for its DBML file in every project (todo T-0006). It builds on
+this layout, which ships first (DEC-01).
 
 ## Core Principles
 
 - **One root for the core.** Every core file lives in `docs/spec/`.
-- **Nothing else at the top.** A file at the top of `docs/spec/` is a core
-  file. Folders hold the rest.
+- **Nothing else at the top.** The top of `docs/spec/` holds only the
+  single-file core artifacts. The core folders are `features/`, `schemas/`,
+  and `areas/`. `work/` holds no core file.
 - **The move is mechanical and confirmed.** A script moves files and rewrites
   links the same way in every project, and only after the developer confirms.
 
@@ -113,26 +115,41 @@ decisions and stay in `docs/adr/` (DEC-03).
 | `architecture.dsl`       | Building blocks, views, deployment           | `arch-lint`, `structurizr` |
 | `dependency-rules.dsl`   | Allowed dependencies between building blocks | `dependency-check`         |
 | `schemas/*`              | Structure inside payload columns             | none yet                   |
+| `areas/*.md`             | One subsystem's specification in depth       | `spec-lint`                |
 | `glossary.md`            | The domain vocabulary all of the above uses  | none yet                   |
 
 The entity-model proposal replaces `entity-model.md` with
 `entity-model.dbml` and adds gates for it and for `schemas/`.
 
+### Files outside the core
+
 Working output that agents write while they derive or review the core lives
 in `docs/spec/work/`: gaps reports, QA strategies, `prd.md`, and update
-summaries (DEC-05). The arc42 prose stays in `docs/arc42/` and refers to
+summaries (DEC-05). The two todo lists are records of open work, not sources,
+so they live in `work/` too. Merging them would renumber one ID scheme and
+break its references (DEC-09).
+
+An area spec describes one subsystem in depth. It is core and lives in
+`docs/spec/areas/`, so the top of `docs/spec/` keeps its fixed set and the
+move stays mechanical. A project may fold an area spec into the standard
+files later, when it works on that area (DEC-09).
+
+The arc42 prose stays in `docs/arc42/` and refers to
 `docs/spec/architecture.dsl`. `testing.yaml` and `agent-context.md` stay in
 `docs/`: the first is derived from code, and the second routes agents rather
 than specifying the system.
 
+The actor-goal list and the use-case files belong to the method before the
+scope map and the feature files. No factory step produces them (ST-0098), and
+they do not fit the scope map and feature files, so the move removes them
+(DEC-10).
+
 ### Routing and vocabulary
 
-`docs/agent-context.md` is the project's one routing file (DEC-07). It
-absorbs the two files that routed before it. `CONTEXT-MAP.md` listed the
-bounded contexts and where their documents live; each context becomes a
-domain concern in `agent-context.md`, with its description and `Read:` paths.
-`CONTEXT.md` pointed at the glossary; the domain concerns now route there.
-Neither file exists after the move.
+`docs/agent-context.md` is the project's one routing file (DEC-07). Each
+bounded context becomes a domain concern in it, with its description and
+`Read:` paths. The domain concerns also route to the glossary. After the
+move, `CONTEXT.md` and `CONTEXT-MAP.md` do not exist.
 
 The term definitions live in `docs/spec/glossary.md`, a core file. A project
 with several bounded contexts keeps one section per context in that file. In
@@ -165,22 +182,10 @@ Every move the layout makes:
 | `docs/spec/supplementary_specs/<area>-qa-strategy.md`      | `docs/spec/work/<area>-qa-strategy.md`                               |
 | `actor-goal-list.md`, `use_cases/`, anywhere under `docs/` | removed                                                              |
 
-The two todo lists are records of open work, not sources, so they live in
-`work/`. Merging them would renumber one ID scheme and break its references;
-that is filed as its own todo (DEC-09). An area spec describes one subsystem
-in depth. It lives in `docs/spec/areas/`, so the top of `docs/spec/` keeps
-its fixed set and the move stays mechanical. A project may fold an area spec
-into the standard files later, when it works on that area (DEC-09).
-
-The actor-goal list and the use-case files belong to the method before the
-scope map and the feature files. No factory step produces them since
-ST-0098, and they do not fit the scope map and feature files, so the move
-removes them (DEC-10).
-
 ### The migration script
 
 `packages/factory/scripts/migrate-spec-layout` moves an installed project's
-files with `git mv`, following the path table. It rewrites the local Markdown
+files with `git mv`, following the path table (DEC-06). It rewrites the local Markdown
 links that point at an old path. It lists every other occurrence of an old
 path, for example in CI files or scripts, for the developer to fix; it never
 rewrites those. `--dry-run` prints the moves and rewrites without making
@@ -188,10 +193,15 @@ them. It removes the files the path table marks as removed with `git rm`, so
 history keeps them. A Markdown link to a removed file becomes its link text
 in a code span, so `link-check` still passes.
 
-Folding routing into `agent-context.md` is not mechanical. The script moves a
-`CONTEXT.md` that holds terms to `docs/spec/glossary.md` when no glossary
-exists yet; otherwise it stops and lists both files for the developer to
-merge. It leaves `CONTEXT-MAP.md` and any routing in `CONTEXT.md` in place
+The script moves `docs/arc42/12_glossary.md` to `docs/spec/glossary.md` and
+writes a new chapter 12 with one line that links to it. A `CONTEXT.md` holds
+terms when it has a `## Language` section, as the CONTEXT.md template
+defines. The script moves such a file to `docs/spec/glossary.md` when no
+glossary exists. When a glossary exists too, it stops and lists both files
+for the developer to merge. A `CONTEXT.md` without a `## Language` section
+holds routing only and does not stop the script.
+
+Folding routing into `agent-context.md` is not mechanical. It leaves `CONTEXT-MAP.md` and any routing in `CONTEXT.md` in place
 and names `capture-context --update` as the next step. That skill turns each
 listed context into a domain concern; the developer then deletes the old
 file (DEC-08).
@@ -205,7 +215,8 @@ script.
 Every factory script, agent, skill, playbook, and template that names an old
 path names the new one. The scripts with a hard-coded path are
 `structurizr`, `arch-lint`, `dependency-check`, `spec-lint`, `scope-lint`,
-and `statemachine-lint`.
+and `statemachine-lint`. `developer-agent` and `reconciliation-agent` lose
+their fallback to the use-case files (DEC-10).
 
 ## Scope
 
@@ -225,6 +236,8 @@ and `statemachine-lint`.
   [entity-model-as-dbml.md](entity-model-as-dbml.md), which builds on this
   layout.
 - **A gate for `glossary.md`.** No check for a glossary has been designed.
+- **One todo list.** Merging `todo.md` and `todos.md` changes one ID scheme
+  and its references. Todo T-0008 holds it (DEC-09).
 
 ## Open Questions
 
@@ -232,12 +245,13 @@ None.
 
 ## Completion Criteria
 
-- After the factory's own migration, `docs/spec/` holds only the core files
-  of the table at its top, plus the folders `features/`, `schemas/`,
-  `areas/`, and `work/`.
+- After the factory's own migration, the top of `docs/spec/` holds only the
+  single-file core artifacts of the table, and no folder other than
+  `features/`, `schemas/`, `areas/`, and `work/`. `schemas/` exists only when
+  the project has payload schemas.
 - `find docs -name actor-goal-list.md -o -name use_cases` finds nothing in
   the factory's own repository, and `grep -rE 'UC-XX|use_cases|actor-goal-list' packages/factory/` finds nothing outside `CHANGELOG.md` and `reports/`.
-- For every old path in the path table,
+- For every old path in a path-table row that moves a file,
   `grep -r <old path> packages/factory/` finds nothing outside `CHANGELOG.md`.
 - `link-check`, `arch-lint`, `structurizr validate`, `dependency-check`,
   `spec-lint`, `scope-lint`, and `statemachine-lint` pass on the factory's
@@ -249,8 +263,10 @@ None.
   Markdown.
 - On a project with a `CONTEXT.md` that holds terms and an existing
   glossary, the script stops and lists both before it moves either one.
-- After the factory's own migration, `docs/spec/glossary.md` holds the terms
-  of `docs/arc42/12_glossary.md`, `docs/agent-context.md` has one domain
+- The factory's own migration runs without stopping, because its
+  `docs/CONTEXT.md` has no `## Language` section. Afterwards,
+  `docs/spec/glossary.md` holds the terms of the old
+  `docs/arc42/12_glossary.md`, `docs/agent-context.md` has one domain
   concern per context of the old `CONTEXT-MAP.md`, and `concern-lint` passes.
 - `grep -rE 'CONTEXT(-MAP)?\.md' packages/factory/` finds nothing outside
   `CHANGELOG.md`.
