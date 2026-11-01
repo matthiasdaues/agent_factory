@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Core Artifact Layout
-status: draft
+status: open
 owner: Matthias Daues
 created: 2026-11-01
 updated: 2026-11-01
@@ -57,7 +57,53 @@ estimate:
 
 ## Primer
 
-Written by `write-primer` once the design is settled.
+A developer who opens a project built with the Agent Factory looks for its
+specification: the files that say what the system does, which data it keeps,
+and how its parts fit together. Today these files sit in five folders. The
+specification folder also holds reports that agents write while they work. The
+factory points to its vocabulary file at two different paths, and two files
+tell agents what to read. So a newcomer cannot tell which files are the source
+and where they live.
+
+The proposal sorts these files into kinds. A core file has three marks. People
+edit it by hand. Other files derive from it or are checked against it. An
+automatic check script, called a gate, checks it or should check it. The core
+files include the scope map, the feature files that describe behaviour, the
+data model, the architecture model, and the glossary. Working output is what
+agents write while they derive or review the core, such as gaps reports. Some
+files stay where they are, because they do not specify the system.
+Architecture decision records keep the reasons for decisions, and the agent
+context file tells agents what to read for each task.
+
+In the new layout, every core file lives in the specification folder, and no
+other file sits at its top level. An area spec describes one subsystem in
+depth. Feature files, payload schemas, and area specs get their own
+subfolders. Working output and the todo lists go into a work folder.
+
+A migration script moves a project into this layout, and the factory's own
+repository moves first. The script moves each file with git, so the history
+keeps it. It rewrites the Markdown links that point at old paths. It lists
+every other mention of an old path, and the developer fixes those by hand. The
+glossary chapter of the architecture documentation moves into the
+specification folder. A new chapter in its old place holds one line that links
+to it.
+
+The old context map lists the parts of the domain, and the script leaves it in
+place. Folding it into the agent context file needs judgment, and the move
+should stay mechanical. So the developer runs the context skill, which turns
+each listed part into an entry of the agent context file. Then the developer
+deletes the context map.
+
+The update tool offers the script and runs it only after the developer
+confirms. When a project keeps terms both in the old vocabulary file and in a
+glossary, the script stops and lists both, so the developer can merge them.
+
+The layout gives the core one root. A newcomer who opens the specification
+folder sees every source file and nothing else at the top. A later proposal
+for the data model needs this fixed path.
+
+The proposal has no open questions. A gate for the glossary and the merge of
+the two todo lists are left for later work.
 
 ## Summary
 
