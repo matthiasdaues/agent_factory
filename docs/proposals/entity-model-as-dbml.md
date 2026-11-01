@@ -103,14 +103,13 @@ view. These checks answer a question no factory gate answers today: does the
 entity model still hold together after this commit?
 
 The first release covers the tooling and the factory's agents and playbooks.
-It also gives the specification core a single home in `docs/spec/`, with a
-migration for installed projects. A pilot runs the tools on a pinned copy of
-Gigacron's full model.
+It builds on the layout of
+[core-artifact-layout.md](core-artifact-layout.md), which ships first. A pilot
+runs the tools on a pinned copy of Gigacron's full model.
 
 ## Motivation
 
-Today the entity model lives in `docs/spec/supplementary_specs/entity-model.md`
-as Mermaid `erDiagram` blocks and prose tables. Mermaid checks syntax only. It
+Today the entity model lives in `entity-model.md` as Mermaid `erDiagram` blocks and prose tables. Mermaid checks syntax only. It
 renders a relationship to an undeclared entity without an error, and nothing
 checks the prose tables. Gigacron shows the cost: its model and its code
 disagree in 16 places on three tables, and no gate noticed (see the PoC's
@@ -125,11 +124,9 @@ that slice, E01 to E12. The PoC's wrapper scripts show that each piece works,
 but they are throwaway code. They assume Gigacron's tables, run only by
 hand, and live under `poc/`. No project can use them.
 
-T-0006 asked for one canonical entity-model path across all scenarios. The
-path is chosen, but no scenario uses it yet. The factory also scatters its
-specification artifacts across `docs/spec/`, `docs/spec/supplementary_specs/`, `docs/arc42/`, and `docs/`
-itself. `CONTEXT.md` is referenced at both `docs/CONTEXT.md` and
-`docs/arc42/CONTEXT.md`.
+T-0006 asked for one entity-model path in every project. The layout proposal
+puts the core in `docs/spec/`; this proposal places the DBML file there as
+`docs/spec/entity-model.dbml` (DEC-21).
 
 ## Core Principles
 
@@ -148,48 +145,6 @@ itself. `CONTEXT.md` is referenced at both `docs/CONTEXT.md` and
   project's toolchain.
 
 ## Design
-
-### The core artifact set
-
-A project's specification core is the set of files that meet three
-conditions. People edit them by hand. Every other artifact derives from them or
-is checked against them. A gate checks them or should check them.
-
-All core files live in `docs/spec/` (DEC-08, DEC-13). The feature files sit in
-`features/`, the schemas for structured payloads in `schemas/`, and every other
-core file at the top:
-
-| File                     | Holds                                             | Gate                       |
-| ------------------------ | ------------------------------------------------- | -------------------------- |
-| `scope-map.md`           | What the system does, by domain area              | `scope-lint`               |
-| `features/*.feature`     | Behaviour, as Rules per actor goal                | `spec-lint`                |
-| `entity-model.dbml`      | Tables, keys, constraints, enums                  | `entity-model validate`    |
-| `state-machines.md`      | States and transitions                            | `statemachine-lint`        |
-| `validation-rules.md`    | Rules on input and on data                        | `spec-lint`                |
-| `interface-contracts.md` | Contracts at the system's boundaries              | `spec-lint`                |
-| `architecture.dsl`       | Building blocks, views, deployment                | `arch-lint`, `structurizr` |
-| `dependency-rules.dsl`   | Allowed dependencies between building blocks      | `dependency-check`         |
-| `schemas/*`              | Structure inside payload columns, such as `jsonb` | `entity-model validate`    |
-| `CONTEXT.md`             | The domain vocabulary all of the above uses       | none yet                   |
-
-The only other folder in `docs/spec/` is `work/`. It holds no core file, only
-the working output that agents write while they derive or review the core:
-gaps reports, QA strategies, `prd.md`, and update summaries.
-
-ADRs live in `docs/adr/` (DEC-07). The arc42 prose lives in `docs/arc42/` and
-refers to `docs/spec/architecture.dsl`. `testing.yaml` and `agent-context.md`
-live in `docs/`. They are not core files: `testing.yaml` is derived from code,
-and `agent-context.md` routes agents and does not specify the system.
-
-### Moving installed projects
-
-A migration script moves an installed project's files into this layout with
-`git mv`. It also rewrites the local Markdown links that point at the old
-paths. It lists every other occurrence of an old path, for example in CI files
-or scripts, for the developer to fix. It never rewrites those. `--dry-run` prints
-the moves and rewrites without making them. `update-factory` offers the script
-and runs it only after the developer confirms (DEC-09). The factory's own
-repository is the first project to migrate this way.
 
 ### The `entity-model` script
 
@@ -338,10 +293,6 @@ Gigacron (DEC-20).
 
 **In the first release:**
 
-- The core artifact set in `docs/spec/`, working output in `docs/spec/work/`,
-  and the migration script for installed projects.
-- Every factory script, agent, skill, playbook, and template that names an
-  old path names the new one.
 - The `entity-model` script with `validate`, `render`, and `import`.
 - The seven lint rules, and the review rule for notes in the spec-review
   agent.
@@ -357,32 +308,41 @@ The slices run in this order (DEC-02, DEC-19):
 1. The validator and the hook, tested on the PoC's acid slice, with the
    drift-check probe alongside.
 2. The renderer.
-3. The core layout and the migration.
-4. The factory wiring.
-5. The state-machine link.
-6. The drift check.
-7. The Gigacron pilot.
+3. The factory wiring.
+4. The state-machine link.
+5. The drift check.
+6. The Gigacron pilot.
 
 [Drift check](#drift-check) describes the probe.
 
 **Explicitly deferred (do NOT plan stories for these):**
 
+- **The core artifact layout and its migration.** They belong to
+  [core-artifact-layout.md](core-artifact-layout.md), which ships first.
+
 - **E10, CHECK expressions.** It needs an SQL expression parser. No
   permissively licensed one has been tested.
+
 - **Migration of other projects' Mermaid models.** The pilot shows the path.
   Each project migrates when it next touches its model.
+
 - **Generating application code or migrations from DBML.** ADR-0024 makes DBML
   the model, not a code generator.
+
 - **A state-machine language, and a soundness check for the current
   pseudocode.** Whether a validatable language replaces the pseudocode is its
   own question, tracked as T-0007. A soundness check written now would be
   thrown away if the notation changes. The `Enum:` line carries over to any
   notation.
+
 - **Built-in dump steps for databases other than PostgreSQL.** A built-in step
   follows when a project needs one.
+
 - **Schema formats other than JSON Schema.** No project uses one yet.
+
 - **Gigacron's own adoption.** Gigacron moves to DBML through its own
   proposal, once the factory release exists. It may start from the fixture.
+
 - **Project-specific rules,** such as Gigacron's rule that every Domain-owned table carries `domain_id`. They need a
   rule-configuration format, which no second project has asked for yet.
 
@@ -408,16 +368,6 @@ None.
   with no file in `docs/spec/schemas/`.
 - `grep -r entity-model.md packages/factory/` finds nothing outside
   `CHANGELOG.md`.
-- `grep -rE 'supplementary_specs|docs/arc42/(architecture|dependency-rules)\.dsl' packages/factory/`
-  finds nothing outside `CHANGELOG.md`.
-- After migration, `docs/spec/` holds the eight single-file core artifacts at
-  the top, the feature files in `features/`, payload schemas in `schemas/`,
-  working output in `work/`, and nothing else. `link-check` passes.
-- `arch-lint` and `structurizr validate` pass on the factory's own repository
-  after its migration.
-- The migration script runs on a copy of an installed project, moves its
-  files, and leaves `link-check` passing. It lists each old path found outside
-  Markdown, and `--dry-run` changes no file.
 - T-0006 is resolved with `docs/spec/entity-model.dbml`.
 - The fixture's README maps each prose paragraph of `entity-model.md` at the
   pinned commit to the note that holds it, and no paragraph is unmapped.
