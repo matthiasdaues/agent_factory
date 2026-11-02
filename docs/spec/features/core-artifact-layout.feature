@@ -13,6 +13,7 @@ Feature: Core artifact layout
 
   Rule: Newcomer finds the whole specification core at one root
     # actor: Newcomer
+    # @packages/factory/scripts/migrate-spec-layout::new_path
 
     Scenario: The top of the specification folder holds only core files
       Given the factory's own repository after its migration
@@ -39,6 +40,7 @@ Feature: Core artifact layout
 
   Rule: Project maintainer previews the layout migration without changes
     # actor: Project maintainer
+    # @packages/factory/scripts/migrate-spec-layout::main
 
     Scenario: Dry run prints the plan and changes no file
       Given a copy of an installed project in the old layout
@@ -48,6 +50,10 @@ Feature: Core artifact layout
 
   Rule: Project maintainer moves the project into the new layout with its history kept
     # actor: Project maintainer
+    # @packages/factory/scripts/migrate-spec-layout::plan_moves
+    # @packages/factory/scripts/migrate-spec-layout::plan_removals
+    # @packages/factory/scripts/migrate-spec-layout::refuse_reason
+    # @packages/factory/scripts/migrate-spec-layout::Run
 
     Scenario Outline: A file of the path table moves with git
       Given a project in the old layout with the tracked file <old path>
@@ -157,6 +163,7 @@ Feature: Core artifact layout
   Rule: Project maintainer keeps every Markdown link working after the move
     # actor: Project maintainer
     # @packages/factory/scripts/link-check::check
+    # @packages/factory/scripts/migrate-spec-layout::rewrite_links
 
     Scenario: A link that points at an old path points at the new path
       Given docs/arc42/09_architecture_decisions.md links to ../spec/supplementary_specs/entity-model.md
@@ -182,6 +189,7 @@ Feature: Core artifact layout
 
   Rule: Project maintainer learns every old path that the script does not rewrite
     # actor: Project maintainer
+    # @packages/factory/scripts/migrate-spec-layout::plan_listing
 
     Scenario: An old path outside Markdown is listed and left unchanged
       Given .github/workflows/docs.yml names docs/arc42/architecture.dsl
@@ -197,6 +205,9 @@ Feature: Core artifact layout
 
   Rule: Project maintainer gets one glossary from chapter 12 and from every vocabulary file
     # actor: Project maintainer
+    # @packages/factory/scripts/migrate-spec-layout::convert_chapter12
+    # @packages/factory/scripts/migrate-spec-layout::convert_context
+    # @packages/factory/scripts/migrate-spec-layout::duplicate_terms
 
     Scenario: Chapter 12 tables move into the glossary under their headings
       Given docs/arc42/12_glossary.md holds the section "Usage Analysis Vocabulary" with a two-column table
@@ -285,6 +296,9 @@ Feature: Core artifact layout
     # actor: Project maintainer
     # @packages/factory/scripts/update-factory::_run_init
     # @packages/factory/scripts/init-factory::load_prior_manifest
+    # @packages/factory/scripts/init-factory::older_than
+    # @packages/factory/scripts/init-factory::migrate_layout
+    # @packages/factory/scripts/update-factory::refresh_precommit_hooks
 
     Scenario: An update from a version before the layout moves the files
       Given a project whose .agent-factory/install.json records a factory version older than the layout release
@@ -357,6 +371,7 @@ Feature: Core artifact layout
   Rule: Project maintainer folds context routing into the agent context file
     # actor: Project maintainer
     # @packages/factory/skills/capture-context/SKILL.md
+    # @packages/factory/scripts/concern-lint
 
     Scenario: The fold writes one domain concern per listed context
       Given docs/arc42/CONTEXT-MAP.md lists three contexts
@@ -392,6 +407,9 @@ Feature: Core artifact layout
 
   Rule: Project maintainer's gates check the core at its new paths
     # actor: Project maintainer
+    # @packages/factory/scripts/scope-lint
+    # @packages/factory/scripts/structurizr
+    # @packages/factory/config/pre-commit-config.yaml
 
     Scenario Outline: Each gate fails on a deliberate error at the new path
       Given a copy of the factory's repository after its migration
@@ -546,6 +564,7 @@ Feature: Core artifact layout
 
   Rule: Factory maintainer keeps the factory free of old paths
     # actor: Factory maintainer
+    # @packages/factory
 
     Scenario Outline: No factory file names an old path
       Given the factory's repository after the layout change
@@ -573,6 +592,8 @@ Feature: Core artifact layout
 
   Rule: Factory maintainer migrates the factory's own repository first
     # actor: Factory maintainer
+    # @docs/spec/glossary.md
+    # @docs/agent-context.md
 
     Scenario: The factory's own migration runs without stopping
       Given the factory's repository in the old layout

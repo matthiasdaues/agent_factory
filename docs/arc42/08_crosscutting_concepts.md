@@ -362,7 +362,7 @@ A developer who looks for the files that specify a project finds them in one fol
 
 **Moving an installed project.** The factory update moves an installed project into this layout with `migrate-spec-layout`. [6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-project-into-the-core-artifact-layout) shows the sequence, and [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md) records the decision.
 
-**Current state of this repository.** This repository uses the layout. `migrate-spec-layout` moved its files (ST-0343). `docs/CONTEXT.md` and `docs/arc42/CONTEXT-MAP.md` remain until ST-0344 folds them into `docs/agent-context.md`.
+**Current state of this repository.** This repository uses the layout. `migrate-spec-layout` moved its files (ST-0343). Its bounded contexts are domain concerns of `docs/agent-context.md`, and it has no `CONTEXT.md` or `CONTEXT-MAP.md` (ST-0344).
 
 ## Referenced from
 
