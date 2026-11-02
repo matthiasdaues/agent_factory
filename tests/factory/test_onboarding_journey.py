@@ -5,10 +5,10 @@ Exercises the safe, non-interactive newcomer path through
 gate, installation, the receipt, and the data first-session routing reads.
 Owns VFO-09-E2-01 -- "Complete safe journey checks consent, cancellation,
 installation, receipt, and routing"
-(docs/spec/value-first-onboarding-journey-qa-strategy.md) -- the one
+(docs/spec/work/value-first-onboarding-journey-qa-strategy.md) -- the one
 end-to-end smoke test retained for this feature (see "Test Retention
 Policy" in that document). Traces to
-docs/spec/value-first-onboarding-journey.feature, Rule "Quality researcher
+docs/spec/features/value-first-onboarding-journey.feature, Rule "Quality researcher
 measures the complete newcomer journey", Scenario "Automated journey
 checks the safe non-interactive path".
 
