@@ -324,3 +324,38 @@ def test_CAL_09_link_check_reads_todo_from_spec_work(
         assert "missing.md" in output
     else:
         assert result.returncode == 0, output
+
+
+# --- ST-0327 ---
+
+SPEC_LINT_FILES = {
+    "docs/spec/scope-map.md": "# Scope Map\n",
+    "docs/spec/entity-model.md": (
+        "# Entity Model\n\n```mermaid\nerDiagram\nMERCHANT {\n  string name\n}\n```\n"
+    ),
+    "docs/spec/validation-rules.md": (
+        "# Validation Rules\n\n- **BR-001**: A payout is positive.\n"
+    ),
+    "docs/spec/features/payments.feature": (
+        "Feature: Payments\n  # BR-001\n  Scenario: Merchant receives a payout\n"
+    ),
+}
+
+
+@pytest.mark.parametrize("seeded", [False, True], ids=["clean", "seeded-error"])
+def test_CAL_09_spec_lint_reads_validation_rules_from_spec(
+    new_layout_gates: Path, seeded: bool
+) -> None:
+    write_files(new_layout_gates, SPEC_LINT_FILES)
+    if seeded:
+        rules = new_layout_gates / "docs/spec/validation-rules.md"
+        rules.write_text(rules.read_text() + "\nA payout follows BR-099.\n")
+    result = run_gate(new_layout_gates, "spec-lint")
+    output = result.stdout + result.stderr
+    if seeded:
+        assert result.returncode == 1, output
+        assert "TRACE002" in output
+        assert "BR-099" in output
+    else:
+        assert result.returncode == 0, output
+        assert "[ERROR" not in output

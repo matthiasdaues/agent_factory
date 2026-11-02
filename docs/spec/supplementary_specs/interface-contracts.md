@@ -906,3 +906,16 @@ The remote release base exposes `<base>/latest`,
 | Retention                 | Copies separately confirmed artifacts to a named `docs/spikes/` path                                                   |
 | Production handoff        | Requires approval for a normal workstream; never promotes the sandbox                                                  |
 | Ready-host budget         | Inspectable result within ten minutes and five decisions after installation approval                                   |
+
+## Core Artifact Layout Gate Contracts
+
+### `spec-lint`
+
+| Property       | Contract                                                                                                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Glossary input | `--glossary PATH`, default `docs/spec/glossary.md`, replaces `--context` (CAL-G16). `GLOSS001` reads the Term column of every table in it and strips `**` and `_` around a term    |
+| `GLOSS001`     | `info` for a term that no Markdown or feature file under `--spec-dir` uses. The glossary itself and every file under `work/` never count as a use                                  |
+| `TRACE002`     | `error` for a business rule that a core file or `features/*.feature` references and no core file defines, whether or not use-case files exist. A feature file never defines a rule |
+| Core paths     | Reads `entity-model.md` (required, `STRUCT005`, `TRACE004`), `state-machines.md`, and the todo lists `work/todo.md` and `work/todos.md` under `--spec-dir`; reads no old path      |
+| Removed checks | The checks that read use-case files or the actor-goal list are gone (DEC-10): `STRUCT001` to `STRUCT004`, `STRUCT006`, `FMT001` to `FMT004`, `TRACE001`, and `TRACE006`            |
+| Exit code      | 1 on any error finding, 0 when clean or with `--report-only`, 2 on a usage error                                                                                                   |
