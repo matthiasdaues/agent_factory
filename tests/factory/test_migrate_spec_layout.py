@@ -813,3 +813,226 @@ class TestGlossary:
         assert porcelain(root) == before
         assert not (root / GLOSSARY).exists()
         assert (root / CHAPTER12).read_bytes() == CHAPTER12_SECOND.encode()
+
+
+# ── CAL-05: old paths the script does not rewrite ────────────────────────
+
+LISTING_HEADING = "Old paths the script did not rewrite:"
+
+DOCS_WORKFLOW = (
+    "name: docs\n"
+    "on: [push]\n"
+    "jobs:\n"
+    "  validate:\n"
+    "    runs-on: ubuntu-latest\n"
+    "    steps:\n"
+    "      - uses: actions/checkout@v4\n"
+    "      - uses: actions/setup-java@v4\n"
+    "        with:\n"
+    "          distribution: temurin\n"
+    "          java-version: '21'\n"
+    "      - run: structurizr validate -workspace docs/arc42/architecture.dsl\n"
+)
+
+PRE_COMMIT_CONFIG = (
+    "repos:\n"
+    "  - repo: local\n"
+    "    hooks:\n"
+    "      - id: agent_factory_hook-arch-lint\n"
+    "        name: arch-lint\n"
+    "        entry: arch-lint\n"
+    "        language: system\n"
+    "        files: ^docs/arc42/architecture.dsl$\n"
+    "  - repo: local\n"
+    "    hooks:\n"
+    "      - id: payments-spec-check\n"
+    "        name: payments spec check\n"
+    "        entry: scripts/check-spec.sh\n"
+    "        language: system\n"
+    "        files: ^docs/spec/supplementary_specs/\n"
+)
+
+BUILD_DOCS = "#!/bin/sh\nset -e\ncp docs/spec/prd.md site/\n"
+
+AGENT_CONTEXT = (
+    "# Agent context\n\n"
+    "The PRD is docs/spec/prd.md.\n"
+    "Run `structurizr validate docs/arc42/architecture.dsl`.\n"
+    "See [the PRD](../docs/spec/prd.md) and [docs/spec/todo.md](spec/todo.md).\n"
+    "\n[gaps]: docs/spec/payments-gaps.md\n"
+)
+
+OLD_LAYOUT_CI: dict[str, str] = {
+    **OLD_LAYOUT_PAYMENTS,
+    ".github/workflows/docs.yml": DOCS_WORKFLOW,
+    ".pre-commit-config.yaml": PRE_COMMIT_CONFIG,
+    "scripts/build-docs.sh": BUILD_DOCS,
+    "docs/agent-context.md": AGENT_CONTEXT,
+}
+
+
+def listing(output: str) -> list[str]:
+    """Return the lines of the old-path listing at the end of ``output``."""
+    lines = output.splitlines()
+    assert LISTING_HEADING in lines, output
+    start = lines.index(LISTING_HEADING)
+    return lines[start + 1 :]
+
+
+class TestOldPathListing:
+    """Every old path outside a Markdown link is listed, and its file stays."""
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    @pytest.mark.parametrize(
+        ("line", "markdown", "found"),
+        [
+            ("cp docs/spec/prd.md site/", False, ["docs/spec/prd.md"]),
+            (
+                "files: ^docs/spec/supplementary_specs/",
+                False,
+                ["docs/spec/supplementary_specs/"],
+            ),
+            ("paths: [docs/spec/*.feature]", False, ["docs/spec/*.feature"]),
+            (
+                "see /srv/p/docs/arc42/themes/x.json.",
+                False,
+                ["docs/arc42/themes/x.json"],
+            ),
+            (
+                "rm docs/spec/use_cases/UC-01.md",
+                False,
+                ["docs/spec/use_cases/UC-01.md"],
+            ),
+            ("cat docs/spec/features/a.feature docs/spec/work/prd.md", False, []),
+            ("cat docs/spec/scope-map.md mydocs/spec/prd.md", False, []),
+            (
+                "`docs/spec/todo.md` and docs/spec/todos.md",
+                True,
+                [
+                    "docs/spec/todo.md",
+                    "docs/spec/todos.md",
+                ],
+            ),
+            ("[docs/spec/prd.md](docs/spec/prd.md)", True, []),
+            (
+                "![d](docs/arc42/themes/d.png) docs/spec/prd.md",
+                True,
+                ["docs/spec/prd.md"],
+            ),
+            ("[prd]: docs/spec/prd.md", True, []),
+            ("[prd]: docs/spec/prd.md", False, ["docs/spec/prd.md"]),
+        ],
+    )
+    def test_CAL_05_old_paths_in_line_skips_markdown_links_only(
+        self, migrate, line: str, markdown: bool, found: list[str]
+    ):
+        assert migrate.old_paths_in_line(line, markdown) == found
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_ci_file_is_listed_with_line_and_stays_byte_equal(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-ci", OLD_LAYOUT_CI)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert (
+            "old path: .github/workflows/docs.yml:12: docs/arc42/architecture.dsl"
+            in listing(result.stdout)
+        )
+        assert (root / ".github/workflows/docs.yml").read_bytes() == (
+            DOCS_WORKFLOW.encode()
+        )
+        assert git(root, "diff", "HEAD", "--", ".github/") == ""
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_project_hook_is_listed_and_keeps_its_files_value(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-ci", OLD_LAYOUT_CI)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        lines = listing(result.stdout)
+        assert (
+            "old path: .pre-commit-config.yaml:15: docs/spec/supplementary_specs/"
+            in lines
+        )
+        # The factory hook block belongs to the hook rewrite, not to the listing.
+        assert not [line for line in lines if ".pre-commit-config.yaml:8:" in line]
+        text = (root / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+        assert "      - id: payments-spec-check\n" in text
+        assert "        files: ^docs/spec/supplementary_specs/\n" in text
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_script_is_listed_and_stays_unchanged(self, tmp_path: Path):
+        root = make_project(tmp_path / "old-layout-ci", OLD_LAYOUT_CI)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert "old path: scripts/build-docs.sh:3: docs/spec/prd.md" in listing(
+            result.stdout
+        )
+        assert (root / "scripts/build-docs.sh").read_bytes() == BUILD_DOCS.encode()
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_markdown_text_and_code_span_are_listed_links_are_not(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-ci", OLD_LAYOUT_CI)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        md = [line for line in listing(result.stdout) if "agent-context.md" in line]
+        assert md == [
+            "old path: docs/agent-context.md:3: docs/spec/prd.md",
+            "old path: docs/agent-context.md:4: docs/arc42/architecture.dsl",
+        ]
+        assert (root / "docs/agent-context.md").read_bytes() == AGENT_CONTEXT.encode()
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_no_old_path_outside_links_gives_no_listing(self, tmp_path: Path):
+        root = make_project(tmp_path / "old-layout-payments")
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert LISTING_HEADING not in result.stdout
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_dry_run_prints_the_listing_of_a_real_run(self, tmp_path: Path):
+        dry = make_project(tmp_path / "dry", OLD_LAYOUT_CI)
+        real = make_project(tmp_path / "real", OLD_LAYOUT_CI)
+        before = porcelain(dry)
+        dry_result = run_script(dry, "--dry-run")
+        real_result = run_script(real)
+        assert dry_result.returncode == 0, dry_result.stderr
+        assert porcelain(dry) == before
+        assert listing(dry_result.stdout) == listing(real_result.stdout)
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_listing_names_a_moved_file_at_its_new_path(self, tmp_path: Path):
+        files = {
+            **OLD_LAYOUT_PAYMENTS,
+            "docs/spec/supplementary_specs/billing.md": "# Billing\n\nSee docs/spec/prd.md.\n",
+        }
+        root = make_project(tmp_path / "p", files)
+        result = run_script(root)
+        assert listing(result.stdout) == [
+            "old path: docs/spec/areas/billing.md:3: docs/spec/prd.md"
+        ]
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_binary_and_ignored_files_are_not_scanned(self, tmp_path: Path):
+        files = {**OLD_LAYOUT_PAYMENTS, ".gitignore": "build/\n"}
+        root = make_project(tmp_path / "p", files)
+        (root / "logo.bin").write_bytes(b"\x89PNG\0docs/spec/prd.md\n")
+        (root / "build").mkdir()
+        (root / "build/out.txt").write_text("docs/spec/prd.md\n", encoding="utf-8")
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert LISTING_HEADING not in result.stdout
+
+    @pytest.mark.spec("CAL-05-IT-01")
+    def test_CAL_05_new_layout_project_with_old_path_in_ci_prints_nothing(
+        self, tmp_path: Path
+    ):
+        files = {**NEW_LAYOUT_PAYMENTS, ".github/workflows/docs.yml": DOCS_WORKFLOW}
+        root = make_project(tmp_path / "new-layout-payments", files)
+        result = run_script(root)
+        assert result.returncode == 0
+        assert result.stdout == ""

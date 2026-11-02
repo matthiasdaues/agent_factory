@@ -12,7 +12,9 @@ What: Moves the files of the path table in
       `delete by hand: <path>`. It moves each two-column table of
       docs/arc42/12_glossary.md into docs/spec/glossary.md, with the columns
       Term, Definition, and Avoid, rewrites chapter 12 at its old path with
-      one link line, and stages both files.
+      one link line, and stages both files. At the end of its output it
+      lists every old path outside a Markdown link, which it never rewrites,
+      as `old path: <file>:<line>: <old path>`.
 When: init-factory runs it as its last step on an update; a developer can
       run it by hand.
 By:   init-factory, or the project maintainer.
@@ -20,8 +22,8 @@ By:   init-factory, or the project maintainer.
 Usage:
     packages/factory/scripts/migrate-spec-layout [--dry-run] [TARGET]
 
-TARGET defaults to the current directory. --dry-run prints the planned moves
-and removals and changes no file.
+TARGET defaults to the current directory. --dry-run prints the planned moves,
+the removals, and the old-path listing, and changes no file.
 
 Exit codes:
     0  success, no work, or --dry-run
@@ -73,6 +75,17 @@ CELL_BORDER = re.compile(r"(?<!\\)\|")
 DOCS = "docs"
 GOAL_LIST = "actor-goal-list.md"
 USE_CASES = "use_cases"
+
+LISTING_HEADING = "Old paths the script did not rewrite:"
+PRE_COMMIT_CONFIG = ".pre-commit-config.yaml"
+FACTORY_HOOK = "agent_factory_hook-"
+SKIPPED_DIRS = {".git", ".agent-factory"}
+# A path token that starts at a `docs/` folder, also inside a longer path.
+PATH_TOKEN = re.compile(r"(?<![\w.-])docs/[\w./~*-]*")
+INLINE_LINK = re.compile(r"!?\[[^\]]*\]\([^)]*\)")
+REFERENCE_LINK = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*\S+")
+HOOK_ID = re.compile(r"^\s*-\s+id:\s*(\S+)")
+LIST_ITEM = re.compile(r"^\s*-\s")
 
 
 def new_path(rel: str) -> str:
@@ -359,6 +372,100 @@ def plan_glossary(root: Path) -> Chapter12 | None:
     return result if result.sections else None
 
 
+# ── Old paths the script does not rewrite ────────────────────────────────
+
+
+def is_old_path(token: str) -> bool:
+    """Tell whether ``token``, a path or a folder, names an old layout path."""
+    path = token.rstrip("/")
+    parts = PurePosixPath(path).parts
+    return (
+        new_path(path) != path
+        or in_removal_set(path)
+        or path in (SUPPLEMENTARY, OLD_THEMES)
+        or (parts[:1] == (DOCS,) and USE_CASES in parts[1:])
+    )
+
+
+def old_paths_in_line(line: str, markdown: bool) -> list[str]:
+    """List the old paths in ``line``, in order; skip Markdown links.
+
+    In Markdown, an inline link or image and a reference definition belong
+    to the link rewrite, so their text and target are not searched.
+    """
+    if markdown:
+        line = REFERENCE_LINK.sub("", INLINE_LINK.sub("", line))
+    tokens = (match.group().rstrip(".") for match in PATH_TOKEN.finditer(line))
+    return [token for token in tokens if is_old_path(token)]
+
+
+def _factory_hook_lines(lines: list[str]) -> set[int]:
+    """Number the lines of the hooks in the agent_factory_hook-* block."""
+    inside, numbers = False, set()
+    for number, line in enumerate(lines, start=1):
+        hook = HOOK_ID.match(line)
+        if hook:
+            inside = hook.group(1).strip("'\"").startswith(FACTORY_HOOK)
+        elif LIST_ITEM.match(line):
+            inside = False
+        if inside:
+            numbers.add(number)
+    return numbers
+
+
+def _scan_set(root: Path, git: bool) -> list[str]:
+    """List the files to scan: tracked, or untracked and not ignored."""
+    if git:
+        out = _git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+        files = {p for p in out.stdout.split("\0") if p}
+    else:
+        files = {p.relative_to(root).as_posix() for p in root.rglob("*")}
+    return sorted(
+        rel
+        for rel in files
+        if not SKIPPED_DIRS & set(PurePosixPath(rel).parts)
+        and not in_removal_set(rel)
+        and (root / rel).is_file()
+    )
+
+
+def _read_text(path: Path) -> str | None:
+    """Return the text of ``path``, or None for a binary file."""
+    data = path.read_bytes()
+    if b"\0" in data:
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+def plan_listing(
+    root: Path, git: bool, planned: dict[str, str]
+) -> list[tuple[str, int, str]]:
+    """List each (file, line, old path) that the run leaves in place.
+
+    The file is named by its path after the run. ``planned`` maps a path to
+    the text the run writes there, such as chapter 12 and the glossary.
+    """
+    sources = {new_path(rel): rel for rel in _scan_set(root, git)}
+    for rel in planned:
+        sources.setdefault(rel, rel)
+    found: list[tuple[str, int, str]] = []
+    for name in sorted(sources):
+        old = sources[name]
+        text = planned[old] if old in planned else _read_text(root / old)
+        if text is None:
+            continue
+        lines = text.splitlines()
+        skip = _factory_hook_lines(lines) if name == PRE_COMMIT_CONFIG else set()
+        markdown = name.endswith(".md")
+        for number, line in enumerate(lines, start=1):
+            if number not in skip:
+                found += [(name, number, p) for p in old_paths_in_line(line, markdown)]
+    return found
+
+
 def _delete_created_file(path: Path) -> None:
     """Delete a file this run created. Only the undo of ``Run.create`` calls it."""
     path.unlink()
@@ -545,6 +652,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{CHAPTER12} -> {GLOSSARY}: {terms} terms")
         for heading, columns in glossary.kept:
             print(f"keep in {CHAPTER12}: {heading} (table with {columns} columns)")
+    planned = (
+        {CHAPTER12: glossary.stub, GLOSSARY: render_glossary(glossary.sections)}
+        if glossary
+        else {}
+    )
+    old_paths = plan_listing(root, git, planned)
+    if old_paths:
+        print(LISTING_HEADING)
+        for name, number, path in old_paths:
+            print(f"old path: {name}:{number}: {path}")
     if args.dry_run:
         return 0
 
