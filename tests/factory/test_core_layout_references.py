@@ -182,3 +182,130 @@ def test_term_reader_looks_terms_up_in_the_glossary(path: str) -> None:
 @pytest.mark.parametrize("path", GLOSSARY_FILES)
 def test_glossary_file_names_no_context_md(path: str) -> None:
     assert not OLD_ROUTING_FILE.search(read_factory_file(path))
+
+
+# --- ST-0337 ---
+# CAL-12-LN-01, reverse-map assertion: the vocabulary step seeds glossary rows.
+
+REVERSE_MAP = "skills/reverse-map/SKILL.md"
+
+
+@pytest.mark.spec("CAL-12")
+def test_reverse_map_seeds_term_rows_into_the_glossary() -> None:
+    text = read_factory_file(REVERSE_MAP)
+    step = section(text, f"## Seed {GLOSSARY}")
+    assert f"`{GLOSSARY}`" in step
+    assert "Term, Definition, and Avoid" in step
+    assert "one section per context" in step
+    assert "term already in the section is not added twice" in step
+    assert not OLD_ROUTING_FILE.search(text)
+
+
+# --- ST-0340 ---
+# CAL-12-LN-01: the developer and reconciliation agents find a story's
+# behaviour in the scope map and the feature files, with no use-case fallback.
+
+NO_FALLBACK_AGENTS = ("agents/developer-agent.md", "agents/reconciliation-agent.md")
+USE_CASE_LOOKUP = re.compile(r"use[ _-]?cases?\b|UC-[X0-9]{2}|actor-goal[ -]list", re.IGNORECASE)
+
+
+@pytest.mark.spec("CAL-12")
+@pytest.mark.parametrize("path", NO_FALLBACK_AGENTS)
+def test_agent_reads_scope_map_and_features_without_use_case_fallback(path: str) -> None:
+    text = read_factory_file(path)
+    assert "docs/spec/scope-map.md" in text
+    assert "docs/spec/features/" in text
+    assert USE_CASE_LOOKUP.findall(text) == []
+
+
+# --- ST-0338 ---
+# CAL-12-LN-01: the requirements agent and the specification skills write
+# feature files to docs/spec/features/ and working output to docs/spec/work/.
+
+FEATURES = "docs/spec/features"
+WORK = "docs/spec/work"
+
+SPEC_WRITERS = {
+    "derive-feature feature file": (
+        "skills/derive-feature/SKILL.md",
+        f"`{FEATURES}/<feature-name>.feature`",
+    ),
+    "derive-feature gaps report": (
+        "skills/derive-feature/SKILL.md",
+        f"`{WORK}/<feature-name>-gaps.md`",
+    ),
+    "requirements-agent feature file": (
+        "agents/requirements-agent.md",
+        f'path_pattern: "{FEATURES}/{{name}}.feature"',
+    ),
+    "requirements-agent gaps report": (
+        "agents/requirements-agent.md",
+        f'path_pattern: "{WORK}/{{name}}-gaps.md"',
+    ),
+    "requirements-agent QA strategy": (
+        "agents/requirements-agent.md",
+        f'path_pattern: "{WORK}/{{name}}-qa-strategy.md"',
+    ),
+    "qa-strategy-from-spec": (
+        "skills/qa-strategy-from-spec/SKILL.md",
+        f"Write `{WORK}/<feature-name>-qa-strategy.md`",
+    ),
+    "write-prd": ("skills/write-prd/SKILL.md", f"Write `{WORK}/prd.md`"),
+    "spec-review-agent": (
+        "agents/spec-review-agent.md",
+        f'path_pattern: "{FEATURES}/*.feature"',
+    ),
+}
+
+OLD_PATH_PATTERNS = re.compile(
+    "|".join(
+        (
+            r"supplementary_specs",
+            r"docs/arc42/[a-z-]+\.dsl",
+            r"docs/spec/[^/]+\.feature",
+            r"docs/spec/prd\.md",
+            r"docs/spec/[^/]+-(gaps|qa-strategy)\.md",
+            r"docs/spec/todos?\.md",
+            r"docs/arc42/themes",
+            r"arc42/\(architecture",
+            r"UC-XX",
+            r"use_cases",
+            r"actor-goal-list",
+            OLD_ROUTING_FILE.pattern,
+        )
+    )
+)
+
+SPEC_WRITER_FILES = (
+    "agents/requirements-agent.md",
+    "agents/spec-review-agent.md",
+    "skills/derive-feature/SKILL.md",
+    "skills/qa-strategy-from-spec/SKILL.md",
+    "skills/write-prd/SKILL.md",
+    "skills/clarify-requirements/SKILL.md",
+    "skills/spec-feedback/SKILL.md",
+    "playbooks/greenfield-development.md",
+    "rulebooks/conventions/agent-context-composition.md",
+    "rulebooks/templates/qa-strategy.md",
+    "rulebooks/templates/proposal.md",
+    "rulebooks/templates/finding.md",
+    "docs/factory-guide.md",
+)
+
+
+@pytest.mark.spec("CAL-12")
+@pytest.mark.parametrize("writer", SPEC_WRITERS)
+def test_spec_writer_uses_the_features_and_work_folders(writer: str) -> None:
+    path, expected = SPEC_WRITERS[writer]
+    assert expected in read_factory_file(path)
+
+
+@pytest.mark.spec("CAL-12")
+@pytest.mark.parametrize("path", SPEC_WRITER_FILES)
+def test_spec_writer_file_names_no_old_path(path: str) -> None:
+    found = [
+        f"{number}: {line.strip()}"
+        for number, line in enumerate(read_factory_file(path).splitlines(), 1)
+        if OLD_PATH_PATTERNS.search(line)
+    ]
+    assert found == []

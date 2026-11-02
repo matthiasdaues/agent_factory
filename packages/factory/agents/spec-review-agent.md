@@ -10,12 +10,12 @@ skills:
 inputs:
   required:
     - type: feature
-      path_pattern: "docs/spec/*.feature"
+      path_pattern: "docs/spec/features/*.feature"
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
   context:
-    - docs/CONTEXT.md
-    - docs/spec/todos.md
+    - docs/spec/glossary.md
+    - docs/spec/work/todos.md
     - docs/agent-context.md
     - .agent-factory/factory/rulebooks/conventions/report-format.md
     - .agent-factory/factory/rulebooks/conventions/finding-format.md

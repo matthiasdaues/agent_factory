@@ -67,13 +67,13 @@ Read: docs/handbook/testing/conventions.md, docs/handbook/testing/strategy.md
 ### backend
 Server-side application code: routes, models, services, repositories.
 Read: docs/handbook/backend/conventions.md, docs/handbook/backend/cookbook/*.md
-Boundary: docs/spec/supplementary_specs/interface-contracts.md
+Boundary: docs/spec/interface-contracts.md
 
 ## Domain concerns
 
 ### payments
 Payment processing domain logic.
-Read: docs/spec/payments.feature, docs/spec/supplementary_specs/payment-rules.md
+Read: docs/spec/features/payments.feature, docs/spec/areas/payment-rules.md
 ```
 
 ## Controlled vocabulary

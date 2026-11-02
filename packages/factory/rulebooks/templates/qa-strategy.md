@@ -5,7 +5,7 @@ version: 1.0.0
 
 # QA Strategy Template
 
-Skeleton for `docs/spec/<feature-name>-qa-strategy.md`. Governed by
+Skeleton for `docs/spec/work/<feature-name>-qa-strategy.md`. Governed by
 [qa-strategy-from-spec](../../skills/qa-strategy-from-spec/SKILL.md).
 
 ````markdown
@@ -13,16 +13,16 @@ Skeleton for `docs/spec/<feature-name>-qa-strategy.md`. Governed by
 
 Generated from:
 
-- Feature spec: `docs/spec/<feature-name>.feature`
-- Entity model: `docs/spec/supplementary_specs/entity-model.md`
-- Interface contracts: `docs/spec/supplementary_specs/interface-contracts.md`
+- Feature spec: `docs/spec/features/<feature-name>.feature`
+- Entity model: `docs/spec/entity-model.md`
+- Interface contracts: `docs/spec/interface-contracts.md`
 - Charter layer bindings: `testing.yaml (at docs/testing.yaml)`
 - Repo test infrastructure: conftest.py, tests/, packages/*/tests/
 
 ## Feature
 
 - Proposal trace: <proposal path or `Gap: proposal trace missing`>
-- Gherkin trace: `docs/spec/<feature-name>.feature`
+- Gherkin trace: `docs/spec/features/<feature-name>.feature`
 - Summary: <one-paragraph feature-specific QA focus>
 - Rules in scope:
   - `Rule: ...`

@@ -15,15 +15,15 @@ inputs:
     - type: story
       path_pattern: "backlog/ST-*.md"
     - type: feature
-      path_pattern: "docs/spec/*.feature"
+      path_pattern: "docs/spec/features/*.feature"
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
     - type: supplementary-spec
-      path_pattern: "docs/spec/supplementary_specs/*.md"
+      path_pattern: "docs/spec/*.md"
   context:
     - .agent-factory/config/model.conf
-    - docs/spec/prd.md
-    - docs/CONTEXT.md
+    - docs/spec/work/prd.md
+    - docs/spec/glossary.md
     - docs/agent-context.md
     - .agent-factory/factory/rulebooks/conventions/branching-policy.md
     - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md

@@ -16,12 +16,12 @@ inputs:
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
     - type: supplementary-spec
-      path_pattern: "docs/spec/supplementary_specs/*.md"
+      path_pattern: "docs/spec/*.md"
     - type: feature
-      path_pattern: "docs/spec/*.feature"
+      path_pattern: "docs/spec/features/*.feature"
   context:
-    - docs/CONTEXT.md
-    - docs/spec/prd.md
+    - docs/spec/glossary.md
+    - docs/spec/work/prd.md
     - docs/*.md
     - docs/adr/*.md
     - docs/agent-context.md
@@ -39,10 +39,13 @@ outputs:
     - path_pattern: "docs/reviews/reconciliation-*.md"
       validator:
       required: true
-    - path_pattern: "docs/spec/supplementary_specs/*.md"
+    - path_pattern: "docs/spec/*.md"
       validator:
       required: false
-    - path_pattern: "docs/spec/*.feature"
+    - path_pattern: "docs/spec/areas/*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/spec/features/*.feature"
       validator:
       required: false
     - path_pattern: docs/spec/scope-map.md
@@ -54,7 +57,7 @@ outputs:
     - path_pattern: "docs/adr/*.md"
       validator:
       required: false
-    - path_pattern: docs/CONTEXT.md
+    - path_pattern: docs/spec/glossary.md
       validator:
       required: false
     - path_pattern: "docs/findings/RECON-*.md"
@@ -95,7 +98,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 **Timing:** One reconciliation pass per feature branch, at Phase 5, pre-merge to dev. Do not run per story merge — that surfaces partial-Rule noise before the slice's `.feature` file is complete.
 
-1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/scope-map.md`, `docs/spec/*.feature`, `docs/arc42/architecture.dsl` (the canonical triad); `docs/spec/supplementary_specs/`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/CONTEXT.md`; the current slice's `docs/spec/<feature-name>.feature`, when one governs the slice.
+1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/scope-map.md`, `docs/spec/features/*.feature`, `docs/spec/architecture.dsl` (the canonical triad); the models in `docs/spec/` and `docs/spec/areas/`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/spec/glossary.md`; the current slice's `docs/spec/features/<feature-name>.feature`, when one governs the slice. A story's behaviour lives in its scope-map row and the feature file that row names.
 2. **Reconcile** — Build truth maps from code and spec, diff them, classify discrepancies, update stale docs, file code defects per [finding-format.md](../rulebooks/conventions/finding-format.md). Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (RECON-NNNN)`. Report per [report-format.md](../rulebooks/conventions/report-format.md).
 3. **Backfill `@`-references** (when a `.feature` file governs the slice) — Per [cross-reference-format.md § `@`-references in `.feature` files](../rulebooks/conventions/cross-reference-format.md#-references-in-feature-files):
    - For each Scenario without an `@`-ref, inspect the step definitions and code, then add `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`).
@@ -103,7 +106,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    - A Scenario still without an `@`-ref means no implementing code was found — file as a separate `RECON` finding.
 4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
    - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
-   - **Skip migration rows**: rows pointing at `UC-XX-*.md` (old-format entries from the pre-Gherkin scope-map migration) are exempt — they have no `.feature` file to compare against.
+   - **Skip rows without a `.feature` link**: they have no feature file to compare against.
    - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Add it as `implemented` with its `.feature` link, and file a `RECON` finding.
    - **Drift** — a `specified` Rule no longer in the `.feature` file means a scenario was dropped or merged. File a `RECON` finding — do not silently remove the row.
    - Move every `specified` Rule still present to `implemented`. Update links if a `.feature` file moved under `docs/~archive/`.

@@ -16,7 +16,7 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 
 The active feature is resolved from the user's request or accepted proposal. Other `.feature` files provide context but do not contribute capability rows unless explicitly included.
 
-The inputs are `docs/spec/scope-map.md` and the active `.feature` file under `docs/spec/` (factory-canonical). `docs/agent-context.md` domain concerns locate the project glossary and vocabulary. Supplementary specifications (state machines, interface contracts, validation models) are not read until Step 0b. Technical concerns, architecture views, and cross-cutting concerns are not read until Step 0b.
+The inputs are the scope map at `docs/spec/scope-map.md` and the active feature file in `docs/spec/features/` (factory-canonical). `docs/agent-context.md` domain concerns locate the project glossary and vocabulary. Supplementary specifications (state machines, interface contracts, validation models) are not read until Step 0b. Technical concerns, architecture views, and cross-cutting concerns are not read until Step 0b.
 
 The output is a capability table. Each row describes one thing a user can do when this feature is complete. The row names what the person does, through what shipped entry point, and what result they see. Component names do not appear in Person, User action, or Observable result. They may appear in Supporting rules. System roles do not stand in for users. Internal system behaviors support capabilities — they are not capabilities.
 
@@ -52,7 +52,7 @@ An engine, adapter, validator, schema, or migration rule that no user capability
 
 ## Step 1.5a — EPIC-level slice table
 
-**Glossary source:** the project glossary is located through the domain concerns in `docs/agent-context.md` (typically the arc42 glossary or CONTEXT.md). Domain jargon in a capability or boundary name gets a plain-English gloss on first use (e.g. "DispatchLedger (YAML file tracking story status)").
+**Glossary source:** the project glossary is located through the domain concerns in `docs/agent-context.md` (typically `docs/spec/glossary.md`). Domain jargon in a capability or boundary name gets a plain-English gloss on first use (e.g. "DispatchLedger (YAML file tracking story status)").
 
 **Demo vocabulary:** the demo sentence uses only terms already glossed or self-evident. An unmet concept is glossed inline or the sentence is restructured.
 
@@ -84,8 +84,8 @@ The project's own component names apply, not generic labels. Two components insi
 1. Each EPIC traces a path from user entry through decision logic to a stored or shown result. The demo is concrete and showable. Each capability in the EPIC follows the complete user → decision → result path. One valid path does not cover unrelated capabilities.
 2. The path crosses at least two distinct steps. An entry point and a decision step in the same module do not count. An EPIC whose path stays inside one layer (engine-only, persistence-only) is a horizontal — recut it.
 3. A person can use this EPIC's result without any later EPIC. Test: "Can someone do the demo with only this EPIC built?" A "no" means the EPIC is incomplete.
-4. An EPIC that groups work by layer rather than by use case is recut.
-5. A fully serial dependency chain (each EPIC depends on the previous, no parallelism) signals horizontal slicing. Thin vertical slices — each delivering one end-to-end use case — are revisited before presenting.
+4. An EPIC that groups work by layer rather than by actor goal is recut.
+5. A fully serial dependency chain (each EPIC depends on the previous, no parallelism) signals horizontal slicing. Thin vertical slices — each delivering one end-to-end actor goal — are revisited before presenting.
 6. A person describes this EPIC's result without naming implementation components. An outcome that only makes sense in terms of engines, adapters, schemas, or validators is an internal rule — recut it. The outcome changes what the person accomplishes. An artifact-health diagnostic is not a capability unless it is a supported product interface.
 7. Each EPIC traces back to a user capability in Step 0a, not to a backend rule. Each backend rule has one primary owning EPIC — the journey that first requires it. Cross-cutting rules may constrain other EPICs without duplicating ownership. Unallocated rules are missing capabilities or specification gaps.
 
