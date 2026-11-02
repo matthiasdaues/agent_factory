@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.0 — 2026-11-02
+
+This is the layout release. An update from an earlier version moves the
+files of a project in the old layout into the new one.
+
+### Features
+
+- **One specification layout.** The core files stay at the top of
+  `docs/spec/`. Feature files move to `docs/spec/features/`, working output
+  such as gap reports and QA strategies to `docs/spec/work/`, and the terms
+  to `docs/spec/glossary.md`. A first install in the old layout moves no
+  file and lists the old paths.
+- **Routing files fold into the agent context.** `docs/CONTEXT.md` and
+  `docs/arc42/CONTEXT-MAP.md` no longer route agents. The new mode
+  `capture-context --fold-context-map` folds them into
+  `docs/agent-context.md`, and the developer deletes the old files.
+
 ## 1.3.3 — 2026-10-27
 
 ### Fixes

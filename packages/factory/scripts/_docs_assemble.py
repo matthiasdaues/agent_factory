@@ -31,14 +31,14 @@ CHAPTER12 = "arc42/12_glossary.md"
 GLOSSARY = "spec/glossary.md"
 RASTER_SUFFIXES = {".png", ".jpg", ".jpeg"}
 
-FENCE_RE = re.compile(r"^(```|~~~)[^\n]*\n.*?^\1[ \t]*$\n?", re.S | re.M)
-MERMAID_RE = re.compile(r"^```mermaid[ \t]*\n(.*?)^```[ \t]*$\n?", re.S | re.M)
+FENCE_RE = re.compile(r"^(```|~~~)[^\n]*\n.*?^\1[ \t]*$\n?", re.DOTALL | re.MULTILINE)
+MERMAID_RE = re.compile(r"^```mermaid[ \t]*\n(.*?)^```[ \t]*$\n?", re.DOTALL | re.MULTILINE)
 CODE_SPAN_RE = re.compile(r"(`+)(?:(?!\1).)+?\1")
-FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---[ \t]*\n", re.S)
-BACK_TO_INDEX_RE = re.compile(r"^\[back to index\]\([^)]*\)[ \t]*\n?", re.M | re.I)
+FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---[ \t]*\n", re.DOTALL)
+BACK_TO_INDEX_RE = re.compile(r"^\[back to index\]\([^)]*\)[ \t]*\n?", re.MULTILINE | re.IGNORECASE)
 IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
-HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$", re.M)
+HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$", re.MULTILINE)
 
 
 class ManifestError(Exception):
@@ -206,7 +206,7 @@ class Build:
         status = None
         fm = FRONTMATTER_RE.match(text)
         if fm:
-            found = re.search(r"^status:[ \t]*(.+?)[ \t]*$", fm.group(1), re.M)
+            found = re.search(r"^status:[ \t]*(.+?)[ \t]*$", fm.group(1), re.MULTILINE)
             status = found.group(1).strip("'\"") if found else None
             text = text[fm.end():]
         text = BACK_TO_INDEX_RE.sub("", text)

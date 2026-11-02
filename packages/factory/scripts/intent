@@ -21,7 +21,7 @@ PACKAGES_DIR = Path(__file__).resolve().parent.parent
 if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
-from engine.agent_loader import load_agent_definitions, _parse_frontmatter
+from engine.agent_loader import _parse_frontmatter, load_agent_definitions
 from engine.eligibility import evaluate_all
 
 SCRIPTS_DIR = PACKAGES_DIR / "scripts"

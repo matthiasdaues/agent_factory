@@ -38,7 +38,7 @@ import json
 import os
 import re
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Set
 
@@ -48,7 +48,7 @@ from typing import Dict, List, Set
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-import _session_log  # noqa: E402
+import _session_log
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
@@ -136,8 +136,8 @@ def check_required_artifacts(spec: Path) -> List[Finding]:
 # Unattended reverse-map writes `status: draft` into the scope map's
 # frontmatter. A stakeholder confirms the map by removing the field or setting
 # it to `confirmed`; until then the brownfield Stage 1 exit must fail (BUG-0096).
-RE_FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\s*$", re.S | re.M)
-RE_DRAFT_STATUS = re.compile(r"^status:\s*['\"]?draft['\"]?\s*$", re.M)
+RE_FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\s*$", re.DOTALL | re.MULTILINE)
+RE_DRAFT_STATUS = re.compile(r"^status:\s*['\"]?draft['\"]?\s*$", re.MULTILINE)
 
 
 def check_scope_map_draft(spec: Path) -> List[Finding]:
@@ -305,8 +305,8 @@ def check_state_machines(spec: Path) -> List[Finding]:
 OPEN_ENTRY = r"^\s*-\s*status:\s*open\s*$"
 OPEN_CHECKBOX = r"^\s*-\s*\[\s\]"
 TODO_FILES = (
-    ("todo.md", re.compile(OPEN_ENTRY, re.M)),
-    ("todos.md", re.compile(f"{OPEN_ENTRY}|{OPEN_CHECKBOX}", re.M)),
+    ("todo.md", re.compile(OPEN_ENTRY, re.MULTILINE)),
+    ("todos.md", re.compile(f"{OPEN_ENTRY}|{OPEN_CHECKBOX}", re.MULTILINE)),
 )
 
 

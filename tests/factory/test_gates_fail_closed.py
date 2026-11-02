@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR
 
 CONSUMER_CONFIG = REPO_ROOT / "packages" / "factory" / "config" / "pre-commit-config.yaml"

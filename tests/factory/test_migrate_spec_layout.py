@@ -1256,14 +1256,22 @@ class TestLinkRewrite:
         for old, new in PATH_TABLE_ROWS.items():
             assert f"{old} -> {new}\n" in result.stdout
         for line in [
-            f"link: {DECISIONS}: ../spec/supplementary_specs/entity-model.md"
-            " -> ../spec/entity-model.md",
-            "link: docs/spec/work/todo.md: ../reviews/retro.md"
-            " -> ../../reviews/retro.md",
-            "link: docs/spec/scope-map.md: ../~archive/spec/use_cases/"
-            "UC-04-dispatch-an-agent-via-trigger.md -> `UC-04`",
-            "link: docs/spec/areas/billing.md: state-machines.md#dispatch"
-            " -> ../state-machines.md#dispatch",
+            (
+                f"link: {DECISIONS}: ../spec/supplementary_specs/entity-model.md"
+                " -> ../spec/entity-model.md"
+            ),
+            (
+                "link: docs/spec/work/todo.md: ../reviews/retro.md"
+                " -> ../../reviews/retro.md"
+            ),
+            (
+                "link: docs/spec/scope-map.md: ../~archive/spec/use_cases/"
+                "UC-04-dispatch-an-agent-via-trigger.md -> `UC-04`"
+            ),
+            (
+                "link: docs/spec/areas/billing.md: state-machines.md#dispatch"
+                " -> ../state-machines.md#dispatch"
+            ),
         ]:
             assert f"{line}\n" in result.stdout
         real = run_script(make_project(tmp_path / "real", OLD_LAYOUT_LINKS))

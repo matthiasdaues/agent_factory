@@ -97,7 +97,7 @@ class TestFoldModeDefined:
         assert "| `capture-context --fold-context-map`" in invocation
 
     def test_section_has_ordered_steps(self, fold: str) -> None:
-        numbers = [int(m) for m in re.findall(r"^### Step (\d+)", fold, re.M)]
+        numbers = [int(m) for m in re.findall(r"^### Step (\d+)", fold, re.MULTILINE)]
         assert numbers == list(range(len(numbers)))
         assert len(numbers) >= 7
 

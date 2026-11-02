@@ -309,7 +309,7 @@ class TestPublishedPdf:
 
     def test_second_run_gives_same_page_count(self, published):
         root, _ = published
-        pages = lambda: re.search(r"Pages:\s+(\d+)", poppler(root, "pdfinfo", PDF)).group(1)  # noqa: E731
+        pages = lambda: re.search(r"Pages:\s+(\d+)", poppler(root, "pdfinfo", PDF)).group(1)
         first = pages()
         assert publish(root).returncode == 0
         assert pages() == first
