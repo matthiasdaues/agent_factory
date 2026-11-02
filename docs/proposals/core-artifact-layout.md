@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Core Artifact Layout
-status: open
+status: accepted
 owner: Matthias Daues
 created: 2026-11-01
 updated: 2026-11-02
