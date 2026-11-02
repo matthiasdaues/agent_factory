@@ -894,11 +894,12 @@ playbooks:
     agents:
       - architecture-agent
       - requirements-agent
+      - spec-review-agent
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3209
-    total_tokens: 57171
+    tokens: 3327
+    total_tokens: 61717
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration

@@ -176,12 +176,6 @@ Derive a consolidated Gherkin feature file from test names, API endpoints, and u
 
 **Output**: `docs/spec/<project-name>.feature`, `docs/spec/scope-map.md` (updated), `docs/spec/<project-name>-gaps.md`
 
-### Step 3.4 — Extract PRD
-
-Based on the feature spec and architecture baseline.
-
-**Output**: `docs/spec/prd.md`
-
 ### Step 3.6 — Extract Supplementary Specs
 
 Document non-functional requirements found in code: performance characteristics (timeouts, rate limits), security measures (auth, encryption), validation rules, interface contracts.
@@ -193,6 +187,18 @@ Document non-functional requirements found in code: performance characteristics 
 For stateful components found in code, extract state machines per [`state-machine-notation.md`](../rulebooks/conventions/state-machine-notation.md).
 
 **Output**: `docs/spec/supplementary_specs/state-machines.md`
+
+### Step 3.8 — Spec Review (Separate Session)
+
+**Agent**: `spec-review-agent`
+**Skill**: `inspect-spec` (`spec-lint`, then semantic inspection)
+
+Review the extracted specification for consistency, completeness, and traceability. The agent runs in a separate session from the author of Steps 3.1–3.7.
+
+**Output**: `docs/reviews/spec-review-*.md`, findings in `docs/findings/SPEC-*.md`
+
+**If open `SPEC-*` findings exist** → The `requirements-agent` addresses them in a new session. Return to Step 3.8.
+**If no open findings** → Proceed to Step 4.1.
 
 ## Component-Resolution Pass
 
@@ -322,9 +328,9 @@ The playbook ends when the following terminal artifacts exist:
 - [ ] `docs/adr/*.md` (documented architectural decisions)
 - [ ] `CONTEXT.md` (domain glossary / ubiquitous language)
 - [ ] `docs/spec/supplementary_specs/*.md` (entity model, state machines, validation rules, interface contracts)
-- [ ] `docs/spec/prd.md` (reverse-engineered product requirements)
 - [ ] `docs/spec/todos.md` (identified specification gaps and technical debt)
 - [ ] `docs/agent-context.md` (project context: concerns, paths, boundaries)
+- [ ] `docs/reviews/spec-review-*.md` (specification review findings — all addressed)
 - [ ] `docs/reviews/atam-review.md` (architecture review findings — all addressed)
 
 **Next:**
