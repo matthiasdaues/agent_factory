@@ -393,7 +393,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1753
-    total_tokens: 21284
+    total_tokens: 21407
     inputs:
       required:
         - any_of:
@@ -615,9 +615,9 @@ skills:
     tokens: 2563
   - name: reverse-map
     category: requirements
-    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1648
+    tokens: 1771
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -899,7 +899,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 64383
+    total_tokens: 64506
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -938,7 +938,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 108654
+    total_tokens: 108777
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -956,7 +956,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 107975
+    total_tokens: 108098
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

@@ -1,6 +1,6 @@
 ---
 name: reverse-map
-description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
 category: requirements
 ---
 
@@ -86,9 +86,15 @@ The stakeholder says "that's enough." Write `docs/spec/scope-map.md` in the 5-co
 
 Summarise the inventory count at the end.
 
-## Seed docs/CONTEXT.md
+## Seed docs/spec/glossary.md
 
-During the code sweep (Steps 1-3), extract domain vocabulary from type names, class names, and module names. Write these to `docs/CONTEXT.md` using the [glossary template](../../rulebooks/templates/glossary.md). This seed is the early form of arc42 chapter 12 (Glossary).
+During the code sweep (Steps 1-3), extract domain vocabulary from type names, class names, and module names. Write the terms into `docs/spec/glossary.md`, in the table form of the [glossary template](../../rulebooks/templates/glossary.md): one section per context, one table per section with the columns Term, Definition, and Avoid.
+
+- When the glossary is missing, create it from the template with one section per context. A context is one of the domain areas of Step 3.
+- When the glossary exists, add the rows to the section of their context, and create the section when it is missing. A term already in the section is not added twice.
+- Leave Avoid empty unless the code shows a competing word for the same term.
+
+This seed is the early form of arc42 chapter 12 (Glossary).
 
 ## Evidence hierarchy
 
@@ -108,7 +114,7 @@ The confidence level for each scope-map row follows this hierarchy:
 
 ## Boundaries
 
-- The skill reads code and presents information to the stakeholder. It writes only `docs/spec/scope-map.md` and `docs/CONTEXT.md`.
+- The skill reads code and presents information to the stakeholder. It writes only `docs/spec/scope-map.md` and `docs/spec/glossary.md`.
 - Discrepancies are surfaced as questions to the stakeholder, not filed as findings.
 - The stakeholder controls depth — "that's enough" is always valid.
 - The skill does not modify code, tests, or any implementation artifact.
@@ -130,7 +136,7 @@ status: draft
 ---
 ```
 
-- Seed `docs/CONTEXT.md` as in the attended mode.
+- Seed `docs/spec/glossary.md` as in the attended mode.
 - Report to the caller: the inventory count, the open questions, and that the map awaits confirmation.
 
 A stakeholder confirms the draft by walking the domain grouping and the open questions, then removing the `status` field or setting it to `status: confirmed`. Until then `spec-lint` reports the map as `SCOPE001`, and the brownfield Stage 1 exit check fails on that code. The check also fails when `spec-lint` crashes, so a broken install never passes a draft. The `scope` field stays in either case, because `scope-lint` requires it.
