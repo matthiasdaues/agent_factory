@@ -82,7 +82,7 @@ central storage. They are not required for local monitoring and analysis of
 files already retained on one machine.
 
 The current
-[`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md)
+`CONTEXT-MAP.md`
 still describes Usage Accounting as a PostgreSQL-backed projector. That text
 documents the superseded accepted design. Updating the context map and the
 canonical architecture model to the local JSONL-to-DuckDB boundary is part of
@@ -338,7 +338,7 @@ the supported reader range is explicit before the change can merge.
   six-view query-model bootstrap without starting or fetching the UI. Actual
   launch remains optional local exploration, not gate evidence.
 - Updates to [`architecture.dsl`](../../spec/architecture.dsl), derived arc42
-  explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) that replace the
+  explanations, and `CONTEXT-MAP.md` that replace the
   PostgreSQL projector with the local Usage Analysis bounded context and its
   published-record dependency.
 - Distribution through `init-factory`: `--with-usage` at init time,
@@ -624,7 +624,7 @@ deferred dashboard products on 2026-09-11.
     the two architecture dependency rules. Both run locally and return non-zero
     on a blocking failure.
 13. [`architecture.dsl`](../../spec/architecture.dsl), its derived arc42
-    explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) describe local
+    explanations, and `CONTEXT-MAP.md` describe local
     JSONL-to-DuckDB analysis and contain no PostgreSQL projector or remote Usage
     Accounting dependency.
 14. `init-factory --with-usage` and `init-factory --add usage` install the
@@ -690,7 +690,7 @@ The proposal is well-structured and substantially ready to plan from. The design
 | PROP-03 | resolved | First-release scope now requires the canonical architecture model, its derived explanations, and the context map to register the local Usage Analysis bounded context.                       |
 | PROP-04 | resolved | Design fixes the contract format as JSON Schema Draft 2020-12 plus a YAML ownership and compatibility manifest, checked by a dedicated local contract gate.                                  |
 | PROP-05 | resolved | The decomposition estimate now gives ranges for review hours, normalized edit volume, and total feature-addition consumption at low confidence.                                              |
-| PROP-06 | resolved | Motivation records the stale PostgreSQL description; scope and completion criterion 13 require its replacement in [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) and the architecture model. |
+| PROP-06 | resolved | Motivation records the stale PostgreSQL description; scope and completion criterion 13 require its replacement in `CONTEXT-MAP.md` and the architecture model.                               |
 
 ## Review — 2026-09-11 (repeat pass)
 
@@ -786,7 +786,7 @@ Disposition: findings
 | ------- | -------- | ----- | ------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PROP-01 | major    | 05    | confirmed    | confirmed      | All seven boundary paths resolve at the reviewed commit; the capture boundary remains the tracked `packages/factory/scripts/usage-capture` source.                                                 |
 | PROP-02 | minor    | 01    | confirmed    | confirmed      | Completion criterion 12 still names the exact pytest command from [`docs/testing.yaml`](../../testing.yaml) and the [`dependency-check`](../../../packages/factory/scripts/dependency-check) gate. |
-| PROP-03 | minor    | 02    | confirmed    | confirmed      | First-release scope still includes [`architecture.dsl`](../../spec/architecture.dsl), its derived explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md).                                |
+| PROP-03 | minor    | 02    | confirmed    | confirmed      | First-release scope still includes [`architecture.dsl`](../../spec/architecture.dsl), its derived explanations, and `CONTEXT-MAP.md`.                                                              |
 | PROP-04 | minor    | 06    | confirmed    | confirmed      | The proposal still selects JSON Schema Draft 2020-12 plus a YAML ownership and compatibility manifest.                                                                                             |
 | PROP-05 | minor    | 08    | confirmed    | confirmed      | The estimate remains 25,000–55,000 normalized tokens and 450,000–990,000 consumed tokens at 18×, with low confidence.                                                                              |
 | PROP-06 | minor    | 04    | confirmed    | confirmed      | Motivation identifies the stale PostgreSQL design and completion criterion 13 requires its replacement in the architecture artifacts.                                                              |

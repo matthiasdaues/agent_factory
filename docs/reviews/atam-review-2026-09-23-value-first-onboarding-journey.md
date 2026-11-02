@@ -40,7 +40,7 @@ The review examined:
   [ADR-0022](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)
   and
   [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md)
-- [Project context](../CONTEXT.md) and [agent context](../agent-context.md)
+- `Project context` (`docs/CONTEXT.md`) and [agent context](../agent-context.md)
 - [Prior ATAM review](atam-review-2026-07-12.md)
 
 The ATAM skill names `docs/arc42/CONTEXT.md` as its preferred vocabulary

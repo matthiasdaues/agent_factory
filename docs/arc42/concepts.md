@@ -66,7 +66,7 @@ agent_factory/
 └── README.md
 ```
 
-See [docs/arc42/CONTEXT-MAP.md](CONTEXT-MAP.md) for the bounded-context map.
+See [docs/agent-context.md](../agent-context.md) for the bounded contexts.
 
 ## Referenced from
 
