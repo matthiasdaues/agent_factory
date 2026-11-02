@@ -53,7 +53,7 @@ class TestReadAllowed:
         assert sg._read_allowed(".claude/settings.json", []) is True
 
     def test_matching_input_allowed(self):
-        assert sg._read_allowed("docs/spec/prd.md", ["docs/spec/*.md"]) is True
+        assert sg._read_allowed("docs/spec/glossary.md", ["docs/spec/*.md"]) is True
 
     def test_non_matching_denied(self):
         assert sg._read_allowed("src/secret.py", ["docs/*.md"]) is False
@@ -80,13 +80,13 @@ class TestWriteAllowed:
 
 class TestExtractBashPaths:
     def test_cat_extracts_read(self):
-        reads, writes = sg._extract_bash_paths("cat docs/spec/prd.md")
-        assert "docs/spec/prd.md" in reads
+        reads, writes = sg._extract_bash_paths("cat docs/spec/glossary.md")
+        assert "docs/spec/glossary.md" in reads
         assert writes == []
 
     def test_grep_skips_pattern(self):
-        reads, _writes = sg._extract_bash_paths("grep TODO docs/spec/prd.md")
-        assert "docs/spec/prd.md" in reads
+        reads, _writes = sg._extract_bash_paths("grep TODO docs/spec/glossary.md")
+        assert "docs/spec/glossary.md" in reads
         assert "TODO" not in reads
 
     def test_redirect_extracts_write(self):
@@ -108,7 +108,7 @@ class TestBashAllowed:
         assert sg._bash_allowed("echo hello", [], []) is True
 
     def test_allowed_read(self):
-        assert sg._bash_allowed("cat docs/spec/prd.md", ["docs/spec/*.md"], []) is True
+        assert sg._bash_allowed("cat docs/spec/glossary.md", ["docs/spec/*.md"], []) is True
 
     def test_denied_read(self):
         assert sg._bash_allowed("cat /etc/passwd", ["docs/*.md"], []) is False

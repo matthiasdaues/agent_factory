@@ -184,6 +184,40 @@ def test_glossary_file_names_no_context_md(path: str) -> None:
     assert not OLD_ROUTING_FILE.search(read_factory_file(path))
 
 
+# --- ST-0337 ---
+# CAL-12-LN-01, reverse-map assertion: the vocabulary step seeds glossary rows.
+
+REVERSE_MAP = "skills/reverse-map/SKILL.md"
+
+
+@pytest.mark.spec("CAL-12")
+def test_reverse_map_seeds_term_rows_into_the_glossary() -> None:
+    text = read_factory_file(REVERSE_MAP)
+    step = section(text, f"## Seed {GLOSSARY}")
+    assert f"`{GLOSSARY}`" in step
+    assert "Term, Definition, and Avoid" in step
+    assert "one section per context" in step
+    assert "term already in the section is not added twice" in step
+    assert not OLD_ROUTING_FILE.search(text)
+
+
+# --- ST-0340 ---
+# CAL-12-LN-01: the developer and reconciliation agents find a story's
+# behaviour in the scope map and the feature files, with no use-case fallback.
+
+NO_FALLBACK_AGENTS = ("agents/developer-agent.md", "agents/reconciliation-agent.md")
+USE_CASE_LOOKUP = re.compile(r"use[ _-]?cases?\b|UC-[X0-9]{2}|actor-goal[ -]list", re.IGNORECASE)
+
+
+@pytest.mark.spec("CAL-12")
+@pytest.mark.parametrize("path", NO_FALLBACK_AGENTS)
+def test_agent_reads_scope_map_and_features_without_use_case_fallback(path: str) -> None:
+    text = read_factory_file(path)
+    assert "docs/spec/scope-map.md" in text
+    assert "docs/spec/features/" in text
+    assert USE_CASE_LOOKUP.findall(text) == []
+
+
 # --- ST-0338 ---
 # CAL-12-LN-01: the requirements agent and the specification skills write
 # feature files to docs/spec/features/ and working output to docs/spec/work/.

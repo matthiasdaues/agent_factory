@@ -14,7 +14,7 @@ skills:
 inputs:
   required:
     - type: feature
-      path_pattern: "docs/spec/*.feature"
+      path_pattern: "docs/spec/features/*.feature"
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
   context:
