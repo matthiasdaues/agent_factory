@@ -23,7 +23,7 @@ def _step(name: str) -> dict:
 
 
 def test_spec_review_can_read_project_terminology() -> None:
-    assert "docs/CONTEXT.md" in _step("spec-review")["inputs"]
+    assert "docs/spec/glossary.md" in _step("spec-review")["inputs"]
 
 
 def test_spec_review_can_persist_its_mandatory_report() -> None:
