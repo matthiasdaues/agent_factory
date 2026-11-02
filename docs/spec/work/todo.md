@@ -168,3 +168,17 @@ carries them along.
 **Action:** define a retention rule for transcripts (for example, by age or by
 total size), decide which derived records must survive a prune, and implement
 the rule with a test.
+
+## T-0013 — `duplicate_terms` misses duplicates between sections with the same heading
+
+- status: open
+- source: [IMPL-0003](../../findings/IMPL-0003.md), code re-review of `core-artifact-layout` (2026-11-03)
+
+`migrate-spec-layout` counts glossary sections by their heading text. When two
+`CONTEXT.md` files share a `###` subheading, the glossary gets two sections
+with the same heading, and a term in both gets no `duplicate term:` line. No
+data is lost, and the run exits 0.
+
+**Action:** count sections by position in `duplicate_terms`, or name
+subheading sections after their context (for example `Billing: Orders`), and
+add a test.

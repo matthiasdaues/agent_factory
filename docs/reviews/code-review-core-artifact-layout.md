@@ -4,7 +4,7 @@ title: Code review of the core artifact layout implementation
 date: 2026-11-03
 status: defects
 reviewer: code-review-agent
-findings_filed: 2
+findings_filed: 3
 branch: feature/core-artifact-layout
 branch_base: 4040854f2f7cfc62d69ff85761780ed503aec479
 branch_head: c8724ac0e597890b01443715f87c0786c5adf903
@@ -38,3 +38,17 @@ The review ran these suites at the head: `test_migrate_spec_layout.py`, `test_co
 **Gates.** `arch-lint`, `structurizr`, `scope-lint`, `spec-lint`, `dependency-check`, `module-graph-check`, `test-design-verify`, `intent`, and `publish-docs` read only the new paths. No factory script outside `migrate-spec-layout` names an old path. `arch-lint` reports `ARCH-MISSING` when chapter 5 exists without `docs/spec/architecture.dsl`. Each gate skips a missing file only where it did so before this change, or where DEC-11 requires it. `spec-lint` reports `TRACE002` as an error without a `use_cases/` folder, as the feature requires.
 
 **Hook block.** `rewrite_factory_hooks` changes only the `files:` key of `agent_factory_hook-*` entries. Comments, other keys, and the project's own hooks stay unchanged. The template pattern matches `docs/spec/architecture.dsl`, `docs/spec/dependency-rules.dsl`, and chapter 5.
+
+## Re-review
+
+The re-review of fix commit `dde5796e` at head `ae7ce7ca` resolves IMPL-0001 and IMPL-0002 and files one new major defect, IMPL-0003. Next, the Implementation Agent fixes IMPL-0003 and submits the branch for review again.
+
+The review ran `test_migrate_spec_layout.py` at the head, and all 143 tests passed. It ran the 13 new tests against the script before `dde5796e` in a scratch copy, and all 13 failed. Each case below ran in a scratch repository.
+
+| Finding                                                                                                                                                                                                                                                              | Verdict  | Evidence                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [IMPL-0001](../findings/IMPL-0001.md): two old files with one new path                                                                                                                                                                                               | Resolved | Both original cases exit 0, and both contents survive under `billing-qa-strategy.md` and `billing-area-qa-strategy.md`. A forced failure after the moves restores both files. Links to the old path point at the `-area-` path. |
+| [IMPL-0002](../findings/IMPL-0002.md): old `CONTEXT.md` forms block the update                                                                                                                                                                                       | Resolved | The original `### Orders` case exits 0 and writes the section `Orders`. Bullet terms become rows. No form of `## Language` refuses.                                                                                             |
+| [IMPL-0003](../findings/IMPL-0003.md): two `CONTEXT.md` files with the same `###` subheading give two glossary sections with one heading. `duplicate_terms` keys sections by heading, so it lists no duplicate term and no cleanup step. Count sections by position. | Open     | `### Orders` with `Order` in both `docs/CONTEXT.md` and `docs/arc42/CONTEXT.md` exits 0 with no `duplicate term:` line. The same files without subheadings list `duplicate term: Order in Billing, Shop`.                       |
+
+A line under `## Language` that fits no form, such as `#### Notes`, joins the current definition. No text is lost, so the review files no finding for it.
