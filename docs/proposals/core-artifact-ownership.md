@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Core Artifact Ownership
-status: open
+status: accepted
 owner: agent-factory
 created: 2026-11-02
 updated: 2026-11-02
