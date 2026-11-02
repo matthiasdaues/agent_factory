@@ -28,7 +28,7 @@ def _write_proposal(base: Path, name: str, frontmatter: str) -> Path:
 
 
 def _write_feature(base: Path, name: str, first_line: str = "") -> Path:
-    d = base / "docs" / "spec"
+    d = base / "docs" / "spec" / "features"
     d.mkdir(parents=True, exist_ok=True)
     p = d / f"{name}.feature"
     content = f"{first_line}\nFeature: {name}\n" if first_line else f"Feature: {name}\n"
@@ -37,7 +37,7 @@ def _write_feature(base: Path, name: str, first_line: str = "") -> Path:
 
 
 def _write_dsl(base: Path, first_line: str = "") -> Path:
-    d = base / "docs" / "arc42"
+    d = base / "docs" / "spec"
     d.mkdir(parents=True, exist_ok=True)
     p = d / "architecture.dsl"
     content = f"{first_line}\nworkspace {{}}\n" if first_line else "workspace {}\n"
@@ -46,7 +46,7 @@ def _write_dsl(base: Path, first_line: str = "") -> Path:
 
 
 def _write_entity_model_md(base: Path, frontmatter: str = "") -> Path:
-    d = base / "docs" / "spec" / "supplementary_specs"
+    d = base / "docs" / "spec"
     d.mkdir(parents=True, exist_ok=True)
     p = d / "entity-model.md"
     if frontmatter:
@@ -57,7 +57,7 @@ def _write_entity_model_md(base: Path, frontmatter: str = "") -> Path:
 
 
 def _write_entity_model_yaml(base: Path, content: str) -> Path:
-    d = base / "docs" / "spec" / "supplementary_specs"
+    d = base / "docs" / "spec"
     d.mkdir(parents=True, exist_ok=True)
     p = d / "entity-model.yaml"
     p.write_text(content)
@@ -222,6 +222,18 @@ class TestNonGovernedArtifacts:
         (conv_dir / "naming.md").write_text("# Naming\n")
         findings = scope_lint.validate_scope(tmp_path)
         assert len(findings) == 0
+
+
+class TestNewLayoutOnly:
+    """scope-lint reads the core at its new paths only (DEC-11)."""
+
+    def test_new_paths_are_named_in_the_findings(self, tmp_path: Path) -> None:
+        _write_feature(tmp_path, "payments")
+        _write_dsl(tmp_path)
+        _write_entity_model_md(tmp_path)
+        paths = {f.path for f in scope_lint.validate_scope(tmp_path)}
+        assert paths == {"docs/spec/features/payments.feature",
+                         "docs/spec/architecture.dsl", "docs/spec/entity-model.md"}
 
 
 class TestMultipleErrors:

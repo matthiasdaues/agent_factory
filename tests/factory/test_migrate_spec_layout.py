@@ -8,6 +8,7 @@ their own file maps.
 
 from __future__ import annotations
 
+import ast
 import os
 import subprocess
 from pathlib import Path
@@ -444,3 +445,371 @@ def test_CAL_03_structurizr_validate_accepts_the_migrated_dsl(migrated):
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "ERROR" not in result.stdout + result.stderr
+
+
+# ── CAL-03-IT-01 and CAL-03-IT-06: removals of the actor-goal list and ──
+# ── the use-case files, also from the archive (ST-0319) ─────────────────
+
+ARCHIVE_GOAL_LIST = "docs/~archive/spec/actor-goal-list.md"
+ARCHIVE_USE_CASE = "docs/~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md"
+ARCHIVE_NOTES = "docs/~archive/spec/old-notes.md"
+UC_07 = "docs/spec/use_cases/UC-07.md"
+REMOVAL_SET = [ARCHIVE_GOAL_LIST, ARCHIVE_USE_CASE, UC_07]
+
+OLD_LAYOUT_ARCHIVE: dict[str, str] = {
+    **OLD_LAYOUT_PAYMENTS,
+    ARCHIVE_GOAL_LIST: "# Actor-goal list\n",
+    ARCHIVE_USE_CASE: "# UC-04 Dispatch an agent via trigger\n",
+    ARCHIVE_NOTES: "# Old notes\n",
+    UC_07: "# UC-07\n",
+}
+
+
+def _uc07_untracked(root: Path) -> None:
+    git(root, "rm", "-q", "--cached", UC_07)
+    git(root, "commit", "-q", "-m", "untrack UC-07")
+
+
+def _uc07_ignored(root: Path) -> None:
+    (root / ".gitignore").write_text("use_cases/UC-07.md\n")
+    git(root, "rm", "-q", "--cached", UC_07)
+    git(root, "add", ".gitignore")
+    git(root, "commit", "-q", "-m", "ignore UC-07")
+
+
+def _uc07_staged(root: Path) -> None:
+    (root / UC_07).write_text("# UC-07 staged\n")
+    git(root, "add", UC_07)
+
+
+def _uc07_unstaged(root: Path) -> None:
+    (root / UC_07).write_text("# UC-07 unstaged\n")
+
+
+class TestRemovals:
+    """The removal set: actor-goal-list.md and use_cases/ files under docs/."""
+
+    @pytest.mark.spec("CAL-03-CT-01")
+    @pytest.mark.parametrize(
+        ("path", "removed"),
+        [
+            ("docs/spec/actor-goal-list.md", True),
+            (ARCHIVE_GOAL_LIST, True),
+            (ARCHIVE_USE_CASE, True),
+            (UC_07, True),
+            ("docs/spec/use_cases/nested/UC-08.md", True),
+            (ARCHIVE_NOTES, False),
+            ("docs/spec/scope-map.md", False),
+            ("use_cases/UC-01.md", False),
+            ("actor-goal-list.md", False),
+        ],
+    )
+    def test_CAL_03_removal_set_holds_goal_list_and_use_case_files(
+        self, migrate, path: str, removed: bool
+    ):
+        assert migrate.in_removal_set(path) is removed
+
+    @pytest.mark.spec("CAL-03-IT-01")
+    def test_CAL_03_goal_list_and_use_cases_removed_with_git_also_from_archive(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-archive", OLD_LAYOUT_ARCHIVE)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        status = git(root, "status")
+        for rel in REMOVAL_SET:
+            assert f"deleted:    {rel}" in status
+            assert not (root / rel).exists()
+            assert f"remove: {rel}" in result.stdout
+        entries = {line[3:]: line[:2] for line in porcelain(root).splitlines()}
+        for rel in REMOVAL_SET:
+            assert entries[rel] == "D "
+        assert ARCHIVE_NOTES not in porcelain(root)
+        assert (root / ARCHIVE_NOTES).read_text() == "# Old notes\n"
+        assert renames(root) == PATH_TABLE_ROWS
+        assert "delete by hand" not in result.stdout
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    @pytest.mark.parametrize(
+        "set_state",
+        [_uc07_untracked, _uc07_ignored, _uc07_staged, _uc07_unstaged],
+        ids=["untracked", "ignored", "staged", "unstaged"],
+    )
+    def test_CAL_03_removal_file_git_cannot_remove_safely_stays_and_is_listed(
+        self, tmp_path: Path, set_state
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_ARCHIVE)
+        set_state(root)
+        content = (root / UC_07).read_text()
+        index_before = git(root, "ls-files", "-s", "--", UC_07)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert (root / UC_07).read_text() == content
+        assert git(root, "ls-files", "-s", "--", UC_07) == index_before
+        assert f"delete by hand: {UC_07}" in result.stdout
+        assert f"remove: {UC_07}" not in result.stdout
+        assert not (root / ARCHIVE_GOAL_LIST).exists()
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    def test_CAL_03_dry_run_lists_removals_and_files_to_delete_by_hand(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_ARCHIVE)
+        _uc07_unstaged(root)
+        before = porcelain(root)
+        result = run_script(root, "--dry-run")
+        assert result.returncode == 0, result.stderr
+        assert f"remove: {ARCHIVE_GOAL_LIST}\n" in result.stdout
+        assert f"remove: {ARCHIVE_USE_CASE}\n" in result.stdout
+        assert f"delete by hand: {UC_07}\n" in result.stdout
+        assert porcelain(root) == before
+        assert (root / ARCHIVE_GOAL_LIST).is_file()
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    def test_CAL_03_project_with_only_removals_is_still_work(self, tmp_path: Path):
+        files = {
+            **NEW_LAYOUT_PAYMENTS,
+            ARCHIVE_GOAL_LIST: "# Actor-goal list\n",
+            ARCHIVE_NOTES: "# Old notes\n",
+        }
+        root = make_project(tmp_path / "p", files)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == f"remove: {ARCHIVE_GOAL_LIST}\n"
+        assert porcelain(root) == f"D  {ARCHIVE_GOAL_LIST}\n"
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+    def test_CAL_03_failure_after_a_removal_restores_the_removed_files(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_ARCHIVE)
+        work = root / "docs/spec/work"
+        work.mkdir()
+        work.chmod(0o555)
+        before = porcelain(root)
+        try:
+            result = run_script(root)
+        finally:
+            work.chmod(0o755)
+        assert result.returncode == 1
+        assert "undone" in result.stderr
+        assert porcelain(root) == before
+        for rel in REMOVAL_SET:
+            assert (root / rel).read_text() == OLD_LAYOUT_ARCHIVE[rel]
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    def test_CAL_03_script_has_no_forced_or_plain_file_removal(self):
+        # The one exception: the undo of Run.create deletes the file the run
+        # wrote itself, such as docs/spec/glossary.md (ST-0323).
+        source = SCRIPT.read_text(encoding="utf-8")
+        helper = next(
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "_delete_created_file"
+        )
+        source = source.replace(ast.get_source_segment(source, helper), "")
+        assert source.count("_delete_created_file(") == 1
+        for forbidden in ('"-f"', "--force", "os.remove", "unlink", "shutil.rmtree"):
+            assert forbidden not in source, forbidden
+
+
+# ── CAL-06-CT-01 and CAL-06-IT-02: chapter 12 becomes the glossary and a ──
+# ── link line (ST-0323) ─────────────────────────────────────────────────
+
+CHAPTER12 = "docs/arc42/12_glossary.md"
+GLOSSARY = "docs/spec/glossary.md"
+LINK_LINE = "The terms are in [the glossary](../spec/glossary.md)."
+
+REFERENCED_FROM = (
+    "## Referenced from\n\n"
+    "- [Scope map](../spec/scope-map.md)\n"
+    "- [ADR 1](../adr/0001-example.md)\n"
+)
+
+CHAPTER12_FIRST = (
+    "# 12. Glossary\n\n"
+    "| Term             | Definition                     |\n"
+    "| ---------------- | ------------------------------ |\n"
+    "| **Ledger Entry** | One line of the ledger.        |\n"
+    "| Invoice          | A bill sent to a customer.     |\n\n"
+    "## Usage Analysis Vocabulary\n\n"
+    "| Term    | Definition                    |\n"
+    "| ------- | ----------------------------- |\n"
+    "| Session | One run of an agent.          |\n\n" + REFERENCED_FROM
+)
+
+CHAPTER12_SECOND = CHAPTER12_FIRST.replace(
+    "| Invoice          | A bill sent to a customer.     |\n",
+    "| Invoice          | A bill sent to a customer.     |\n"
+    "| Payout           | Money paid to a merchant.      |\n",
+)
+
+GLOSSARY_EXPECTED = (
+    "# Glossary\n\n"
+    "## Terms\n\n"
+    "| Term             | Definition                 | Avoid |\n"
+    "| ---------------- | -------------------------- | ----- |\n"
+    "| **Ledger Entry** | One line of the ledger.    |       |\n"
+    "| Invoice          | A bill sent to a customer. |       |\n"
+    "| Payout           | Money paid to a merchant.  |       |\n\n"
+    "## Usage Analysis Vocabulary\n\n"
+    "| Term    | Definition           | Avoid |\n"
+    "| ------- | -------------------- | ----- |\n"
+    "| Session | One run of an agent. |       |\n"
+)
+
+STUB_EXPECTED = "# 12. Glossary\n\n" + LINK_LINE + "\n\n" + REFERENCED_FROM
+
+
+def make_glossary_project(root: Path) -> Path:
+    """Build ``old-layout-glossary``: old-layout-payments plus chapter 12.
+
+    Chapter 12 has two commits; the second adds the row "Payout".
+    """
+    make_project(root, {**OLD_LAYOUT_PAYMENTS, CHAPTER12: CHAPTER12_FIRST})
+    (root / CHAPTER12).write_text(CHAPTER12_SECOND, encoding="utf-8")
+    git(root, "commit", "-q", "-am", "add the term Payout")
+    return root
+
+
+def _rows(text: str) -> list[list[str]]:
+    """Return the body rows of every table in ``text`` as lists of cells."""
+    lines = [line for line in text.splitlines() if line.startswith("|")]
+    rows = []
+    for line in lines:
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if set("".join(cells)) <= set("-: ") or cells[0] in ("Term", "Begriff"):
+            continue
+        rows.append(cells)
+    return rows
+
+
+class TestGlossary:
+    """Chapter 12 tables move into docs/spec/glossary.md; a stub stays."""
+
+    @pytest.mark.spec("CAL-06-CT-01")
+    def test_CAL_06_headed_section_keeps_its_heading_and_rows(self, migrate):
+        chapter = (
+            "# 12. Glossary\n\n## Usage Analysis Vocabulary\n\n"
+            "| Term        | Definition       |\n| --- | --- |\n"
+            "| **Session** | One run.         |\n| Spool | Raw records. |\n"
+        )
+        result = migrate.convert_chapter12(chapter)
+        assert migrate.render_glossary(result.sections) == (
+            "# Glossary\n\n## Usage Analysis Vocabulary\n\n"
+            "| Term        | Definition   | Avoid |\n"
+            "| ----------- | ------------ | ----- |\n"
+            "| **Session** | One run.     |       |\n"
+            "| Spool       | Raw records. |       |\n"
+        )
+        assert result.stub == "# 12. Glossary\n\n" + LINK_LINE + "\n"
+
+    @pytest.mark.spec("CAL-06-CT-01")
+    def test_CAL_06_table_under_the_title_becomes_section_terms(self, migrate):
+        chapter = (
+            "[back to index](../README.md)\n\n# 12. Glossary\n\n"
+            "Terms in **bold** are canonical.\n\n"
+            "| Term | Definition |\n| --- | --- |\n| Invoice | A bill. |\n"
+        )
+        result = migrate.convert_chapter12(chapter)
+        assert [s.heading for s in result.sections] == ["Terms"]
+        assert result.sections[0].rows == [("Invoice", "A bill.")]
+        assert result.stub == (
+            "[back to index](../README.md)\n\n# 12. Glossary\n\n"
+            + LINK_LINE
+            + "\n\nTerms in **bold** are canonical.\n"
+        )
+
+    @pytest.mark.spec("CAL-06-CT-01")
+    def test_CAL_06_other_column_names_become_term_definition_and_avoid(self, migrate):
+        chapter = (
+            "# 12. Glossar\n\n## Fachbegriffe\n\n"
+            "| Begriff | Bedeutung |\n| --- | --- |\n"
+            "| Rechnung | Eine Forderung. |\n| Buchung | Ein Eintrag. |\n"
+        )
+        glossary = migrate.render_glossary(migrate.convert_chapter12(chapter).sections)
+        table = glossary.split("## Fachbegriffe\n\n")[1]
+        header, _separator, *body = table.splitlines()
+        assert [c.strip() for c in header.strip("|").split("|")] == [
+            "Term",
+            "Definition",
+            "Avoid",
+        ]
+        assert _rows(glossary) == [
+            ["Rechnung", "Eine Forderung.", ""],
+            ["Buchung", "Ein Eintrag.", ""],
+        ]
+        assert len(body) == 2
+
+    @pytest.mark.spec("CAL-06-CT-01")
+    def test_CAL_06_section_without_a_table_stays_below_the_link_line(self, migrate):
+        result = migrate.convert_chapter12(CHAPTER12_SECOND)
+        assert result.stub == STUB_EXPECTED
+        assert migrate.render_glossary(result.sections) == GLOSSARY_EXPECTED
+
+    @pytest.mark.spec("CAL-06-CT-01")
+    def test_CAL_06_chapter_without_a_table_gives_no_glossary_work(self, migrate):
+        assert migrate.convert_chapter12(STUB_EXPECTED).sections == []
+
+    @pytest.mark.spec("CAL-06-IT-02")
+    def test_CAL_06_git_shows_glossary_added_and_chapter_12_modified(
+        self, tmp_path: Path
+    ):
+        root = make_glossary_project(tmp_path / "old-layout-glossary")
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        entries = {line[3:]: line[:2] for line in porcelain(root).splitlines()}
+        assert entries[GLOSSARY] == "A "
+        assert entries[CHAPTER12] == "M "
+        log = git(root, "log", "--format=%s", "--", CHAPTER12).splitlines()
+        assert log == ["add the term Payout", "fixture"]
+        glossary = (root / GLOSSARY).read_text(encoding="utf-8")
+        assert glossary == GLOSSARY_EXPECTED
+        assert len(_rows(glossary)) == len(_rows(CHAPTER12_SECOND)) == 4
+        assert (root / CHAPTER12).read_text(encoding="utf-8") == STUB_EXPECTED
+        assert f"{CHAPTER12} -> {GLOSSARY}" in result.stdout
+
+    @pytest.mark.spec("CAL-06-IT-02")
+    def test_CAL_06_dry_run_names_the_glossary_and_changes_no_file(
+        self, tmp_path: Path
+    ):
+        root = make_glossary_project(tmp_path / "p")
+        result = run_script(root, "--dry-run")
+        assert result.returncode == 0, result.stderr
+        assert f"{CHAPTER12} -> {GLOSSARY}" in result.stdout
+        assert porcelain(root) == ""
+        assert not (root / GLOSSARY).exists()
+
+    @pytest.mark.spec("CAL-06-IT-02")
+    def test_CAL_06_existing_glossary_refuses_before_the_first_change(
+        self, tmp_path: Path
+    ):
+        root = make_glossary_project(tmp_path / "p")
+        (root / GLOSSARY).write_text("# Glossary\n", encoding="utf-8")
+        before = porcelain(root)
+        result = run_script(root)
+        assert result.returncode == 2
+        assert GLOSSARY in result.stderr
+        assert porcelain(root) == before
+        assert (root / CHAPTER12).read_text(encoding="utf-8") == CHAPTER12_SECOND
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+    def test_CAL_06_failure_after_the_glossary_step_restores_chapter_12(
+        self, tmp_path: Path
+    ):
+        root = make_glossary_project(tmp_path / "p")
+        work = root / "docs/spec/work"
+        work.mkdir()
+        work.chmod(0o555)
+        before = porcelain(root)
+        try:
+            result = run_script(root)
+        finally:
+            work.chmod(0o755)
+        assert result.returncode == 1
+        assert "undone" in result.stderr
+        assert porcelain(root) == before
+        assert not (root / GLOSSARY).exists()
+        assert (root / CHAPTER12).read_bytes() == CHAPTER12_SECOND.encode()

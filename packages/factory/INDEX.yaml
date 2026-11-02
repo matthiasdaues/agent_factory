@@ -122,20 +122,20 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 980
-    total_tokens: 6147
+    tokens: 985
+    total_tokens: 6152
     inputs:
       required:
         - type: story
           path_pattern: backlog/ST-*.md
         - type: feature
-          path_pattern: docs/spec/{name}.feature
+          path_pattern: docs/spec/features/{name}.feature
         - type: qa-strategy
-          path_pattern: docs/spec/{name}-qa-strategy.md
+          path_pattern: docs/spec/work/{name}-qa-strategy.md
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - docs/testing.yaml
         - .agent-factory/factory/rulebooks/conventions/finding-format.md
@@ -155,21 +155,21 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1971
-    total_tokens: 5052
+    tokens: 1975
+    total_tokens: 5057
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: supplementary-spec
-          path_pattern: docs/spec/supplementary_specs/*.md
+          path_pattern: docs/spec/*.md
         - type: story
           path_pattern: backlog/ST-{id}.md
       context:
-        - docs/spec/prd.md
-        - docs/CONTEXT.md
+        - docs/spec/work/prd.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - docs/testing.yaml
         - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
@@ -200,15 +200,15 @@ agents:
         - type: story
           path_pattern: backlog/ST-*.md
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: supplementary-spec
-          path_pattern: docs/spec/supplementary_specs/*.md
+          path_pattern: docs/spec/*.md
       context:
         - .agent-factory/config/model.conf
-        - docs/spec/prd.md
-        - docs/CONTEXT.md
+        - docs/spec/work/prd.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/branching-policy.md
         - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
@@ -254,12 +254,12 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1582
-    total_tokens: 14257
+    tokens: 1583
+    total_tokens: 14263
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
@@ -296,20 +296,20 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1290
-    total_tokens: 9704
+    tokens: 1286
+    total_tokens: 9703
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/{name}.feature
+          path_pattern: docs/spec/features/{name}.feature
         - type: qa-strategy
-          path_pattern: docs/spec/{name}-qa-strategy.md
+          path_pattern: docs/spec/work/{name}-qa-strategy.md
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
-        - docs/spec/prd.md
+        - docs/spec/work/prd.md
         - docs/*.md
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
         - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
@@ -336,19 +336,19 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2272
-    total_tokens: 21291
+    tokens: 2294
+    total_tokens: 21421
     inputs:
       required:
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: supplementary-spec
-          path_pattern: docs/spec/supplementary_specs/*.md
+          path_pattern: docs/spec/*.md
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
       context:
-        - docs/CONTEXT.md
-        - docs/spec/prd.md
+        - docs/spec/glossary.md
+        - docs/spec/work/prd.md
         - docs/*.md
         - docs/adr/*.md
         - docs/agent-context.md
@@ -366,10 +366,13 @@ agents:
         - path_pattern: docs/reviews/reconciliation-*.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/*.md
+        - path_pattern: docs/spec/*.md
           validator: ""
           required: false
-        - path_pattern: docs/spec/*.feature
+        - path_pattern: docs/spec/areas/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/spec/features/*.feature
           validator: ""
           required: false
         - path_pattern: docs/spec/scope-map.md
@@ -381,7 +384,7 @@ agents:
         - path_pattern: docs/adr/*.md
           validator: ""
           required: false
-        - path_pattern: docs/CONTEXT.md
+        - path_pattern: docs/spec/glossary.md
           validator: ""
           required: false
         - path_pattern: docs/findings/RECON-*.md
@@ -392,8 +395,8 @@ agents:
     tier: strong
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1753
-    total_tokens: 21284
+    tokens: 1748
+    total_tokens: 21515
     inputs:
       required:
         - any_of:
@@ -405,8 +408,8 @@ agents:
             - type: scope-map
               path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/todos.md
+        - docs/spec/glossary.md
+        - docs/spec/work/todos.md
         - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
         - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
         - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
@@ -416,25 +419,25 @@ agents:
         - path_pattern: docs/spec/scope-map.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}.feature
+        - path_pattern: docs/spec/features/{name}.feature
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}-gaps.md
+        - path_pattern: docs/spec/work/{name}-gaps.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}-qa-strategy.md
+        - path_pattern: docs/spec/work/{name}-qa-strategy.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/entity-model.md
+        - path_pattern: docs/spec/entity-model.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/interface-contracts.md
+        - path_pattern: docs/spec/interface-contracts.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/state-machines.md
+        - path_pattern: docs/spec/state-machines.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/validation-rules.md
+        - path_pattern: docs/spec/validation-rules.md
           validator: ""
           required: true
   - name: research-orchestrator
@@ -519,17 +522,17 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 701
-    total_tokens: 4433
+    tokens: 705
+    total_tokens: 4437
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/todos.md
+        - docs/spec/glossary.md
+        - docs/spec/work/todos.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/report-format.md
         - .agent-factory/factory/rulebooks/conventions/finding-format.md
@@ -549,7 +552,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3782
-    total_tokens: 18336
+    total_tokens: 18444
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -582,7 +585,7 @@ skills:
     category: requirements
     description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. --fold-context-map folds a context map into domain concerns. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 7271
+    tokens: 7379
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -592,12 +595,12 @@ skills:
     category: requirements
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
-    tokens: 517
+    tokens: 527
   - name: derive-feature
     category: requirements
     description: Derive a Gherkin .feature file from a proposal, or in brownfield from the scope map, using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
-    tokens: 2478
+    tokens: 2485
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
@@ -612,17 +615,17 @@ skills:
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 2563
+    tokens: 2551
   - name: reverse-map
     category: requirements
-    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1648
+    tokens: 1771
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
     path: skills/write-prd/SKILL.md
-    tokens: 441
+    tokens: 449
   - name: write-primer
     category: requirements
     description: "Write a short primer for a proposal: a plain-language introduction that lets a reader who knows nothing about the project follow the full document. Writes it into the proposal's Primer section."
@@ -672,7 +675,7 @@ skills:
     category: planning
     description: Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
     path: skills/create-backlog-epics/SKILL.md
-    tokens: 2362
+    tokens: 2364
   - name: create-backlog-stories
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
@@ -702,7 +705,7 @@ skills:
     category: planning
     description: Assess epic testability and resolve contract ownership backlog-wide before stories are cut. Mandatory step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices. Writes a testability paragraph and ownership table per EPIC into backlog/epics.md — no failure scenarios, test paths, or risk classifications.
     path: skills/testability-probe/SKILL.md
-    tokens: 2677
+    tokens: 2680
   - name: crap-score
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
@@ -717,7 +720,7 @@ skills:
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
     path: skills/implement-issue/SKILL.md
-    tokens: 867
+    tokens: 883
   - name: reconcile-spec
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
@@ -727,12 +730,12 @@ skills:
     category: implementation
     description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
     path: skills/spec-feedback/SKILL.md
-    tokens: 471
+    tokens: 456
   - name: test-design
     category: implementation
     description: Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files.
     path: skills/test-design/SKILL.md
-    tokens: 1846
+    tokens: 1848
   - name: vue-best-practices
     category: implementation
     description: Project-specific Vue conventions for packages/server. Load before any Vue/frontend implementation task.
@@ -742,7 +745,7 @@ skills:
     category: quality
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
-    tokens: 603
+    tokens: 606
   - name: explain-review-finding
     category: quality
     description: When the user asks what a review finding, bug report, failing test, or architecture concern means, explain it to a newcomer, starting with a short chain of cause and effect.
@@ -899,7 +902,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 64383
+    total_tokens: 64748
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -909,7 +912,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15437
+    total_tokens: 15441
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -921,7 +924,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 45210
+    total_tokens: 45344
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -938,7 +941,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 108654
+    total_tokens: 109029
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -955,8 +958,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2737
-    total_tokens: 107975
+    tokens: 2745
+    total_tokens: 108358
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -972,7 +975,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15940
+    total_tokens: 15944
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1021,7 +1024,7 @@ rulebooks:
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
-    tokens: 1223
+    tokens: 1218
   - name: agent-lifecycle-protocol
     category: conventions
     path: rulebooks/conventions/agent-lifecycle-protocol.md

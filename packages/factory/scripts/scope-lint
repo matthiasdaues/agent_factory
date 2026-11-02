@@ -13,10 +13,10 @@ Seven governed artifact types:
   - Proposals        (docs/proposals/*.md)           — YAML frontmatter scope
   - Epics            (backlog/epics-*.md)             — YAML frontmatter scope
   - Stories          (backlog/ST-*.md)                 — YAML frontmatter scope
-  - Feature files    (docs/spec/*.feature)            — first-line # scope: <v>
-  - Structurizr DSL  (docs/arc42/architecture.dsl)    — first-line # scope: <v>
+  - Feature files    (docs/spec/features/*.feature)   — first-line # scope: <v>
+  - Structurizr DSL  (docs/spec/architecture.dsl)     — first-line # scope: <v>
                                                         (legacy // scope: <v> still passes)
-  - Entity model     (docs/spec/supplementary_specs/entity-model.{md,yaml})
+  - Entity model     (docs/spec/entity-model.{md,yaml})
   - Scope map        (docs/spec/scope-map.md)         — YAML frontmatter scope
 
 Exit code: 1 when there is at least one error, 0 when clean.
@@ -172,20 +172,21 @@ def _discover_governed(base_dir: Path) -> list[tuple[Path, str, str]]:
             artifacts.append((p, "story", "YAML frontmatter"))
 
     spec_dir = base_dir / "docs" / "spec"
-    if spec_dir.is_dir():
-        for p in sorted(spec_dir.glob("*.feature")):
+    features_dir = spec_dir / "features"
+    if features_dir.is_dir():
+        for p in sorted(features_dir.glob("*.feature")):
             artifacts.append((p, "feature file", "first-line comment (# scope:)"))
 
-    scope_map = base_dir / "docs" / "spec" / "scope-map.md"
+    scope_map = spec_dir / "scope-map.md"
     if scope_map.is_file():
         artifacts.append((scope_map, "scope map", "YAML frontmatter"))
 
-    dsl = base_dir / "docs" / "arc42" / "architecture.dsl"
+    dsl = spec_dir / "architecture.dsl"
     if dsl.is_file():
         artifacts.append((dsl, "Structurizr DSL", "first-line comment (# scope:)"))
 
-    entity_yaml = base_dir / "docs" / "spec" / "supplementary_specs" / "entity-model.yaml"
-    entity_md = base_dir / "docs" / "spec" / "supplementary_specs" / "entity-model.md"
+    entity_yaml = spec_dir / "entity-model.yaml"
+    entity_md = spec_dir / "entity-model.md"
     if entity_yaml.is_file():
         artifacts.append((entity_yaml, "entity model", "top-level YAML field"))
     elif entity_md.is_file():

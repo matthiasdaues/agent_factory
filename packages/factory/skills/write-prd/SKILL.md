@@ -6,14 +6,14 @@ category: requirements
 
 # Write PRD
 
-Formalise the clarified requirements into a PRD. Do not interview the user — synthesise what the conversation has already established. Reference `docs/spec/todo.md` for pending decisions.
+Formalise the clarified requirements into a PRD. Do not interview the user — synthesise what the conversation has already established. Reference `docs/spec/work/todo.md` for pending decisions.
 
 Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
-Read `docs/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
+Read `docs/spec/glossary.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Step 1 — Draft the PRD
 
-Write `docs/spec/prd.md` covering:
+Write `docs/spec/work/prd.md` covering:
 
 1. **Problem Statement** — the problem from the user's perspective
 2. **Goals and Non-Goals** — what this project achieves and what it explicitly excludes
@@ -21,11 +21,11 @@ Write `docs/spec/prd.md` covering:
 4. **Functional Requirements** — what the system does, grouped by capability
 5. **Non-Functional Requirements** — performance, security, reliability, operability
 6. **Constraints and Assumptions** — technology, timeline, organisational, regulatory
-7. **Open Questions** — each referencing an entry in `docs/spec/todo.md`
+7. **Open Questions** — each referencing an entry in `docs/spec/work/todo.md`
 
-Format via `scripts/mdformat --number docs/spec/prd.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+Format via `scripts/mdformat --number docs/spec/work/prd.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
-**Completion**: `docs/spec/prd.md` exists with all seven sections filled — no placeholder text, no silently assumed decisions.
+**Completion**: `docs/spec/work/prd.md` exists with all seven sections filled — no placeholder text, no silently assumed decisions.
 
 ## Step 2 — Verify completeness
 
@@ -37,4 +37,4 @@ Ask: _"Does this PRD capture everything we discussed? Anything missing or misrep
 
 ## Completion criterion
 
-A colleague unfamiliar with the project can read `docs/spec/prd.md` and understand what needs to be built, what is out of scope, and what is still undecided.
+A colleague unfamiliar with the project can read `docs/spec/work/prd.md` and understand what needs to be built, what is out of scope, and what is still undecided.

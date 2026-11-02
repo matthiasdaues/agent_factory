@@ -28,8 +28,8 @@ inputs:
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
   context:
-    - docs/CONTEXT.md
-    - docs/spec/todos.md
+    - docs/spec/glossary.md
+    - docs/spec/work/todos.md
     - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
     - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
     - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
@@ -39,25 +39,25 @@ outputs:
     - path_pattern: docs/spec/scope-map.md
       validator:
       required: true
-    - path_pattern: "docs/spec/{name}.feature"
+    - path_pattern: "docs/spec/features/{name}.feature"
       validator:
       required: true
-    - path_pattern: "docs/spec/{name}-gaps.md"
+    - path_pattern: "docs/spec/work/{name}-gaps.md"
       validator:
       required: true
-    - path_pattern: "docs/spec/{name}-qa-strategy.md"
+    - path_pattern: "docs/spec/work/{name}-qa-strategy.md"
       validator:
       required: true
-    - path_pattern: docs/spec/supplementary_specs/entity-model.md
+    - path_pattern: docs/spec/entity-model.md
       validator:
       required: true
-    - path_pattern: docs/spec/supplementary_specs/interface-contracts.md
+    - path_pattern: docs/spec/interface-contracts.md
       validator:
       required: true
-    - path_pattern: docs/spec/supplementary_specs/state-machines.md
+    - path_pattern: docs/spec/state-machines.md
       validator:
       required: true
-    - path_pattern: docs/spec/supplementary_specs/validation-rules.md
+    - path_pattern: docs/spec/validation-rules.md
       validator:
       required: true
 triggers:
@@ -103,10 +103,10 @@ Branch order: if the caller passes `docs/spec/scope-map.md`, from the scope map;
 
 1. **Derive Feature Spec**
    a. **Check scope-map status** — If `docs/spec/scope-map.md` does not exist, invoke `reverse-map` to build the scope map from code, tests, and other sources. If the scope map already exists, leave it — new Rules are added in step 1c.
-   b. **Derive feature file** — Invoke `derive-feature` with the proposal path (e.g. `derive-feature docs/proposals/<name>.md`). The skill reads `impact.boundaries`, scans `src/` for existing code, applies Cockburn reasoning, and writes `docs/spec/<feature-name>.feature` and `docs/spec/<feature-name>-gaps.md`.
+   b. **Derive feature file** — Invoke `derive-feature` with the proposal path (e.g. `derive-feature docs/proposals/<name>.md`). The skill reads `impact.boundaries`, scans `src/` for existing code, applies Cockburn reasoning, and writes `docs/spec/features/<feature-name>.feature` and `docs/spec/work/<feature-name>-gaps.md`.
    c. **Update scope map** — `derive-feature` adds new Rules with status `specified` and a link to the `.feature` file (see [derive-feature/SKILL.md § Scope Map Integration](../skills/derive-feature/SKILL.md#scope-map-integration)). Status transitions only go forward — `implemented` never moves back to `specified` or `deferred`.
-   d. **Produce supplementary specs** — Write `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` under `docs/spec/supplementary_specs/`. These carry structural facts the `.feature` file does not: entity lifecycles, validation rules, boundary schemas, and domain relationships.
-2. **Produce QA Strategy** — Invoke `qa-strategy-from-spec` with the feature name (e.g. `qa-strategy-from-spec activity-graph-orchestration`). Reads the `.feature` file, entity model, and interface contracts. Writes `docs/spec/<feature-name>-qa-strategy.md` with six sections: Feature, Test Layers in Scope, Contract Owners, Boundary Cases, Defect Severity Triage, and Test Retention Policy.
+   d. **Produce supplementary specs** — Write `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` at the top of `docs/spec/`. These carry structural facts that the feature file does not: entity lifecycles, validation rules, boundary schemas, and domain relationships.
+2. **Produce QA Strategy** — Invoke `qa-strategy-from-spec` with the feature name (e.g. `qa-strategy-from-spec activity-graph-orchestration`). Reads the `.feature` file, entity model, and interface contracts. Writes `docs/spec/work/<feature-name>-qa-strategy.md` with six sections: Feature, Test Layers in Scope, Contract Owners, Boundary Cases, Defect Severity Triage, and Test Retention Policy.
 3. **Address review findings** (repeat passes) — Re-run steps 1–2 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
    - **Grep before fixing**: when a finding names an inconsistency, `rg` all of `docs/spec/` for every occurrence before editing. Fix them in one pass — a missed occurrence forces another full review cycle.
 
@@ -114,7 +114,7 @@ Branch order: if the caller passes `docs/spec/scope-map.md`, from the scope map;
 
 Brownfield Step 3.3 starts here. The Brownfield Entry stops on a map with `status: draft`.
 
-1. **Derive Feature Spec** — Invoke `derive-feature docs/spec/scope-map.md`. The skill follows its [Brownfield Entry](../skills/derive-feature/SKILL.md#brownfield-entry): it writes `docs/spec/<project-name>.feature` and `docs/spec/<project-name>-gaps.md`, keeps every row `implemented`, and fills each matched row's Feature Link.
+1. **Derive Feature Spec** — Invoke `derive-feature docs/spec/scope-map.md`. The skill follows its [Brownfield Entry](../skills/derive-feature/SKILL.md#brownfield-entry): it writes `docs/spec/features/<project-name>.feature` and `docs/spec/work/<project-name>-gaps.md`, keeps every row `implemented`, and fills each matched row's Feature Link.
 2. **Produce supplementary specs and QA strategy** — Continue with steps 1d and 2 above, using `<project-name>` as the feature name.
 
 **Pause points:** Scope map review · Feature file review · QA strategy review.
@@ -124,10 +124,10 @@ Brownfield Step 3.3 starts here. The Brownfield Entry stops on a map with `statu
 - Scope map exists at `docs/spec/scope-map.md` with all Rules from the proposal
 - Every Rule in the scope map has a status (`deferred`, `specified`, or `implemented`)
 - Every `specified` Rule links to a live `.feature` file
-- `docs/spec/<feature-name>.feature` exists with Rule-per-actor-goal structure and at least one Scenario per Rule
-- `docs/spec/<feature-name>-gaps.md` exists with the actor-goal matrix and any detected gaps
-- `docs/spec/<feature-name>-qa-strategy.md` exists with all six sections filled
-- Supplementary specs (`entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) exist under `docs/spec/supplementary_specs/`
+- `docs/spec/features/<feature-name>.feature` exists with Rule-per-actor-goal structure and at least one Scenario per Rule
+- `docs/spec/work/<feature-name>-gaps.md` exists with the actor-goal matrix and any detected gaps
+- `docs/spec/work/<feature-name>-qa-strategy.md` exists with all six sections filled
+- Supplementary specs (`entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) exist at the top of `docs/spec/`
 - All outputs pass `.agent-factory/factory/scripts/validate`
 
 ## Handoff

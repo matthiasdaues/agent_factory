@@ -192,3 +192,135 @@ def test_CAL_09_dependency_check_reads_rules_from_spec(
     else:
         assert result.returncode == 0, result.stderr
         assert outcomes == {"pass"}
+
+
+# --- ST-0326 -------------------------------------------------------------------
+
+FEATURE_FILE = "docs/spec/features/core-artifact-layout.feature"
+
+STATE_MACHINES = """\
+# State Machines
+
+## Article
+
+```text
+State: DRAFT
+On Publish:
+  ChangeState(PUBLISHED)
+
+State: PUBLISHED
+  # terminal — no outbound transitions
+```
+
+```mermaid
+stateDiagram-v2
+    DRAFT --> PUBLISHED : Publish
+```
+"""
+
+SCOPE_AND_STATE_FILES = {
+    FEATURE_FILE: (
+        "# scope: global\n"
+        "Feature: Core artifact layout\n\n"
+        "  Rule: Project maintainer's gates check the core at its new paths\n\n"
+        "    Scenario: A gate runs\n"
+        "      Given a migrated project\n"
+        "      When the project maintainer runs a gate\n"
+        "      Then the gate exits 0\n"
+    ),
+    "docs/spec/state-machines.md": STATE_MACHINES,
+    "docs/spec/entity-model.md": (
+        "---\nscope: global\n---\n\n# Entity Model\n\n## Article\n\n"
+        "| Field | Type |\n| ----- | ---- |\n| id    | UUID |\n"
+    ),
+    "docs/spec/work/todo.md": "# Todo\n\n- [ ] Read the [retro](../../reviews/retro.md).\n",
+    "docs/reviews/retro.md": "# Retrospective\n",
+}
+
+
+@pytest.fixture
+def scope_and_state_layout(new_layout_gates: Path) -> Path:
+    """`new-layout-gates` plus the files of scope-lint, statemachine-lint, and link-check."""
+    write_files(new_layout_gates, SCOPE_AND_STATE_FILES)
+    dsl = new_layout_gates / "docs/spec/architecture.dsl"
+    dsl.write_text("# scope: global\n" + dsl.read_text())
+    return new_layout_gates
+
+
+def scope_findings(result: subprocess.CompletedProcess) -> set[str]:
+    """The paths that scope-lint names in its JSON report."""
+    return {finding["path"] for finding in json.loads(result.stdout)["findings"]}
+
+
+@pytest.mark.parametrize("seeded", [False, True], ids=["clean", "seeded-error"])
+def test_CAL_09_scope_lint_reads_feature_files_from_spec_features(
+    scope_and_state_layout: Path, seeded: bool
+) -> None:
+    if seeded:
+        feature = scope_and_state_layout / FEATURE_FILE
+        feature.write_text(feature.read_text().split("\n", 1)[1])
+    result = run_gate(scope_and_state_layout, "scope-lint", "--format", "json")
+    output = result.stdout + result.stderr
+    if seeded:
+        assert result.returncode == 1, output
+        assert scope_findings(result) == {FEATURE_FILE}
+    else:
+        assert result.returncode == 0, output
+
+
+def test_CAL_09_scope_lint_checks_dsl_and_entity_model_at_new_paths(
+    scope_and_state_layout: Path,
+) -> None:
+    """Without a scope declaration, the DSL and the entity model each give a finding."""
+    dsl = scope_and_state_layout / "docs/spec/architecture.dsl"
+    dsl.write_text(dsl.read_text().split("\n", 1)[1])
+    write_files(scope_and_state_layout, {"docs/spec/entity-model.md": "# Entity Model\n"})
+    result = run_gate(scope_and_state_layout, "scope-lint", "--format", "json")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert scope_findings(result) == {
+        "docs/spec/architecture.dsl",
+        "docs/spec/entity-model.md",
+    }
+
+
+@pytest.mark.parametrize("seeded", [False, True], ids=["clean", "seeded-error"])
+def test_CAL_09_statemachine_lint_reads_state_machines_from_spec(
+    scope_and_state_layout: Path, seeded: bool
+) -> None:
+    if seeded:
+        path = scope_and_state_layout / "docs/spec/state-machines.md"
+        path.write_text(
+            path.read_text().replace(
+                "    DRAFT --> PUBLISHED : Publish\n",
+                "    DRAFT --> PUBLISHED : Publish\n    DRAFT --> ARCHIVED : Archive\n",
+            )
+        )
+    result = run_gate(
+        scope_and_state_layout, "statemachine-lint", "--spec-dir", "docs/spec"
+    )
+    output = result.stdout + result.stderr
+    if seeded:
+        assert result.returncode == 1, output
+        assert "SM-TRANS" in output
+        assert "state-machines.md" in output
+    else:
+        assert result.returncode == 0, output
+        assert "SM-NO-MERMAID" not in output
+
+
+@pytest.mark.parametrize("seeded", [False, True], ids=["clean", "seeded-error"])
+def test_CAL_09_link_check_reads_todo_from_spec_work(
+    scope_and_state_layout: Path, seeded: bool
+) -> None:
+    if seeded:
+        write_files(
+            scope_and_state_layout,
+            {"docs/spec/work/todo.md": "# Todo\n\n- [ ] Read [it](../../reviews/missing.md).\n"},
+        )
+    result = run_gate(scope_and_state_layout, "link-check", "docs/spec/work/todo.md")
+    output = result.stdout + result.stderr
+    if seeded:
+        assert result.returncode == 1, output
+        assert "missing.md" in output
+    else:
+        assert result.returncode == 0, output

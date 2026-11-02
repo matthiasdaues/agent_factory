@@ -147,3 +147,74 @@ def test_bug_0063_key_without_items_stays_empty(tmp_path: Path) -> None:
 
     assert [f["kind"] for f in report["findings"]] == ["empty_tests_field"]
     assert code == 1
+
+
+# --- ST-0340: test-design-verify reads feature files from docs/spec/features/
+
+PAYMENTS_FEATURE = (
+    "Feature: Payments\n"
+    "\n"
+    "  Rule: Merchant receives a payout\n"
+    "\n"
+    "    Scenario: Payout reaches the merchant\n"
+    "      Given a settled payment\n"
+    "\n"
+    "    Scenario: Payout to a closed account is held\n"
+    "      Given a closed account\n"
+)
+
+
+def _verify_traced_rule(tmp_path: Path, feature_location: str) -> tuple[int, dict]:
+    spec = tmp_path / "docs" / "spec"
+    feature = spec / feature_location
+    feature.parent.mkdir(parents=True, exist_ok=True)
+    feature.write_text(PAYMENTS_FEATURE, encoding="utf-8")
+    (spec / "scope-map.md").write_text(
+        "| Rule | Status | Sources |\n"
+        "| --- | --- | --- |\n"
+        "| Merchant receives a payout | specified | "
+        "[payments.feature](features/payments.feature) |\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "backlog").mkdir()
+    (tmp_path / "backlog" / "ST-0001.md").write_text(
+        "---\n"
+        "id: ST-0001\n"
+        "traces: [payments.feature/Rule-01]\n"
+        "---\n"
+        "\n"
+        "#### Failure scenarios\n"
+        "\n"
+        "- Payout reaches the merchant\n"
+        "- Payout to a closed account is held\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [sys.executable, str(TEST_DESIGN_VERIFY), "--story", "backlog/ST-0001.md"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    report_path = tmp_path / ".current-work" / "test-design-verify" / "ST-0001.json"
+    return result.returncode, json.loads(report_path.read_text(encoding="utf-8"))
+
+
+def test_st_0340_resolves_rule_in_features_folder(tmp_path: Path) -> None:
+    code, report = _verify_traced_rule(tmp_path, "features/payments.feature")
+
+    assert report["resolved"][0]["feature"].endswith("docs/spec/features/payments.feature")
+    assert report["resolved"][0]["scenarios"] == [
+        "Payout reaches the merchant",
+        "Payout to a closed account is held",
+    ]
+    assert code == 0
+
+
+def test_st_0340_feature_at_top_of_spec_is_missing(tmp_path: Path) -> None:
+    code, report = _verify_traced_rule(tmp_path, "payments.feature")
+
+    assert len(report["config_errors"]) == 1
+    assert "missing .feature file" in report["config_errors"][0]
+    assert "docs/spec/features/payments.feature" in report["config_errors"][0]
+    assert code == 2

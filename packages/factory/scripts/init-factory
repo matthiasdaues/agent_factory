@@ -45,9 +45,18 @@ standalone, with no AI in the loop at all (`init-factory` is a normal
 executable). A thin skill wrapper exists for CLIs that want to invoke it
 conversationally, but nothing about using Agent Factory requires it.
 
-Does not scaffold docs/spec/, docs/adr/, docs/CONTEXT.md, or any other docs/
-subtree — those are created lazily by the skill that first needs them
-(domain-modeling, todo-format), not eagerly by init.
+Does not scaffold docs/spec/, docs/adr/, or any other docs/ subtree — those
+are created lazily by the skill that first needs them (domain-modeling,
+todo-format), not eagerly by init.
+
+On an update, init-factory moves the project into the core artifact layout
+(ADR-0026). An update is a run where .agent-factory/install.json exists and
+records a factory version older than LAYOUT_RELEASE by Semantic Versioning
+2.0.0 precedence. As its last step, such a run calls migrate-spec-layout with
+the --target directory and asks nothing about the move. install.json records
+the new factory version only after the script exits 0. When the script fails,
+install.json keeps the prior version, init-factory names the fix, and it
+exits non-zero.
 
 Steps
 Sections (printed as the run progresses)
@@ -67,6 +76,9 @@ Sections (printed as the run progresses)
                    factory hooks and run `uvx pre-commit install`.
                    If one exists, leave it alone — merging factory hooks
                    into an existing config is the fitting's job.
+  Layout migration On an update from a version before LAYOUT_RELEASE, run
+                   migrate-spec-layout on --target, then record the new
+                   factory version.
 
 The deterministic project context scan runs at init time, but the
 interpretive layer — confirming findings, walking the agent-context
@@ -231,6 +243,17 @@ RULEBOOK_LINK_TARGETS = {
 
 MANIFEST_PATH = ".agent-factory/install.json"
 FACTORY_VERSION_FILE = Path(".agent-factory/factory/VERSION")
+# The first factory version that reads only the core artifact layout
+# (ADR-0025). An update from an older version runs migrate-spec-layout.
+LAYOUT_RELEASE = "1.4.0"
+MIGRATE_SCRIPT = Path(__file__).resolve().parent / "migrate-spec-layout"
+SEMVER = re.compile(
+    r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?",
+    re.ASCII,
+)
 USAGE_RUNTIME = Path(".agent-factory/usage/runtime")
 USAGE_REQUIREMENTS = Path(".agent-factory/factory/config/usage-runtime-requirements.txt")
 PROJECT_IDENTITY = Path(".agent-factory/config/project.json")
@@ -248,6 +271,39 @@ def _read_factory_version(target: Path) -> str:
         return path.read_text(encoding="utf-8").strip()
     except OSError:
         return "unknown"
+
+
+def _semver_key(version: object) -> tuple | None:
+    """Return a sort key for a Semantic Versioning 2.0.0 string, or None.
+
+    Build metadata does not count. A release sorts after each of its
+    prereleases. Numeric prerelease identifiers compare as numbers and sort
+    before alphanumeric ones; a longer identifier list sorts after a shorter
+    one with the same start."""
+    if not isinstance(version, str):
+        return None
+    match = SEMVER.fullmatch(version)
+    if match is None:
+        return None
+    core = tuple(int(part) for part in match.group(1, 2, 3))
+    prerelease = match.group(4)
+    if prerelease is None:
+        return (core, (1,))
+    identifiers = tuple(
+        (0, int(ident), "") if ident.isdigit() else (1, 0, ident)
+        for ident in prerelease.split(".")
+    )
+    return (core, (0, identifiers))
+
+
+def older_than(version: object, release: str) -> bool:
+    """True when ``version`` precedes ``release`` by Semantic Versioning
+    2.0.0 precedence. A missing value or one that does not parse, such as
+    ``unknown`` or ``dev``, counts as older."""
+    key = _semver_key(version)
+    if key is None:
+        return True
+    return key < _semver_key(release)
 
 
 def _factory_tree_hash(source: str | None) -> str | None:
@@ -3252,10 +3308,21 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
     if not path.exists():
         return
 
+    # Read the prior version before anything writes to install.json. Only a
+    # missing install.json is a first install; any record counts (ADR-0026).
+    install["layout_migration"] = True
+    install["prior_factory_version"] = "unknown"
     try:
         prior = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return
+    if not isinstance(prior, dict):
+        return
+
+    prior_version = prior.get("factory_version")
+    install["layout_migration"] = older_than(prior_version, LAYOUT_RELEASE)
+    if isinstance(prior_version, str):
+        install["prior_factory_version"] = prior_version
 
     install["remove_paths"] = list(prior.get("remove_paths", []))
     install["merged_dirs"] = list(prior.get("merged_dirs", []))
@@ -3329,7 +3396,13 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
     )
     payload = {
         "version": 1,
-        "factory_version": _read_factory_version(target),
+        # During a layout migration the record keeps the prior version until
+        # migrate-spec-layout succeeds (record_factory_version).
+        "factory_version": (
+            install["prior_factory_version"]
+            if install.get("layout_migration")
+            else _read_factory_version(target)
+        ),
         "cli": install.get("cli"),
         "git_initialized_by_us": install.get("git_initialized_by_us", False),
         "gitignore_existed": install.get("gitignore_existed", True),
@@ -3369,6 +3442,30 @@ def write_manifest(target: Path, install: dict, report: list[str]) -> None:
     }
     manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     log(report, f"{MANIFEST_PATH}: wrote removal manifest")
+
+
+def migrate_layout(target: Path, report: list[str]) -> bool:
+    """Run migrate-spec-layout on ``target``; True when it exits 0.
+
+    The script prints its own moves and, on failure, undoes every change it
+    made before it exits non-zero."""
+    sys.stdout.flush()
+    result = subprocess.run(
+        [sys.executable, str(MIGRATE_SCRIPT), str(target)], check=False
+    )
+    if result.returncode != 0:
+        return False
+    log(report, "migrate-spec-layout: the project is in the core artifact layout")
+    return True
+
+
+def record_factory_version(target: Path, report: list[str]) -> None:
+    """Write the installed factory version into install.json."""
+    path = target / MANIFEST_PATH
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["factory_version"] = _read_factory_version(target)
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    log(report, f"{MANIFEST_PATH}: recorded factory_version {record['factory_version']}")
 
 
 def _private_directory(path: Path) -> None:
@@ -4566,6 +4663,21 @@ def main(argv: list[str] | None = None) -> int:
     # ── Restore preserved data directories ─────────────────────────────
     if preserved:
         offer_restore_preserved_dirs(target, preserved, report)
+
+    # ── Section 9: Layout migration (last step, updates only) ──────────
+    if install.get("layout_migration"):
+        section("Layout migration")
+        if not migrate_layout(target, report):
+            print(
+                "\n  STOPPED — migrate-spec-layout failed; the project is still "
+                "in the old layout and "
+                f"{MANIFEST_PATH} keeps factory_version "
+                f"{install['prior_factory_version']}. "
+                "Fix: run the factory update again.",
+                file=sys.stderr,
+            )
+            return 1
+        record_factory_version(target, report)
 
     # Receipt.
     print(f"\n{'═' * 54}")
