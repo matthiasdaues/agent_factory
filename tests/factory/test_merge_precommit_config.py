@@ -149,7 +149,7 @@ class TestMerge:
             "  - repo: local\n"
             "    hooks:\n"
             "      - id: agent_factory_hook-link-check\n"
-            "        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/link-check' --\n"
+            "        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/link-check' --\n"
             "        language: system\n"
             "\n"
             "  # Project tests\n"
@@ -162,7 +162,7 @@ class TestMerge:
         result = mpc.merge(target, TEMPLATE, update=True)
         lines = result.splitlines()
 
-        assert "[ -d factory ]" not in result
+        assert "link-check' --\n" not in result
         assert lines.index("  # Project formatting") == 1
         factory_at = lines.index("  # Factory gates")
         assert lines[factory_at + 1] == "  - repo: local"
@@ -184,11 +184,11 @@ class TestMerge:
             "    hooks:\n"
             "      - id: agent_factory_hook-backlog-lint\n"
             "        name: old name\n"
-            "        entry: bash -c '[ -d factory ] || exit 0; exec factory/scripts/backlog-lint' --\n"
+            "        entry: bash -c '[ -d .agent-factory ] || exit 0; exec .agent-factory/factory/scripts/backlog-lint' --\n"
             f"{args}\n"
             "        language: system\n"
             "      - id: agent_factory_hook-link-check\n"
-            "        entry: bash -c 'exec factory/scripts/link-check' --\n"
+            "        entry: bash -c 'exec .agent-factory/factory/scripts/link-check' --\n"
             f"{verbose}\n"
             "        additional_dependencies:\n"
             "          - some-package\n"
@@ -213,7 +213,7 @@ class TestMerge:
         link = stanza("agent_factory_hook-link-check")
         assert args in backlog
         assert "old name" not in result
-        assert "[ -d factory ]" not in result
+        assert "[ -d .agent-factory ] || exit 0" not in result
         assert verbose in link
         assert "          - some-package" in link
         assert result.count(args) == 1
@@ -235,3 +235,49 @@ class TestMerge:
         )
         with pytest.raises(ValueError, match="could not be stripped"):
             mpc.merge(target, TEMPLATE, update=True)
+
+    @pytest.mark.spec("CAL-07-IT-04")
+    def test_update_gives_every_factory_hook_the_template_files_value(self):
+        """An update takes each factory hook's `files:` value from the
+        template, whatever value the old block held. The project's own
+        hooks keep theirs."""
+        import yaml
+
+        real_template = (
+            Path(mpc.__file__).resolve().parent.parent / "config" / "pre-commit-config.yaml"
+        ).read_text(encoding="utf-8")
+        target = (
+            "repos:\n"
+            "  - repo: local\n"
+            "    hooks:\n"
+            "      - id: agent_factory_hook-arch-lint\n"
+            "        entry: .agent-factory/factory/scripts/arch-lint\n"
+            "        language: system\n"
+            "        files: >-\n"
+            "          ^docs/old/.*\\.dsl$\n"
+            "      - id: agent_factory_hook-spec-lint\n"
+            "        entry: .agent-factory/factory/scripts/spec-lint\n"
+            "        language: system\n"
+            "        files: ^docs/old/\n"
+            "\n"
+            "  - repo: local\n"
+            "    hooks:\n"
+            "      - id: own-check\n"
+            "        entry: scripts/check.sh\n"
+            "        language: system\n"
+            "        files: ^docs/old/\n"
+        )
+
+        def files_values(text):
+            return {
+                hook["id"]: hook.get("files")
+                for repo in yaml.safe_load(text)["repos"]
+                for hook in repo["hooks"]
+            }
+
+        result = files_values(mpc.merge(target, real_template, update=True))
+        template = files_values(real_template)
+
+        for hook_id, value in template.items():
+            assert result[hook_id] == value, hook_id
+        assert result["own-check"] == "^docs/old/"
