@@ -182,3 +182,20 @@ def test_term_reader_looks_terms_up_in_the_glossary(path: str) -> None:
 @pytest.mark.parametrize("path", GLOSSARY_FILES)
 def test_glossary_file_names_no_context_md(path: str) -> None:
     assert not OLD_ROUTING_FILE.search(read_factory_file(path))
+
+
+# --- ST-0337 ---
+# CAL-12-LN-01, reverse-map assertion: the vocabulary step seeds glossary rows.
+
+REVERSE_MAP = "skills/reverse-map/SKILL.md"
+
+
+@pytest.mark.spec("CAL-12")
+def test_reverse_map_seeds_term_rows_into_the_glossary() -> None:
+    text = read_factory_file(REVERSE_MAP)
+    step = section(text, f"## Seed {GLOSSARY}")
+    assert f"`{GLOSSARY}`" in step
+    assert "Term, Definition, and Avoid" in step
+    assert "one section per context" in step
+    assert "term already in the section is not added twice" in step
+    assert not OLD_ROUTING_FILE.search(text)
