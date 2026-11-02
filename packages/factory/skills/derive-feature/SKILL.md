@@ -49,8 +49,8 @@ Four rules differ from the proposal entry:
 - **Status:** write each new Rule into the scope map as `implemented`, not
   `specified`. The code exists. Leave the status of existing rows as it is.
 - **Feature Link:** fill the Feature Link of every scope-map row that a Rule
-  matches with `docs/spec/<project-name>.feature`.
-- **One file:** write one consolidated `docs/spec/<project-name>.feature`
+  matches with `docs/spec/features/<project-name>.feature`.
+- **One file:** write one consolidated `docs/spec/features/<project-name>.feature`
   for the whole project, not a per-slice file. The
   [Slice Lifecycle](#slice-lifecycle) does not apply.
 - **@-references:** every Scenario carries an @-reference to existing code.
@@ -59,10 +59,10 @@ Four rules differ from the proposal entry:
 
 ## Outputs
 
-| File                               | Contents                                                                    |
-| ---------------------------------- | --------------------------------------------------------------------------- |
-| `docs/spec/<feature-name>.feature` | Gherkin feature with Rule-per-actor-goal structure and @-references         |
-| `docs/spec/<feature-name>-gaps.md` | Completeness report: actor-goal matrix, missing coverage, ambiguous wording |
+| File                                        | Contents                                                                    |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| `docs/spec/features/<feature-name>.feature` | Gherkin feature with Rule-per-actor-goal structure and @-references         |
+| `docs/spec/work/<feature-name>-gaps.md`     | Completeness report: actor-goal matrix, missing coverage, ambiguous wording |
 
 ## Step 1 — Validate Input
 
@@ -135,7 +135,7 @@ Flag in the gaps report. Do not silently fix — the author decides.
 
 ### Output 1: Feature File
 
-Write `docs/spec/<feature-name>.feature`:
+Write `docs/spec/features/<feature-name>.feature`:
 
 ```gherkin
 Feature: <feature-name>
@@ -172,7 +172,7 @@ Feature: <feature-name>
 
 ### Output 2: Gaps Report
 
-Write `docs/spec/<feature-name>-gaps.md`:
+Write `docs/spec/work/<feature-name>-gaps.md`:
 
 ```markdown
 # Gaps Report: <feature-name>

@@ -14,11 +14,11 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 
 Read the recently changed code (use `git diff` against the last spec-aligned commit). Compare against:
 
-- `docs/spec/*.feature` — do the Gherkin Scenarios still match?
-- `docs/spec/supplementary_specs/entity-model.md` — any new entities, changed attributes, or relationships?
-- `docs/spec/supplementary_specs/state-machines.md` — any new states or transitions?
-- `docs/spec/supplementary_specs/interface-contracts.md` — do DTOs and schemas match the code?
-- `docs/spec/supplementary_specs/validation-rules.md` — any new or changed rules?
+- `docs/spec/features/*.feature` — do the Gherkin Scenarios still match?
+- `docs/spec/entity-model.md` — any new entities, changed attributes, or relationships?
+- `docs/spec/state-machines.md` — any new states or transitions?
+- `docs/spec/interface-contracts.md` — do DTOs and schemas match the code?
+- `docs/spec/validation-rules.md` — any new or changed rules?
 - `docs/` (arc42 chapters) — any new components, changed boundaries, or deployment changes?
 
 List every discrepancy.
