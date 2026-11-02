@@ -15,12 +15,12 @@ inputs:
   required:
     - any_of:
         - type: feature
-          path_pattern: "docs/spec/*.feature"
+          path_pattern: "docs/spec/features/*.feature"
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
   context:
-    - docs/CONTEXT.md
-    - docs/spec/prd.md
+    - docs/spec/glossary.md
+    - docs/spec/work/prd.md
     - docs/reviews/atam-review.md
     - docs/agent-context.md
     - .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
@@ -31,7 +31,7 @@ outputs:
     - path_pattern: "docs/arc42/*.md"
       validator:
       required: true
-    - path_pattern: docs/arc42/architecture.dsl
+    - path_pattern: docs/spec/architecture.dsl
       validator:
       required: true
     - path_pattern: docs/README.md
@@ -64,7 +64,7 @@ Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold 
 
 Write arc42 documentation, C4 models in Structurizr DSL, and ADRs (Nygard format), applying Clean Architecture throughout. Reference: [arc42-markdown-template](https://github.com/matthiasdaues/arc42-markdown-template).
 
-For brownfield and onboarding work, the agent runs after `reverse-map` has built the scope map. Among the architecture outputs, fill `docs/arc42/architecture.dsl` first, from code and IaC evidence, because the DSL is the single source of truth. The agent archives nothing: the brownfield playbook archives old documentation before the scope map exists.
+For brownfield and onboarding work, the agent runs after `reverse-map` has built the scope map. Among the architecture outputs, fill `docs/spec/architecture.dsl` first, from code and IaC evidence, because the DSL is the single source of truth. The agent archives nothing: the brownfield playbook archives old documentation before the scope map exists.
 
 ## Lifecycle
 
@@ -72,7 +72,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Workflow
 
-1. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then fill `docs/arc42/architecture.dsl` from code and deployment IaC (Terraform when available) before writing any prose.
+1. **Build `architecture.dsl` first** — Invoke `scaffold-arc42`, then fill `docs/spec/architecture.dsl` from code and deployment IaC (Terraform when available) before writing any prose.
    - Required first pass coverage: System Context, Container, Component, Deployment views
    - `05_building_block_view.md`, `06_runtime_view.md`, and `07_deployment_view.md` must derive from these DSL views
    - The workspace `properties` block must include `"arc42.projected" "false"` by default (see step 2 for when to flip)
@@ -89,7 +89,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Completion Criteria
 
-- `docs/arc42/architecture.dsl` exists, validates, and exports diagrams before prose is considered complete
+- `docs/spec/architecture.dsl` exists, validates, and exports diagrams before prose is considered complete
 - Deployment view reflects Terraform (or equivalent IaC) nodes and connections when IaC is available
 - All 12 chapters filled and consistent with exported DSL views
 - Every decision has an ADR (`evaluation: pugh-matrix` when alternatives existed, `evaluation: none` otherwise), no conflicts

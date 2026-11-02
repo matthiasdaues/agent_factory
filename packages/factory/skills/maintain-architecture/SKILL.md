@@ -9,11 +9,11 @@ category: architecture
 Update architecture documentation with `architecture.dsl` as the **single source of truth** for all structural and runtime views. Prose chapters narrate and extend the model; they never contradict it.
 
 Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
-Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
+Read `docs/spec/glossary.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Principle: DSL first, prose second
 
-The Structurizr DSL (`docs/arc42/architecture.dsl`) owns:
+The Structurizr DSL (`docs/spec/architecture.dsl`) owns:
 
 - **What exists** — systems, containers, components, deployment nodes
 - **How they connect** — relationships with descriptions and technologies
@@ -27,7 +27,7 @@ Prose chapters (`docs/arc42/01_*.md` through `docs/arc42/12_*.md`) own:
 
 ## Step 1 — Update the DSL model
 
-Before touching any prose chapter, update `docs/arc42/architecture.dsl`:
+Before touching any prose chapter, update `docs/spec/architecture.dsl`:
 
 1. **Static model** — add/rename/remove elements and relationships.
 2. **Dynamic views** — add or update `dynamic` views for runtime scenarios. Each step references an existing model relationship.

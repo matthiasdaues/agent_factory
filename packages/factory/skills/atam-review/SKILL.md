@@ -13,7 +13,7 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 - **Pass 1 — `arch-lint` (deterministic).** A parser catches the boring, provable defects — arc42 chapters missing, Structurizr DSL referencing undefined containers, ADR index out of sync, diagram files not matching view keys. Cheap, reproducible, zero false-positive by design.
 - **Pass 2 — ATAM evaluation (this LLM).** Spend judgement only on what a parser *cannot* decide: sensitivity points, tradeoff points, risks versus non-risks for each quality scenario.
 
-Never re-check by hand what Pass 1 already proved. Read `docs/arc42/CONTEXT.md` first — the architecture's vocabulary is the yardstick for the terminology checks.
+Never re-check by hand what Pass 1 already proved. Read `docs/spec/glossary.md` first — the project's vocabulary is the yardstick for the terminology checks.
 
 ## Step 1 — Run the deterministic linter
 

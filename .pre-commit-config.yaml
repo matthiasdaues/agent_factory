@@ -87,9 +87,9 @@ repos:
           [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
           true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
           or set SKIP=<hook id>." >&2; exit 1; };
-          "$AF"/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate
-          --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg
-          2>/dev/null; exit $rc'
+          "$AF"/factory/scripts/arch-lint --dsl docs/arc42/architecture.dsl
+          --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?;
+          git add docs/assets/images/*.svg 2>/dev/null; exit $rc'
         language: system
         pass_filenames: false
         files: >-
@@ -206,7 +206,7 @@ repos:
 
       - id: arch-lint
         name: arch-lint (arc42 <-> Structurizr consistency, ADR frontmatter)
-        entry: bash -c 'packages/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg 2>/dev/null; exit $rc'
+        entry: bash -c 'packages/factory/scripts/arch-lint --dsl docs/arc42/architecture.dsl --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg 2>/dev/null; exit $rc'
         language: system
         pass_filenames: false
         files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$

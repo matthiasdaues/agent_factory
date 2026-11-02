@@ -52,7 +52,7 @@ hooks:
     outcome: Architecture consistency
     trade_off: material-cost
     availability: requires-path:docs/arc42
-    description: Compares architecture docs against the Structurizr C4 model and validates ADR frontmatter; can auto-export diagrams and use Docker.
+    description: Compares chapter 5 in docs/arc42/ against the Structurizr C4 model in docs/spec/architecture.dsl and validates ADR frontmatter; can auto-export diagrams and use Docker.
 
   agent_factory_hook-backlog-lint:
     outcome: Backlog consistency
