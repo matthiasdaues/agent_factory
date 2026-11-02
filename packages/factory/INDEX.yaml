@@ -156,7 +156,7 @@ agents:
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
     tokens: 1971
-    total_tokens: 5052
+    total_tokens: 5037
     inputs:
       required:
         - type: feature
@@ -392,7 +392,7 @@ agents:
     tier: strong
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1753
+    tokens: 1748
     total_tokens: 21284
     inputs:
       required:
@@ -405,8 +405,8 @@ agents:
             - type: scope-map
               path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/todos.md
+        - docs/spec/glossary.md
+        - docs/spec/work/todos.md
         - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
         - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
         - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
@@ -416,25 +416,25 @@ agents:
         - path_pattern: docs/spec/scope-map.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}.feature
+        - path_pattern: docs/spec/features/{name}.feature
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}-gaps.md
+        - path_pattern: docs/spec/work/{name}-gaps.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}-qa-strategy.md
+        - path_pattern: docs/spec/work/{name}-qa-strategy.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/entity-model.md
+        - path_pattern: docs/spec/entity-model.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/interface-contracts.md
+        - path_pattern: docs/spec/interface-contracts.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/state-machines.md
+        - path_pattern: docs/spec/state-machines.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/validation-rules.md
+        - path_pattern: docs/spec/validation-rules.md
           validator: ""
           required: true
   - name: research-orchestrator
@@ -519,17 +519,17 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 701
-    total_tokens: 4433
+    tokens: 705
+    total_tokens: 4437
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/todos.md
+        - docs/spec/glossary.md
+        - docs/spec/work/todos.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/report-format.md
         - .agent-factory/factory/rulebooks/conventions/finding-format.md
@@ -592,12 +592,12 @@ skills:
     category: requirements
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
-    tokens: 517
+    tokens: 527
   - name: derive-feature
     category: requirements
     description: Derive a Gherkin .feature file from a proposal, or in brownfield from the scope map, using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
-    tokens: 2478
+    tokens: 2485
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
@@ -612,7 +612,7 @@ skills:
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 2563
+    tokens: 2551
   - name: reverse-map
     category: requirements
     description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
@@ -622,7 +622,7 @@ skills:
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
     path: skills/write-prd/SKILL.md
-    tokens: 441
+    tokens: 449
   - name: write-primer
     category: requirements
     description: "Write a short primer for a proposal: a plain-language introduction that lets a reader who knows nothing about the project follow the full document. Writes it into the proposal's Primer section."
@@ -727,7 +727,7 @@ skills:
     category: implementation
     description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
     path: skills/spec-feedback/SKILL.md
-    tokens: 471
+    tokens: 456
   - name: test-design
     category: implementation
     description: Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files.
@@ -899,7 +899,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 64383
+    total_tokens: 64387
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -909,7 +909,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15437
+    total_tokens: 15422
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -921,7 +921,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 45210
+    total_tokens: 45214
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -938,7 +938,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 108654
+    total_tokens: 108658
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -955,8 +955,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2737
-    total_tokens: 107975
+    tokens: 2745
+    total_tokens: 107987
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -972,7 +972,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15940
+    total_tokens: 15925
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1021,7 +1021,7 @@ rulebooks:
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
-    tokens: 1223
+    tokens: 1218
   - name: agent-lifecycle-protocol
     category: conventions
     path: rulebooks/conventions/agent-lifecycle-protocol.md
