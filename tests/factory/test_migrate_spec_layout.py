@@ -984,7 +984,11 @@ class TestOldPathListing:
             "old path: docs/agent-context.md:3: docs/spec/prd.md",
             "old path: docs/agent-context.md:4: docs/arc42/architecture.dsl",
         ]
-        assert (root / "docs/agent-context.md").read_bytes() == AGENT_CONTEXT.encode()
+        # The text stays; only the two links follow their moved targets (ST-0320).
+        rewritten = AGENT_CONTEXT.replace(
+            "(../docs/spec/prd.md)", "(spec/work/prd.md)"
+        ).replace("(spec/todo.md)", "(spec/work/todo.md)")
+        assert (root / "docs/agent-context.md").read_bytes() == rewritten.encode()
 
     @pytest.mark.spec("CAL-05-IT-01")
     def test_CAL_05_no_old_path_outside_links_gives_no_listing(self, tmp_path: Path):
@@ -1036,3 +1040,210 @@ class TestOldPathListing:
         result = run_script(root)
         assert result.returncode == 0
         assert result.stdout == ""
+
+
+# ── CAL-04-CT-01, CAL-04-IT-01, CAL-02-IT-01: Markdown links keep ───────
+# ── working after the move (ST-0320) ────────────────────────────────────
+
+LINK_CHECK = SOURCE_SCRIPTS_DIR / "link-check"
+DECISIONS = "docs/arc42/09_architecture_decisions.md"
+RETRO = "docs/reviews/retro.md"
+
+OLD_LAYOUT_LINKS: dict[str, str] = {
+    **OLD_LAYOUT_ARCHIVE,
+    DECISIONS: (
+        "# 9. Decisions\n\n[entity model](../spec/supplementary_specs/entity-model.md)\n"
+    ),
+    "docs/spec/todo.md": "# todo.md\n\n[retro](../reviews/retro.md)\n",
+    RETRO: "# Retro\n",
+    "docs/spec/scope-map.md": (
+        "# Scope map\n\n"
+        "[UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)\n"
+    ),
+    "docs/spec/supplementary_specs/billing.md": (
+        "# billing.md\n\n[states](state-machines.md#dispatch)\n"
+    ),
+    "docs/spec/supplementary_specs/state-machines.md": (
+        "# state-machines.md\n\n## Dispatch\n"
+    ),
+}
+
+LINK_MOVES = {
+    "docs/spec/supplementary_specs/entity-model.md": "docs/spec/entity-model.md",
+    "docs/spec/supplementary_specs/state-machines.md": "docs/spec/state-machines.md",
+    "docs/spec/supplementary_specs/billing.md": "docs/spec/areas/billing.md",
+    "docs/spec/todo.md": "docs/spec/work/todo.md",
+}
+LINK_REMOVED = {ARCHIVE_USE_CASE}
+
+
+def link_check(root: Path, *files: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(LINK_CHECK), *files], cwd=root, capture_output=True, text=True, check=False
+    )
+
+
+class TestLinkRewrite:
+    """Every Markdown link resolves after the move (CAL-04, CAL-02)."""
+
+    @pytest.mark.spec("CAL-04-CT-01")
+    @pytest.mark.parametrize(
+        ("src", "dst", "text", "expected"),
+        [
+            pytest.param(
+                DECISIONS,
+                DECISIONS,
+                "[entity model](../spec/supplementary_specs/entity-model.md)",
+                "[entity model](../spec/entity-model.md)",
+                id="old-target",
+            ),
+            pytest.param(
+                "docs/spec/todo.md",
+                "docs/spec/work/todo.md",
+                "[retro](../reviews/retro.md)",
+                "[retro](../../reviews/retro.md)",
+                id="rebased-relative-link",
+            ),
+            pytest.param(
+                "docs/spec/scope-map.md",
+                "docs/spec/scope-map.md",
+                "See [UC-04](../~archive/spec/use_cases/"
+                "UC-04-dispatch-an-agent-via-trigger.md) first.",
+                "See `UC-04` first.",
+                id="removed-target",
+            ),
+            pytest.param(
+                "docs/arc42/01_introduction.md",
+                "docs/arc42/01_introduction.md",
+                "[d](../spec/supplementary_specs/state-machines.md#dispatch)",
+                "[d](../spec/state-machines.md#dispatch)",
+                id="anchor",
+            ),
+            pytest.param(
+                "docs/spec/supplementary_specs/billing.md",
+                "docs/spec/areas/billing.md",
+                "[states](state-machines.md#dispatch)",
+                "[states](../state-machines.md#dispatch)",
+                id="both-files-move",
+            ),
+            pytest.param(
+                "docs/spec/todo.md",
+                "docs/spec/work/todo.md",
+                "[site](https://example.com/docs/spec/todo.md) [top](#todo)",
+                "[site](https://example.com/docs/spec/todo.md) [top](#todo)",
+                id="external-link",
+            ),
+            pytest.param(
+                DECISIONS,
+                DECISIONS,
+                "[adr](../adr/0001-example.md) [x](../spec/missing.md)",
+                "[adr](../adr/0001-example.md) [x](../spec/missing.md)",
+                id="outside-the-path-table",
+            ),
+            pytest.param(
+                DECISIONS,
+                DECISIONS,
+                "`[e](../spec/supplementary_specs/entity-model.md)`\n"
+                "```\n[e](../spec/supplementary_specs/entity-model.md)\n```\n",
+                "`[e](../spec/supplementary_specs/entity-model.md)`\n"
+                "```\n[e](../spec/supplementary_specs/entity-model.md)\n```\n",
+                id="code-is-an-example",
+            ),
+            pytest.param(
+                DECISIONS,
+                DECISIONS,
+                "[e]: ../spec/supplementary_specs/entity-model.md\n",
+                "[e]: ../spec/entity-model.md\n",
+                id="reference-definition",
+            ),
+        ],
+    )
+    def test_CAL_04_rewrite_links_handles_each_link_class(
+        self, migrate, src: str, dst: str, text: str, expected: str
+    ):
+        rewritten, _ = migrate.rewrite_links(text, src, dst, LINK_MOVES, LINK_REMOVED)
+        assert rewritten == expected
+
+    @pytest.mark.spec("CAL-04-CT-01")
+    def test_CAL_04_rewrite_links_names_each_old_and_new_target(self, migrate):
+        text = (
+            "[a](../spec/supplementary_specs/entity-model.md) "
+            "[b](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)"
+        )
+        _, rewrites = migrate.rewrite_links(
+            text, DECISIONS, DECISIONS, LINK_MOVES, LINK_REMOVED
+        )
+        assert rewrites == [
+            ("../spec/supplementary_specs/entity-model.md", "../spec/entity-model.md"),
+            (
+                "../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md",
+                "`b`",
+            ),
+        ]
+
+    @pytest.mark.spec("CAL-04-IT-01")
+    def test_CAL_04_link_check_passes_on_every_markdown_file_after_the_run(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-links", OLD_LAYOUT_LINKS)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        files = sorted(
+            p.relative_to(root).as_posix() for p in (root / "docs").rglob("*.md")
+        )
+        assert "docs/spec/work/todo.md" in files
+        checked = link_check(root, *files)
+        assert checked.returncode == 0, checked.stderr
+        todo = (root / "docs/spec/work/todo.md").read_text(encoding="utf-8")
+        assert "[retro](../../reviews/retro.md)" in todo
+        scope_map = (root / "docs/spec/scope-map.md").read_text(encoding="utf-8")
+        assert "`UC-04`" in scope_map
+        assert "](" not in scope_map
+        decisions = (root / DECISIONS).read_text(encoding="utf-8")
+        assert "[entity model](../spec/entity-model.md)" in decisions
+
+    @pytest.mark.spec("CAL-02-IT-01")
+    def test_CAL_02_dry_run_prints_every_move_and_link_rewrite_and_changes_nothing(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-links", OLD_LAYOUT_LINKS)
+        before = porcelain(root)
+        result = run_script(root, "--dry-run")
+        assert result.returncode == 0, result.stderr
+        assert porcelain(root) == before
+        for old, new in PATH_TABLE_ROWS.items():
+            assert f"{old} -> {new}\n" in result.stdout
+        for line in [
+            f"link: {DECISIONS}: ../spec/supplementary_specs/entity-model.md"
+            " -> ../spec/entity-model.md",
+            "link: docs/spec/work/todo.md: ../reviews/retro.md"
+            " -> ../../reviews/retro.md",
+            "link: docs/spec/scope-map.md: ../~archive/spec/use_cases/"
+            "UC-04-dispatch-an-agent-via-trigger.md -> `UC-04`",
+            "link: docs/spec/areas/billing.md: state-machines.md#dispatch"
+            " -> ../state-machines.md#dispatch",
+        ]:
+            assert f"{line}\n" in result.stdout
+        real = run_script(make_project(tmp_path / "real", OLD_LAYOUT_LINKS))
+        assert result.stdout == real.stdout
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file permissions")
+    def test_CAL_04_failure_after_a_link_rewrite_restores_the_rewritten_file(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_LINKS)
+        # The rewrite of the decisions chapter comes first; the read-only
+        # scope map makes the next rewrite fail.
+        scope_map = root / "docs/spec/scope-map.md"
+        scope_map.chmod(0o444)
+        before = porcelain(root)
+        try:
+            result = run_script(root)
+        finally:
+            scope_map.chmod(0o644)
+        assert result.returncode == 1
+        assert "undone" in result.stderr
+        assert porcelain(root) == before
+        for rel in (DECISIONS, "docs/spec/todo.md", "docs/spec/scope-map.md"):
+            assert (root / rel).read_bytes() == OLD_LAYOUT_LINKS[rel].encode()

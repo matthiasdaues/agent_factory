@@ -2131,3 +2131,63 @@ def test_CAL_07_rerun_at_the_layout_release_runs_no_migration(tmp_path):
     assert "Layout migration" not in result.stdout
     assert (target / "docs/spec/payments.feature").is_file()
     assert not (target / "docs/spec/features").exists()
+
+
+def make_fresh_old_layout(tmp_path: Path) -> Path:
+    """Fixture fresh-old-layout: the old-layout-payments project of ST-0318,
+    committed, without .agent-factory/."""
+    from test_migrate_spec_layout import make_project
+
+    return make_project(tmp_path / "fresh-old-layout")
+
+
+def _moved_or_deleted_under_docs(target: Path) -> list[str]:
+    status = subprocess.run(
+        ["git", "-C", str(target), "status", "--porcelain"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    return [
+        line for line in status.splitlines()
+        if line[3:].startswith("docs/") and ("R" in line[:2] or "D" in line[:2])
+    ]
+
+
+def _report_lines(stdout: str) -> list[str]:
+    return [line for line in stdout.splitlines() if line.startswith("init-factory: ")]
+
+
+@pytest.mark.spec("CAL-07-IT-02")
+def test_CAL_07_first_install_moves_no_file_and_lists_the_old_paths(tmp_path):
+    target = make_fresh_old_layout(tmp_path)
+    source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+
+    result = run_init(source, target, "--cli", "claude", "--project-name", "payments")
+
+    assert result.returncode == 0, result.stderr
+    assert _moved_or_deleted_under_docs(target) == []
+    assert (target / "docs/spec/payments.feature").is_file()
+    assert not (target / "docs/spec/features").exists()
+    lines = _report_lines(result.stdout)
+    assert any("docs/spec/payments.feature" in line for line in lines), result.stdout
+    assert any("docs/arc42/architecture.dsl" in line for line in lines), result.stdout
+    assert any("migrate-spec-layout" in line for line in lines), result.stdout
+    assert read_factory_version(target) == "1.4.0"
+
+
+@pytest.mark.spec("CAL-07-IT-02")
+def test_CAL_07_rerun_after_first_install_moves_no_file_and_lists_nothing(tmp_path):
+    target = make_fresh_old_layout(tmp_path)
+    source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+    first = run_init(source, target, "--cli", "claude", "--project-name", "payments")
+    assert first.returncode == 0, first.stderr
+
+    result = run_init(source, target)
+
+    assert result.returncode == 0, result.stderr
+    assert "Layout migration" not in result.stdout
+    assert _moved_or_deleted_under_docs(target) == []
+    assert (target / "docs/spec/payments.feature").is_file()
+    assert not (target / "docs/spec/features").exists()
+    assert not any(
+        "docs/spec/payments.feature" in line for line in _report_lines(result.stdout)
+    ), result.stdout
