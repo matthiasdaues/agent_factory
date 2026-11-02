@@ -1,0 +1,309 @@
+#!/usr/bin/env python3
+"""migrate-spec-layout — move a project's files into the core artifact layout.
+
+What: Moves the files of the path table in
+      docs/proposals/core-artifact-layout.md into the core artifact layout.
+      A tracked file moves with `git mv`, so git records a rename. An
+      untracked or ignored file moves with a plain move. The script also
+      rewrites the `theme` line of docs/spec/architecture.dsl.
+When: init-factory runs it as its last step on an update; a developer can
+      run it by hand.
+By:   init-factory, or the project maintainer.
+
+Usage:
+    packages/factory/scripts/migrate-spec-layout [--dry-run] [TARGET]
+
+TARGET defaults to the current directory. --dry-run prints the planned moves
+and changes no file.
+
+Exit codes:
+    0  success, no work, or --dry-run
+    1  a step failed partway; every change of the run is undone
+    2  refused before the first change: busy repository, a destination that
+       already exists, or bad arguments
+
+The script never commits, never runs `git rm -f`, and never deletes a file.
+"""
+
+from __future__ import annotations
+
+import argparse
+import re
+import subprocess
+import sys
+from collections.abc import Callable
+from pathlib import Path, PurePosixPath
+
+SPEC = "docs/spec"
+SUPPLEMENTARY = "docs/spec/supplementary_specs"
+ARC42 = "docs/arc42"
+OLD_THEMES = "docs/arc42/themes"
+NEW_THEMES = "docs/assets/themes"
+DSL = "docs/spec/architecture.dsl"
+
+CORE_SUPPLEMENTARY = {
+    "entity-model.md",
+    "state-machines.md",
+    "validation-rules.md",
+    "interface-contracts.md",
+}
+WORK_FILES = {"prd.md", "SPEC-UPDATE-SUMMARY.md", "todo.md", "todos.md"}
+ARC42_DSL_FILES = {"architecture.dsl", "dependency-rules.dsl"}
+
+# A `theme` line whose path is relative to docs/arc42/themes/.
+THEME_LINE = re.compile(r"^(\s*theme\s+)([\"']?)themes/", re.MULTILINE)
+
+
+def new_path(rel: str) -> str:
+    """Return the new path of ``rel`` under the path table, or ``rel`` itself.
+
+    ``rel`` is a POSIX path relative to the project root. A path the table
+    does not move, such as docs/spec/scope-map.md or a path that is already
+    in the new layout, maps to itself.
+    """
+    path = PurePosixPath(rel)
+    parent, name = str(path.parent), path.name
+    if rel.startswith(OLD_THEMES + "/"):
+        return NEW_THEMES + rel[len(OLD_THEMES) :]
+    if parent == ARC42 and name in ARC42_DSL_FILES:
+        return f"{SPEC}/{name}"
+    if parent == SPEC:
+        if name.endswith(".feature"):
+            return f"{SPEC}/features/{name}"
+        if name in WORK_FILES or name.endswith(("-gaps.md", "-qa-strategy.md")):
+            return f"{SPEC}/work/{name}"
+    if parent == SUPPLEMENTARY and name.endswith(".md"):
+        if name in CORE_SUPPLEMENTARY:
+            return f"{SPEC}/{name}"
+        if name.endswith("-qa-strategy.md"):
+            return f"{SPEC}/work/{name}"
+        return f"{SPEC}/areas/{name}"
+    return rel
+
+
+# Order of the moves: the order of the path table.
+def _move_rank(new: str) -> int:
+    if new.startswith(f"{SPEC}/features/"):
+        return 0
+    if new.startswith(f"{SPEC}/work/"):
+        return 3
+    if new.startswith(f"{SPEC}/areas/"):
+        return 4
+    if new.startswith(NEW_THEMES + "/"):
+        return 2
+    return 1
+
+
+def plan_moves(root: Path) -> list[tuple[str, str]]:
+    """List every (old, new) move for the files under ``root``."""
+    candidates: list[Path] = []
+    for folder in (SPEC, SUPPLEMENTARY, ARC42):
+        directory = root / folder
+        if directory.is_dir():
+            candidates += [p for p in directory.iterdir() if p.is_file()]
+    themes = root / OLD_THEMES
+    if themes.is_dir():
+        candidates += [p for p in themes.rglob("*") if p.is_file()]
+    moves = []
+    for path in candidates:
+        rel = path.relative_to(root).as_posix()
+        target = new_path(rel)
+        if target != rel:
+            moves.append((rel, target))
+    return sorted(moves, key=lambda move: (_move_rank(move[1]), move[0]))
+
+
+def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, text=True, check=False
+    )
+
+
+def is_git_repo(root: Path) -> bool:
+    out = _git(root, "rev-parse", "--is-inside-work-tree")
+    return out.returncode == 0 and out.stdout.strip() == "true"
+
+
+def busy_state(root: Path) -> str | None:
+    """Name the state that keeps the repository busy, or return None."""
+
+    def exists(name: str) -> bool:
+        out = _git(root, "rev-parse", "--git-path", name)
+        return (root / out.stdout.strip()).exists()
+
+    if exists("MERGE_HEAD"):
+        return "a merge is in progress"
+    if exists("rebase-merge") or exists("rebase-apply"):
+        return "a rebase is in progress"
+    if exists("index.lock"):
+        return "another git process holds the index lock (index.lock)"
+    return None
+
+
+def tracked_files(root: Path) -> set[str]:
+    out = _git(root, "ls-files", "-z")
+    return {p for p in out.stdout.split("\0") if p}
+
+
+class Run:
+    """Apply the steps of one run and undo them in reverse order on failure."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.undo_steps: list[Callable[[], None]] = []
+        self.created_dirs: list[Path] = []
+
+    def _check_git(self, *args: str) -> None:
+        out = _git(self.root, *args)
+        if out.returncode != 0:
+            raise OSError(f"git {' '.join(args)}: {out.stderr.strip()}")
+
+    def _make_parent(self, path: Path) -> None:
+        missing = []
+        parent = path.parent
+        while not parent.exists():
+            missing.append(parent)
+            parent = parent.parent
+        for directory in reversed(missing):
+            directory.mkdir()
+            self.created_dirs.append(directory)
+
+    def move(self, old: str, new: str, tracked: bool) -> None:
+        src, dst = self.root / old, self.root / new
+        self._make_parent(dst)
+        if tracked:
+            self._check_git("mv", "--", old, new)
+        else:
+            src.rename(dst)
+
+        def undo() -> None:
+            src.parent.mkdir(parents=True, exist_ok=True)
+            if tracked:
+                self._check_git("mv", "--", new, old)
+            else:
+                dst.rename(src)
+
+        self.undo_steps.append(undo)
+
+    def write(self, rel: str, text: str) -> None:
+        path = self.root / rel
+        before = path.read_text(encoding="utf-8")
+        path.write_text(text, encoding="utf-8")
+        self.undo_steps.append(lambda: path.write_text(before, encoding="utf-8"))
+
+    def undo(self) -> list[str]:
+        errors = []
+        for step in reversed(self.undo_steps):
+            try:
+                step()
+            except OSError as exc:
+                errors.append(str(exc))
+        for directory in reversed(self.created_dirs):
+            _remove_if_empty(directory)
+        return errors
+
+
+def _remove_if_empty(directory: Path) -> None:
+    try:
+        directory.rmdir()
+    except OSError:
+        pass
+
+
+def remove_empty_dirs(root: Path, folders: list[str]) -> None:
+    """Remove the old folders that the moves left empty, deepest first."""
+    for folder in folders:
+        base = root / folder
+        if not base.is_dir():
+            continue
+        for directory in sorted(base.rglob("*"), key=lambda p: -len(p.parts)):
+            if directory.is_dir():
+                _remove_if_empty(directory)
+        _remove_if_empty(base)
+
+
+def refuse_reason(root: Path, moves: list[tuple[str, str]], git: bool) -> str | None:
+    """Name the reason to refuse the run before its first change, or None."""
+    state = busy_state(root) if git else None
+    if state:
+        return state
+    taken = [new for _, new in moves if (root / new).exists()]
+    if taken:
+        return "these destinations already exist: " + ", ".join(taken)
+    return None
+
+
+def rewrite_theme(text: str) -> str:
+    return THEME_LINE.sub(r"\1\2../assets/themes/", text)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Move a project's files into the core artifact layout."
+    )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Project root (default: current directory)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print the planned moves; change no file"
+    )
+    args = parser.parse_args(argv)
+    root = Path(args.target).resolve()
+    if not root.is_dir():
+        print(f"migrate-spec-layout: {root} is not a directory", file=sys.stderr)
+        return 2
+
+    moves = plan_moves(root)
+    if not moves:
+        return 0
+
+    git = is_git_repo(root)
+    if not args.dry_run:
+        refusal = refuse_reason(root, moves, git)
+        if refusal:
+            print(
+                f"migrate-spec-layout: refused, {refusal}; no file changed",
+                file=sys.stderr,
+            )
+            return 2
+
+    dsl_moves = any(new == DSL for _, new in moves)
+    for old, new in moves:
+        print(f"{old} -> {new}")
+    if dsl_moves:
+        old_dsl = (root / f"{ARC42}/architecture.dsl").read_text(encoding="utf-8")
+        if THEME_LINE.search(old_dsl):
+            print(f"{DSL}: theme themes/ -> theme ../assets/themes/")
+    if args.dry_run:
+        return 0
+
+    tracked = tracked_files(root) if git else set()
+    run = Run(root)
+    try:
+        for old, new in moves:
+            run.move(old, new, old in tracked)
+        if dsl_moves:
+            text = (root / DSL).read_text(encoding="utf-8")
+            if THEME_LINE.search(text):
+                run.write(DSL, rewrite_theme(text))
+    except OSError as exc:
+        print(f"migrate-spec-layout: failed: {exc}", file=sys.stderr)
+        errors = run.undo()
+        for error in errors:
+            print(f"migrate-spec-layout: undo failed: {error}", file=sys.stderr)
+        if not errors:
+            print(
+                "migrate-spec-layout: every change of the run is undone",
+                file=sys.stderr,
+            )
+        return 1
+
+    remove_empty_dirs(root, [SUPPLEMENTARY, OLD_THEMES])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
