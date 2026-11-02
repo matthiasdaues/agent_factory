@@ -57,7 +57,7 @@ class TestParseFrontmatter:
             "---\nname: test\ninputs:\n"
             "  required:\n"
             "    - type: feature\n"
-            '      path_pattern: "docs/spec/*.feature"\n'
+            '      path_pattern: "docs/spec/features/*.feature"\n'
             "  context:\n"
             "    - docs/agent-context.md\n"
             "---\n"
@@ -570,7 +570,7 @@ class TestAnyOfValidation:
         block = (
             "    - any_of:\n"
             "    - type: feature\n"
-            "      path_pattern: docs/spec/*.feature\n"
+            "      path_pattern: docs/spec/features/*.feature\n"
         )
         self._assert_rejected(tmp_path, block, capsys)
 
@@ -582,7 +582,7 @@ class TestAnyOfValidation:
             "    - any_of:\n"
             "        - any_of:\n"
             "            - type: feature\n"
-            "              path_pattern: docs/spec/*.feature\n"
+            "              path_pattern: docs/spec/features/*.feature\n"
         )
         self._assert_rejected(tmp_path, block, capsys)
 
@@ -594,8 +594,8 @@ class TestAnyOfValidation:
         block = (
             "    - any_of:\n"
             "        - type: feature\n"
-            "          path_pattern: docs/spec/*.feature\n"
-            "          pattern: docs/spec/*.feature\n"
+            "          path_pattern: docs/spec/features/*.feature\n"
+            "          pattern: docs/spec/features/*.feature\n"
         )
         self._assert_rejected(tmp_path, block, capsys)
 
@@ -603,20 +603,20 @@ class TestAnyOfValidation:
         block = (
             "    - any_of:\n"
             "      - type: feature\n"
-            "        path_pattern: docs/spec/*.feature\n"
+            "        path_pattern: docs/spec/features/*.feature\n"
         )
         rc, _ = self._run(tmp_path, block, capsys)
         assert rc == 0
         index = yaml.safe_load((tmp_path / "INDEX.yaml").read_text())
         assert index["agents"][0]["inputs"]["required"] == [
-            {"any_of": [{"type": "feature", "path_pattern": "docs/spec/*.feature"}]}
+            {"any_of": [{"type": "feature", "path_pattern": "docs/spec/features/*.feature"}]}
         ]
 
     def test_conditions_inside_alternative_are_kept(self, tmp_path, capsys):
         block = (
             "    - any_of:\n"
             "        - type: feature\n"
-            "          path_pattern: docs/spec/*.feature\n"
+            "          path_pattern: docs/spec/features/*.feature\n"
             "          conditions:\n"
             "            field: status\n"
             "            one_of:\n"
@@ -633,7 +633,7 @@ class TestAnyOfValidation:
                 "any_of": [
                     {
                         "type": "feature",
-                        "path_pattern": "docs/spec/*.feature",
+                        "path_pattern": "docs/spec/features/*.feature",
                         "conditions": {"field": "status", "one_of": ["approved", "done"]},
                     },
                     {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},

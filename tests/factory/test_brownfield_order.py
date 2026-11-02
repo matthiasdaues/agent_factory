@@ -76,7 +76,7 @@ class TestPlaybookStage1Order:
 
 class TestArchitectureAgentWorkflow:
     """The agent runs after reverse-map, so an archive step would sweep away
-    the fresh scope map and CONTEXT.md."""
+    the fresh scope map and glossary."""
 
     def _workflow(self) -> str:
         text = ARCH_AGENT.read_text(encoding="utf-8")
@@ -104,9 +104,9 @@ _ANY_OF_FRONTMATTER = (
     "        - type: scope-map\n"
     "          path_pattern: docs/spec/scope-map.md\n"
     "    - type: dsl\n"
-    "      path_pattern: docs/arc42/architecture.dsl\n"
+    "      path_pattern: docs/spec/architecture.dsl\n"
     "  context:\n"
-    "    - docs/CONTEXT.md\n"
+    "    - docs/spec/glossary.md\n"
     "---\n"
 )
 
@@ -117,7 +117,7 @@ _ANY_OF_REQUIRED = [
             {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
         ]
     },
-    {"type": "dsl", "path_pattern": "docs/arc42/architecture.dsl"},
+    {"type": "dsl", "path_pattern": "docs/spec/architecture.dsl"},
 ]
 
 
@@ -125,7 +125,7 @@ class TestIndexLintAnyOf:
     def test_parses_any_of_entry(self):
         fm = il.parse_frontmatter(_ANY_OF_FRONTMATTER)
         assert fm["inputs"]["required"] == _ANY_OF_REQUIRED
-        assert fm["inputs"]["context"] == ["docs/CONTEXT.md"]
+        assert fm["inputs"]["context"] == ["docs/spec/glossary.md"]
 
     def test_renders_any_of_entry_as_yaml(self):
         lines = il._render_structured_field(

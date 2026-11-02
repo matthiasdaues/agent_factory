@@ -91,16 +91,17 @@ Feature: Newcomer onboarding and incremental brownfield
       And retrospective facilitation happens in the current session
       And no subagent is spawned
 
-  Rule: Brownfield onboarding exits after three anchor files
+  Rule: Brownfield onboarding exits after four anchor files
     # actor: Brownfield User
     # @.agent-factory/factory/playbooks/brownfield-onboarding.md
 
-    Scenario: Stage 1 completes with three anchor files
+    Scenario: Stage 1 completes with four anchor files
       Given the brownfield-onboarding playbook is running
       When Stage 1 completes
-      Then docs/arc42/architecture.dsl exists with system context and container views
+      Then docs/spec/architecture.dsl exists with system context and container views
       And docs/spec/scope-map.md exists with Rules marked implemented
-      And docs/CONTEXT.md exists seeded with domain vocabulary
+      And docs/spec/glossary.md exists seeded with domain vocabulary
+      And docs/agent-context.md exists
       And Structurizr validation passes on the DSL
 
     Scenario: User is offered the choice to stop or go deeper after Stage 1
@@ -181,17 +182,17 @@ Feature: Newcomer onboarding and incremental brownfield
     Scenario: Feature-addition updates architecture.dsl when structural shape changes
       Given a feature changes the structural shape of the system
       When the architecture-agent runs during the feature-addition
-      Then it updates docs/arc42/architecture.dsl with the new component or container
+      Then it updates docs/spec/architecture.dsl with the new component or container
       And the DSL change is part of the same feature-addition run
 
-    Scenario: Feature-addition grows docs/CONTEXT.md with new domain terms
+    Scenario: Feature-addition grows docs/spec/glossary.md with new domain terms
       Given the grilling and domain-modeling skills surface new terms during requirements
       When terms are confirmed with the stakeholder
-      Then the new terms are added to docs/CONTEXT.md
+      Then the new terms are added to docs/spec/glossary.md
       And the vocabulary accumulates toward arc42 chapter 12
 
     Scenario: Feature-addition works without full specification artifacts
-      Given only architecture.dsl, scope-map.md, and docs/CONTEXT.md exist
+      Given only docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/agent-context.md exist
       And no full specification artifacts (PRD, UC files, supplementary specs) are present
       When a feature-addition starts
       Then the playbook proceeds with the available baseline
@@ -204,17 +205,17 @@ Feature: Newcomer onboarding and incremental brownfield
     Scenario: Feature-addition detects brownfield-lite readiness from anchor files
       Given the user starts a feature-addition
       When the playbook checks prerequisites
-      Then it checks for the existence of architecture.dsl, scope-map.md, and docs/CONTEXT.md
+      Then it checks for the existence of docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/agent-context.md
       And does not look for a Stage 1 completion marker file
 
-    Scenario: Feature-addition proceeds when all three anchor files exist
-      Given architecture.dsl, scope-map.md, and docs/CONTEXT.md all exist
+    Scenario: Feature-addition proceeds when all four anchor files exist
+      Given docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/agent-context.md all exist
       When the playbook evaluates prerequisites
       Then the prerequisites pass
       And the feature-addition proceeds normally
 
     Scenario: Feature-addition reports missing anchor files
-      Given one or more of the three anchor files is missing
+      Given one or more of the four anchor files is missing
       When the playbook evaluates prerequisites
-      Then it reports which files are missing
+      Then it names each missing file
       And suggests running brownfield-onboarding to establish the baseline
