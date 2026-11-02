@@ -80,12 +80,10 @@ A story without the section, or with "None," gets a general design review.
 
 ## Domain-modeling mode
 
-When the target has existing domain documentation — `docs/CONTEXT.md`, ADRs in
-`docs/adr/`, or the user asks to "grill with docs" — load the
-[`domain-modeling`](../domain-modeling/SKILL.md) skill as context. If
-`docs/arc42/CONTEXT-MAP.md` exists, use it to route to the relevant
-per-package `CONTEXT.md` files (same routing role as `agent-context.md`). If
-`docs/agent-context.md` exists, follow its domain concern `Read:` paths to
-discover additional vocabulary, supplementary specs, and documented decisions.
+When the target has existing domain documentation — terms in
+`docs/spec/glossary.md`, ADRs in `docs/adr/`, or the user asks to "grill with
+docs" — load the [`domain-modeling`](../domain-modeling/SKILL.md) skill as
+context. If `docs/agent-context.md` exists, follow the `Read:` paths of its
+domain concerns to discover additional vocabulary, specs, and decisions.
 Keep domain vocabulary and qualifying ADRs current while the target artifact
 remains the sole design brief.

@@ -6,7 +6,7 @@ category: utility
 
 # Scratchpad
 
-Capture a short note verbatim into `session-scratchpad.md` at the project root — a running, date-sectioned scratch pad, not a formal artifact. Not `docs/CONTEXT.md`, not a finding, not an ADR — those have their own skills. This is for todos and ideas that don't belong anywhere else yet.
+Capture a short note verbatim into `session-scratchpad.md` at the project root — a running, date-sectioned scratch pad, not a formal artifact. Not `docs/spec/glossary.md`, not a finding, not an ADR — those have their own skills. This is for todos and ideas that don't belong anywhere else yet.
 
 ## Triggers
 

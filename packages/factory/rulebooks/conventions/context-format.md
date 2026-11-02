@@ -1,32 +1,37 @@
 ---
-title: CONTEXT.md Format
+title: Glossary and Domain Concern Format
 category: domain-modeling
 enforcement: domain-modeling skill (written by), most other skills (read by) — not mechanically gate-checked
-version: 1.0.0
+version: 2.0.0
 ---
 
-# CONTEXT.md Format
+# Glossary and Domain Concern Format
+
+A project keeps its domain vocabulary in two places. `docs/spec/glossary.md` holds the terms. The domain concerns of `docs/agent-context.md` say which bounded contexts exist and where each one's files live.
 
 ## Structure
 
-Skeleton: [context.md template](../templates/context.md).
+`docs/spec/glossary.md` is a core file. Skeleton: [glossary.md template](../templates/glossary.md).
+
+- One `##` section per bounded context or per topic, such as acronyms.
+- One table per section, with the columns Term, Definition, and Avoid, in this order.
+- A term appears at most once inside one section. A settled term updates its existing row; it never adds a second one. A term may appear in more than one section.
+- Avoid lists the words not to use for the term. It may be empty.
 
 ## Rules
 
-- **Be opinionated.** When multiple words exist for the same concept, pick the best one and list the others under `_Avoid_`.
+- **Be opinionated.** When multiple words exist for the same concept, pick the best one and list the others under Avoid.
 - **Keep definitions tight.** One or two sentences max. Define what it IS, not what it does.
 - **Only project-specific terms.** General programming concepts (timeouts, error types, utility patterns) don't belong even if heavily used. Ask: unique to this context, or general programming? Only the former belongs.
-- **Group under subheadings** when natural clusters emerge; a flat list is fine otherwise.
+- **No other content.** The glossary holds terms only — no implementation details, no spec content, no scratch notes.
 
-## Single vs multi-context repos
+## Bounded contexts
 
-**Single context (most repos):** one `docs/arc42/CONTEXT.md`.
+Which bounded contexts exist is a routing fact. `docs/agent-context.md` holds it: each bounded context is one domain concern under `## Domain concerns`, with its description and its `Read:` paths. A domain concern routes to `docs/spec/glossary.md` for its terms.
 
-**Multiple contexts:** a `docs/arc42/CONTEXT-MAP.md` lists the contexts, where they live, and how they relate. Skeleton: [context-map.md template](../templates/context-map.md).
+The glossary section of a context carries the same name as its domain concern. A project with one context needs no domain concern for it; its terms go into one section.
 
-Infer the structure: `docs/arc42/CONTEXT-MAP.md` exists → read it for contexts; only `docs/arc42/CONTEXT.md` exists → single context; neither exists → create `docs/arc42/CONTEXT.md` lazily when the first term is resolved.
-
-When multiple contexts exist, infer which one the current topic relates to; ask if unclear.
+When the current topic belongs to one of several contexts, infer which one from the domain concerns; ask if unclear. When `docs/spec/glossary.md` does not exist, create it when the first term is settled.
 
 ## Referenced from
 

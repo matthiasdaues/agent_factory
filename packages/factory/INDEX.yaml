@@ -10,7 +10,7 @@ agents:
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
     tokens: 1231
-    total_tokens: 8341
+    total_tokens: 8340
     inputs:
       required:
         - any_of:
@@ -123,7 +123,7 @@ agents:
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
     tokens: 980
-    total_tokens: 6145
+    total_tokens: 6147
     inputs:
       required:
         - type: story
@@ -276,14 +276,14 @@ agents:
     tier: strong
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
-    tokens: 1735
-    total_tokens: 3518
+    tokens: 1737
+    total_tokens: 3484
     inputs:
       required:
         - type: proposal
           path_pattern: docs/proposals/{name}.md
       context:
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
         - .agent-factory/factory/rulebooks/templates/proposal.md
     outputs:
       minimum_changed: 1
@@ -297,7 +297,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1290
-    total_tokens: 9702
+    total_tokens: 9704
     inputs:
       required:
         - type: feature
@@ -337,7 +337,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2272
-    total_tokens: 21287
+    total_tokens: 21291
     inputs:
       required:
         - type: scope-map
@@ -393,7 +393,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1753
-    total_tokens: 21281
+    total_tokens: 21284
     inputs:
       required:
         - any_of:
@@ -520,7 +520,7 @@ agents:
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
     tokens: 701
-    total_tokens: 4429
+    total_tokens: 4433
     inputs:
       required:
         - type: feature
@@ -549,7 +549,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3782
-    total_tokens: 18372
+    total_tokens: 18336
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -607,7 +607,7 @@ skills:
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
     path: skills/inspect-spec/SKILL.md
-    tokens: 715
+    tokens: 719
   - name: qa-strategy-from-spec
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
@@ -617,7 +617,7 @@ skills:
     category: requirements
     description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1645
+    tokens: 1648
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -662,7 +662,7 @@ skills:
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
     path: skills/write-adr/SKILL.md
-    tokens: 933
+    tokens: 932
   - name: create-backlog
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
@@ -722,7 +722,7 @@ skills:
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
     path: skills/reconcile-spec/SKILL.md
-    tokens: 888
+    tokens: 892
   - name: spec-feedback
     category: implementation
     description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
@@ -752,7 +752,7 @@ skills:
     category: quality
     description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
     path: skills/fagan-review/SKILL.md
-    tokens: 704
+    tokens: 706
   - name: mutation-testing
     category: quality
     description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
@@ -780,9 +780,9 @@ skills:
     tokens: 3191
   - name: domain-modeling
     category: utility
-    description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
+    description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/spec/glossary.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
     path: skills/domain-modeling/SKILL.md
-    tokens: 695
+    tokens: 855
   - name: explain-concept
     category: utility
     description: Look up a Factory concept and explain it. Knows what exists and what is missing.
@@ -792,7 +792,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me" or "grill with docs".
     path: skills/grilling/SKILL.md
-    tokens: 1107
+    tokens: 1071
   - name: guided-tour
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
@@ -812,7 +812,7 @@ skills:
     category: utility
     description: Process a meeting transcript into two markdown artifacts — a verbatim protocol and a comparison against the current repository state. Use when the user provides a transcript, mentions "process transcript", or wants to compare a discussion against the spec.
     path: skills/process-transcript/SKILL.md
-    tokens: 1476
+    tokens: 1478
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
@@ -827,7 +827,7 @@ skills:
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
     path: skills/scratchpad/SKILL.md
-    tokens: 354
+    tokens: 356
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
@@ -885,7 +885,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 15108
+    total_tokens: 15107
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -899,7 +899,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 64373
+    total_tokens: 64383
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -909,7 +909,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15435
+    total_tokens: 15437
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -921,7 +921,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 45202
+    total_tokens: 45210
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -938,7 +938,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 108640
+    total_tokens: 108654
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -956,7 +956,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 107961
+    total_tokens: 107975
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -972,7 +972,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15938
+    total_tokens: 15940
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1041,7 +1041,7 @@ rulebooks:
   - name: context-format
     category: conventions
     path: rulebooks/conventions/context-format.md
-    tokens: 361
+    tokens: 524
   - name: cross-reference-format
     category: conventions
     path: rulebooks/conventions/cross-reference-format.md
@@ -1073,7 +1073,7 @@ rulebooks:
   - name: markdown-formatting
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md
-    tokens: 333
+    tokens: 335
   - name: mermaid-notation
     category: conventions
     path: rulebooks/conventions/mermaid-notation.md
