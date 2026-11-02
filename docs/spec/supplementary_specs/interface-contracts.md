@@ -266,6 +266,18 @@ All stories must have YAML frontmatter with the following fields:
 | Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/` |
 | Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise         |
 
+## `.agent-factory/factory/scripts/scope-lint`
+
+`scope-lint` checks the scope declaration of each governed artifact. In the core artifact layout it reads feature files, the DSL, and the entity model from `docs/spec/` (CAL-G16). It never reads their paths from before the migration (DEC-11).
+
+|              |                                                                                                                                                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage        | `scope-lint [--base-dir DIR] [--format text\|json]`                                                                                                                                                                       |
+| `--base-dir` | The project root. Default `.`                                                                                                                                                                                             |
+| Reads        | `docs/proposals/*.md`, `backlog/epics-*.md`, `backlog/ST-*.md`, `docs/spec/features/*.feature`, `docs/spec/scope-map.md`, `docs/spec/architecture.dsl`, `docs/spec/entity-model.yaml` or else `docs/spec/entity-model.md` |
+| Valid scope  | `global` or the ID of a workstream in `.agent-factory/workstreams/`                                                                                                                                                       |
+| Exit code    | `1` when a file has no scope declaration or an unknown value; `0` otherwise                                                                                                                                               |
+
 ## `.agent-factory/factory/scripts/module-graph-check`
 
 |           |                                                                                                                                                                         |
