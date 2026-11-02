@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import yaml
 from conftest import load_script
 
@@ -498,6 +500,35 @@ class TestFactoryRoot:
         (tmp_path / ".agent-factory" / "factory").mkdir(parents=True)
         monkeypatch.chdir(tmp_path)
         assert il._factory_root() == ".agent-factory/factory"
+
+    def test_unmarked_cwd_falls_back_to_script_own_root(self, tmp_path, monkeypatch):
+        """Run from inside packages/factory/ (or any other folder), the
+        default root is the factory that holds this script, not a bare
+        factory/ path that no longer exists."""
+        monkeypatch.chdir(tmp_path)
+        own_root = Path(il.__file__).resolve().parent.parent
+        assert Path(il._factory_root()) == own_root
+        assert (own_root / "agents").is_dir()
+
+    def test_missing_source_dir_fails_without_writing(self, tmp_path, capsys):
+        """A missing source directory is an error; index-lint must not
+        overwrite the index with an empty one."""
+        out = tmp_path / "INDEX.yaml"
+        out.write_text("existing\n", encoding="utf-8")
+        for sub in ("skills", "playbooks", "rulebooks"):
+            (tmp_path / sub).mkdir()
+        rc = il.main(
+            [
+                "--agents-dir", str(tmp_path / "agents"),
+                "--skills-dir", str(tmp_path / "skills"),
+                "--playbooks-dir", str(tmp_path / "playbooks"),
+                "--rulebooks-dir", str(tmp_path / "rulebooks"),
+                "--out", str(out),
+            ]
+        )
+        assert rc == 2
+        assert out.read_text(encoding="utf-8") == "existing\n"
+        assert "agents" in capsys.readouterr().err
 
 
 _ARCH_LIKE_HEAD = "---\nname: arch\ntitle: Arch\ninputs:\n  required:\n"

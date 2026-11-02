@@ -933,16 +933,18 @@ def render_index(
 
 def _factory_root() -> str:
     """Return the factory root: packages/factory in the factory source
-    repository, .agent-factory/factory in an installed project, else factory.
+    repository, .agent-factory/factory in an installed project, else the
+    factory that holds this script.
 
     The source repository is recognised by its own copy of this script, so a
     consumer project with an unrelated packages/factory/ is not mistaken for
-    it (BUG-0030)."""
+    it (BUG-0030). The last fallback lets the script run from any folder,
+    such as packages/factory/ itself."""
     if Path("packages/factory/scripts/index-lint").is_file():
         return "packages/factory"
     if Path(".agent-factory/factory").is_dir():
         return ".agent-factory/factory"
-    return "factory"
+    return str(_PACKAGES_DIR)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -962,6 +964,21 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = ap.parse_args(argv)
+
+    missing = [
+        str(d)
+        for d in (args.agents_dir, args.skills_dir, args.playbooks_dir, args.rulebooks_dir)
+        if not d.is_dir()
+    ]
+    if missing:
+        print(
+            "index-lint: source director"
+            + ("y" if len(missing) == 1 else "ies")
+            + " not found: "
+            + ", ".join(missing),
+            file=sys.stderr,
+        )
+        return 2
 
     content, warnings = render_index(
         args.agents_dir,
