@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = (
     Path(__file__).resolve().parent.parent.parent
     / "packages"
@@ -239,3 +241,90 @@ class TestExitCode:
         assert rc == 0
         assert summary["error"] == 0
         assert findings == []
+
+
+# ---------------------------------------------------------------------------
+# Fold mark: `Folded: yes` under a domain concern (ST-0328, CAL-G03)
+# ---------------------------------------------------------------------------
+
+_FOLD_TEMPLATE = """\
+# Agent Context
+
+## Always (cross-cutting)
+
+### Branching
+
+Branching policy and worktree discipline.
+Read: factory/rulebooks/conventions/branching-policy.md
+
+## Technical concerns
+
+### backend
+
+Server-side application code.
+{technical_mark}Read: factory/rulebooks/conventions/branching-policy.md
+
+## Domain concerns
+
+### Ledger
+
+Double-entry bookkeeping of every payment.
+{domain_mark}Read: docs/handbook/testing/conventions.md
+"""
+
+
+def _fold_project(tmp_path: Path, *, domain_mark: str = "", technical_mark: str = "") -> Path:
+    """Copy the `valid` fixture and replace its agent-context.md with one
+    domain concern and one technical concern, each with the given mark lines."""
+    root = _copy_fixture("valid", tmp_path / "project")
+    (root / "docs" / "agent-context.md").write_text(
+        _FOLD_TEMPLATE.format(domain_mark=domain_mark, technical_mark=technical_mark),
+        encoding="utf-8",
+    )
+    return root
+
+
+class TestFoldMark:
+    """The fold mark is the line `Folded: yes` directly after the description
+    of a domain concern. Any other form or place is a CTX-SECTIONS error."""
+
+    def test_valid_mark_under_domain_concern_passes(self, tmp_path: Path) -> None:
+        root = _fold_project(tmp_path, domain_mark="Folded: yes\n")
+        findings, summary, rc = _run(root)
+        assert rc == 0, findings
+        assert summary["error"] == 0
+
+    @pytest.mark.parametrize(
+        "mark",
+        [
+            pytest.param("Folded: no\n", id="value-no"),
+            pytest.param("Folded:\n", id="value-missing"),
+            pytest.param("Folded: Yes\n", id="value-capitalised"),
+            pytest.param("folded: yes\n", id="key-lowercase"),
+        ],
+    )
+    def test_malformed_mark_fires(self, tmp_path: Path, mark: str) -> None:
+        root = _fold_project(tmp_path, domain_mark=mark)
+        findings, _summary, rc = _run(root)
+        assert rc == 1
+        messages = [f["message"] for f in _findings_with_code(findings, "CTX-SECTIONS")]
+        assert any("Ledger" in m and "fold mark" in m for m in messages), messages
+
+    def test_mark_not_after_description_fires(self, tmp_path: Path) -> None:
+        """A mark below the Read: line is not directly after the description."""
+        root = _copy_fixture("valid", tmp_path / "project")
+        text = _FOLD_TEMPLATE.format(domain_mark="", technical_mark="") + "Folded: yes\n"
+        (root / "docs" / "agent-context.md").write_text(text, encoding="utf-8")
+        findings, _summary, rc = _run(root)
+        assert rc == 1
+        messages = [f["message"] for f in _findings_with_code(findings, "CTX-SECTIONS")]
+        assert any("Ledger" in m and "description" in m for m in messages), messages
+
+    def test_mark_under_technical_concern_fires(self, tmp_path: Path) -> None:
+        root = _fold_project(tmp_path, technical_mark="Folded: yes\n")
+        findings, _summary, rc = _run(root)
+        assert rc == 1
+        messages = [f["message"] for f in _findings_with_code(findings, "CTX-SECTIONS")]
+        assert any(
+            "backend" in m and "## Domain concerns" in m for m in messages
+        ), messages

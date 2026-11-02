@@ -2,7 +2,7 @@
 value-first configuration ordering.
 
 Owned contracts (EPIC 4 Ownership Resolution table,
-docs/spec/value-first-onboarding-journey-qa-strategy.md):
+docs/spec/work/value-first-onboarding-journey-qa-strategy.md):
 
   - First session reports evidence without changing the project
     (`Scenario: First session reports evidence without changing the
