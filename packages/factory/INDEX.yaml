@@ -104,11 +104,12 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 482
-    total_tokens: 1251
+    tokens: 504
+    total_tokens: 1290
     inputs:
       context:
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
+        - docs/agent-context.md
         - docs/reviews/retro-*.md
         - docs/spec/work/todos.md
     outputs:
@@ -820,7 +821,7 @@ skills:
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
-    tokens: 769
+    tokens: 786
   - name: run-step
     category: utility
     description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
@@ -959,7 +960,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 108338
+    total_tokens: 108377
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

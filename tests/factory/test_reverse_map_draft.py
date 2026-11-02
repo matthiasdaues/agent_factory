@@ -12,7 +12,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, load_script
 
 sl = load_script("spec-lint")
@@ -123,7 +122,7 @@ def test_stage1_exit_command_fails_when_spec_lint_crashes_silently(tmp_path):
 
 def test_unattended_frontmatter_example_passes_scope_lint(tmp_path):
     text = SKILL.read_text(encoding="utf-8").split("## Unattended mode", 1)[1]
-    example = re.search(r"```markdown\n(.*?)```", text, re.S).group(1)
+    example = re.search(r"```markdown\n(.*?)```", text, re.DOTALL).group(1)
     spec = tmp_path / "docs" / "spec"
     spec.mkdir(parents=True)
     (spec / "scope-map.md").write_text(example + BODY, encoding="utf-8")
