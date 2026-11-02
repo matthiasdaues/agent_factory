@@ -898,8 +898,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3327
-    total_tokens: 61726
+    tokens: 3373
+    total_tokens: 61772
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -937,8 +937,8 @@ playbooks:
       - code-review-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4632
-    total_tokens: 106004
+    tokens: 4667
+    total_tokens: 106039
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration

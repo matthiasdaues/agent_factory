@@ -93,14 +93,14 @@ The `script_exit_zero` precondition evaluator resolves `test_command` from `docs
 The `feature-addition` playbook checks that four anchor files exist before it proceeds. The brownfield Stage 1 exit (Step 2.6 of `brownfield-onboarding`) checks the same four files.
 
 - The four anchor files are `docs/spec/architecture.dsl`, `docs/spec/scope-map.md`, `docs/spec/glossary.md`, and `docs/agent-context.md`.
-- `docs/spec/glossary.md` holds the domain vocabulary, and `docs/agent-context.md` routes agents to it. Both must exist. `docs/CONTEXT.md` is not an anchor file, because no migrated project has it (gap CAL-G01 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)).
+- `docs/CONTEXT.md` is not an anchor file. The terms live in `docs/spec/glossary.md`, and the routing lives in `docs/agent-context.md` (DEC-07, DEC-12). Both must exist. No migrated project has a `docs/CONTEXT.md` (gap CAL-G01 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)).
 - The check is file-existence only — no content validation, no gate marker, no structural inspection.
 - If all four exist, the prerequisite passes and the playbook proceeds normally.
 - If any file is missing, the playbook names each missing file and suggests running `brownfield-onboarding` to establish the baseline.
 - Full specification artifacts (`docs/spec/work/prd.md`, `docs/spec/features/*.feature`, and the other single-file core artifacts in `docs/spec/`) are optional inputs that deepen the process when present, not prerequisites.
 - The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
 
-See [core-artifact-layout.feature](../core-artifact-layout.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md#notes). `newcomer-onboarding.feature` still names three anchor files; gap CAL-G15 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md) assigns its update.
+See [core-artifact-layout.feature](../core-artifact-layout.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md#notes). `newcomer-onboarding.feature` names the same four anchor files in its three anchor-file Rules (gap CAL-G15 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)).
 
 ## Reverse-map confidence hierarchy
 
