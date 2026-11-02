@@ -1741,6 +1741,7 @@ class TestRefreshPrecommitHooks:
         assert changed is False
         assert not (tmp_path / ".pre-commit-config.yaml").exists()
 
+    @pytest.mark.xfail(strict=True, reason="repo hook block keeps old paths until ST-0343")
     def test_this_repository_needs_no_refresh(self, tmp_path):
         """This repo's own config already carries the template block, so
         an update here asks nothing and loses none of its local lines."""

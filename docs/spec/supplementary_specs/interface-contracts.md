@@ -230,6 +230,42 @@ All stories must have YAML frontmatter with the following fields:
 - `concerns` must be a mapping with only `domain` and `technical` keys (both optional); each value must be a list of strings
 - `quality-gates` is a closed enum (`crap-score`, `mutation-analysis`, `dependency-check`); omitting a factory-default gate requires justification in `notes`
 
+## `.agent-factory/factory/scripts/arch-lint`
+
+`arch-lint` compares the Structurizr model with chapter 5 of the arc42 documentation and checks ADR frontmatter. In the core artifact layout it reads the DSL from `docs/spec/` and chapter 5 from `docs/arc42/` (CAL-G16). It never falls back to `docs/arc42/architecture.dsl` (DEC-11). See [core-artifact-layout.feature](../core-artifact-layout.feature).
+
+|                            |                                                                                                                                                                                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage                      | `arch-lint [--dsl PATH] [--docs-dir DIR] [--no-validate] [--allow-missing-docs-dir]`                                                                                                                                                                                           |
+| `--dsl`                    | The Structurizr workspace. Default `docs/spec/architecture.dsl`. The file must lie inside the docs folder, which is the parent of `--docs-dir`                                                                                                                                 |
+| `--docs-dir`               | The arc42 folder that holds `05_building_block_view.md`. Default `docs/arc42`. Its parent is the docs folder: images are read from `assets/images/` and ADRs from `adr/` there                                                                                                 |
+| `--no-validate`            | Skips `structurizr validate`                                                                                                                                                                                                                                                   |
+| `--allow-missing-docs-dir` | A missing `--docs-dir` gives the warning `ARCH-NO-DIR` instead of exit `2`; the DSL and ADR checks still run                                                                                                                                                                   |
+| Calls                      | `structurizr validate` and, when the workspace property `arc42.projected` is `"true"` and an image is older than the DSL, `structurizr export-all`. Both run with `STRUCTURIZR_DOCS` set to the docs folder and `STRUCTURIZR_WORKSPACE` set to the `--dsl` path relative to it |
+| Writes                     | Re-exported SVGs in `docs/assets/images/` when they are stale; nothing else                                                                                                                                                                                                    |
+| Exit code                  | `1` when at least one error-severity finding exists; `2` when `--docs-dir` is not a directory and `--allow-missing-docs-dir` is absent; `0` otherwise                                                                                                                          |
+
+## `.agent-factory/factory/scripts/structurizr`
+
+|                         |                                                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage                   | `structurizr export-svg\|export-all\|validate\|list-views`                                                                               |
+| `STRUCTURIZR_DOCS`      | The docs folder, mounted into the container at `/workspace`. Default `./docs`                                                            |
+| `STRUCTURIZR_WORKSPACE` | The DSL file, relative to the docs folder. Default `spec/architecture.dsl`                                                               |
+| `STRUCTURIZR_IMAGE`     | The container image. Default `structurizr/structurizr:2026.05.22-playwright`                                                             |
+| Writes                  | `export-svg` and `export-all` write SVGs to `assets/images/` in the docs folder                                                          |
+| Exit code               | `1` when Docker is missing, the docs folder is missing, or the workspace file is missing; otherwise the exit code of the Structurizr CLI |
+
+## `.agent-factory/factory/scripts/dependency-check`
+
+|                 |                                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| Usage           | `dependency-check [--dsl-path PATH] [--source-root DIR] [--story-id ID] [--report-dir DIR]`         |
+| `--dsl-path`    | The dependency rules. Default `docs/spec/dependency-rules.dsl`                                      |
+| `--source-root` | The folder whose Python files are scanned. Default `.`                                              |
+| Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/` |
+| Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise         |
+
 ## `.agent-factory/factory/scripts/module-graph-check`
 
 |           |                                                                                                                                                                         |

@@ -21,7 +21,10 @@ deterministic and independent of this checkout's own git state.
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -33,6 +36,13 @@ PRE_COMMIT_PATH = REPO_ROOT / "packages" / "factory" / "config" / "pre-commit-co
 METADATA_PATH = REPO_ROOT / "packages" / "factory" / "config" / "hook-metadata.yaml"
 
 PRE_COMMIT_TEXT = PRE_COMMIT_PATH.read_text(encoding="utf-8")
+
+# ST-0325: the template's arch-lint hook watches the DSL files in docs/spec/
+# and chapter 5 in docs/arc42/.
+ARCH_LINT_FILES = (
+    r"^docs/(spec/(architecture|dependency-rules)\.dsl"
+    r"|arc42/05_building_block_view\.md|assets/images/.*|adr/.*\.md)$"
+)
 METADATA_TEXT = METADATA_PATH.read_text(encoding="utf-8")
 
 ALL_HOOK_IDS = [
@@ -73,7 +83,7 @@ class TestParseHookStanzas:
         """BUG-0113: a long regex sits on its own line under `files: >-`."""
         stanzas = {s.id: s for s in hs.parse_hook_stanzas(PRE_COMMIT_TEXT)}
         assert stanzas["agent_factory_hook-index-lint"].files.startswith(r"^(\.agent-factory/factory/agents/")
-        assert stanzas["agent_factory_hook-arch-lint"].files.startswith("^docs/(arc42/")
+        assert stanzas["agent_factory_hook-arch-lint"].files == ARCH_LINT_FILES
 
     def test_mdformat_has_no_files_key(self):
         stanzas = {s.id: s for s in hs.parse_hook_stanzas(PRE_COMMIT_TEXT)}
@@ -399,3 +409,50 @@ class TestCLISmoke:
         out = capsys.readouterr().out
         assert "agent_factory_hook-mdformat" in out
         assert "agent_factory_hook-index-lint" not in out
+
+
+# ---------------------------------------------------------------------------
+# CAL-09-IT-02: a change to the DSL runs arch-lint in a template-installed
+# project (Scenario Outline `A change to the DSL runs the architecture lint
+# as a hook`, template row).
+# ---------------------------------------------------------------------------
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+
+@pytest.mark.skipif(shutil.which("pre-commit") is None, reason="pre-commit not installed")
+def test_CAL_09_template_hook_runs_arch_lint_on_dsl_change(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    (project / "docs" / "spec").mkdir(parents=True)
+    (project / "docs" / "arc42").mkdir()
+    (project / "docs" / "spec" / "architecture.dsl").write_text(
+        'workspace "x" {\n  model { }\n}\n'
+    )
+    (project / ".pre-commit-config.yaml").write_text(PRE_COMMIT_TEXT)
+    (project / ".agent-factory").mkdir()
+    (project / ".agent-factory" / "factory").symlink_to(
+        REPO_ROOT / "packages" / "factory"
+    )
+    _git(project, "init", "-q")
+    _git(project, "add", "docs", ".pre-commit-config.yaml")
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "SKIP"))}
+    env["PRE_COMMIT_HOME"] = str(tmp_path / "pre-commit-home")
+    result = subprocess.run(
+        ["pre-commit", "run", "--files", "docs/spec/architecture.dsl"],
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+    lines = [
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith("agent_factory: arch-lint")
+    ]
+    assert len(lines) == 1, result.stdout + result.stderr
+    assert lines[0].endswith("Passed"), result.stdout + result.stderr
