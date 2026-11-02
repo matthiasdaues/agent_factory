@@ -61,6 +61,14 @@ Read: LICENSE
 
 ## Domain concerns
 
-<!-- Domain concerns are derived from scope-map areas. The planning-agent
-     populates this section during backlog creation once explicit domain
-     areas exist. -->
+### Factory
+
+The agent, skill, and playbook system with its deterministic flow-control harness, run by an AI CLI.
+Folded: yes
+Read: packages/factory/, docs/spec/features/, docs/spec/areas/, docs/spec/glossary.md
+
+### Usage Analysis
+
+Opt-in local subproject that reads the Factory's raw usage spool and provides accounting, queries, and export.
+Folded: yes
+Read: packages/usage/, docs/spec/features/local-usage-processing-and-analysis.feature, docs/spec/glossary.md
