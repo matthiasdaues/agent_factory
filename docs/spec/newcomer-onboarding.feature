@@ -163,10 +163,13 @@ Feature: Newcomer onboarding and incremental brownfield
       And rows from docs alone have confidence "claimed"
       And the skill summarises the inventory count
 
-    Scenario: Reverse-map seeds docs/CONTEXT.md with domain vocabulary
+    Scenario: Reverse-map seeds docs/spec/glossary.md with domain vocabulary
       Given the reverse-map skill is scanning the codebase
       When it encounters type names, class names, and module names
-      Then it extracts domain vocabulary into docs/CONTEXT.md
+      Then it extracts domain vocabulary into docs/spec/glossary.md
+      And each term is a row of a table with the columns Term, Definition, and Avoid
+      And no term appears twice in one section
+      And it writes no docs/CONTEXT.md
       And the vocabulary forms the seed for arc42 chapter 12 (Glossary)
 
   Rule: Feature-addition deepens anchor files incrementally

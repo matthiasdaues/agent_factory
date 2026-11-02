@@ -337,7 +337,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2294
-    total_tokens: 21313
+    total_tokens: 21421
     inputs:
       required:
         - type: scope-map
@@ -396,7 +396,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1753
-    total_tokens: 21284
+    total_tokens: 21515
     inputs:
       required:
         - any_of:
@@ -552,7 +552,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3782
-    total_tokens: 18336
+    total_tokens: 18444
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -585,7 +585,7 @@ skills:
     category: requirements
     description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. --fold-context-map folds a context map into domain concerns. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 7271
+    tokens: 7379
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -618,9 +618,9 @@ skills:
     tokens: 2563
   - name: reverse-map
     category: requirements
-    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1648
+    tokens: 1771
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -902,7 +902,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 64405
+    total_tokens: 64744
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -924,7 +924,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 45232
+    total_tokens: 45340
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -941,7 +941,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 108686
+    total_tokens: 109025
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -959,7 +959,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 108007
+    total_tokens: 108346
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
