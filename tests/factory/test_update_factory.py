@@ -20,6 +20,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -1769,13 +1770,70 @@ class TestMainRefreshesHooksAfterInit:
         monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
         monkeypatch.setattr(
             uf, "refresh_precommit_hooks",
-            lambda tgt, fac, input_func=None: order.append(f"refresh:{tgt == target}") or False,
+            lambda tgt, fac, input_func=None, **kw: (
+                order.append(f"refresh:{tgt == target}") or False
+            ),
         )
 
         code = uf.main(["--target", str(target)])
 
         assert code == 0
         assert order == ["init", "refresh:True"]
+
+
+class TestMainAsksAboutHooksOnlyWithoutMigration:
+    """An update that ran the layout migration applies the factory hook
+    block without a question (DEC-17). Every other update keeps the
+    BUG-0110 question."""
+
+    def _update(self, tmp_path, monkeypatch, prior_version: str):
+        target = tmp_path / "target"
+        target.mkdir()
+        source = tmp_path / "source"
+        TestMainSkipsForceGateForIndexYamlOnlyChanges()._install(target, source)
+        manifest_path = target / uf.MANIFEST_PATH
+        record = json.loads(manifest_path.read_text(encoding="utf-8"))
+        record["factory_version"] = prior_version
+        manifest_path.write_text(json.dumps(record), encoding="utf-8")
+        factory = source / "packages" / "factory"
+        (factory / "VERSION").write_text("1.4.1\n")
+        for rel in (
+            "scripts/init-factory",
+            "scripts/merge-precommit-config",
+            "config/pre-commit-config.yaml",
+        ):
+            (factory / rel).parent.mkdir(parents=True, exist_ok=True)
+            (factory / rel).write_text((SOURCE_FACTORY / rel).read_text(encoding="utf-8"))
+        config = _write_config(target, STALE_FACTORY_BLOCK)
+
+        prompts: list[str] = []
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr("builtins.input", lambda prompt: prompts.append(prompt) or "")
+
+        code = uf.main(["--target", str(target)])
+
+        assert code == 0
+        return config.read_text(encoding="utf-8"), prompts
+
+    @pytest.mark.spec("CAL-07-IT-04")
+    def test_CAL_07_update_with_migration_applies_the_block_unasked(
+        self, tmp_path, monkeypatch
+    ):
+        text, prompts = self._update(tmp_path, monkeypatch, "1.3.3")
+
+        assert prompts == []
+        assert "[ -d factory ]" not in text
+        assert "agent_factory_hook-arch-lint" in text
+        assert "trailing-whitespace" in text
+
+    def test_update_between_layout_releases_keeps_the_question(
+        self, tmp_path, monkeypatch
+    ):
+        text, prompts = self._update(tmp_path, monkeypatch, "1.4.0")
+
+        assert prompts == ["Refresh the factory hooks? (yes to confirm): "]
+        assert "[ -d factory ]" in text
 
 
 # ---------------------------------------------------------------------------
@@ -1938,3 +1996,141 @@ class TestFailedMigrationRollsTheUpdateBack:
         # Forbidden: install.json recording the new version.
         assert read_factory_version(target) == "1.3.3"
         assert _part(after, ".agent-factory") == _part(before, ".agent-factory")
+
+
+# ---------------------------------------------------------------------------
+# CAL-07-IT-04: the factory hook block follows the template without a question
+# ---------------------------------------------------------------------------
+
+# The arch-lint comment and entry lines of the 1.3.3 hook template. The rest
+# of the 1.3.3 block equals the current template, except the files: value.
+ARCH_LINT_LINES_1_3_3 = (
+    "      # Compare architecture documentation against the C4 model\n"
+    "      # (the Structurizr DSL file). Catches names that appear in\n",
+    '          "$AF"/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate\n'
+    "          --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg\n"
+    "          2>/dev/null; exit $rc'\n",
+)
+ARCH_LINT_LINES_NOW = (
+    "      # Compare chapter 5 in docs/arc42/ against the C4 model\n"
+    "      # (docs/spec/architecture.dsl). Catches names that appear in\n",
+    '          "$AF"/factory/scripts/arch-lint --dsl docs/spec/architecture.dsl\n'
+    "          --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?;\n"
+    "          git add docs/assets/images/*.svg 2>/dev/null; exit $rc'\n",
+)
+ARCH_LINT_TRIGGERS = (
+    "docs/spec/architecture.dsl",
+    "docs/arc42/05_building_block_view.md",
+)
+
+
+def _hook_config_1_3_3() -> str:
+    """The project's .pre-commit-config.yaml with the factory hook block as
+    the 1.3.3 template wrote it, and the project's own hook."""
+    from test_migrate_spec_layout import OLD_ARCH_LINT_FILES, PROJECT_HOOK, factory_block
+
+    block = factory_block(OLD_ARCH_LINT_FILES)
+    for old, new in zip(ARCH_LINT_LINES_1_3_3, ARCH_LINT_LINES_NOW):
+        assert new in block
+        block = block.replace(new, old)
+    return "repos:\n" + block + "\n" + PROJECT_HOOK
+
+
+def _make_installed_1_3_3_hooks(tmp_path: Path) -> Path:
+    """Fixture installed-1.3.3-hooks: installed-1.3.3 of ST-0330, with the
+    factory hook block of the 1.3.3 template and a chapter 5."""
+    from test_init_factory import read_factory_version, run_init, stage_source
+    from test_migrate_spec_layout import OLD_LAYOUT_PAYMENTS, make_project
+
+    files = {
+        **OLD_LAYOUT_PAYMENTS,
+        ".pre-commit-config.yaml": _hook_config_1_3_3(),
+        "docs/arc42/05_building_block_view.md": "# 5. Building Block View\n",
+    }
+    target = make_project(tmp_path / "installed-1.3.3-hooks", files)
+    source = stage_source(tmp_path / "source-1.3.3", "1.3.3")
+    first = run_init(source, target, "--cli", "claude", "--project-name", "payments")
+    assert first.returncode == 0, first.stderr
+    assert read_factory_version(target) == "1.3.3"
+    assert (target / ".pre-commit-config.yaml").read_text() == _hook_config_1_3_3()
+    return target
+
+
+@pytest.fixture(scope="class")
+def hook_update_run(tmp_path_factory):
+    """Run an approved update to 1.4.0 on installed-1.3.3-hooks.
+
+    The class-scoped fixture runs before the per-test ``_scrub_git_env``,
+    so it drops the GIT_* variables a pre-commit hook leaks itself."""
+    from test_init_factory import stage_source
+
+    tmp_path = tmp_path_factory.mktemp("hook-update")
+    with pytest.MonkeyPatch.context() as patch:
+        for key in [k for k in os.environ if k.startswith("GIT_")]:
+            patch.delenv(key)
+        target = _make_installed_1_3_3_hooks(tmp_path)
+        source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+                "--target", str(target), "--source", str(source),
+            ],
+            input="yes\n", capture_output=True, text=True, check=False,
+        )
+    return tmp_path, target, result
+
+
+def _hook_files(text: str) -> dict[str, object]:
+    """Map each hook id of a pre-commit config to its ``files:`` value."""
+    import yaml
+
+    return {
+        hook["id"]: hook.get("files")
+        for repo in yaml.safe_load(text)["repos"]
+        for hook in repo["hooks"]
+    }
+
+
+class TestHookBlockFollowsTheTemplate:
+    """An approved update from before the layout release gives the factory
+    hook block the template's files values without a question
+    (CAL-07-IT-04)."""
+
+    @pytest.mark.spec("CAL-07-IT-04")
+    @pytest.mark.skipif(shutil.which("pre-commit") is None, reason="no pre-commit")
+    @pytest.mark.parametrize("trigger", ARCH_LINT_TRIGGERS)
+    def test_CAL_07_arch_lint_runs_after_the_update(self, hook_update_run, trigger):
+        tmp_path, target, result = hook_update_run
+
+        assert result.returncode == 0, result.stderr
+        prompts = [
+            line for line in result.stdout.splitlines() if "(yes to confirm)" in line
+        ]
+        assert len(prompts) == 1
+        assert "Proceed with update?" in prompts[0]
+        assert "Refresh the factory hooks" not in result.stdout
+        config = (target / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+        template = _hook_files(
+            (SOURCE_FACTORY / "config" / "pre-commit-config.yaml").read_text(encoding="utf-8")
+        )
+        hooks = _hook_files(config)
+        factory_hooks = [h for h in hooks if h.startswith("agent_factory_hook-")]
+        assert sorted(factory_hooks) == sorted(template)
+        for hook_id in factory_hooks:
+            assert hooks[hook_id] == template[hook_id], hook_id
+        own = _hook_files(_hook_config_1_3_3())["payments-spec-check"]
+        assert hooks["payments-spec-check"] == own
+
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "SKIP"))}
+        env["PRE_COMMIT_HOME"] = str(tmp_path / "pre-commit-home")
+        run = subprocess.run(
+            ["pre-commit", "run", "--files", trigger],
+            cwd=target, env=env, capture_output=True, text=True, timeout=300,
+        )
+        lines = [
+            line for line in run.stdout.splitlines()
+            if line.startswith("agent_factory: arch-lint")
+        ]
+        assert len(lines) == 1, run.stdout + run.stderr
+        assert not lines[0].endswith("Skipped"), run.stdout + run.stderr

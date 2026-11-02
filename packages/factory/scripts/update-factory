@@ -414,30 +414,56 @@ def _run_init(source: Path, target: Path) -> int:
 # ── Approval and preview ────────────────────────────────────────────────
 
 
-def refresh_precommit_hooks(target: Path, factory_dir: Path, input_func=None) -> bool:
+def _load_factory_script(factory_dir: Path, name: str):
+    """Load ``scripts/<name>`` of ``factory_dir`` as a module, or None
+    when the tree has no such script."""
+    import importlib.machinery
+    import importlib.util
+
+    script = factory_dir / "scripts" / name
+    if not script.is_file():
+        return None
+    loader = importlib.machinery.SourceFileLoader(name.replace("-", "_"), str(script))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def ran_layout_migration(factory_dir: Path, prior_version: object) -> bool:
+    """True when the init-factory of ``factory_dir`` moved the project into
+    the core artifact layout in this update. It does so when the version
+    recorded before the update precedes its LAYOUT_RELEASE (ADR-0026). A
+    tree whose init-factory has no LAYOUT_RELEASE runs no migration."""
+    init = _load_factory_script(factory_dir, "init-factory")
+    if init is None or not hasattr(init, "LAYOUT_RELEASE"):
+        return False
+    return init.older_than(prior_version, init.LAYOUT_RELEASE)
+
+
+def refresh_precommit_hooks(
+    target: Path, factory_dir: Path, input_func=None, *, ask: bool = True,
+) -> bool:
     """Re-splice the project's agent_factory_hook-* block from the freshly
     installed template (BUG-0110). init-factory leaves an existing
     .pre-commit-config.yaml alone, so without this an old block survives
     every update.
 
-    Shows the diff and writes only on an explicit yes. Leaves alone a
-    project without the file or without factory hooks in it. Returns True
-    when the file was written."""
+    With ``ask``, shows the diff and writes only on an explicit yes.
+    Without it, writes the template's block at once: the factory owns
+    the block, and an update that ran the layout migration applies it
+    without a question (DEC-17). Leaves alone a project without the file
+    or without factory hooks in it. Returns True when the file was
+    written."""
     config = target / ".pre-commit-config.yaml"
     if config.is_symlink() or not config.is_file():
         return False
 
     import difflib
-    import importlib.machinery
-    import importlib.util
 
-    script = factory_dir / "scripts" / "merge-precommit-config"
-    if not script.is_file():
+    mpc = _load_factory_script(factory_dir, "merge-precommit-config")
+    if mpc is None:
         return False
-    loader = importlib.machinery.SourceFileLoader("merge_precommit_config", str(script))
-    spec = importlib.util.spec_from_loader(loader.name, loader)
-    mpc = importlib.util.module_from_spec(spec)
-    loader.exec_module(mpc)
 
     text = config.read_text(encoding="utf-8")
     template_text = (factory_dir / "config" / "pre-commit-config.yaml").read_text(encoding="utf-8")
@@ -458,6 +484,11 @@ def refresh_precommit_hooks(target: Path, factory_dir: Path, input_func=None) ->
     if merged == text:
         log("factory hooks in .pre-commit-config.yaml are current")
         return False
+
+    if not ask:
+        config.write_text(merged, encoding="utf-8")
+        log("applied the factory hook block of this release to .pre-commit-config.yaml")
+        return True
 
     print("\nThe factory hooks in .pre-commit-config.yaml differ from this release:\n")
     for line in difflib.unified_diff(
@@ -1700,7 +1731,8 @@ def main(argv: list[str] | None = None) -> int:
         shutil.rmtree(scratch_root, ignore_errors=True)
 
     changed_paths = [".agent-factory/factory/"] + changed_header_paths
-    if refresh_precommit_hooks(target, target_factory):
+    migrated = ran_layout_migration(target_factory, installed_version)
+    if refresh_precommit_hooks(target, target_factory, ask=not migrated):
         changed_paths.append(".pre-commit-config.yaml")
     _show_receipt(
         source_label, source_selector, candidate_version, digest,
