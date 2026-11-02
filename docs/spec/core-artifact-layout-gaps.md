@@ -96,6 +96,8 @@ None. Every Rule has at least one Scenario.
 
 ## Decisions Recorded in This Pass
 
+- **ST-0324b, chapter 12 beside an existing glossary (stakeholder,
+  2026-11-02).** The chapter 12 sections join an existing `docs/spec/glossary.md` as sections of their own, as the `CONTEXT.md` terms do (DEC-18); the script lists duplicate terms and exits 0, and `Scenario: Chapter 12 tables join an existing glossary` holds it.
 - **SPEC-0024, glossary history (stakeholder, 2026-11-02).** The script does
   not keep the glossary's git history as a rename, and it commits nothing.
   The path-table outline has no glossary row. The glossary Rule states that
