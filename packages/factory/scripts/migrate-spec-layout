@@ -9,7 +9,10 @@ What: Moves the files of the path table in
       actor-goal-list.md and every file in a use_cases/ folder under docs/,
       docs/~archive/ included, with `git rm`. A file in that removal set
       that git cannot remove safely stays and is listed as
-      `delete by hand: <path>`.
+      `delete by hand: <path>`. It moves each two-column table of
+      docs/arc42/12_glossary.md into docs/spec/glossary.md, with the columns
+      Term, Definition, and Avoid, rewrites chapter 12 at its old path with
+      one link line, and stages both files.
 When: init-factory runs it as its last step on an update; a developer can
       run it by hand.
 By:   init-factory, or the project maintainer.
@@ -37,6 +40,7 @@ import re
 import subprocess
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 SPEC = "docs/spec"
@@ -57,6 +61,14 @@ ARC42_DSL_FILES = {"architecture.dsl", "dependency-rules.dsl"}
 
 # A `theme` line whose path is relative to docs/arc42/themes/.
 THEME_LINE = re.compile(r"^(\s*theme\s+)([\"']?)themes/", re.MULTILINE)
+
+CHAPTER12 = "docs/arc42/12_glossary.md"
+GLOSSARY = "docs/spec/glossary.md"
+GLOSSARY_LINK = "The terms are in [the glossary](../spec/glossary.md)."
+GLOSSARY_COLUMNS = ("Term", "Definition", "Avoid")
+TITLE_SECTION = "Terms"
+TABLE_SEPARATOR = re.compile(r"^\|?(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?$")
+CELL_BORDER = re.compile(r"(?<!\\)\|")
 
 DOCS = "docs"
 GOAL_LIST = "actor-goal-list.md"
@@ -212,6 +224,146 @@ def plan_removals(root: Path, git: bool) -> tuple[list[str], list[str]]:
     return removable, by_hand
 
 
+# ── Chapter 12 into the glossary ─────────────────────────────────────────
+
+
+@dataclass
+class GlossarySection:
+    """One section of docs/spec/glossary.md: a heading, its prose, its rows."""
+
+    heading: str
+    prose: str = ""
+    rows: list[tuple[str, str]] = field(default_factory=list)
+
+
+@dataclass
+class Chapter12:
+    """The conversion of chapter 12: the glossary sections and the new chapter.
+
+    ``kept`` names each section that holds a table without two columns and
+    therefore stays in chapter 12, with the column count of that table.
+    """
+
+    sections: list[GlossarySection]
+    stub: str
+    kept: list[tuple[str, int]] = field(default_factory=list)
+
+
+def _cells(line: str) -> list[str]:
+    body = line.strip().removeprefix("|")
+    if body.endswith("|") and not body.endswith("\\|"):
+        body = body[:-1]
+    return [cell.strip() for cell in CELL_BORDER.split(body)]
+
+
+def _split_tables(lines: list[str]) -> tuple[list[str], list[list[str]]]:
+    """Split ``lines`` into the lines outside tables and the table blocks."""
+    text: list[str] = []
+    tables: list[list[str]] = []
+    index = 0
+    while index < len(lines):
+        block = []
+        while index < len(lines) and lines[index].lstrip().startswith("|"):
+            block.append(lines[index])
+            index += 1
+        if len(block) >= 2 and TABLE_SEPARATOR.match(block[1].strip()):
+            tables.append(block)
+        elif block:
+            text += block
+        else:
+            text.append(lines[index])
+            index += 1
+    return text, tables
+
+
+def _join(parts: list[str]) -> str:
+    """Join text parts with one blank line and collapse runs of blank lines."""
+    text = "\n\n".join(part.strip("\n") for part in parts if part.strip())
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
+def convert_chapter12(text: str) -> Chapter12:
+    """Convert chapter 12 into glossary sections and a new chapter 12.
+
+    A ``##`` section whose tables all have two columns moves into the
+    glossary under its heading, together with its prose. The tables directly
+    under the title become the section "Terms"; the prose there stays in
+    chapter 12. Every other section stays in chapter 12, below the link
+    line. Cell text is copied as it is. A chapter without a two-column table
+    gives no section and keeps its text.
+    """
+    lines = text.splitlines()
+    starts = [i for i, line in enumerate(lines) if line.startswith("## ")]
+    head = lines[: starts[0] if starts else len(lines)]
+    chunks = [lines[a:b] for a, b in zip(starts, [*starts[1:], len(lines)])]
+    title = next((i for i, line in enumerate(head) if line.startswith("# ")), -1)
+    above, head = head[: title + 1], head[title + 1 :]
+
+    sections: list[GlossarySection] = []
+    kept: list[tuple[str, int]] = []
+
+    def convert(heading: str, body: list[str]) -> list[str] | None:
+        """Take the rows of ``body`` into a section; return the prose left."""
+        rest, tables = _split_tables(body)
+        if not tables:
+            return None
+        widths = [len(_cells(row)) for table in tables for row in table]
+        other = [width for width in widths if width != 2]
+        if other:
+            kept.append((heading, other[0]))
+            return None
+        rows = [_cells(row) for table in tables for row in table[2:]]
+        sections.append(GlossarySection(heading, rows=[(t, d) for t, d in rows]))
+        return rest
+
+    rest = convert(TITLE_SECTION, head)
+    stays = ["\n".join(head if rest is None else rest)]
+    for chunk in chunks:
+        rest = convert(chunk[0][3:].strip(), chunk[1:])
+        if rest is None:
+            stays.append("\n".join(chunk))
+        else:
+            sections[-1].prose = _join(["\n".join(rest)])
+
+    if not sections:
+        return Chapter12([], text, kept)
+    stub = _join(["\n".join(above), GLOSSARY_LINK, *stays]) + "\n"
+    return Chapter12(sections, stub, kept)
+
+
+def _table(rows: list[tuple[str, ...]]) -> str:
+    widths = [max(3, *(len(row[i]) for row in rows)) for i in range(len(rows[0]))]
+    lines = [
+        "| " + " | ".join(cell.ljust(w) for cell, w in zip(row, widths)) + " |"
+        for row in rows
+    ]
+    lines.insert(1, "| " + " | ".join("-" * w for w in widths) + " |")
+    return "\n".join(lines)
+
+
+def render_glossary(sections: list[GlossarySection]) -> str:
+    """Render the glossary: per section one table with Term, Definition, Avoid."""
+    parts = ["# Glossary"]
+    for section in sections:
+        rows = [GLOSSARY_COLUMNS, *((term, text, "") for term, text in section.rows)]
+        parts += [f"## {section.heading}", section.prose, _table(rows)]
+    return _join(parts) + "\n"
+
+
+def plan_glossary(root: Path) -> Chapter12 | None:
+    """Return the conversion of the project's chapter 12, or None for no work."""
+    chapter = root / CHAPTER12
+    if not chapter.is_file():
+        return None
+    result = convert_chapter12(chapter.read_text(encoding="utf-8"))
+    return result if result.sections else None
+
+
+def _delete_created_file(path: Path) -> None:
+    """Delete a file this run created. Only the undo of ``Run.create`` calls it."""
+    path.unlink()
+
+
 class Run:
     """Apply the steps of one run and undo them in reverse order on failure."""
 
@@ -268,6 +420,27 @@ class Run:
         path.write_text(text, encoding="utf-8")
         self.undo_steps.append(lambda: path.write_text(before, encoding="utf-8"))
 
+    def create(self, rel: str, text: str) -> None:
+        """Write a new file; the undo deletes it."""
+        path = self.root / rel
+        self._make_parent(path)
+        path.write_text(text, encoding="utf-8")
+        self.undo_steps.append(lambda: _delete_created_file(path))
+
+    def stage(self, rel: str) -> None:
+        """Stage ``rel`` with ``git add``; the undo restores its index entry."""
+        entry = _git(self.root, "ls-files", "-s", "--", rel).stdout.split()
+        self._check_git("add", "--", rel)
+
+        def undo() -> None:
+            if entry:
+                info = f"{entry[0]},{entry[1]},{rel}"
+                self._check_git("update-index", "--cacheinfo", info)
+            else:
+                self._check_git("rm", "-q", "--cached", "--", rel)
+
+        self.undo_steps.append(undo)
+
     def undo(self) -> list[str]:
         errors = []
         for step in reversed(self.undo_steps):
@@ -299,12 +472,18 @@ def remove_empty_dirs(root: Path, folders: list[str]) -> None:
         _remove_if_empty(base)
 
 
-def refuse_reason(root: Path, moves: list[tuple[str, str]], git: bool) -> str | None:
-    """Name the reason to refuse the run before its first change, or None."""
+def refuse_reason(
+    root: Path, moves: list[tuple[str, str]], git: bool, created: list[str]
+) -> str | None:
+    """Name the reason to refuse the run before its first change, or None.
+
+    ``created`` lists the new files the run writes, such as the glossary.
+    """
     state = busy_state(root) if git else None
     if state:
         return state
-    taken = [new for _, new in moves if (root / new).exists()]
+    destinations = [new for _, new in moves] + created
+    taken = [new for new in destinations if (root / new).exists()]
     if taken:
         return "these destinations already exist: " + ", ".join(taken)
     return None
@@ -336,11 +515,13 @@ def main(argv: list[str] | None = None) -> int:
     moves = plan_moves(root)
     git = is_git_repo(root)
     removals, by_hand = plan_removals(root, git)
-    if not moves and not removals and not by_hand:
+    glossary = plan_glossary(root)
+    if not moves and not removals and not by_hand and not glossary:
         return 0
 
     if not args.dry_run:
-        refusal = refuse_reason(root, moves, git)
+        created = [GLOSSARY] if glossary else []
+        refusal = refuse_reason(root, moves, git, created)
         if refusal:
             print(
                 f"migrate-spec-layout: refused, {refusal}; no file changed",
@@ -359,6 +540,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"remove: {rel}")
     for rel in by_hand:
         print(f"delete by hand: {rel}")
+    if glossary:
+        terms = sum(len(section.rows) for section in glossary.sections)
+        print(f"{CHAPTER12} -> {GLOSSARY}: {terms} terms")
+        for heading, columns in glossary.kept:
+            print(f"keep in {CHAPTER12}: {heading} (table with {columns} columns)")
     if args.dry_run:
         return 0
 
@@ -367,6 +553,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         for rel in removals:
             run.remove(rel)
+        if glossary:
+            run.create(GLOSSARY, render_glossary(glossary.sections))
+            run.write(CHAPTER12, glossary.stub)
+            if git:
+                run.stage(GLOSSARY)
+                if CHAPTER12 in tracked:
+                    run.stage(CHAPTER12)
         for old, new in moves:
             run.move(old, new, old in tracked)
         if dsl_moves:
