@@ -78,7 +78,8 @@ Sections (printed as the run progresses)
                    into an existing config is the fitting's job.
   Layout migration On an update from a version before LAYOUT_RELEASE, run
                    migrate-spec-layout on --target, then record the new
-                   factory version.
+                   factory version. On a first install, move no file; list
+                   the old layout paths and name migrate-spec-layout.
 
 The deterministic project context scan runs at init time, but the
 interpretive layer — confirming findings, walking the agent-context
@@ -3306,6 +3307,8 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
     path = target / MANIFEST_PATH
 
     if not path.exists():
+        # Only a missing install.json is a first install (ADR-0026).
+        install["first_install"] = True
         return
 
     # Read the prior version before anything writes to install.json. Only a
@@ -3457,6 +3460,33 @@ def migrate_layout(target: Path, report: list[str]) -> bool:
         return False
     log(report, "migrate-spec-layout: the project is in the core artifact layout")
     return True
+
+
+def list_old_layout(target: Path, report: list[str]) -> None:
+    """On a first install, list the old layout paths and move no file.
+
+    migrate-spec-layout --dry-run supplies the paths, so its path table serves
+    both scripts. Each planned line becomes one ``init-factory:`` line."""
+    result = subprocess.run(
+        [sys.executable, str(MIGRATE_SCRIPT), "--dry-run", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        line = "migrate-spec-layout --dry-run failed; no old layout paths listed"
+        report.append(line)
+        print(f"init-factory: {line}")
+        return
+    planned = [line for line in result.stdout.splitlines() if line.strip()]
+    if not planned:
+        return
+    lines = [f"old layout: {line}" for line in planned]
+    lines.append(
+        "to move these files into the core artifact layout, run "
+        ".agent-factory/factory/scripts/migrate-spec-layout"
+    )
+    for line in lines:
+        report.append(line)
+        print(f"init-factory: {line}")
 
 
 def record_factory_version(target: Path, report: list[str]) -> None:
@@ -4678,6 +4708,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
         record_factory_version(target, report)
+    elif install.get("first_install"):
+        list_old_layout(target, report)
 
     # Receipt.
     print(f"\n{'═' * 54}")
