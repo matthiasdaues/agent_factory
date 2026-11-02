@@ -93,7 +93,7 @@ The `script_exit_zero` precondition evaluator resolves `test_command` from `docs
 The `feature-addition` playbook checks that four anchor files exist before it proceeds. The brownfield Stage 1 exit (Step 2.6 of `brownfield-onboarding`) checks the same four files.
 
 - The four anchor files are `docs/spec/architecture.dsl`, `docs/spec/scope-map.md`, `docs/spec/glossary.md`, and `docs/agent-context.md`.
-- `docs/CONTEXT.md` is not an anchor file. The terms live in `docs/spec/glossary.md`, and the routing lives in `docs/agent-context.md` (DEC-07, DEC-12). Both must exist. No migrated project has a `docs/CONTEXT.md` (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)).
+- `docs/CONTEXT.md` is not an anchor file. The terms live in `docs/spec/glossary.md`, and the routing lives in `docs/agent-context.md` (DEC-07, DEC-12). Both must exist. No project has a `docs/CONTEXT.md` after the fold (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)).
 - The check is file-existence only — no content validation, no gate marker, no structural inspection.
 - If all four exist, the prerequisite passes and the playbook proceeds normally.
 - If any file is missing, the playbook names each missing file and suggests running `brownfield-onboarding` to establish the baseline.

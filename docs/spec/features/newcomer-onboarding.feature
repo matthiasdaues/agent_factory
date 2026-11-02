@@ -3,7 +3,7 @@ Feature: Newcomer onboarding and incremental brownfield
 
   The factory presents rigour as a ramp, not a wall. A newcomer walks
   through a guided tour before touching factory vocabulary. Brownfield
-  onboarding exits after three anchor files. Feature work deepens the
+  onboarding exits after four anchor files. Feature work deepens the
   baseline incrementally.
 
   Rule: Newcomer walks through a guided tour before choosing a workflow

@@ -43,26 +43,21 @@ agent_factory/
 │   ├── scripts/                      # Deterministic gates (*-lint, plus schema-validate/policy-validate) and setup tooling (init-factory, update-factory, remove-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
 │   └── INDEX.yaml                     # Generated catalog of every agent, skill, playbook, and rulebook with token counts — regenerate with index-lint
-├── orchestrator/                     # Versioned Python tool package (work in progress — not yet operational); invoked from consumer projects through .agent-factory/factory/scripts/run-playbook and uvx
-│   ├── src/                          # CLI source code
-│   ├── tests/                        # CLI tests
-│   ├── docs/                         # CLI documentation (own arc42 set, own docs/adr/, own docs/spec/)
-│   ├── backlog/                      # CLI backlog and stories
-│   └── pyproject.toml                # CLI package configuration
-├── backlog/                          # Whole-repo backlog — cross-cutting stories, distinct from orchestrator/backlog/
-├── docs/                             # This repo's own whole-repo, cross-cutting docs — distinct from orchestrator/docs/
-│   ├── beginner-intro.md             # Plain-language on-ramp for first-time users — read before any command
-│   ├── concepts.md                   # This file
-│   ├── CONTEXT-MAP.md                # Bounded-context map for this multi-context repo (orchestrator, factory, factory_api)
+├── packages/                         # The products: factory/ (the source of the toolset above) and usage/
+├── backlog/                          # Whole-repo backlog: epics and stories
+├── docs/                             # This repo's own docs
 │   ├── README.md                     # arc42 architecture documentation for Factory Flow Control — table of contents
-│   ├── 01_introduction_and_goals.md  # ...through 12_glossary.md — the 12 arc42 chapters
-│   ├── architecture.dsl              # Structurizr C4 model — versioned source of truth for the diagrams
-│   ├── spec/                         # Factory Flow Control's specification (PRD, use cases, supplementary specs)
-│   ├── adr/                          # Whole-repo Architecture Decision Records — own sequence, separate from orchestrator/docs/adr/
+│   ├── agent-context.md              # The routing file: one concern per topic, domain concerns for the bounded contexts
+│   ├── testing.yaml                  # Test suites and gate bindings
+│   ├── spec/                         # The specification core: scope map, glossary, entity model, contracts, architecture.dsl
+│   │   ├── features/                 # One Gherkin .feature file per feature
+│   │   ├── areas/                    # Area specifications
+│   │   └── work/                     # Working output: gaps reports, QA strategies, prd.md, todo lists
+│   ├── arc42/                        # The arc42 chapters, beginner-intro.md, and this file
+│   ├── adr/                          # Architecture Decision Records
 │   ├── findings/                     # Filed findings (e.g. RECON-*.md, FAGAN-*.md), created lazily as needed
 │   ├── reviews/                      # Retrospective and reconciliation reports
-│   └── assets/                       # Diagrams and exported images
-├── config/                           # This project's own copy of model.conf — diverges from .agent-factory/factory/
+│   └── assets/                       # Exported images and the Structurizr themes
 └── README.md
 ```
 

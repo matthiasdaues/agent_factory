@@ -183,10 +183,10 @@ sequenceDiagram
     MG->>CO: Read interface-contracts.md, entity-model.md
     MG->>MG: Compare feature outputs against module map
     alt No module-graph change
-        MG-->>S: Exit 0 — skip architecture
+        MG-->>S: Exit 0, architecture_change=false — skip architecture
     else Module boundary changed
-        MG-->>S: Exit 1 — enter architecture
         MG->>MG: Update proposal frontmatter: architecture_change: true
+        MG-->>S: Exit 0, architecture_change=true — enter architecture
     end
 ```
 
@@ -615,11 +615,12 @@ sequenceDiagram
 
 **Key Points:**
 
-- The version test compares versions by Semantic Versioning 2.0.0 precedence, so `1.4.0` is older than `1.10.0` and `1.4.0-rc` is older than `1.4.0`. Planning sets the layout release (gap CAL-G02).
+- The version test compares versions by Semantic Versioning 2.0.0 precedence, so `1.4.0` is older than `1.10.0` and `1.4.0-rc` is older than `1.4.0`. The layout release is `1.4.0`, the constant `LAYOUT_RELEASE` of `init-factory` (CAL-G02).
 - Only a project without `install.json` is a first install. `init-factory` moves nothing there, lists each old path it finds, and names `migrate-spec-layout` as a command the developer can run.
 - No git state blocks the script. Tracked files move with `git mv`, also with uncommitted changes. Untracked and ignored files move with a plain file move. A file of the removal set that is untracked, ignored, or tracked with uncommitted changes stays in place, and the script lists it for the developer to delete. The script never runs `git rm -f`.
 - A later run of `init-factory` at the same version moves nothing. On a project without old paths, the script prints nothing and exits 0.
-- The script commits nothing. The developer reviews the moves with `git status` and commits them.
+- The script commits nothing. It stages the new glossary and chapter 12. The developer reviews the moves with `git status` and commits them.
+- After `init-factory`, `update-factory` brings the factory hook block to the new template. After a layout migration it writes the block without a question; every other update asks first (DEC-17).
 - The two follow-up steps run later, in a session with the developer present: `capture-context --fold-context-map` folds `CONTEXT-MAP.md` and routing-only `CONTEXT.md` files into domain concerns of `docs/agent-context.md`, and `domain-modeling` cleans up the duplicate terms.
 
 ### 6.10.7 Sequence: Failed Layout Migration Rolls Back the Update
