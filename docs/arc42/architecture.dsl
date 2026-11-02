@@ -64,8 +64,9 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
 
             # Distribution — component lifecycle and onboarding
             distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components; provides the value-first onboarding bootstrap, release building, and gate demonstration" "Bash/Python" {
-                initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest" "Python"
+                initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest; on an update from a version before the layout release runs migrate-spec-layout as its last step" "Python"
                 updateFactory = component "update-factory" "Full update transaction: check mode, approval, verified staging, atomic application with rollback, local-change policy, source-boundary consent, and receipt" "Python"
+                migrateSpecLayout = component "migrate-spec-layout" "Moves an installed project into the core artifact layout with git mv, rewrites Markdown links, the factory hook block, and the DSL theme line, moves glossary terms into docs/spec/glossary.md, and undoes its own changes when it fails partway" "Python"
                 removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
                 installAgentFactory = component "install-agent-factory" "Bootstrap script: read-only preflight, confirmed prerequisite fixes, release verification, installation preview, consent, and receipt with one next command" "Bash/Python"
                 buildRelease = component "build-release" "Deterministic release builder: produces install-agent-factory, agent-factory.tar.gz, and SHA256SUMS with reproducible archive digests" "Python"
@@ -203,11 +204,18 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         initFactory -> usageRecordContract "Copies the compatible contract into the component"
         initFactory -> installedAnalysis "Installs, updates, or removes without touching raw data"
-        initFactory -> installManifest "Records installed_components.usage"
+        initFactory -> installManifest "Reads the prior factory_version; records installed_components.usage and the new version"
         updateFactory -> installManifest "Reads source and version; writes receipt after update"
         updateFactory -> distributionRemote "Downloads and verifies release assets for update"
         updateFactory -> humanOperator "Presents update preview for approval"
         updateFactory -> updateFactory "Stages, applies, and rolls back verified replacement"
+        updateFactory -> initFactory "Runs the new version's init-factory after applying the staged replacement"
+        initFactory -> migrateSpecLayout "Runs as its last step on an update from a version before the layout release"
+        initFactory -> projectFilesystem "Lists old layout paths on a first install without moving them"
+        humanOperator -> migrateSpecLayout "Runs by hand, optionally with --dry-run"
+        migrateSpecLayout -> git "Moves files with git mv and removes files with git rm"
+        migrateSpecLayout -> projectFilesystem "Reads and rewrites files under docs/ and the agent_factory_hook-* block of .pre-commit-config.yaml"
+        migrateSpecLayout -> humanOperator "Reports moves, unrewritten old paths, duplicate terms, and two follow-up steps"
         removeFactory -> installedAnalysis "Removes during complete uninstall"
         removeFactory -> rawUsageSpool "Deletes during complete uninstall"
 
@@ -236,6 +244,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent -> newcomer "Presents evidence, previews, and results during onboarding"
         cliAgent -> installManifest "Reads installation state during first session"
         cliAgent -> projectFilesystem "Scans project files and copies retained artifacts to docs/spikes/"
+        cliAgent -> projectFilesystem "Runs capture-context --fold-context-map: folds the context map into domain concerns of docs/agent-context.md and rewrites links to it"
 
         # ================================================================
         # Relationships — Usage Analysis
@@ -419,7 +428,32 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             updateFactory -> distributionRemote "7. Downloads and verifies release assets (SHA-256)"
             updateFactory -> updateFactory "8. Stages verified replacement alongside current installation"
             updateFactory -> updateFactory "9. Applies staged replacement; restores prior tree on failure"
-            updateFactory -> installManifest "10. Writes receipt: source, version, digest, changed paths"
+            updateFactory -> initFactory "10. Runs the new version's init-factory; restores prior tree when it fails"
+            updateFactory -> installManifest "11. Writes receipt: source, version, digest, changed paths"
+        }
+
+        dynamic distribution "UpdateLayoutMigration" "An update from a version before the layout release moves the project into the core artifact layout" {
+            humanOperator -> updateFactory "1. Approves the update; the approval covers the layout move"
+            updateFactory -> updateFactory "2. Applies the staged replacement"
+            updateFactory -> initFactory "3. Runs the new version's init-factory"
+            initFactory -> installManifest "4. Reads the prior factory_version before writing the new one"
+            initFactory -> migrateSpecLayout "5. Runs migrate-spec-layout as its last step, because the prior version is older than the layout release"
+            migrateSpecLayout -> git "6. Moves files with git mv and removes the use-case files with git rm"
+            migrateSpecLayout -> projectFilesystem "7. Rewrites links, moves glossary terms, sets the factory hook block and the theme line"
+            migrateSpecLayout -> humanOperator "8. Reports unrewritten old paths, duplicate terms, and the follow-up steps"
+            updateFactory -> installManifest "9. Writes receipt: source, version, digest, changed paths"
+        }
+
+        dynamic distribution "UpdateLayoutMigrationRollback" "A failed layout migration undoes its own changes and the update rolls back" {
+            updateFactory -> initFactory "1. Runs the new version's init-factory"
+            initFactory -> installManifest "2. Reads the prior factory_version before writing the new one"
+            initFactory -> migrateSpecLayout "3. Runs migrate-spec-layout as its last step"
+            migrateSpecLayout -> git "4. Moves and removes files"
+            migrateSpecLayout -> projectFilesystem "5. Fails partway, then undoes every move, removal, and rewrite it made"
+            migrateSpecLayout -> initFactory "6. Exits non-zero"
+            initFactory -> updateFactory "7. Fails with a non-zero exit"
+            updateFactory -> updateFactory "8. Restores the prior factory tree and instruction headers"
+            updateFactory -> humanOperator "9. Reports the failure; the project keeps its old layout and factory version"
         }
 
         dynamic distribution "FirstSessionInsight" "First session delivers project insight before advanced configuration" {

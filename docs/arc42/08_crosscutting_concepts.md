@@ -203,6 +203,8 @@ The agent context (`docs/agent-context.md`) is the factory-facing interface to a
 
 **Guiding rule**: The agent context is a routing table, not a knowledge base -- it tells agents where to look, never what they will find.
 
+**One routing file.** In the core artifact layout, `docs/agent-context.md` is the project's only routing file. Each bounded context is a domain concern with its description and `Read:` paths, and the domain concerns route to `docs/spec/glossary.md`. A project that still has `CONTEXT-MAP.md` or a routing-only `CONTEXT.md` folds them in with `capture-context --fold-context-map`. `capture-context --update --scan` keeps every concern marked as folded. See [8.16](#816-where-specification-artifacts-live) and [ADR-0025](../adr/0025-core-artifact-layout-under-docs-spec.md).
+
 ## 8.12 Local Usage Evidence and Derived Results
 
 Factory and Usage Analysis meet at one published contract. Factory owns the
@@ -322,6 +324,7 @@ Consent-gated mutation applies to the onboarding and lifecycle scripts listed be
 | First installation     | `install-agent-factory`   | Installation preview with affirmative consent | File operations that create `.agent-factory/`                           |
 | Normal update          | `update-factory`          | Approval after version and effect preview     | Any update invocation without `--check`                                 |
 | Source-boundary change | `update-factory`          | Separate `--source` confirmation              | A different source selector or remote URL                               |
+| Layout migration       | `migrate-spec-layout`     | Covered by the approval of the normal update  | An update from a version before the layout release (ADR-0026)           |
 | Local-change override  | `update-factory`          | Preservation-flow selection                   | Modified Factory-owned files detected before staging                    |
 | Gate demonstration     | `hook-demo`               | Affirmative consent before demonstration      | Newcomer is offered the one-minute gate demonstration                   |
 | Context capture        | `capture-context` (skill) | Affirmative consent before scanning           | Repository scan and file creation during first session                  |
@@ -330,6 +333,36 @@ Consent-gated mutation applies to the onboarding and lifecycle scripts listed be
 | Production handoff     | Virgil (session agent)    | Workstream creation confirmation              | Creating or selecting a production workstream and binding the session   |
 
 The consent pattern is orthogonal to exit-code enforcement. Consent gates protect the human decision boundary; exit-code gates protect the mechanical trust boundary. See [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md) for the update transaction design.
+
+## 8.16 Where Specification Artifacts Live
+
+A developer who looks for the files that specify a project finds them in one folder, `docs/spec/`. Every agent, skill, and gate reads them from the same paths in every project. [ADR-0025](../adr/0025-core-artifact-layout-under-docs-spec.md) records the decision.
+
+**Core artifacts.** A file is a core artifact when people edit it by hand, other artifacts derive from it or are checked against it, and a gate checks it or should check it (DEC-02). The top of `docs/spec/` holds only the single-file core artifacts. Three folders hold the multi-file core.
+
+| Path                               | Holds                                        | Gate                          |
+| ---------------------------------- | -------------------------------------------- | ----------------------------- |
+| `docs/spec/scope-map.md`           | What the system does, by domain area         | `scope-lint`                  |
+| `docs/spec/features/*.feature`     | Behaviour, as Rules per actor goal           | `scope-lint` (scope header)   |
+| `docs/spec/entity-model.md`        | Tables, keys, constraints, enums             | none yet                      |
+| `docs/spec/state-machines.md`      | States and transitions                       | `statemachine-lint`           |
+| `docs/spec/validation-rules.md`    | Rules on input and on data                   | `spec-lint`                   |
+| `docs/spec/interface-contracts.md` | Contracts at the system's boundaries         | `spec-lint`                   |
+| `docs/spec/architecture.dsl`       | Building blocks, views, deployment           | `arch-lint`, `structurizr`    |
+| `docs/spec/dependency-rules.dsl`   | Allowed dependencies between building blocks | `dependency-check`            |
+| `docs/spec/schemas/*`              | Structure inside payload columns             | none yet                      |
+| `docs/spec/areas/*.md`             | One subsystem's specification in depth       | `spec-lint`                   |
+| `docs/spec/glossary.md`            | The domain vocabulary, one table per section | `spec-lint` `GLOSS001` (info) |
+
+**Working output.** Agents write gaps reports, QA strategies, `prd.md`, and update summaries while they derive or review the core. These files and the two todo lists live in `docs/spec/work/`. They are records, not sources, so `GLOSS001` does not count a use of a term there (DEC-05, DEC-09).
+
+**Files outside `docs/spec/`.** The arc42 prose stays in `docs/arc42/` and reads the model from `docs/spec/architecture.dsl`. The Structurizr theme and the rendered diagrams live in `docs/assets/` (DEC-14). ADRs stay in `docs/adr/`, because they record reasons and nothing derives from them (DEC-03). `docs/testing.yaml` is derived from code, and `docs/agent-context.md` routes agents, so both stay in `docs/`.
+
+**Glossary.** Each section of `docs/spec/glossary.md` is one table with the columns Term, Definition, and Avoid. A section covers a bounded context or a topic (DEC-12, DEC-15). Chapter 12 of the arc42 documentation holds one line that links to the glossary, and `publish-docs` renders the glossary as chapter 12 of the PDF (DEC-16).
+
+**Moving an installed project.** The factory update moves an installed project into this layout with `migrate-spec-layout`. [6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-project-into-the-core-artifact-layout) shows the sequence, and [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md) records the decision.
+
+**Current state of this repository.** The layout is not implemented yet. This repository still keeps `architecture.dsl`, the theme, and the glossary under `docs/arc42/`, and the specification files under `docs/spec/` and `docs/spec/supplementary_specs/`. The implementation stories move them.
 
 ## Referenced from
 

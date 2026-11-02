@@ -32,6 +32,8 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0022 | [Layered installation: bootstrap wraps init-factory](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)                                        | superseded by ADR-0023 | pugh-matrix |
 | 0023 | [Update transaction with approval, staging, and rollback](../adr/0023-update-transaction-with-approval-staging-and-rollback.md)                               | accepted               | none        |
 | 0024 | [DBML as the entity-model language](../adr/0024-dbml-as-entity-model-language.md)                                                                             | accepted               | pugh-matrix |
+| 0025 | [Core artifact layout under `docs/spec/`](../adr/0025-core-artifact-layout-under-docs-spec.md)                                                                | accepted               | none        |
+| 0026 | [Layout migration runs inside the factory update](../adr/0026-layout-migration-runs-inside-the-factory-update.md)                                             | accepted               | none        |
 
 ## Key Decisions
 
@@ -95,9 +97,10 @@ installed Factory tree. **ADR-0023** supersedes both ADR-0010 and ADR-0022,
 preserving the layered first-install entry point while defining the full
 update transaction: check mode, approval, download and verification, staging,
 atomic application with rollback, local-change policy, source-boundary
-consent, and receipt. `update-factory` no longer delegates to `init-factory`
-for the replacement; it owns the full transaction. `init-factory` retains
-its existing interface for first installation (called by
+consent, and receipt. `update-factory` owns the full transaction. After
+application, it runs the new version's `init-factory`, and a non-zero exit of
+`init-factory` triggers the rollback; ADR-0026 amends ADR-0023 to state this.
+`init-factory` keeps its interface for first installation (called by
 `install-agent-factory`) and for component-level operations.
 
 ### Consolidated Specification Format
@@ -205,6 +208,24 @@ ADR-0017 and ADR-0018 describe the cycle-based orchestration design that was eva
 with `docs/spec/entity-model.dbml` as the canonical source. A technical PoC
 scored DBML +193 and LinkML +120 against the Mermaid baseline. Atlas was
 excluded by its licence.
+
+### Core Artifact Layout
+
+**ADR-0025** puts a project's specification core into `docs/spec/`. The top
+of the folder holds only the single-file core artifacts. `features/`,
+`schemas/`, and `areas/` hold the multi-file core, and `work/` holds the
+working output of agents. `docs/agent-context.md` is the one routing file,
+and `docs/spec/glossary.md` holds the terms. ADRs, `testing.yaml`, and
+`agent-context.md` stay outside `docs/spec/`. See
+[8.16](08_crosscutting_concepts.md#816-where-specification-artifacts-live).
+
+**ADR-0026** moves installed projects into the layout as part of the factory
+update. The new version's `init-factory` runs `migrate-spec-layout` as its
+last step when the prior `factory_version` is older than the layout release.
+The approval of the update covers the move. A failed migration undoes its own
+changes, and the update rolls back the factory tree. Folding the context map
+into domain concerns stays a separate step with
+`capture-context --fold-context-map`.
 
 ## Superseded Decisions
 

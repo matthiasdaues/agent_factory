@@ -352,7 +352,7 @@ sequenceDiagram
 
 ## 6.10 Value-First Onboarding
 
-The value-first onboarding journey guides a newcomer from diagnosis to one safe result before asking for advanced configuration. Five runtime sequences cover the key interactions: installation, release build, first-session insight, the first-task sandbox lifecycle, and the update transaction.
+The value-first onboarding journey guides a newcomer from diagnosis to one safe result before asking for advanced configuration. Seven runtime sequences cover the key interactions: installation, release build, first-session insight, the first-task sandbox lifecycle, the update transaction, and the layout migration inside an update with its rollback.
 
 ### 6.10.1 Sequence: Newcomer Installs a Verified Factory Release
 
@@ -540,6 +540,7 @@ sequenceDiagram
     participant UF as update-factory
     participant IM as Install Manifest
     participant DR as Distribution Remote
+    participant IF as init-factory
 
     alt Check mode (--check)
         M->>UF: 1. Runs update-factory --check
@@ -561,7 +562,8 @@ sequenceDiagram
         else Digest verified
             UF->>UF: Stages verified replacement alongside current installation
             UF->>UF: Moves current Factory tree aside, applies staged replacement
-            alt Application failure
+            UF->>IF: Runs the new version's init-factory
+            alt Application failure or init-factory exits non-zero
                 UF->>UF: Restores previous Factory tree and instruction headers
                 UF-->>M: Reports rolled-back state
             else Application succeeds
@@ -578,7 +580,74 @@ sequenceDiagram
 - Modified Factory-owned files stop the update before staging. The user may select the existing preservation flow to proceed.
 - A different source selector or remote URL requires a separate `--source` option and its own confirmation step. No automatic fallback crosses the source boundary.
 - The previous Factory tree is moved aside, not deleted, before application. Rollback restores it if application fails.
-- `update-factory` owns the full transaction. It no longer delegates to `init-factory` for the replacement.
+- `update-factory` owns the full transaction. After application, it runs the new version's `init-factory`, and a non-zero exit of `init-factory` triggers the rollback ([ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md)).
+
+### 6.10.6 Sequence: Update Moves the Project into the Core Artifact Layout
+
+Derived from dynamic view `UpdateLayoutMigration` in [`architecture.dsl`](architecture.dsl).
+
+An update from a factory version before the layout release moves the project's files into the core artifact layout described in [8.16](08_crosscutting_concepts.md#816-where-specification-artifacts-live). The developer approves the update, not the move, and declining the update means no update.
+
+```mermaid
+sequenceDiagram
+    participant M as Project Maintainer
+    participant UF as update-factory
+    participant IF as init-factory
+    participant IM as Install Manifest
+    participant MSL as migrate-spec-layout
+    participant G as Git
+    participant PF as Project Filesystem
+
+    M->>UF: 1. Approves the update, which covers the layout move
+    UF->>UF: 2. Applies the staged replacement
+    UF->>IF: 3. Runs the new version's init-factory
+    IF->>IM: 4. Reads the prior factory_version before writing the new one
+    Note over IF: Prior version older than the layout release, missing, or unknown
+    IF->>MSL: 5. Runs migrate-spec-layout as its last step
+    MSL->>G: 6. git mv for each moved file, git rm for the use-case files
+    MSL->>PF: 7. Rewrites links, moves glossary terms, sets the factory hook block and the theme line
+    MSL-->>M: 8. Lists unrewritten old paths, duplicate terms, and the follow-up steps
+    MSL-->>IF: exit 0
+    IF-->>UF: exit 0
+    UF->>IM: 9. Writes receipt: source, version, digest, changed paths
+```
+
+**Key Points:**
+
+- A project without `install.json` is a first install. `init-factory` moves nothing there, lists each old path it finds, and names `migrate-spec-layout` as a command the developer can run.
+- A later run of `init-factory` at the same version moves nothing. On a project without old paths, the script prints nothing and exits 0.
+- The script commits nothing. The developer reviews the moves with `git status` and commits them.
+- The two follow-up steps run later, in a session with the developer present: `capture-context --fold-context-map` folds `CONTEXT-MAP.md` and routing-only `CONTEXT.md` files into domain concerns of `docs/agent-context.md`, and `domain-modeling` cleans up the duplicate terms.
+
+### 6.10.7 Sequence: Failed Layout Migration Rolls Back the Update
+
+Derived from dynamic view `UpdateLayoutMigrationRollback` in [`architecture.dsl`](architecture.dsl).
+
+```mermaid
+sequenceDiagram
+    participant M as Project Maintainer
+    participant UF as update-factory
+    participant IF as init-factory
+    participant IM as Install Manifest
+    participant MSL as migrate-spec-layout
+    participant G as Git
+    participant PF as Project Filesystem
+
+    UF->>IF: 1. Runs the new version's init-factory
+    IF->>IM: 2. Reads the prior factory_version before writing the new one
+    IF->>MSL: 3. Runs migrate-spec-layout as its last step
+    MSL->>G: 4. Moves and removes files
+    MSL->>PF: 5. Fails partway, then undoes every move, removal, and rewrite it made
+    MSL-->>IF: 6. Exits non-zero
+    IF-->>UF: 7. Fails with a non-zero exit
+    UF->>UF: 8. Restores the prior factory tree and instruction headers
+    UF-->>M: 9. Reports the failure
+```
+
+**Key Points:**
+
+- The script's own undo restores the project's files: moves, removals, link rewrites, `docs/spec/glossary.md` and chapter 12, the removed `## Language` sections, the hook block, and the `theme` line. `git status` then shows no change against the state before the run.
+- The update rollback restores the factory tree, the install manifest, and the instruction headers. The project keeps its old layout and its old factory version, so its scripts and hooks match its layout.
 
 ## 6.11 Other Runtime Scenarios (Summary)
 

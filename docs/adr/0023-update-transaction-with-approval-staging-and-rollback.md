@@ -50,3 +50,10 @@ Supersede ADR-0010 and ADR-0022 with a single decision that preserves the layere
 **Easier**: the update path satisfies the feature contract. Approval prevents unintended mutations. Staging catches verification failures before they replace a working installation. Rollback handles application failures. Source-boundary consent prevents silent trust-boundary changes. The receipt provides traceability.
 
 **Harder**: `update-factory` is a more complex transaction than the original remove-and-reinstall. The staging step requires temporary disk space alongside the current installation. The local-change check adds a preflight read of Factory-owned files. The source-boundary consent adds a second confirmation path.
+
+## Amended
+
+**Date**: 2026-11-02
+**Reason**: Core artifact layout ([proposal](../proposals/core-artifact-layout.md))
+
+[ADR-0026](0026-layout-migration-runs-inside-the-factory-update.md) amends the relationship to `init-factory`. After application, `update-factory` runs the new version's `init-factory`, and a non-zero exit of `init-factory` triggers the rollback. On an update from a version before the layout release, `init-factory` runs `migrate-spec-layout` as its last step. The approval of the update covers that move.
