@@ -164,25 +164,25 @@ References: [section 6.10.4](06_runtime_view.md#6104-sequence-first-task-runs-in
 
 ### QS-14: Update moves the project into the new layout
 
-| Field             | Description                                                                                                                                                                                                 |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Compatibility                                                                                                                                                                                               |
-| Stimulus          | A project maintainer approves an update from a factory version before the layout release.                                                                                                                   |
-| Environment       | The project has the old layout. Its install record is `install.json`, or `factory-install.json` for an install up to `v0.12.0`. Files at old paths may be untracked, ignored, or carry uncommitted changes. |
-| Response          | The new `init-factory` runs `migrate-spec-layout` as its last step. Tracked files move with `git mv`, the other files with a plain file move. `init-factory` then writes the new `factory_version`.         |
-| Response measure  | No old path of the path table remains. No git state stops the move. Every tracked file that moved shows as a rename in `git status`.                                                                        |
+| Field             | Description                                                                                                                                                                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Compatibility                                                                                                                                                                                                                                                           |
+| Stimulus          | A project maintainer approves an update from a factory version before the layout release.                                                                                                                                                                               |
+| Environment       | The project has the old layout and the install record `install.json`. Files at old paths may be untracked, ignored, or carry uncommitted changes.                                                                                                                       |
+| Response          | The new `init-factory` runs `migrate-spec-layout` as its last step. Tracked files move with `git mv`, the other files with a plain file move. `init-factory` then writes the new `factory_version`.                                                                     |
+| Response measure  | No old path of the path table remains, except a file of the removal set that is untracked, ignored, or tracked with uncommitted changes; the script lists each such file. No git state stops the move. Every tracked file that moved shows as a rename in `git status`. |
 
 References: [section 6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-project-into-the-core-artifact-layout), [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md), [core-artifact-layout.feature Rule: Project maintainer receives the new layout with the factory update](../spec/core-artifact-layout.feature)
 
 ### QS-15: Failed migration leaves a retryable project
 
-| Field             | Description                                                                                                                                                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Operability                                                                                                                                                                                                                       |
-| Stimulus          | `migrate-spec-layout` fails partway through an update.                                                                                                                                                                            |
-| Environment       | Any installed `update-factory` runs the update, 1.1.0 and later or an older one.                                                                                                                                                  |
-| Response          | The script undoes its own changes. `init-factory` keeps the prior `factory_version`, reports the old layout, names the fix (run the update again), and exits non-zero. `update-factory` 1.1.0 and later restore the factory tree. |
-| Response measure  | `git status` shows no change against the state before the run. `install.json` holds the prior version. The next update runs the migration again.                                                                                  |
+| Field             | Description                                                                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Operability                                                                                                                                                                                                        |
+| Stimulus          | `migrate-spec-layout` fails partway through an update.                                                                                                                                                             |
+| Environment       | The installed `update-factory` is `v1.1.0-rc` or later, which the layout release requires.                                                                                                                         |
+| Response          | The script undoes its own changes. `init-factory` keeps the prior `factory_version`, reports the old layout, names the fix (run the update again), and exits non-zero. `update-factory` restores the factory tree. |
+| Response measure  | `git status` shows no change against the state before the run. The factory tree is the old one, and `install.json` holds the prior version. The next update runs the migration again.                              |
 
 References: [section 6.10.7](06_runtime_view.md#6107-sequence-failed-layout-migration-rolls-back-the-update), [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md)
 

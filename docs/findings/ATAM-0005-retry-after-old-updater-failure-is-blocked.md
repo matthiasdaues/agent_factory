@@ -4,7 +4,7 @@ source: atam-review
 severity: medium
 category: defect
 artifact: docs/adr/0026-layout-migration-runs-inside-the-factory-update.md#decision
-status: open
+status: resolved
 traces: [ADR-0026, ADR-0023, ATAM-0003, QS-15]
 ---
 
@@ -24,3 +24,5 @@ So in both cases the documented fix does not work, and the new factory stays on 
 2. The new `init-factory` writes `install.json` with the prior `factory_version` before it runs the migration, and the new `update-factory` treats a tree whose checksums match the target release as unmodified.
 
 In both options, state in ADR-0026 whether `install.json` exists after a failed run that started from `factory-install.json`. Add the retry to QS-15 as an explicit response measure.
+
+**Resolution:** Out of scope after the stakeholder dropped support for updaters before v1.1.0-rc (2026-11-02).

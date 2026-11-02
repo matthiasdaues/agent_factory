@@ -93,12 +93,19 @@ Feature: Core artifact layout
         | untracked |
         | ignored   |
 
-    Scenario: An untracked file that the path table removes stays and is listed
-      Given a project in the old layout with the untracked file docs/spec/use_cases/UC-07.md
+    Scenario Outline: A file that the path table removes stays and is listed when git cannot remove it safely
+      Given a project in the old layout with the <git state> file docs/spec/use_cases/UC-07.md
       When the project maintainer runs migrate-spec-layout
       Then docs/spec/use_cases/UC-07.md still exists with its content unchanged
       And the script lists docs/spec/use_cases/UC-07.md as a file for the developer to delete
       And the script exits 0
+
+      Examples:
+        | git state                                |
+        | untracked                                |
+        | ignored                                  |
+        | tracked, with a change that is staged    |
+        | tracked, with a change that is unstaged  |
 
     Scenario Outline: The script refuses to start while the repository is busy
       Given a project in the old layout whose repository <state>
@@ -263,25 +270,24 @@ Feature: Core artifact layout
       And .agent-factory/install.json records the new factory version
       And the project maintainer was not asked about the move
 
-    Scenario Outline: An install record without a usable version counts as older
-      Given a project in the old layout whose .agent-factory/install.json has <factory_version entry>
-      When the project maintainer approves the factory update
-      Then the project is in the new layout
+    Scenario Outline: init-factory compares factory versions by Semantic Versioning precedence
+      Given the layout release is <layout release>
+      And a project in the old layout whose .agent-factory/install.json has <factory_version entry>
+      When init-factory runs during an approved factory update
+      Then init-factory <action> migrate-spec-layout
 
       Examples:
-        | factory_version entry          |
-        | no factory_version key         |
-        | factory_version set to unknown |
-
-    Scenario: An install record from release v0.12.0 or earlier counts as older
-      Given a project in the old layout with .agent-factory/factory-install.json
-      And the project has no .agent-factory/install.json
-      When the project maintainer approves the factory update
-      Then init-factory runs migrate-spec-layout as its last step
-      And the project is in the new layout
+        | layout release | factory_version entry           | action          |
+        | 1.10.0         | factory_version set to 1.4.0    | runs            |
+        | 1.4.0          | factory_version set to 1.4.0-rc | runs            |
+        | 1.4.0          | factory_version set to 1.4.0    | does not run    |
+        | 1.4.0          | factory_version set to 1.10.0   | does not run    |
+        | 1.4.0          | no factory_version key          | runs            |
+        | 1.4.0          | factory_version set to unknown  | runs            |
+        | 1.4.0          | factory_version set to dev      | runs            |
 
     Scenario: A first install moves no file and lists the old paths
-      Given a project in the old layout without .agent-factory/install.json and without .agent-factory/factory-install.json
+      Given a project in the old layout without .agent-factory/install.json
       When the project maintainer installs the factory
       Then init-factory moves no file
       And init-factory lists each old path it finds
@@ -294,7 +300,7 @@ Feature: Core artifact layout
       And no project file moves
 
     Scenario: A failed migration rolls the update back
-      Given a project in the old layout whose installed update-factory is version 1.1.0 or later
+      Given a project in the old layout whose installed update-factory is version 1.1.0-rc or later
       And an approved factory update
       And migrate-spec-layout fails partway
       And migrate-spec-layout had rewritten one Markdown link and the factory hook block before it failed
@@ -306,24 +312,15 @@ Feature: Core artifact layout
       And update-factory reports the failure
       # @packages/factory/scripts/update-factory::_rollback_update
 
-    Scenario: A failed migration keeps the prior factory version, so the next update tries again
-      Given a project in the old layout whose .agent-factory/install.json records factory version 1.0.0
-      And the installed update-factory is version 1.0.0, which does not restore the factory tree
+    Scenario: A failed migration keeps the prior factory version
+      Given a project in the old layout whose .agent-factory/install.json records factory version 1.3.0
       And migrate-spec-layout fails partway during an approved factory update
       When init-factory handles the failure of migrate-spec-layout
-      Then .agent-factory/install.json records factory version 1.0.0
+      Then .agent-factory/install.json records factory version 1.3.0
       And every file that migrate-spec-layout changed has its old path and its old content
       And init-factory reports that the project is still in the old layout
       And init-factory names the fix: run the factory update again
       And init-factory exits non-zero
-
-    Scenario: The next update after a failed migration moves the files
-      Given a project in the old layout with the factory tree of the layout release
-      And .agent-factory/install.json records factory version 1.0.0
-      When the project maintainer approves the factory update
-      Then init-factory runs migrate-spec-layout as its last step
-      And the project is in the new layout
-      And .agent-factory/install.json records the new factory version
 
     Scenario: The factory hook block follows the template without a question
       Given a project in the old layout whose agent_factory_hook-* block has the old files pattern for arch-lint

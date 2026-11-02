@@ -4,7 +4,7 @@ source: atam-review
 severity: medium
 category: defect
 artifact: docs/adr/0026-layout-migration-runs-inside-the-factory-update.md#decision
-status: open
+status: resolved
 traces: [ADR-0026, ATAM-0004, DEC-10, QS-14, QS-15]
 ---
 
@@ -24,3 +24,5 @@ So the script has two choices, and the architecture picks neither:
 - `git rm -f` deletes the uncommitted changes. They exist nowhere else. ADR-0026 keeps an untracked file in the removal set for exactly this reason. If the script fails later, its undo restores the committed version only. Then `git status` differs from the state before the run, which breaks the response measure of QS-15.
 
 **Fix:** Define the case in ADR-0026 and in the `Removes` row of `interface-contracts.md`. The rule for untracked files fits: a tracked file in the removal set with uncommitted changes stays in place, and the script lists it for the developer to delete. Add a scenario to `core-artifact-layout.feature` in the requirements fix pass.
+
+**Resolution:** Stakeholder decision 2026-11-02: such a file stays in place and is listed for the developer, never `git rm -f`; ADR-0026, the Removes row, and the removal Scenario Outline hold it.

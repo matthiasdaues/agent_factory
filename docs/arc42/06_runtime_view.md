@@ -601,10 +601,10 @@ sequenceDiagram
     M->>UF: 1. Approves the update, which covers the layout move
     UF->>UF: 2. Applies the staged replacement
     UF->>IF: 3. Runs the new version's init-factory
-    IF->>IM: 4. Reads the prior factory_version from install.json, or from factory-install.json up to v0.12.0
+    IF->>IM: 4. Reads the prior factory_version from install.json
     Note over IF: Prior version older than the layout release, missing, unknown, or not a semantic version
     IF->>MSL: 5. Runs migrate-spec-layout as its last step
-    MSL->>G: 6. git mv for each tracked file, git rm for the tracked use-case files
+    MSL->>G: 6. git mv for each tracked file, git rm for each clean tracked use-case file
     MSL->>PF: 7. Moves untracked and ignored files directly, rewrites links, moves glossary terms, sets the hook block and the theme line
     MSL-->>M: 8. Lists unrewritten old paths, duplicate terms, and the follow-up steps
     MSL-->>IF: exit 0
@@ -616,9 +616,8 @@ sequenceDiagram
 **Key Points:**
 
 - The version test compares versions by Semantic Versioning 2.0.0 precedence, so `1.4.0` is older than `1.10.0` and `1.4.0-rc` is older than `1.4.0`. Planning sets the layout release (gap CAL-G02).
-- A project with only `.agent-factory/factory-install.json`, the record of installs up to `v0.12.0`, is an older install, and the script runs.
-- A project with neither record is a first install. `init-factory` moves nothing there, lists each old path it finds, and names `migrate-spec-layout` as a command the developer can run.
-- No git state blocks the script. Tracked files move with `git mv`, also with uncommitted changes. Untracked and ignored files move with a plain file move.
+- Only a project without `install.json` is a first install. `init-factory` moves nothing there, lists each old path it finds, and names `migrate-spec-layout` as a command the developer can run.
+- No git state blocks the script. Tracked files move with `git mv`, also with uncommitted changes. Untracked and ignored files move with a plain file move. A file of the removal set that is untracked, ignored, or tracked with uncommitted changes stays in place, and the script lists it for the developer to delete. The script never runs `git rm -f`.
 - A later run of `init-factory` at the same version moves nothing. On a project without old paths, the script prints nothing and exits 0.
 - The script commits nothing. The developer reviews the moves with `git status` and commits them.
 - The two follow-up steps run later, in a session with the developer present: `capture-context --fold-context-map` folds `CONTEXT-MAP.md` and routing-only `CONTEXT.md` files into domain concerns of `docs/agent-context.md`, and `domain-modeling` cleans up the duplicate terms.
@@ -645,20 +644,16 @@ sequenceDiagram
     MSL-->>IF: 6. Exits non-zero
     IF-->>M: 7. Reports the old layout and prior factory_version, and names the fix: run the update again
     IF-->>UF: 8. Fails with a non-zero exit
-    alt update-factory 1.1.0 or later
-        UF->>UF: 9. Restores the prior factory tree, install manifest, and instruction headers
-    else update-factory before 1.1.0
-        Note over UF: Restores nothing. The new factory stays on the old layout.
-    end
+    UF->>UF: 9. Restores the prior factory tree, install manifest, and instruction headers
     UF-->>M: 10. Reports the failure
 ```
 
 **Key Points:**
 
 - The script's own undo restores the project's files: moves, removals, link rewrites, `docs/spec/glossary.md` and chapter 12, the removed `## Language` sections, the hook block, and the `theme` line. `git status` then shows no change against the state before the run.
-- `install.json` keeps the prior `factory_version`, because `init-factory` writes the new version only after the script exits 0. So the next run retries the migration.
-- `update-factory` 1.1.0 and later restore the factory tree, the install manifest, and the instruction headers. The project keeps its old layout and its old factory version, so its scripts and hooks match its layout.
-- `update-factory` before 1.1.0 restores nothing, so the new factory runs on the old layout. This is an accepted, temporary risk ([ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md)). The developer runs the update again, as `init-factory` reported. The new `update-factory` then runs the update, and the new `init-factory` retries the migration.
+- `install.json` keeps the prior `factory_version`, because `init-factory` writes the new version only after the script exits 0. So the next update retries the migration.
+- `update-factory` restores the factory tree, the install manifest, and the instruction headers. The project keeps its old layout and its old factory version, so its scripts and hooks match its layout.
+- The layout release supports only an installed `update-factory` `v1.1.0-rc` or later, the first release with this rollback. A project on an older release updates to 1.3.x first, as the release notes say ([ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md)).
 
 ## 6.11 Other Runtime Scenarios (Summary)
 

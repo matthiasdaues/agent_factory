@@ -54,12 +54,9 @@ developer approves the update as a whole at the approval step of ADR-0023 and
 is not asked about the move. Declining the update means no update (DEC-17).
 
 **Version test.** `init-factory` reads the `factory_version` of the prior
-install record before it writes anything to `install.json`. The record is
-`.agent-factory/install.json`. When that file is missing and
-`.agent-factory/factory-install.json` exists, `init-factory` reads that file
-instead, because installs up to `v0.12.0` keep their record there. Such a
-project is an older install, not a first install. `init-factory` runs the
-script when the prior version is older than the layout release. Planning sets
+install record `.agent-factory/install.json` before it writes anything to
+that file. `init-factory` runs the script when the prior version is older
+than the layout release. Planning sets
 the layout release (gap CAL-G02).
 
 The comparison follows the precedence rules of Semantic Versioning 2.0.0.
@@ -68,7 +65,7 @@ Major, minor, and patch compare as numbers, so `1.4.0` is older than
 `1.4.0`. A missing `factory_version`, the value `unknown`, or a value that is
 not a semantic version counts as older.
 
-A project with neither record is a first install: `init-factory` moves
+Only a project without `install.json` is a first install: `init-factory` moves
 nothing, lists each old path it finds, and names `migrate-spec-layout` as a
 command the developer can run. A later run at the same version moves nothing.
 
@@ -76,14 +73,17 @@ command the developer can run. A later run at the same version moves nothing.
 and removes the use-case files. A file's git state decides the command, and
 no git state blocks the migration:
 
-- A tracked file moves with `git mv` and is removed with `git rm`, also when
-  it has uncommitted changes. Git then records a rename, and the changes stay
-  in the working tree.
+- A tracked file moves with `git mv`, also when it has uncommitted changes.
+  Git then records a rename, and the changes stay in the working tree.
 - An untracked or an ignored file moves with a plain file move. Git has no
   record of it to keep.
-- An untracked or an ignored file that the path table removes stays in
-  place. The script lists it for the developer to delete, because a plain
-  removal would lose a file that exists nowhere else.
+- A tracked file without uncommitted changes that the path table removes is
+  removed with `git rm`.
+- A file that the path table removes stays in place when it is untracked,
+  ignored, or tracked with uncommitted changes, staged or unstaged. The
+  script lists it for the developer to delete. `git rm` refuses a tracked
+  file with uncommitted changes, and `git rm -f` or a plain removal would
+  lose content that exists nowhere else. The script never uses `git rm -f`.
 - Before its first change, the script checks the state of the repository.
   During a merge or a rebase, or while another git process holds the index
   lock, it changes nothing, names the state, and exits non-zero. The update
@@ -104,23 +104,31 @@ commits nothing. It names two follow-up steps:
 change it made and exits non-zero. `git status` then shows no change against
 the state before the run. `init-factory` writes the new `factory_version` into
 `install.json` only after the script exits 0. So after a failure the record
-keeps the prior version, and the next run of `init-factory` runs the script
-again. `init-factory` reports that the project keeps its old layout, names the
+keeps the prior version. `init-factory` reports that the project keeps its old layout, names the
 fix (run the update again), and exits non-zero.
 
-`update-factory` 1.1.0 and later then restore the prior factory tree, the
-install manifest, and the instruction headers, as for any failed
-`init-factory`. The project keeps its old layout and its old factory version,
-so its scripts and hooks match its layout.
+`update-factory` then restores the prior factory tree, the install
+manifest, and the instruction headers, as for any failed `init-factory`. The
+project keeps its old layout and its old factory version, so its scripts and
+hooks match its layout.
 
-`update-factory` before 1.1.0 restores nothing, because it restores the old
-tree only when no new tree exists (`v1.0.0`, line 423). It leaves its backup
-in `.agent-factory/factory-backup-<uuid>`. The project then runs the new
-factory on the old layout, while `install.json` still holds the prior
-version. This state is an accepted, temporary risk. The developer runs the
-update again, as `init-factory` reported. The new `update-factory` now runs
-the update, sees the prior version, and the new `init-factory` retries the
-migration. No minimum installed version applies.
+**Supported updaters.** The layout release supports updates only from an
+installed `update-factory` `v1.1.0-rc` or later, the first release with this
+rollback. A project on an older release updates to 1.3.x first. The release
+notes say so. No check enforces this. The factory is pre-alpha, so the
+stakeholder cut the handling of older updaters instead of extending it.
+
+**Stakeholder decisions of 2026-11-02.**
+
+- `update-factory` before `v1.1.0-rc` is not supported, and neither is the
+  old install record `.agent-factory/factory-install.json` (ATAM-0003
+  revisited; ATAM-0005 is out of scope).
+- A tracked file in the removal set with uncommitted changes stays and is
+  listed; the script never runs `git rm -f` (ATAM-0006, SPEC-0028).
+- The version comparison follows Semantic Versioning 2.0.0 precedence, as
+  the version test states (SPEC-0029).
+- QS-15 covers only supported updaters, and the QA strategy cites the
+  closed gaps CAL-G17 and CAL-G18 by their Scenarios (M-07).
 
 This decision amends ADR-0023 in one point: `update-factory` runs the new
 version's `init-factory` after application, and a failure of `init-factory`
@@ -129,17 +137,18 @@ triggers the rollback. All other steps of ADR-0023 stay as they are.
 ## Consequences
 
 **Easier:** one approval moves the factory and the project together, so
-after an update scripts, hooks, and files agree about paths. With
-`update-factory` 1.1.0 or later, a failed migration leaves the project as it
-was. Uncommitted work and untracked files never block the migration. The developer reviews the moves with
+after an update scripts, hooks, and files agree about paths. A failed
+migration leaves the project as it was. Uncommitted work and untracked files
+never block the migration. The developer reviews the moves with
 `git status` and commits them like any other change.
 
 **Harder:** `init-factory` gains a version test and a step that changes
 project files during an update. `migrate-spec-layout` must undo every kind of
 change it makes. The update rollback does not restore project files, so the
-script's own undo carries that duty. An update run by `update-factory`
-before 1.1.0 can leave the new factory on the old layout after a failed
-migration, until the developer runs the update again. The script keeps a copy
+script's own undo carries that duty. A project on a release before
+`v1.1.0-rc` must update to 1.3.x first, and nothing checks that it did. A file
+in the removal set with uncommitted changes stays until the developer deletes
+it. The script keeps a copy
 of each untracked or ignored file it moves until it exits, because git holds
 no copy for the undo. A merge, a rebase, or a held index lock stops the
 update until the developer resolves it. Old paths outside Markdown links and

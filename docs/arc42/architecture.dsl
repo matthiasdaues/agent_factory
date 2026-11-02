@@ -204,7 +204,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         initFactory -> usageRecordContract "Copies the compatible contract into the component"
         initFactory -> installedAnalysis "Installs, updates, or removes without touching raw data"
-        initFactory -> installManifest "Reads the prior factory_version from install.json or the older factory-install.json; records installed_components.usage, and the new version after migrate-spec-layout succeeds"
+        initFactory -> installManifest "Reads the prior factory_version from install.json; records installed_components.usage, and the new version after migrate-spec-layout succeeds"
         updateFactory -> installManifest "Reads source and version; writes receipt after update"
         updateFactory -> distributionRemote "Downloads and verifies release assets for update"
         updateFactory -> humanOperator "Presents update preview for approval"
@@ -436,9 +436,9 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             humanOperator -> updateFactory "1. Approves the update; the approval covers the layout move"
             updateFactory -> updateFactory "2. Applies the staged replacement"
             updateFactory -> initFactory "3. Runs the new version's init-factory"
-            initFactory -> installManifest "4. Reads the prior factory_version from install.json, or from factory-install.json of an install up to v0.12.0"
+            initFactory -> installManifest "4. Reads the prior factory_version from install.json"
             initFactory -> migrateSpecLayout "5. Runs migrate-spec-layout as its last step, because the prior version is older than the layout release"
-            migrateSpecLayout -> git "6. Moves tracked files with git mv and removes tracked use-case files with git rm"
+            migrateSpecLayout -> git "6. Moves tracked files with git mv and removes clean tracked use-case files with git rm"
             migrateSpecLayout -> projectFilesystem "7. Moves untracked and ignored files directly, rewrites links, moves glossary terms, sets the factory hook block and the theme line"
             migrateSpecLayout -> humanOperator "8. Reports unrewritten old paths, duplicate terms, and the follow-up steps"
             initFactory -> installManifest "9. Writes the new factory_version after the script exits 0"
@@ -454,7 +454,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             migrateSpecLayout -> initFactory "6. Exits non-zero"
             initFactory -> humanOperator "7. Reports that the project keeps its old layout and prior factory_version, and names the fix: run the update again"
             initFactory -> updateFactory "8. Fails with a non-zero exit"
-            updateFactory -> updateFactory "9. From 1.1.0 on, restores the prior factory tree, install manifest, and instruction headers"
+            updateFactory -> updateFactory "9. Restores the prior factory tree, install manifest, and instruction headers"
             updateFactory -> humanOperator "10. Reports the failure"
         }
 
