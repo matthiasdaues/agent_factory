@@ -256,6 +256,20 @@ All stories must have YAML frontmatter with the following fields:
 | Writes                  | `export-svg` and `export-all` write SVGs to `assets/images/` in the docs folder                                                          |
 | Exit code               | `1` when Docker is missing, the docs folder is missing, or the workspace file is missing; otherwise the exit code of the Structurizr CLI |
 
+## `.agent-factory/factory/scripts/publish-docs`
+
+`publish-docs` renders the documents of `docs/publish-docs.yaml` as one PDF. In the core artifact layout it reads the DSL from `docs/spec/` and the themes from `docs/assets/themes/` (CAL-G16). It never reads `docs/arc42/architecture.dsl` (DEC-11). Wherever the manifest selects `arc42/12_glossary.md`, by name or by glob, the PDF shows `docs/spec/glossary.md` when that file exists (DEC-16).
+
+|            |                                                                                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage      | `publish-docs pdf`, run in the project root                                                                                                                                         |
+| Reads      | `docs/publish-docs.yaml`, `docs/publish-docs.css` when present, every document the manifest selects, `docs/spec/architecture.dsl`, and `docs/assets/themes/` when present           |
+| Build copy | `docs/spec/` and `docs/assets/themes/` are copied to `.current-work/publish-docs/build/model/` at the same relative paths, so a `theme ../assets/themes/<file>` line resolves there |
+| Calls      | `structurizr validate` and `structurizr export-svg`, with `STRUCTURIZR_DOCS` set to the build copy and the default `STRUCTURIZR_WORKSPACE`                                          |
+| Chapter 12 | A manifest entry or glob match `arc42/12_glossary.md` resolves to `docs/spec/glossary.md` when it exists; the manifest never needs a change                                         |
+| Writes     | `docs/dist/<project>-architecture.pdf`, and `docs/dist/` in `.gitignore` when it is missing                                                                                         |
+| Exit code  | `0` PDF written; `1` a check failed; `2` a precondition failed, among them a missing `docs/spec/architecture.dsl`, which the message names                                          |
+
 ## `.agent-factory/factory/scripts/dependency-check`
 
 |                 |                                                                                                     |
