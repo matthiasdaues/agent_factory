@@ -12,7 +12,14 @@ What: Moves the files of the path table in
       `delete by hand: <path>`. It moves each two-column table of
       docs/arc42/12_glossary.md into docs/spec/glossary.md, with the columns
       Term, Definition, and Avoid, rewrites chapter 12 at its old path with
-      one link line, and stages both files. At the end of its output it
+      one link line, and stages both files. It moves the `## Language`
+      terms of docs/CONTEXT.md, docs/arc42/CONTEXT.md, and each CONTEXT.md
+      that docs/arc42/CONTEXT-MAP.md names into a glossary section named
+      after the file's title, and removes that section from the file. These
+      terms join an existing glossary (DEC-18). It lists each term in more
+      than one section as `duplicate term: <term> in <section>, <section>`
+      and names the two follow-up steps as `next step:` lines at the end.
+      At the end of its output it
       lists every old path outside a Markdown link, which it never rewrites,
       as `old path: <file>:<line>: <old path>`. In every Markdown file it
       scans, it rewrites each local link to a moved file, rebases each
@@ -34,7 +41,8 @@ Exit codes:
     0  success, no work, or --dry-run
     1  a step failed partway; every change of the run is undone
     2  refused before the first change: busy repository, a destination that
-       already exists, or bad arguments
+       already exists, a `## Language` section outside the list form, or bad
+       arguments
 
 The script never commits, never forces `git rm`, and never deletes a file
 outside git.
@@ -253,7 +261,7 @@ class GlossarySection:
 
     heading: str
     prose: str = ""
-    rows: list[tuple[str, str]] = field(default_factory=list)
+    rows: list[tuple[str, ...]] = field(default_factory=list)
 
 
 @dataclass
@@ -361,13 +369,21 @@ def _table(rows: list[tuple[str, ...]]) -> str:
     return "\n".join(lines)
 
 
-def render_glossary(sections: list[GlossarySection]) -> str:
-    """Render the glossary: per section one table with Term, Definition, Avoid."""
-    parts = ["# Glossary"]
+def render_sections(sections: list[GlossarySection]) -> str:
+    """Render ``sections``: per section one table with Term, Definition, Avoid.
+
+    A row of two cells gets an empty Avoid cell.
+    """
+    parts = []
     for section in sections:
-        rows = [GLOSSARY_COLUMNS, *((term, text, "") for term, text in section.rows)]
+        rows = [GLOSSARY_COLUMNS, *((*row, "")[:3] for row in section.rows)]
         parts += [f"## {section.heading}", section.prose, _table(rows)]
-    return _join(parts) + "\n"
+    return _join(parts)
+
+
+def render_glossary(sections: list[GlossarySection]) -> str:
+    """Render the glossary: the title, then each section as a table."""
+    return _join(["# Glossary", render_sections(sections)]) + "\n"
 
 
 def plan_glossary(root: Path) -> Chapter12 | None:
@@ -377,6 +393,198 @@ def plan_glossary(root: Path) -> Chapter12 | None:
         return None
     result = convert_chapter12(chapter.read_text(encoding="utf-8"))
     return result if result.sections else None
+
+
+# ── The terms of each CONTEXT.md into the glossary ───────────────────────
+
+CONTEXT_FILES = ("docs/CONTEXT.md", "docs/arc42/CONTEXT.md")
+CONTEXT_MAP = "docs/arc42/CONTEXT-MAP.md"
+LANGUAGE_HEADING = re.compile(r"^## Language\s*$")
+SECTION_END = re.compile(r"^#{1,2}\s")
+TERM_LINE = re.compile(r"^\*\*(.+?)\*\*:\s*(.*)$")
+AVOID_LINE = re.compile(r"^_Avoid_:\s*(.*)$")
+CONTEXT_TOKEN = re.compile(r"[\w./-]*CONTEXT\.md")
+UNESCAPED_BAR = re.compile(r"(?<!\\)\|")
+TERM_MARKUP = "*_` "
+FOLD_STEP = (
+    "next step: run capture-context --fold-context-map to fold the routing of "
+    "CONTEXT-MAP.md and CONTEXT.md into docs/agent-context.md"
+)
+CLEANUP_STEP = (
+    f"next step: remove the duplicate terms from {GLOSSARY} and clean it up, "
+    "for example with domain-modeling"
+)
+
+
+class ListFormError(ValueError):
+    """A ``## Language`` section that is not in the list form of the template."""
+
+
+@dataclass
+class ContextTerms:
+    """The terms of one CONTEXT.md and the file's text without ``## Language``."""
+
+    path: str
+    section: GlossarySection
+    rest: str
+
+
+def _cell(text: str) -> str:
+    return UNESCAPED_BAR.sub(r"\\|", text)
+
+
+def convert_context(text: str, fallback: str) -> tuple[GlossarySection, str] | None:
+    """Convert the ``## Language`` section of a CONTEXT.md into a glossary section.
+
+    The list form is ``**Term**:`` with a definition on the same line or the
+    lines below and an optional ``_Avoid_:`` line. The section is named after
+    the file's title, or ``fallback`` without a title. The result is the
+    section and the file's text without ``## Language``; None means the file
+    has no such section. Raise ``ListFormError`` for a line outside the form.
+    """
+    lines = text.splitlines()
+    start = next(
+        (i for i, line in enumerate(lines) if LANGUAGE_HEADING.match(line)), -1
+    )
+    if start == -1:
+        return None
+    end = next(
+        (i for i in range(start + 1, len(lines)) if SECTION_END.match(lines[i])),
+        len(lines),
+    )
+    rows: list[list] = []
+    for number in range(start + 1, end):
+        line = lines[number].strip()
+        if not line:
+            continue
+        term = TERM_LINE.match(line)
+        if term:
+            rows.append(
+                [term.group(1).strip(), [term.group(2)] if term.group(2) else [], ""]
+            )
+            continue
+        if not rows or line.startswith("#"):
+            raise ListFormError(f"line {number + 1}: {lines[number].strip()}")
+        avoid = AVOID_LINE.match(line)
+        if avoid:
+            rows[-1][2] = ", ".join(
+                p for p in (rows[-1][2], avoid.group(1).strip()) if p
+            )
+        else:
+            rows[-1][1].append(line)
+    title = next(
+        (line[2:].strip() for line in lines if line.startswith("# ")), fallback
+    )
+    section = GlossarySection(
+        title,
+        rows=[(_cell(t), _cell(" ".join(d)), _cell(a)) for t, d, a in rows],
+    )
+    before = "\n".join(lines[:start]).rstrip()
+    after = "\n".join(lines[end:]).strip("\n")
+    rest = "\n\n".join(part for part in (before, after) if part) + "\n"
+    return section, rest
+
+
+def context_files(root: Path) -> list[str]:
+    """List each CONTEXT.md to read: the two in docs/, then those the map lists.
+
+    A path in the context map resolves from the map's folder or, failing
+    that, from the project root. A listed path that names no file is skipped.
+    """
+    found = [rel for rel in CONTEXT_FILES if (root / rel).is_file()]
+    context_map = root / CONTEXT_MAP
+    if context_map.is_file():
+        text = context_map.read_text(encoding="utf-8")
+        for token in CONTEXT_TOKEN.findall(text):
+            for base in (posixpath.dirname(CONTEXT_MAP), ""):
+                rel = posixpath.normpath(posixpath.join(base, token))
+                if rel.startswith("../") or not (root / rel).is_file():
+                    continue
+                if rel not in found:
+                    found.append(rel)
+                break
+    return found
+
+
+def plan_contexts(root: Path) -> list[ContextTerms]:
+    """Return the terms of every CONTEXT.md with ``## Language``, in read order."""
+    planned = []
+    for rel in context_files(root):
+        text = (root / rel).read_text(encoding="utf-8")
+        try:
+            converted = convert_context(text, rel)
+        except ListFormError as exc:
+            raise ListFormError(f"{rel}: {exc}") from exc
+        if converted:
+            planned.append(ContextTerms(rel, *converted))
+    return planned
+
+
+def _term_key(term: str) -> str:
+    return term.strip(TERM_MARKUP).casefold()
+
+
+def duplicate_terms(glossary: str) -> list[tuple[str, list[str]]]:
+    """List each term of ``glossary`` that more than one ``##`` section holds.
+
+    Terms compare without emphasis markup and without case. The result names
+    each term once, in its first form, with its sections in document order.
+    """
+    seen: dict[str, tuple[str, list[str]]] = {}
+    heading = ""
+    lines = glossary.splitlines()
+    starts = [i for i, line in enumerate(lines) if line.startswith("## ")]
+    for a, b in zip(starts, [*starts[1:], len(lines)]):
+        heading = lines[a][3:].strip()
+        _, tables = _split_tables(lines[a + 1 : b])
+        for table in tables:
+            for row in table[2:]:
+                term = _cells(row)[0]
+                _, sections = seen.setdefault(
+                    _term_key(term), (term.strip(TERM_MARKUP), [])
+                )
+                if heading not in sections:
+                    sections.append(heading)
+    return [(term, sections) for term, sections in seen.values() if len(sections) > 1]
+
+
+def plan_glossary_text(
+    root: Path,
+    chapter: Chapter12 | None,
+    contexts: list[ContextTerms],
+    existing_edit: LinkEdit | None,
+    moved: dict[str, str],
+    removed: set[str],
+) -> tuple[str, list[tuple[str, str]]]:
+    """Return the glossary text after the run and its link rewrites.
+
+    The glossary starts from the existing glossary, or from its title. The
+    chapter 12 sections follow, then each CONTEXT.md section as a section of
+    its own (DEC-18). Each part's links are rebased from its source file to
+    docs/spec/.
+    """
+    if existing_edit:
+        base, rewrites = existing_edit.text, list(existing_edit.rewrites)
+    elif (root / GLOSSARY).is_file():
+        base, rewrites = (root / GLOSSARY).read_text(encoding="utf-8"), []
+    else:
+        base, rewrites = "# Glossary\n", []
+    blocks = []
+    if chapter:
+        block, rewrites_12 = rewrite_links(
+            render_sections(chapter.sections), CHAPTER12, GLOSSARY, moved, removed
+        )
+        blocks.append(block)
+        rewrites += rewrites_12
+    for context in contexts:
+        block, block_rewrites = rewrite_links(
+            render_sections([context.section]), context.path, GLOSSARY, moved, removed
+        )
+        blocks.append(block)
+        rewrites += block_rewrites
+    if not blocks:
+        return base, rewrites
+    return base.rstrip("\n") + "\n\n" + "\n\n".join(blocks) + "\n", rewrites
 
 
 # ── Markdown links ───────────────────────────────────────────────────────
@@ -871,11 +1079,22 @@ def main(argv: list[str] | None = None) -> int:
     git = is_git_repo(root)
     removals, by_hand = plan_removals(root, git)
     glossary = plan_glossary(root)
-    if not moves and not removals and not by_hand and not glossary:
+    try:
+        contexts = plan_contexts(root)
+    except ListFormError as exc:
+        print(
+            "migrate-spec-layout: refused, a ## Language section is not in the "
+            f"list form of the template: {exc}; no file changed",
+            file=sys.stderr,
+        )
+        return 2
+    if not moves and not removals and not by_hand and not glossary and not contexts:
         return 0
 
     if not args.dry_run:
-        created = [GLOSSARY] if glossary else []
+        # CONTEXT.md terms join an existing glossary (DEC-18); chapter 12
+        # alone does not.
+        created = [GLOSSARY] if glossary and not contexts else []
         refusal = refuse_reason(root, moves, git, created)
         if refusal:
             print(
@@ -900,36 +1119,48 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{CHAPTER12} -> {GLOSSARY}: {terms} terms")
         for heading, columns in glossary.kept:
             print(f"keep in {CHAPTER12}: {heading} (table with {columns} columns)")
+    for context in contexts:
+        terms = len(context.section.rows)
+        print(
+            f"{context.path} -> {GLOSSARY}: {terms} terms ({context.section.heading})"
+        )
     moved = dict(moves)
     removed = set(removals)
-    link_edits = plan_links(
-        root, git, moved, removed, {CHAPTER12: glossary.stub} if glossary else {}
-    )
+    rewritten = {CHAPTER12: glossary.stub} if glossary else {}
+    rewritten |= {context.path: context.rest for context in contexts}
+    link_edits = plan_links(root, git, moved, removed, rewritten)
     planned: dict[str, str] = {}
-    if glossary:
-        stub_edit = next((e for e in link_edits if e.old == CHAPTER12), None)
-        # The glossary text comes from chapter 12, so its links are rebased
-        # from docs/arc42/ to docs/spec/.
-        glossary_text, glossary_rewrites = rewrite_links(
-            render_glossary(glossary.sections), CHAPTER12, GLOSSARY, moved, removed
+    if glossary or contexts:
+        by_old = {edit.old: edit for edit in link_edits}
+        planned = {
+            rel: by_old[rel].text if rel in by_old else text
+            for rel, text in rewritten.items()
+        }
+        glossary_text, glossary_rewrites = plan_glossary_text(
+            root, glossary, contexts, by_old.get(GLOSSARY), moved, removed
         )
+        link_edits = [edit for edit in link_edits if edit.old != GLOSSARY]
         if glossary_rewrites:
             link_edits.append(
                 LinkEdit(GLOSSARY, GLOSSARY, glossary_text, glossary_rewrites)
             )
             link_edits.sort(key=lambda edit: edit.new)
-        planned = {
-            CHAPTER12: stub_edit.text if stub_edit else glossary.stub,
-            GLOSSARY: glossary_text,
-        }
+        planned[GLOSSARY] = glossary_text
     for edit in link_edits:
         for old_target, new_target in edit.rewrites:
             print(f"{LINK_PREFIX}: {edit.new}: {old_target} -> {new_target}")
+    duplicates = duplicate_terms(planned[GLOSSARY]) if planned else []
+    for term, sections in duplicates:
+        print(f"duplicate term: {term} in {', '.join(sections)}")
     old_paths = plan_listing(root, git, planned)
     if old_paths:
         print(LISTING_HEADING)
         for name, number, path in old_paths:
             print(f"old path: {name}:{number}: {path}")
+    if (root / CONTEXT_MAP).is_file() or context_files(root):
+        print(FOLD_STEP)
+    if duplicates:
+        print(CLEANUP_STEP)
     if args.dry_run:
         return 0
 
@@ -938,13 +1169,19 @@ def main(argv: list[str] | None = None) -> int:
     try:
         for rel in removals:
             run.remove(rel)
-        if glossary:
-            run.create(GLOSSARY, planned[GLOSSARY])
-            run.write(CHAPTER12, planned[CHAPTER12])
+        if GLOSSARY in planned:
+            if (root / GLOSSARY).exists():
+                run.write(GLOSSARY, planned[GLOSSARY])
+            else:
+                run.create(GLOSSARY, planned[GLOSSARY])
             if git:
                 run.stage(GLOSSARY)
-                if CHAPTER12 in tracked:
-                    run.stage(CHAPTER12)
+        if glossary:
+            run.write(CHAPTER12, planned[CHAPTER12])
+            if git and CHAPTER12 in tracked:
+                run.stage(CHAPTER12)
+        for context in contexts:
+            run.write(context.path, planned[context.path])
         for old, new in moves:
             run.move(old, new, old in tracked)
         if dsl_moves:
