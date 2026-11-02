@@ -120,6 +120,8 @@ class TestDependencyBoundary:
             [
                 "python3",
                 str(script),
+                "--dsl-path",
+                "docs/arc42/dependency-rules.dsl",
                 "--source-root",
                 "packages/",
                 "--story-id",

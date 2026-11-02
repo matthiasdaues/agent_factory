@@ -18,13 +18,19 @@
 #   export-all   - Export all views as SVG (alias for export-svg)
 #   validate     - Validate the DSL model for syntax and semantic errors
 #   list-views   - List all view keys defined in the DSL workspace
+#
+# Environment:
+#   STRUCTURIZR_DOCS       docs folder mounted at /workspace (default: ./docs)
+#   STRUCTURIZR_WORKSPACE  DSL file, relative to the docs folder
+#                          (default: spec/architecture.dsl)
+#   STRUCTURIZR_IMAGE      Structurizr container image
 
 set -euo pipefail
 
 # Configuration
 IMAGE="${STRUCTURIZR_IMAGE:-structurizr/structurizr:2026.05.22-playwright}"
 DOCS_DIR="${STRUCTURIZR_DOCS:-$(pwd)/docs}"
-ARC42_DIR="${DOCS_DIR}/arc42"
+WORKSPACE="${STRUCTURIZR_WORKSPACE:-spec/architecture.dsl}"
 IMAGES_DIR="${DOCS_DIR}/assets/images"
 
 # Validate that docs directory exists
@@ -33,8 +39,8 @@ if [ ! -d "${DOCS_DIR}" ]; then
     exit 1
 fi
 
-if [ ! -d "${ARC42_DIR}" ]; then
-    echo "Error: arc42 directory does not exist at ${ARC42_DIR}" >&2
+if [ ! -f "${DOCS_DIR}/${WORKSPACE}" ]; then
+    echo "Error: workspace file does not exist at ${DOCS_DIR}/${WORKSPACE}" >&2
     exit 1
 fi
 
@@ -65,20 +71,20 @@ case "${1:-}" in
         docker run --rm \
             --user "$(id -u):$(id -g)" \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" export -format svg -workspace /workspace/arc42/architecture.dsl -output /workspace/assets/images
+            "${IMAGE}" export -format svg -workspace "/workspace/${WORKSPACE}" -output /workspace/assets/images
         strip_prefix
         ;;
     validate)
         exec docker run --rm \
             --user "$(id -u):$(id -g)" \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" validate -workspace /workspace/arc42/architecture.dsl
+            "${IMAGE}" validate -workspace "/workspace/${WORKSPACE}"
         ;;
     list-views)
         exec docker run --rm \
             --user "$(id -u):$(id -g)" \
             -v "${DOCS_DIR}:/workspace" \
-            "${IMAGE}" list-views -workspace /workspace/arc42/architecture.dsl
+            "${IMAGE}" list-views -workspace "/workspace/${WORKSPACE}"
         ;;
     *)
         # Unknown subcommand
@@ -92,6 +98,7 @@ Subcommands:
   list-views   - List all view keys in the workspace
 
 Default image: ${IMAGE}
+Workspace:      \${STRUCTURIZR_DOCS}/\${STRUCTURIZR_WORKSPACE} (now ${DOCS_DIR}/${WORKSPACE})
 Override with:  STRUCTURIZR_IMAGE=<image> ./structurizr <subcommand>
 EOF
         exit 1
