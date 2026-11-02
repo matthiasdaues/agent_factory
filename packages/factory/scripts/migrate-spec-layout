@@ -4,7 +4,12 @@
 What: Moves the files of the path table in
       docs/proposals/core-artifact-layout.md into the core artifact layout.
       A tracked file moves with `git mv`, so git records a rename. An
-      untracked or ignored file moves with a plain move. The script also
+      untracked or ignored file moves with a plain move. When
+      docs/spec/<name>-qa-strategy.md and the same name in
+      supplementary_specs/ share a new path, the second one moves to
+      docs/spec/work/<name>-area-qa-strategy.md, and the script prints the
+      pair as `same new path: <old> -> <new>, because <old> -> <new>`. A
+      move never replaces a file. The script also
       rewrites the `theme` line of docs/spec/architecture.dsl. It removes
       actor-goal-list.md and every file in a use_cases/ folder under docs/,
       docs/~archive/ included, with `git rm`. A file in that removal set
@@ -17,7 +22,9 @@ What: Moves the files of the path table in
       `## Language` terms of docs/CONTEXT.md, docs/arc42/CONTEXT.md, and
       each CONTEXT.md that docs/arc42/CONTEXT-MAP.md names into a glossary
       section named after the file's title, and removes that section from
-      the file. These terms also join an existing glossary (DEC-18). It
+      the file. A `###` subheading under `## Language` becomes a section of
+      its own, and a bullet `- **Term**:` is a term as well. These terms
+      also join an existing glossary (DEC-18). It
       lists each term in more than one section as `duplicate term: <term> in <section>, <section>`
       and names the two follow-up steps as `next step:` lines at the end.
       At the end of its output it
@@ -48,8 +55,8 @@ Exit codes:
     0  success, no work, or --dry-run
     1  a step failed partway; every change of the run is undone
     2  refused before the first change: busy repository, a destination that
-       already exists, a `## Language` section outside the list form, or bad
-       arguments
+       already exists, two planned moves that still share a destination, or
+       bad arguments
 
 The script never commits, never forces `git rm`, and never deletes a file
 outside git.
@@ -150,8 +157,42 @@ def _move_rank(new: str) -> int:
     return 1
 
 
-def plan_moves(root: Path) -> list[tuple[str, str]]:
-    """List every (old, new) move for the files under ``root``."""
+QA_SUFFIX = "-qa-strategy.md"
+SAME_NEW_PATH = "same new path"
+AREA_QA_SUFFIX = "-area-qa-strategy.md"
+
+
+def separate_shared_paths(
+    moves: list[tuple[str, str]],
+) -> tuple[list[tuple[str, str]], list[tuple[str, str, str, str]]]:
+    """Give a QA strategy of supplementary_specs/ its own new path on a clash.
+
+    docs/spec/<name>-qa-strategy.md and
+    docs/spec/supplementary_specs/<name>-qa-strategy.md share the new path
+    docs/spec/work/<name>-qa-strategy.md. The second one then moves to
+    docs/spec/work/<name>-area-qa-strategy.md, so no file is lost (IMPL-0001).
+    The result is the moves and each pair as (old, new, other old, other new).
+    """
+    claimed = {new: old for old, new in moves if not old.startswith(SUPPLEMENTARY)}
+    result, pairs = [], []
+    for old, new in moves:
+        if old.startswith(SUPPLEMENTARY) and new in claimed:
+            area = new.removesuffix(QA_SUFFIX) + AREA_QA_SUFFIX
+            pairs.append((old, area, claimed[new], new))
+            new = area
+        result.append((old, new))
+    return result, pairs
+
+
+def plan_moves(
+    root: Path,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str, str, str]]]:
+    """List every (old, new) move for the files under ``root``.
+
+    The second part names each pair that ``separate_shared_paths`` kept
+    apart. Two moves can still share a new path; ``refuse_reason`` refuses
+    them.
+    """
     candidates: list[Path] = []
     for folder in (SPEC, SUPPLEMENTARY, ARC42):
         directory = root / folder
@@ -166,7 +207,8 @@ def plan_moves(root: Path) -> list[tuple[str, str]]:
         target = new_path(rel)
         if target != rel and not in_removal_set(rel):
             moves.append((rel, target))
-    return sorted(moves, key=lambda move: (_move_rank(move[1]), move[0]))
+    moves, pairs = separate_shared_paths(moves)
+    return sorted(moves, key=lambda move: (_move_rank(move[1]), move[0])), pairs
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -408,8 +450,9 @@ CONTEXT_FILES = ("docs/CONTEXT.md", "docs/arc42/CONTEXT.md")
 CONTEXT_MAP = "docs/arc42/CONTEXT-MAP.md"
 LANGUAGE_HEADING = re.compile(r"^## Language\s*$")
 SECTION_END = re.compile(r"^#{1,2}\s")
-TERM_LINE = re.compile(r"^\*\*(.+?)\*\*:\s*(.*)$")
-AVOID_LINE = re.compile(r"^_Avoid_:\s*(.*)$")
+TERM_LINE = re.compile(r"^(?:[-*]\s+)?\*\*(.+?)\*\*:\s*(.*)$")
+AVOID_PART = re.compile(r"(?:^|\s)_Avoid_:\s*(.*)$")
+SUBHEADING = re.compile(r"^###\s+(.+?)\s*#*$")
 CONTEXT_TOKEN = re.compile(r"[\w./-]*CONTEXT\.md")
 UNESCAPED_BAR = re.compile(r"(?<!\\)\|")
 TERM_MARKUP = "*_` "
@@ -423,16 +466,12 @@ CLEANUP_STEP = (
 )
 
 
-class ListFormError(ValueError):
-    """A ``## Language`` section that is not in the list form of the template."""
-
-
 @dataclass
 class ContextTerms:
     """The terms of one CONTEXT.md and the file's text without ``## Language``."""
 
     path: str
-    section: GlossarySection
+    sections: list[GlossarySection]
     rest: str
 
 
@@ -440,14 +479,20 @@ def _cell(text: str) -> str:
     return UNESCAPED_BAR.sub(r"\\|", text)
 
 
-def convert_context(text: str, fallback: str) -> tuple[GlossarySection, str] | None:
-    """Convert the ``## Language`` section of a CONTEXT.md into a glossary section.
+def convert_context(
+    text: str, fallback: str
+) -> tuple[list[GlossarySection], str] | None:
+    """Convert the ``## Language`` section of a CONTEXT.md into glossary sections.
 
-    The list form is ``**Term**:`` with a definition on the same line or the
-    lines below and an optional ``_Avoid_:`` line. The section is named after
-    the file's title, or ``fallback`` without a title. The result is the
-    section and the file's text without ``## Language``; None means the file
-    has no such section. Raise ``ListFormError`` for a line outside the form.
+    A term is ``**Term**:`` or the bullet ``- **Term**:`` or ``* **Term**:``,
+    with a definition on the same line or the lines below and an optional
+    ``_Avoid_:`` part. The terms go into a section named after the file's
+    title, or ``fallback`` without a title. A ``###`` subheading starts a
+    section of its own, named after the subheading. A line before the first
+    term of a section is that section's prose, so no text is lost and no
+    form stops the run (DEC-18). A section without text is left out. The
+    result is the sections and the file's text without ``## Language``;
+    None means the file has no such section.
     """
     lines = text.splitlines()
     start = next(
@@ -459,37 +504,47 @@ def convert_context(text: str, fallback: str) -> tuple[GlossarySection, str] | N
         (i for i in range(start + 1, len(lines)) if SECTION_END.match(lines[i])),
         len(lines),
     )
-    rows: list[list] = []
+    title = next(
+        (line[2:].strip() for line in lines if line.startswith("# ")), fallback
+    )
+    groups: list[tuple[str, list[str], list[list]]] = [(title, [], [])]
     for number in range(start + 1, end):
         line = lines[number].strip()
         if not line:
             continue
+        subheading = SUBHEADING.match(line)
+        if subheading:
+            groups.append((subheading.group(1), [], []))
+            continue
+        _, prose, rows = groups[-1]
         term = TERM_LINE.match(line)
         if term:
-            rows.append(
-                [term.group(1).strip(), [term.group(2)] if term.group(2) else [], ""]
-            )
+            rows.append([term.group(1).strip(), [], ""])
+            line = term.group(2)
+        elif not rows:
+            prose.append(line)
             continue
-        if not rows or line.startswith("#"):
-            raise ListFormError(f"line {number + 1}: {lines[number].strip()}")
-        avoid = AVOID_LINE.match(line)
+        avoid = AVOID_PART.search(line)
         if avoid:
             rows[-1][2] = ", ".join(
                 p for p in (rows[-1][2], avoid.group(1).strip()) if p
             )
-        else:
+            line = line[: avoid.start()].strip()
+        if line:
             rows[-1][1].append(line)
-    title = next(
-        (line[2:].strip() for line in lines if line.startswith("# ")), fallback
-    )
-    section = GlossarySection(
-        title,
-        rows=[(_cell(t), _cell(" ".join(d)), _cell(a)) for t, d, a in rows],
-    )
+    sections = [
+        GlossarySection(
+            heading,
+            prose=" ".join(prose),
+            rows=[(_cell(t), _cell(" ".join(d)), _cell(a)) for t, d, a in rows],
+        )
+        for heading, prose, rows in groups
+        if prose or rows
+    ]
     before = "\n".join(lines[:start]).rstrip()
     after = "\n".join(lines[end:]).strip("\n")
     rest = "\n\n".join(part for part in (before, after) if part) + "\n"
-    return section, rest
+    return sections, rest
 
 
 def context_files(root: Path) -> list[str]:
@@ -517,11 +572,7 @@ def plan_contexts(root: Path) -> list[ContextTerms]:
     """Return the terms of every CONTEXT.md with ``## Language``, in read order."""
     planned = []
     for rel in context_files(root):
-        text = (root / rel).read_text(encoding="utf-8")
-        try:
-            converted = convert_context(text, rel)
-        except ListFormError as exc:
-            raise ListFormError(f"{rel}: {exc}") from exc
+        converted = convert_context((root / rel).read_text(encoding="utf-8"), rel)
         if converted:
             planned.append(ContextTerms(rel, *converted))
     return planned
@@ -583,9 +634,9 @@ def plan_glossary_text(
         )
         blocks.append(block)
         rewrites += rewrites_12
-    for context in contexts:
+    for context in (context for context in contexts if context.sections):
         block, block_rewrites = rewrite_links(
-            render_sections([context.section]), context.path, GLOSSARY, moved, removed
+            render_sections(context.sections), context.path, GLOSSARY, moved, removed
         )
         blocks.append(block)
         rewrites += block_rewrites
@@ -898,14 +949,15 @@ def _read_text(path: Path) -> str | None:
 
 
 def plan_listing(
-    root: Path, git: bool, planned: dict[str, str]
+    root: Path, git: bool, planned: dict[str, str], moved: dict[str, str]
 ) -> list[tuple[str, int, str]]:
     """List each (file, line, old path) that the run leaves in place.
 
     The file is named by its path after the run. ``planned`` maps a path to
-    the text the run writes there, such as chapter 12 and the glossary.
+    the text the run writes there, such as chapter 12 and the glossary;
+    ``moved`` maps each moved path to its new path.
     """
-    sources = {new_path(rel): rel for rel in _scan_set(root, git)}
+    sources = {moved.get(rel, new_path(rel)): rel for rel in _scan_set(root, git)}
     for rel in planned:
         sources.setdefault(rel, rel)
     found: list[tuple[str, int, str]] = []
@@ -1043,6 +1095,8 @@ class Run:
     def move(self, old: str, new: str, tracked: bool) -> None:
         src, dst = self.root / old, self.root / new
         self._make_parent(dst)
+        if dst.exists():
+            raise OSError(f"{new} already exists; no file is replaced")
         if tracked:
             self._check_git("mv", "--", old, new)
         else:
@@ -1142,6 +1196,10 @@ def refuse_reason(root: Path, moves: list[tuple[str, str]], git: bool) -> str | 
     taken = [new for _, new in moves if (root / new).exists()]
     if taken:
         return "these destinations already exist: " + ", ".join(taken)
+    news = [new for _, new in moves]
+    shared = sorted({new for new in news if news.count(new) > 1})
+    if shared:
+        return "two old files share these destinations: " + ", ".join(shared)
     return None
 
 
@@ -1168,19 +1226,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"migrate-spec-layout: {root} is not a directory", file=sys.stderr)
         return 2
 
-    moves = plan_moves(root)
+    moves, pairs = plan_moves(root)
     git = is_git_repo(root)
     removals, by_hand = plan_removals(root, git)
     glossary = plan_glossary(root)
-    try:
-        contexts = plan_contexts(root)
-    except ListFormError as exc:
-        print(
-            "migrate-spec-layout: refused, a ## Language section is not in the "
-            f"list form of the template: {exc}; no file changed",
-            file=sys.stderr,
-        )
-        return 2
+    contexts = plan_contexts(root)
     hooks = plan_hooks(root)
     if not (moves or removals or by_hand or glossary or contexts or hooks):
         return 0
@@ -1197,6 +1247,8 @@ def main(argv: list[str] | None = None) -> int:
     dsl_moves = any(new == DSL for _, new in moves)
     for old, new in moves:
         print(f"{old} -> {new}")
+    for old, new, other_old, other_new in pairs:
+        print(f"{SAME_NEW_PATH}: {old} -> {new}, because {other_old} -> {other_new}")
     if dsl_moves:
         old_dsl = (root / f"{ARC42}/architecture.dsl").read_text(encoding="utf-8")
         if THEME_LINE.search(old_dsl):
@@ -1211,10 +1263,9 @@ def main(argv: list[str] | None = None) -> int:
         for heading, columns in glossary.kept:
             print(f"keep in {CHAPTER12}: {heading} (table with {columns} columns)")
     for context in contexts:
-        terms = len(context.section.rows)
-        print(
-            f"{context.path} -> {GLOSSARY}: {terms} terms ({context.section.heading})"
-        )
+        terms = sum(len(section.rows) for section in context.sections)
+        headings = ", ".join(section.heading for section in context.sections)
+        print(f"{context.path} -> {GLOSSARY}: {terms} terms ({headings})")
     moved = dict(moves)
     removed = set(removals)
     rewritten = {CHAPTER12: glossary.stub} if glossary else {}
@@ -1245,7 +1296,7 @@ def main(argv: list[str] | None = None) -> int:
     duplicates = duplicate_terms(planned[GLOSSARY]) if planned else []
     for term, sections in duplicates:
         print(f"duplicate term: {term} in {', '.join(sections)}")
-    old_paths = plan_listing(root, git, planned)
+    old_paths = plan_listing(root, git, planned, moved)
     if old_paths:
         print(LISTING_HEADING)
         for name, number, path in old_paths:

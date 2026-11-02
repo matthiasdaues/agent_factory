@@ -93,6 +93,14 @@ Feature: Core artifact layout
         | untracked |
         | ignored   |
 
+    Scenario: Two old files with one new path both keep their content
+      Given docs/spec/billing-qa-strategy.md and docs/spec/supplementary_specs/billing-qa-strategy.md, tracked or untracked
+      When the project maintainer runs migrate-spec-layout
+      Then docs/spec/work/billing-qa-strategy.md holds the content of docs/spec/billing-qa-strategy.md
+      And docs/spec/work/billing-area-qa-strategy.md holds the content of docs/spec/supplementary_specs/billing-qa-strategy.md
+      And the script lists the pair
+      And the script exits 0
+
     Scenario Outline: A file that the path table removes stays and is listed when git cannot remove it safely
       Given a project in the old layout with the <git state> file docs/spec/use_cases/UC-07.md
       When the project maintainer runs migrate-spec-layout
@@ -225,6 +233,13 @@ Feature: Core artifact layout
       Then docs/spec/glossary.md has the section "Billing" as a table with the columns Term, Definition, and Avoid
       And each "_Avoid_:" entry of the list form is in the Avoid cell of its term
       And docs/CONTEXT.md has no "## Language" section
+
+    Scenario: A CONTEXT.md in the old format converts with its subheadings
+      Given docs/CONTEXT.md has the title "Billing", the bullet term "- **Invoice**: A bill." under "## Language", and the subheading "### Orders" with the term "Order"
+      When the project maintainer runs migrate-spec-layout
+      Then docs/spec/glossary.md has the section "Billing" with the term "Invoice" and an empty Avoid cell
+      And docs/spec/glossary.md has the section "Orders" with the term "Order"
+      And the script exits 0
 
     Scenario: Two vocabularies never stop the script
       Given docs/CONTEXT.md defines the term "Invoice" under "## Language"

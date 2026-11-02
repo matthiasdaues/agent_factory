@@ -381,6 +381,82 @@ def test_CAL_03_existing_destination_refuses_before_the_first_change(tmp_path: P
     assert porcelain(root) == before
 
 
+# ── CAL-03-IT-07: two old files with one new path both stay (IMPL-0001) ──
+
+SPEC_QA = "docs/spec/billing-qa-strategy.md"
+AREA_QA = "docs/spec/supplementary_specs/billing-qa-strategy.md"
+WORK_QA = "docs/spec/work/billing-qa-strategy.md"
+WORK_AREA_QA = "docs/spec/work/billing-area-qa-strategy.md"
+CLASH_BASE = {k: v for k, v in NEW_LAYOUT_PAYMENTS.items() if k != WORK_QA}
+
+
+@pytest.mark.spec("CAL-03-IT-07")
+@pytest.mark.parametrize(
+    "untracked",
+    [(SPEC_QA, AREA_QA), (), (AREA_QA,), (SPEC_QA,)],
+    ids=["both untracked", "both tracked", "area untracked", "spec untracked"],
+)
+def test_CAL_03_two_old_files_with_one_new_path_both_keep_their_content(
+    tmp_path: Path, untracked: tuple[str, ...]
+):
+    files = {**CLASH_BASE, SPEC_QA: "A\n", AREA_QA: "B\n"}
+    committed = {rel: text for rel, text in files.items() if rel not in untracked}
+    root = make_project(
+        tmp_path / "p", committed, uncommitted={rel: files[rel] for rel in untracked}
+    )
+    result = run_script(root)
+    assert result.returncode == 0, result.stderr
+    assert (root / WORK_QA).read_text() == "A\n"
+    assert (root / WORK_AREA_QA).read_text() == "B\n"
+    assert not (root / SPEC_QA).exists() and not (root / AREA_QA).exists()
+    assert (
+        f"same new path: {AREA_QA} -> {WORK_AREA_QA}, "
+        f"because {SPEC_QA} -> {WORK_QA}"
+    ) in result.stdout.splitlines()
+
+
+@pytest.mark.spec("CAL-03-IT-07")
+def test_CAL_03_taken_distinguishable_name_refuses_before_the_first_change(
+    tmp_path: Path,
+):
+    root = make_project(
+        tmp_path / "p",
+        {**CLASH_BASE, SPEC_QA: "A\n", AREA_QA: "B\n"},
+        uncommitted={WORK_AREA_QA: "C\n"},
+    )
+    before = porcelain(root)
+    result = run_script(root)
+    assert result.returncode == 2
+    assert WORK_AREA_QA in result.stderr
+    assert porcelain(root) == before
+
+
+@pytest.mark.spec("CAL-03-IT-07")
+def test_CAL_03_planned_moves_that_still_share_a_new_path_refuse(tmp_path: Path):
+    root = make_project(
+        tmp_path / "p",
+        {
+            **CLASH_BASE,
+            SPEC_QA: "A\n",
+            AREA_QA: "B\n",
+            "docs/spec/billing-area-qa-strategy.md": "C\n",
+        },
+    )
+    result = run_script(root)
+    assert result.returncode == 2
+    assert WORK_AREA_QA in result.stderr
+    assert porcelain(root) == ""
+
+
+@pytest.mark.spec("CAL-03-IT-07")
+def test_CAL_03_plain_move_never_replaces_an_existing_file(migrate, tmp_path: Path):
+    (tmp_path / "a").write_text("A\n")
+    (tmp_path / "b").write_text("B\n")
+    with pytest.raises(OSError):
+        migrate.Run(tmp_path).move("a", "b", tracked=False)
+    assert (tmp_path / "b").read_text() == "B\n"
+
+
 # ── CAL-03-IT-04: a failure partway undoes every move ───────────────────
 
 
@@ -1372,7 +1448,7 @@ class TestVocabulary:
             BILLING_CONTEXT.replace("## Language", "## Language\n")
             + "\n## Relationships\n\nBilling reads the ledger.\n"
         )
-        section, rest = migrate.convert_context(text, CONTEXT)
+        (section,), rest = migrate.convert_context(text, CONTEXT)
         assert section.heading == "Billing"
         assert section.rows == [
             (
@@ -1394,7 +1470,7 @@ class TestVocabulary:
 
     @pytest.mark.spec("CAL-06-CT-02")
     def test_CAL_06_definition_on_the_term_line_and_a_bar_in_a_cell(self, migrate):
-        section, rest = migrate.convert_context(
+        (section,), rest = migrate.convert_context(
             "## Language\n\n**A|B**: Either a or\nb.\n", "x/CONTEXT.md"
         )
         assert section.heading == "x/CONTEXT.md"
@@ -1405,20 +1481,50 @@ class TestVocabulary:
     def test_CAL_06_context_without_language_gives_no_terms(self, migrate):
         assert migrate.convert_context(ROUTING_ONLY, ARC42_CONTEXT) is None
 
-    @pytest.mark.spec("CAL-06-CT-02")
-    @pytest.mark.parametrize(
-        "body",
-        [
-            "Some prose first.\n",
-            "- **Invoice**: A bill.\n",
-            "**Invoice**:\n### Group\n",
-        ],
-    )
-    def test_CAL_06_language_section_outside_the_list_form_is_an_error(
-        self, migrate, body
+    @pytest.mark.spec("CAL-06-CT-03")
+    def test_CAL_06_subheading_becomes_a_section_of_its_own(self, migrate):
+        sections, rest = migrate.convert_context(
+            "# Billing\n\n## Language\n\n**Invoice**:\nA bill.\n\n"
+            "### Orders\n\n**Order**:\nA request to buy.\n_Avoid_: Purchase\n",
+            CONTEXT,
+        )
+        assert [(s.heading, s.rows) for s in sections] == [
+            ("Billing", [("Invoice", "A bill.", "")]),
+            ("Orders", [("Order", "A request to buy.", "Purchase")]),
+        ]
+        assert rest == "# Billing\n"
+
+    @pytest.mark.spec("CAL-06-CT-03")
+    def test_CAL_06_subheading_right_under_language_gives_no_empty_section(
+        self, migrate
     ):
-        with pytest.raises(migrate.ListFormError):
-            migrate.convert_context("# Billing\n\n## Language\n\n" + body, CONTEXT)
+        sections, _ = migrate.convert_context(
+            "# Billing\n\n## Language\n\n### Orders\n\n**Order**:\nA request to buy.\n",
+            CONTEXT,
+        )
+        assert [s.heading for s in sections] == ["Orders"]
+
+    @pytest.mark.spec("CAL-06-CT-03")
+    @pytest.mark.parametrize("bullet", ["-", "*"])
+    def test_CAL_06_bullet_term_becomes_a_row(self, migrate, bullet):
+        sections, _ = migrate.convert_context(
+            f"# Billing\n\n## Language\n\n{bullet} **Invoice**: A bill.\n"
+            f"{bullet} **Order**: A request to buy. _Avoid_: Purchase\n",
+            CONTEXT,
+        )
+        assert sections[0].rows == [
+            ("Invoice", "A bill.", ""),
+            ("Order", "A request to buy.", "Purchase"),
+        ]
+
+    @pytest.mark.spec("CAL-06-CT-03")
+    def test_CAL_06_text_before_the_first_term_stays_as_section_prose(self, migrate):
+        sections, _ = migrate.convert_context(
+            "# Billing\n\n## Language\n\nInvoices are bills.\n\n**Invoice**: A bill.\n",
+            CONTEXT,
+        )
+        assert sections[0].prose == "Invoices are bills."
+        assert sections[0].rows == [("Invoice", "A bill.", "")]
 
     @pytest.mark.spec("CAL-06-CT-02")
     def test_CAL_06_duplicate_terms_compare_without_markup_and_case(self, migrate):
@@ -1521,16 +1627,21 @@ class TestVocabulary:
         assert result.stdout == ""
         assert porcelain(root) == ""
 
-    @pytest.mark.spec("CAL-06-IT-01")
-    def test_CAL_06_language_section_outside_the_list_form_refuses(
-        self, tmp_path: Path
-    ):
-        text = "# Billing\n\n## Language\n\nInvoices are bills.\n"
+    @pytest.mark.spec("CAL-06-CT-03")
+    def test_CAL_06_old_context_format_converts_and_exits_0(self, tmp_path: Path):
+        text = (
+            "# Billing\n\n## Language\n\n- **Invoice**: A bill.\n\n"
+            "### Orders\n\n**Order**:\nA request to buy.\n"
+        )
         root = make_project(tmp_path / "p", {**NEW_LAYOUT_PAYMENTS, CONTEXT: text})
         result = run_script(root)
-        assert result.returncode == 2
-        assert CONTEXT in result.stderr
-        assert porcelain(root) == ""
+        assert result.returncode == 0, result.stderr
+        glossary = (root / GLOSSARY).read_text(encoding="utf-8")
+        assert _headings(glossary) == ["Billing", "Orders"]
+        assert ["Invoice", "A bill.", ""] in _rows(glossary)
+        assert ["Order", "A request to buy.", ""] in _rows(glossary)
+        assert f"{CONTEXT} -> {GLOSSARY}: 2 terms (Billing, Orders)" in result.stdout
+        assert (root / CONTEXT).read_text(encoding="utf-8") == "# Billing\n"
 
     @pytest.mark.spec("CAL-03-IT-04")
     @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
