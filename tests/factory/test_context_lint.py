@@ -1,7 +1,7 @@
 """Contract tests for factory/scripts/context-lint.
 
 Covers ACX-01 through ACX-10 and ACX-13 from
-docs/spec/agent-context-qa-strategy.md. ACX-01 through ACX-04 are the core
+docs/spec/work/agent-context-qa-strategy.md. ACX-01 through ACX-04 are the core
 CX-* finding codes: CX-FILE, CX-PARSE, CX-KEYS, CX-NULL. ACX-07 through
 ACX-09 cover CX-SRC-EXIST, CX-SRC-STALE, CX-GUIDE-REF. ACX-10 (CX-FORMAT)
 and ACX-13 (testing.yaml's CX-PARSE-only carve-out) are ST-0192 additions;

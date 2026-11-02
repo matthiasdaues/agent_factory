@@ -285,7 +285,7 @@ heading. A table directly under the chapter title becomes the section
 adds an empty Avoid column. A section without a table, such as a list of
 references, stays in chapter 12 below the link. A `CONTEXT.md` holds
 terms when it has a `## Language` section, as the
-[`CONTEXT.md` template](../../packages/factory/rulebooks/templates/context.md)
+`CONTEXT.md` template
 defines. The script moves its terms into `glossary.md` as a section of their
 own, named after the file's title, whether or not a glossary exists. It never
 stops on two vocabularies. It lists every term that appears in more than one

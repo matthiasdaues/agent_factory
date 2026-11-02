@@ -68,7 +68,7 @@ The stakeholder interview (ST-0199) should cover at minimum:
 
 - `backlog/ST-0199.md` — the story itself
 - `docs/proposals/yaml-charter-lifecycle.md` — the originating proposal
-- `docs/spec/agent-context.feature` — the behavioral spec
+- `docs/spec/features/agent-context.feature` — the behavioral spec
 - `.agent-factory/factory/rulebooks/conventions/testing-strategy.md` — the reframed testing strategy (on dev)
 - `.current-work/feature/agent-context/dispatch-ledger.yaml` — dispatch completion record
 

@@ -115,7 +115,7 @@ This preserves "tests run via factory mechanisms" while unblocking agent iterati
 ## References
 
 - docs/adr/0003-test-execution-via-hooks.md (Consequences § Negative)
-- docs/spec/supplementary_specs/validation-rules.md § BR-024
+- docs/spec/validation-rules.md § BR-024
 - docs/spec/use_cases/UC-09-run-tests-via-hook.md
 
 ## Category Rationale

@@ -22,7 +22,7 @@ impact:
     - .agent-factory/factory/scripts/commit-safe
     - .agent-factory/factory/scripts/verify-base
     - .agent-factory/factory/scripts/premerge-check
-    - docs/arc42/architecture.dsl
+    - docs/spec/architecture.dsl
 
 governance:
   assurance: high

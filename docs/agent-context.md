@@ -35,7 +35,7 @@ Read: .agent-factory/factory/skills/security-review/SKILL.md
 ### Architecture governance
 
 Architecture decisions and arc42 documentation.
-Read: docs/adr/*.md, docs/arc42/*.md, docs/arc42/architecture.dsl
+Read: docs/adr/*.md, docs/arc42/*.md, docs/spec/architecture.dsl
 
 ## Technical concerns
 

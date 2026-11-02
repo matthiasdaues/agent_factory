@@ -13,7 +13,7 @@ the key decisions.
 
 ## Completed Deliverables
 
-### Structurizr DSL (`docs/arc42/architecture.dsl`)
+### Structurizr DSL (`docs/spec/architecture.dsl`)
 
 - Workspace renamed from "Factory Flow Control" to "Agent Factory"
 - Added Cycle Engine container with 7 components: Cycle Model Loader, Readiness
@@ -61,13 +61,13 @@ the key decisions.
 ## Input Artifacts Referenced
 
 - `docs/proposals/cycle-based-orchestration.md` (accepted proposal)
-- `docs/spec/supplementary_specs/interface-contracts.md` (cycle command
+- `docs/spec/interface-contracts.md` (cycle command
   contracts)
-- `docs/spec/supplementary_specs/entity-model.md` (cycle orchestration
+- `docs/spec/entity-model.md` (cycle orchestration
   entities)
-- `docs/spec/supplementary_specs/state-machines.md` (workstream lifecycle,
+- `docs/spec/state-machines.md` (workstream lifecycle,
   delegation execution, retry state)
-- `docs/spec/supplementary_specs/validation-rules.md` (cycle model, state,
+- `docs/spec/validation-rules.md` (cycle model, state,
   session binding, workstream mutation, retry validation)
 
 ## Design Decisions Recorded

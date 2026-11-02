@@ -84,9 +84,9 @@ Open items: the 12 new story files in `backlog/` are untracked — the incoming 
 - `docs/proposals/contract-traced-testing-strategy.md` (superseded)
 - `backlog/ST-0147.md` through `backlog/ST-0158.md`
 - `docs/spec/use_cases/UC-09-run-tests-via-hook.md`
-- `docs/spec/prd.md`
-- `docs/spec/supplementary_specs/validation-rules.md`
-- `docs/spec/supplementary_specs/interface-contracts.md`
+- `docs/spec/work/prd.md`
+- `docs/spec/validation-rules.md`
+- `docs/spec/interface-contracts.md`
 - `docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md`
 - `docs/adr/0003-test-execution-via-hooks.md`
 - `docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`

@@ -19,7 +19,7 @@ impact:
     - .agent-factory/factory/config/hooks/block-dangerous-git.sh
     - .agent-factory/factory/scripts/commit-safe
     - .agent-factory/factory/docs/factory-guide.md
-    - docs/arc42/architecture.dsl
+    - docs/spec/architecture.dsl
 
 governance:
   assurance: critical

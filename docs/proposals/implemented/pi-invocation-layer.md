@@ -35,7 +35,7 @@ estimate:
 **Status:** Input to the `feature-addition` playbook (Phase 1, Requirements)
 **Scope:** Contained to the `.agent-factory/factory/` subproject — a new CLI-dispatch surface,
 not an overarching repository change. It extends the existing
-[Factory Flow Control spec](../../../docs/spec/prd.md) (domain: `.agent-factory/factory/` — the
+[Factory Flow Control spec](../../spec/work/prd.md) (domain: `.agent-factory/factory/` — the
 state-machine harness, dispatch mechanism, and generated catalog); it does not
 touch the `orchestrator/` subproject.
 **Scope size:** Large — new runtime component, a new model-callable tool, a
@@ -262,7 +262,7 @@ Code's Agent tool (`isolation: "worktree"`, simultaneous subagent spawns).
 ## 9. References
 
 - Pi scaffold commit: `e18fa48` on `bug/pi-init-factory`.
-- Factory spec this feature extends: [`docs/spec/prd.md`](../../../docs/spec/prd.md)
+- Factory spec this feature extends: [`docs/spec/prd.md`](../../spec/work/prd.md)
   (Factory Flow Control).
 - Guardrail port precedent: [`factory/config/extensions/block-dangerous-git.ts`](../../../.agent-factory/factory/config/extensions/block-dangerous-git.ts)
   and its shell twin `.agent-factory/factory/config/hooks/block-dangerous-git.sh`.

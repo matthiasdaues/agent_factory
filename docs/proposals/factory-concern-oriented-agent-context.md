@@ -164,17 +164,17 @@ Read: docs/handbook/testing/conventions.md, docs/handbook/testing/strategy.md
 ### backend
 Server-side application code: routes, models, services, repositories.
 Read: docs/handbook/backend/conventions.md, docs/handbook/backend/cookbook/*.md
-Boundary: docs/spec/supplementary_specs/interface-contracts.md
+Boundary: docs/spec/interface-contracts.md
 
 ### frontend
 Client-side application code: components, composables, views.
 Read: docs/handbook/frontend/conventions.md, docs/handbook/frontend/cookbook/*.md
-Boundary: docs/spec/supplementary_specs/interface-contracts.md
+Boundary: docs/spec/interface-contracts.md
 
 ### data-storage
 Database schema, migrations, query patterns.
 Read: docs/handbook/concepts/async-first.md
-Boundary: docs/spec/supplementary_specs/entity-model.md
+Boundary: docs/spec/entity-model.md
 
 ## Domain concerns
 
@@ -214,7 +214,7 @@ The concerns field is advisory — it tells the agent what is relevant, not what
 
 Agent and skill definitions reference two distinct kinds of files:
 
-**Factory-canonical artifacts** have fixed names, fixed structure, and a factory-defined contract. Examples: `architecture.dsl`, `scope-map.md`, `*.feature`, `backlog/ST-*.md`, `docs/spec/prd.md`, `testing.yaml`. Every factory project either has them or does not yet. These stay as concrete paths in agent and skill definitions — the path *is* the contract.
+**Factory-canonical artifacts** have fixed names, fixed structure, and a factory-defined contract. Examples: `architecture.dsl`, `scope-map.md`, `*.feature`, `backlog/ST-*.md`, `docs/spec/work/prd.md`, `testing.yaml`. Every factory project either has them or does not yet. These stay as concrete paths in agent and skill definitions — the path *is* the contract.
 
 **Project-native knowledge** varies by project in shape, location, and quantity. Examples: handbook conventions, cookbook recipes, concept docs, ADRs, supplementary specs. These are exactly what the concern registry exists for. Agent definitions replace their project-native file lists with concern references — "follow the concerns relevant to your work in `agent-context.md`" — and the registry provides the paths.
 

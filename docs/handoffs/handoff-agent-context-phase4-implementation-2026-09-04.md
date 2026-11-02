@@ -77,10 +77,10 @@ From `.agent-factory/factory/config/model.conf` -- Claude Code has no explicit e
 | Artifact                              | Path                                                                 |
 | ------------------------------------- | -------------------------------------------------------------------- |
 | Proposal (accepted)                   | `docs/proposals/yaml-charter-lifecycle.md`                           |
-| Gherkin spec                          | `docs/spec/agent-context.feature`                                    |
-| QA strategy with contract-owner table | `docs/spec/agent-context-qa-strategy.md`                             |
-| Gaps report                           | `docs/spec/agent-context-gaps.md`                                    |
-| Architecture (DSL + ADRs 0013, 0014)  | `docs/arc42/architecture.dsl`                                        |
+| Gherkin spec                          | `docs/spec/features/agent-context.feature`                           |
+| QA strategy with contract-owner table | `docs/spec/work/agent-context-qa-strategy.md`                        |
+| Gaps report                           | `docs/spec/work/agent-context-gaps.md`                               |
+| Architecture (DSL + ADRs 0013, 0014)  | `docs/spec/architecture.dsl`                                         |
 | EPICs                                 | `backlog/epics.md`                                                   |
 | Prior handoff (Phase 3 to Phase 4)    | `docs/handoffs/handoff-agent-context-phase3-to-phase4-2026-09-04.md` |
 | Testing charter                       | `docs/charter/testing.yaml`                                          |

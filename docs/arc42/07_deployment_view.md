@@ -57,6 +57,6 @@ by explicit operator action or `remove-factory`.
 
 ## Referenced from
 
-- [architecture.dsl](architecture.dsl) -- canonical `Deployment` view
+- [architecture.dsl](../spec/architecture.dsl) -- canonical `Deployment` view
 - [ADR-0015 -- Query authoritative JSONL with ephemeral DuckDB views](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)
-- [Interface contracts section Usage-analysis component lifecycle](../spec/supplementary_specs/interface-contracts.md#usage-analysis-component-lifecycle)
+- [Interface contracts section Usage-analysis component lifecycle](../spec/interface-contracts.md#usage-analysis-component-lifecycle)

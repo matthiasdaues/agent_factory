@@ -5,9 +5,9 @@ scope: global
 # EPICs — Value-First Onboarding Journey
 
 Proposal trace: [value-first-onboarding-journey.md](../docs/proposals/value-first-onboarding-journey.md)
-Specification trace: [value-first-onboarding-journey.feature](../docs/spec/value-first-onboarding-journey.feature)
+Specification trace: [value-first-onboarding-journey.feature](../docs/spec/features/value-first-onboarding-journey.feature)
 Architecture trace: [ADR-0023](../docs/adr/0023-update-transaction-with-approval-staging-and-rollback.md), Distribution container (§5.1)
-QA strategy trace: [value-first-onboarding-journey-qa-strategy.md](../docs/spec/value-first-onboarding-journey-qa-strategy.md)
+QA strategy trace: [value-first-onboarding-journey-qa-strategy.md](../docs/spec/work/value-first-onboarding-journey-qa-strategy.md)
 
 Dependency order: 1 → 2 → {3 ‖ 4}; 4 → 5; 4 → 6. EPIC 3 runs in parallel with EPIC 4. EPIC 5 depends on EPIC 4 (the first task follows first-session insight). The moderated protocol story in EPIC 6 additionally depends on EPIC 5.
 

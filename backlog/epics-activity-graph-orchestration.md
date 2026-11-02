@@ -5,7 +5,7 @@ scope: global
 # EPICs — Activity-Graph Orchestration
 
 Proposal trace: [activity-graph-orchestration.md](../docs/proposals/activity-graph-orchestration.md)
-Feature spec: [activity-graph-orchestration.feature](../docs/spec/activity-graph-orchestration.feature)
+Feature spec: [activity-graph-orchestration.feature](../docs/spec/features/activity-graph-orchestration.feature)
 
 ## EPIC 1: Evaluate preconditions and select an activity
 
@@ -377,8 +377,8 @@ The precondition evaluator (EPIC 1) filters candidates by workstream scope, but 
 2. Run `scope-lint`. The lint rejects the proposal and names the missing declaration.
 3. Add `scope: my-workstream` to the proposal frontmatter. Run `scope-lint` again. The lint rejects it: `my-workstream` is not a known workstream identifier.
 4. Create a workstream with identifier `my-workstream`. Run `scope-lint`. The proposal passes.
-5. Open `docs/spec/activity-graph-orchestration.feature`. The first line reads `# scope: activity-graph-orchestration`.
-6. Open `docs/arc42/architecture.dsl`. The first line reads `// scope: global`.
+5. Open `docs/spec/features/activity-graph-orchestration.feature`. The first line reads `# scope: activity-graph-orchestration`.
+6. Open `docs/spec/architecture.dsl`. The first line reads `// scope: global`.
 7. Open `docs/spec/supplementary_specs/entity-model.yaml`. The top-level YAML contains `scope: global`.
 8. Run `scope-lint` across all governed artifacts. All pass. An ADR under `docs/adr/` is skipped — non-governed artifacts need no scope declaration.
 

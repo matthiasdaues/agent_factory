@@ -16,7 +16,7 @@ Two updates are needed after this branch merges to dev:
 
 1. **UC-09 Feature Link stale**: The existing row for "Run project tests deterministically via mechanically triggered gates" points its Feature Link at `.agent-factory/factory/scripts/run-tests`, which was deleted. Update the Feature Link to `docs/charter/testing.yaml`, `.agent-factory/factory/config/hooks/block-dangerous-git.sh`, `.agent-factory/factory/scripts/phase`.
 
-2. **14 new Rules to add as `implemented`**: The following Rules from `docs/spec/test-gate-presence.feature` need scope-map rows with status `implemented` and Source `test-gate-presence.feature`:
+2. **14 new Rules to add as `implemented`**: The following Rules from `docs/spec/features/test-gate-presence.feature` need scope-map rows with status `implemented` and Source `test-gate-presence.feature`:
 
    - User declares project test commands via charter
    - FSM gate conditions resolve test command from charter

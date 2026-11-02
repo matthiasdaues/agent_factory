@@ -62,7 +62,7 @@ impact:
   architecture_change: false
   external_contract_change: true
   boundaries:
-    - docs/spec/supplementary_specs/interface-contracts.md
+    - docs/spec/interface-contracts.md
 
 governance:
   assurance: high

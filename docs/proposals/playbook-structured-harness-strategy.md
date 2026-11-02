@@ -39,7 +39,7 @@ estimate:
 
 Playbooks in [`factory/playbooks/`](../../.agent-factory/factory/playbooks/) are prose runbooks: a human reads one, opens an AI-CLI session per step, and drives the phase chain — requirements → spec-review → architecture → architecture-review → planning → implementation → reconciliation → qa — by hand. The deterministic gates ([`spec-lint`](../../.agent-factory/factory/scripts/spec-lint), [`arch-lint`](../../.agent-factory/factory/scripts/arch-lint), [`backlog-lint`](../../.agent-factory/factory/scripts/backlog-lint)) check whether an artifact is *valid*, not *which phase the run is in*. Nothing catches an out-of-order move — architecture artifacts committed before the spec gate passes, for example. Ordering is enforced only by the human following the prose.
 
-[`greenfield-development.fsm.yml`](../../.agent-factory/factory/playbooks/greenfield-development.fsm.yml) already declares states, gate conditions, and legal transitions in YAML — but nothing reads it at commit time. This memo proposes making one such file *authoritative*, enforced by a hook, with no external orchestrator, for a human driving one session at a time.
+`greenfield-development.fsm.yml` already declares states, gate conditions, and legal transitions in YAML — but nothing reads it at commit time. This memo proposes making one such file *authoritative*, enforced by a hook, with no external orchestrator, for a human driving one session at a time.
 
 ## 1. State-transition control via pre-commit
 
@@ -123,16 +123,16 @@ sequenceDiagram
 
 Authors: the `.fsm.yml` already carries `states`, `outputs`, `entry_conditions`, and `transitions`; the only new discipline is keeping `outputs:` globs honest, since the hook maps staged files through them. Users: one new habit — run `phase advance` at each phase boundary. The prose playbook stays hand-drivable without it.
 
-**Smallest viable first step:** don't convert every playbook. Make the existing [`greenfield-development.fsm.yml`](../../.agent-factory/factory/playbooks/greenfield-development.fsm.yml) enforcing for exactly one rule — architecture artifacts cannot be committed while the spec gate is unpassed — with the marker file and `phase advance` command. Run one real greenfield pass by hand. If the guardrail holds, extend to the remaining transitions, then to other playbooks. If it's fussy, the cost was one hook and one small file, not a rewrite of every runbook.
+**Smallest viable first step:** don't convert every playbook. Make the existing `greenfield-development.fsm.yml` enforcing for exactly one rule — architecture artifacts cannot be committed while the spec gate is unpassed — with the marker file and `phase advance` command. Run one real greenfield pass by hand. If the guardrail holds, extend to the remaining transitions, then to other playbooks. If it's fussy, the cost was one hook and one small file, not a rewrite of every runbook.
 
 ## Proof of concept
 
-The smallest viable slice from §3 is implemented and tested against [`greenfield-development.fsm.yml`](../../.agent-factory/factory/playbooks/greenfield-development.fsm.yml):
+The smallest viable slice from §3 is implemented and tested against `greenfield-development.fsm.yml`:
 
-- [`transition-lint`](../../.agent-factory/factory/scripts/transition-lint) — the pre-commit hook. It reads the marker, maps each staged file to the state whose `outputs:` globs it matches, and blocks any file that belongs to a state other than the current one. It does not evaluate `entry_conditions`; unlocking the next state is `phase advance`'s job. When the marker is absent the hook is a no-op. Wired as an always-run local hook in both [`factory/config/pre-commit-config.yaml`](../../.agent-factory/factory/config/pre-commit-config.yaml) and the repo's own `.pre-commit-config.yaml`.
-- [`phase advance`](../../.agent-factory/factory/scripts/phase) — the marker-advance command. It finds the current state's forward transition, checks the target state's `entry_conditions` against the `gate_conditions` library (`file_exists`, `files_exist`, `no_open_findings` implemented; `script_exit_zero` stubbed as passing), and refuses if any is unmet — closing the hand-advance loophole. On success it writes the extended marker of §2, with `recorded_at` taken from the process clock, never agent-supplied.
+- `transition-lint` — the pre-commit hook. It reads the marker, maps each staged file to the state whose `outputs:` globs it matches, and blocks any file that belongs to a state other than the current one. It does not evaluate `entry_conditions`; unlocking the next state is `phase advance`'s job. When the marker is absent the hook is a no-op. Wired as an always-run local hook in both [`factory/config/pre-commit-config.yaml`](../../.agent-factory/factory/config/pre-commit-config.yaml) and the repo's own `.pre-commit-config.yaml`.
+- `phase advance` — the marker-advance command. It finds the current state's forward transition, checks the target state's `entry_conditions` against the `gate_conditions` library (`file_exists`, `files_exist`, `no_open_findings` implemented; `script_exit_zero` stubbed as passing), and refuses if any is unmet — closing the hand-advance loophole. On success it writes the extended marker of §2, with `recorded_at` taken from the process clock, never agent-supplied.
 
-Tests: [`test_transition_lint.py`](../../tests/factory/test_transition_lint.py) and `test_phase_advance.py` (removed) prove the one rule end to end — architecture artifacts are blocked while a `SPEC-*` finding is open, the gate refuses to advance, and both lift once the finding is resolved.
+Tests: `test_transition_lint.py` and `test_phase_advance.py` (removed) prove the one rule end to end — architecture artifacts are blocked while a `SPEC-*` finding is open, the gate refuses to advance, and both lift once the finding is resolved.
 
 ## Alternatives weighed
 
@@ -149,4 +149,4 @@ Adopt a git-ignored run-state marker plus a `transition-lint` pre-commit hook, d
 ## Referenced from
 
 - [session-log-addendum.md § 2. Where the log lives, and how scripts write to it](session-log-addendum.md#2-where-the-log-lives-and-how-scripts-write-to-it)
-- [factory-guide.md § Playbook phase gates](../../.agent-factory/factory/docs/factory-guide.md#playbook-phase-gates)
+- [factory-guide.md § Playbook phase gates](../../.agent-factory/factory/docs/factory-guide.md)

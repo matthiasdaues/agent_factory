@@ -6,11 +6,11 @@
 
 This chapter describes key interaction sequences for Factory gates,
 eligibility evaluation, and local usage analysis. Dynamic views in
-[`architecture.dsl`](architecture.dsl) own the canonical step order.
+[`architecture.dsl`](../spec/architecture.dsl) own the canonical step order.
 
 ## 6.2 Agent Selection
 
-Derived from dynamic view `AgentSelection` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `AgentSelection` in [`architecture.dsl`](../spec/architecture.dsl).
 
 Agent selection is the primary routing operation. The `intent select` command loads agent definitions, evaluates each agent's declared preconditions against the repository, and presents per-agent eligibility evidence. The eligibility engine never writes state.
 
@@ -113,7 +113,7 @@ sequenceDiagram
 
 ## 6.4 Semantic Gate Loop
 
-Derived from dynamic view `SemanticGateLoop` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `SemanticGateLoop` in [`architecture.dsl`](../spec/architecture.dsl).
 
 The semantic gate loop runs after each developer-agent commit, before merge. The implementation-agent dispatcher owns execution. The developer agent never runs the gates; it only receives gate reports when a fix iteration is needed. See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md).
 
@@ -231,7 +231,7 @@ sequenceDiagram
 ## 6.6 Local Usage Query
 
 Derived from dynamic view `UsageQuery` in
-[`architecture.dsl`](architecture.dsl).
+[`architecture.dsl`](../spec/architecture.dsl).
 
 ```mermaid
 sequenceDiagram
@@ -262,7 +262,7 @@ returns each view's declared typed empty result.
 ## 6.7 Explicit Parquet Export
 
 Derived from dynamic view `UsageParquetExport` in
-[`architecture.dsl`](architecture.dsl).
+[`architecture.dsl`](../spec/architecture.dsl).
 
 ```mermaid
 sequenceDiagram
@@ -282,7 +282,7 @@ leaves an existing destination unchanged. No scheduled refresh exists.
 
 ## 6.8 OpenCode Permission Enforcement
 
-Derived from dynamic view `OpenCodePermissionEnforcement` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `OpenCodePermissionEnforcement` in [`architecture.dsl`](../spec/architecture.dsl).
 
 The Factory plugin enforces permissions and step boundaries for every tool invocation in an OpenCode session. The permission enforcer evaluates ordered allow, ask, and deny rules. Explicit denials are final and cannot be broadened by the plugin's permission hook.
 
@@ -316,7 +316,7 @@ sequenceDiagram
 
 ## 6.9 OpenCode Worktree Isolation
 
-Derived from dynamic view `OpenCodeWorktreeIsolation` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `OpenCodeWorktreeIsolation` in [`architecture.dsl`](../spec/architecture.dsl).
 
 The plugin isolates each dispatched child session in a Factory-managed worktree. The worktree strategy delegates branch and path creation to Factory scripts so that the Factory's naming, base, path, and verification rules remain authoritative.
 
@@ -356,7 +356,7 @@ The value-first onboarding journey guides a newcomer from diagnosis to one safe 
 
 ### 6.10.1 Sequence: Newcomer Installs a Verified Factory Release
 
-Derived from dynamic view `OnboardingInstallation` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `OnboardingInstallation` in [`architecture.dsl`](../spec/architecture.dsl).
 
 ```mermaid
 sequenceDiagram
@@ -396,7 +396,7 @@ sequenceDiagram
 
 ### 6.10.2 Sequence: Release Maintainer Builds Reproducible Assets
 
-Derived from dynamic view `ReleaseBuild` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `ReleaseBuild` in [`architecture.dsl`](../spec/architecture.dsl).
 
 ```mermaid
 sequenceDiagram
@@ -412,7 +412,7 @@ sequenceDiagram
 
 ### 6.10.3 Sequence: First Session Delivers Project Insight
 
-Derived from dynamic view `FirstSessionInsight` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `FirstSessionInsight` in [`architecture.dsl`](../spec/architecture.dsl).
 
 ```mermaid
 sequenceDiagram
@@ -465,11 +465,11 @@ sequenceDiagram
 ### 6.10.4 Sequence: First Task Runs in an Isolated Sandbox
 
 The shared execution paths are derived from dynamic views `FirstTaskLifecycle`
-and `FirstTaskLifecycleNoHead` in [`architecture.dsl`](architecture.dsl). The
+and `FirstTaskLifecycleNoHead` in [`architecture.dsl`](../spec/architecture.dsl). The
 first-task state machine owns the mutually exclusive discard, reference
 retention, and production-handoff branches.
 
-The first-task sandbox lifecycle follows the state machine at [`state-machines.md`](../spec/supplementary_specs/state-machines.md#first-task-sandbox-lifecycle) and the contract at [`interface-contracts.md`](../spec/supplementary_specs/interface-contracts.md#first-task-sandbox).
+The first-task sandbox lifecycle follows the state machine at [`state-machines.md`](../spec/state-machines.md#first-task-sandbox-lifecycle) and the contract at [`interface-contracts.md`](../spec/interface-contracts.md#first-task-sandbox).
 
 ```mermaid
 sequenceDiagram
@@ -530,7 +530,7 @@ sequenceDiagram
 
 ### 6.10.5 Sequence: Project Maintainer Updates an Installation
 
-Derived from dynamic views `UpdateTransaction` and `UpdateTransactionCheck` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic views `UpdateTransaction` and `UpdateTransactionCheck` in [`architecture.dsl`](../spec/architecture.dsl).
 
 The update transaction follows [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md), which supersedes ADR-0010 and ADR-0022 for the update path while preserving the layered first-install design.
 
@@ -584,7 +584,7 @@ sequenceDiagram
 
 ### 6.10.6 Sequence: Update Moves the Project into the Core Artifact Layout
 
-Derived from dynamic view `UpdateLayoutMigration` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `UpdateLayoutMigration` in [`architecture.dsl`](../spec/architecture.dsl).
 
 An update from a factory version before the layout release moves the project's files into the core artifact layout described in [8.16](08_crosscutting_concepts.md#816-where-specification-artifacts-live). The developer approves the update, not the move, and declining the update means no update.
 
@@ -624,7 +624,7 @@ sequenceDiagram
 
 ### 6.10.7 Sequence: Failed Layout Migration Rolls Back the Update
 
-Derived from dynamic view `UpdateLayoutMigrationRollback` in [`architecture.dsl`](architecture.dsl).
+Derived from dynamic view `UpdateLayoutMigrationRollback` in [`architecture.dsl`](../spec/architecture.dsl).
 
 ```mermaid
 sequenceDiagram
@@ -659,7 +659,7 @@ sequenceDiagram
 
 Full sequences for these flows are in their respective use cases:
 
-- **Agent dispatch (interactive vs. background)** -- [UC-04](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md)
+- **Agent dispatch (interactive vs. background)** -- `UC-04`
 
 ## Referenced from
 

@@ -326,7 +326,7 @@ steps:
     agent: requirements-agent
     inputs:
       - docs/proposals/<name>.md
-      - docs/spec/prd.md             # existing, if updating
+      - docs/spec/work/prd.md             # existing, if updating
     outputs:
       - docs/spec/prd-*.md
     max_input_tokens: 30000

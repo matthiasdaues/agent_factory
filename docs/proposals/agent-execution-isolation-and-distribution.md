@@ -20,7 +20,7 @@ impact:
     - .agent-factory/factory/scripts/verify-base
     - .agent-factory/factory/scripts/premerge-check
     - .agent-factory/factory/docs/factory-guide.md
-    - docs/arc42/architecture.dsl
+    - docs/spec/architecture.dsl
 
 governance:
   assurance: critical

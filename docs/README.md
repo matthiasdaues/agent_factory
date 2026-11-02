@@ -2,7 +2,7 @@
 
 arc42 architecture documentation for **Factory Flow Control** — the deterministic state-machine harness, CLI-agnostic dispatch mechanism, and generated catalog that govern how Agent Factory playbooks run.
 
-This documentation derives from the specification in [`spec/`](spec/prd.md). The domain vocabulary used throughout is defined in [12_glossary.md](arc42/12_glossary.md).
+This documentation derives from the specification in [`spec/`](spec/work/prd.md). The domain vocabulary used throughout is defined in [12_glossary.md](arc42/12_glossary.md).
 
 ## Table of Contents
 
@@ -18,14 +18,14 @@ This documentation derives from the specification in [`spec/`](spec/prd.md). The
 
 ## Model and diagrams
 
-- [`architecture.dsl`](arc42/architecture.dsl) — the Structurizr C4 model (versioned source of truth).
+- [`architecture.dsl`](spec/architecture.dsl) — the Structurizr C4 model (versioned source of truth).
 - [`assets/images/`](assets/images/) — exported diagrams (derived artifacts).
 - [`adr/`](adr/) — Architecture Decision Records (Nygard format + Pugh Matrix where genuine alternatives existed).
 
 ## Referenced from
 
 - [Agent Factory README](../README.md) (repo root)
-- [docs/spec/prd.md § Referenced from](spec/prd.md#referenced-from)
+- [docs/spec/prd.md § Referenced from](spec/work/prd.md#referenced-from)
 - [docs/arc42/concepts.md § The phase chain](arc42/concepts.md#the-phase-chain)
 
 ## See also

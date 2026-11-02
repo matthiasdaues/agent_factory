@@ -15,7 +15,7 @@ Upstream: agent_factory/dev
 Upstream SHA: bc92ba14fbeb59281f4614f4bbb0582072ba3e40
 Ahead: 0
 Behind: 0
-Working tree: user-owned modifications to `docs/proposals/newcomer-onboarding-and-incremental-brownfield.md`, `docs/spec/supplementary_specs/entity-   model.md`, `docs/spec/supplementary_specs/validation-rules.md`, `docs/spec/todos.md`, and `docs/spec/traceability.json`; user-owned untracked files `docs/   spec/newcomer-onboarding-gaps.md`, `docs/spec/newcomer-onboarding-qa-strategy.md`, `docs/spec/newcomer-onboarding.feature`, and `docs/spec/scope-map.md`;
+Working tree: user-owned modifications to `docs/proposals/newcomer-onboarding-and-incremental-brownfield.md`, `docs/spec/supplementary_specs/entity-   model.md`, `docs/spec/validation-rules.md`, `docs/spec/work/todos.md`, and `docs/spec/traceability.json`; user-owned untracked files `docs/   spec/newcomer-onboarding-gaps.md`, `docs/spec/work/newcomer-onboarding-qa-strategy.md`, `docs/spec/features/newcomer-onboarding.feature`, and `docs/spec/scope-map.md`;
 this handoff is the only run-tests planning addition
 Retained work: sole worktree on `dev`; the listed specification changes are unrelated user work and must not be reverted, reformatted wholesale, staged, or
 committed with the run-tests change
@@ -37,7 +37,7 @@ The change must:
 - Be developed test-first through the public `.agent-factory/factory/scripts/run-tests` CLI.
 - Preserve selected command exit codes.
 - Preserve the documented JSON summary contract.
-- Update [UC-09](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md) and [ADR-0003](../adr/0003-test-execution-via-hooks.md) where their documented precedence
+- Update `UC-09` and [ADR-0003](../adr/0003-test-execution-via-hooks.md) where their documented precedence
   contradicts this requirement.
 - Keep framework inference as a compatibility fallback.
 - Avoid absorbing consumer-project environment knowledge into Factory.

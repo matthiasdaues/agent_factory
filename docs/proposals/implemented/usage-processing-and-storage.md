@@ -19,8 +19,8 @@ impact:
     - packages/factory/contracts/usage-record/  # new: created by this feature
     - packages/usage/pyproject.toml
     - packages/usage/uv.lock
-    - docs/spec/supplementary_specs/interface-contracts.md
-    - docs/arc42/architecture.dsl
+    - docs/spec/interface-contracts.md
+    - docs/spec/architecture.dsl
     - docs/arc42/CONTEXT-MAP.md
 
 governance:
@@ -292,7 +292,7 @@ duplicate SQL accounting tests.
   Parquet, and boundary contracts at commit and phase boundaries.
 - [`dependency-check`](../../../packages/factory/scripts/dependency-check) owns the
   dependency rules declared in
-  [`architecture.dsl`](../../arc42/architecture.dsl): Factory must not depend on
+  [`architecture.dsl`](../../spec/architecture.dsl): Factory must not depend on
   Usage Analysis, and Usage Analysis must consume the published record contract
   without importing Factory implementation modules.
 - Runtime JSONL files are local evidence, not repository fixtures. Repository
@@ -337,7 +337,7 @@ the supported reader range is explicit before the change can merge.
 - A documented DuckDB UI launch path whose executable smoke check resolves the
   six-view query-model bootstrap without starting or fetching the UI. Actual
   launch remains optional local exploration, not gate evidence.
-- Updates to [`architecture.dsl`](../../arc42/architecture.dsl), derived arc42
+- Updates to [`architecture.dsl`](../../spec/architecture.dsl), derived arc42
   explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) that replace the
   PostgreSQL projector with the local Usage Analysis bounded context and its
   published-record dependency.
@@ -346,7 +346,7 @@ the supported reader range is explicit before the change can merge.
   `--remove usage` to uninstall — all manifest-tracked, data-safe, extending
   the existing argument model from CLI-only to CLI-and-component.
 - Update to
-  [`interface-contracts.md`](../../spec/supplementary_specs/interface-contracts.md)
+  [`interface-contracts.md`](../../spec/interface-contracts.md)
   documenting the new init-factory component operations and the
   `update-factory` boundary with installed components.
 - Quality gates and test ownership as specified above.
@@ -623,7 +623,7 @@ deferred dashboard products on 2026-09-11.
     [`dependency-check`](../../../packages/factory/scripts/dependency-check) owns
     the two architecture dependency rules. Both run locally and return non-zero
     on a blocking failure.
-13. [`architecture.dsl`](../../arc42/architecture.dsl), its derived arc42
+13. [`architecture.dsl`](../../spec/architecture.dsl), its derived arc42
     explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md) describe local
     JSONL-to-DuckDB analysis and contain no PostgreSQL projector or remote Usage
     Accounting dependency.
@@ -638,7 +638,7 @@ deferred dashboard products on 2026-09-11.
     entries without modifying data files. Capture continues writing after
     removal.
 17. Each distribution operation is idempotent: re-running it is a clean no-op.
-18. [`interface-contracts.md`](../../spec/supplementary_specs/interface-contracts.md)
+18. [`interface-contracts.md`](../../spec/interface-contracts.md)
     documents the new init-factory component operations (`--with-usage`,
     `--add usage`, `--update usage`, `--remove usage`) and the division of
     responsibility between `init-factory --update` (components) and
@@ -716,7 +716,7 @@ Disposition: findings
 | ------- | -------- | ----- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PROP-07 | major    | 02    | open   | **CLI-vs-component semantic overload in init-factory.** The proposal introduces `--add usage`, `--remove usage`, `--update usage`, and `--with-usage` to init-factory, but the current init-factory argparse constrains `--add` and `--remove` to `choices=KNOWN_CLIS` (claude, copilot, pi, codex) and has no `--update` subcommand at all (update is a separate `update-factory` script). "usage" is not a CLI — it is a fundamentally different kind of installable entity (a module copied from `packages/usage/` to `.agent-factory/usage-analysis/`) with different installation mechanics than CLI wiring (no dot-dirs, no symlinks, no guardrails, no capture hooks). The scope claims these operations are "consistent with the existing CLI add/remove pattern" without noting the semantic shift from a CLI namespace to a mixed CLI-and-component namespace. A planning agent implementing this would discover the argparse constraint and need to redesign the init-factory interface — undescribed design work. The proposal must either (a) describe how init-factory's argument model changes to accept components alongside CLIs, or (b) route component operations through a different mechanism. Additionally, the relationship between `init-factory --update usage` and the existing `update-factory` script is undefined: the Design section says `update-factory` detects version drift (line 428), but the actual update command is `init-factory --update usage` — the division of responsibility is not stated. |
 | PROP-08 | minor    | 02    | open   | **Distribution gate omits `--with-usage` path.** The quality gate's required proof for the distribution lifecycle tests mentions `--add usage`, `--update usage`, and `--remove usage` but does not mention the init-time `--with-usage` path. Completion criterion 14 and the scope section both include `--with-usage` as an installation path. The gate should cover all installation paths that the completion criteria assert.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| PROP-09 | minor    | 05    | open   | **Boundary reference without corresponding scope item.** `docs/spec/supplementary_specs/interface-contracts.md` is listed as a boundary and contains the init-factory interface contract (currently showing only `init-factory [--source DIR] [--target DIR]`). The proposal adds new operations to init-factory (`--with-usage`, `--add usage`, `--update usage`, `--remove usage`) but neither the scope nor any completion criterion requires updating the interface contracts document. Either add an interface-contracts update to scope, or remove the document from the boundary list if no update is intended.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| PROP-09 | minor    | 05    | open   | **Boundary reference without corresponding scope item.** `docs/spec/interface-contracts.md` is listed as a boundary and contains the init-factory interface contract (currently showing only `init-factory [--source DIR] [--target DIR]`). The proposal adds new operations to init-factory (`--with-usage`, `--add usage`, `--update usage`, `--remove usage`) but neither the scope nor any completion criterion requires updating the interface contracts document. Either add an interface-contracts update to scope, or remove the document from the boundary list if no update is intended.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ### Eight-check summary
 
@@ -786,13 +786,13 @@ Disposition: findings
 | ------- | -------- | ----- | ------------ | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PROP-01 | major    | 05    | confirmed    | confirmed      | All seven boundary paths resolve at the reviewed commit; the capture boundary remains the tracked `packages/factory/scripts/usage-capture` source.                                                 |
 | PROP-02 | minor    | 01    | confirmed    | confirmed      | Completion criterion 12 still names the exact pytest command from [`docs/testing.yaml`](../../testing.yaml) and the [`dependency-check`](../../../packages/factory/scripts/dependency-check) gate. |
-| PROP-03 | minor    | 02    | confirmed    | confirmed      | First-release scope still includes [`architecture.dsl`](../../arc42/architecture.dsl), its derived explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md).                               |
+| PROP-03 | minor    | 02    | confirmed    | confirmed      | First-release scope still includes [`architecture.dsl`](../../spec/architecture.dsl), its derived explanations, and [`CONTEXT-MAP.md`](../../arc42/CONTEXT-MAP.md).                                |
 | PROP-04 | minor    | 06    | confirmed    | confirmed      | The proposal still selects JSON Schema Draft 2020-12 plus a YAML ownership and compatibility manifest.                                                                                             |
 | PROP-05 | minor    | 08    | confirmed    | confirmed      | The estimate remains 25,000–55,000 normalized tokens and 450,000–990,000 consumed tokens at 18×, with low confidence.                                                                              |
 | PROP-06 | minor    | 04    | confirmed    | confirmed      | Motivation identifies the stale PostgreSQL design and completion criterion 13 requires its replacement in the architecture artifacts.                                                              |
 | PROP-07 | major    | 02    | resolved     | confirmed      | The distribution design still defines the CLI/component union, `installed_components`, and the responsibility split between `init-factory --update usage` and `update-factory`.                    |
 | PROP-08 | minor    | 02    | resolved     | confirmed      | The distribution lifecycle gate still covers `--with-usage`, `--add usage`, `--update usage`, and `--remove usage`.                                                                                |
-| PROP-09 | minor    | 05    | resolved     | confirmed      | [`interface-contracts.md`](../../spec/supplementary_specs/interface-contracts.md) remains in scope and completion criterion 18 defines its required update.                                        |
+| PROP-09 | minor    | 05    | resolved     | confirmed      | [`interface-contracts.md`](../../spec/interface-contracts.md) remains in scope and completion criterion 18 defines its required update.                                                            |
 
 ### New findings
 

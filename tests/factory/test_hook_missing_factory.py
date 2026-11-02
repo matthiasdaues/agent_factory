@@ -95,7 +95,6 @@ def test_key_set_to_false_counts_as_not_installed(hook_id, entry, bare_clone):
     assert result.stderr == ""
 
 
-@pytest.mark.xfail(strict=True, reason="repo hook block keeps old paths until ST-0343")
 def test_repo_config_factory_block_matches_template():
     """This repo's own factory block carries the same entries, so a
     refresh by update-factory (BUG-0110) changes none of them."""

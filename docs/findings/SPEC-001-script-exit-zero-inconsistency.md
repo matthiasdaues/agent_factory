@@ -20,8 +20,8 @@ UC-09 specifies phase advance invoking `run-tests` via `script_exit_zero` entry 
 ## Location
 
 - **Use Case**: docs/spec/use_cases/UC-09-run-tests-via-hook.md
-- **Supplementary Spec**: docs/spec/supplementary_specs/validation-rules.md
-- **Todo**: docs/spec/todos.md (T-03)
+- **Supplementary Spec**: docs/spec/validation-rules.md
+- **Todo**: docs/spec/work/todos.md (T-03)
 
 ## Evidence
 
@@ -43,7 +43,7 @@ UC-09 specifies phase advance invoking `run-tests` via `script_exit_zero` entry 
 
 **But validation-rules.md § Entry conditions** states:
 
-> - `script_exit_zero`: **always satisfied** in the current implementation — deliberately stubbed, not yet running the named script. See [T-03](../spec/todos.md#t-03-script_exit_zero-condition-type-is-stubbed--partially-resolved).
+> - `script_exit_zero`: **always satisfied** in the current implementation — deliberately stubbed, not yet running the named script. See [T-03](../spec/work/todos.md#t-03-script_exit_zero-condition-type--resolved).
 
 **And T-03 confirms**:
 
@@ -86,9 +86,9 @@ This preserves the complete specification while explicitly acknowledging the imp
 ## References
 
 - docs/spec/use_cases/UC-09-run-tests-via-hook.md
-- docs/spec/supplementary_specs/validation-rules.md § Entry conditions
-- docs/spec/todos.md § T-03
-- docs/spec/prd.md § FR-I5 (lists all three hooks without noting implementation status)
+- docs/spec/validation-rules.md § Entry conditions
+- docs/spec/work/todos.md § T-03
+- docs/spec/work/prd.md § FR-I5 (lists all three hooks without noting implementation status)
 
 ## Category Rationale
 

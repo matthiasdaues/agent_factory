@@ -137,7 +137,7 @@ documented exit point between them.
 
 **Stage 1 — Enough to work** (new default stopping point):
 
-- `docs/arc42/architecture.dsl` with system context and container views.
+- `docs/spec/architecture.dsl` with system context and container views.
 - `docs/spec/scope-map.md` populated with existing Rules, all marked
   `implemented`. Populated by the `reverse-map` skill (Design Section 4).
 - `CONTEXT.md` seeded with domain vocabulary extracted from type names,

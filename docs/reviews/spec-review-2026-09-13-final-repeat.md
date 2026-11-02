@@ -10,19 +10,19 @@ Disposition: **Fail** — one open Major defect blocks Architecture. One previou
 
 The final repeat review inspected the accepted [Local Usage Processing and Analysis proposal](../proposals/implemented/usage-processing-and-storage.md) and the proposal/specification artifacts named by the requirements-remediation handoff:
 
-- [agent-context.feature](../spec/agent-context.feature)
-- [local-usage-processing-and-analysis.feature](../spec/local-usage-processing-and-analysis.feature)
-- [local-usage-processing-and-analysis-gaps.md](../spec/local-usage-processing-and-analysis-gaps.md)
-- [local-usage-processing-and-analysis-qa-strategy.md](../spec/local-usage-processing-and-analysis-qa-strategy.md)
-- [prd.md](../spec/prd.md)
+- [agent-context.feature](../spec/features/agent-context.feature)
+- [local-usage-processing-and-analysis.feature](../spec/features/local-usage-processing-and-analysis.feature)
+- [local-usage-processing-and-analysis-gaps.md](../spec/work/local-usage-processing-and-analysis-gaps.md)
+- [local-usage-processing-and-analysis-qa-strategy.md](../spec/work/local-usage-processing-and-analysis-qa-strategy.md)
+- [prd.md](../spec/work/prd.md)
 - [scope-map.md](../spec/scope-map.md)
-- [test-design.feature](../spec/test-design.feature)
-- [test-gate-presence.feature](../spec/test-gate-presence.feature)
-- [test-design-qa-strategy.md](../spec/test-design-qa-strategy.md)
-- [entity-model.md](../spec/supplementary_specs/entity-model.md)
-- [interface-contracts.md](../spec/supplementary_specs/interface-contracts.md)
-- [validation-rules.md](../spec/supplementary_specs/validation-rules.md)
-- [todos.md](../spec/todos.md)
+- [test-design.feature](../spec/features/test-design.feature)
+- [test-gate-presence.feature](../spec/features/test-gate-presence.feature)
+- [test-design-qa-strategy.md](../spec/work/test-design-qa-strategy.md)
+- [entity-model.md](../spec/entity-model.md)
+- [interface-contracts.md](../spec/interface-contracts.md)
+- [validation-rules.md](../spec/validation-rules.md)
+- [todos.md](../spec/work/todos.md)
 
 `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` reported 0 errors, 0 warnings, and 27 information findings across 18 files.
 
@@ -53,7 +53,7 @@ Verified status changes and the newly filed Major finding are committed canonica
 | Finding                                                                                                                              | Artifact                                                                                                        | Category | Severity | Characteristic                   |
 | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | -------- | -------- | -------------------------------- |
 | [SPEC-0022](https://github.com/matthiasdaues/agent_factory/blob/7e88a413264bcc2de5540b02888a217ccabe6eed/docs/findings/SPEC-0022.md) | [usage-processing-and-storage.md](../proposals/implemented/usage-processing-and-storage.md#completion-criteria) | Defect   | Major    | Consistent, complete, verifiable |
-| [SPEC-0021](../findings/SPEC-0021.md)                                                                                                | [entity-model.md](../spec/supplementary_specs/entity-model.md#local-usage-analysis-entities)                    | Defect   | Minor    | Consistent, terminology          |
+| [SPEC-0021](../findings/SPEC-0021.md)                                                                                                | [entity-model.md](../spec/entity-model.md#local-usage-analysis-entities)                                        | Defect   | Minor    | Consistent, terminology          |
 
 [SPEC-0022](https://github.com/matthiasdaues/agent_factory/blob/7e88a413264bcc2de5540b02888a217ccabe6eed/docs/findings/SPEC-0022.md) records that the accepted proposal defines six ancestry failure codes but completion criterion 04 still requires fixture coverage for “all five,” and the operational-preflight gate's required proof omits `USAGE_ANCESTRY_PARENT_CONFLICT`. The feature and QA strategy assign the conflict to LU-05, so the accepted design origin and executable owner disagree on required deterministic coverage.
 

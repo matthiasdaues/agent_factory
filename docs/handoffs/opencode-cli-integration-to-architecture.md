@@ -43,21 +43,21 @@ Two adversarial review passes (all eight checks pass, all findings resolved).
 The requirements agent derived a full specification. Two spec review passes
 (deterministic spec-lint plus semantic inspection), all findings resolved.
 
-- Feature file: `docs/spec/opencode-cli-integration.feature` (11 Rules, 46 Scenarios)
+- Feature file: `docs/spec/features/opencode-cli-integration.feature` (11 Rules, 46 Scenarios)
 - Scope map: `docs/spec/scope-map.md` (17 new rows: 10 specified, 7 deferred)
-- Gaps report: `docs/spec/opencode-cli-integration-gaps.md` (5 open questions, 7 deferred items)
-- QA strategy: `docs/spec/opencode-cli-integration-qa-strategy.md` (31 contract owners, OCI-01 through OCI-30)
-- Entity model: `docs/spec/supplementary_specs/entity-model.md` (OpenCode entities section)
-- Interface contracts: `docs/spec/supplementary_specs/interface-contracts.md` (OpenCode contracts section)
-- State machines: `docs/spec/supplementary_specs/state-machines.md` (Plugin Health Lifecycle, Session Isolation Lifecycle)
-- Validation rules: `docs/spec/supplementary_specs/validation-rules.md` (OpenCode validation rules section)
+- Gaps report: `docs/spec/work/opencode-cli-integration-gaps.md` (5 open questions, 7 deferred items)
+- QA strategy: `docs/spec/work/opencode-cli-integration-qa-strategy.md` (31 contract owners, OCI-01 through OCI-30)
+- Entity model: `docs/spec/entity-model.md` (OpenCode entities section)
+- Interface contracts: `docs/spec/interface-contracts.md` (OpenCode contracts section)
+- State machines: `docs/spec/state-machines.md` (Plugin Health Lifecycle, Session Isolation Lifecycle)
+- Validation rules: `docs/spec/validation-rules.md` (OpenCode validation rules section)
 
 ## What is next
 
 The architecture agent should:
 
 1. Read the accepted proposal and reviewed specification.
-2. Update `docs/arc42/architecture.dsl` with OpenCode components, containers, and deployment views.
+2. Update `docs/spec/architecture.dsl` with OpenCode components, containers, and deployment views.
 3. Write or update arc42 chapters that the OpenCode integration touches (likely chapters 05 Building Block View, 06 Runtime View, 08 Crosscutting Concepts, 09 Architecture Decisions).
 4. Write ADRs for significant decisions (e.g., V2 plugin as enforcement boundary, model inheritance workaround, skill placement at `.agents/skills/`).
 

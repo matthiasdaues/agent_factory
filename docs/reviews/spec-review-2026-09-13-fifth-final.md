@@ -11,12 +11,12 @@ Canonical finding-status commit on `dev`: `fa5dd94bf49bb12fa238d48144f2e11d2bff5
 ## Reviewed Specification
 
 - [Accepted proposal](../proposals/implemented/usage-processing-and-storage.md)
-- [Feature specification](../spec/local-usage-processing-and-analysis.feature)
-- [Gaps report](../spec/local-usage-processing-and-analysis-gaps.md)
-- [QA strategy](../spec/local-usage-processing-and-analysis-qa-strategy.md)
-- [Entity model § Local Usage Analysis Entities](../spec/supplementary_specs/entity-model.md#local-usage-analysis-entities)
-- [Interface contracts § Local Usage Processing and Analysis](../spec/supplementary_specs/interface-contracts.md#local-usage-processing-and-analysis)
-- [Validation rules § Local usage processing and analysis](../spec/supplementary_specs/validation-rules.md#local-usage-processing-and-analysis)
+- [Feature specification](../spec/features/local-usage-processing-and-analysis.feature)
+- [Gaps report](../spec/work/local-usage-processing-and-analysis-gaps.md)
+- [QA strategy](../spec/work/local-usage-processing-and-analysis-qa-strategy.md)
+- [Entity model § Local Usage Analysis Entities](../spec/entity-model.md#local-usage-analysis-entities)
+- [Interface contracts § Local Usage Processing and Analysis](../spec/interface-contracts.md#local-usage-processing-and-analysis)
+- [Validation rules § Local usage processing and analysis](../spec/validation-rules.md#local-usage-processing-and-analysis)
 - Directly referenced context, PRD, scope-map, test-configuration, and concern-oriented contracts needed to verify prior findings
 
 `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` passed with 0 errors, 0 warnings, and 27 informational notices across 18 specification files.
@@ -27,11 +27,11 @@ Canonical finding-status commit on `dev`: `fa5dd94bf49bb12fa238d48144f2e11d2bff5
 
 ## Deterministic Findings
 
-| Finding                                                                                                                      | Artifact                                        | Category    | Severity | Disposition |
-| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ----------- | -------- | ----------- |
-| Eight unresolved todo entries remain; they are pre-existing, declared deferrals outside this bounded feature review.         | `docs/spec/todos.md`                            | Information | None     | Dismissed   |
-| Twenty-five business rules are defined but not referenced elsewhere; no local-usage rule is among them.                      | `docs/spec/`                                    | Information | None     | Dismissed   |
-| `EPIC_BUILDING_BLOCK` has no attribute block; this pre-existing entity-model notice is outside the local-usage entity slice. | `docs/spec/supplementary_specs/entity-model.md` | Information | None     | Dismissed   |
+| Finding                                                                                                                      | Artifact                    | Category    | Severity | Disposition |
+| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ----------- | -------- | ----------- |
+| Eight unresolved todo entries remain; they are pre-existing, declared deferrals outside this bounded feature review.         | `docs/spec/work/todos.md`   | Information | None     | Dismissed   |
+| Twenty-five business rules are defined but not referenced elsewhere; no local-usage rule is among them.                      | `docs/spec/`                | Information | None     | Dismissed   |
+| `EPIC_BUILDING_BLOCK` has no attribute block; this pre-existing entity-model notice is outside the local-usage entity slice. | `docs/spec/entity-model.md` | Information | None     | Dismissed   |
 
 ## Prior Finding Verification
 

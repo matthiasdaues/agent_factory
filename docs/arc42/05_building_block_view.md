@@ -79,10 +79,10 @@ Three additional on-demand validators enforce semantic code quality and architec
 
 **Referenced Specifications**:
 
-- [UC-09 -- Ensure Project-Owned Test Gates Exist](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md)
+- `UC-09 -- Ensure Project-Owned Test Gates Exist`
 - [ADR-0003 -- Test execution via mechanically triggered gates](../adr/0003-test-execution-via-hooks.md)
-- [test-gate-presence.feature](../spec/test-gate-presence.feature)
-- [validation-rules.md section Test execution (BR-023..BR-029)](../spec/supplementary_specs/validation-rules.md#project-owned-test-gates-testingyaml-br-023-br-024-br-025-br-026-br-027-br-028-br-029)
+- [test-gate-presence.feature](../spec/features/test-gate-presence.feature)
+- [validation-rules.md section Test execution (BR-023..BR-029)](../spec/validation-rules.md#project-owned-test-gates-testingyaml-br-023-br-024-br-025-br-026-br-027-br-028-br-029)
 
 ### 5.2.2 Research artifact validators (schema-validate, policy-validate)
 
@@ -110,10 +110,10 @@ The falsification-driven research feature validates its JSON artifacts through a
 
 Two deterministic scripts enforce semantic code quality after each developer-agent commit, owned by the implementation-agent dispatcher. They extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks (formatting, phase gating) to code meaning (complexity and dependency direction). See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) for the execution model decision.
 
-| Component            | What it checks                                                                                                                                   | Inputs                                      | Outputs                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- | ----------------------------------------------------------------- |
-| **crap-score**       | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP \<= 8 (Bob Martin default, overridable in `house-rules.md`) | Source files, coverage data                 | JSON report per function, logged to `.current-work/crap-score/`   |
-| **dependency-check** | Validates that module import directions match declarations in `architecture.dsl`                                                                 | `docs/arc42/architecture.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/` |
+| Component            | What it checks                                                                                                                                   | Inputs                                     | Outputs                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------- |
+| **crap-score**       | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP \<= 8 (Bob Martin default, overridable in `house-rules.md`) | Source files, coverage data                | JSON report per function, logged to `.current-work/crap-score/`   |
+| **dependency-check** | Validates that module import directions match declarations in `architecture.dsl`                                                                 | `docs/spec/architecture.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/` |
 
 Mutation testing is project-owned infrastructure. Factory encourages it: the `mutation-analysis` skill provides setup guidance, and the kit-manager carries it as an open question during charter setup until settled in `testing.yaml`. See [ADR-0012 section Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended).
 
@@ -135,7 +135,7 @@ A deterministic script that replaces manual architecture-change declarations wit
 
 **Interfaces:**
 
-- **IN:** `docs/arc42/architecture.dsl`, `docs/spec/supplementary_specs/interface-contracts.md`, `docs/spec/supplementary_specs/entity-model.md`
+- **IN:** `docs/spec/architecture.dsl`, `docs/spec/interface-contracts.md`, `docs/spec/entity-model.md`
 - **OUT (exit code):** 0 (no module-graph change, skip architecture), 1 (module-graph change detected, enter architecture)
 - **OUT (side effect):** Updates the proposal's `impact.architecture_change` field in frontmatter
 
@@ -167,9 +167,9 @@ The three required category headings are `## Always (cross-cutting)`, `## Techni
 
 **Referenced Specifications:**
 
-- [agent-context.feature](../spec/agent-context.feature)
-- [interface-contracts.md section concern-lint](../spec/supplementary_specs/interface-contracts.md#agent-factoryfactoryscriptsconcern-lint)
-- [validation-rules.md section Concern registry validation](../spec/supplementary_specs/validation-rules.md#concern-registry-validation-concern-lint-ctx--codes)
+- [agent-context.feature](../spec/features/agent-context.feature)
+- [interface-contracts.md section concern-lint](../spec/interface-contracts.md#agent-factoryfactoryscriptsconcern-lint)
+- [validation-rules.md section Concern registry validation](../spec/validation-rules.md#concern-registry-validation-concern-lint-ctx--codes)
 
 ## 5.3 Level 2: Component View -- Eligibility Engine
 
@@ -320,7 +320,7 @@ The **OpenCode Plugin** is a V2 plugin adapter that maps Factory safety controls
 | **Orientation Injector** | Injects `AGENTS.opencode.md` into session context via `session.hook("context")`; describes OpenCode tool names and session-start procedure                              | OpenCode Catalog           | (none)      |
 | **Health Monitor**       | Tracks plugin health lifecycle (UNLOADED → HEALTHY → UNHEALTHY); fails closed on initialization, manifest, permission, or worktree failures with named recovery actions | (none)                     | (none)      |
 
-The plugin implements a fail-closed trust model: any failure in initialization, manifest loading, permission evaluation, or worktree creation denies the operation and reports the specific failed control with a recovery action. The health lifecycle state machine is documented in [state-machines.md](../spec/supplementary_specs/state-machines.md).
+The plugin implements a fail-closed trust model: any failure in initialization, manifest loading, permission evaluation, or worktree creation denies the operation and reports the specific failed control with a recovery action. The health lifecycle state machine is documented in [state-machines.md](../spec/state-machines.md).
 
 ## Referenced from
 

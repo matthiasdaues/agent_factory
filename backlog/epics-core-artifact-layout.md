@@ -5,9 +5,9 @@ scope: global
 # EPICs — Core Artifact Layout
 
 Proposal trace: [core-artifact-layout.md](../docs/proposals/core-artifact-layout.md)
-Specification trace: [core-artifact-layout.feature](../docs/spec/core-artifact-layout.feature), [gaps report](../docs/spec/core-artifact-layout-gaps.md), [interface-contracts.md](../docs/spec/supplementary_specs/interface-contracts.md)
+Specification trace: [core-artifact-layout.feature](../docs/spec/features/core-artifact-layout.feature), [gaps report](../docs/spec/work/core-artifact-layout-gaps.md), [interface-contracts.md](../docs/spec/interface-contracts.md)
 Architecture trace: [ADR-0025](../docs/adr/0025-core-artifact-layout-under-docs-spec.md), [ADR-0026](../docs/adr/0026-layout-migration-runs-inside-the-factory-update.md)
-QA strategy trace: [core-artifact-layout-qa-strategy.md](../docs/spec/core-artifact-layout-qa-strategy.md)
+QA strategy trace: [core-artifact-layout-qa-strategy.md](../docs/spec/work/core-artifact-layout-qa-strategy.md)
 
 Dependency order: {E1, E3, E4, E7, E8} start in parallel; E1 → E2; {E1, E3} → E5; {E1, E2, E3} → E6; E1 to E8 → E9. E9 comes last. Before ST-0343 commits, the factory maintainer reinstalls the factory from `packages/factory/` with `update-factory`, so the agents and the factory hook block of this repository read the new paths. ST-0343 states this as its human touchpoint.
 
@@ -85,7 +85,7 @@ None at the EPIC level. The hook-block story needs the new hook template from E3
 - Gate used in the demo: `packages/factory/scripts/link-check` (unchanged)
 - Input: the factory hook template `packages/factory/config/pre-commit-config.yaml`
 - Output: the project's working tree and git index, the project's `.pre-commit-config.yaml`, terminal output
-- Contract: [interface-contracts.md § migrate-spec-layout](../docs/spec/supplementary_specs/interface-contracts.md#agent-factoryfactoryscriptsmigrate-spec-layout)
+- Contract: [interface-contracts.md § migrate-spec-layout](../docs/spec/interface-contracts.md#agent-factoryfactoryscriptsmigrate-spec-layout)
 - Tests: `tests/factory/test_migrate_spec_layout.py` (new)
 
 ### Domain Rules
@@ -177,7 +177,7 @@ E1 (the glossary step runs inside `migrate-spec-layout`).
 - Script: `packages/factory/scripts/migrate-spec-layout` (extend)
 - Input: `docs/arc42/12_glossary.md`, every `CONTEXT.md`, `docs/arc42/CONTEXT-MAP.md` as the list of per-context files
 - Output: `docs/spec/glossary.md` (new), `docs/arc42/12_glossary.md`, trimmed `CONTEXT.md` files, terminal output
-- Entity: [entity-model.md § Glossary Entities](../docs/spec/supplementary_specs/entity-model.md#glossary-entities)
+- Entity: [entity-model.md § Glossary Entities](../docs/spec/entity-model.md#glossary-entities)
 - Tests: `tests/factory/test_migrate_spec_layout.py` (extend)
 
 ### Domain Rules
@@ -259,7 +259,7 @@ None. Each gate is shown on a fixture in the new layout.
 
 - Scripts: `arch-lint`, `structurizr`, `dependency-check`, `scope-lint`, `statemachine-lint`, `spec-lint`, `link-check` in `packages/factory/scripts/`
 - Config: `packages/factory/config/pre-commit-config.yaml`, `packages/factory/config/hook-metadata.yaml`, the repository's `.pre-commit-config.yaml`
-- Contract: [interface-contracts.md](../docs/spec/supplementary_specs/interface-contracts.md), one section per gate
+- Contract: [interface-contracts.md](../docs/spec/interface-contracts.md), one section per gate
 - Tests: `test_arch_lint.py`, `test_scope_lint.py`, `test_spec_lint.py`, `test_precommit_config_contract.py`, and `test_core_layout_gates.py` (new) in `tests/factory/`
 
 ### Domain Rules
@@ -340,7 +340,7 @@ None. The fold reads `CONTEXT-MAP.md`, which the script leaves in place.
 - Script: `packages/factory/scripts/concern-lint` (check of the folded mark)
 - Template: `packages/factory/rulebooks/templates/context-map.md` (removed)
 - Output: `docs/agent-context.md`, rewritten links under `docs/`
-- Contract: [interface-contracts.md § capture-context --fold-context-map](../docs/spec/supplementary_specs/interface-contracts.md#capture-context---fold-context-map), [entity-model.md § Agent Context Entities](../docs/spec/supplementary_specs/entity-model.md#agent-context-entities)
+- Contract: [interface-contracts.md § capture-context --fold-context-map](../docs/spec/interface-contracts.md#capture-context---fold-context-map), [entity-model.md § Agent Context Entities](../docs/spec/entity-model.md#agent-context-entities)
 - Tests: `test_capture_context_fold.py` (new), `test_concern_lint.py`, `test_capture_context_update.py`, `test_value_first_routing.py` in `tests/factory/`
 
 ### Domain Rules
@@ -416,7 +416,7 @@ E1 (the update runs the script), E3 (the hook scenario needs the new template pa
 - Scripts: `packages/factory/scripts/init-factory`, `update-factory`, `merge-precommit-config`
 - Script called: `packages/factory/scripts/migrate-spec-layout`
 - Output: `.agent-factory/install.json`, the project's files and `.pre-commit-config.yaml`, terminal output
-- Contract: [interface-contracts.md § init-factory](../docs/spec/supplementary_specs/interface-contracts.md#factoryscriptsinit-factory) and § `update-factory`
+- Contract: [interface-contracts.md § init-factory](../docs/spec/interface-contracts.md#factoryscriptsinit-factory) and § `update-factory`
 - Tests: `test_init_factory.py`, `test_update_factory.py`, `test_merge_precommit_config.py` in `tests/factory/`
 
 ### Domain Rules

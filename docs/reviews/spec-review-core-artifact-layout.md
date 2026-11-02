@@ -20,9 +20,9 @@ No finding requires a change to the proposal's design. SPEC-0024 has one optiona
 
 Artifacts read:
 
-- [core-artifact-layout.feature](../spec/core-artifact-layout.feature): 15 Rules
-- [core-artifact-layout-gaps.md](../spec/core-artifact-layout-gaps.md): gaps CAL-G01 to CAL-G14
-- [core-artifact-layout-qa-strategy.md](../spec/core-artifact-layout-qa-strategy.md)
+- [core-artifact-layout.feature](../spec/features/core-artifact-layout.feature): 15 Rules
+- [core-artifact-layout-gaps.md](../spec/work/core-artifact-layout-gaps.md): gaps CAL-G01 to CAL-G14
+- [core-artifact-layout-qa-strategy.md](../spec/work/core-artifact-layout-qa-strategy.md)
 - [scope-map.md](../spec/scope-map.md): the 15 new rows
 - `git show d4a3c0b7 -- docs/spec/supplementary_specs`: changes to `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md`
 - [core-artifact-layout.md](../proposals/core-artifact-layout.md): the accepted proposal, for traceability

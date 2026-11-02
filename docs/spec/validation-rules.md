@@ -1,0 +1,452 @@
+# Validation Rules — Factory Flow Control
+
+Field- and behavior-level rules each mechanism enforces, grouped by the entity or mechanism they govern. Business rule IDs (BR-###) are defined here or in the use case that introduces them; this file is the canonical index.
+
+## Precondition types (`eligibility.py`)
+
+- `file_exists`: satisfied if `repo_root.glob(path)` yields at least one match.
+- `files_exist`: satisfied if every path in `paths` yields at least one glob match; the unmet reason lists every missing path by name.
+- `no_open_findings`: satisfied if zero matching finding files (by `pattern` or `patterns`, globbed under `docs/findings/`) have frontmatter `status: open`. A file whose frontmatter cannot be parsed (no leading `---` block) is not counted as open.
+- `script_exit_zero`: executes the named script and checks for exit code 0. When the `script` field uses the `charter:<field>` notation (e.g. `charter:test_command`), the evaluator reads the `charter_file` path from the condition, parses the YAML, and resolves the named field to the actual command before execution. Blocks with a clear message when the charter file is absent or the field is missing. See `UC-09` and [ADR-0003](../adr/0003-test-execution-via-hooks.md).
+- A precondition name with no matching evaluator is treated as unmet, with the reason `"<name> (not defined)"`.
+- Unmet preconditions are collected exhaustively, not short-circuited — a refusal always lists every unmet precondition, not just the first.
+
+## Glob matching (`outputs:` ownership)
+
+- `*` matches within one path segment; `**` matches across segments (`**/` also consumes a trailing `/`); `?` matches exactly one non-separator character. Every other character is matched literally.
+- A path can match more than one agent's output declarations. The fence runner validates all matching declarations.
+- A path matching no agent's `outputs:` declarations is ungoverned: `run-step` never treats it as evidence an agent's outputs exist.
+
+## Permission scoping (`trigger`, BR-011, BR-012, BR-013)
+
+- **Never** a blanket bypass: `--dangerously-skip-permissions` (Claude Code) and `--allow-all-tools` (Copilot CLI) are excluded from the background-mode command construction entirely — there is no flag path that reaches them from `trigger agent ... --background`.
+- **Never** a bare interpreter wildcard: an allowlist entry that only scopes the outer command while leaving `python3 *`, `uv *`, `uvx *`, or `npm *` unscoped is treated as equivalent to no scoping, and is excluded on that basis.
+- Every allowlist entry is derived from a command literally observed in this repo's own playbooks, skills, agents, and config files — grep-verified, not guessed ahead of a real need, per [YAGNI](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#yagni). Adding a new entry requires the same evidence standard.
+- Claude Code's allow/deny lists use its own `Bash(<cmd> *)` glob syntax; Copilot CLI's use its colon-wildcard `shell(<cmd>:*)` syntax. The two-word-prefix form (`shell(git commit:*)`) is confirmed against GitHub's own documentation; the three-word forms (`shell(uv run pytest:*)`) follow the same pattern but are unconfirmed — see [T-05](work/todos.md#t-05-copilot-clis-three-word-shell-wildcard-syntax-unconfirmed).
+- The deny list mirrors [`block-dangerous-git.sh`](../../.agent-factory/factory/config/hooks/block-dangerous-git.sh)'s own pattern list exactly — a second, independent layer, not a substitute for it.
+- `--interactive` mode constructs no allow/deny list at all; it launches a live session the actor controls directly, after printing the composed prompt (BR-013).
+
+## Phase handoff and result envelope (BR-037…BR-042)
+
+- **BR-037**: compression removes wording only. A valid handoff explicitly retains decisions, open items (including an explicit none), artifact paths, exact 40-character HEAD and other machine-consumed SHAs, branch/upstream state, gate results, verification evidence, and one next action.
+
+- **BR-038**: `handoff-lint` validates all mechanically observable requirements and reports all detectable failures in one run. Every declared referenced repository path must exist; every declared machine-consumed SHA must match `[0-9a-f]{40}`; required sections and declared branch/upstream, verification, open-decision, and next-action fields must be present and non-placeholder. Passing lint makes no claim about facts the author never declared.
+
+- **BR-049**: after structural lint passes, a designated Handoff Semantic Reviewer compares the handoff with the outgoing phase's artifacts, decisions, open items, and evidence. The reviewer alone confirms the losslessness invariant; an omission or distortion blocks closure until correction, repeated lint, and repeated semantic review pass.
+
+- **BR-039**: a phase transition is complete only after a valid handoff is written and the outgoing session stops. Starting the next phase within that session violates the workflow contract. A continuation within the same phase does not require a handoff.
+
+- **BR-040**: before child return, every complete report and finding is written to canonical tracked artifacts. The parent-facing envelope contains exactly the disposition, severity counts, complete artifact-path list, and a one-to-three-sentence next action; it does not contain verbatim finding detail or full reasoning.
+
+- **BR-041**: a potentially large artifact is initially read through a bounded offset/limit chunk. Further chunks are requested only when needed. No prose-only cache-restabilisation turn is required or recommended.
+
+- **BR-042**: derived usage metrics follow this deterministic contract:
+
+  1. The aggregation unit is one chronological, top-level assistant model-response turn in the captured session. Tool/progress events, child-session turns, and synthetic session aggregates are excluded. `N` is the number of these eligible turns.
+  2. `input_i` and `cache_read_i` are the native provider-reported per-turn values normalized without reinterpretation; the stored CLI and provider qualify their semantics.
+  3. Cache capability is `full-cache` only when every eligible turn has both values. For that class, turn `i` is a cache miss exactly when `input_i > 0` and `cache_read_i = 0`; `cache_miss_turns` is the count, and `cache_miss_input_tokens` is `sum(input_i)` over miss turns. A complete session with no misses stores numeric `0` for both.
+  4. Input capability is `input-only` when every eligible turn has `input_i` but at least one lacks `cache_read_i`. Both cache metrics are then `null`; no partial subset is aggregated.
+  5. Capability is `unavailable` when `N = 0` or any eligible turn lacks `input_i`. All three metrics are then `null`.
+  6. With complete input and `N >= 2`, let `k = max(1, floor(N / 3))`. Early is the first `k` eligible turns and late is the last `k`; the sets are disjoint. `late_early_input_ratio = mean(late input) / mean(early input)`. If `N < 2` or the early mean is zero, the ratio is `null`; no infinity or guessed substitute is stored.
+  7. The metrics are computed once at session end, stored with CLI, provider, and capability class, and consumed only retrospectively. They never control a live session.
+
+## Dispatch safeguard assurance (BR-043…BR-048)
+
+- **BR-043**: the audit matrix has one row per accepted mechanism and names its contract, runtime implementation point, automated evidence, and disposition (`complete` or `verified gap`).
+- **BR-044**: declared base SHAs and every SHA used in machine-consumed dispatch, gate, marker, or handoff state are lowercase 40-character hexadecimal object names; abbreviations are display-only.
+- **BR-045**: base-preflight evidence proves a child halts before source reads, writes, or commits when either the target is not an ancestor or the declared base is wrong.
+- **BR-046**: pre-merge evidence proves stale, out-of-scope, file-count-blowout, and target-reverting diffs block integration pending explicit investigation.
+- **BR-047**: nested-agent evidence requires a resolvable parent instance ID and forbids indefinite waiting on an unreachable child; unattended-launch evidence asserts actual argv and deny-list construction, excluding blanket bypass and bare-interpreter wildcards.
+- **BR-048**: scope-cap/checkpoint behavior is covered where mechanically enforceable; otherwise the audit records the contract evidence. A `complete` row creates no reimplementation story, while a `verified gap` may create only the smallest remediation needed to complete that row.
+
+## Catalog generation (`index-lint`, BR-015, BR-016)
+
+- Frontmatter parsing extracts scalar/folded-block-scalar keys (`name`, `title`, `phase`, `phase-name`, `category`, `description`, `tier`) and list-valued keys (`skills`, `inputs`) from `- item` lines. Other list-valued keys (`outputs`, `triggers`, `handoff-to`) are silently skipped. The `skills` and `inputs` lists are used to resolve agent dependencies for `total_tokens` computation.
+- An agent with no `name` frontmatter field is excluded from the catalog entirely — not an error, just absent.
+- A playbook's agent sequence is extracted from every `**Agent**: `x\`\` occurrence in file order, duplicates kept — a playbook that invokes the same agent twice (e.g. `implementation-agent` appearing once for the main chain) lists it once per occurrence.
+- `--check` mode performs the identical generation and diffs the result against disk; it is a plain text-content comparison, not a structural/semantic diff.
+
+## Origin/HEAD repair (`init-factory`, BR-050)
+
+- **BR-050**: Right after ensuring the target is a git repo, `init-factory` best-effort-repairs a dangling `origin/HEAD` symref — one pointing at a ref that no longer exists locally, most often left over from a remote's default branch moving from `master` to `main`. It tries `git remote set-head origin --auto` first (requires a reachable remote), then falls back to scanning locally-known `refs/remotes/origin/*` for `main` or `master` (preferring `main`) if the remote is unreachable. Unlike a `Collision` (BR-021), a repair failure is logged and swallowed — it never stops the run.
+
+## Installation collisions (`init-factory`, BR-021, BR-022)
+
+- A destination path is safe to proceed past only if it is missing, or already a symlink resolving to the exact expected target. Any other existing state (a real file, a real directory, or a symlink to something else) raises a `Collision`.
+- A `Collision` stops the entire run immediately — steps already completed earlier in the run stay applied; no step later than the collision point runs at all (BR-021).
+- `config/model.conf` is copied only if absent; its presence is checked once, and its content is never diffed or refreshed afterward (BR-022) — the same non-diffing treatment `.agent-factory/factory/` itself receives once already present.
+
+## Project-owned test gates (`testing.yaml`, BR-023, BR-024, BR-025, BR-026, BR-027, BR-028, BR-029)
+
+- **BR-023**: Factory does not detect or construct test commands. The project declares its test commands in `docs/testing.yaml`. Factory reads that declaration; it does not guess, detect, or override. The `detect-test-regime` skill scans for existing test entrypoints during onboarding and populates the charter; it is not a runtime detection mechanism.
+- **BR-024**: Bare test commands (`pytest`, `npm test`, `go test`, `cargo test`, and common variants) are blocked for agent execution via `block-dangerous-git.sh` deny patterns. The agent allowlist is populated from `docs/testing.yaml`: all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) are allowlisted with exact-string matching. No prefix matching. A command that differs from the declared string by even one character is denied.
+- **BR-025**: The `test_changed_command` field in `docs/testing.yaml` is optional. When present, it is the command the project uses for fast feedback on changed files. Factory does not engineer mode flags or substitute its own mode logic; the project owns its mode story.
+- **BR-026**: The `test_command` field in `docs/testing.yaml` is required. It is the full test suite command used by the `script_exit_zero` precondition evaluator. Factory calls it as-is from the repository root and reads only its exit code.
+- **BR-027**: Factory does not parse structured test output. The gate contract is exit-code-only: zero means pass, nonzero means fail. Structured test counts, JSON summaries, and reporting are the project's concern.
+- **BR-028**: The `test_staged_command` field in `docs/testing.yaml` is optional. When present, it is the command agents may use for TDD iteration on staged files. It is allowlisted in `block-dangerous-git.sh` with exact matching.
+- **BR-029**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure. The project decides when and how tests trigger on commit, push, or other events. The `agent_factory_hook-run-tests-full` entry that previously existed in Factory's pre-commit config is removed.
+
+The `script_exit_zero` precondition evaluator resolves `test_command` from `docs/testing.yaml` via the `charter:test_command` notation and reads its exit code; the pass/fail decision is exit-code-only (BR-027).
+
+## Anchor-file prerequisite (feature-addition)
+
+The `feature-addition` playbook checks that four anchor files exist before it proceeds. The brownfield Stage 1 exit (Step 2.6 of `brownfield-onboarding`) checks the same four files.
+
+- The four anchor files are `docs/spec/architecture.dsl`, `docs/spec/scope-map.md`, `docs/spec/glossary.md`, and `docs/agent-context.md`.
+- `docs/CONTEXT.md` is not an anchor file. The terms live in `docs/spec/glossary.md`, and the routing lives in `docs/agent-context.md` (DEC-07, DEC-12). Both must exist. No migrated project has a `docs/CONTEXT.md` (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)).
+- The check is file-existence only — no content validation, no gate marker, no structural inspection.
+- If all four exist, the prerequisite passes and the playbook proceeds normally.
+- If any file is missing, the playbook names each missing file and suggests running `brownfield-onboarding` to establish the baseline.
+- Full specification artifacts (`docs/spec/work/prd.md`, `docs/spec/features/*.feature`, and the other single-file core artifacts in `docs/spec/`) are optional inputs that deepen the process when present, not prerequisites.
+- The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
+
+See [core-artifact-layout.feature](features/core-artifact-layout.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md#notes). `newcomer-onboarding.feature` names the same four anchor files in its three anchor-file Rules (gap CAL-G15 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)).
+
+## Reverse-map confidence hierarchy
+
+The `reverse-map` skill assigns a confidence level to each scope-map row based on the source type. The hierarchy, from highest to lowest confidence:
+
+| Source type                      | Confidence  | Rationale                                  |
+| -------------------------------- | ----------- | ------------------------------------------ |
+| Passing test                     | verified    | Mechanically proven behavioral claim       |
+| Failing/skipped test             | flagged     | Documents intent, known broken or deferred |
+| Code entry point                 | high        | Exists and executes, but not test-verified |
+| Test fixture/factory             | medium-high | Reveals entity model and relationships     |
+| API spec (OpenAPI, Postman)      | medium      | Declared contract, may not match code      |
+| Repo docs (README, comments)     | medium-low  | Close to code, but often stale             |
+| External docs (Confluence, wiki) | low         | Furthest from code, most likely to drift   |
+| Stakeholder verbal claim         | lowest      | Tribal knowledge, unfindable elsewhere     |
+| Document-only (no code match)    | claimed     | Asserted by docs but unverifiable in code  |
+
+- A row's confidence is determined by its strongest supporting source.
+- The Sources column lists all contributing sources, not just the strongest.
+- Confidence levels are informational, not gatekeeping — no confidence level blocks feature work.
+
+See [newcomer-onboarding.feature](features/newcomer-onboarding.feature).
+
+## Referenced from
+
+- [entity-model.md](entity-model.md)
+- `UC-04`
+- `UC-06`
+- `UC-08`
+- `UC-09`
+- `UC-11`
+
+## Test-design validation (BR-051, BR-052, BR-053, BR-054, BR-055)
+
+- **BR-051**: The test-design skill requires `detect-test-regime` as a prerequisite. If `docs/testing.yaml` lacks a `testing_strategy:` link or a `suites:` section, the skill fails with a diagnostic message and produces no output. This is a hard prerequisite, not a fallback path.
+- **BR-052**: Test ownership is resolved in a single backlog-wide pass through `backlog/epics.md`. Each contract has exactly one owning story determined by dependency order: the story that introduces the contract's infrastructure or first exercises it (earliest in dependency-sorted order among stories that trace the contract). No contract is tested twice at the same layer.
+- **BR-053**: Risk-class classification follows a three-level precedence chain: `testing.yaml` `risk_classes:` overrides > project-linked strategy document > Factory convention defaults. The Factory convention defines three risk classes: `critical` (format: `forbidden`, budget: `unbounded`), `standard` (format: `scenario`, budget: `equivalence`), `structural` (format: `linter`). Projects may add custom risk classes; custom classes must define at least `format` and `budget`.
+- **BR-054**: The `test-design-verify` gate validates the trace-to-scenario resolution chain. Exit codes follow the gate convention: `0` = pass, `1` = validation failure, `2` = configuration error. The gate is conditionally active — it runs when the story has `#### Test Design` or `#### Prior Tests` sections and exits `0` with no findings when neither exists.
+- **BR-055**: The `gates` section in `docs/testing.yaml` configures individual gates (enabled/disabled, thresholds). It does not define execution ordering; [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence. The CRAP-score script reads `gates.crap_score.threshold` from `testing.yaml`, replacing the dead-code `read_threshold_from_house_rules()` function. When the `gates` section is absent, the script falls back to its hardcoded default of 30.
+
+## Concern registry validation (`concern-lint`, CTX-\* codes)
+
+`concern-lint` validates the single concern-oriented routing format. All findings are errors and make the command exit non-zero.
+
+| Code           | Condition                                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CTX-SECTIONS` | A required category is absent, or a concern lacks a description or `Read:` path                                                                            |
+| `CTX-PATHS`    | A repository-relative path or glob on a `Read:` or `Boundary:` line has no match                                                                           |
+| `CTX-REFS`     | A technical or domain name in story `concerns:` has no matching heading in `docs/agent-context.md`                                                         |
+| `CTX-LEGACY`   | `docs/agent-context.md` exists beside legacy YAML agent-context files or `docs/charter/`; `docs/testing.yaml` is the only accepted test-configuration path |
+
+- Category headings are exactly `## Always (cross-cutting)`, `## Technical concerns`, and `## Domain concerns`.
+- Cross-cutting concerns are always active and never repeated in story frontmatter.
+- Technical and domain concern names form a controlled vocabulary. The planning maintainer proposes and obtains confirmation for a new entry before a story uses it.
+- `capture-context --fold-context-map` writes one domain concern per context of a context map or a routing-only `CONTEXT.md`, and marks it as folded. A folded concern has a `Read:` path that passes `CTX-PATHS`. `capture-context --update --scan` keeps every folded concern, also when it is not a scope-map area. See [core-artifact-layout.feature](features/core-artifact-layout.feature).
+- `update-context` is retired and performs no write. The team maintains `docs/agent-context.md` directly.
+- `detect-test-regime` and test gates own the schema and values in `docs/testing.yaml`; concern validation does not parse test configuration.
+
+See [agent-context.feature](features/agent-context.feature) and [interface-contracts.md § concern-lint](interface-contracts.md#agent-factoryfactoryscriptsconcern-lint).
+
+## Dispatch ledger (`dispatch`)
+
+- `mark-dispatching`, `mark-dispatched`, `mark-blocked`, `mark-failed`, `re-dispatch`, and `escalate` are idempotent no-ops when the story is already in the target state or tier outcome.
+- `mark-failed` records an attempt entry with `session`, `tier`, `failure_class`, `evidence`, `commit_sha`, and `normalized_total`; a legacy ledger without `attempts` still loads as zero attempts.
+- `escalate` requires exactly one prior impl attempt with `acceptance_unmet` or `contradictory_evidence`, a passing `verify-base`, no scope violation, a non-strong current tier, and no earlier escalation in the same wave.
+- `close-wave <N>` refuses if any story in wave N is non-terminal.
+- `close-wave <N>` appends at most one closeout record for the wave. Re-running a successful close-wave is a no-op and does not duplicate the record.
+
+## Local usage processing and analysis
+
+These rules support the [local usage feature](features/local-usage-processing-and-analysis.feature).
+
+### Input and contract validation
+
+- Snapshot a sorted list of top-level `*.jsonl` files at query start. Do not recurse or admit lifecycle diagnostic files.
+- Validate every selected line. A valid line and a preflight failure are mutually exclusive and collectively exhaustive.
+- Report each failure with source file, one-based line number, field when applicable, and a stable failure code.
+- Validate usage objects against the installed JSON Schema Draft 2020-12 contract and the manifest's accepted version range.
+- Enforce identifiers, timestamps, declared nullability, non-negative counters, nested `transcript_ref` shape, and `normalized_total = normalized_input + normalized_output` outside schema where required.
+- Reject an unknown CLI. The supported CLI set and accounting registry keys must be exactly `claude-code`, `pi`, `codex`, `copilot`, and `opencode`.
+- Before selecting a latest snapshot, group evidence by `(cli, session_id, run_id)` and require one distinct `parent_run_id`, treating null as a value. If evidence disagrees, classify every snapshot for that key as `USAGE_ANCESTRY_PARENT_CONFLICT`; do not select one snapshot to establish or override the parent.
+- Partition logical runs by `(cli, session_id)` and require exactly one null-parent root, same-partition parent resolution for every non-root, no self-links, no cycles, and reachability of every run from the root.
+- Report malformed ancestry with `USAGE_ANCESTRY_ROOT_COUNT`, `USAGE_ANCESTRY_PARENT_MISSING`, `USAGE_ANCESTRY_PARENT_BOUNDARY`, `USAGE_ANCESTRY_SELF_PARENT`, or `USAGE_ANCESTRY_CYCLE`. Any ancestry failure blocks canonical accounting.
+
+### Snapshot and accounting validation
+
+- Normalize source paths relative to the selected usage directory: valid UTF-8, Unicode NFC per segment, `/` separators, no `.` segments, and rejection of absolute paths or `..` traversal.
+- Preserve `(normalized_source_path, source_line)` as evidence identity until canonical-run reduction; line numbers are positive and one-based.
+- For each supported CLI, define logical-run identity as `(cli, session_id, run_id)`. The invariant `parent_run_id` defines the validated rooted-tree ancestry but does not enter identity. Direct children name the unique root's run ID; descendants are the transitive closure of valid parent links. Evidence source, capture sequence, and record content are excluded from logical-run identity.
+- Select the latest cumulative snapshot by maximum `(capture_sequence, normalized_source_path, source_line)`. Compare capture sequence and line numerically and normalized paths by unsigned UTF-8 byte lexicographic order.
+- Claude Code total: latest root snapshot plus each distinct child run once.
+- Pi total: root record plus each distinct descendant run once.
+- OpenCode total: latest root snapshot plus each distinct child run once (matches Claude Code model).
+- Codex total: latest inclusive root snapshot; descendants provide attribution only.
+- GitHub Copilot CLI total: latest inclusive root snapshot; descendants provide attribution only.
+- Canonical session dimensions and timestamp come from the selected root snapshot. Additive descendant measures do not replace those dimensions.
+- Cache aggregation uses the same contributing logical-run set as the CLI's conservation rule.
+- Dimensional measures are additive over canonical session rows. Accept an ordered, duplicate-free subset of project, CLI, provider, model, agent, branch, and exit status plus time granularity `none`, `hour`, `day`, `week`, or `month`.
+- Default to no dimensions and time granularity `none`, producing one all-input total. Reject duplicate or unknown dimensions. Use UTC calendar truncation and ISO Monday week starts.
+- Preserve cache availability and input-only states. Do not replace unavailable values with zero.
+
+### Query and export validation
+
+- Publish exactly six stable views: `raw_usage_snapshots`, `latest_run_snapshots`, `session_usage`, `usage_by_dimension`, `cache_efficiency`, and `capture_health`.
+- Enforce the complete `query-model-v1` schema, key, nullability, and stable result ordering declared in [interface-contracts.md § Query-model-v1 schema contract](interface-contracts.md#query-model-v1-schema-contract) for non-empty and empty results.
+- Allow `capture_health` for any preflight outcome. Refuse every other stable view and all stable exports when any preflight failure exists.
+- Treat an empty input directory as valid and return each view's typed empty schema.
+- Ensure table, JSON, DuckDB relation, and PyArrow table outputs preserve view schema, logical rows, and null states.
+- Reject Pandas and Polars conversions in release 1.
+- Write Parquet to a temporary sibling, verify rows and schema, attach query-model and input-set provenance, then atomically replace the destination. Failure leaves an existing destination unchanged.
+- Never schedule or automatically refresh Parquet.
+
+### Privacy, dependency, and lifecycle validation
+
+- Read selected usage records only. Do not follow `transcript_ref`, recurse into transcript storage, or use a remote reader.
+- Keep analytical dependencies isolated from Factory capture. Capture succeeds when analysis is absent or corrupt.
+- Declare DuckDB and PyArrow as direct usage-analysis dependencies, pin a compatible pair and their transitive closure in the shipped lockfile, and reject an unlocked or incompatible dependency set.
+- Prove offline installation and query execution from a complete locked-artifact cache with network access disabled. Do not add DuckDB or PyArrow to Factory's dependency graph.
+- Verify the documented DuckDB UI launch command and query-model bootstrap without starting the UI or fetching assets; the bootstrap registers exactly the six published views.
+- Install analysis only on `--with-usage` or `--add usage`; record it under `installed_components`.
+- Update only the named component after compatibility succeeds. Remove only analysis on `--remove usage`. Both preserve `.agent-factory/usage/`.
+- Keep `update-factory` scoped to Factory core. Preserve installed components.
+- Keep `remove-factory` as a complete uninstall, including `.agent-factory/usage/`.
+- Repeating a successful component operation against its resulting state is a clean no-op.
+
+### Explicit deferrals
+
+Release 1 excludes persistent analytical databases, automatic Parquet materialization, notebooks, dashboard products, the community `dash` extension, services, containers, remote resources, centralized collection, access control, price catalogs, transcript-content indexing, automatic evidence retention or deletion, Pandas, and Polars.
+
+## Activity-Graph Orchestration Validation Rules
+
+Proposal trace: [activity-graph-orchestration.md](../proposals/activity-graph-orchestration.md).
+Feature trace: [activity-graph-orchestration.feature](features/activity-graph-orchestration.feature).
+
+### Workstream state validation
+
+Rules for `.agent-factory/workstreams/<workstream-id>.yaml`:
+
+1. `schema_version` must be `2`.
+2. `workstream_id` must be a non-empty string matching the filesystem-safe slug pattern `[a-z0-9][a-z0-9_-]*`.
+3. `topic` must be a non-empty string.
+4. `origin_ref` must be null or a valid repository-relative file path.
+5. No other fields may exist. The presence of `cycle`, `attempt`, `revision`, `delegation`, or `work` makes the file invalid.
+6. The file is immutable after creation. Any attempt to modify an existing state file must fail without changing it.
+
+### Session binding validation
+
+Rules for `.agent-factory/workstreams/sessions/<session-id>.yaml`:
+
+1. `session_id` must be a non-empty string.
+2. `workstream_id` must be present as a key. A known workstream identifier means the session is bound. Explicit `null` means Open Stage. A missing key fails validation.
+3. When `workstream_id` is not null, it must reference an existing workstream state file under `.agent-factory/workstreams/`.
+4. `bound_at` must be a valid UTC timestamp in ISO 8601 format.
+5. Selecting a different workstream updates `workstream_id` and `bound_at`. No workstream state file is modified.
+
+### Agent definition structural validation
+
+Rules for agent definition files under `packages/factory/agents/` (tracked source):
+
+1. `inputs` must contain `required` and `context` subkeys. Both may be empty lists.
+2. Each `inputs.required` entry must have `artifact` (string) and `path_pattern` (string). `conditions` is optional.
+3. Each condition must contain exactly one of: `field`+`value`, `field`+`one_of`, or `check`.
+4. `check` must reference a trusted validator by name — resolved to a bash script under `.agent-factory/factory/scripts/` or a Python validator under `.agent-factory/factory/engine/validators/`. Shell commands are rejected.
+5. `inputs.context` entries are plain path strings (no conditions, no artifact type).
+6. `outputs` must contain `minimum_changed` (non-negative integer) and `declarations` (list).
+7. Each output declaration must contain `path_pattern` (string), `validator` (string), and `required` (boolean). Missing fields make the agent definition invalid.
+8. `minimum_changed: 0` is valid and permits a legitimate no-output activity.
+
+### Skill definition structural validation
+
+Rules for skill definition files:
+
+1. Skills may have `inputs.context` (plain paths). They must not have `inputs.required`.
+2. Skills do not appear in the precondition graph.
+3. Skills do not declare `outputs` with validators or `minimum_changed`.
+
+### Scope declaration validation
+
+Rules for governed artifacts in the closed first-release set: proposals, epics, stories, Gherkin feature files, `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`.
+
+1. Every governed artifact must carry a `scope` declaration.
+2. The value must be either `global` or a known workstream identifier (one that has a state file under `.agent-factory/workstreams/`).
+3. Proposals carry `scope` in YAML frontmatter in place of `title`. The display name is in the document heading.
+4. Epics, stories, and `scope-map.md` carry `scope` in YAML frontmatter alongside other fields.
+5. `entity-model.yaml` carries `scope` as a top-level YAML field.
+6. Gherkin feature files carry `scope` as a first-line comment: `# scope: <value>`.
+7. Structurizr DSL (`architecture.dsl`) carries `scope` as a first-line comment in the same form as feature files: `# scope: global`. The older `// scope: global` form still passes.
+8. A governed artifact missing the declaration or carrying an unknown value is rejected at artifact creation time.
+9. Non-governed artifacts (ADRs, reviews, findings, research records, etc.) need no scope declaration.
+
+### Fence validation rules
+
+01. The fence runner snapshots the agent's declared output patterns before invocation.
+02. After the activity, each output declaration is checked against files created or modified.
+03. A required output with no created or modified match fails the fence.
+04. An optional output with no match is skipped. If it changed, its validator runs.
+05. The fence fails when fewer than `minimum_changed` declarations have a created or modified match.
+06. When one declaration matches several changed files, its validator receives the resolved file list in one invocation.
+07. When several declarations match, all applicable validators run.
+08. The aggregate fence passes only when every required output changed, the minimum was met, and every invoked validator passed.
+09. Per-output and aggregate evidence is stored at `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`.
+10. Fence failure does not block human action. Fence results are informational in human sessions.
+
+### Artifact precondition validation
+
+For each artifact type, the following mechanical validation checks apply. Semantic assessment (`intent assess`) is a separate, human-triggered layer.
+
+**Proposal.** File exists at the declared path. YAML frontmatter contains `scope` (workstream identifier, replacing `title`), `status`, and `owner`. Required sections exist. The `status` field satisfies the declared condition.
+
+**Scope map.** File exists at `docs/spec/scope-map.md`. Passes scope-map validation (`spec-lint`). Behavior identifiers are unique. Source references resolve to existing artifacts. Feature link references resolve to existing code.
+
+**Entity model.** File exists at `docs/spec/entity-model.yaml`. Passes LinkML metamodel validation. `linkml-lint` reports no errors. Every referenced class and slot resolves.
+
+**Architecture.** File exists at `docs/spec/architecture.dsl`. Passes Structurizr validation. Passes architecture lint (`arch-lint`). Referenced views resolve.
+
+**Feature specifications.** Every `.feature` file referenced by the scope map exists. Each file parses as valid Gherkin. First-line scope comment is present and valid.
+
+**Gaps report.** Required sections (actor-goal matrix, missing rules, ambiguous wording) exist. Every recorded gap has an identifier and a disposition.
+
+**Research brief.** Passes brief schema validation (`research-brief.schema.json`). `decision_needed` is the only delivery-link field. No `origin_cycle` or `return_cycle` fields exist.
+
+**Research report.** Passes route-specific validation (survey or falsification). References the originating brief. Records evidence disposition for each claim or source.
+
+## OpenCode CLI Integration Validation Rules
+
+Proposal trace: [opencode-cli-integration.md](../proposals/opencode-cli-integration.md).
+Feature trace: [opencode-cli-integration.feature](features/opencode-cli-integration.feature).
+
+### Installation validation
+
+1. Detection markers for OpenCode are `.opencode/`, `opencode.json`, and `opencode.jsonc`. The presence of any one marker selects OpenCode as an active CLI target.
+2. Explicit `--cli opencode` selection produces the same installation as auto-detection.
+3. The installer checks `opencode --version` before creating any OpenCode path. A version older than `1.18.31` stops installation and prints an upgrade instruction naming the minimum version.
+4. The installer creates `.opencode/INDEX.yaml`, `.opencode/agents/`, and links the plugin into `.opencode/plugins/`. Skills are placed at `.agents/skills/`.
+5. Every created OpenCode path is recorded in `.agent-factory/install.json` under the `opencode` CLI key.
+6. Repeated installation against the same project state produces no additional changes (idempotent).
+7. User-owned files under `.opencode/` are not overwritten, modified, or removed during installation or update.
+
+### Removal validation
+
+1. `remove-factory` removes every path listed in `.agent-factory/install.json` for the `opencode` CLI key.
+2. `remove-factory` does not remove user-owned OpenCode configuration (files not recorded in `.agent-factory/install.json`).
+
+### Coexistence validation
+
+1. A project with Pi, Codex, and OpenCode installed has exactly one root `AGENTS.md`.
+2. Adding OpenCode to an existing multi-CLI project does not modify the other CLIs' files.
+
+### Plugin permission validation
+
+1. The plugin evaluates allow rules first, ask rules second, and deny rules last.
+2. An explicit configured deny is final. The plugin's permission hook does not change a `deny` effect to `allow` or `ask`.
+3. A pre-tool hook reads the active step manifest and denies reads outside its declared inputs.
+4. A pre-tool hook reads the active step manifest and denies writes outside its declared outputs.
+5. Shell commands matching a denied Git pattern are denied before execution.
+6. Review agents whose definitions declare no write outputs receive read-only tool sets (write tools removed).
+7. Tool removal restricts the active agent to its declared tool set.
+8. Child sessions inherit session-scoped restrictions from the root session and apply their own generated agent permissions.
+
+### Plugin fail-closed validation
+
+1. The plugin fails closed when initialization fails. The Factory entry flow stops and the error names the failed control and the recovery action.
+2. The plugin fails closed when the step manifest cannot be read or parsed. Tool invocations are denied.
+3. The plugin fails closed when the permission evaluation hook encounters an error. Tool invocations are denied.
+4. The plugin fails closed when worktree creation fails. The dispatch is denied and the error names the recovery action.
+5. Usage capture failure does not trigger fail-closed behavior. Usage capture is best-effort.
+
+### Usage capture validation
+
+1. Completed root sessions produce one usage record following the existing usage contract with `cli: opencode`.
+2. Completed child sessions produce one usage record following the existing usage contract with `cli: opencode`.
+3. The root session's usage record does not include the child session's usage.
+4. Session completion does not reactivate the agent. No OpenCode-specific completion gate is introduced.
+5. Usage capture failure is reported but does not block the session.
+
+### Worktree isolation validation
+
+1. The plugin registers a worktree strategy through `ctx.worktree.transform()` with strategy ID `agent-factory`.
+2. Branch and worktree creation is delegated to Factory scripts. The Factory's naming, base, path, and verification rules remain authoritative.
+3. Each dispatched child receives its own branch and worktree under `.current-work/<feature-branch>/`.
+4. Each dispatched child verifies its declared base commit before reading or changing files.
+5. The primary checkout receives a session-scoped write denial while any child session is active in an isolated worktree.
+
+### Model configuration validation
+
+1. `model.conf` supports `opencode.economy`, `opencode.standard`, and `opencode.strong` entries.
+2. Model identifiers follow the `provider/model` format.
+3. A missing required tier halts dispatch with the existing `on_missing = halt` policy.
+4. Each generated OpenCode agent definition carries an explicit `model` field derived from its tier mapping in `model.conf`. This is the workaround for the model inheritance bug (OpenCode issue #49765).
+
+## Value-First Onboarding Validation Rules
+
+Proposal trace: [value-first-onboarding-journey.md](../proposals/value-first-onboarding-journey.md).
+Feature trace: [value-first-onboarding-journey.feature](features/value-first-onboarding-journey.feature).
+
+### Release and source validation
+
+- **VFO-001:** A release build emits exactly one bootstrap, Factory archive, and checksum manifest for the requested version.
+- **VFO-002:** Repeated builds from the same source tree and version produce the same archive SHA-256 digest.
+- **VFO-003:** Installation accepts exactly one source selector. `--version` is valid only for a remote source.
+- **VFO-004:** A remote archive is not extracted until its SHA-256 digest matches `SHA256SUMS` from the selected release base.
+- **VFO-005:** An update never changes the recorded source kind or remote URL without an explicit selector and separate confirmation.
+
+### Target and preflight validation
+
+- **VFO-006:** First installation requires `--target`. The target must resolve to an existing Git repository or empty directory.
+- **VFO-007:** The filesystem root, user home, unresolved paths, and unsupported target content are rejected without changes.
+- **VFO-008:** Supported hosts are native macOS and Linux on `x86_64` and `arm64`, plus the Linux path under Windows Subsystem for Linux.
+- **VFO-009:** Preflight produces exactly one readiness value: `Ready`, `Ready with limitations`, or `Blocked`.
+- **VFO-010:** Preflight does not install software or edit host or project files.
+- **VFO-011:** Every offered prerequisite fix identifies its purpose, command, scope, reversal, and verification command.
+- **VFO-012:** A fix runs only after affirmative consent. Blank input, cancellation, and refusal stop the fix sequence.
+- **VFO-013:** The related check must pass after a fix. Failure stops the sequence and produces recovery guidance.
+
+### Installation and instruction-file validation
+
+- **VFO-014:** Installation starts only after approval of a preview that names the source, version, target, interfaces, affected paths, instruction files, and uninstall command.
+- **VFO-015:** Blank interface selection chooses one interface only when one detected active interface is unambiguous. It never means all interfaces.
+- **VFO-016:** The receipt lists only paths changed by the completed installation and gives one exact next command.
+- **VFO-017:** Instruction discovery visits existing regular `AGENTS.md` and `copilot-instructions.md` files outside the documented exclusions.
+- **VFO-018:** Instruction discovery does not follow external symlinks or create missing nested instruction files.
+- **VFO-019:** Each discovered instruction file contains at most one marker-delimited Factory header.
+- **VFO-020:** The manifest records enough original state to update or remove only the Factory header and restore the prior newline state.
+
+### Update validation
+
+- **VFO-021:** `update-factory --check` performs no writes.
+- **VFO-022:** A remote update verifies and stages all replacement content before applying any change.
+- **VFO-023:** An application failure restores the previous Factory tree and instruction headers.
+- **VFO-024:** Modified Factory-owned files stop update unless the user explicitly selects the preservation flow.
+- **VFO-025:** A successful update records the resolved version or local revision, source, remote digest when applicable, and changed paths.
+
+### First-session and configuration validation
+
+- **VFO-026:** The initial project scan distinguishes observations, unknowns, and recommendations and performs no writes.
+- **VFO-027:** Context capture starts only after onboarding explains its scan, decisions, single output, validation, and consumers.
+- **VFO-028:** Onboarding defines `concern` as a routing topic before using the term without a paraphrase.
+- **VFO-029:** Deferring or cancelling context capture before scanning produces no scan and no output file.
+- **VFO-030:** The gate demonstration runs on a Factory-owned disposable fixture, removes the fixture, and leaves the target project unchanged.
+- **VFO-031:** Consumer hook configuration omits `index-lint` and any trigger that can match only ignored Factory runtime paths.
+- **VFO-032:** `matrix-lint` runs after model configuration and before dispatch.
+
+### First-task validation
+
+- **VFO-033:** First-task approval is affirmative and follows a preview of the goal, duration, artifacts, decisions, and cleanup.
+- **VFO-034:** A repository with `HEAD` uses a detached worktree from that commit. A repository without `HEAD` uses a plain sandbox.
+- **VFO-035:** The sandbox path is `.current-work/onboarding-spike/<session-id>/`. The first task creates no branch or commit.
+- **VFO-036:** Retention copies only separately confirmed artifacts to a named path under `docs/spikes/`.
+- **VFO-037:** Discard verifies sandbox removal. Production handoff requires separate approval and never promotes the sandbox.

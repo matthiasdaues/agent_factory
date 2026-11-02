@@ -374,4 +374,4 @@ ______________________________________________________________________
 
 - .agent-factory/factory/playbooks/bug-fix.fsm.yml (tests_pass condition)
 - .agent-factory/factory/rulebooks/conventions/foundational-principles.md (validation principle)
-- docs/spec/supplementary_specs/validation-rules.md (script_exit_zero)
+- docs/spec/validation-rules.md (script_exit_zero)

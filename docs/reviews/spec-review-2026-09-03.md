@@ -2,21 +2,21 @@
 
 **Date:** 2026-09-03\
 **Reviewer:** spec-review-agent\
-**Specification:** `docs/spec/agent-context.feature` (10 Rules, 56 Scenarios)\
+**Specification:** `docs/spec/features/agent-context.feature` (10 Rules, 56 Scenarios)\
 **Proposal trace:** `docs/proposals/yaml-charter-lifecycle.md`
 
 ## Reviewed Specification
 
 Artifacts read:
 
-- `docs/spec/agent-context.feature` -- 10 Rules, 56 Scenarios
-- `docs/spec/agent-context-gaps.md` -- completeness report
-- `docs/spec/agent-context-qa-strategy.md` -- per-feature QA strategy
+- `docs/spec/features/agent-context.feature` -- 10 Rules, 56 Scenarios
+- `docs/spec/work/agent-context-gaps.md` -- completeness report
+- `docs/spec/work/agent-context-qa-strategy.md` -- per-feature QA strategy
 - `docs/spec/scope-map.md` -- 10 new rows with status "specified"
-- `docs/spec/supplementary_specs/entity-model.md` -- agent-context entities section
-- `docs/spec/supplementary_specs/interface-contracts.md` -- context-lint CLI contract
-- `docs/spec/supplementary_specs/state-machines.md` -- mode lifecycle state machine
-- `docs/spec/supplementary_specs/validation-rules.md` -- CX-\* validation rules
+- `docs/spec/entity-model.md` -- agent-context entities section
+- `docs/spec/interface-contracts.md` -- context-lint CLI contract
+- `docs/spec/state-machines.md` -- mode lifecycle state machine
+- `docs/spec/validation-rules.md` -- CX-\* validation rules
 - `docs/proposals/yaml-charter-lifecycle.md` -- accepted proposal (design origin)
 - `docs/arc42/12_glossary.md` -- domain vocabulary
 
@@ -27,7 +27,7 @@ Artifacts read:
 | Finding                                                              | Source                           | Severity | Disposition                                                             |
 | -------------------------------------------------------------------- | -------------------------------- | -------- | ----------------------------------------------------------------------- |
 | TRACE002: 8 BR-\* references not defined in a Business Rules section | Pre-existing spec files          | warning  | Dismissed -- pre-existing, not agent-context-related                    |
-| TODO001: 8 unresolved todo items                                     | `docs/spec/todos.md`             | info     | Dismissed -- pre-existing                                               |
+| TODO001: 8 unresolved todo items                                     | `docs/spec/work/todos.md`        | info     | Dismissed -- pre-existing                                               |
 | TRACE003: 19 BR-\* definitions unreferenced                          | Pre-existing validation-rules.md | info     | Dismissed -- pre-existing, referenced within prose not cross-ref format |
 | TRACE004: EPIC_BUILDING_BLOCK has no attribute block                 | Pre-existing entity-model.md     | info     | Dismissed -- pre-existing test-design entity                            |
 
@@ -35,13 +35,13 @@ No deterministic findings attributable to the agent-context specification.
 
 ## Semantic Findings (Pass 2)
 
-| ID                                    | Finding                                                                                                                                             | Artifact                                            | Characteristic | Category   | Severity |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | -------------- | ---------- | -------- |
-| [SPEC-0012](../findings/SPEC-0012.md) | .feature @ references use pre-rename paths (capture-charter, update-charter, charter-lint instead of capture-context, update-context, context-lint) | `docs/spec/agent-context.feature`                   | Consistent     | Defect     | Major    |
-| [SPEC-0013](../findings/SPEC-0013.md) | CX-MODE severity (info) contradicts field-level rule that mode must be primary or index -- invalid mode values pass unchecked                       | `docs/spec/supplementary_specs/validation-rules.md` | Consistent     | Defect     | Major    |
-| S-01                                  | Term "concern" (reading-guide routing axis) is undefined in the glossary                                                                            | `docs/arc42/12_glossary.md`                         | Terminology    | Suggestion | Minor    |
-| S-02                                  | "Path updates completed across all factory consumers" scenario uses universal quantifier -- verifiable only by grep, not a unit test runner         | `docs/spec/agent-context.feature`                   | Verifiable     | Suggestion | Minor    |
-| S-03                                  | Gaps report correctly identifies two ambiguous wordings; suggested fixes are adequate                                                               | `docs/spec/agent-context-gaps.md`                   | Unambiguous    | Suggestion | Minor    |
+| ID                                    | Finding                                                                                                                                             | Artifact                                   | Characteristic | Category   | Severity |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------- | ---------- | -------- |
+| [SPEC-0012](../findings/SPEC-0012.md) | .feature @ references use pre-rename paths (capture-charter, update-charter, charter-lint instead of capture-context, update-context, context-lint) | `docs/spec/features/agent-context.feature` | Consistent     | Defect     | Major    |
+| [SPEC-0013](../findings/SPEC-0013.md) | CX-MODE severity (info) contradicts field-level rule that mode must be primary or index -- invalid mode values pass unchecked                       | `docs/spec/validation-rules.md`            | Consistent     | Defect     | Major    |
+| S-01                                  | Term "concern" (reading-guide routing axis) is undefined in the glossary                                                                            | `docs/arc42/12_glossary.md`                | Terminology    | Suggestion | Minor    |
+| S-02                                  | "Path updates completed across all factory consumers" scenario uses universal quantifier -- verifiable only by grep, not a unit test runner         | `docs/spec/features/agent-context.feature` | Verifiable     | Suggestion | Minor    |
+| S-03                                  | Gaps report correctly identifies two ambiguous wordings; suggested fixes are adequate                                                               | `docs/spec/work/agent-context-gaps.md`     | Unambiguous    | Suggestion | Minor    |
 
 ## Traceability Summary
 

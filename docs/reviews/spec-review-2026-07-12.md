@@ -15,9 +15,9 @@ ______________________________________________________________________
 
 **Updated Files:**
 
-- docs/spec/prd.md (added Goal G9, Functional Requirements FR-I1..FR-I6)
+- docs/spec/work/prd.md (added Goal G9, Functional Requirements FR-I1..FR-I6)
 - docs/spec/actor-goal-list.md (added AG-09)
-- docs/spec/supplementary_specs/validation-rules.md (added Test execution section, BR-023..BR-027)
+- docs/spec/validation-rules.md (added Test execution section, BR-023..BR-027)
 
 **Deterministic Validation:**
 

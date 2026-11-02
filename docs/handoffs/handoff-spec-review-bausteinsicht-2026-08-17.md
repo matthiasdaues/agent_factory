@@ -75,9 +75,9 @@ Contradicting artifacts:
 ## Artifacts Requiring Update
 
 - `docs/spec/use_cases/UC-13-synchronize-model-and-diagram.md` -- step 5, extension 5a
-- `docs/spec/supplementary_specs/validation-rules.md` -- BR-051
+- `docs/spec/validation-rules.md` -- BR-051
 - `docs/spec/prd-architecture-modeling.md` -- FR-AM-A2, FR-AM-A3
-- `docs/spec/supplementary_specs/interface-contracts.md` -- sync subcommand description
+- `docs/spec/interface-contracts.md` -- sync subcommand description
 - `docs/spec/traceability.json` -- regenerate after updates
 
 ## Artifacts Reviewed (no modification needed)
@@ -89,8 +89,8 @@ Contradicting artifacts:
 - `docs/spec/use_cases/UC-16-migrate-from-structurizr-dsl.md`
 - `docs/spec/use_cases/UC-17-validate-architecture-at-commit.md`
 - `docs/spec/use_cases/system-use-cases.md`
-- `docs/spec/supplementary_specs/entity-model.md`
-- `docs/spec/todos.md`
+- `docs/spec/entity-model.md`
+- `docs/spec/work/todos.md`
 
 ## Standing Action Item (user directive, carries forward)
 

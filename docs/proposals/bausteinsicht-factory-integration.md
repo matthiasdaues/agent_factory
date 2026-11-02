@@ -213,7 +213,7 @@ image staleness).
 Existing Factory projects migrate with a one-time import:
 
 ```bash
-.agent-factory/factory/scripts/bausteinsicht import docs/arc42/architecture.dsl
+.agent-factory/factory/scripts/bausteinsicht import docs/spec/architecture.dsl
 ```
 
 This produces `architecture.jsonc` and an initial `architecture.drawio`. After

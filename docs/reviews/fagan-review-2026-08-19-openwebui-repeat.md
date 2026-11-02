@@ -34,17 +34,17 @@ prior: fagan-review-2026-08-19-openwebui.md
 
 ## Prior suggestions and questions
 
-| Item                                  | Status                                                                                                                |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| S1 — local-host/userinfo edge cases   | closed by `normalizeBaseUrl` (userinfo now hard-rejected)                                                             |
-| S2 — extra args silently dropped      | closed for `/register` (`parts.length > 3` → usage error); still open for `/unregister` → S8                          |
-| S3 — generic command names            | declined by the user — accepted risk, recorded                                                                        |
-| S4 — bare-id fallback undocumented    | closed — the `MODEL_OVERRIDES` doc comment now documents it                                                           |
-| S5 — sequential load-time discovery   | closed — `Promise.all`                                                                                                |
-| S6 — file values unvalidated          | closed — `normalizeConfig` validates via `normalizeBaseUrl`; invalid entries surface as startup warnings              |
-| S7 — warnings dropped headless        | closed — `console.error` fallback on `!ctx.hasUI`                                                                     |
-| Q1 — key in typed command line        | answered — optional positional `apiKey`; omitting prompts via `ctx.ui.input()`; [T-0001](../spec/todo.md) resolved    |
-| Q2 — re-register drops selected model | answered — post-registration `ctx.model` check warns "pick a new one with /model"; [T-0002](../spec/todo.md) resolved |
+| Item                                  | Status                                                                                                                     |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| S1 — local-host/userinfo edge cases   | closed by `normalizeBaseUrl` (userinfo now hard-rejected)                                                                  |
+| S2 — extra args silently dropped      | closed for `/register` (`parts.length > 3` → usage error); still open for `/unregister` → S8                               |
+| S3 — generic command names            | declined by the user — accepted risk, recorded                                                                             |
+| S4 — bare-id fallback undocumented    | closed — the `MODEL_OVERRIDES` doc comment now documents it                                                                |
+| S5 — sequential load-time discovery   | closed — `Promise.all`                                                                                                     |
+| S6 — file values unvalidated          | closed — `normalizeConfig` validates via `normalizeBaseUrl`; invalid entries surface as startup warnings                   |
+| S7 — warnings dropped headless        | closed — `console.error` fallback on `!ctx.hasUI`                                                                          |
+| Q1 — key in typed command line        | answered — optional positional `apiKey`; omitting prompts via `ctx.ui.input()`; [T-0001](../spec/work/todo.md) resolved    |
+| Q2 — re-register drops selected model | answered — post-registration `ctx.model` check warns "pick a new one with /model"; [T-0002](../spec/work/todo.md) resolved |
 
 ## Fresh full-inspection pass (not just the prior list)
 
@@ -65,7 +65,7 @@ Newly inspected units: `ENV_BASE_URL_PATTERN`/`envConfiguredNames` (correct inve
 
 ### Questions
 
-None new. Q1, Q2 answered by the author; [T-0001](../spec/todo.md) and [T-0002](../spec/todo.md) marked resolved.
+None new. Q1, Q2 answered by the author; [T-0001](../spec/work/todo.md) and [T-0002](../spec/work/todo.md) marked resolved.
 
 ## Fagan summary
 
