@@ -1,7 +1,7 @@
 # QA Strategy — Cycle-Based Orchestration
 
 Feature trace: [cycle-based-orchestration.feature](cycle-based-orchestration.feature)
-Proposal trace: [cycle-based-orchestration.md](../proposals/cycle-based-orchestration.md)
+Proposal trace: [cycle-based-orchestration.md](../../proposals/cycle-based-orchestration.md)
 
 ## 1. Feature
 

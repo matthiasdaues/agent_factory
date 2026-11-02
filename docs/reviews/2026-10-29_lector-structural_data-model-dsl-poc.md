@@ -86,4 +86,4 @@ The target-state text from Summary to Guiding Rule holds about 2,050 words today
 
 - **Possible contradiction, line 59 against line 85.** The principle calls a candidate that misses its Definition of Done "ruled out". DEC-07 keeps a candidate that fails a hard requirement in the matrix with a penalty. The plan does not resolve which wording holds.
 - **Unclear, line 172.** "No agent builds the candidates. The builds are done directly" does not say who builds them. The sentence pass leaves it unchanged.
-- **Frontmatter, lines 14–17.** The `boundaries` paths name Gigacron files. In this repository, `docs/spec/supplementary_specs/entity-model.md` resolves to the factory's own entity model, and `packages/server/…/task_registry/models.py` does not exist. `domain_registry/models.py` is missing from the list. The lector does not edit frontmatter.
+- **Frontmatter, lines 14–17.** The `boundaries` paths name Gigacron files. In this repository, `docs/spec/entity-model.md` resolves to the factory's own entity model, and `packages/server/…/task_registry/models.py` does not exist. `domain_registry/models.py` is missing from the list. The lector does not edit frontmatter.

@@ -128,7 +128,7 @@ developer saves it, adds any document outside these folders, and runs again.
 
 | Stage       | What happens                                                                                                                                       |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0 Preflight | Docker is present. The manifest, `docs/arc42/architecture.dsl` and every listed document exist.                                                    |
+| 0 Preflight | Docker is present. The manifest, `docs/spec/architecture.dsl` and every listed document exist.                                                     |
 | 1 Model     | Copies `docs/arc42/` into the build directory. Runs `structurizr validate`, then `structurizr export-svg` with `STRUCTURIZR_DOCS` set to the copy. |
 | 2 Assemble  | Reads the documents in manifest order.                                                                                                             |
 | 3 Transform | Applies the rewrite rules below and writes `main.qd`.                                                                                              |

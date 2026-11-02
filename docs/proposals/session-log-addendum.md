@@ -35,7 +35,7 @@ estimate:
 
 ## Problem
 
-An AI CLI session runs several `.agent-factory/factory/scripts/*` gates over a phase, and narrates the work in prose ("I created `docs/spec/prd.md`, wrote the traceability graph, and ran `spec-lint` clean"). Nothing checks that narration against reality. The gates print to the transcript and exit; no run leaves a durable, parseable trace. So we cannot tell whether a file the agent claims to have written actually changed, whether a gate it claims to have run clean actually exited 0, or whether something it never mentioned changed anyway.
+An AI CLI session runs several `.agent-factory/factory/scripts/*` gates over a phase, and narrates the work in prose ("I created `docs/spec/work/prd.md`, wrote the traceability graph, and ran `spec-lint` clean"). Nothing checks that narration against reality. The gates print to the transcript and exit; no run leaves a durable, parseable trace. So we cannot tell whether a file the agent claims to have written actually changed, whether a gate it claims to have run clean actually exited 0, or whether something it never mentioned changed anyway.
 
 The fix is a **session log**: every gate run appends one structured record to a logfile, and a reconciliation step at phase end compares that machine-captured record against the agent's stated claims.
 

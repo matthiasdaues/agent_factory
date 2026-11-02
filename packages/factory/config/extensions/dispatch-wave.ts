@@ -25,8 +25,7 @@
  * Symlinked to `.pi/extensions/dispatch-wave.ts` by `.agent-factory/factory/scripts/
  * init-factory`, alongside run-agent.ts; reversed by `remove-factory`.
  *
- * See docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md and
- * docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md.
+ * See docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md.
  */
 import type { ChildProcess, ChildProcessWithoutNullStreams } from "node:child_process";
 import { execFileSync, spawn } from "node:child_process";

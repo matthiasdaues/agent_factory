@@ -32,7 +32,7 @@
 
 | Artifact                                          | Path                                                                                                       |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Updated architecture.dsl (context-lint component) | `docs/arc42/architecture.dsl`                                                                              |
+| Updated architecture.dsl (context-lint component) | `docs/spec/architecture.dsl`                                                                               |
 | ADR-0013: YAML replaces markdown charter          | `docs/adr/0013-yaml-agent-context-replaces-markdown-charter.md`                                            |
 | ADR-0014: Two-layer routing, two-mode lifecycle   | `docs/adr/0014-two-layer-routing-with-two-mode-lifecycle.md`                                               |
 | Updated building block view (ch. 5)               | `docs/arc42/05_building_block_view.md`                                                                     |

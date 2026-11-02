@@ -25,7 +25,7 @@ Inspected the full diff of `feat/update-factory` (tip `47628e3`) against `dev`
 
 `docs/CONTEXT.md` does not exist, so there was no project glossary against which
 to check terminology drift. The relevant spec is
-[UC-08](../~archive/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md); the
+`UC-08`; the
 design rationale is in [ADR-0010](../adr/0010-refresh-installed-factory-by-remove-and-reinstall.md).
 
 Every changed file was inspected for correctness, Clean Architecture, SOLID,

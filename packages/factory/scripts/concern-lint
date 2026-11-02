@@ -5,7 +5,8 @@
 """concern-lint — deterministic validation gate for the concern-oriented agent context.
 
 What: Validates docs/agent-context.md with CTX-* finding codes:
-      CTX-SECTIONS (required category headings and concern structure),
+      CTX-SECTIONS (required category headings, concern structure, and the
+      fold mark `Folded: yes` of a domain concern),
       CTX-PATHS (file path resolution for Read: and Boundary: lines),
       CTX-REFS (concern names in story frontmatter match registry headings),
       CTX-LEGACY (no legacy YAML or charter residue alongside the
@@ -31,16 +32,27 @@ import glob
 import json
 import re
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 # The main-checkout helpers live beside this script (BUG-0103).
 _HERE = str(Path(__file__).resolve().parent)
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-from _main_checkout import installed_copy_in_main_checkout as _installed_copy_in_main_checkout  # noqa: E402
+from _main_checkout import (
+    installed_copy_in_main_checkout as _installed_copy_in_main_checkout,
+)
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
+
+#: The category heading under which the fold mark is valid.
+DOMAIN_CATEGORY = "Domain concerns"
+
+#: The one valid form of the fold mark (CAL-G03).
+FOLD_MARK = "Folded: yes"
+
+#: A line that is meant as a fold mark, valid or not.
+FOLD_MARK_RE = re.compile(r"^folded\s*:", re.IGNORECASE)
 
 #: The three required category headings in agent-context.md.
 REQUIRED_CATEGORIES = [
@@ -71,6 +83,14 @@ class Finding:
 
 
 @dataclass
+class FoldMark:
+    """A `Folded:` line of a concern, valid or not."""
+
+    text: str
+    after_description: bool
+
+
+@dataclass
 class ConcernSection:
     """A single concern entry parsed from agent-context.md."""
 
@@ -79,6 +99,7 @@ class ConcernSection:
     description: str | None
     read_paths: list[str]
     boundary_paths: list[str]
+    fold_marks: list[FoldMark] = field(default_factory=list)
 
 
 def parse_agent_context(text: str) -> tuple[set[str], list[ConcernSection]]:
@@ -96,10 +117,13 @@ def parse_agent_context(text: str) -> tuple[set[str], list[ConcernSection]]:
     current_description: str | None = None
     current_reads: list[str] = []
     current_boundaries: list[str] = []
+    current_marks: list[FoldMark] = []
+    # True while the previous non-blank line of the concern is its description.
+    after_description = False
 
     def _flush_concern() -> None:
         nonlocal current_concern_name, current_description
-        nonlocal current_reads, current_boundaries
+        nonlocal current_reads, current_boundaries, current_marks
         if current_concern_name is not None and current_category is not None:
             concerns.append(
                 ConcernSection(
@@ -108,12 +132,14 @@ def parse_agent_context(text: str) -> tuple[set[str], list[ConcernSection]]:
                     description=current_description,
                     read_paths=list(current_reads),
                     boundary_paths=list(current_boundaries),
+                    fold_marks=list(current_marks),
                 )
             )
         current_concern_name = None
         current_description = None
         current_reads = []
         current_boundaries = []
+        current_marks = []
 
     for line in text.split("\n"):
         stripped = line.strip()
@@ -139,6 +165,14 @@ def parse_agent_context(text: str) -> tuple[set[str], list[ConcernSection]]:
 
         # Inside a concern section
         if current_concern_name is not None:
+            follows_description = after_description
+            after_description = False
+
+            # Folded: line — the fold mark, checked by check_sections
+            if FOLD_MARK_RE.match(stripped):
+                current_marks.append(FoldMark(stripped, follows_description))
+                continue
+
             # Read: directive — may have comma-separated paths
             read_match = re.match(r"^Read:\s*(.+)$", stripped)
             if read_match:
@@ -156,6 +190,7 @@ def parse_agent_context(text: str) -> tuple[set[str], list[ConcernSection]]:
             # First non-directive line is the description
             if current_description is None:
                 current_description = stripped
+                after_description = True
 
     _flush_concern()
     return found_categories, concerns
@@ -169,8 +204,9 @@ def parse_agent_context(text: str) -> tuple[set[str], list[ConcernSection]]:
 def check_sections(
     found_categories: set[str], concerns: list[ConcernSection]
 ) -> list[Finding]:
-    """Validate that all required category headings exist and that each
-    concern section has a description line and at least one Read: path."""
+    """Validate that all required category headings exist, that each
+    concern section has a description line and at least one Read: path, and
+    that each fold mark has its one valid form and place."""
     findings: list[Finding] = []
 
     for required in REQUIRED_CATEGORIES:
@@ -204,6 +240,32 @@ def check_sections(
                 )
             )
 
+        findings += _check_fold_marks(concern)
+
+    return findings
+
+
+def _check_fold_marks(concern: ConcernSection) -> list[Finding]:
+    """Validate each fold mark: the exact line `Folded: yes`, directly after
+    the description, in a concern under `## Domain concerns`."""
+    findings: list[Finding] = []
+    for mark in concern.fold_marks:
+        problem = None
+        if concern.category != DOMAIN_CATEGORY:
+            problem = f"is valid only under '## {DOMAIN_CATEGORY}'"
+        elif mark.text != FOLD_MARK:
+            problem = f"must read '{FOLD_MARK}'"
+        elif not mark.after_description:
+            problem = "must directly follow the description line"
+        if problem is not None:
+            findings.append(
+                Finding(
+                    "CTX-SECTIONS",
+                    "error",
+                    "agent-context.md",
+                    f"concern '{concern.name}' fold mark '{mark.text}' {problem}",
+                )
+            )
     return findings
 
 

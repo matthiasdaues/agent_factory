@@ -103,7 +103,7 @@ different entry points or observe different results.
 The new annotation names the shipped interface:
 
 ```gherkin
-# entry-point: docs/spec/supplementary_specs/interface-contracts.md#cycle-select
+# entry-point: docs/spec/interface-contracts.md#cycle-select
 # entry-point: packages/factory/config/session-menu.md#option-b
 # entry-point: packages/factory/skills/run-step/SKILL.md
 ```

@@ -60,7 +60,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [brownfield-onboarding.md § Step 2.3 — Build architecture.dsl](../playbooks/brownfield-onboarding.md#step-23--build-architecturedsl), [architecture-agent.md § Workflow](../agents/architecture-agent.md#workflow)
 
-- **MUST** run brownfield onboarding Stage 1 in this order: archive superseded documentation, build the scope map with `reverse-map`, then create and fill `docs/arc42/architecture.dsl` from code before writing architecture prose.
+- **MUST** run brownfield onboarding Stage 1 in this order: archive superseded documentation, build the scope map with `reverse-map`, then create and fill `docs/spec/architecture.dsl` from code before writing architecture prose.
 - **MUST** model deployment nodes and connections in the `architecture.dsl` Deployment view from Terraform (or equivalent IaC) when available.
 - **MUST** treat arc42 chapters 05, 06, and 07 as derived explanations of `architecture.dsl` views, not independent sources.
 - **MUST** provision `"arc42.projected" "false"` in the workspace `properties` block when creating a fresh `architecture.dsl`; only the architecture-agent sets it to `"true"` when the user explicitly requests arc42 chapter projection.
@@ -215,7 +215,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 
 → [todo-format.md](conventions/todo-format.md)
 
-- **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/todo.md` — not left implicit in conversation.
+- **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/work/todo.md` — not left implicit in conversation.
 
 ## Versioning
 

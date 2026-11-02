@@ -25,12 +25,18 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
   they stop matching. Use `:not(:first-child)` instead.
 - Every listed document starts with a top-level `# ` heading. A document
   without one stops the run, because it would vanish from the contents.
+- The Structurizr model is `docs/spec/architecture.dsl`. Its themes live in
+  `docs/assets/themes/`. Without the DSL the command exits 2 and names
+  `docs/spec/architecture.dsl`.
+- Where the manifest selects `arc42/12_glossary.md`, by name or by glob, the
+  PDF shows `docs/spec/glossary.md` when that file exists. The manifest needs
+  no change.
 
 ## What the command guarantees
 
 - The sources under `docs/` never change. Only `docs/dist/` is written, and
   the command adds it to `.gitignore` when it is missing.
-- Every run validates `docs/arc42/architecture.dsl` and exports its views
+- Every run validates `docs/spec/architecture.dsl` and exports its views
   again, so the PDF never shows a stale diagram.
 - A diagram that fails to render, a Quarkdown compile error, a dead internal
   link or a diagram printed as a bitmap fails the run. Do not work around a
@@ -44,7 +50,7 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 | ---- | ----------------------------------------------------------------------------------------------------------------------- |
 | 0    | PDF written.                                                                                                            |
 | 1    | A check failed. Read the `FAIL` lines; the build directory stays at `.current-work/publish-docs/build/` for inspection. |
-| 2    | A precondition failed: Docker, `docs/`, the manifest, a document, or `architecture.dsl`.                                |
+| 2    | A precondition failed: Docker, `docs/`, the manifest, a document, or `docs/spec/architecture.dsl`.                      |
 
 The first run builds the render image, which takes a few minutes.
 `PUBLISH_DOCS_IMAGE` selects another image.

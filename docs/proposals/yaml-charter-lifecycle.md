@@ -12,8 +12,8 @@ impact:
   architecture_change: true
   external_contract_change: true
   boundaries:
-    - docs/spec/supplementary_specs/interface-contracts.md
-    - docs/spec/supplementary_specs/entity-model.md
+    - docs/spec/interface-contracts.md
+    - docs/spec/entity-model.md
 
 governance:
   assurance: high

@@ -10,11 +10,11 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 
 Pick a single story from the backlog (`backlog/ST-NNNN.md`) and implement it using **TDD**. Apply **Clean Architecture** and **SOLID** throughout.
 
-Read `docs/CONTEXT.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching. Read the story's `concerns` field and follow the matching sections in `docs/agent-context.md` for project context.
+Read `docs/spec/glossary.md` if it exists — match test names and interface vocabulary to the project's domain language. Respect ADRs in the area you're touching. Read the story's `concerns` field and follow the matching sections in `docs/agent-context.md` for project context.
 
 ## Step 1 — Analyse
 
-Read the story. Follow its `traces` links into `docs/spec/*.feature`, `docs/spec/scope-map.md`, and `docs/spec/supplementary_specs/`. Understand:
+Read the story. Look its `traces` up in `docs/spec/scope-map.md`, then follow them into the feature files in `docs/spec/features/` and the models in `docs/spec/`. Understand:
 
 - What behaviour is being added
 - Which system boundaries are involved
@@ -49,7 +49,7 @@ Choose **London School** or **Chicago School** as appropriate for the issue.
 
 For each slice:
 
-1. **Red**: write a failing test. The test name references its Use Case ID (e.g. `test_UC_O1_submit_command_happy_path`).
+1. **Red**: write a failing test. The test name references the story ID or the Scenario it covers (e.g. `test_st_0001_payout_reaches_the_merchant`).
 2. **Green**: write the minimum code to pass the test.
 
 Do not refactor during the loop — that belongs to review.

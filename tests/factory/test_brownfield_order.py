@@ -46,7 +46,7 @@ def _stage1_text() -> str:
 
 class TestPlaybookStage1Order:
     def test_step_headings_follow_decided_order(self):
-        headings = re.findall(r"^### Step (2\.\d) — (.+)$", _stage1_text(), re.M)
+        headings = re.findall(r"^### Step (2\.\d) — (.+)$", _stage1_text(), re.MULTILINE)
         assert [n for n, _ in headings] == [n for n, _ in _STAGE1_ORDER]
         for (_, title), (_, keyword) in zip(headings, _STAGE1_ORDER):
             assert keyword in title, f"{title!r} lacks {keyword!r}"
@@ -76,7 +76,7 @@ class TestPlaybookStage1Order:
 
 class TestArchitectureAgentWorkflow:
     """The agent runs after reverse-map, so an archive step would sweep away
-    the fresh scope map and CONTEXT.md."""
+    the fresh scope map and glossary."""
 
     def _workflow(self) -> str:
         text = ARCH_AGENT.read_text(encoding="utf-8")
@@ -85,13 +85,13 @@ class TestArchitectureAgentWorkflow:
         return text[start:end]
 
     def test_workflow_names_no_archive_step(self):
-        steps = re.findall(r"^\d+\. .+$", self._workflow(), re.M)
+        steps = re.findall(r"^\d+\. .+$", self._workflow(), re.MULTILINE)
         assert steps
         for step in steps:
             assert "archive" not in step.lower(), step
 
     def test_workflow_steps_are_numbered_from_one(self):
-        numbers = [int(n) for n in re.findall(r"^(\d+)\. ", self._workflow(), re.M)]
+        numbers = [int(n) for n in re.findall(r"^(\d+)\. ", self._workflow(), re.MULTILINE)]
         assert numbers == list(range(1, len(numbers) + 1))
 
 
@@ -100,24 +100,24 @@ _ANY_OF_FRONTMATTER = (
     "  required:\n"
     "    - any_of:\n"
     "        - type: feature\n"
-    '          path_pattern: "docs/spec/*.feature"\n'
+    '          path_pattern: "docs/spec/features/*.feature"\n'
     "        - type: scope-map\n"
     "          path_pattern: docs/spec/scope-map.md\n"
     "    - type: dsl\n"
-    "      path_pattern: docs/arc42/architecture.dsl\n"
+    "      path_pattern: docs/spec/architecture.dsl\n"
     "  context:\n"
-    "    - docs/CONTEXT.md\n"
+    "    - docs/spec/glossary.md\n"
     "---\n"
 )
 
 _ANY_OF_REQUIRED = [
     {
         "any_of": [
-            {"type": "feature", "path_pattern": "docs/spec/*.feature"},
+            {"type": "feature", "path_pattern": "docs/spec/features/*.feature"},
             {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
         ]
     },
-    {"type": "dsl", "path_pattern": "docs/arc42/architecture.dsl"},
+    {"type": "dsl", "path_pattern": "docs/spec/architecture.dsl"},
 ]
 
 
@@ -125,7 +125,7 @@ class TestIndexLintAnyOf:
     def test_parses_any_of_entry(self):
         fm = il.parse_frontmatter(_ANY_OF_FRONTMATTER)
         assert fm["inputs"]["required"] == _ANY_OF_REQUIRED
-        assert fm["inputs"]["context"] == ["docs/CONTEXT.md"]
+        assert fm["inputs"]["context"] == ["docs/spec/glossary.md"]
 
     def test_renders_any_of_entry_as_yaml(self):
         lines = il._render_structured_field(
@@ -140,7 +140,7 @@ class TestIndexLintAnyOf:
         assert arch["inputs"]["required"] == [
             {
                 "any_of": [
-                    {"type": "feature", "path_pattern": "docs/spec/*.feature"},
+                    {"type": "feature", "path_pattern": "docs/spec/features/*.feature"},
                     {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
                 ]
             }

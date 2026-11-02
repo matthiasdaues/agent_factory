@@ -356,7 +356,7 @@ class TestEvaluateAll:
 
 _FEATURE_OR_SCOPE_MAP = {
     "any_of": [
-        {"type": "feature", "path_pattern": "docs/spec/*.feature"},
+        {"type": "feature", "path_pattern": "docs/spec/features/*.feature"},
         {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
     ]
 }
@@ -377,8 +377,8 @@ class TestAnyOf:
 
     def test_met_by_first_alternative(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "docs" / "spec").mkdir(parents=True)
-        (tmp_path / "docs" / "spec" / "a.feature").write_text("Feature: A\n")
+        (tmp_path / "docs" / "spec" / "features").mkdir(parents=True)
+        (tmp_path / "docs" / "spec" / "features" / "a.feature").write_text("Feature: A\n")
 
         result = evaluate_agent(_agent("arch", required=[_FEATURE_OR_SCOPE_MAP]))
         assert result["eligible"] is True
@@ -390,20 +390,19 @@ class TestAnyOf:
         req = result["requirements"][0]
         assert req["satisfied"] is False
         assert req["candidates"] == []
-        assert "docs/spec/*.feature" in req["path_pattern"]
+        assert "docs/spec/features/*.feature" in req["path_pattern"]
         assert "docs/spec/scope-map.md" in req["path_pattern"]
 
     def test_combines_with_plain_entries(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         (tmp_path / "docs" / "spec").mkdir(parents=True)
         (tmp_path / "docs" / "spec" / "scope-map.md").write_text("# Scope\n")
-        (tmp_path / "docs" / "arc42").mkdir(parents=True)
-        (tmp_path / "docs" / "arc42" / "architecture.dsl").write_text("workspace {}\n")
+        (tmp_path / "docs" / "spec" / "architecture.dsl").write_text("workspace {}\n")
         agent = _agent(
             "arch",
             required=[
                 _FEATURE_OR_SCOPE_MAP,
-                {"type": "dsl", "path_pattern": "docs/arc42/architecture.dsl"},
+                {"type": "dsl", "path_pattern": "docs/spec/architecture.dsl"},
             ],
         )
         result = evaluate_agent(agent)
@@ -418,7 +417,7 @@ class TestAnyOf:
             "arch",
             required=[
                 _FEATURE_OR_SCOPE_MAP,
-                {"type": "dsl", "path_pattern": "docs/arc42/architecture.dsl"},
+                {"type": "dsl", "path_pattern": "docs/spec/architecture.dsl"},
             ],
         )
         assert evaluate_agent(agent)["eligible"] is False
@@ -476,8 +475,8 @@ class TestArchitectureAgentBrownfieldEntry:
 
     def test_eligible_with_feature_and_no_scope_map(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "docs" / "spec").mkdir(parents=True)
-        (tmp_path / "docs" / "spec" / "a.feature").write_text("Feature: A\n")
+        (tmp_path / "docs" / "spec" / "features").mkdir(parents=True)
+        (tmp_path / "docs" / "spec" / "features" / "a.feature").write_text("Feature: A\n")
 
         assert evaluate_agent(_architecture_agent())["eligible"] is True
 

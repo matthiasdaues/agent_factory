@@ -232,7 +232,7 @@ snapshot plus each distinct child run once. Strict preflight leaves
 blocks every other stable view when any selected line or ancestry is invalid.
 
 See [ADR-0015](../adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md)
-and [validation rules section Local usage processing and analysis](../spec/supplementary_specs/validation-rules.md#local-usage-processing-and-analysis).
+and [validation rules section Local usage processing and analysis](../spec/validation-rules.md#local-usage-processing-and-analysis).
 
 ## 8.13 Precondition-Based Agent Eligibility
 
@@ -362,7 +362,7 @@ A developer who looks for the files that specify a project finds them in one fol
 
 **Moving an installed project.** The factory update moves an installed project into this layout with `migrate-spec-layout`. [6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-project-into-the-core-artifact-layout) shows the sequence, and [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md) records the decision.
 
-**Current state of this repository.** The layout is not implemented yet. This repository still keeps `architecture.dsl`, the theme, and the glossary under `docs/arc42/`, and the specification files under `docs/spec/` and `docs/spec/supplementary_specs/`. The implementation stories move them.
+**Current state of this repository.** This repository uses the layout. `migrate-spec-layout` moved its files (ST-0343). Its bounded contexts are domain concerns of `docs/agent-context.md`, and it has no `CONTEXT.md` or `CONTEXT-MAP.md` (ST-0344).
 
 ## Referenced from
 

@@ -328,7 +328,7 @@ ______________________________________________________________________
 
 ## Assessment
 
-Prompt given to all four models: "Assume the planning agent role and do an epic slicing for the cycle-based orchestration." Each model read the same specification (`docs/spec/cycle-based-orchestration.feature`, 23 Rules across 10 actors) and the same skill instructions (`create-backlog-epics/SKILL.md`). Each produced an initial result, then was asked to re-apply the writing quality gates. Copilot Opus 5 produced one version with a self-assessment instead of a second pass.
+Prompt given to all four models: "Assume the planning agent role and do an epic slicing for the cycle-based orchestration." Each model read the same specification (`docs/~archive/spec/cycle-based-orchestration.feature`, 23 Rules across 10 actors) and the same skill instructions (`create-backlog-epics/SKILL.md`). Each produced an initial result, then was asked to re-apply the writing quality gates. Copilot Opus 5 produced one version with a self-assessment instead of a second pass.
 
 ### Assessment criteria
 

@@ -2,7 +2,7 @@
 lifecycle.
 
 Owned contracts (EPIC 5 Ownership Resolution table,
-docs/spec/value-first-onboarding-journey-qa-strategy.md):
+docs/spec/work/value-first-onboarding-journey-qa-strategy.md):
 
   - VFO-08-IT-01 — Repository state selects a detached worktree or a plain
     sandbox (`Scenario: Repository with a commit uses a detached
@@ -40,7 +40,7 @@ PACKAGES_DIR = Path(__file__).resolve().parents[2] / "packages" / "factory"
 if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
-from engine.onboarding_sandbox import (  # noqa: E402
+from engine.onboarding_sandbox import (
     DEFAULT_SANDBOX_BASE,
     SandboxError,
     create_sandbox,
@@ -48,7 +48,7 @@ from engine.onboarding_sandbox import (  # noqa: E402
     request_production_handoff,
     retain_artifacts,
 )
-from engine.workstream import load_workstream  # noqa: E402
+from engine.workstream import load_workstream
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 VIRGIL_PATH = REPO_ROOT / "packages" / "factory" / "agents" / "virgil.md"

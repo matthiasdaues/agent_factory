@@ -27,7 +27,7 @@ Merged to dev via fast-forward from `impl/arc42-projected-gating`.
 
 - `.agent-factory/factory/scripts/arch-lint` — `dsl_workspace_property()` parser + gating logic
 - `tests/factory/test_arch_lint.py` — 10 new tests (parser + behavior)
-- `docs/arc42/architecture.dsl` — `"arc42.projected" "true"`
+- `docs/spec/architecture.dsl` — `"arc42.projected" "true"`
 - `orchestrator/docs/architecture.dsl` — `"arc42.projected" "true"`
 - `.agent-factory/factory/fixtures/.../architecture.dsl` — `"arc42.projected" "false"`
 - `.agent-factory/factory/agents/architecture-agent.md` — provisioning + flip semantics

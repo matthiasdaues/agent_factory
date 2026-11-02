@@ -22,7 +22,7 @@ Operational procedure for **documenting an existing undocumented system** (rever
 
 Unlike greenfield (Spec → Architecture → Code), brownfield starts with existing code and works backwards. The playbook is split into two stages with an explicit exit point between them:
 
-- **Stage 1 — Enough to work**: produces three anchor files (`docs/spec/scope-map.md`, `docs/CONTEXT.md`, `docs/arc42/architecture.dsl`). The user can start feature work from here.
+- **Stage 1 — Enough to work**: produces the four anchor files (`docs/spec/scope-map.md`, `docs/spec/glossary.md`, `docs/spec/architecture.dsl`, `docs/agent-context.md`). The user can start feature work from here.
 - **Stage 2 — Full reverse engineering** (opt-in): specification extraction, component resolution, ATAM review, and reconciliation. Available when the user or the change warrants it.
 
 ## Stage 1 — Enough to Work
@@ -45,7 +45,7 @@ npm run coverage
 ```
 
 **If tests exist** → Use as behavioral specification
-**If no tests** → Document in `docs/spec/todos.md` as technical debt
+**If no tests** → Document in `docs/spec/work/todos.md` as technical debt
 
 ### Step 1.2 — Identify Seams
 
@@ -64,7 +64,7 @@ grep -r "^class " src/
 grep -r "^func " **/*.go
 ```
 
-Document discovered seams in `docs/spec/todos.md`.
+Document discovered seams in `docs/spec/work/todos.md`.
 
 ## Scope Map and Domain Vocabulary
 
@@ -79,7 +79,7 @@ Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then
 **Expected outputs**:
 
 - `docs/spec/scope-map.md` (5-column format: Rule, Status, Confidence, Sources, Feature Link)
-- `docs/CONTEXT.md` (domain vocabulary seeded from type names, class names, module names)
+- `docs/spec/glossary.md` (domain vocabulary seeded from type names, class names, module names)
 
 The scope map meets the architecture agent's required input, so `run-step` can offer that agent without a `.feature` file. Proceed to Step 2.2.
 
@@ -99,13 +99,13 @@ Record the answer. If IaC exists, pass the path to the architecture agent so it 
 ### Step 2.3 — Build architecture.dsl
 
 **Agent**: `architecture-agent`
-**Task**: Analyze code and IaC. Create `docs/arc42/architecture.dsl` with system context and container views. Derive initial arc42 prose chapters from the DSL. Document discovered architectural decisions as ADRs.
+**Task**: Analyze code and IaC. Create `docs/spec/architecture.dsl` with system context and container views. Derive initial arc42 prose chapters from the DSL. Document discovered architectural decisions as ADRs.
 
 The workspace property `"arc42.projected"` defaults to `"false"` and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
 
 **Expected outputs**:
 
-- `docs/arc42/architecture.dsl` (C4 model — system context, containers, deployment)
+- `docs/spec/architecture.dsl` (C4 model — system context, containers, deployment)
 - `docs/arc42/01-12*.md` (arc42 chapters derived from DSL)
 - `docs/adr/` (discovered decisions)
 
@@ -129,11 +129,12 @@ The workspace property `"arc42.projected"` defaults to `"false"` and is set to `
 
 ### Step 2.6 — Validate Stage 1 Exit
 
-Verify the three anchor files exist and are valid:
+Verify the four anchor files exist and are valid. The check names each missing file on its own:
 
 - [ ] `docs/spec/scope-map.md` exists with Rules marked `implemented`
-- [ ] `docs/CONTEXT.md` exists seeded with domain vocabulary
-- [ ] `docs/arc42/architecture.dsl` exists with system context and container views
+- [ ] `docs/spec/glossary.md` exists seeded with domain vocabulary
+- [ ] `docs/spec/architecture.dsl` exists with system context and container views
+- [ ] `docs/agent-context.md` exists
 - [ ] Structurizr validation passes on the DSL
 - [ ] The scope map is confirmed: its frontmatter carries no `status: draft`. Run `out=$(.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec --report-only) && ! grep -q SCOPE001 <<<"$out"`; it fails while spec-lint reports `SCOPE001`, and it fails when spec-lint is missing or crashes, because `--report-only` exits 0 on every run that completes. The check looks for that code alone, because a Stage 1 spec still fails other spec-lint checks, such as the missing entity model. An unattended `reverse-map` run leaves the marker until a stakeholder confirms the map.
 
@@ -157,15 +158,15 @@ Stage 2 deepens the baseline with full specification extraction, component-level
 
 ### Step 3.1 — Extract Domain Vocabulary
 
-Scan code for domain terms — type names, class names, module names. Build `CONTEXT.md` with ubiquitous language.
+Scan code for domain terms — type names, class names, module names. Build `docs/spec/glossary.md` with ubiquitous language.
 
-**Output**: `CONTEXT.md`
+**Output**: `docs/spec/glossary.md`
 
 ### Step 3.2 — Extract Entity Model
 
 Analyze domain entities in code — relationships, attributes, constraints.
 
-**Output**: `docs/spec/supplementary_specs/entity-model.md`
+**Output**: `docs/spec/entity-model.md`
 
 ### Step 3.3 — Derive Feature Spec
 
@@ -174,19 +175,19 @@ Analyze domain entities in code — relationships, attributes, constraints.
 
 Derive a consolidated Gherkin feature file from test names, API endpoints, and user flows in code. Use Cockburn actor-goal reasoning as internal process; output Rule-per-actor-goal `.feature` structure with `@`-references to existing code. Update the scope map with all Rules marked `implemented`.
 
-**Output**: `docs/spec/<project-name>.feature`, `docs/spec/scope-map.md` (updated), `docs/spec/<project-name>-gaps.md`
+**Output**: `docs/spec/features/<project-name>.feature`, `docs/spec/scope-map.md` (updated), `docs/spec/work/<project-name>-gaps.md`
 
 ### Step 3.6 — Extract Supplementary Specs
 
 Document non-functional requirements found in code: performance characteristics (timeouts, rate limits), security measures (auth, encryption), validation rules, interface contracts.
 
-**Output**: `docs/spec/supplementary_specs/*.md`
+**Output**: `docs/spec/validation-rules.md`, `docs/spec/interface-contracts.md`
 
 ### Step 3.7 — Document State Machines
 
 For stateful components found in code, extract state machines per [`state-machine-notation.md`](../rulebooks/conventions/state-machine-notation.md).
 
-**Output**: `docs/spec/supplementary_specs/state-machines.md`
+**Output**: `docs/spec/state-machines.md`
 
 ### Step 3.8 — Spec Review (Separate Session)
 
@@ -211,13 +212,13 @@ Second architecture pass: deepen the baseline architecture using domain knowledg
 
 **Inputs**:
 
-- `docs/arc42/architecture.dsl` (baseline from architecture docs pass)
+- `docs/spec/architecture.dsl` (baseline from architecture docs pass)
 - `docs/spec/` (all specification artifacts from extraction)
 - Source code
 
 **Expected outputs**:
 
-- Updated `docs/arc42/architecture.dsl` (component views, dynamic views added)
+- Updated `docs/spec/architecture.dsl` (component views, dynamic views added)
 - Updated arc42 chapters [05 (Building Block View)](../rulebooks/rules.md#architecture-documentation), [06 (Runtime View)](../rulebooks/rules.md#architecture-documentation), [07 (Deployment View)](../rulebooks/rules.md#architecture-documentation)
 - New ADRs when component boundaries reveal undocumented decisions
 
@@ -303,7 +304,7 @@ Iterative loop: verify documentation matches code, identify gaps, fix, repeat.
 
 ### Step 6.2 — Identify Undocumented Behavior
 
-Check for untested code paths, undocumented decisions, unclear use cases. Add gaps to `docs/spec/todos.md`.
+Check for untested code paths, undocumented decisions, unclear use cases. Add gaps to `docs/spec/work/todos.md`.
 
 ### Step 6.3 — Fix and Iterate
 
@@ -320,15 +321,15 @@ The playbook ends when the following terminal artifacts exist:
 **Terminal Artifacts:**
 
 - [ ] `docs/spec/scope-map.md` exists with Rules backfilled from the existing codebase (all marked `implemented`); `reverse-map` handles the backfill from code, tests, and other sources
-- [ ] `docs/arc42/architecture.dsl` models the as-built module structure (C4 components and dependencies reverse-engineered from code)
+- [ ] `docs/spec/architecture.dsl` models the as-built module structure (C4 components and dependencies reverse-engineered from code)
 - [ ] Arc42 prose chapters (01–12) pass architecture review with no blocking findings
 
 **Supporting Deliverables:**
 
 - [ ] `docs/adr/*.md` (documented architectural decisions)
-- [ ] `CONTEXT.md` (domain glossary / ubiquitous language)
-- [ ] `docs/spec/supplementary_specs/*.md` (entity model, state machines, validation rules, interface contracts)
-- [ ] `docs/spec/todos.md` (identified specification gaps and technical debt)
+- [ ] `docs/spec/glossary.md` (domain glossary / ubiquitous language)
+- [ ] `docs/spec/entity-model.md`, `docs/spec/state-machines.md`, `docs/spec/validation-rules.md`, `docs/spec/interface-contracts.md`
+- [ ] `docs/spec/work/todos.md` (identified specification gaps and technical debt)
 - [ ] `docs/agent-context.md` (project context: concerns, paths, boundaries)
 - [ ] `docs/reviews/spec-review-*.md` (specification review findings — all addressed)
 - [ ] `docs/reviews/atam-review.md` (architecture review findings — all addressed)

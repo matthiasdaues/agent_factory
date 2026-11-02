@@ -10,15 +10,15 @@ Disposition: **Fail** — three open Major defects block Architecture.
 
 The repeat review verified the remediation against the accepted [Local Usage Processing and Analysis proposal](../proposals/implemented/usage-processing-and-storage.md), the implemented [Concern-Oriented Agent Context proposal](../proposals/factory-concern-oriented-agent-context.md), and the complete changed specification set:
 
-- [agent-context.feature](../spec/agent-context.feature)
-- [local-usage-processing-and-analysis.feature](../spec/local-usage-processing-and-analysis.feature)
-- [local-usage-processing-and-analysis-gaps.md](../spec/local-usage-processing-and-analysis-gaps.md)
-- [local-usage-processing-and-analysis-qa-strategy.md](../spec/local-usage-processing-and-analysis-qa-strategy.md)
+- [agent-context.feature](../spec/features/agent-context.feature)
+- [local-usage-processing-and-analysis.feature](../spec/features/local-usage-processing-and-analysis.feature)
+- [local-usage-processing-and-analysis-gaps.md](../spec/work/local-usage-processing-and-analysis-gaps.md)
+- [local-usage-processing-and-analysis-qa-strategy.md](../spec/work/local-usage-processing-and-analysis-qa-strategy.md)
 - [scope-map.md](../spec/scope-map.md)
-- [entity-model.md](../spec/supplementary_specs/entity-model.md#local-usage-analysis-entities)
-- [interface-contracts.md](../spec/supplementary_specs/interface-contracts.md#local-usage-processing-and-analysis)
-- [state-machines.md](../spec/supplementary_specs/state-machines.md#usage-query-lifecycle)
-- [validation-rules.md](../spec/supplementary_specs/validation-rules.md#local-usage-processing-and-analysis)
+- [entity-model.md](../spec/entity-model.md#local-usage-analysis-entities)
+- [interface-contracts.md](../spec/interface-contracts.md#local-usage-processing-and-analysis)
+- [state-machines.md](../spec/state-machines.md#usage-query-lifecycle)
+- [validation-rules.md](../spec/validation-rules.md#local-usage-processing-and-analysis)
 
 The fresh semantic pass also inspected the other live feature, PRD, test-design, test-gate, interface, entity, and validation contracts where they intersect the concern-oriented test-configuration migration.
 
@@ -46,11 +46,11 @@ Statuses and evidence are committed canonically on `dev` at `edf2303bb457941f1e2
 
 ## Fresh semantic inspection
 
-| Finding                                                                                                                              | Artifact                                                                                                              | Category | Severity | Characteristic                    |
-| ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | -------- | -------- | --------------------------------- |
-| [SPEC-0015](../findings/SPEC-0015.md)                                                                                                | [agent-context.feature](../spec/agent-context.feature) and the intersecting live test-configuration contracts         | Defect   | Major    | Consistent, complete, terminology |
-| [SPEC-0016](../findings/SPEC-0016.md)                                                                                                | [interface-contracts.md](../spec/supplementary_specs/interface-contracts.md#logical-run-and-source-position-contract) | Defect   | Major    | Consistent, unambiguous           |
-| [SPEC-0020](https://github.com/matthiasdaues/agent_factory/blob/edf2303bb457941f1e20c16208b8c27b1e9b1a72/docs/findings/SPEC-0020.md) | [interface-contracts.md](../spec/supplementary_specs/interface-contracts.md#logical-run-and-source-position-contract) | Defect   | Major    | Complete, unambiguous, verifiable |
+| Finding                                                                                                                              | Artifact                                                                                                               | Category | Severity | Characteristic                    |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | -------- | -------- | --------------------------------- |
+| [SPEC-0015](../findings/SPEC-0015.md)                                                                                                | [agent-context.feature](../spec/features/agent-context.feature) and the intersecting live test-configuration contracts | Defect   | Major    | Consistent, complete, terminology |
+| [SPEC-0016](../findings/SPEC-0016.md)                                                                                                | [interface-contracts.md](../spec/interface-contracts.md#logical-run-and-source-position-contract)                      | Defect   | Major    | Consistent, unambiguous           |
+| [SPEC-0020](https://github.com/matthiasdaues/agent_factory/blob/edf2303bb457941f1e20c16208b8c27b1e9b1a72/docs/findings/SPEC-0020.md) | [interface-contracts.md](../spec/interface-contracts.md#logical-run-and-source-position-contract)                      | Defect   | Major    | Complete, unambiguous, verifiable |
 
 [SPEC-0020](https://github.com/matthiasdaues/agent_factory/blob/edf2303bb457941f1e20c16208b8c27b1e9b1a72/docs/findings/SPEC-0020.md) records that `parent_run_id` is said to define ancestry without defining root identity or rejecting missing parents, cross-session or cross-CLI parents, self-links, cycles, and multiple roots. Those cases can change Claude Code, Pi, Codex, and Copilot totals while passing the declared record contract.
 

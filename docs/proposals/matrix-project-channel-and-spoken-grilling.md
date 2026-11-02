@@ -18,7 +18,7 @@ impact:
     - .agent-factory/factory/scripts/phase
     - .agent-factory/factory/skills/grilling/SKILL.md
     - .agent-factory/factory/docs/factory-guide.md
-    - docs/arc42/architecture.dsl
+    - docs/spec/architecture.dsl
 
 governance:
   assurance: critical
@@ -213,8 +213,8 @@ and routing that neither the Matrix Edge nor Factory scripts should own:
 
 It invokes only the public Factory CLI surface. It never writes FSM markers,
 declares a gate passed, or treats an agent response as deterministic evidence.
-Factory scripts such as [`phase`](../../.agent-factory/factory/scripts/phase) and
-[`run-playbook`](../../.agent-factory/factory/scripts/run-playbook) remain authoritative.
+Factory scripts such as `phase` and
+`run-playbook` remain authoritative.
 [`run-step`](../../.agent-factory/factory/skills/run-step/SKILL.md) is a dispatching skill over
 that public surface, not an additional workflow authority.
 

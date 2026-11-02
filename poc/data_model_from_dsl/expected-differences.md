@@ -21,7 +21,7 @@ shared by every candidate. It does not count in any score.
 
 ```bash
 git -C <gigacron-repo> archive 40954f18fe72b237ecc865905a31cf0b9b146556 \
-  docs/spec/supplementary_specs/entity-model.md packages uv.lock pyproject.toml \
+  docs/spec/entity-model.md packages uv.lock pyproject.toml \
   | tar -x -C <export-dir>
 live-schema/build-live-schema.sh <export-dir> live-schema
 ```

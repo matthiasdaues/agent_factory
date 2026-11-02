@@ -46,10 +46,10 @@ All artifacts committed to `dev` at `a1b4f17`. `backlog-lint` reports 0 errors.
 | Artifact                              | Path                                                                 |
 | ------------------------------------- | -------------------------------------------------------------------- |
 | Proposal (accepted)                   | `docs/proposals/yaml-charter-lifecycle.md`                           |
-| Gherkin spec                          | `docs/spec/agent-context.feature`                                    |
-| Gaps report                           | `docs/spec/agent-context-gaps.md`                                    |
-| QA strategy with contract-owner table | `docs/spec/agent-context-qa-strategy.md`                             |
-| Architecture (DSL + ADRs 0013, 0014)  | `docs/arc42/architecture.dsl`                                        |
+| Gherkin spec                          | `docs/spec/features/agent-context.feature`                           |
+| Gaps report                           | `docs/spec/work/agent-context-gaps.md`                               |
+| QA strategy with contract-owner table | `docs/spec/work/agent-context-qa-strategy.md`                        |
+| Architecture (DSL + ADRs 0013, 0014)  | `docs/spec/architecture.dsl`                                         |
 | Prior handoff (Phase 2 to Phase 3)    | `docs/handoffs/handoff-agent-context-phase2-to-phase3-2026-09-03.md` |
 | EPICs                                 | `backlog/epics.md`                                                   |
 

@@ -91,7 +91,7 @@ At minimum check:
 - ADRs (`docs/adr/`)
 - Open decisions (`docs/open-decisions.md`)
 - Agent context (`docs/agent-context.md` — follow relevant concern sections)
-- Domain model (`docs/CONTEXT.md`)
+- Glossary (`docs/spec/glossary.md`)
 - PRD (`docs/prd/`)
 
 Note which documents exist and what they say. Every claim in the

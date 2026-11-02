@@ -13,7 +13,7 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 - **Pass 1 — `spec-lint` (deterministic).** Catches provable defects — broken cross-references, missing Cockburn sections, undefined `BR-###`, unreachable states. Zero false-positive by design.
 - **Pass 2 — semantic inspection (this LLM).** Only what a parser *cannot* decide: contradictions, ambiguity, testability, hidden assumptions, terminology drift.
 
-Never re-check what Pass 1 already proved. Read `docs/CONTEXT.md` first.
+Never re-check what Pass 1 already proved. Read `docs/spec/glossary.md` first.
 
 ## Step 1 — Run the deterministic linter
 
@@ -33,7 +33,7 @@ Read the full spec (`docs/spec/`), then evaluate against the Wiegers/INCOSE requ
 4. **Complete** — extensions cover real failure modes, not just the happy path; no PRD goal missing from use cases.
 5. **Feasible** — no conflicting non-functional requirements.
 6. **Necessary** — nothing specified that no actor goal justifies (gold-plating).
-7. **Terminology** — terms conflict with `docs/CONTEXT.md`, or two terms for one concept.
+7. **Terminology** — terms conflict with `docs/spec/glossary.md`, or two terms for one concept.
 
 ## Step 3 — Write the review report
 

@@ -14,13 +14,13 @@ For a feature-addition, the target is its proposal in
 
 ## Select the branch
 
-| Context                                        | Branch              | Action                                                                |
-| ---------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
-| Small scope or quick pass                      | **Socratic**        | Run inline (below)                                                    |
-| Greenfield — no existing `docs/CONTEXT.md`     | **Grill**           | Delegate to [`grilling`](../grilling/SKILL.md)                        |
-| Brownfield — existing `docs/CONTEXT.md` / ADRs | **Grill with Docs** | Delegate to [`grilling`](../grilling/SKILL.md) (domain-modeling mode) |
+| Context                                              | Branch              | Action                                                                |
+| ---------------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
+| Small scope or quick pass                            | **Socratic**        | Run inline (below)                                                    |
+| Greenfield — no existing `docs/spec/glossary.md`     | **Grill**           | Delegate to [`grilling`](../grilling/SKILL.md)                        |
+| Brownfield — existing `docs/spec/glossary.md` / ADRs | **Grill with Docs** | Delegate to [`grilling`](../grilling/SKILL.md) (domain-modeling mode) |
 
-If unsure: no `docs/CONTEXT.md` / `docs/adr/` → grill; present → grill with docs (domain-modeling mode). Announce the branch before starting.
+If unsure: no `docs/spec/glossary.md` / `docs/adr/` → grill; present → grill with docs (domain-modeling mode). Announce the branch before starting.
 
 ## Branch: Socratic (inline)
 
@@ -29,9 +29,9 @@ Use the **Socratic Method** with **MECE**. Ask at most 3 questions at a time. Ke
 ## Rules (all branches)
 
 - During proposal clarification, collect open items in the proposal's Open
-  Questions section. Use `docs/spec/todo.md` only for unresolved work discovered
+  Questions section. Use `docs/spec/work/todo.md` only for unresolved work discovered
   while maintaining an existing specification.
-- Match `docs/CONTEXT.md` domain vocabulary.
+- Match the domain vocabulary of `docs/spec/glossary.md`.
 - Never accept "it should just work" — demand specifics.
 - Every question gets a recommended answer, even lightweight ones.
 - Every decision question follows [Decision questions](../../rulebooks/conventions/factory-voice.md#decision-questions):

@@ -120,6 +120,8 @@ class TestDependencyBoundary:
             [
                 "python3",
                 str(script),
+                "--dsl-path",
+                "docs/spec/dependency-rules.dsl",
                 "--source-root",
                 "packages/",
                 "--story-id",

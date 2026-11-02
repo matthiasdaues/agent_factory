@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
-from conftest import load_script
+from conftest import REPO_ROOT, load_script
 
 inf = load_script("init-factory")
 
@@ -1962,3 +1964,230 @@ class TestOfferRestorePreservedDirs:
             tmp_path, {"usage": backup}, report
         )
         assert (usage / "records" / "session.jsonl").read_text() == '{"data": true}\n'
+
+
+# ── CAL-07: the layout migration runs inside the factory update ─────────
+
+_MISSING = object()
+
+
+def stage_source(root: Path, version: str) -> Path:
+    """Copy packages/factory/ into ``root`` with ``VERSION`` set to ``version``.
+
+    The repository's own VERSION stays as it is."""
+    factory = root / "packages" / "factory"
+    shutil.copytree(
+        REPO_ROOT / "packages" / "factory",
+        factory,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    (factory / "VERSION").write_text(f"{version}\n", encoding="utf-8")
+    return root
+
+
+def run_init(source: Path, target: Path, *args: str) -> subprocess.CompletedProcess:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    return subprocess.run(
+        [
+            sys.executable,
+            str(source / "packages" / "factory" / "scripts" / "init-factory"),
+            "--source", str(source), "--target", str(target), *args,
+        ],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, env=env, check=False,
+    )
+
+
+def read_factory_version(target: Path) -> object:
+    record = json.loads((target / ".agent-factory" / "install.json").read_text())
+    return record.get("factory_version", _MISSING)
+
+
+def set_factory_version(target: Path, version: str) -> None:
+    path = target / ".agent-factory" / "install.json"
+    record = json.loads(path.read_text())
+    record["factory_version"] = version
+    path.write_text(json.dumps(record, indent=2) + "\n")
+
+
+def make_installed_1_3_3(tmp_path: Path) -> Path:
+    """Fixture installed-1.3.3: the old-layout-payments project of ST-0318
+    with the factory installed at 1.3.3."""
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "installed-1.3.3")
+    source = stage_source(tmp_path / "source-1.3.3", "1.3.3")
+    first = run_init(source, target, "--cli", "claude", "--project-name", "payments")
+    assert first.returncode == 0, first.stderr
+    assert read_factory_version(target) == "1.3.3"
+    return target
+
+
+def _write_prior_record(target: Path, entry: object) -> None:
+    record = {"version": 1}
+    if entry is not _MISSING:
+        record["factory_version"] = entry
+    path = target / ".agent-factory" / "install.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(record))
+
+
+def _fresh_install() -> dict:
+    return {
+        "github_ignored_entries": set(),
+        "codex_ignored_entries": set(),
+        "agents_ignored_entries": set(),
+    }
+
+
+@pytest.mark.spec("CAL-07-CT-01")
+@pytest.mark.parametrize(
+    ("layout_release", "entry", "runs"),
+    [
+        ("1.10.0", "1.4.0", True),
+        ("1.4.0", "1.4.0-rc", True),
+        ("1.4.0", "1.4.0", False),
+        ("1.4.0", "1.10.0", False),
+        ("1.4.0", _MISSING, True),
+        ("1.4.0", "unknown", True),
+        ("1.4.0", "dev", True),
+    ],
+    ids=["older-minor", "prerelease", "equal", "newer", "no-key", "unknown", "dev"],
+)
+def test_CAL_07_version_test_follows_semver_precedence(
+    tmp_path, monkeypatch, layout_release, entry, runs
+):
+    monkeypatch.setattr(inf, "LAYOUT_RELEASE", layout_release)
+    _write_prior_record(tmp_path, entry)
+    install = _fresh_install()
+
+    inf.load_prior_manifest(tmp_path, install, [])
+
+    assert install["layout_migration"] is runs
+
+
+@pytest.mark.spec("CAL-07-CT-01")
+def test_CAL_07_layout_release_is_1_4_0():
+    assert inf.LAYOUT_RELEASE == "1.4.0"
+
+
+@pytest.mark.spec("CAL-07-CT-01")
+def test_CAL_07_first_install_runs_no_migration(tmp_path):
+    install = _fresh_install()
+
+    inf.load_prior_manifest(tmp_path, install, [])
+
+    assert not install.get("layout_migration")
+
+
+@pytest.mark.spec("CAL-07-CT-01")
+@pytest.mark.parametrize(
+    ("version", "release", "older"),
+    [
+        ("1.4.0-alpha", "1.4.0-alpha.1", True),
+        ("1.4.0-alpha.1", "1.4.0-alpha.beta", True),
+        ("1.4.0-beta.2", "1.4.0-beta.11", True),
+        ("1.4.0-rc.1", "1.4.0", True),
+        ("1.4.0+build.5", "1.4.0", False),
+        ("2.0.0", "1.10.0", False),
+        ("v1.4.0", "1.4.0", True),
+        ("1.4", "1.4.0", True),
+        (None, "1.4.0", True),
+    ],
+)
+def test_CAL_07_older_than_follows_semver_precedence(version, release, older):
+    assert inf.older_than(version, release) is older
+
+
+@pytest.mark.spec("CAL-07-IT-05")
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+def test_CAL_07_failed_migration_keeps_the_prior_factory_version(tmp_path):
+    target = make_installed_1_3_3(tmp_path)
+    source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+    work = target / "docs" / "spec" / "work"
+    work.mkdir()
+    work.chmod(0o555)
+    try:
+        result = run_init(source, target)
+    finally:
+        work.chmod(0o755)
+
+    assert result.returncode != 0
+    assert read_factory_version(target) == "1.3.3"
+    assert "old layout" in result.stderr
+    assert "run the factory update again" in result.stderr
+    assert (target / "docs/spec/payments.feature").is_file()
+    assert not (target / "docs/spec/features").exists()
+
+
+@pytest.mark.spec("CAL-07")
+def test_CAL_07_rerun_at_the_layout_release_runs_no_migration(tmp_path):
+    target = make_installed_1_3_3(tmp_path)
+    set_factory_version(target, "1.4.0")
+    source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+
+    result = run_init(source, target)
+
+    assert result.returncode == 0, result.stderr
+    assert "Layout migration" not in result.stdout
+    assert (target / "docs/spec/payments.feature").is_file()
+    assert not (target / "docs/spec/features").exists()
+
+
+def make_fresh_old_layout(tmp_path: Path) -> Path:
+    """Fixture fresh-old-layout: the old-layout-payments project of ST-0318,
+    committed, without .agent-factory/."""
+    from test_migrate_spec_layout import make_project
+
+    return make_project(tmp_path / "fresh-old-layout")
+
+
+def _moved_or_deleted_under_docs(target: Path) -> list[str]:
+    status = subprocess.run(
+        ["git", "-C", str(target), "status", "--porcelain"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    return [
+        line for line in status.splitlines()
+        if line[3:].startswith("docs/") and ("R" in line[:2] or "D" in line[:2])
+    ]
+
+
+def _report_lines(stdout: str) -> list[str]:
+    return [line for line in stdout.splitlines() if line.startswith("init-factory: ")]
+
+
+@pytest.mark.spec("CAL-07-IT-02")
+def test_CAL_07_first_install_moves_no_file_and_lists_the_old_paths(tmp_path):
+    target = make_fresh_old_layout(tmp_path)
+    source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+
+    result = run_init(source, target, "--cli", "claude", "--project-name", "payments")
+
+    assert result.returncode == 0, result.stderr
+    assert _moved_or_deleted_under_docs(target) == []
+    assert (target / "docs/spec/payments.feature").is_file()
+    assert not (target / "docs/spec/features").exists()
+    lines = _report_lines(result.stdout)
+    assert any("docs/spec/payments.feature" in line for line in lines), result.stdout
+    assert any("docs/arc42/architecture.dsl" in line for line in lines), result.stdout
+    assert any("migrate-spec-layout" in line for line in lines), result.stdout
+    assert read_factory_version(target) == "1.4.0"
+
+
+@pytest.mark.spec("CAL-07-IT-02")
+def test_CAL_07_rerun_after_first_install_moves_no_file_and_lists_nothing(tmp_path):
+    target = make_fresh_old_layout(tmp_path)
+    source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+    first = run_init(source, target, "--cli", "claude", "--project-name", "payments")
+    assert first.returncode == 0, first.stderr
+
+    result = run_init(source, target)
+
+    assert result.returncode == 0, result.stderr
+    assert "Layout migration" not in result.stdout
+    assert _moved_or_deleted_under_docs(target) == []
+    assert (target / "docs/spec/payments.feature").is_file()
+    assert not (target / "docs/spec/features").exists()
+    assert not any(
+        "docs/spec/payments.feature" in line for line in _report_lines(result.stdout)
+    ), result.stdout

@@ -5,7 +5,7 @@ version: 1.0.0
 
 # Todo Entry Template
 
-Skeleton for one entry appended to `docs/spec/todo.md`. Governed by [todo-format.md](../conventions/todo-format.md).
+Skeleton for one entry appended to `docs/spec/work/todo.md`. Governed by [todo-format.md](../conventions/todo-format.md).
 
 ```markdown
 ## T-0001 — <short title>

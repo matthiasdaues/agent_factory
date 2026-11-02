@@ -25,16 +25,20 @@ from pathlib import Path
 
 MANIFEST_NAME = "publish-docs.yaml"
 PROJECT_CSS_NAME = "publish-docs.css"
+# A migrated project keeps chapter 12 as a link line; its terms live in the
+# glossary, so the PDF shows the glossary wherever the manifest selects it.
+CHAPTER12 = "arc42/12_glossary.md"
+GLOSSARY = "spec/glossary.md"
 RASTER_SUFFIXES = {".png", ".jpg", ".jpeg"}
 
-FENCE_RE = re.compile(r"^(```|~~~)[^\n]*\n.*?^\1[ \t]*$\n?", re.S | re.M)
-MERMAID_RE = re.compile(r"^```mermaid[ \t]*\n(.*?)^```[ \t]*$\n?", re.S | re.M)
+FENCE_RE = re.compile(r"^(```|~~~)[^\n]*\n.*?^\1[ \t]*$\n?", re.DOTALL | re.MULTILINE)
+MERMAID_RE = re.compile(r"^```mermaid[ \t]*\n(.*?)^```[ \t]*$\n?", re.DOTALL | re.MULTILINE)
 CODE_SPAN_RE = re.compile(r"(`+)(?:(?!\1).)+?\1")
-FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---[ \t]*\n", re.S)
-BACK_TO_INDEX_RE = re.compile(r"^\[back to index\]\([^)]*\)[ \t]*\n?", re.M | re.I)
+FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---[ \t]*\n", re.DOTALL)
+BACK_TO_INDEX_RE = re.compile(r"^\[back to index\]\([^)]*\)[ \t]*\n?", re.MULTILINE | re.IGNORECASE)
 IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
-HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$", re.M)
+HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$", re.MULTILINE)
 
 
 class ManifestError(Exception):
@@ -72,11 +76,19 @@ def _expand(docs: Path, entry: str) -> list[Path]:
         matches = sorted(p for p in docs.glob(entry) if p.is_file())
         if not matches:
             raise ManifestError(f"manifest entry matches no file: {entry}")
-        return matches
+        return [_substitute(docs, p) for p in matches]
     path = docs / entry
     if not path.is_file():
         raise ManifestError(f"manifest names a missing file: {entry}")
-    return [path]
+    return [_substitute(docs, path)]
+
+
+def _substitute(docs: Path, path: Path) -> Path:
+    """Return docs/spec/glossary.md for chapter 12 when it exists, else ``path``."""
+    glossary = docs / GLOSSARY
+    if path == docs / CHAPTER12 and glossary.is_file():
+        return glossary
+    return path
 
 
 def load_manifest(docs: Path) -> Manifest:
@@ -194,7 +206,7 @@ class Build:
         status = None
         fm = FRONTMATTER_RE.match(text)
         if fm:
-            found = re.search(r"^status:[ \t]*(.+?)[ \t]*$", fm.group(1), re.M)
+            found = re.search(r"^status:[ \t]*(.+?)[ \t]*$", fm.group(1), re.MULTILINE)
             status = found.group(1).strip("'\"") if found else None
             text = text[fm.end():]
         text = BACK_TO_INDEX_RE.sub("", text)

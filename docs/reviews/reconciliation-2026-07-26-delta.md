@@ -32,8 +32,8 @@
   docs/findings/RECON-0014.md
   docs/findings/SEC-0004.md
   docs/reviews/reconciliation-2026-07-26.md
-  docs/spec/prd.md
-  docs/spec/supplementary_specs/interface-contracts.md
+  docs/spec/work/prd.md
+  docs/spec/interface-contracts.md
   docs/spec/traceability.json
   docs/spec/use_cases/UC-07-block-a-dangerous-git-command.md
   docs/spec/use_cases/UC-08-initialize-agent-factory-into-a-project.md
@@ -155,7 +155,7 @@ fix directions live in the finding files.
 - `docs/adr/0005-openrouter-model-discovery-for-model-conf.md` — refresh
   the Context paragraph to name `copilot.*`, `codex.*`, and `pi.*` as
   shipped tier blocks (RECON-0015).
-- `docs/spec/supplementary_specs/entity-model.md` — correct the
+- `docs/spec/entity-model.md` — correct the
   `MODEL_MATRIX_ENTRY.cli` enum to `copilot | codex | pi` (RECON-0016).
 
 ## Code defects filed

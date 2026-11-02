@@ -27,13 +27,13 @@ Open items: Spec review F1 (missing suites-absent prerequisite scenario) and F2 
 ## Artifacts
 
 - docs/proposals/test-design-skill.md
-- docs/spec/test-design.feature
-- docs/spec/test-design-gaps.md
-- docs/spec/test-design-qa-strategy.md
+- docs/spec/features/test-design.feature
+- docs/spec/work/test-design-gaps.md
+- docs/spec/work/test-design-qa-strategy.md
 - docs/spec/scope-map.md
-- docs/spec/supplementary_specs/entity-model.md
-- docs/spec/supplementary_specs/interface-contracts.md
-- docs/spec/supplementary_specs/validation-rules.md
+- docs/spec/entity-model.md
+- docs/spec/interface-contracts.md
+- docs/spec/validation-rules.md
 - docs/spec/traceability.json
 - docs/handoffs/handoff-requirements-test-design-skill-2026-09-01.md
 - docs/handoffs/handoff-spec-review-test-design-skill-2026-09-01.md

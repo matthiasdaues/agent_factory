@@ -15,7 +15,7 @@ id: SPEC-0001
 source: spec-review          # the review that produced it (spec-review, atam-review, fagan-review, security-review, reconcile, bug-hunt, grilling)
 severity: major              # critical | major | minor  (or the review's own scale, e.g. high|medium|low)
 category: defect             # defect | suggestion | question
-artifact: docs/spec/prd.md#NFR-01   # file#anchor or path:line the finding is about
+artifact: docs/spec/work/prd.md#NFR-01   # file#anchor or path:line the finding is about
 status: open                 # open | resolved
 traces: [NFR-01]             # requirement / use-case / ADR IDs the finding relates to (optional)
 ---

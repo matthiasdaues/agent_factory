@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR
 
 CONSUMER_CONFIG = REPO_ROOT / "packages" / "factory" / "config" / "pre-commit-config.yaml"
@@ -53,6 +52,8 @@ def test_spec_lint_exits_1_not_the_error_count(tmp_path):
     """BUG-0039: two errors exit 1, not 2, the code for usage errors."""
     spec = tmp_path / "docs" / "spec"
     spec.mkdir(parents=True)
+    (spec / "scope-map.md").write_text("# Scope Map\n")
+    (spec / "entity-model.md").write_text("# Entity Model\n")
     (spec / "a.md").write_text("# Spec\n\nSee BR-901 and BR-902.\n")
 
     result = _run([str(SOURCE_SCRIPTS_DIR / "spec-lint")], tmp_path)

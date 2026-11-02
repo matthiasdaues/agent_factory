@@ -56,7 +56,7 @@ All 9 stories (ST-0217 through ST-0225) implemented and merged. Test suite: 456 
 
 ## Known Issues
 
-1. **Spec drift**: `docs/spec/agent-context.feature` and `docs/spec/agent-context-qa-strategy.md` still describe the old YAML-based model. Reconciliation-agent should address this.
+1. **Spec drift**: `docs/spec/features/agent-context.feature` and `docs/spec/work/agent-context-qa-strategy.md` still describe the old YAML-based model. Reconciliation-agent should address this.
 2. **ST-0222 and ST-0225 committed to wrong branch**: Both agents committed to the feature branch instead of their story branches. Fixed by cherry-picking commits to the correct branches and resetting the feature branch. Root cause: agents operated in the main checkout rather than their worktrees.
 3. **Monorepo sync**: The dispatch script was patched (in a prior session) to copy `packages/factory/` to the gitignored `factory/` install after merge, ensuring post-merge tests load merged code.
 
@@ -64,8 +64,8 @@ All 9 stories (ST-0217 through ST-0225) implemented and merged. Test suite: 456 
 
 The reconciliation-agent should:
 
-- Update `docs/spec/agent-context.feature` to reflect the concern model
-- Update `docs/spec/agent-context-qa-strategy.md` for the concern model
+- Update `docs/spec/features/agent-context.feature` to reflect the concern model
+- Update `docs/spec/work/agent-context-qa-strategy.md` for the concern model
 - Verify `docs/agent-context.md` is consistent with all agent definitions
 - Check that the proposal (`docs/proposals/factory-concern-oriented-agent-context.md`) reflects the implementation
 

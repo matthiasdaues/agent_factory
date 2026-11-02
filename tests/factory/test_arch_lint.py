@@ -231,51 +231,112 @@ class TestReport:
         assert rep.n("INFO") == 1
 
 
+
 class TestMainRoundTrip:
-    """Integration: main() wires parsing → checking → exit code."""
+    """Integration: main() wires parsing → checking → exit code.
 
-    def test_no_arc42_no_adr_exits_zero(self, tmp_path):
-        docs = tmp_path / "docs" / "arc42"
-        docs.mkdir(parents=True)
-        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
-        assert rc == 0
+    Each case runs from a project root with the default paths: the DSL at
+    docs/spec/architecture.dsl and chapter 5 in docs/arc42/.
+    """
 
-    def test_dsl_only_no_ch5_with_projected_exits_nonzero(self, tmp_path):
-        docs = tmp_path / "docs" / "arc42"
-        docs.mkdir(parents=True)
-        (docs / "architecture.dsl").write_text(
+    @staticmethod
+    def _project(tmp_path, monkeypatch):
+        (tmp_path / "docs" / "arc42").mkdir(parents=True)
+        (tmp_path / "docs" / "spec").mkdir()
+        monkeypatch.chdir(tmp_path)
+        return tmp_path / "docs"
+
+    def test_no_arc42_no_adr_exits_zero(self, tmp_path, monkeypatch):
+        self._project(tmp_path, monkeypatch)
+        assert al.main(["--no-validate"]) == 0
+
+    def test_dsl_only_no_ch5_with_projected_exits_nonzero(self, tmp_path, monkeypatch):
+        docs = self._project(tmp_path, monkeypatch)
+        (docs / "spec" / "architecture.dsl").write_text(
             'workspace "x" {\n'
             '  properties { "arc42.projected" "true" }\n'
             "  model { }\n}\n"
         )
-        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
-        assert rc > 0
+        assert al.main(["--no-validate"]) > 0
 
-    def test_dsl_only_not_projected_exits_zero(self, tmp_path):
-        docs = tmp_path / "docs" / "arc42"
-        docs.mkdir(parents=True)
-        (docs / "architecture.dsl").write_text('workspace "x" { model { } }\n')
-        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
-        assert rc == 0
+    def test_dsl_only_not_projected_exits_zero(self, tmp_path, monkeypatch):
+        docs = self._project(tmp_path, monkeypatch)
+        (docs / "spec" / "architecture.dsl").write_text('workspace "x" { model { } }\n')
+        assert al.main(["--no-validate"]) == 0
 
-    def test_adr_valid_exits_zero(self, tmp_path):
-        docs = tmp_path / "docs" / "arc42"
-        docs.mkdir(parents=True)
-        adr = docs.parent / "adr"
-        adr.mkdir()
-        (adr / "adr-0001.md").write_text(
+    def test_chapter5_without_dsl_at_new_path_exits_nonzero(self, tmp_path, monkeypatch):
+        """DEC-11: a DSL only at the old path counts as missing."""
+        docs = self._project(tmp_path, monkeypatch)
+        (docs / "arc42" / "05_building_block_view.md").write_text("# 5\n")
+        (docs / "arc42" / "architecture.dsl").write_text('workspace "x" { model { } }\n')
+        assert al.main(["--no-validate"]) > 0
+
+    def test_adr_valid_exits_zero(self, tmp_path, monkeypatch):
+        docs = self._project(tmp_path, monkeypatch)
+        (docs / "adr").mkdir()
+        (docs / "adr" / "adr-0001.md").write_text(
             "---\nstatus: accepted\nevaluation: none\n---\nBody."
         )
-        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
-        assert rc == 0
+        assert al.main(["--no-validate"]) == 0
 
-    def test_adr_invalid_exits_nonzero(self, tmp_path):
-        docs = tmp_path / "docs" / "arc42"
-        docs.mkdir(parents=True)
-        adr = docs.parent / "adr"
-        adr.mkdir()
-        (adr / "adr-0001.md").write_text(
+    def test_adr_invalid_exits_nonzero(self, tmp_path, monkeypatch):
+        docs = self._project(tmp_path, monkeypatch)
+        (docs / "adr").mkdir()
+        (docs / "adr" / "adr-0001.md").write_text(
             "---\nstatus: accepted\nevaluation: pugh-matrix\n---\nNo matrix."
         )
-        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
-        assert rc > 0
+        assert al.main(["--no-validate"]) > 0
+
+
+class TestStructurizrHandover:
+    """arch-lint passes its --dsl path to the structurizr wrapper (ST-0325)."""
+
+    @staticmethod
+    def _capture(monkeypatch):
+        calls = []
+
+        class Done:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            return Done()
+
+        monkeypatch.setattr(al.subprocess, "run", fake_run)
+        monkeypatch.setattr(al.shutil, "which", lambda _name: "/usr/bin/docker")
+        return calls
+
+    def test_validate_passes_workspace_relative_to_docs_folder(
+        self, tmp_path, monkeypatch
+    ):
+        calls = self._capture(monkeypatch)
+        docs_root = tmp_path / "docs"
+        rep = al.Report()
+        al.check_validate(rep, docs_root, docs_root / "spec" / "architecture.dsl")
+        ((cmd, kwargs),) = calls
+        assert cmd[-1] == "validate"
+        assert kwargs["env"]["STRUCTURIZR_DOCS"] == str(docs_root.resolve())
+        assert kwargs["env"]["STRUCTURIZR_WORKSPACE"] == "spec/architecture.dsl"
+
+    def test_export_passes_workspace_relative_to_docs_folder(
+        self, tmp_path, monkeypatch
+    ):
+        calls = self._capture(monkeypatch)
+        docs_root = tmp_path / "docs"
+        dsl = docs_root / "arc42" / "architecture.dsl"
+        dsl.parent.mkdir(parents=True)
+        dsl.write_text("workspace { }\n")
+        rep = al.Report()
+        al.check_staleness(rep, dsl, [], docs_root)
+        ((cmd, kwargs),) = calls
+        assert cmd[-1] == "export-all"
+        assert kwargs["env"]["STRUCTURIZR_WORKSPACE"] == "arc42/architecture.dsl"
+
+    def test_dsl_outside_docs_folder_is_an_error(self, tmp_path, monkeypatch):
+        calls = self._capture(monkeypatch)
+        rep = al.Report()
+        al.check_validate(rep, tmp_path / "docs", tmp_path / "architecture.dsl")
+        assert calls == []
+        assert ("ERROR", "ARCH-VALIDATE") in {(s, c) for s, c, _ in rep.items}

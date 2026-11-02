@@ -12,7 +12,7 @@ Operational procedure for **new project development** from requirements through 
 ## Prerequisites
 
 - [ ] Project repository initialized
-- [ ] `CONTEXT.md` exists (or will be created during requirements work)
+- [ ] `docs/spec/glossary.md` exists (or will be created during requirements work)
 - [ ] Session management ready
 
 ## Session Boundaries
@@ -54,7 +54,7 @@ the answers already known from the vision conversation filled in
 ```
 
 **Agent**: `requirements-agent`
-**Expected outputs**: `docs/spec/prd.md`, `docs/spec/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/<feature-name>-gaps.md`, `docs/spec/<feature-name>-qa-strategy.md`, `docs/spec/supplementary_specs/`
+**Expected outputs**: `docs/spec/work/prd.md`, `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`, `docs/spec/work/<feature-name>-qa-strategy.md`, and the supplementary specs at the top of `docs/spec/`
 
 As requirements decisions settle a project fact — a data store, a
 licensing constraint, an integration requirement — the requirements agent
@@ -100,7 +100,7 @@ Return to Step 1.2 (run spec-review-agent again)
 ```
 
 **Agent**: `architecture-agent`
-**Expected outputs**: `docs/arc42/*.md` (arc42 chapters), `docs/adr/`, `docs/arc42/architecture.dsl`, `docs/assets/images/`
+**Expected outputs**: `docs/arc42/*.md` (arc42 chapters), `docs/adr/`, `docs/spec/architecture.dsl`, `docs/assets/images/`
 
 The workspace property `"arc42.projected"` defaults to `"false"` in fresh DSL files and is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
 
@@ -309,7 +309,7 @@ The playbook ends when the following terminal artifacts exist:
 **Terminal Artifacts:**
 
 - [ ] `docs/spec/scope-map.md` exists with all Rules from the initial specification marked `deferred` (ready to be implemented as features)
-- [ ] `docs/arc42/architecture.dsl` models the planned module structure (C4 components and dependencies as designed)
+- [ ] `docs/spec/architecture.dsl` models the planned module structure (C4 components and dependencies as designed)
 - [ ] Arc42 prose chapters (01–12) pass architecture review with no blocking findings
 - [ ] No `.feature` files exist yet (those are produced per-slice when `feature-addition` begins)
 

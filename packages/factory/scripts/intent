@@ -21,20 +21,20 @@ PACKAGES_DIR = Path(__file__).resolve().parent.parent
 if str(PACKAGES_DIR) not in sys.path:
     sys.path.insert(0, str(PACKAGES_DIR))
 
-from engine.agent_loader import load_agent_definitions, _parse_frontmatter
+from engine.agent_loader import _parse_frontmatter, load_agent_definitions
 from engine.eligibility import evaluate_all
 
 SCRIPTS_DIR = PACKAGES_DIR / "scripts"
 
 GOVERNED_ARTIFACT_GLOBS: list[tuple[str, str]] = [
     ("proposal", "docs/proposals/*.md"),
-    ("feature", "docs/spec/*.feature"),
+    ("feature", "docs/spec/features/*.feature"),
     ("scope-map", "docs/spec/scope-map.md"),
     ("epic", "backlog/epics-*.md"),
     ("story", "backlog/ST-*.md"),
     ("arc42-chapter", "docs/arc42/*.md"),
     ("adr", "docs/adr/*.md"),
-    ("qa-strategy", "docs/spec/*-qa-strategy.md"),
+    ("qa-strategy", "docs/spec/work/*-qa-strategy.md"),
 ]
 
 ARTIFACT_VALIDATORS: dict[str, list[str]] = {

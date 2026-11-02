@@ -9,18 +9,18 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1235
-    total_tokens: 8307
+    tokens: 1231
+    total_tokens: 8340
     inputs:
       required:
         - any_of:
             - type: feature
-              path_pattern: docs/spec/*.feature
+              path_pattern: docs/spec/features/*.feature
             - type: scope-map
               path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/prd.md
+        - docs/spec/glossary.md
+        - docs/spec/work/prd.md
         - docs/reviews/atam-review.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
@@ -31,7 +31,7 @@ agents:
         - path_pattern: docs/arc42/*.md
           validator: ""
           required: true
-        - path_pattern: docs/arc42/architecture.dsl
+        - path_pattern: docs/spec/architecture.dsl
           validator: ""
           required: true
         - path_pattern: docs/README.md
@@ -48,19 +48,19 @@ agents:
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 742
-    total_tokens: 5660
+    tokens: 744
+    total_tokens: 5658
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: architecture
-          path_pattern: docs/arc42/architecture.dsl
+          path_pattern: docs/spec/architecture.dsl
       context:
-        - docs/CONTEXT.md
-        - docs/spec/prd.md
+        - docs/spec/glossary.md
+        - docs/spec/work/prd.md
         - docs/*.md
         - docs/assets/images/*
         - docs/agent-context.md
@@ -104,13 +104,14 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 480
-    total_tokens: 1248
+    tokens: 504
+    total_tokens: 1290
     inputs:
       context:
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
+        - docs/agent-context.md
         - docs/reviews/retro-*.md
-        - docs/spec/todos.md
+        - docs/spec/work/todos.md
     outputs:
       minimum_changed: 1
       declarations:
@@ -122,20 +123,20 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 980
-    total_tokens: 6141
+    tokens: 985
+    total_tokens: 6148
     inputs:
       required:
         - type: story
           path_pattern: backlog/ST-*.md
         - type: feature
-          path_pattern: docs/spec/{name}.feature
+          path_pattern: docs/spec/features/{name}.feature
         - type: qa-strategy
-          path_pattern: docs/spec/{name}-qa-strategy.md
+          path_pattern: docs/spec/work/{name}-qa-strategy.md
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - docs/testing.yaml
         - .agent-factory/factory/rulebooks/conventions/finding-format.md
@@ -155,21 +156,21 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1971
-    total_tokens: 5052
+    tokens: 1975
+    total_tokens: 5057
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: supplementary-spec
-          path_pattern: docs/spec/supplementary_specs/*.md
+          path_pattern: docs/spec/*.md
         - type: story
           path_pattern: backlog/ST-{id}.md
       context:
-        - docs/spec/prd.md
-        - docs/CONTEXT.md
+        - docs/spec/work/prd.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - docs/testing.yaml
         - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
@@ -200,15 +201,15 @@ agents:
         - type: story
           path_pattern: backlog/ST-*.md
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: supplementary-spec
-          path_pattern: docs/spec/supplementary_specs/*.md
+          path_pattern: docs/spec/*.md
       context:
         - .agent-factory/config/model.conf
-        - docs/spec/prd.md
-        - docs/CONTEXT.md
+        - docs/spec/work/prd.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/branching-policy.md
         - .agent-factory/factory/rulebooks/conventions/dispatch-contract.md
@@ -254,12 +255,12 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1582
-    total_tokens: 14257
+    tokens: 1583
+    total_tokens: 14263
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
@@ -276,14 +277,14 @@ agents:
     tier: strong
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
-    tokens: 1735
-    total_tokens: 3518
+    tokens: 1737
+    total_tokens: 3484
     inputs:
       required:
         - type: proposal
           path_pattern: docs/proposals/{name}.md
       context:
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
         - .agent-factory/factory/rulebooks/templates/proposal.md
     outputs:
       minimum_changed: 1
@@ -296,20 +297,20 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1290
-    total_tokens: 9698
+    tokens: 1286
+    total_tokens: 9699
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/{name}.feature
+          path_pattern: docs/spec/features/{name}.feature
         - type: qa-strategy
-          path_pattern: docs/spec/{name}-qa-strategy.md
+          path_pattern: docs/spec/work/{name}-qa-strategy.md
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
-        - docs/spec/prd.md
+        - docs/spec/work/prd.md
         - docs/*.md
-        - docs/CONTEXT.md
+        - docs/spec/glossary.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
         - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
@@ -336,19 +337,19 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2272
-    total_tokens: 20000
+    tokens: 2294
+    total_tokens: 21417
     inputs:
       required:
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: supplementary-spec
-          path_pattern: docs/spec/supplementary_specs/*.md
+          path_pattern: docs/spec/*.md
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
       context:
-        - docs/CONTEXT.md
-        - docs/spec/prd.md
+        - docs/spec/glossary.md
+        - docs/spec/work/prd.md
         - docs/*.md
         - docs/adr/*.md
         - docs/agent-context.md
@@ -366,10 +367,13 @@ agents:
         - path_pattern: docs/reviews/reconciliation-*.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/*.md
+        - path_pattern: docs/spec/*.md
           validator: ""
           required: false
-        - path_pattern: docs/spec/*.feature
+        - path_pattern: docs/spec/areas/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/spec/features/*.feature
           validator: ""
           required: false
         - path_pattern: docs/spec/scope-map.md
@@ -381,7 +385,7 @@ agents:
         - path_pattern: docs/adr/*.md
           validator: ""
           required: false
-        - path_pattern: docs/CONTEXT.md
+        - path_pattern: docs/spec/glossary.md
           validator: ""
           required: false
         - path_pattern: docs/findings/RECON-*.md
@@ -392,8 +396,8 @@ agents:
     tier: strong
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1753
-    total_tokens: 19995
+    tokens: 1748
+    total_tokens: 21515
     inputs:
       required:
         - any_of:
@@ -405,8 +409,8 @@ agents:
             - type: scope-map
               path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/todos.md
+        - docs/spec/glossary.md
+        - docs/spec/work/todos.md
         - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
         - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
         - .agent-factory/factory/rulebooks/conventions/cross-reference-format.md
@@ -416,25 +420,25 @@ agents:
         - path_pattern: docs/spec/scope-map.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}.feature
+        - path_pattern: docs/spec/features/{name}.feature
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}-gaps.md
+        - path_pattern: docs/spec/work/{name}-gaps.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/{name}-qa-strategy.md
+        - path_pattern: docs/spec/work/{name}-qa-strategy.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/entity-model.md
+        - path_pattern: docs/spec/entity-model.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/interface-contracts.md
+        - path_pattern: docs/spec/interface-contracts.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/state-machines.md
+        - path_pattern: docs/spec/state-machines.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/supplementary_specs/validation-rules.md
+        - path_pattern: docs/spec/validation-rules.md
           validator: ""
           required: true
   - name: research-orchestrator
@@ -519,17 +523,17 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 701
-    total_tokens: 4428
+    tokens: 705
+    total_tokens: 4433
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/todos.md
+        - docs/spec/glossary.md
+        - docs/spec/work/todos.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/report-format.md
         - .agent-factory/factory/rulebooks/conventions/finding-format.md
@@ -549,7 +553,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3782
-    total_tokens: 17091
+    total_tokens: 18444
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -580,9 +584,9 @@ agents:
 skills:
   - name: capture-context
     category: requirements
-    description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. Bare invocation migrates legacy YAML to the concern model.
+    description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. --fold-context-map folds a context map into domain concerns. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 5988
+    tokens: 7379
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -592,12 +596,12 @@ skills:
     category: requirements
     description: Selects and runs the right requirements-clarification interview — Socratic (inline), grill-me (greenfield), or grill-with-docs (brownfield).
     path: skills/clarify-requirements/SKILL.md
-    tokens: 517
+    tokens: 527
   - name: derive-feature
     category: requirements
     description: Derive a Gherkin .feature file from a proposal, or in brownfield from the scope map, using Cockburn reasoning as internal process. Outputs a Rule-per-actor-goal .feature file with @-references to existing code and a gaps report.
     path: skills/derive-feature/SKILL.md
-    tokens: 2478
+    tokens: 2485
   - name: draft-proposal
     category: requirements
     description: Crystallize an explored idea into a decision-complete feature proposal. Called by VIRGIL (or directly) once the shape of a feature is clear. Runs in the current session with the stakeholder present.
@@ -607,22 +611,22 @@ skills:
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
     path: skills/inspect-spec/SKILL.md
-    tokens: 715
+    tokens: 719
   - name: qa-strategy-from-spec
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 2563
+    tokens: 2551
   - name: reverse-map
     category: requirements
-    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds docs/CONTEXT.md.
+    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1645
+    tokens: 1771
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
     path: skills/write-prd/SKILL.md
-    tokens: 441
+    tokens: 449
   - name: write-primer
     category: requirements
     description: "Write a short primer for a proposal: a plain-language introduction that lets a reader who knows nothing about the project follow the full document. Writes it into the proposal's Primer section."
@@ -632,12 +636,12 @@ skills:
     category: architecture
     description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
     path: skills/atam-review/SKILL.md
-    tokens: 823
+    tokens: 822
   - name: maintain-architecture
     category: architecture
     description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
     path: skills/maintain-architecture/SKILL.md
-    tokens: 1267
+    tokens: 1262
   - name: model-structurizr-slice
     category: architecture
     description: Model an increment, MVP, or release in a canonical Structurizr DSL workspace. Use to tag and style a component subset, map runtime deployment, create static and dynamic slice views, separate data models from C4 views, or fix diagrams that mix structure, deployment, behavior, and data.
@@ -647,7 +651,7 @@ skills:
     category: architecture
     description: Publish a project's arc42 documentation as one checked PDF with vector diagrams. Use when someone needs the architecture outside the repository, or asks for a PDF of the docs.
     path: skills/publish-docs/SKILL.md
-    tokens: 646
+    tokens: 739
   - name: pugh-matrix
     category: architecture
     description: Evaluate multiple alternatives against weighted criteria in a Pugh Matrix, present for confirmation, return the completed matrix. Use when a decision has genuine alternatives worth formally comparing — not every decision needs this.
@@ -657,12 +661,12 @@ skills:
     category: architecture
     description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
     path: skills/scaffold-arc42/SKILL.md
-    tokens: 1001
+    tokens: 1044
   - name: write-adr
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
     path: skills/write-adr/SKILL.md
-    tokens: 933
+    tokens: 932
   - name: create-backlog
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
@@ -672,7 +676,7 @@ skills:
     category: planning
     description: Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
     path: skills/create-backlog-epics/SKILL.md
-    tokens: 2362
+    tokens: 2364
   - name: create-backlog-stories
     category: planning
     description: Read confirmed slice tables, write backlog/ST-NNNN.md story files with MoSCoW priorities, dependencies, and quality gates. Phase 4 of 4 in the create-backlog sequence.
@@ -692,7 +696,7 @@ skills:
     category: planning
     description: "Incorporate grilling results into a backlog story: fill resolved contract decisions into their home sections, write concrete Required API Behavior, and prepare the story for slicing. Phase 6 of the create-backlog sequence."
     path: skills/create-backlog-make-concrete/SKILL.md
-    tokens: 1253
+    tokens: 1254
   - name: slice-story
     category: planning
     description: Cut a concrete backlog story into independently implementable slices along contract boundaries. Phase 7 of the create-backlog sequence.
@@ -702,7 +706,7 @@ skills:
     category: planning
     description: Assess epic testability and resolve contract ownership backlog-wide before stories are cut. Mandatory step 2.5 in the create-backlog sequence, between create-backlog-write-epics and create-backlog-story-slices. Writes a testability paragraph and ownership table per EPIC into backlog/epics.md — no failure scenarios, test paths, or risk classifications.
     path: skills/testability-probe/SKILL.md
-    tokens: 2677
+    tokens: 2680
   - name: crap-score
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
@@ -712,27 +716,27 @@ skills:
     category: implementation
     description: Enforce dependency-rules.dsl dependency rules by scanning source imports and writing a JSON gate report.
     path: skills/dependency-check/SKILL.md
-    tokens: 763
+    tokens: 757
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
     path: skills/implement-issue/SKILL.md
-    tokens: 867
+    tokens: 883
   - name: reconcile-spec
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
     path: skills/reconcile-spec/SKILL.md
-    tokens: 888
+    tokens: 892
   - name: spec-feedback
     category: implementation
     description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
     path: skills/spec-feedback/SKILL.md
-    tokens: 471
+    tokens: 456
   - name: test-design
     category: implementation
     description: Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files.
     path: skills/test-design/SKILL.md
-    tokens: 1846
+    tokens: 1848
   - name: vue-best-practices
     category: implementation
     description: Project-specific Vue conventions for packages/server. Load before any Vue/frontend implementation task.
@@ -742,7 +746,7 @@ skills:
     category: quality
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
-    tokens: 603
+    tokens: 606
   - name: explain-review-finding
     category: quality
     description: When the user asks what a review finding, bug report, failing test, or architecture concern means, explain it to a newcomer, starting with a short chain of cause and effect.
@@ -752,7 +756,7 @@ skills:
     category: quality
     description: Structured code review following the Fagan Inspection method — correctness, Clean Architecture, SOLID, maintainability.
     path: skills/fagan-review/SKILL.md
-    tokens: 704
+    tokens: 706
   - name: mutation-testing
     category: quality
     description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
@@ -780,9 +784,9 @@ skills:
     tokens: 3191
   - name: domain-modeling
     category: utility
-    description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/CONTEXT.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
+    description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/spec/glossary.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
     path: skills/domain-modeling/SKILL.md
-    tokens: 695
+    tokens: 855
   - name: explain-concept
     category: utility
     description: Look up a Factory concept and explain it. Knows what exists and what is missing.
@@ -792,7 +796,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me" or "grill with docs".
     path: skills/grilling/SKILL.md
-    tokens: 1107
+    tokens: 1071
   - name: guided-tour
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
@@ -812,12 +816,12 @@ skills:
     category: utility
     description: Process a meeting transcript into two markdown artifacts — a verbatim protocol and a comparison against the current repository state. Use when the user provides a transcript, mentions "process transcript", or wants to compare a discussion against the spec.
     path: skills/process-transcript/SKILL.md
-    tokens: 1476
+    tokens: 1478
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
-    tokens: 768
+    tokens: 786
   - name: run-step
     category: utility
     description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
@@ -827,12 +831,12 @@ skills:
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
     path: skills/scratchpad/SKILL.md
-    tokens: 354
+    tokens: 356
   - name: validate
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 1348
+    tokens: 1346
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
@@ -885,7 +889,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 15072
+    total_tokens: 15103
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -898,8 +902,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3327
-    total_tokens: 61717
+    tokens: 3373
+    total_tokens: 64736
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -909,7 +913,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15431
+    total_tokens: 15437
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -920,8 +924,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 948
-    total_tokens: 43905
+    tokens: 955
+    total_tokens: 45332
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -937,8 +941,8 @@ playbooks:
       - code-review-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4632
-    total_tokens: 105987
+    tokens: 4667
+    total_tokens: 109009
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -955,8 +959,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2737
-    total_tokens: 105340
+    tokens: 2745
+    total_tokens: 108377
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -972,7 +976,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15934
+    total_tokens: 15940
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1017,11 +1021,11 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4844
+    tokens: 4843
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
-    tokens: 1223
+    tokens: 1218
   - name: agent-lifecycle-protocol
     category: conventions
     path: rulebooks/conventions/agent-lifecycle-protocol.md
@@ -1041,11 +1045,11 @@ rulebooks:
   - name: context-format
     category: conventions
     path: rulebooks/conventions/context-format.md
-    tokens: 361
+    tokens: 524
   - name: cross-reference-format
     category: conventions
     path: rulebooks/conventions/cross-reference-format.md
-    tokens: 588
+    tokens: 591
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
@@ -1073,7 +1077,7 @@ rulebooks:
   - name: markdown-formatting
     category: conventions
     path: rulebooks/conventions/markdown-formatting.md
-    tokens: 333
+    tokens: 335
   - name: mermaid-notation
     category: conventions
     path: rulebooks/conventions/mermaid-notation.md
@@ -1081,7 +1085,7 @@ rulebooks:
   - name: report-format
     category: conventions
     path: rulebooks/conventions/report-format.md
-    tokens: 1165
+    tokens: 1162
   - name: research-claim-admission-policy
     category: conventions
     path: rulebooks/conventions/research-claim-admission-policy.md
@@ -1125,7 +1129,7 @@ rulebooks:
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
-    tokens: 414
+    tokens: 416
   - name: touches-hygiene
     category: conventions
     path: rulebooks/conventions/touches-hygiene.md

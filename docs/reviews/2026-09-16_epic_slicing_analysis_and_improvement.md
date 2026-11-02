@@ -52,7 +52,7 @@ tests/fixtures/concern-lint/missing_read/docs/agent-context.md
 tests/fixtures/concern-lint/valid/docs/agent-context.md
 
 • Ran rg -n -i --hidden 'cycle|orchestrat|session menu|usage|research|transition-lint|run-step|phase command|entity model|LinkML|factory scripts|
-│ engine' docs/arc42/architecture.dsl docs/arc42/*.md docs/adr/*.md | sed -n '1,360p'; printf '\\n\_\_PACKAGE_LAYOUT\_\_\\n'; find packages/factory
+│ engine' docs/spec/architecture.dsl docs/arc42/*.md docs/adr/*.md | sed -n '1,360p'; printf '\\n\_\_PACKAGE_LAYOUT\_\_\\n'; find packages/factory
 │ -maxdepth 3 -type d | sort; printf '\\n\_\_TEST_LAYOUT\_\_\\n'; find tests/factory packages/usage/tests -maxdepth 2 -type f | sort | sed -n
 │ … +1 lines
 └ docs/arc42/08_crosscutting_concepts.md:7:**Principle**: Creation is agentic; validation is deterministic. Tests, cycle-model gates, and
@@ -399,9 +399,9 @@ evidence.
 6 + - docs/agent-context.md
 7 + - docs/CONTEXT.md
 8 + - docs/spec/scope-map.md
-9 + - docs/spec/cycle-based-orchestration.feature
-10 + - docs/spec/cycle-based-orchestration-gaps.md
-11 + - docs/spec/cycle-based-orchestration-qa-strategy.md
+9 + - docs/~archive/spec/cycle-based-orchestration.feature
+10 + - docs/~archive/spec/cycle-based-orchestration-gaps.md
+11 + - docs/~archive/spec/cycle-based-orchestration-qa-strategy.md
 12 + - docs/testing.yaml
 13 + - docs/adr/**/\*.md
 14 + - docs/arc42/**/*.md
@@ -580,9 +580,9 @@ specification will need that split before Phase 2; I will not edit it during thi
 6 - - docs/agent-context.md
 7 - - docs/CONTEXT.md
 8 - - docs/spec/scope-map.md
-9 - - docs/spec/cycle-based-orchestration.feature
-10 - - docs/spec/cycle-based-orchestration-gaps.md
-11 - - docs/spec/cycle-based-orchestration-qa-strategy.md
+9 - - docs/~archive/spec/cycle-based-orchestration.feature
+10 - - docs/~archive/spec/cycle-based-orchestration-gaps.md
+11 - - docs/~archive/spec/cycle-based-orchestration-qa-strategy.md
 12 - - docs/testing.yaml
 13 - - docs/proposals/cycle-based-orchestration.md
 14 - - docs/adr/**/\*.md

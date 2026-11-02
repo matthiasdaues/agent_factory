@@ -76,8 +76,8 @@ repos:
         pass_filenames: false
         files: ^docs/spec/
 
-      # Compare architecture documentation against the C4 model
-      # (the Structurizr DSL file). Catches names that appear in
+      # Compare chapter 5 in docs/arc42/ against the C4 model
+      # (docs/spec/architecture.dsl). Catches names that appear in
       # one but not the other. Also validates ADR frontmatter.
       - id: agent_factory_hook-arch-lint
         name: "agent_factory: arch-lint (arc42, Structurizr, ADR frontmatter)"
@@ -87,13 +87,13 @@ repos:
           [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
           true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
           or set SKIP=<hook id>." >&2; exit 1; };
-          "$AF"/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate
-          --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg
-          2>/dev/null; exit $rc'
+          "$AF"/factory/scripts/arch-lint --dsl docs/spec/architecture.dsl
+          --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?;
+          git add docs/assets/images/*.svg 2>/dev/null; exit $rc'
         language: system
         pass_filenames: false
         files: >-
-          ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
+          ^docs/(spec/(architecture|dependency-rules)\.dsl|arc42/05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
         stages: [pre-commit, pre-merge-commit]
 
       # Validate backlog story files — required frontmatter fields,
@@ -209,7 +209,7 @@ repos:
         entry: bash -c 'packages/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg 2>/dev/null; exit $rc'
         language: system
         pass_filenames: false
-        files: ^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)|assets/images/.*|adr/.*\.md)$
+        files: ^docs/(spec/(architecture|dependency-rules)\.dsl|arc42/05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
         stages: [pre-commit, pre-merge-commit]
 
       - id: backlog-lint

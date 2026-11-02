@@ -4,7 +4,7 @@ Disclosed reference for the `scaffold-arc42` skill.
 
 ## Minimal workspace
 
-The DSL file lives at `docs/arc42/architecture.dsl`.
+The DSL file lives at `docs/spec/architecture.dsl`.
 
 ```dsl
 workspace "System Name" "One-line description" {
@@ -36,7 +36,7 @@ workspace "System Name" "One-line description" {
             autoLayout
         }
 
-        theme themes/default/theme.json
+        theme ../assets/themes/default/theme.json
     }
 }
 ```
@@ -72,11 +72,11 @@ All operations run inside Docker via the project wrapper script — no local Str
 .agent-factory/factory/scripts/structurizr list-views
 ```
 
-The script defaults to `docs/arc42/architecture.dsl` and outputs to `docs/assets/images/`. Override the docs directory with `STRUCTURIZR_DOCS=<path>`.
+The script mounts `docs/`, reads `docs/spec/architecture.dsl`, and outputs to `docs/assets/images/`. The theme at `docs/assets/themes/` sits inside the mount, so the DSL reaches it as `../assets/themes/default/theme.json`. Override the docs directory with `STRUCTURIZR_DOCS=<path>` and the DSL path inside it with `STRUCTURIZR_WORKSPACE=<path>` (default `spec/architecture.dsl`).
 
 ## Rules
 
-- The DSL file `docs/arc42/architecture.dsl` is the versioned source of truth. Exported images are derived artifacts.
+- The DSL file `docs/spec/architecture.dsl` is the versioned source of truth. Exported images are derived artifacts.
 - One workspace per project. Multiple views within the same workspace.
 - Use `autoLayout` unless manual positioning is needed for clarity.
 - Tag elements for styling: `element "Tag" { ... }` in the `styles` block.

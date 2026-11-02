@@ -34,7 +34,6 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
@@ -605,18 +604,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--dsl-path",
-        default="docs/arc42/architecture.dsl",
-        help="path to architecture.dsl (default: docs/arc42/architecture.dsl)",
+        default="docs/spec/architecture.dsl",
+        help="path to architecture.dsl (default: docs/spec/architecture.dsl)",
     )
     parser.add_argument(
         "--interface-contracts",
-        default="docs/spec/supplementary_specs/interface-contracts.md",
-        help="path to interface-contracts.md",
+        default="docs/spec/interface-contracts.md",
+        help="path to interface-contracts.md (default: docs/spec/interface-contracts.md)",
     )
     parser.add_argument(
         "--entity-model",
-        default="docs/spec/supplementary_specs/entity-model.md",
-        help="path to entity-model.md",
+        default="docs/spec/entity-model.md",
+        help="path to entity-model.md (default: docs/spec/entity-model.md)",
     )
     parser.add_argument(
         "--proposal",

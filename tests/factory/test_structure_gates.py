@@ -200,7 +200,9 @@ class TestMissingInputDirectory:
     ) -> None:
         """BUG-0054: with the opt-in flag, a missing dir warns and exits 0."""
         docs = tmp_path / "docs" / "arc42"
-        args = ["--docs-dir", str(docs), "--no-validate", "--allow-missing-docs-dir"]
+        dsl = tmp_path / "docs" / "spec" / "architecture.dsl"
+        args = ["--dsl", str(dsl), "--docs-dir", str(docs), "--no-validate"]
+        args.append("--allow-missing-docs-dir")
         assert al.main(args) == 0
         assert "ARCH-NO-DIR" in capsys.readouterr().out
 
@@ -224,7 +226,9 @@ class TestMissingInputDirectory:
         images.mkdir(parents=True)
         (images / "screenshot.png").write_bytes(b"\x89PNG")
         docs = tmp_path / "docs" / "arc42"
-        args = ["--docs-dir", str(docs), "--no-validate", "--allow-missing-docs-dir"]
+        dsl = tmp_path / "docs" / "spec" / "architecture.dsl"
+        args = ["--dsl", str(dsl), "--docs-dir", str(docs), "--no-validate"]
+        args.append("--allow-missing-docs-dir")
         assert al.main(args) == 0
 
     def test_statemachine_lint_missing_spec_dir_exits_2(self, tmp_path: Path) -> None:
@@ -303,7 +307,7 @@ class TestChapterFiveComponents:
     def test_repository_chapter_five_is_unchanged(self) -> None:
         """BUG-0090: this repository's chapter 5 keeps its 42 components."""
         ch5 = (REPO_ROOT / "docs" / "arc42" / "05_building_block_view.md").read_text()
-        dsl = (REPO_ROOT / "docs" / "arc42" / "architecture.dsl").read_text()
+        dsl = (REPO_ROOT / "docs" / "spec" / "architecture.dsl").read_text()
         assert len(al.ch5_core_components(ch5)) == 42
         rep = al.Report()
         al.check_coupling(rep, dsl, ch5)
@@ -397,7 +401,9 @@ class TestContainerOnlyModel:
         """BUG-0090: no DSL components and a 5.1 container table exit 0."""
         docs = tmp_path / "docs" / "arc42"
         docs.mkdir(parents=True)
-        (docs / "architecture.dsl").write_text(
+        dsl = tmp_path / "docs" / "spec" / "architecture.dsl"
+        dsl.parent.mkdir()
+        dsl.write_text(
             "workspace {\n  model {\n    s = softwareSystem \"S\" {\n"
             "      web = container \"Web\"\n      db = container \"Database\"\n"
             "    }\n  }\n}\n"
@@ -410,5 +416,5 @@ class TestContainerOnlyModel:
             "| Web       | Serve pages    |\n"
             "| Database  | Store data     |\n"
         )
-        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
+        rc = al.main(["--dsl", str(dsl), "--docs-dir", str(docs), "--no-validate"])
         assert rc == 0

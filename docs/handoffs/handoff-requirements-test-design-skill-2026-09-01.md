@@ -28,11 +28,11 @@ Open items: none
 
 - docs/proposals/test-design-skill.md
 - docs/spec/scope-map.md
-- docs/spec/prd.md
+- docs/spec/work/prd.md
 - docs/spec/actor-goal-list.md
 - docs/spec/use_cases/
 - docs/spec/supplementary_specs/
-- docs/spec/test-gate-presence.feature
+- docs/spec/features/test-gate-presence.feature
 - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 - .agent-factory/factory/rulebooks/templates/charter-testing.yaml
 - docs/charter/testing.yaml

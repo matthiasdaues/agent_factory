@@ -75,7 +75,7 @@ fixes that closed them.
   shapes and canonical four-CLI vocabulary.
 - `.agent-factory/factory/docs/factory-guide.md` — installation and guardrail wiring for all
   four runtimes.
-- `docs/spec/prd.md`, UC-07, UC-08, and `interface-contracts.md` — aligned the
+- `docs/spec/work/prd.md`, UC-07, UC-08, and `interface-contracts.md` — aligned the
   normative installation and guardrail contracts.
 - ADR-0004 through ADR-0007 and `docs/arc42/09_architecture_decisions.md` — status
   changed from `proposed` to `accepted`.

@@ -29,7 +29,7 @@ Copilot CLI exposes a `preToolUse` hook with a JSON payload that includes:
   "cwd": "/repo/root",
   "toolName": "read_file",
   "toolArgs": {
-    "path": "docs/spec/prd.md"
+    "path": "docs/spec/work/prd.md"
   }
 }
 ```

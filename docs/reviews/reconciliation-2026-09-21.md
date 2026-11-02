@@ -59,35 +59,35 @@ Covers commits 96ceb69..HEAD.
 ### Spec files compared
 
 - `docs/spec/scope-map.md`
-- `docs/spec/activity-graph-orchestration.feature`
-- `docs/spec/agent-context.feature`
-- `docs/spec/local-usage-processing-and-analysis.feature`
-- `docs/spec/newcomer-onboarding.feature`
-- `docs/spec/test-gate-presence.feature`
-- `docs/spec/test-design.feature`
+- `docs/spec/features/activity-graph-orchestration.feature`
+- `docs/spec/features/agent-context.feature`
+- `docs/spec/features/local-usage-processing-and-analysis.feature`
+- `docs/spec/features/newcomer-onboarding.feature`
+- `docs/spec/features/test-gate-presence.feature`
+- `docs/spec/features/test-design.feature`
 
 ### Architecture files compared
 
-- `docs/arc42/architecture.dsl`
+- `docs/spec/architecture.dsl`
 - `docs/arc42/06_runtime_view.md`
 - `docs/arc42/08_crosscutting_concepts.md`
 - `docs/arc42/09_architecture_decisions.md`
 
 ## Files updated
 
-| File                                                    | Change                                                            |
-| ------------------------------------------------------- | ----------------------------------------------------------------- |
-| `docs/spec/scope-map.md`                                | N-001 (dormant), N-002 (forensic evidence), N-003 (14 rows added) |
-| `docs/arc42/architecture.dsl`                           | N-004 (3 components + relationships)                              |
-| `docs/spec/agent-context.feature`                       | N-006 (4 `@`-refs)                                                |
-| `docs/spec/local-usage-processing-and-analysis.feature` | N-006 (7 `@`-refs)                                                |
-| `docs/spec/activity-graph-orchestration.feature`        | N-006 (2 `@`-refs)                                                |
-| `docs/spec/newcomer-onboarding.feature`                 | SPEC-0008 (`@`-ref canonical path)                                |
-| `docs/arc42/05_building_block_view.md`                  | N-004 (3 components added to tables)                              |
-| `docs/assets/images/StateAdapterComponents.svg`         | N-005 (deleted)                                                   |
-| `docs/assets/images/StateAdapterComponents-key.svg`     | N-005 (deleted)                                                   |
-| `docs/assets/images/TestGatePresence.svg`               | N-005 (deleted)                                                   |
-| `docs/assets/images/TestGatePresence-key.svg`           | N-005 (deleted)                                                   |
+| File                                                             | Change                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `docs/spec/scope-map.md`                                         | N-001 (dormant), N-002 (forensic evidence), N-003 (14 rows added) |
+| `docs/spec/architecture.dsl`                                     | N-004 (3 components + relationships)                              |
+| `docs/spec/features/agent-context.feature`                       | N-006 (4 `@`-refs)                                                |
+| `docs/spec/features/local-usage-processing-and-analysis.feature` | N-006 (7 `@`-refs)                                                |
+| `docs/spec/features/activity-graph-orchestration.feature`        | N-006 (2 `@`-refs)                                                |
+| `docs/spec/features/newcomer-onboarding.feature`                 | SPEC-0008 (`@`-ref canonical path)                                |
+| `docs/arc42/05_building_block_view.md`                           | N-004 (3 components added to tables)                              |
+| `docs/assets/images/StateAdapterComponents.svg`                  | N-005 (deleted)                                                   |
+| `docs/assets/images/StateAdapterComponents-key.svg`              | N-005 (deleted)                                                   |
+| `docs/assets/images/TestGatePresence.svg`                        | N-005 (deleted)                                                   |
+| `docs/assets/images/TestGatePresence-key.svg`                    | N-005 (deleted)                                                   |
 
 ## Code defects filed
 

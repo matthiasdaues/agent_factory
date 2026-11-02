@@ -110,7 +110,7 @@ S-06 to S-10.
 ## 5. Inbound links
 
 `grep -rn "entity-model-as-dbml.md#" docs` finds no anchor link. Two links
-point at the file itself, from `docs/spec/todo.md` lines 84 and 89. No item
+point at the file itself, from `docs/spec/work/todo.md` lines 84 and 89. No item
 renames a heading except S-05, which removes `#design-details`; nothing links
 to it. New internal links from S-01, S-03, and S-06 point at existing
 headings.
@@ -155,7 +155,7 @@ structural pass fixes order and single homes, not length.
 ## Possible contradictions (not resolved by this plan)
 
 - **T-0006 status.** Line 73–74 says T-0006 "is still open", and the
-  Completion Criteria (line 350) expect it to be resolved. `docs/spec/todo.md`
+  Completion Criteria (line 350) expect it to be resolved. `docs/spec/work/todo.md`
   line 56 already marks it `resolved`, with a 2026-10-30 revision to DBML.
 - **Definition of the core.** Line 97–99 says every core file is one "that a
   gate checks". The table row for `CONTEXT.md` (line 115) names gate "none

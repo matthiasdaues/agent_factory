@@ -3,7 +3,7 @@
 **Date:** 2026-09-21
 **Branch:** dev
 **Local tip:** `986c5456f2c4969422ac4f9538e9539dc9e1e8e6`
-**Uncommitted changes:** `docs/arc42/05_building_block_view.md`, `docs/arc42/architecture.dsl` (plus re-exported SVGs)
+**Uncommitted changes:** `docs/arc42/05_building_block_view.md`, `docs/spec/architecture.dsl` (plus re-exported SVGs)
 **Untracked:** `docs/findings/RECON-cycle-retirement.md`
 
 ## Current state
@@ -47,7 +47,7 @@ Everything below has no active consumers. Some scripts and files remain on disk 
 
 ### Uncommitted edits to review
 
-The changes to `docs/arc42/05_building_block_view.md` and `docs/arc42/architecture.dsl` were made under the assumption that the FSM/phase harness was active. Now that the user confirmed it is also dead, these edits need further revision before committing. Specifically:
+The changes to `docs/arc42/05_building_block_view.md` and `docs/spec/architecture.dsl` were made under the assumption that the FSM/phase harness was active. Now that the user confirmed it is also dead, these edits need further revision before committing. Specifically:
 
 - The `phase` component row should be removed or marked as dead, not described as active.
 - The `run-step skill` description still references "run-state marker and the playbook FSM."

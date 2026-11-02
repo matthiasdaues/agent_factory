@@ -13,7 +13,7 @@ impact:
   external_contract_change: true
   boundaries:
     - .agent-factory/factory/scripts/usage-capture
-    - docs/spec/supplementary_specs/interface-contracts.md
+    - docs/spec/interface-contracts.md
 
 governance:
   assurance: critical

@@ -13,15 +13,16 @@
 #       inspect-spec skill / spec-review-agent.
 #
 # This is the Pass-1 (deterministic) half of the spec review mechanism. It parses
-# the Markdown specification artifacts, checks cross-references between declared
-# IDs (UC-##, BR-###, entities, actors), and reports the defect classes a parser can
-# catch exactly and cheaply — leaving semantic judgement to the inspect-spec LLM pass.
+# the specification core (Markdown files and features/*.feature), checks
+# cross-references between declared IDs (BR-###, entities, glossary terms), and
+# reports the defect classes a parser can catch exactly and cheaply — leaving
+# semantic judgement to the inspect-spec LLM pass.
 #
 # It has NO third-party dependencies (Python 3.8+ stdlib only), so it runs anywhere
 # without a virtualenv, mirroring the zero-install intent of scripts/structurizr.
 #
 # Usage:
-#   ./spec-lint [--spec-dir docs/spec] [--context CONTEXT.md]
+#   ./spec-lint [--spec-dir docs/spec] [--glossary docs/spec/glossary.md]
 #               [--format text|json] [--gate-todos] [--report-only]
 #
 # Exit code: 1 when there is at least one ERROR-severity finding, 0 when
@@ -37,7 +38,7 @@ import json
 import os
 import re
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Set
 
@@ -47,13 +48,11 @@ from typing import Dict, List, Set
 _HERE = os.path.dirname(os.path.abspath(__file__))
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-import _session_log  # noqa: E402
+import _session_log
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 # --- Regexes for declared anchors -------------------------------------------------
-RE_UC = re.compile(r"\bUC-(\d{1,3})\b")
-RE_AG = re.compile(r"\bAG-(\d{1,3})\b")
 RE_BR = re.compile(r"\bBR-(\d{1,3})\b")
 RE_BR_DEF = re.compile(r"^\s*(?:[-*]\s*)?\*{0,2}BR-(\d{1,3})\*{0,2}\s*[:.—-]")
 RE_BR_DEF_TABLE = re.compile(r"^\s*\|\s*BR-(\d{1,3})\s*\|")
@@ -64,26 +63,15 @@ RE_MERMAID_TRANSITION = re.compile(r"^\s*(.+?)\s*-->\s*(.+?)\s*(?::.*)?$")
 # Cardinality tokens contain |, o, {, }, --, .. — matched loosely as a no-space run.
 RE_ERD_REL = re.compile(r"^\s*([A-Za-z_]\w*)\s+\S+\s+([A-Za-z_]\w*)\s*:")
 RE_ERD_ENTITY_BLOCK = re.compile(r"^\s*([A-Za-z_][\w-]*)\s*\{")
-RE_LIST_PREFIX = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
-PLACEHOLDER_WORDS = re.compile(
-    r"\b(TODO|TBD|FIXME|XXX|TKTK|lorem ipsum|placeholder)\b", re.I
-)
-
-REQUIRED_UC_SECTIONS = [
-    ("primary actor", "Primary Actor"),
-    ("stakeholder", "Stakeholders & Interests"),
-    ("trigger", "Trigger"),
-    ("precondition", "Preconditions"),
-    ("main success scenario", "Main Success Scenario"),
-    ("extension", "Extensions"),
-    ("postcondition", "Postconditions"),
-    ("business rule", "Business Rules"),
-]
 
 REQUIRED_ARTIFACTS = [
     "scope-map.md",
-    "supplementary_specs/entity-model.md",
+    "entity-model.md",
 ]
+
+# Working output (gaps reports, QA strategies, todo lists) lives here; it is
+# not part of the specification core.
+WORK_DIR = "work"
 
 
 @dataclass
@@ -101,18 +89,10 @@ class Finding:
 
 @dataclass
 class Graph:
-    use_cases: Set[str] = field(default_factory=set)
-    actor_goals: Set[str] = field(
-        default_factory=set
-    )  # AG-## declared in actor-goal-list
-    goal_refs: Set[str] = field(
-        default_factory=set
-    )  # AG-## a use case claims to realize
     business_rules_defined: Set[str] = field(default_factory=set)
     business_rules_referenced: Set[str] = field(default_factory=set)
     entities: Set[str] = field(default_factory=set)
     entities_with_attrs: Set[str] = field(default_factory=set)
-    edges: List[Dict[str, str]] = field(default_factory=list)
 
 
 def read(path: Path) -> str:
@@ -156,8 +136,8 @@ def check_required_artifacts(spec: Path) -> List[Finding]:
 # Unattended reverse-map writes `status: draft` into the scope map's
 # frontmatter. A stakeholder confirms the map by removing the field or setting
 # it to `confirmed`; until then the brownfield Stage 1 exit must fail (BUG-0096).
-RE_FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\s*$", re.S | re.M)
-RE_DRAFT_STATUS = re.compile(r"^status:\s*['\"]?draft['\"]?\s*$", re.M)
+RE_FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\s*$", re.DOTALL | re.MULTILINE)
+RE_DRAFT_STATUS = re.compile(r"^status:\s*['\"]?draft['\"]?\s*$", re.MULTILINE)
 
 
 def check_scope_map_draft(spec: Path) -> List[Finding]:
@@ -175,127 +155,14 @@ def check_scope_map_draft(spec: Path) -> List[Finding]:
     ]
 
 
-def check_use_cases(spec: Path, graph: Graph) -> List[Finding]:
-    out = []
-    uc_dir = spec / "use_cases"
-    if not uc_dir.is_dir():
-        return out
-    for f in sorted(uc_dir.glob("UC-*.md")):
-        rel = str(f.relative_to(spec.parent))
-        text = read(f)
-        low = text.lower()
-
-        if not re.match(r"^UC-\d{1,3}-[a-z0-9-]+\.md$", f.name):
-            out.append(
-                Finding(
-                    "STRUCT004",
-                    "warning",
-                    rel,
-                    "filename does not match UC-XX-short-name.md",
-                )
-            )
-
-        if not re.search(
-            r"(?im)^\s*(?:[-*]\s*)?\*{0,2}realizes\*{0,2}\s*:.*\bAG-\d", text
-        ):
-            out.append(
-                Finding(
-                    "STRUCT006",
-                    "warning",
-                    rel,
-                    "use case does not declare which goal it realizes (Realizes: AG-##)",
-                )
-            )
-
-        for needle, label in REQUIRED_UC_SECTIONS:
-            if needle not in low:
-                out.append(
-                    Finding(
-                        "STRUCT001",
-                        "error",
-                        rel,
-                        f"missing required Cockburn section: {label}",
-                    )
-                )
-
-        gherkin = fenced_blocks(text, "gherkin")
-        if not gherkin:
-            # Fallback: unfenced Gherkin keywords (Scenario: / Given / When / Then)
-            kw_lines = [
-                ln
-                for ln in text.splitlines()
-                if re.match(r"\s*(Feature|Scenario|Given|When|Then|And)\s*:", ln)
-            ]
-            if kw_lines:
-                gherkin = ["\n".join(kw_lines)]
-        if not gherkin:
-            out.append(
-                Finding(
-                    "STRUCT002",
-                    "error",
-                    rel,
-                    "no Gherkin acceptance criteria (Scenario) found",
-                )
-            )
-        else:
-            joined = "\n".join(gherkin).lower()
-            if "when" not in joined or "then" not in joined:
-                out.append(
-                    Finding(
-                        "FMT002",
-                        "warning",
-                        rel,
-                        "Gherkin present but missing When/Then keywords",
-                    )
-                )
-
-        if not fenced_blocks(text, "mermaid"):
-            out.append(
-                Finding(
-                    "STRUCT003", "warning", rel, "no Mermaid activity diagram found"
-                )
-            )
-
-        for m in PLACEHOLDER_WORDS.finditer(text):
-            out.append(
-                Finding(
-                    "FMT003", "warning", rel, f"placeholder text found: '{m.group(0)}'"
-                )
-            )
-    return out
+def feature_files(spec: Path) -> List[Path]:
+    """Return the feature files of the core, in docs/spec/features/."""
+    return sorted((spec / "features").glob("*.feature"))
 
 
 def collect_graph(spec: Path, graph: Graph) -> None:
-    uc_dir = spec / "use_cases"
-    if uc_dir.is_dir():
-        for f in uc_dir.glob("UC-*.md"):
-            m = re.match(r"(UC-\d{1,3})", f.name)
-            if m:
-                graph.use_cases.add(m.group(1))
-
-    agl = spec / "actor-goal-list.md"
-    if agl.exists():
-        for m in RE_AG.finditer(read(agl)):
-            graph.actor_goals.add(f"AG-{int(m.group(1)):02d}")
-
     for f in spec.rglob("*.md"):
-        text = read(f)
-        uc_here = None
-        m = re.match(r"(UC-\d{1,3})", f.name)
-        if m:
-            uc_here = m.group(1)
-            graph.use_cases.add(uc_here)
-            # Only the `Realizes: AG-##` declaration line establishes coverage —
-            # an incidental mention of another goal elsewhere in the use case does not.
-            for ln in text.splitlines():
-                if re.match(r"\s*(?:[-*]\s*)?\*{0,2}realizes\*{0,2}\s*:", ln, re.I):
-                    for ag in RE_AG.finditer(ln):
-                        agid = f"AG-{int(ag.group(1)):02d}"
-                        graph.goal_refs.add(agid)
-                        graph.edges.append(
-                            {"from": uc_here, "rel": "realizes", "to": agid}
-                        )
-        for ln in text.splitlines():
+        for ln in read(f).splitlines():
             defm = RE_BR_DEF.match(ln) or RE_BR_DEF_TABLE.match(ln)
             is_heading = bool(RE_HEADING.match(ln))
             if defm:
@@ -303,16 +170,18 @@ def collect_graph(spec: Path, graph: Graph) -> None:
             if is_heading:
                 for hbr in RE_BR.finditer(ln):
                     graph.business_rules_defined.add(f"BR-{int(hbr.group(1)):03d}")
+            if RE_BR_DEF.match(ln) or is_heading:
+                continue
             for br in RE_BR.finditer(ln):
-                bid = f"BR-{int(br.group(1)):03d}"
-                if not RE_BR_DEF.match(ln) and not is_heading:
-                    graph.business_rules_referenced.add(bid)
-                if uc_here:
-                    graph.edges.append(
-                        {"from": uc_here, "rel": "references_br", "to": bid}
-                    )
+                graph.business_rules_referenced.add(f"BR-{int(br.group(1)):03d}")
 
-    erd = spec / "supplementary_specs" / "entity-model.md"
+    # A feature file defines no business rule: every BR-### in it, comment
+    # lines included, is a reference.
+    for f in feature_files(spec):
+        for br in RE_BR.finditer(read(f)):
+            graph.business_rules_referenced.add(f"BR-{int(br.group(1)):03d}")
+
+    erd = spec / "entity-model.md"
     for block in fenced_blocks(read(erd), "mermaid"):
         if "erdiagram" not in block.lower():
             continue
@@ -330,14 +199,12 @@ def collect_graph(spec: Path, graph: Graph) -> None:
 def check_traceability(spec: Path, graph: Graph) -> List[Finding]:
     out = []
 
-    # BR referenced but never defined / defined but never used.
-    # When use_cases/ is absent (archived), definitions may have moved — demote to warning.
-    br_sev = "error" if (spec / "use_cases").is_dir() else "warning"
+    # BR referenced but never defined blocks; defined but never used informs.
     for bid in sorted(graph.business_rules_referenced - graph.business_rules_defined):
         out.append(
             Finding(
                 "TRACE002",
-                br_sev,
+                "error",
                 "docs/spec",
                 f"{bid} is referenced but never defined in a Business Rules section",
             )
@@ -352,25 +219,6 @@ def check_traceability(spec: Path, graph: Graph) -> List[Finding]:
             )
         )
 
-    # Any UC-## cross-reference that points at a non-existent use case.
-    # Skip when use_cases/ has been archived — references are archival links.
-    if (spec / "use_cases").is_dir():
-        for f in spec.rglob("*.md"):
-            rel = str(f.relative_to(spec.parent))
-            for m in RE_UC.finditer(read(f)):
-                uid = f"UC-{int(m.group(1)):02d}"
-                alt = f"UC-{m.group(1)}"
-                if uid not in graph.use_cases and alt not in graph.use_cases:
-                    out.append(
-                        Finding(
-                            "TRACE006",
-                            "warning",
-                            rel,
-                            f"cross-reference to {m.group(0)} which has no matching use case file",
-                        )
-                    )
-                    break  # one report per file is enough
-
     # Entities that appear only in relationships, with no attribute block, are
     # underspecified — a genuine completeness gap the ERD can prove on its own.
     for ent in sorted(graph.entities - graph.entities_with_attrs):
@@ -378,89 +226,19 @@ def check_traceability(spec: Path, graph: Graph) -> List[Finding]:
             Finding(
                 "TRACE004",
                 "info",
-                "docs/spec/supplementary_specs/entity-model.md",
+                "docs/spec/entity-model.md",
                 f"entity '{ent}' is used in a relationship but has no attribute block defined",
             )
         )
     return out
 
 
-def check_actor_goal_coverage(spec: Path, graph: Graph) -> List[Finding]:
-    agl = spec / "actor-goal-list.md"
-    if not agl.exists():
-        return []
-    text = read(agl)
-
-    # Preferred path: goals carry AG-## IDs, so coverage is a deterministic graph check —
-    # every User Goal must be realized by at least one use case that references its ID.
-    user_goal_ids = set()
-    for ln in text.splitlines():
-        m = RE_AG.search(ln)
-        if m and re.search(r"user\s+goal", ln, re.I):
-            user_goal_ids.add(f"AG-{int(m.group(1)):02d}")
-    if user_goal_ids:
-        return [
-            Finding(
-                "TRACE001",
-                "warning",
-                "docs/spec/actor-goal-list.md",
-                f"User Goal {ag} is not realized by any use case",
-            )
-            for ag in sorted(user_goal_ids - graph.goal_refs)
-        ]
-
-    # Fallback heuristic for specs that have not adopted AG-## IDs yet.
-    user_goals = len(re.findall(r"user\s+goal", text, re.I))
-    if user_goals and len(graph.use_cases) < user_goals:
-        return [
-            Finding(
-                "TRACE001",
-                "warning",
-                "docs/spec/actor-goal-list.md",
-                f"{user_goals} User Goals listed but only {len(graph.use_cases)} "
-                f"use case files exist — possible coverage gap (heuristic)",
-            )
-        ]
-    return []
-
-
-def check_ears(spec: Path) -> List[Finding]:
-    out = []
-    suc = spec / "use_cases" / "system-use-cases.md"
-    if not suc.exists():
-        return out
-    ubiquitous = re.compile(r"^(the\s+\S+|\S+)\s+shall\b", re.I)
-    keyword = re.compile(r"^(when|while|where|if)\b", re.I)
-    for raw in read(suc).splitlines():
-        ln = RE_LIST_PREFIX.sub("", raw).strip().strip("*_`")
-        if re.search(r"\bshall\b", ln, re.I):
-            if len(re.findall(r"\bshall\b", ln, re.I)) > 1:
-                out.append(
-                    Finding(
-                        "FMT004",
-                        "warning",
-                        "docs/spec/use_cases/system-use-cases.md",
-                        f"non-atomic requirement (multiple 'shall'): '{ln[:70]}'",
-                    )
-                )
-            if not (ubiquitous.match(ln) or keyword.match(ln)):
-                out.append(
-                    Finding(
-                        "FMT001",
-                        "info",
-                        "docs/spec/use_cases/system-use-cases.md",
-                        f"possible non-EARS requirement (heuristic): '{ln[:70]}'",
-                    )
-                )
-    return out
-
-
 def check_state_machines(spec: Path) -> List[Finding]:
     out = []
-    sm = spec / "supplementary_specs" / "state-machines.md"
+    sm = spec / "state-machines.md"
     if not sm.exists():
         return out
-    rel = "docs/spec/supplementary_specs/state-machines.md"
+    rel = "docs/spec/state-machines.md"
     for block in fenced_blocks(read(sm), "mermaid"):
         if "statediagram" not in block.lower():
             continue
@@ -521,22 +299,21 @@ def check_state_machines(spec: Path) -> List[Finding]:
     return out
 
 
-# todo-format.md names docs/spec/todo.md, and templates/todo-entry.md marks
-# an open entry with `- status: open`. Several agents and playbooks still
-# write `- [ ]` items into docs/spec/todos.md, so the check reads that file
-# too and counts both forms there (BUG-0091).
+# The todo lists are working output in docs/spec/work/. todo.md marks an open
+# entry with `- status: open` (templates/todo-entry.md); todos.md also counts
+# `- [ ]` items, which several agents and playbooks still write (BUG-0091).
 OPEN_ENTRY = r"^\s*-\s*status:\s*open\s*$"
 OPEN_CHECKBOX = r"^\s*-\s*\[\s\]"
 TODO_FILES = (
-    ("todo.md", re.compile(OPEN_ENTRY, re.M)),
-    ("todos.md", re.compile(f"{OPEN_ENTRY}|{OPEN_CHECKBOX}", re.M)),
+    ("todo.md", re.compile(OPEN_ENTRY, re.MULTILINE)),
+    ("todos.md", re.compile(f"{OPEN_ENTRY}|{OPEN_CHECKBOX}", re.MULTILINE)),
 )
 
 
 def check_todos(spec: Path, gate: bool) -> List[Finding]:
     findings: List[Finding] = []
     for name, open_item in TODO_FILES:
-        todos = spec / name
+        todos = spec / WORK_DIR / name
         if not todos.exists():
             continue
         open_items = len(open_item.findall(read(todos)))
@@ -546,50 +323,90 @@ def check_todos(spec: Path, gate: bool) -> List[Finding]:
                 Finding(
                     "TODO001",
                     sev,
-                    f"docs/spec/{name}",
+                    f"docs/spec/{WORK_DIR}/{name}",
                     f"{open_items} unresolved todo item(s) remain",
                 )
             )
     return findings
 
 
-def check_glossary(spec: Path, context: Path) -> List[Finding]:
-    if not context or not context.exists():
+RE_TABLE_SEPARATOR = re.compile(r"^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$")
+
+
+def table_cells(line: str) -> List[str]:
+    """Split one Markdown table row into its stripped cells."""
+    return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def glossary_terms(text: str) -> Set[str]:
+    """Return the terms of every glossary table with a Term column.
+
+    Emphasis around a term is not part of it: `**Agent**` reads as "Agent".
+    """
+    terms: Set[str] = set()
+    column = None  # index of the Term column in the current table
+    previous = ""
+    for ln in text.splitlines():
+        if not ln.lstrip().startswith("|"):
+            column, previous = None, ""
+            continue
+        if RE_TABLE_SEPARATOR.match(ln.strip()):
+            header = [c.lower() for c in table_cells(previous)]
+            column = header.index("term") if "term" in header else None
+        elif column is not None:
+            cells = table_cells(ln)
+            if column < len(cells):
+                term = cells[column].strip("*_ ").strip()
+                if term:
+                    terms.add(term)
+        previous = ln
+    return terms
+
+
+def check_glossary(spec: Path, glossary: Path) -> List[Finding]:
+    """GLOSS001: a glossary term that no core file outside the glossary uses.
+
+    The core is every Markdown and feature file under the spec folder. The
+    glossary itself and the working output in work/ never count as a use.
+    """
+    if not glossary or not glossary.is_file():
         return []
-    terms = set(re.findall(r"^\s*[-*]\s*\*\*([A-Z][\w /-]+?)\*\*", read(context), re.M))
+    terms = glossary_terms(read(glossary))
     if not terms:
         return []
-    corpus = "\n".join(read(f) for f in spec.rglob("*.md")).lower()
-    out = []
-    for t in sorted(terms):
-        if t.lower() not in corpus:
-            out.append(
-                Finding(
-                    "GLOSS001",
-                    "info",
-                    "CONTEXT.md",
-                    f"glossary term '{t}' is never used in the spec (heuristic)",
-                )
-            )
-    return out
+    skip = glossary.resolve()
+    work = (spec / WORK_DIR).resolve()
+    core = [
+        f
+        for f in [*spec.rglob("*.md"), *spec.rglob("*.feature")]
+        if f.resolve() != skip and work not in f.resolve().parents
+    ]
+    corpus = "\n".join(read(f) for f in core).lower()
+    return [
+        Finding(
+            "GLOSS001",
+            "info",
+            str(glossary),
+            f"glossary term '{t}' is never used in the spec (heuristic)",
+        )
+        for t in sorted(terms)
+        if t.lower() not in corpus
+    ]
 
 
 # --- Driver -----------------------------------------------------------------------
 
 
-def run(spec: Path, context: Path, gate_todos: bool) -> (List[Finding], Graph):
+def run(spec: Path, glossary: Path, gate_todos: bool) -> (List[Finding], Graph):
     graph = Graph()
     findings: List[Finding] = []
     findings += check_required_artifacts(spec)
     findings += check_scope_map_draft(spec)
     collect_graph(spec, graph)
-    findings += check_use_cases(spec, graph)
     findings += check_traceability(spec, graph)
-    findings += check_actor_goal_coverage(spec, graph)
-    findings += check_ears(spec)
     findings += check_state_machines(spec)
     findings += check_todos(spec, gate_todos)
-    findings += check_glossary(spec, context)
+    findings += check_glossary(spec, glossary)
     findings.sort(key=lambda f: (-SEVERITY_ORDER[f.severity], f.code, f.artifact))
     return findings, graph
 
@@ -599,7 +416,11 @@ def main(argv: list[str] | None = None) -> int:
         description="Deterministic spec consistency & traceability linter."
     )
     p.add_argument("--spec-dir", default="docs/spec")
-    p.add_argument("--context", default="CONTEXT.md")
+    p.add_argument(
+        "--glossary",
+        default="docs/spec/glossary.md",
+        help="the glossary whose table terms GLOSS001 checks",
+    )
     p.add_argument("--format", choices=["text", "json"], default="text")
     p.add_argument(
         "--gate-todos", action="store_true", help="treat unresolved todos as an error"
@@ -616,7 +437,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: spec directory not found at {spec}", file=sys.stderr)
         return 2
 
-    findings, graph = run(spec, Path(args.context), args.gate_todos)
+    findings, graph = run(spec, Path(args.glossary), args.gate_todos)
     counts = {s: sum(1 for f in findings if f.severity == s) for s in SEVERITY_ORDER}
     _session_log.set_summary(counts)  # folded into the session-log record when active
 

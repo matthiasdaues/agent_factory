@@ -12,7 +12,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, load_script
 
 sl = load_script("spec-lint")
@@ -26,22 +25,21 @@ BODY = (
 
 def _spec_dir(tmp_path: Path, frontmatter: str) -> Path:
     spec = tmp_path / "spec"
-    supp = spec / "supplementary_specs"
-    supp.mkdir(parents=True)
-    (supp / "entity-model.md").write_text("# Entity Model\n", encoding="utf-8")
+    spec.mkdir(parents=True)
+    (spec / "entity-model.md").write_text("# Entity Model\n", encoding="utf-8")
     (spec / "scope-map.md").write_text(frontmatter + BODY, encoding="utf-8")
     return spec
 
 
 def _codes(spec: Path) -> list[str]:
-    findings, _ = sl.run(spec, Path("missing-context.md"), False)
+    findings, _ = sl.run(spec, Path("missing-glossary.md"), False)
     return [f.code for f in findings if f.severity == "error"]
 
 
 def test_draft_scope_map_is_reported_and_fails_the_gate(tmp_path):
     spec = _spec_dir(tmp_path, "---\nscope: global\nstatus: draft\n---\n\n")
     assert "SCOPE001" in _codes(spec)
-    assert sl.main(["--spec-dir", str(spec), "--context", "none.md"]) == 1
+    assert sl.main(["--spec-dir", str(spec), "--glossary", "none.md"]) == 1
 
 
 @pytest.mark.parametrize(
@@ -56,7 +54,7 @@ def test_draft_scope_map_is_reported_and_fails_the_gate(tmp_path):
 def test_confirmed_scope_map_passes(tmp_path, frontmatter):
     spec = _spec_dir(tmp_path, frontmatter)
     assert "SCOPE001" not in _codes(spec)
-    assert sl.main(["--spec-dir", str(spec), "--context", "none.md"]) == 0
+    assert sl.main(["--spec-dir", str(spec), "--glossary", "none.md"]) == 0
 
 
 def test_draft_word_in_body_is_not_the_marker(tmp_path):
@@ -104,7 +102,7 @@ def test_stage1_exit_command_fails_on_a_draft_scope_map(tmp_path):
 def test_stage1_exit_command_passes_a_confirmed_scope_map_despite_other_errors(tmp_path):
     project = _stage1_project(tmp_path, "---\nscope: global\nstatus: confirmed\n---\n\n")
     spec_dir = project / "docs" / "spec"
-    findings, _ = sl.run(spec_dir, Path("missing-context.md"), False)
+    findings, _ = sl.run(spec_dir, Path("missing-glossary.md"), False)
     assert "STRUCT005" in [f.code for f in findings]
     assert _run_exit_check(project).returncode == 0
 
@@ -124,7 +122,7 @@ def test_stage1_exit_command_fails_when_spec_lint_crashes_silently(tmp_path):
 
 def test_unattended_frontmatter_example_passes_scope_lint(tmp_path):
     text = SKILL.read_text(encoding="utf-8").split("## Unattended mode", 1)[1]
-    example = re.search(r"```markdown\n(.*?)```", text, re.S).group(1)
+    example = re.search(r"```markdown\n(.*?)```", text, re.DOTALL).group(1)
     spec = tmp_path / "docs" / "spec"
     spec.mkdir(parents=True)
     (spec / "scope-map.md").write_text(example + BODY, encoding="utf-8")

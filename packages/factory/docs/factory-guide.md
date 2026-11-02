@@ -466,14 +466,14 @@ Start with these. Small blast radius, few steps, nothing to set up first:
 
 ### Onboarding playbooks
 
-Greenfield and brownfield are **onboarding playbooks** — they bring a project to the point where `feature-addition` can take over. Both converge on the same three anchor files: a scope map, an `architecture.dsl`, and `docs/agent-context.md`. The difference is where they start and how far they go.
+Greenfield and brownfield are **onboarding playbooks** — they bring a project to the point where `feature-addition` can take over. Both converge on the same four anchor files: `docs/spec/scope-map.md`, `docs/spec/architecture.dsl`, the glossary `docs/spec/glossary.md`, and `docs/agent-context.md`. The difference is where they start and how far they go.
 
 | Playbook                                                              | Starts from                                             | Terminal condition                                                                              |
 | --------------------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | [`greenfield-development.md`](../playbooks/greenfield-development.md) | A brand-new project with no code or docs.               | Scope map (all Rules `deferred`), `architecture.dsl`, arc42 prose.                              |
 | [`brownfield-onboarding.md`](../playbooks/brownfield-onboarding.md)   | An existing codebase with no spec or architecture docs. | Scope map (Rules backfilled `implemented`), reverse-engineered `architecture.dsl`, arc42 prose. |
 
-Brownfield has two stages. **Stage 1** produces the three anchor files — scope map (via the `reverse-map` skill), `CONTEXT.md`, and then the architecture DSL — and then offers an explicit exit. The user can start `feature-addition` from this lightweight baseline. **Stage 2** (opt-in) goes deeper: full specification extraction, component resolution, ATAM review, and reconciliation.
+Brownfield has two stages. **Stage 1** produces the four anchor files — the scope map (via the `reverse-map` skill), the glossary `docs/spec/glossary.md`, the architecture DSL, and the agent context `docs/agent-context.md` — and then offers an explicit exit. The user can start `feature-addition` from this lightweight baseline. **Stage 2** (opt-in) goes deeper: full specification extraction, component resolution, ATAM review, and reconciliation.
 
 After either playbook completes (or after brownfield Stage 1), all feature work enters through `feature-addition`.
 
@@ -541,13 +541,13 @@ The research feature adds files across all three, marked by a `research-` filena
 
 A gate is a deterministic script — no LLM judgement involved — that catches a provable defect before a reviewer agent spends time on it: a broken cross-reference, a missing required section, an inconsistent ID. Cheap, reproducible, no false positives.
 
-| Gate                                          | Fires at                                | What it checks                                                                                                                            |
-| --------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `.agent-factory/factory/scripts/spec-lint`    | After specification work completes      | Specification coverage: traceability across PRD, actor-goals, `.feature` files, and supplementary specs; ID uniqueness; required sections |
-| `.agent-factory/factory/scripts/arch-lint`    | After architecture work completes       | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                              |
-| `.agent-factory/factory/scripts/backlog-lint` | After planning completes                | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                          |
-| `.agent-factory/factory/scripts/concern-lint` | `agent-context.md` edit                 | Section structure, `Read:`/`Boundary:` path resolution, concern-reference integrity against story frontmatter, no legacy YAML residue     |
-| `.agent-factory/factory/scripts/matrix-lint`  | `.agent-factory/config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                        |
+| Gate                                          | Fires at                                | What it checks                                                                                                                                        |
+| --------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.agent-factory/factory/scripts/spec-lint`    | After specification work completes      | Specification core: business-rule, entity, and glossary-term references across the core files and `.feature` files; ID uniqueness; required artifacts |
+| `.agent-factory/factory/scripts/arch-lint`    | After architecture work completes       | arc42 chapters exist and cross-reference the Structurizr DSL, ADR index consistency, diagram file references                                          |
+| `.agent-factory/factory/scripts/backlog-lint` | After planning completes                | YAML frontmatter schema, dependency graph acyclicity, priority and status values                                                                      |
+| `.agent-factory/factory/scripts/concern-lint` | `agent-context.md` edit                 | Section structure, `Read:`/`Boundary:` path resolution, concern-reference integrity against story frontmatter, no legacy YAML residue                 |
+| `.agent-factory/factory/scripts/matrix-lint`  | `.agent-factory/config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                                    |
 
 In manual mode (driving each agent by hand, one session at a time), the reviewer agent runs its gate as its first step. Run any gate yourself the same way:
 
@@ -837,4 +837,4 @@ Agent Factory targets macOS and Linux only. Both rely on native, git-tracked sym
 ## Referenced from
 
 - [.agent-factory/factory/README.md](../README.md)
-- [docs/spec/prd.md § Problem Statement](../../../docs/spec/prd.md#1-problem-statement)
+- `docs/spec/work/prd.md` § Problem Statement

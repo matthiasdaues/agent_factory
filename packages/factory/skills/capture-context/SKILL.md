@@ -5,9 +5,10 @@ description: >-
   interface between agents and project knowledge. --init seeds concerns
   from a repo scan. --init --scan adds documentation discovery. --update
   --scan refreshes an existing file by diffing a rescan against current
-  content. Bare invocation migrates legacy YAML to the concern model.
+  content. --fold-context-map folds a context map into domain concerns.
+  Bare invocation migrates legacy YAML to the concern model.
 category: requirements
-version: 5.1.0
+version: 5.2.0
 disable-model-invocation: false
 ---
 
@@ -38,12 +39,13 @@ belong to the retired YAML model).
 
 ## Invocation
 
-| Invocation                        | When                                                         |
-| --------------------------------- | ------------------------------------------------------------ |
-| `capture-context --init`          | Right after vision capture, before requirements              |
-| `capture-context --init --scan`   | Existing project with documentation to discover              |
-| `capture-context --update --scan` | Refresh an existing agent-context from a repository rescan   |
-| `capture-context` (bare)          | Existing project with a legacy YAML agent-context to migrate |
+| Invocation                           | When                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------- |
+| `capture-context --init`             | Right after vision capture, before requirements                         |
+| `capture-context --init --scan`      | Existing project with documentation to discover                         |
+| `capture-context --update --scan`    | Refresh an existing agent-context from a repository rescan              |
+| `capture-context --fold-context-map` | After `migrate-spec-layout`, to fold a context map into domain concerns |
+| `capture-context` (bare)             | Existing project with a legacy YAML agent-context to migrate            |
 
 On a brownfield first session, VIRGIL invokes `--init --scan` only when
 the first-session insight recommends context capture as the next action
@@ -131,7 +133,7 @@ Check whether a scope map exists (`docs/spec/scope-map.md` or equivalent).
 **If a scope map exists:** extract the areas from the scope map and propose
 one domain concern per area. Present to the user for confirmation.
 Resolve `Read:` paths from any matching specification files
-(`docs/spec/<area>.feature`, `docs/spec/supplementary_specs/<area>-*.md`).
+(`docs/spec/features/<area>.feature`, `docs/spec/areas/<area>.md`).
 
 **If no scope map exists:** leave the domain section empty with this note:
 
@@ -195,6 +197,9 @@ Each concern section MUST have:
 - A `###` heading with the concern name.
 - A one-line description immediately below the heading.
 - At least one `Read:` line with file path(s).
+
+A domain concern written by `--fold-context-map` also carries the fold mark
+`Folded: yes` directly after its description line.
 
 Do NOT create any YAML files. Do NOT create a `docs/agent-context/`
 directory.
@@ -299,13 +304,13 @@ pass.
 Scan the project for existing documentation. Look for these common
 patterns:
 
-| Pattern                                      | Indicates                                                            | Candidate concern match                                                                                 |
-| -------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `docs/handbook/<name>/**/*.md`               | Handbook conventions for the `<name>` area                           | Technical concern named `<name>` (match by directory name)                                              |
-| `docs/handbook/<name>/cookbook/*.md`         | Cookbook recipes for the `<name>` area                               | Same technical concern as its handbook, appended `Read:` entry                                          |
-| `docs/adr/**/*.md`, `docs/decisions/**/*.md` | Architecture decision records                                        | Any concern named or described by the ADR's title keywords; offer as a candidate, do not force a match  |
-| `docs/spec/supplementary_specs/*.md`         | Entity models, state machines, interface contracts, validation rules | Domain concern matching the scope-map area named in the file, or a technical concern's `Boundary:` line |
-| `docs/spec/*.feature`                        | Executable specification for one area                                | Domain concern matching the feature file's area name                                                    |
+| Pattern                                            | Indicates                                                                        | Candidate concern match                                                                                 |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `docs/handbook/<name>/**/*.md`                     | Handbook conventions for the `<name>` area                                       | Technical concern named `<name>` (match by directory name)                                              |
+| `docs/handbook/<name>/cookbook/*.md`               | Cookbook recipes for the `<name>` area                                           | Same technical concern as its handbook, appended `Read:` entry                                          |
+| `docs/adr/**/*.md`, `docs/decisions/**/*.md`       | Architecture decision records                                                    | Any concern named or described by the ADR's title keywords; offer as a candidate, do not force a match  |
+| `docs/spec/<core-file>.md`, `docs/spec/areas/*.md` | Entity models, state machines, interface contracts, validation rules, area specs | Domain concern matching the scope-map area named in the file, or a technical concern's `Boundary:` line |
+| `docs/spec/features/*.feature`                     | Executable specification for one area                                            | Domain concern matching the feature file's area name                                                    |
 
 Report the full discovery inventory to the user before the interview
 begins.
@@ -380,8 +385,10 @@ Read `docs/agent-context.md` and extract:
 - The category each concern belongs to: cross-cutting (under
   `## Always (cross-cutting)`), technical (under `## Technical concerns`),
   or domain (under `## Domain concerns`).
+- For each domain concern, whether it carries the fold mark `Folded: yes`
+  on the line after its description. `--fold-context-map` writes that mark.
 
-Build an in-memory map of `{category → {concern_name → {description, read_paths}}}`.
+Build an in-memory map of `{category → {concern_name → {description, read_paths, folded}}}`.
 
 ### Step 2 — Repository rescan
 
@@ -414,6 +421,11 @@ Review, Scope discipline, Security) are never flagged for removal — they
 are permanent fixtures. If a factory default's `Read:` paths differ, flag
 it as a path change only.
 
+A domain concern with the fold mark `Folded: yes` is never flagged for
+removal, also when it is not a scope-map area. It came from the fold of the
+context routing, not from the scope map. If its `Read:` paths differ, flag it
+as a path change only, and keep the mark.
+
 ### Step 4 — Present differences
 
 Show differences grouped by category. Use this format:
@@ -435,7 +447,7 @@ Show differences grouped by category. Use this format:
 
 ## Domain
   + NEW: payments — scope-map area added
-    Read: docs/spec/payments.feature
+    Read: docs/spec/features/payments.feature
 ```
 
 If no differences are found, report "Agent context is up to date — no
@@ -490,6 +502,123 @@ docs: update agent context (--update --scan)
 **Completion**: `docs/agent-context.md` reflects confirmed additions,
 removals, and path changes; `concern-lint` reports zero errors; no
 unconfirmed changes were written.
+
+## `--fold-context-map` (fold context routing into domain concerns)
+
+Folds the old context routing into `docs/agent-context.md`, the project's one
+routing file. The mode writes one domain concern per context of
+`docs/arc42/CONTEXT-MAP.md` and per routing-only `CONTEXT.md`, and points every
+link to those files at `docs/agent-context.md`. Run it after
+`migrate-spec-layout`, which moves the terms to `docs/spec/glossary.md` and
+names this mode as its follow-up step.
+
+The mode never deletes `CONTEXT-MAP.md` or a `CONTEXT.md`. The developer
+deletes them after the review.
+
+### Step 0 — Guard
+
+If `docs/agent-context.md` does not exist, stop and tell the developer:
+"docs/agent-context.md does not exist — run `capture-context --init` first,
+then run `--fold-context-map` again." Do not create the file.
+
+If neither `docs/arc42/CONTEXT-MAP.md` nor a routing-only `CONTEXT.md` exists,
+tell the developer that there is nothing to fold, and stop.
+
+### Step 1 — Read the routing
+
+1. Read `docs/arc42/CONTEXT-MAP.md`. For each context it lists, note the name,
+   the description, and the place the context lives: a `CONTEXT.md` or a
+   folder.
+2. Find every `CONTEXT.md` in the project, outside `.agent-factory/` and
+   `.git/`. A `CONTEXT.md` without a `## Language` section is routing-only:
+   its `#` title names the context, and the text below the title describes it.
+3. Skip a `CONTEXT.md` with a `## Language` section and list it for the
+   developer. It still holds terms, and `migrate-spec-layout` moves terms to
+   `docs/spec/glossary.md` first.
+
+A routing-only `CONTEXT.md` that the context map lists is the same context,
+not a second one.
+
+### Step 2 — Propose concerns
+
+Propose one domain concern per context, under `## Domain concerns`:
+
+```markdown
+### <context name>
+<one-line description of the context>
+Folded: yes
+Read: <paths>
+```
+
+- The heading is the context name.
+- The description is one line, taken from the context map or from the
+  `CONTEXT.md`.
+- The fold mark `Folded: yes` stands directly after the description line.
+  `concern-lint` accepts it only in this form and only under
+  `## Domain concerns`; anywhere else it reports `CTX-SECTIONS`.
+- The `Read:` paths are the folder where the context's code lives, matching
+  files in `docs/spec/features/` and `docs/spec/areas/`, and
+  `docs/spec/glossary.md`. Name only paths that exist, because `concern-lint`
+  `CTX-PATHS` checks each one. If `docs/spec/glossary.md` does not exist yet,
+  leave it out and tell the developer.
+- A `Read:` line never names a `CONTEXT.md` or `CONTEXT-MAP.md`, because the
+  developer deletes those files after the fold.
+
+If a domain concern with the same name exists already, propose to add the
+fold mark and the missing `Read:` paths to it instead of a second concern.
+
+### Step 3 — Find the links
+
+Find every Markdown link under `docs/` whose target is a `CONTEXT.md` or
+`CONTEXT-MAP.md`. Skip links inside those files, since they go away with them.
+For each link, prepare a rewrite so that it points at `docs/agent-context.md`,
+written relative to the linking file. Drop an anchor that points into the old
+file.
+
+### Step 4 — Review
+
+Show the developer the proposed concerns, each with its description, fold
+mark, and `Read:` paths, and the list of link rewrites (file, line, old
+target, new target). Also list each skipped `CONTEXT.md` with a `## Language`
+section.
+
+The developer may rename, merge, or drop a concern, change its `Read:` paths,
+or drop a rewrite. Write nothing before the developer confirms.
+
+### Step 5 — Write
+
+On confirmation:
+
+1. Insert the confirmed concerns under `## Domain concerns` in
+   `docs/agent-context.md`, in alphabetical order. Replace the placeholder
+   comment of an empty domain section. Leave every other concern untouched.
+2. Apply the confirmed link rewrites.
+
+### Step 6 — Validate
+
+Run `.agent-factory/factory/scripts/concern-lint` and show the developer the
+result. Fix every `CTX-SECTIONS` or `CTX-PATHS` finding before the commit.
+Run `.agent-factory/factory/scripts/link-check` on each file whose links
+changed.
+
+### Step 7 — Name the next step
+
+Tell the developer the next step: the developer deletes
+`docs/arc42/CONTEXT-MAP.md` and each routing-only `CONTEXT.md` the fold read,
+then runs `link-check` on every Markdown file under `docs/`. The mode does not
+delete them itself.
+
+### Step 8 — Commit
+
+```
+docs: fold context map into agent context (--fold-context-map)
+```
+
+**Completion**: `docs/agent-context.md` holds one domain concern per folded
+context, each with the fold mark; every Markdown link under `docs/` to a
+`CONTEXT.md` or `CONTEXT-MAP.md` points at `docs/agent-context.md`;
+`concern-lint` reports zero errors; the old routing files still exist, and the
+developer has been told to delete them.
 
 ## Bare invocation (YAML migration)
 
@@ -583,9 +712,9 @@ sections; `docs/testing.yaml` exists if a `testing.yaml` was present;
 
 ## Validation reference
 
-| Script                                        | Checks                                                                                                                             |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `.agent-factory/factory/scripts/concern-lint` | section structure (CTX-SECTIONS), path resolution (CTX-PATHS), concern-reference integrity (CTX-REFS), legacy residue (CTX-LEGACY) |
+| Script                                        | Checks                                                                                                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `.agent-factory/factory/scripts/concern-lint` | section structure and fold mark (CTX-SECTIONS), path resolution (CTX-PATHS), concern-reference integrity (CTX-REFS), legacy residue (CTX-LEGACY) |
 
 `validate` runs `concern-lint` automatically once `docs/agent-context.md`
 exists — invoking it here is a courtesy check during the interactive

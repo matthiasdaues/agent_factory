@@ -43,10 +43,20 @@ hasn't happened yet, so a missing ch5 is only INFO and diagram export
 (check 1) is skipped with INFO. Checks 2-4 are unaffected by this property —
 they run whenever their own preconditions hold.
 
+Inputs
+  --dsl PATH       the Structurizr workspace (default docs/spec/architecture.dsl).
+  --docs-dir DIR   the arc42 folder that holds chapter 5 (default docs/arc42).
+                   Its parent is the docs folder: images are read from
+                   <parent>/assets/images, ADRs from <parent>/adr. The DSL must
+                   lie inside the docs folder, because `structurizr` mounts
+                   that folder; arch-lint passes the DSL path to it as
+                   STRUCTURIZR_WORKSPACE, relative to the docs folder.
+
 Usage
-  arch-lint --docs-dir docs/arc42
-  arch-lint --docs-dir docs/arc42 --no-validate
-  arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir
+  arch-lint
+  arch-lint --no-validate
+  arch-lint --dsl docs/spec/architecture.dsl --docs-dir docs/arc42 --no-validate
+  arch-lint --no-validate --allow-missing-docs-dir
 
 Exit 1 when at least one error-severity finding exists (gate contract), 2 when
 --docs-dir is not a directory, 0 otherwise. With --allow-missing-docs-dir, a
@@ -280,7 +290,22 @@ def _parse_adr_status_line(text: str) -> str | None:
 # --- Checks ----------------------------------------------------------------
 
 
-def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
+def _structurizr_env(docs_root: Path, dsl_path: Path) -> dict[str, str] | None:
+    """Environment for the structurizr wrapper, or None when the DSL lies
+    outside the docs folder that the wrapper mounts."""
+    try:
+        workspace = dsl_path.resolve().relative_to(docs_root.resolve())
+    except ValueError:
+        return None
+    env = dict(os.environ)
+    env["STRUCTURIZR_DOCS"] = str(docs_root.resolve())
+    env["STRUCTURIZR_WORKSPACE"] = workspace.as_posix()
+    return env
+
+
+def check_staleness(
+    rep: Report, dsl_path: Path, images: list[Path], docs_root: Path
+) -> None:
     """Check if diagrams are stale and auto-export if needed (UC-09, deterministic validation)."""
     needs_export = False
 
@@ -301,7 +326,6 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
 
     if needs_export:
         # Auto-export via structurizr script (deterministic validation principle)
-        docs_root = dsl_path.parent.parent
         structurizr_script = Path(__file__).resolve().parent / "structurizr"
 
         if not structurizr_script.exists():
@@ -311,10 +335,16 @@ def check_staleness(rep: Report, dsl_path: Path, images: list[Path]) -> None:
             )
             return
 
+        env = _structurizr_env(docs_root, dsl_path)
+        if env is None:
+            rep.error(
+                "ARCH-EXPORT",
+                f"Cannot auto-export: {dsl_path} is outside the docs folder {docs_root}",
+            )
+            return
+
         try:
-            # Run export-all with STRUCTURIZR_DOCS pointing at the correct docs dir
-            env = dict(os.environ)
-            env["STRUCTURIZR_DOCS"] = str(docs_root.resolve())
+            # Run export-all on the docs folder and the workspace given by --dsl
             result = subprocess.run(
                 [str(structurizr_script), "export-all"],
                 env=env,
@@ -364,7 +394,7 @@ def check_coupling(rep: Report, dsl: str, ch5: str) -> None:
             )
 
 
-def check_validate(rep: Report, docs_dir: Path) -> None:
+def check_validate(rep: Report, docs_root: Path, dsl_path: Path) -> None:
     structurizr = Path(__file__).resolve().parent / "structurizr"
     if not structurizr.exists():
         rep.info("ARCH-VALIDATE", "structurizr wrapper not found; skipped")
@@ -372,12 +402,18 @@ def check_validate(rep: Report, docs_dir: Path) -> None:
     if shutil.which("docker") is None:
         rep.info("ARCH-VALIDATE", "docker unavailable; validation skipped")
         return
-    docs_abs = docs_dir.resolve()
+    env = _structurizr_env(docs_root, dsl_path)
+    if env is None:
+        rep.error(
+            "ARCH-VALIDATE",
+            f"{dsl_path} is outside the docs folder {docs_root}; cannot validate",
+        )
+        return
     try:
         r = subprocess.run(
             [str(structurizr), "validate"],
-            cwd=docs_abs.parent,
-            env={**_env(), "STRUCTURIZR_DOCS": str(docs_abs.parent)},
+            cwd=docs_root.resolve(),
+            env=env,
             capture_output=True,
             text=True,
             timeout=300,
@@ -447,12 +483,6 @@ def check_adr_evaluation(rep: Report, adr_dir: Path) -> None:
             )
 
 
-def _env() -> dict:
-    import os
-
-    return dict(os.environ)
-
-
 # --- Main ------------------------------------------------------------------
 
 
@@ -460,7 +490,18 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Consistency gate for arc42 + Structurizr docs."
     )
-    ap.add_argument("--docs-dir", default="docs/arc42", type=Path)
+    ap.add_argument(
+        "--dsl",
+        default="docs/spec/architecture.dsl",
+        type=Path,
+        help="Structurizr workspace (default: docs/spec/architecture.dsl)",
+    )
+    ap.add_argument(
+        "--docs-dir",
+        default="docs/arc42",
+        type=Path,
+        help="arc42 folder with chapter 5 (default: docs/arc42)",
+    )
     ap.add_argument(
         "--no-validate", action="store_true", help="skip structurizr validate"
     )
@@ -472,15 +513,16 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     docs = args.docs_dir
-    dsl_path = docs / "architecture.dsl"
+    docs_root = docs.parent
+    dsl_path = args.dsl
     ch5_path = docs / "05_building_block_view.md"
-    img_dir = docs.parent / "assets" / "images"
+    img_dir = docs_root / "assets" / "images"
     images = sorted(
         p for p in img_dir.glob("*.svg")
         if not p.name.endswith("-key.svg")
         and (img_dir / (p.stem + "-key.svg")).exists()
     )
-    adr_dir = docs.parent / "adr"
+    adr_dir = docs_root / "adr"
 
     # A missing --docs-dir is usually a typo, so it is a usage error. Callers
     # that also run in projects without arc42 opt in to a warning instead.
@@ -492,7 +534,7 @@ def main(argv: list[str] | None = None) -> int:
     if not docs.is_dir():
         rep.warn(
             "ARCH-NO-DIR",
-            f"{docs} is not a directory; arc42 checks skipped, ADR check runs",
+            f"{docs} is not a directory; chapter 5 is not read, ADR check runs",
         )
 
     # Checks 1-3 (DSL <-> chapter-5 coupling) only apply when the project has
@@ -516,7 +558,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if dsl_path.exists():
             if projected:
-                check_staleness(rep, dsl_path, images)
+                check_staleness(rep, dsl_path, images, docs_root)
             else:
                 rep.info(
                     "ARCH-STALE",
@@ -525,7 +567,7 @@ def main(argv: list[str] | None = None) -> int:
         if dsl_path.exists() and ch5_path.exists():
             check_coupling(rep, dsl_text, ch5_path.read_text())
         if not args.no_validate:
-            check_validate(rep, docs)
+            check_validate(rep, docs_root, dsl_path)
 
     # Check 4 (ADR frontmatter) is independent of arc42 — write-adr owns ADRs
     # in any project, with or without arc42 chapters.

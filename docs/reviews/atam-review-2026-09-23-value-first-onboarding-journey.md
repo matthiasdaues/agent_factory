@@ -28,19 +28,19 @@ separate finding files were created or changed.
 
 The review examined:
 
-- [Value-first onboarding feature](../spec/value-first-onboarding-journey.feature)
+- [Value-first onboarding feature](../spec/features/value-first-onboarding-journey.feature)
 - [Scope map](../spec/scope-map.md)
-- [Product requirements](../spec/prd.md)
-- [QA strategy](../spec/value-first-onboarding-journey-qa-strategy.md)
-- [Supplementary specifications](../spec/supplementary_specs/)
-- [Architecture model](../arc42/architecture.dsl)
+- [Product requirements](../spec/work/prd.md)
+- [QA strategy](../spec/work/value-first-onboarding-journey-qa-strategy.md)
+- [Specification core](../spec/)
+- [Architecture model](../spec/architecture.dsl)
 - All arc42 chapters, including the building-block, runtime, cross-cutting,
   decision, and quality-requirement chapters
 - All architecture decision records, with emphasis on
   [ADR-0022](../adr/0022-layered-installation-bootstrap-wraps-init-factory.md)
   and
   [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md)
-- [Project context](../CONTEXT.md) and [agent context](../agent-context.md)
+- `Project context` (`docs/CONTEXT.md`) and [agent context](../agent-context.md)
 - [Prior ATAM review](atam-review-2026-07-12.md)
 
 The ATAM skill names `docs/arc42/CONTEXT.md` as its preferred vocabulary
@@ -55,7 +55,7 @@ The final commands and results were:
 | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `.agent-factory/factory/scripts/mdformat --number docs/arc42/05_building_block_view.md docs/arc42/06_runtime_view.md` | Passed                                                |
 | `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42`                                                      | Exit 0; 0 errors, 1 warning, 0 informational messages |
-| `.agent-factory/factory/scripts/structurizr validate docs/arc42/architecture.dsl`                                     | Passed                                                |
+| `.agent-factory/factory/scripts/structurizr validate docs/spec/architecture.dsl`                                      | Passed                                                |
 | `git diff --check`                                                                                                    | Passed                                                |
 
 The first post-edit arch-lint run reported two informational messages: the DSL
@@ -275,7 +275,7 @@ No Medium, Major, or Critical architecture risks remain.
 ## Changed Artifacts
 
 - `docs/adr/0023-update-transaction-with-approval-staging-and-rollback.md`
-- `docs/arc42/architecture.dsl`
+- `docs/spec/architecture.dsl`
 - `docs/arc42/05_building_block_view.md`
 - `docs/arc42/06_runtime_view.md`
 - `docs/arc42/08_crosscutting_concepts.md`

@@ -22,7 +22,7 @@ Not every task needs the full chain. See [factory/docs/factory-guide.md § Playb
 
 Alongside this production chain runs one standalone workflow that is not a step in it: **Research** (phase 6). The `research-topic` playbook drives a falsification-driven research effort — from an approved brief to a validated report — with its own agents (`research-orchestrator`, `researcher`, `claim-reviewer`, `research-report-writer`) and a three-stage schema → policy → semantic validation gate. A claim reaches the report only after surviving a serious attempt to refute it. See [factory/docs/factory-guide.md § The research workflow](../../.agent-factory/factory/docs/factory-guide.md#the-research-workflow).
 
-`.agent-factory/factory/` itself — the state-machine harness, dispatch mechanism, and generated catalog that enforce phase order and cap review loops — has its own specification and its own arc42 architecture documentation. See [docs/spec/prd.md](../spec/prd.md) and [docs/README.md](../README.md).
+`.agent-factory/factory/` itself — the state-machine harness, dispatch mechanism, and generated catalog that enforce phase order and cap review loops — has its own specification and its own arc42 architecture documentation. See [docs/spec/prd.md](../spec/work/prd.md) and [docs/README.md](../README.md).
 
 ## Key ideas
 
@@ -43,32 +43,27 @@ agent_factory/
 │   ├── scripts/                      # Deterministic gates (*-lint, plus schema-validate/policy-validate) and setup tooling (init-factory, update-factory, remove-factory, mdformat, ...)
 │   ├── config/                       # Templates: AGENTS.md, pre-commit-config.yaml, model.conf
 │   └── INDEX.yaml                     # Generated catalog of every agent, skill, playbook, and rulebook with token counts — regenerate with index-lint
-├── orchestrator/                     # Versioned Python tool package (work in progress — not yet operational); invoked from consumer projects through .agent-factory/factory/scripts/run-playbook and uvx
-│   ├── src/                          # CLI source code
-│   ├── tests/                        # CLI tests
-│   ├── docs/                         # CLI documentation (own arc42 set, own docs/adr/, own docs/spec/)
-│   ├── backlog/                      # CLI backlog and stories
-│   └── pyproject.toml                # CLI package configuration
-├── backlog/                          # Whole-repo backlog — cross-cutting stories, distinct from orchestrator/backlog/
-├── docs/                             # This repo's own whole-repo, cross-cutting docs — distinct from orchestrator/docs/
-│   ├── beginner-intro.md             # Plain-language on-ramp for first-time users — read before any command
-│   ├── concepts.md                   # This file
-│   ├── CONTEXT-MAP.md                # Bounded-context map for this multi-context repo (orchestrator, factory, factory_api)
+├── packages/                         # The products: factory/ (the source of the toolset above) and usage/
+├── backlog/                          # Whole-repo backlog: epics and stories
+├── docs/                             # This repo's own docs
 │   ├── README.md                     # arc42 architecture documentation for Factory Flow Control — table of contents
-│   ├── 01_introduction_and_goals.md  # ...through 12_glossary.md — the 12 arc42 chapters
-│   ├── architecture.dsl              # Structurizr C4 model — versioned source of truth for the diagrams
-│   ├── spec/                         # Factory Flow Control's specification (PRD, use cases, supplementary specs)
-│   ├── adr/                          # Whole-repo Architecture Decision Records — own sequence, separate from orchestrator/docs/adr/
+│   ├── agent-context.md              # The routing file: one concern per topic, domain concerns for the bounded contexts
+│   ├── testing.yaml                  # Test suites and gate bindings
+│   ├── spec/                         # The specification core: scope map, glossary, entity model, contracts, architecture.dsl
+│   │   ├── features/                 # One Gherkin .feature file per feature
+│   │   ├── areas/                    # Area specifications
+│   │   └── work/                     # Working output: gaps reports, QA strategies, prd.md, todo lists
+│   ├── arc42/                        # The arc42 chapters, beginner-intro.md, and this file
+│   ├── adr/                          # Architecture Decision Records
 │   ├── findings/                     # Filed findings (e.g. RECON-*.md, FAGAN-*.md), created lazily as needed
 │   ├── reviews/                      # Retrospective and reconciliation reports
-│   └── assets/                       # Diagrams and exported images
-├── config/                           # This project's own copy of model.conf — diverges from .agent-factory/factory/
+│   └── assets/                       # Exported images and the Structurizr themes
 └── README.md
 ```
 
-See [docs/arc42/CONTEXT-MAP.md](CONTEXT-MAP.md) for the bounded-context map.
+See [docs/agent-context.md](../agent-context.md) for the bounded contexts.
 
 ## Referenced from
 
 - [README.md](../../README.md)
-- [docs/spec/prd.md § Problem Statement](../spec/prd.md#1-problem-statement)
+- [docs/spec/prd.md § Problem Statement](../spec/work/prd.md#1-problem-statement)

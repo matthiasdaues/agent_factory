@@ -46,7 +46,7 @@ steps:
     max_input_tokens: 40000
   - name: spec-review
     inputs:
-      - 'docs/CONTEXT.md'
+      - 'docs/spec/glossary.md'
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
@@ -188,16 +188,17 @@ Operational procedure for **adding features to existing system**.
 
 ## Prerequisites
 
-- [ ] `docs/arc42/architecture.dsl` exists
+- [ ] `docs/spec/architecture.dsl` exists
 - [ ] `docs/spec/scope-map.md` exists
-- [ ] `docs/CONTEXT.md` exists
+- [ ] `docs/spec/glossary.md` exists
+- [ ] `docs/agent-context.md` exists
 - [ ] A proposal at `docs/proposals/<name>.md`, written to the [proposal template](../rulebooks/templates/proposal.md)
 
-The three anchor files (`architecture.dsl`, `scope-map.md`, `docs/CONTEXT.md`)
-are the minimum baseline. Full specification artifacts (PRD, use cases,
+The four anchor files (`docs/spec/architecture.dsl`, `docs/spec/scope-map.md`,
+`docs/spec/glossary.md`, `docs/agent-context.md`) are the minimum baseline. Full specification artifacts (PRD, use cases,
 supplementary specs) add detail to the requirements and architecture activities when present but are not required. If
-any anchor file is missing, suggest running `brownfield-onboarding` to
-establish the baseline.
+any anchor file is missing, the check names each missing file and the playbook
+stops. Then suggest running `brownfield-onboarding` to establish the baseline.
 
 The proposal is the feature's authoritative design origin. Do not maintain a
 parallel feature request, interview record, or design brief.
@@ -205,7 +206,7 @@ parallel feature request, interview record, or design brief.
 Each feature-addition run updates the anchor files: the
 requirements-agent adds a Rule to `scope-map.md` with status "specified," the
 architecture-agent updates `architecture.dsl` when the structural shape changes,
-and the grilling and domain-modeling skills add new terms to `docs/CONTEXT.md`.
+and the grilling and domain-modeling skills add new terms to `docs/spec/glossary.md`.
 
 ## Session Boundaries
 
@@ -335,7 +336,7 @@ reads only the findings and the affected files, cutting the fix-cycle cost by
 **Agent**: `requirements-agent`
 **Task**: Derive feature spec, update scope map, produce QA strategy
 
-**Expected outputs**: `docs/spec/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/<feature-name>-gaps.md`, `docs/spec/<feature-name>-qa-strategy.md`, updated `docs/spec/supplementary_specs/`
+**Expected outputs**: `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`, `docs/spec/work/<feature-name>-qa-strategy.md`, updated core files in `docs/spec/`
 
 ### Step 1.2 — Spec Review
 
@@ -371,9 +372,9 @@ outputs declare architectural changes:
 
 **What the check does:**
 
-1. Reads the current module structure from `docs/arc42/architecture.dsl`
-2. Analyzes the specification outputs (`docs/spec/supplementary_specs/interface-contracts.md`,
-   `docs/spec/supplementary_specs/entity-model.md`) to identify new or changed
+1. Reads the current module structure from `docs/spec/architecture.dsl`
+2. Analyzes the specification outputs (`docs/spec/interface-contracts.md`,
+   `docs/spec/entity-model.md`) to identify new or changed
    interfaces and entities
 3. Determines whether the feature changes module boundaries, dependency
    directions, or public interfaces

@@ -17,19 +17,19 @@ This skill is **not** a rewrite of
 `.agent-factory/factory/rulebooks/conventions/testing-strategy.md`. That rulebook stays
 generic policy and provides shared vocabulary and the overlap-deletion
 protocol. This skill produces a feature-specific plan grounded in the
-project's agent context for `docs/spec/<feature-name>-qa-strategy.md`.
+project's agent context for `docs/spec/work/<feature-name>-qa-strategy.md`.
 
 ## Inputs
 
 Read these source artifacts:
 
-- `docs/spec/<feature-name>.feature`
+- `docs/spec/features/<feature-name>.feature`
   - Treat each `Rule:` grouping as the actor-goal matrix for the feature.
   - Use each `Scenario:` as the primary source of observable behavior.
-- `docs/spec/supplementary_specs/entity-model.md`
+- `docs/spec/entity-model.md`
   - Use it to find entity boundaries, value ranges, lifecycle constraints,
     and relationships that create QA risk.
-- `docs/spec/supplementary_specs/interface-contracts.md`
+- `docs/spec/interface-contracts.md`
   - Use it to find API, CLI, event, file, or DTO contracts and their owners.
 - `testing.yaml (at docs/testing.yaml)` — charter layer bindings
   - Read the `layers` section. Each layer maps a Factory layer name to
@@ -57,15 +57,15 @@ triggers fallback behavior, not a hard failure.
 
 Write one file:
 
-| File                                      | Purpose                                              |
-| ----------------------------------------- | ---------------------------------------------------- |
-| `docs/spec/<feature-name>-qa-strategy.md` | Per-feature QA strategy for Phase 5 and later review |
+| File                                           | Purpose                                              |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| `docs/spec/work/<feature-name>-qa-strategy.md` | Per-feature QA strategy for Phase 5 and later review |
 
 ## Step 1 — Validate Inputs
 
-1. Verify `docs/spec/<feature-name>.feature` exists.
-2. Verify `docs/spec/supplementary_specs/entity-model.md` exists.
-3. Verify `docs/spec/supplementary_specs/interface-contracts.md` exists.
+1. Verify `docs/spec/features/<feature-name>.feature` exists.
+2. Verify `docs/spec/entity-model.md` exists.
+3. Verify `docs/spec/interface-contracts.md` exists.
 4. Infer `<feature-name>` from the `.feature` filename.
 5. Read `testing.yaml (at docs/testing.yaml)` if present. Record whether the `layers`
    section exists.
@@ -83,8 +83,8 @@ Write one file:
 Fail loudly when a required spec input is absent:
 
 ```text
-FAIL: missing required input docs/spec/payments.feature
-FAIL: missing required input docs/spec/supplementary_specs/interface-contracts.md
+FAIL: missing required input docs/spec/features/payments.feature
+FAIL: missing required input docs/spec/interface-contracts.md
 ```
 
 When the charter is absent or lacks `layers`, emit a gap finding and
@@ -102,7 +102,7 @@ From the `.feature` file, extract:
 - Feature name
 - Proposal trace if the feature file records one; if not, record an explicit
   gap in the output
-- Gherkin trace: `docs/spec/<feature-name>.feature`
+- Gherkin trace: `docs/spec/features/<feature-name>.feature`
 - Rule names, actors, and Scenarios
 - Any explicit gaps already called out by the spec artifacts
 
@@ -256,7 +256,7 @@ List the boundary cases that matter for this feature:
 
 **Every boundary case must map to one of:**
 
-- A concrete Gherkin scenario from `docs/spec/<feature-name>.feature`, or
+- A concrete Gherkin scenario from `docs/spec/features/<feature-name>.feature`, or
 - An explicit gap that the spec does not yet cover
 
 Never leave a boundary case untraced. If no Scenario covers it, name the gap
@@ -264,7 +264,7 @@ plainly.
 
 ## Step 5 — Write the QA Strategy Document
 
-Write `docs/spec/<feature-name>-qa-strategy.md` using the
+Write `docs/spec/work/<feature-name>-qa-strategy.md` using the
 [QA strategy template](../../rulebooks/templates/qa-strategy.md).
 
 ## Step 6 — Feature-Specific Quality Check

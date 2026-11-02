@@ -16,7 +16,7 @@ This chapter defines testable quality scenarios for the precondition-based eligi
 | Response          | `intent select` evaluates preconditions and lists only the agents whose inputs are satisfied. The human selects from the eligible set. |
 | Response measure  | Agents with unsatisfied preconditions are excluded. The eligible set reflects the current repository state, not a fixed sequence.      |
 
-References: [architecture.dsl Eligibility Engine container](architecture.dsl), [section 5.3](05_building_block_view.md#53-level-2-component-view----eligibility-engine)
+References: [architecture.dsl Eligibility Engine container](../spec/architecture.dsl), [section 5.3](05_building_block_view.md#53-level-2-component-view----eligibility-engine)
 
 ### QS-2: Human authority over agent selection
 
@@ -28,7 +28,7 @@ References: [architecture.dsl Eligibility Engine container](architecture.dsl), [
 | Response          | The human sees the unsatisfied preconditions and may dispatch the agent via `trigger` regardless. No gate prevents human-initiated dispatch. |
 | Response measure  | The agent runs. The unsatisfied preconditions are visible but not enforced as hard blocks for human invocation.                              |
 
-References: [architecture.dsl](architecture.dsl), [section 5.3](05_building_block_view.md#53-level-2-component-view----eligibility-engine)
+References: [architecture.dsl](../spec/architecture.dsl), [section 5.3](05_building_block_view.md#53-level-2-component-view----eligibility-engine)
 
 ### QS-3: Clean Architecture dependency direction
 
@@ -40,7 +40,7 @@ References: [architecture.dsl](architecture.dsl), [section 5.3](05_building_bloc
 | Response          | `dependency-check` detects the inward-violating import and fails.                                                                                                               |
 | Response measure  | Exit code 1 with the violating import path named. The engine has zero relationships to state files in the DSL. All data reaches the engine as function arguments from adapters. |
 
-References: [architecture.dsl Eligibility Engine container](architecture.dsl), [section 5.3](05_building_block_view.md#53-level-2-component-view----eligibility-engine)
+References: [architecture.dsl Eligibility Engine container](../spec/architecture.dsl), [section 5.3](05_building_block_view.md#53-level-2-component-view----eligibility-engine)
 
 ### QS-4: Workstream identity immutability
 
@@ -52,7 +52,7 @@ References: [architecture.dsl Eligibility Engine container](architecture.dsl), [
 | Response          | Both sessions read the same immutable content. No locking or conflict detection is needed.                                                    |
 | Response measure  | No write contention. No revision or digest fields to conflict on. Concurrent reads always see consistent state.                               |
 
-References: [architecture.dsl Workstream State container](architecture.dsl)
+References: [architecture.dsl Workstream State container](../spec/architecture.dsl)
 
 ### QS-5: Observable-state resume
 
@@ -64,7 +64,7 @@ References: [architecture.dsl Workstream State container](architecture.dsl)
 | Response          | A new session reads the workstream identity, evaluates agent preconditions against the repository, and presents the eligible agent set. No prior process state needed. |
 | Response measure  | The new session produces the same eligibility result as the interrupted session would have at the same commit. All state is derived from files on disk.                |
 
-References: [architecture.dsl](architecture.dsl), [section 8](08_crosscutting_concepts.md)
+References: [architecture.dsl](../spec/architecture.dsl), [section 8](08_crosscutting_concepts.md)
 
 ### QS-6: Deterministic validation
 
@@ -88,7 +88,7 @@ References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [sec
 | Response          | The plugin denies the operation. The error names the failed control and the recovery action.                                              |
 | Response measure  | No tool invocation executes after the failure. The Factory entry flow stops. Usage capture failure does not trigger fail-closed behavior. |
 
-References: [architecture.dsl OpenCode Plugin container](architecture.dsl), [section 8.14](08_crosscutting_concepts.md#814-opencode-plugin-as-enforcement-boundary)
+References: [architecture.dsl OpenCode Plugin container](../spec/architecture.dsl), [section 8.14](08_crosscutting_concepts.md#814-opencode-plugin-as-enforcement-boundary)
 
 ### QS-8: CLI integration preserves existing CLI files
 
@@ -100,7 +100,7 @@ References: [architecture.dsl OpenCode Plugin container](architecture.dsl), [sec
 | Response          | OpenCode files are created under `.opencode/`. Claude Code files under `.claude/` and Pi files under `.pi/` remain unchanged. |
 | Response measure  | Zero modifications to files owned by other CLIs. One root `AGENTS.md` serves all CLIs.                                        |
 
-References: [opencode-cli-integration.feature Rule: Project maintainer runs OpenCode alongside other Factory CLIs](../spec/opencode-cli-integration.feature)
+References: [opencode-cli-integration.feature Rule: Project maintainer runs OpenCode alongside other Factory CLIs](../spec/features/opencode-cli-integration.feature)
 
 ### QS-9: Read-only preflight before installation
 
@@ -112,7 +112,7 @@ References: [opencode-cli-integration.feature Rule: Project maintainer runs Open
 | Response          | The bootstrap checks host platform, required tools, Git state, network reachability, and target directory without writing, installing, or editing anything. |
 | Response measure  | Zero filesystem writes during preflight. The preflight result is a data structure available for inspection before any consent prompt appears.               |
 
-References: [architecture.dsl Distribution container](architecture.dsl), [section 5.8](05_building_block_view.md#58-level-2-component-view----distribution), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
+References: [architecture.dsl Distribution container](../spec/architecture.dsl), [section 5.8](05_building_block_view.md#58-level-2-component-view----distribution), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
 
 ### QS-10: Consent-gated installation
 
@@ -124,7 +124,7 @@ References: [architecture.dsl Distribution container](architecture.dsl), [sectio
 | Response          | The preview lists source, version, target path, interfaces to install, paths to create, and the uninstall command. Installation waits for consent.           |
 | Response measure  | Blank input stops the sequence without installing. Declined consent leaves the target directory unchanged. Only an affirmative response starts installation. |
 
-References: [architecture.dsl Distribution container](architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
+References: [architecture.dsl Distribution container](../spec/architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release), [section 8.15](08_crosscutting_concepts.md#815-consent-gated-mutation-value-first-onboarding)
 
 ### QS-11: Installation integrity verification
 
@@ -136,7 +136,7 @@ References: [architecture.dsl Distribution container](architecture.dsl), [sectio
 | Response          | The bootstrap computes the digest of the downloaded archive and compares it against the manifest entry. A mismatch aborts installation with a diagnostic message. |
 | Response measure  | No archive with a failed digest check is extracted. The abort message names the expected and actual digests.                                                      |
 
-References: [architecture.dsl install-agent-factory relationships](architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release)
+References: [architecture.dsl install-agent-factory relationships](../spec/architecture.dsl), [section 6.10.1](06_runtime_view.md#6101-sequence-newcomer-installs-a-verified-factory-release)
 
 ### QS-12: First-session insight budget
 
@@ -148,7 +148,7 @@ References: [architecture.dsl install-agent-factory relationships](architecture.
 | Response          | The session presents a project insight (language, frameworks, test infrastructure, configuration) within the decision budget.        |
 | Response measure  | The newcomer sees a useful project insight within two minutes of session start and three user decisions after installation approval. |
 
-References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-delivers-project-insight), [value-first-onboarding-journey.feature Rule 7](../spec/value-first-onboarding-journey.feature)
+References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-delivers-project-insight), [value-first-onboarding-journey.feature Rule 7](../spec/features/value-first-onboarding-journey.feature)
 
 ### QS-13: First-task result budget
 
@@ -160,7 +160,7 @@ References: [section 6.10.3](06_runtime_view.md#6103-sequence-first-session-deli
 | Response          | The first task produces an inspectable result in an isolated sandbox. The newcomer can examine the result and choose its disposition. |
 | Response measure  | The newcomer holds an inspectable first-task result within ten minutes and five user decisions after installation approval.           |
 
-References: [section 6.10.4](06_runtime_view.md#6104-sequence-first-task-runs-in-an-isolated-sandbox), [value-first-onboarding-journey.feature Rule 8](../spec/value-first-onboarding-journey.feature)
+References: [section 6.10.4](06_runtime_view.md#6104-sequence-first-task-runs-in-an-isolated-sandbox), [value-first-onboarding-journey.feature Rule 8](../spec/features/value-first-onboarding-journey.feature)
 
 ### QS-14: Update moves the project into the new layout
 
@@ -172,7 +172,7 @@ References: [section 6.10.4](06_runtime_view.md#6104-sequence-first-task-runs-in
 | Response          | The new `init-factory` runs `migrate-spec-layout` as its last step. Tracked files move with `git mv`, the other files with a plain file move. `init-factory` then writes the new `factory_version`.                                                                     |
 | Response measure  | No old path of the path table remains, except a file of the removal set that is untracked, ignored, or tracked with uncommitted changes; the script lists each such file. No git state stops the move. Every tracked file that moved shows as a rename in `git status`. |
 
-References: [section 6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-project-into-the-core-artifact-layout), [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md), [core-artifact-layout.feature Rule: Project maintainer receives the new layout with the factory update](../spec/core-artifact-layout.feature)
+References: [section 6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-project-into-the-core-artifact-layout), [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md), [core-artifact-layout.feature Rule: Project maintainer receives the new layout with the factory update](../spec/features/core-artifact-layout.feature)
 
 ### QS-15: Failed migration leaves a retryable project
 

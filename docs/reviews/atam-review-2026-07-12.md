@@ -10,8 +10,8 @@
 - docs/arc42/06_runtime_view.md (§6.2 test execution flows)
 - docs/arc42/08_crosscutting_concepts.md (§8.1 validation pattern)
 - docs/spec/use_cases/UC-09-run-tests-via-hook.md
-- docs/spec/supplementary_specs/validation-rules.md (BR-023 through BR-027)
-- docs/arc42/architecture.dsl (TestExecutionFlow dynamic view)
+- docs/spec/validation-rules.md (BR-023 through BR-027)
+- docs/spec/architecture.dsl (TestExecutionFlow dynamic view)
 
 **Deterministic Linter**: `arch-lint` was blocked by permission issues. Manual consistency checks performed instead.
 
@@ -438,7 +438,7 @@ Both Major findings from this ATAM review were addressed immediately via archite
 - `docs/adr/0003-test-execution-via-hooks.md` — Added "Amended" section, updated Decision and Consequences
 - `docs/arc42/05_building_block_view.md` § 5.2.1 — Added `--staged` to run-tests interface
 - `docs/arc42/06_runtime_view.md` § 6.2.4 — New sequence diagram showing agent staged workflow
-- `docs/spec/supplementary_specs/validation-rules.md` — BR-024 updated, BR-028 added
+- `docs/spec/validation-rules.md` — BR-024 updated, BR-028 added
 - `docs/findings/ATAM-0001-*.md` — Status: resolved
 
 ### ATAM-0002: Monorepo multi-framework blind spot
@@ -457,7 +457,7 @@ Both Major findings from this ATAM review were addressed immediately via archite
 
 - `docs/adr/0003-test-execution-via-hooks.md` — Added "Amended" section, updated Decision and Consequences
 - `docs/arc42/05_building_block_view.md` § 5.2.1 — Updated framework detection behavior
-- `docs/spec/supplementary_specs/validation-rules.md` — BR-023 updated
+- `docs/spec/validation-rules.md` — BR-023 updated
 - `docs/findings/ATAM-0002-*.md` — Status: resolved
 
 ### Verdict Updated

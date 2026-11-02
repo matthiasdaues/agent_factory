@@ -11,7 +11,7 @@ version: 1.0.0
 
 Canonical statement: [rules.md § Cross-references](../rules.md#cross-references).
 
-Every reference from one artifact to another — ADR, finding, todo entry, rulebook, convention, skill, agent, spec document — is a full markdown link: `[label](relative/path.md#anchor)`. Never a bare ID (`ADR-0001`), a code span (`` `docs/spec/todo.md#T-0001` ``), or a parenthetical citation with no href.
+Every reference from one artifact to another — ADR, finding, todo entry, rulebook, convention, skill, agent, spec document — is a full markdown link: `[label](relative/path.md#anchor)`. Never a bare ID (`ADR-0001`), a code span (`` `docs/spec/work/todo.md#T-0001` ``), or a parenthetical citation with no href.
 
 ## Anchor to the section, not just the file
 
@@ -39,9 +39,9 @@ Wrong: `See the QA Agent for how findings hand off downstream.`
 
 Right: `See the [QA Agent § Handoff](../../agents/qa-agent.md#handoff) for how findings hand off downstream.`
 
-Wrong: `Tracked in docs/spec/todo.md#T-0001.`
+Wrong: `Tracked in docs/spec/work/todo.md#T-0001.`
 
-Right: `Tracked in [T-0001](../../../../docs/spec/todo.md#t-0001-cursor-mdc-adapter-for-configagentsmd).`
+Right: `Tracked in [T-0001](../../../../docs/spec/work/todo.md#t-0001-cursor-mdc-adapter-for-configagentsmd).`
 
 ## Why
 

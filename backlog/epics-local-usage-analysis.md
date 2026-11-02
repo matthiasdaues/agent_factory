@@ -5,9 +5,9 @@ scope: global
 # EPICs — Local Usage Processing and Analysis
 
 Proposal trace: usage-processing-and-storage (proposal removed)
-Specification trace: [local-usage-processing-and-analysis.feature](../docs/spec/local-usage-processing-and-analysis.feature)
+Specification trace: [local-usage-processing-and-analysis.feature](../docs/spec/features/local-usage-processing-and-analysis.feature)
 Architecture trace: [ADR-0015](../docs/adr/0015-query-authoritative-jsonl-with-ephemeral-duckdb-views.md), §5.7 Usage Analysis Runtime
-QA strategy trace: [local-usage-processing-and-analysis-qa-strategy.md](../docs/spec/local-usage-processing-and-analysis-qa-strategy.md)
+QA strategy trace: [local-usage-processing-and-analysis-qa-strategy.md](../docs/spec/work/local-usage-processing-and-analysis-qa-strategy.md)
 
 Dependency order: 1 → 2 → 3 → {4, 6} and 1 → 5. EPICs 2 and 5 are parallelizable after EPIC 1. EPICs 4 and 6 are parallelizable after EPIC 3.
 
