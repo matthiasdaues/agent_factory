@@ -4,7 +4,7 @@
 # ///
 """dependency-check — deterministic dependency-direction gate.
 
-What: Reads dependency rules from docs/arc42/dependency-rules.dsl and flags
+What: Reads dependency rules from docs/spec/dependency-rules.dsl and flags
       forbidden Python imports.
 When: After a developer commit and on demand while building semantic
       gate support.
@@ -93,8 +93,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--dsl-path",
-        default="docs/arc42/dependency-rules.dsl",
-        help="path to dependency rules DSL (default: docs/arc42/dependency-rules.dsl)",
+        default="docs/spec/dependency-rules.dsl",
+        help="path to dependency rules DSL (default: docs/spec/dependency-rules.dsl)",
     )
     parser.add_argument(
         "--source-root",
