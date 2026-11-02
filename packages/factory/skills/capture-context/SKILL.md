@@ -385,8 +385,10 @@ Read `docs/agent-context.md` and extract:
 - The category each concern belongs to: cross-cutting (under
   `## Always (cross-cutting)`), technical (under `## Technical concerns`),
   or domain (under `## Domain concerns`).
+- For each domain concern, whether it carries the fold mark `Folded: yes`
+  on the line after its description. `--fold-context-map` writes that mark.
 
-Build an in-memory map of `{category → {concern_name → {description, read_paths}}}`.
+Build an in-memory map of `{category → {concern_name → {description, read_paths, folded}}}`.
 
 ### Step 2 — Repository rescan
 
@@ -418,6 +420,11 @@ Cross-cutting factory defaults (Branching, Committing, Testing discipline,
 Review, Scope discipline, Security) are never flagged for removal — they
 are permanent fixtures. If a factory default's `Read:` paths differ, flag
 it as a path change only.
+
+A domain concern with the fold mark `Folded: yes` is never flagged for
+removal, also when it is not a scope-map area. It came from the fold of the
+context routing, not from the scope map. If its `Read:` paths differ, flag it
+as a path change only, and keep the mark.
 
 ### Step 4 — Present differences
 

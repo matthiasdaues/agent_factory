@@ -198,3 +198,30 @@ class TestSkillLayout:
 
     def test_context_map_template_removed(self) -> None:
         assert not TEMPLATE_PATH.exists()
+
+
+@pytest.fixture(scope="module")
+def rescan(skill: str) -> str:
+    return mode_section(skill, UPDATE_SCAN_HEADING)
+
+
+class TestRescanKeepsFoldedConcerns:
+    """CAL-08-LN-01, Scenario: a later rescan keeps every folded concern.
+    `--update --scan` reads the fold mark and never offers to remove a concern
+    that carries it, also when it is not a scope-map area."""
+
+    def test_parse_step_reads_the_fold_mark(self, rescan: str) -> None:
+        assert FOLD_MARK in normalize(steps(rescan)[1])
+
+    def test_diff_step_excludes_folded_concerns_from_removal(
+        self, rescan: str
+    ) -> None:
+        diff = normalize(steps(rescan)[3])
+        assert f"A domain concern with the fold mark `{FOLD_MARK}`" in diff
+        assert "never flagged for removal, also when it is not a scope-map area" in (
+            diff
+        )
+
+    @pytest.mark.parametrize("pattern", OLD_PATH_PATTERNS)
+    def test_rescan_section_names_no_old_path(self, rescan: str, pattern: str) -> None:
+        assert re.findall(pattern, rescan) == []
