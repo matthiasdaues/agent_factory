@@ -15,7 +15,7 @@ Canonical statement: [rules.md § Markdown formatting](../rules.md#markdown-form
 
 ## Scope
 
-Applies whenever a skill's own instructions include a "Save as ..." / "Write ..." step producing a `.md` file — reports, findings, specs, ADRs, backlog stories, docs/CONTEXT.md, arc42 chapters. Does not apply to skills that only *read* markdown (a review skill's input-reading steps, `spec-lint`/`arch-lint` invocations) — write side only.
+Applies whenever a skill's own instructions include a "Save as ..." / "Write ..." step producing a `.md` file — reports, findings, specs, ADRs, backlog stories, docs/spec/glossary.md, arc42 chapters. Does not apply to skills that only *read* markdown (a review skill's input-reading steps, `spec-lint`/`arch-lint` invocations) — write side only.
 
 ## References
 

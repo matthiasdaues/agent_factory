@@ -26,19 +26,19 @@ Read the code and the spec side by side. For each contract surface, record a tup
 
 Classify each discrepancy:
 
-| Classification        | Meaning                                 | Action                                        |
-| --------------------- | --------------------------------------- | --------------------------------------------- |
-| **Spec stale**        | Code is correct; spec lagged            | Update the spec                               |
-| **Code defect**       | Spec is correct; code diverged          | File as Defect                                |
-| **Undocumented**      | Code exists with no spec coverage       | Add to spec, or flag as gold-plating          |
-| **Speculative**       | Spec declares something not implemented | Mark deferred, or remove if descoped          |
-| **Terminology drift** | Code term ≠ `docs/CONTEXT.md` term      | Align; update glossary if code term is better |
+| Classification        | Meaning                                  | Action                                        |
+| --------------------- | ---------------------------------------- | --------------------------------------------- |
+| **Spec stale**        | Code is correct; spec lagged             | Update the spec                               |
+| **Code defect**       | Spec is correct; code diverged           | File as Defect                                |
+| **Undocumented**      | Code exists with no spec coverage        | Add to spec, or flag as gold-plating          |
+| **Speculative**       | Spec declares something not implemented  | Mark deferred, or remove if descoped          |
+| **Terminology drift** | Code term ≠ `docs/spec/glossary.md` term | Align; update glossary if code term is better |
 
 Order by severity: code defects → spec-stale (most-referenced first) → undocumented → speculative.
 
 ## Step 2 — Update
 
-For **spec stale** and **undocumented** items: update the affected spec or architecture file. For new ADRs, invoke `write-adr`. For **terminology drift**: update `docs/CONTEXT.md` via the `domain-modeling` skill. Run `spec-lint` and `arch-lint` after updates.
+For **spec stale** and **undocumented** items: update the affected spec or architecture file. For new ADRs, invoke `write-adr`. For **terminology drift**: update `docs/spec/glossary.md` via the `domain-modeling` skill. Run `spec-lint` and `arch-lint` after updates.
 
 For **code defects**: do not fix — file per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `RECON`.
 

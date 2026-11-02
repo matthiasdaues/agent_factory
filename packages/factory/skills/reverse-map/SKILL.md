@@ -88,7 +88,7 @@ Summarise the inventory count at the end.
 
 ## Seed docs/CONTEXT.md
 
-During the code sweep (Steps 1-3), extract domain vocabulary from type names, class names, and module names. Write these to `docs/CONTEXT.md` using the [CONTEXT.md template](../../rulebooks/templates/context.md). This seed is the early form of arc42 chapter 12 (Glossary).
+During the code sweep (Steps 1-3), extract domain vocabulary from type names, class names, and module names. Write these to `docs/CONTEXT.md` using the [glossary template](../../rulebooks/templates/glossary.md). This seed is the early form of arc42 chapter 12 (Glossary).
 
 ## Evidence hierarchy
 
