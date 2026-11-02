@@ -21,6 +21,15 @@ SCRIPTS_DIR = SOURCE_SCRIPTS_DIR
 if str(SOURCE_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SOURCE_SCRIPTS_DIR))
 
+# A commit in a linked worktree runs the hooks with GIT_DIR and
+# GIT_INDEX_FILE pointing at that worktree. A test that runs `git init` in a
+# temporary folder would then re-initialise the worktree's git directory and
+# write core.bare = true into the shared .git/config. Clear every GIT_*
+# variable once, at import, so fixtures of any scope run without them; the
+# per-test fixture below also removes variables a test sets itself.
+for _key in [k for k in os.environ if k.startswith("GIT_")]:
+    del os.environ[_key]
+
 
 def _docker_available() -> bool:
     if shutil.which("docker") is None:
