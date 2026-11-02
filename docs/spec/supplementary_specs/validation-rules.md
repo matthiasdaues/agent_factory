@@ -100,7 +100,7 @@ The `feature-addition` playbook checks that four anchor files exist before it pr
 - Full specification artifacts (`docs/spec/work/prd.md`, `docs/spec/features/*.feature`, and the other single-file core artifacts in `docs/spec/`) are optional inputs that deepen the process when present, not prerequisites.
 - The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
 
-See [core-artifact-layout.feature](../core-artifact-layout.feature), [newcomer-onboarding.feature](../newcomer-onboarding.feature), and [entity-model.md § ANCHOR_FILE_SET](entity-model.md#notes).
+See [core-artifact-layout.feature](../core-artifact-layout.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md#notes). `newcomer-onboarding.feature` still names three anchor files; gap CAL-G15 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md) assigns its update.
 
 ## Reverse-map confidence hierarchy
 

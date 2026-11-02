@@ -72,13 +72,12 @@ Feature: Core artifact layout
         | docs/spec/todos.md                                   | docs/spec/work/todos.md                |
         | docs/spec/supplementary_specs/billing.md             | docs/spec/areas/billing.md             |
         | docs/spec/supplementary_specs/billing-qa-strategy.md | docs/spec/work/billing-qa-strategy.md  |
-        | docs/arc42/12_glossary.md                            | docs/spec/glossary.md                  |
 
     Scenario: The Structurizr theme moves next to the rendered images
       Given a project with docs/arc42/themes/default/theme.json and a DSL that loads it
       When the project maintainer runs migrate-spec-layout
       Then the theme is in docs/assets/themes/default/
-      And the theme line of docs/spec/architecture.dsl points at docs/assets/themes/default/theme.json
+      And the theme line of docs/spec/architecture.dsl reads theme ../assets/themes/default/theme.json
       And structurizr validate accepts docs/spec/architecture.dsl
 
     Scenario: The actor-goal list and the use-case files are removed, also from the archive
@@ -94,11 +93,11 @@ Feature: Core artifact layout
       When the project maintainer runs migrate-spec-layout
       Then the script moves no file, prints nothing, and exits 0
 
-    Scenario: A failure partway undoes the script's own moves
-      Given a project in the old layout
-      And one planned move fails after earlier moves succeeded
+    Scenario: A failure partway undoes every change of the script
+      Given a project in the old layout whose git status shows no change
+      And one planned move fails after earlier moves, one link rewrite, and the rewrite of the factory hook block succeeded
       When migrate-spec-layout handles the failure
-      Then every file is back at its old path
+      Then git status shows no change against the state before the run
       And the script exits non-zero
 
   Rule: Project maintainer keeps every Markdown link working after the move
@@ -150,6 +149,13 @@ Feature: Core artifact layout
       When the project maintainer runs migrate-spec-layout
       Then docs/spec/glossary.md has the section "Usage Analysis Vocabulary" with that table's terms
       And docs/arc42/12_glossary.md starts with one line that links to docs/spec/glossary.md
+
+    Scenario: Git shows the glossary as a new file and keeps the history of chapter 12
+      Given docs/arc42/12_glossary.md holds a two-column table and has earlier commits
+      When the project maintainer runs migrate-spec-layout
+      Then git shows docs/spec/glossary.md as added
+      And git shows docs/arc42/12_glossary.md as modified
+      And git log docs/arc42/12_glossary.md lists the commits from before the migration
 
     Scenario: A table directly under the chapter title becomes the section Terms
       Given docs/arc42/12_glossary.md holds a two-column table directly under its title
@@ -243,8 +249,10 @@ Feature: Core artifact layout
     Scenario: A failed migration rolls the update back
       Given a project in the old layout and an approved factory update
       And migrate-spec-layout fails partway
+      And migrate-spec-layout had rewritten one Markdown link and the factory hook block before it failed
       When update-factory handles the failure of init-factory
-      Then the project's files are at their old paths
+      Then every project file has its old path and its old content
+      And .pre-commit-config.yaml has its old content
       And .agent-factory/install.json records the old factory version
       And the factory tree is the old one
       And update-factory reports the failure
@@ -313,11 +321,6 @@ Feature: Core artifact layout
         | scope-lint           | docs/spec/features/core-artifact-layout.feature |
         | statemachine-lint    | docs/spec/state-machines.md                     |
 
-    Scenario: Every gate passes on the migrated factory repository
-      Given the factory's own repository after its migration
-      When the factory maintainer runs link-check, arch-lint, structurizr validate, dependency-check, spec-lint, scope-lint, and statemachine-lint
-      Then every gate exits 0
-
     Scenario: The architecture tools read the DSL from the specification folder
       Given a migrated project
       When the project maintainer runs arch-lint and structurizr
@@ -349,6 +352,13 @@ Feature: Core artifact layout
     Scenario: GLOSS001 stays silent for a term that another core file uses
       Given docs/spec/glossary.md defines the term "Settlement" in its table
       And docs/spec/entity-model.md uses "Settlement"
+      When the project maintainer runs spec-lint
+      Then spec-lint reports no GLOSS001 finding for "Settlement"
+
+    Scenario: GLOSS001 stays silent for a term that only a feature file uses besides the glossary
+      Given docs/spec/glossary.md defines the term "Settlement" in its table
+      And docs/spec/features/payments.feature uses "Settlement"
+      And no other core file uses "Settlement"
       When the project maintainer runs spec-lint
       Then spec-lint reports no GLOSS001 finding for "Settlement"
 
@@ -424,6 +434,13 @@ Feature: Core artifact layout
       Then the "Billing" section of docs/spec/glossary.md has a row for "Payout" with Term, Definition, and Avoid
       # @packages/factory/skills/domain-modeling/SKILL.md
 
+    Scenario: reverse-map seeds the domain vocabulary into the glossary
+      Given a project in the new layout in brownfield onboarding
+      When reverse-map extracts the domain vocabulary from the code
+      Then docs/spec/glossary.md holds the extracted terms in tables with the columns Term, Definition, and Avoid
+      And reverse-map writes no docs/CONTEXT.md
+      # @packages/factory/skills/reverse-map/SKILL.md
+
     Scenario: The developer agent and the reconciliation agent have no use-case fallback
       Given a migrated project without use_cases/
       When developer-agent or reconciliation-agent looks for the behaviour of a story
@@ -475,6 +492,11 @@ Feature: Core artifact layout
       When the factory maintainer runs migrate-spec-layout
       Then the script exits 0
       And docs/spec/glossary.md holds the terms of the old docs/arc42/12_glossary.md
+
+    Scenario: Every gate passes on the migrated factory repository
+      Given the factory's own repository after its migration
+      When the factory maintainer runs link-check, arch-lint, structurizr validate, dependency-check, spec-lint, scope-lint, and statemachine-lint
+      Then every gate exits 0
 
     Scenario: The factory's routing folds into the agent context file
       Given the factory's repository after migrate-spec-layout
