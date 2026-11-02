@@ -227,6 +227,100 @@ class TestModuleGraphCheckUnreadableInput:
         assert "architecture_change=false" in capsys.readouterr().out
 
 
+GRAPH_PROJECT_DSL = """\
+workspace "graph-project" {
+    model {
+        system = softwareSystem "System" {
+            api = container "api" {
+                apiServer = component "api-server"
+            }
+            db = container "db" {
+                dbStore = component "db-store"
+            }
+        }
+        apiServer -> dbStore "reads"
+    }
+}
+"""
+
+GRAPH_PROJECT_CONTRACTS = """\
+# Interface contracts
+
+## `src/api/api-server`
+
+| Field | Value |
+| ----- | ----- |
+| Reads | `db-store` |
+
+## `src/db/db-store`
+
+| Field | Value |
+| ----- | ----- |
+| Reads | nothing |
+"""
+
+GRAPH_PROJECT_ENTITY_MODEL = """\
+# Entity model
+
+```mermaid
+erDiagram
+    ORDER {
+        int id
+    }
+```
+"""
+
+UNNAMED_MODULE_CONTRACT = """
+## `src/billing/billing-service`
+
+| Field | Value |
+| ----- | ----- |
+| Reads | nothing |
+"""
+
+
+def _graph_project(root: Path, contracts: str = GRAPH_PROJECT_CONTRACTS) -> Path:
+    """Build the migrated fixture `graph-project`: the core sits in docs/spec/."""
+    spec = root / "docs" / "spec"
+    spec.mkdir(parents=True)
+    (spec / "architecture.dsl").write_text(GRAPH_PROJECT_DSL, encoding="utf-8")
+    (spec / "interface-contracts.md").write_text(contracts, encoding="utf-8")
+    (spec / "entity-model.md").write_text(
+        GRAPH_PROJECT_ENTITY_MODEL, encoding="utf-8"
+    )
+    for module in ("api", "db"):
+        (root / "src" / module).mkdir(parents=True)
+    return root
+
+
+class TestModuleGraphCheckDefaultPaths:
+    """ST-0341: with no path arguments the check reads the core in docs/spec/."""
+
+    def test_consistent_migrated_project_exits_0(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.chdir(_graph_project(tmp_path))
+
+        code = mgc.main(["--story-id", "ST-TEST"])
+
+        assert code == 0
+        assert "architecture_change=false" in capsys.readouterr().out
+        assert (tmp_path / ".current-work/module-graph-check/ST-TEST.json").is_file()
+
+    def test_module_the_dsl_does_not_name_is_reported(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        contracts = GRAPH_PROJECT_CONTRACTS + UNNAMED_MODULE_CONTRACT
+        monkeypatch.chdir(_graph_project(tmp_path, contracts))
+
+        code = mgc.main(["--story-id", "ST-TEST"])
+
+        out = capsys.readouterr().out
+        assert code == 0
+        assert "architecture_change=true" in out
+        assert "new_modules=billing-service" in out
+
+
 class TestSchemaValidateTypeKeywords:
     """BUG-0056: union types, null, and minimum."""
 

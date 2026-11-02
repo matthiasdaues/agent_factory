@@ -15,7 +15,7 @@ Operational procedure for **evaluating existing architecture** without implement
 - [ ] Architecture documentation exists in `docs/`
 - [ ] ADRs exist in `docs/adr/`
 - [ ] Spec exists in `docs/spec/`
-- [ ] `docs/arc42/architecture.dsl` exists
+- [ ] `docs/spec/architecture.dsl` exists
 
 ## Use Cases
 
@@ -46,7 +46,7 @@ ls docs/arc42/01_introduction_and_goals.md \
    docs/arc42/10_quality_requirements.md \
    docs/arc42/11_risks_and_technical_debt.md \
    docs/arc42/12_glossary.md \
-   docs/arc42/architecture.dsl
+   docs/spec/architecture.dsl
 ```
 
 **If missing files** → Run `architecture-agent` to generate them (go to Playbook: documentation-update)
@@ -58,7 +58,7 @@ ls docs/arc42/01_introduction_and_goals.md \
 .agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42
 ```
 
-**If errors** → Document in `docs/spec/todos.md`, may need architecture-agent to fix
+**If errors** → Document in `docs/spec/work/todos.md`, may need architecture-agent to fix
 **If clean** → Go to Step 2
 
 ## Step 2 — Run Architecture Review
@@ -110,8 +110,8 @@ Example output:
 Create prioritized fix backlog:
 
 ```bash
-# Add to docs/spec/todos.md
-cat >> docs/spec/todos.md << EOF
+# Add to docs/spec/work/todos.md
+cat >> docs/spec/work/todos.md << EOF
 
 ## Architecture Review Action Items
 
@@ -166,7 +166,7 @@ Deliverables:
 
 - [ ] `docs/reviews/atam-review.md` (review report)
 - [ ] `docs/findings/ATAM-*.md` (risk findings)
-- [ ] Prioritized action items in `docs/spec/todos.md`
+- [ ] Prioritized action items in `docs/spec/work/todos.md`
 - [ ] Stakeholder presentation (optional)
 
 **Next steps**: Schedule follow-up or proceed with fix implementation
