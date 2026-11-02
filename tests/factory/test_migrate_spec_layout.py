@@ -666,6 +666,12 @@ GLOSSARY_EXPECTED = (
 
 STUB_EXPECTED = "# 12. Glossary\n\n" + LINK_LINE + "\n\n" + REFERENCED_FROM
 
+EXISTING_ACRONYMS = (
+    "# Glossary\n\n## Acronyms\n\n"
+    "| Term    | Definition | Avoid |\n| ------- | ---------- | ----- |\n"
+    "| Invoice | A bill.    |       |\n"
+)
+
 
 def make_glossary_project(root: Path) -> Path:
     """Build ``old-layout-glossary``: old-layout-payments plus chapter 12.
@@ -787,17 +793,48 @@ class TestGlossary:
         assert not (root / GLOSSARY).exists()
 
     @pytest.mark.spec("CAL-06-IT-02")
-    def test_CAL_06_existing_glossary_refuses_before_the_first_change(
+    def test_CAL_06_existing_glossary_gets_the_chapter_12_sections_appended(
         self, tmp_path: Path
     ):
         root = make_glossary_project(tmp_path / "p")
-        (root / GLOSSARY).write_text("# Glossary\n", encoding="utf-8")
-        before = porcelain(root)
+        (root / GLOSSARY).write_text(EXISTING_ACRONYMS, encoding="utf-8")
+        git(root, "add", "-A")
+        git(root, "commit", "-q", "-m", "glossary")
         result = run_script(root)
-        assert result.returncode == 2
-        assert GLOSSARY in result.stderr
-        assert porcelain(root) == before
-        assert (root / CHAPTER12).read_text(encoding="utf-8") == CHAPTER12_SECOND
+        assert result.returncode == 0, result.stderr
+        assert (root / GLOSSARY).read_text(encoding="utf-8") == (
+            EXISTING_ACRONYMS
+            + "\n"
+            + GLOSSARY_EXPECTED.removeprefix("# Glossary\n\n")
+        )
+        assert "duplicate term: Invoice in Acronyms, Terms" in result.stdout
+        assert "remove the duplicate terms" in result.stdout
+        assert (root / CHAPTER12).read_text(encoding="utf-8") == STUB_EXPECTED
+        entries = {line[3:]: line[:2] for line in porcelain(root).splitlines()}
+        assert entries[GLOSSARY] == "M "
+        assert entries[CHAPTER12] == "M "
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+    def test_CAL_06_failure_after_the_append_restores_the_existing_glossary(
+        self, tmp_path: Path
+    ):
+        root = make_glossary_project(tmp_path / "p")
+        (root / GLOSSARY).write_text(EXISTING_ACRONYMS, encoding="utf-8")
+        git(root, "add", "-A")
+        git(root, "commit", "-q", "-m", "glossary")
+        work = root / "docs/spec/work"
+        work.mkdir()
+        work.chmod(0o555)
+        try:
+            result = run_script(root)
+        finally:
+            work.chmod(0o755)
+        assert result.returncode == 1
+        assert "undone" in result.stderr
+        assert porcelain(root) == ""
+        assert (root / GLOSSARY).read_text(encoding="utf-8") == EXISTING_ACRONYMS
+        assert (root / CHAPTER12).read_bytes() == CHAPTER12_SECOND.encode()
 
     @pytest.mark.spec("CAL-03-IT-04")
     @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")

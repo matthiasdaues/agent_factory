@@ -234,6 +234,15 @@ Feature: Core artifact layout
       And the script lists "Invoice" as a term that appears in more than one section
       And the script exits 0
 
+    Scenario: Chapter 12 tables join an existing glossary
+      Given docs/spec/glossary.md has the section "Acronyms" with the term "Invoice"
+      And docs/arc42/12_glossary.md holds a two-column table with the term "Invoice"
+      When the project maintainer runs migrate-spec-layout
+      Then docs/spec/glossary.md keeps the section "Acronyms" and has the chapter 12 sections after it
+      And the script lists "Invoice" as a term that appears in more than one section
+      And docs/arc42/12_glossary.md starts with one line that links to docs/spec/glossary.md
+      And the script exits 0
+
     Scenario: A per-context CONTEXT.md becomes that context's section
       Given docs/arc42/CONTEXT-MAP.md lists the context "Ledger" with packages/ledger/CONTEXT.md
       And packages/ledger/CONTEXT.md has a "## Language" section

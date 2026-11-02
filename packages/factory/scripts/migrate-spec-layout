@@ -12,12 +12,13 @@ What: Moves the files of the path table in
       `delete by hand: <path>`. It moves each two-column table of
       docs/arc42/12_glossary.md into docs/spec/glossary.md, with the columns
       Term, Definition, and Avoid, rewrites chapter 12 at its old path with
-      one link line, and stages both files. It moves the `## Language`
-      terms of docs/CONTEXT.md, docs/arc42/CONTEXT.md, and each CONTEXT.md
-      that docs/arc42/CONTEXT-MAP.md names into a glossary section named
-      after the file's title, and removes that section from the file. These
-      terms join an existing glossary (DEC-18). It lists each term in more
-      than one section as `duplicate term: <term> in <section>, <section>`
+      one link line, and stages both files. An existing glossary keeps its
+      sections, and the chapter 12 sections follow them. It moves the
+      `## Language` terms of docs/CONTEXT.md, docs/arc42/CONTEXT.md, and
+      each CONTEXT.md that docs/arc42/CONTEXT-MAP.md names into a glossary
+      section named after the file's title, and removes that section from
+      the file. These terms also join an existing glossary (DEC-18). It
+      lists each term in more than one section as `duplicate term: <term> in <section>, <section>`
       and names the two follow-up steps as `next step:` lines at the end.
       At the end of its output it
       lists every old path outside a Markdown link, which it never rewrites,
@@ -1130,18 +1131,15 @@ def remove_empty_dirs(root: Path, folders: list[str]) -> None:
         _remove_if_empty(base)
 
 
-def refuse_reason(
-    root: Path, moves: list[tuple[str, str]], git: bool, created: list[str]
-) -> str | None:
+def refuse_reason(root: Path, moves: list[tuple[str, str]], git: bool) -> str | None:
     """Name the reason to refuse the run before its first change, or None.
 
-    ``created`` lists the new files the run writes, such as the glossary.
+    An existing glossary is no reason: the run appends to it (DEC-18).
     """
     state = busy_state(root) if git else None
     if state:
         return state
-    destinations = [new for _, new in moves] + created
-    taken = [new for new in destinations if (root / new).exists()]
+    taken = [new for _, new in moves if (root / new).exists()]
     if taken:
         return "these destinations already exist: " + ", ".join(taken)
     return None
@@ -1188,10 +1186,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if not args.dry_run:
-        # CONTEXT.md terms join an existing glossary (DEC-18); chapter 12
-        # alone does not.
-        created = [GLOSSARY] if glossary and not contexts else []
-        refusal = refuse_reason(root, moves, git, created)
+        refusal = refuse_reason(root, moves, git)
         if refusal:
             print(
                 f"migrate-spec-layout: refused, {refusal}; no file changed",
