@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import ast
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 from conftest import SOURCE_SCRIPTS_DIR, load_script, requires_docker
 
 SCRIPT = SOURCE_SCRIPTS_DIR / "migrate-spec-layout"
@@ -1530,3 +1532,264 @@ class TestVocabulary:
         assert (root / CHAPTER12).read_text(encoding="utf-8") == STUB_EXPECTED
         entries = {line[3:]: line[:2] for line in porcelain(root).splitlines()}
         assert entries[GLOSSARY] == "M "
+
+
+# ── CAL-03: the factory hook block follows the hook template, and ───────
+# ── CAL-03-IT-04: a failure partway undoes every change (ST-0322) ───────
+
+HOOK_TEMPLATE = SOURCE_SCRIPTS_DIR.parent / "config/pre-commit-config.yaml"
+NEW_ARCH_LINT_FILES = (
+    r"^docs/(spec/(architecture|dependency-rules)\.dsl"
+    r"|arc42/05_building_block_view\.md|assets/images/.*|adr/.*\.md)$"
+)
+OLD_ARCH_LINT_FILES = (
+    r"^docs/(arc42/(architecture\.dsl|05_building_block_view\.md)"
+    r"|assets/images/.*|adr/.*\.md)$"
+)
+PROJECT_HOOK = (
+    "  - repo: local\n"
+    "    hooks:\n"
+    "      # The project's own check of its supplementary specs.\n"
+    "      - id: payments-spec-check\n"
+    "        name: payments spec check\n"
+    "        entry: scripts/check-spec.sh\n"
+    "        language: system\n"
+    "        files: ^docs/spec/supplementary_specs/\n"
+)
+HOOK_RUN_UNTRACKED = "docs/spec/draft.feature"
+
+
+def factory_block(arch_lint_files: str) -> str:
+    """Return the template's hook block with ``arch_lint_files`` for arch-lint."""
+    text = HOOK_TEMPLATE.read_text(encoding="utf-8")
+    block = text[text.index("  - repo: local\n") :]
+    assert NEW_ARCH_LINT_FILES in block
+    return block.replace(NEW_ARCH_LINT_FILES, arch_lint_files)
+
+
+# The factory hook block as init-factory wrote it before ST-0325, plus the
+# project hook of ST-0321.
+OLD_HOOK_CONFIG = "repos:\n" + factory_block(OLD_ARCH_LINT_FILES) + "\n" + PROJECT_HOOK
+NEW_HOOK_CONFIG = "repos:\n" + factory_block(NEW_ARCH_LINT_FILES) + "\n" + PROJECT_HOOK
+
+OLD_LAYOUT_HOOKS: dict[str, str] = {
+    **OLD_LAYOUT_LINKS,
+    ".pre-commit-config.yaml": OLD_HOOK_CONFIG,
+}
+
+
+def hook_files(text: str) -> dict[str, str | None]:
+    """Map each hook id of a pre-commit config to its ``files:`` value."""
+    config = yaml.safe_load(text)
+    return {
+        hook["id"]: hook.get("files")
+        for repo in config["repos"]
+        for hook in repo["hooks"]
+    }
+
+
+class TestHookBlock:
+    """The factory hook block takes the template's files values (CAL-03)."""
+
+    @pytest.mark.spec("CAL-03")
+    def test_CAL_03_old_arch_lint_pattern_takes_the_template_value(self, migrate):
+        template = HOOK_TEMPLATE.read_text(encoding="utf-8")
+        text, rewrites = migrate.rewrite_factory_hooks(OLD_HOOK_CONFIG, template)
+        assert text == NEW_HOOK_CONFIG
+        assert rewrites == [
+            ("agent_factory_hook-arch-lint", OLD_ARCH_LINT_FILES, NEW_ARCH_LINT_FILES)
+        ]
+
+    @pytest.mark.spec("CAL-03")
+    def test_CAL_03_block_equal_to_the_template_gives_no_edit(self, migrate):
+        template = HOOK_TEMPLATE.read_text(encoding="utf-8")
+        assert migrate.rewrite_factory_hooks(NEW_HOOK_CONFIG, template) == (
+            NEW_HOOK_CONFIG,
+            [],
+        )
+
+    @pytest.mark.spec("CAL-03")
+    def test_CAL_03_only_files_values_of_factory_hooks_change(self, migrate):
+        template = (
+            "repos:\n  - repo: local\n    hooks:\n"
+            "      - id: agent_factory_hook-a\n        files: ^new/\n"
+            "      - id: agent_factory_hook-b\n        types: [markdown]\n"
+        )
+        config = (
+            "repos:\n  - repo: local\n    hooks:\n"
+            "      - id: agent_factory_hook-a\n"
+            "        # keep me\n"
+            "        files: >-\n          ^old/\n"
+            "        args: [--x]\n"
+            "      - id: agent_factory_hook-b\n        files: ^own/\n"
+            "      - id: agent_factory_hook-retired\n        files: ^old/\n"
+            "      - id: own-hook\n        files: ^old/\n"
+        )
+        text, rewrites = migrate.rewrite_factory_hooks(config, template)
+        assert text == config.replace(
+            "        files: >-\n          ^old/\n", "        files: ^new/\n"
+        )
+        assert rewrites == [("agent_factory_hook-a", "^old/", "^new/")]
+
+    @pytest.mark.spec("CAL-03")
+    def test_CAL_03_migrated_hook_block_has_the_template_files_values(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-hooks", OLD_LAYOUT_HOOKS)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        text = (root / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+        assert text == NEW_HOOK_CONFIG
+        template = hook_files(HOOK_TEMPLATE.read_text(encoding="utf-8"))
+        migrated = hook_files(text)
+        for hook_id, files in migrated.items():
+            if hook_id.startswith("agent_factory_hook-"):
+                assert files == template[hook_id], hook_id
+        assert migrated["payments-spec-check"] == "^docs/spec/supplementary_specs/"
+        assert (
+            "hook: .pre-commit-config.yaml: agent_factory_hook-arch-lint: "
+            f"{OLD_ARCH_LINT_FILES} -> {NEW_ARCH_LINT_FILES}\n"
+        ) in result.stdout
+
+    @pytest.mark.spec("CAL-03")
+    @pytest.mark.skipif(shutil.which("pre-commit") is None, reason="no pre-commit")
+    def test_CAL_03_dsl_change_selects_arch_lint_after_the_run(self, tmp_path: Path):
+        root = make_project(tmp_path / "old-layout-hooks", OLD_LAYOUT_HOOKS)
+        assert run_script(root).returncode == 0
+        env = {
+            k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "SKIP"))
+        }
+        env["PRE_COMMIT_HOME"] = str(tmp_path / "pre-commit-home")
+        result = subprocess.run(
+            ["pre-commit", "run", "--files", "docs/spec/architecture.dsl"],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        lines = [
+            line
+            for line in result.stdout.splitlines()
+            if line.startswith("agent_factory: arch-lint")
+        ]
+        assert len(lines) == 1, result.stdout + result.stderr
+        assert lines[0].endswith("Passed"), result.stdout + result.stderr
+
+    @pytest.mark.spec("CAL-03")
+    def test_CAL_03_hook_block_equal_to_the_template_gives_no_work(
+        self, tmp_path: Path
+    ):
+        files = {**NEW_LAYOUT_PAYMENTS, ".pre-commit-config.yaml": NEW_HOOK_CONFIG}
+        root = make_project(tmp_path / "p", files)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == ""
+        assert porcelain(root) == ""
+
+    @pytest.mark.spec("CAL-03")
+    def test_CAL_03_dry_run_prints_the_hook_rewrite_and_changes_nothing(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_HOOKS)
+        result = run_script(root, "--dry-run")
+        assert result.returncode == 0, result.stderr
+        assert porcelain(root) == ""
+        assert "hook: .pre-commit-config.yaml: agent_factory_hook-arch-lint:" in (
+            result.stdout
+        )
+
+    @pytest.mark.spec("CAL-03")
+    def test_CAL_03_project_without_a_hook_config_still_migrates(self, tmp_path: Path):
+        root = make_project(tmp_path / "p")
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert "hook:" not in result.stdout
+        assert not (root / ".pre-commit-config.yaml").exists()
+        assert (root / "docs/spec/features/payments.feature").is_file()
+
+
+@pytest.fixture(scope="class")
+def failed_hooks_run(tmp_path_factory):
+    """Run on old-layout-hooks with docs/spec/work/ read-only; the move into
+    work/ fails after the moves of rank features, core, and themes, every
+    link rewrite, the theme line, and the hook rewrite.
+
+    The autouse ``_scrub_git_env`` runs per test, after this fixture, so the
+    fixture removes the GIT_* variables a pre-commit hook leaks itself.
+    """
+    with pytest.MonkeyPatch.context() as patch:
+        for key in [k for k in os.environ if k.startswith("GIT_")]:
+            patch.delenv(key)
+        root = make_project(
+            tmp_path_factory.mktemp("failed") / "old-layout-hooks",
+            OLD_LAYOUT_HOOKS,
+            uncommitted={HOOK_RUN_UNTRACKED: "Feature: draft\n"},
+        )
+        work = root / "docs/spec/work"
+        work.mkdir()
+        work.chmod(0o555)
+        before = porcelain(root)
+        try:
+            result = run_script(root)
+        finally:
+            work.chmod(0o755)
+    return root, before, result
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+class TestFailurePartway:
+    """A failure partway undoes every change of the script (CAL-03-IT-04)."""
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    def test_CAL_03_failure_exits_1_and_git_status_is_unchanged(self, failed_hooks_run):
+        root, before, result = failed_hooks_run
+        assert result.returncode == 1
+        # The run planned a link rewrite and the hook rewrite; both come
+        # before the first move, so the failing move follows them.
+        assert f"link: {DECISIONS}: " in result.stdout
+        assert "hook: .pre-commit-config.yaml: agent_factory_hook-arch-lint" in (
+            result.stdout
+        )
+        assert "docs/spec/work/" in result.stderr
+        assert "undone" in result.stderr
+        assert porcelain(root) == before
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    def test_CAL_03_failure_undoes_the_tracked_moves(self, failed_hooks_run):
+        root, _, result = failed_hooks_run
+        assert "docs/spec/payments.feature -> docs/spec/features/" in result.stdout
+        assert not (root / "docs/spec/features").exists()
+        assert (root / "docs/spec/payments.feature").is_file()
+        assert not (root / "docs/spec/entity-model.md").exists()
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    def test_CAL_03_failure_undoes_the_plain_move(self, failed_hooks_run):
+        root, _, _ = failed_hooks_run
+        draft = root / HOOK_RUN_UNTRACKED
+        assert draft.read_text(encoding="utf-8") == "Feature: draft\n"
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    def test_CAL_03_failure_undoes_the_removals(self, failed_hooks_run):
+        root, _, _ = failed_hooks_run
+        for rel in REMOVAL_SET:
+            assert (root / rel).read_bytes() == OLD_LAYOUT_HOOKS[rel].encode()
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    def test_CAL_03_failure_undoes_the_link_rewrites(self, failed_hooks_run):
+        root, _, _ = failed_hooks_run
+        for rel in (DECISIONS, "docs/spec/todo.md", "docs/spec/scope-map.md"):
+            assert (root / rel).read_bytes() == OLD_LAYOUT_HOOKS[rel].encode()
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    def test_CAL_03_failure_undoes_the_hook_rewrite(self, failed_hooks_run):
+        root, _, _ = failed_hooks_run
+        config = (root / ".pre-commit-config.yaml").read_bytes()
+        assert config == OLD_HOOK_CONFIG.encode()
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    def test_CAL_03_failure_undoes_the_theme_line(self, failed_hooks_run):
+        root, _, _ = failed_hooks_run
+        dsl = root / "docs/arc42/architecture.dsl"
+        assert dsl.read_text(encoding="utf-8") == ARCHITECTURE_DSL
+        assert not (root / "docs/spec/architecture.dsl").exists()

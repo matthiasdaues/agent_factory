@@ -25,7 +25,13 @@ What: Moves the files of the path table in
       scans, it rewrites each local link to a moved file, rebases each
       relative link of a moved file, and turns each link to a removed file
       into its link text in a code span. It prints each rewrite as
-      `link: <file>: <old target> -> <new target>`.
+      `link: <file>: <old target> -> <new target>`. It gives each
+      `files:` value of the project's agent_factory_hook-* entries in
+      .pre-commit-config.yaml the value of the hook template
+      config/pre-commit-config.yaml of the same factory tree and prints
+      `hook: .pre-commit-config.yaml: <hook id>: <old> -> <new>`. Every
+      content edit comes before the first move, so a failed move undoes
+      them all.
 When: init-factory runs it as its last step on an update; a developer can
       run it by hand.
 By:   init-factory, or the project maintainer.
@@ -34,8 +40,8 @@ Usage:
     packages/factory/scripts/migrate-spec-layout [--dry-run] [TARGET]
 
 TARGET defaults to the current directory. --dry-run prints the planned moves,
-the removals, the link rewrites, and the old-path listing, and changes no
-file.
+the removals, the link and hook rewrites, and the old-path listing, and
+changes no file.
 
 Exit codes:
     0  success, no work, or --dry-run
@@ -916,6 +922,95 @@ def plan_listing(
     return found
 
 
+# ── The factory hook block follows the hook template ─────────────────────
+
+# The hook template of the same factory tree as this script.
+HOOK_TEMPLATE = Path(__file__).resolve().parent.parent / "config/pre-commit-config.yaml"
+HOOK_KEY = re.compile(r"^( *)([A-Za-z_]+):(.*)$")
+HOOK_PREFIX = "hook"
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip(" "))
+
+
+def hook_files_values(lines: list[str]) -> dict[str, tuple[int, int, str]]:
+    """Map each hook id to its ``files:`` key: (first line, end line, value).
+
+    The key's lines are ``lines[first:end]``: the key line and each more
+    indented line below it. The value of a block scalar joins its lines, as
+    a folded scalar reads. A hook without ``files:`` is left out.
+    """
+    found: dict[str, tuple[int, int, str]] = {}
+    hook, key_indent = "", -1
+    for number, line in enumerate(lines):
+        match = HOOK_ID.match(line)
+        if match:
+            hook = match.group(1).strip("'\"")
+            key_indent = _indent(line) + 2
+            continue
+        if line.strip() and _indent(line) < key_indent:
+            hook, key_indent = "", -1
+        key = HOOK_KEY.match(line)
+        if not hook or not key or len(key.group(1)) != key_indent:
+            continue
+        if key.group(2) != "files":
+            continue
+        end = number + 1
+        while (
+            end < len(lines) and lines[end].strip() and _indent(lines[end]) > key_indent
+        ):
+            end += 1
+        value = key.group(3).strip()
+        if value[:1] in ">|":
+            value = " ".join(part.strip() for part in lines[number + 1 : end])
+        found[hook] = (number, end, value)
+    return found
+
+
+def rewrite_factory_hooks(
+    text: str, template: str
+) -> tuple[str, list[tuple[str, str, str]]]:
+    """Give each factory hook of ``text`` the ``files:`` value of ``template``.
+
+    Only a hook whose id starts with ``agent_factory_hook-`` and that has a
+    ``files:`` key in both texts changes, and only that key: its lines are
+    the template's lines at the project's indent. Comments, key order, and
+    every other hook stay. The result is the new text and each (hook id,
+    old value, new value) in file order.
+    """
+    lines = text.split("\n")
+    template_lines = template.split("\n")
+    wanted = hook_files_values(template_lines)
+    edits = []
+    for hook, (first, end, value) in hook_files_values(lines).items():
+        if not hook.startswith(FACTORY_HOOK) or hook not in wanted:
+            continue
+        t_first, t_end, t_value = wanted[hook]
+        if value == t_value:
+            continue
+        shift = _indent(lines[first]) - _indent(template_lines[t_first])
+        new = [
+            " " * shift + line if shift >= 0 else line[-shift:]
+            for line in template_lines[t_first:t_end]
+        ]
+        edits.append((first, end, new, hook, value, t_value))
+    for first, end, new, *_ in sorted(edits, reverse=True):
+        lines[first:end] = new
+    return "\n".join(lines), [edit[3:] for edit in sorted(edits)]
+
+
+def plan_hooks(root: Path) -> tuple[str, list[tuple[str, str, str]]] | None:
+    """Return the project's hook config after the run, or None for no edit."""
+    config = root / PRE_COMMIT_CONFIG
+    if not config.is_file() or not HOOK_TEMPLATE.is_file():
+        return None
+    text, rewrites = rewrite_factory_hooks(
+        config.read_text(encoding="utf-8"), HOOK_TEMPLATE.read_text(encoding="utf-8")
+    )
+    return (text, rewrites) if rewrites else None
+
+
 def _delete_created_file(path: Path) -> None:
     """Delete a file this run created. Only the undo of ``Run.create`` calls it."""
     path.unlink()
@@ -1088,7 +1183,8 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    if not moves and not removals and not by_hand and not glossary and not contexts:
+    hooks = plan_hooks(root)
+    if not (moves or removals or by_hand or glossary or contexts or hooks):
         return 0
 
     if not args.dry_run:
@@ -1149,6 +1245,8 @@ def main(argv: list[str] | None = None) -> int:
     for edit in link_edits:
         for old_target, new_target in edit.rewrites:
             print(f"{LINK_PREFIX}: {edit.new}: {old_target} -> {new_target}")
+    for hook, old_value, new_value in hooks[1] if hooks else []:
+        print(f"{HOOK_PREFIX}: {PRE_COMMIT_CONFIG}: {hook}: {old_value} -> {new_value}")
     duplicates = duplicate_terms(planned[GLOSSARY]) if planned else []
     for term, sections in duplicates:
         print(f"duplicate term: {term} in {', '.join(sections)}")
@@ -1182,15 +1280,17 @@ def main(argv: list[str] | None = None) -> int:
                 run.stage(CHAPTER12)
         for context in contexts:
             run.write(context.path, planned[context.path])
-        for old, new in moves:
-            run.move(old, new, old in tracked)
-        if dsl_moves:
-            text = (root / DSL).read_text(encoding="utf-8")
-            if THEME_LINE.search(text):
-                run.write(DSL, rewrite_theme(text))
+        # Every content edit comes before the first move. A moved file gets
+        # its edit at its old path, and the move takes the edit along.
         for edit in link_edits:
             if edit.old not in planned:
-                run.write(edit.new, edit.text)
+                run.write(edit.old, edit.text)
+        if dsl_moves and THEME_LINE.search(old_dsl):
+            run.write(f"{ARC42}/architecture.dsl", rewrite_theme(old_dsl))
+        if hooks:
+            run.write(PRE_COMMIT_CONFIG, hooks[0])
+        for old, new in moves:
+            run.move(old, new, old in tracked)
     except OSError as exc:
         print(f"migrate-spec-layout: failed: {exc}", file=sys.stderr)
         errors = run.undo()
