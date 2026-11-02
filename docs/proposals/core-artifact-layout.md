@@ -111,8 +111,8 @@ should stay mechanical. So the developer runs the context skill, which turns
 each listed part into an entry of the agent context file. Then the developer
 deletes the context map.
 
-Every factory update runs the script, so the update moves the files. The
-developer approves the update, not the move. When a project keeps terms both
+The factory update from a version before the layout runs the script, so that
+update moves the files. The developer approves the update, not the move. When a project keeps terms both
 in the old vocabulary file and in a glossary, the script puts both into the
 new glossary and lists the terms that appear twice. Cleaning up the glossary
 is a follow-up step, like the fold of the context map.
@@ -156,7 +156,8 @@ this layout, which ships first (DEC-01).
   single-file core artifacts. The core folders are `features/`, `schemas/`,
   and `areas/`. `work/` holds no core file.
 - **The move is mechanical.** A script moves files and rewrites links the
-  same way in every project, as part of every factory update.
+  same way in every project, as part of the factory update from a version
+  before the layout.
 
 ## Design
 
@@ -332,7 +333,9 @@ ADR-0023. Declining it means no update.
 release that ships the layout. An `install.json` without a
 `factory_version`, or with the value `unknown`, counts as older; older
 installs did not record the version. Only a project without `install.json` is
-a first install. A first install and a later run of
+a first install. `init-factory` reads the old version when it loads the prior
+install record, before it writes the new version into `install.json`. A
+first install and a later run of
 `init-factory` move nothing, so `init-factory` keeps its promise to leave the
 project's own files alone. If a first install finds old paths, `init-factory`
 lists them and names `migrate-spec-layout` as a command the developer can run.
@@ -386,8 +389,8 @@ downgrade to a warning. `capture-context` gains the mode `--fold-context-map`
   `work/`.
 - The actor-goal list and the use-case files removed, and the use-case
   fallbacks removed from `developer-agent` and `reconciliation-agent`.
-- The migration script, which every factory update runs through
-  `init-factory`.
+- The migration script, which the factory update from a version before the
+  layout runs through `init-factory`.
 - The Structurizr theme in `docs/assets/themes/`, and the glossary as chapter
   12 of the PDF.
 - The glossary table, and `capture-context --fold-context-map`.
