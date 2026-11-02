@@ -650,7 +650,7 @@ skills:
     category: architecture
     description: Publish a project's arc42 documentation as one checked PDF with vector diagrams. Use when someone needs the architecture outside the repository, or asks for a PDF of the docs.
     path: skills/publish-docs/SKILL.md
-    tokens: 646
+    tokens: 739
   - name: pugh-matrix
     category: architecture
     description: Evaluate multiple alternatives against weighted criteria in a Pugh Matrix, present for confirmation, return the completed matrix. Use when a decision has genuine alternatives worth formally comparing — not every decision needs this.

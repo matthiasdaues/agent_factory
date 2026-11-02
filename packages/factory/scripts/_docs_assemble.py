@@ -25,6 +25,10 @@ from pathlib import Path
 
 MANIFEST_NAME = "publish-docs.yaml"
 PROJECT_CSS_NAME = "publish-docs.css"
+# A migrated project keeps chapter 12 as a link line; its terms live in the
+# glossary, so the PDF shows the glossary wherever the manifest selects it.
+CHAPTER12 = "arc42/12_glossary.md"
+GLOSSARY = "spec/glossary.md"
 RASTER_SUFFIXES = {".png", ".jpg", ".jpeg"}
 
 FENCE_RE = re.compile(r"^(```|~~~)[^\n]*\n.*?^\1[ \t]*$\n?", re.S | re.M)
@@ -72,11 +76,19 @@ def _expand(docs: Path, entry: str) -> list[Path]:
         matches = sorted(p for p in docs.glob(entry) if p.is_file())
         if not matches:
             raise ManifestError(f"manifest entry matches no file: {entry}")
-        return matches
+        return [_substitute(docs, p) for p in matches]
     path = docs / entry
     if not path.is_file():
         raise ManifestError(f"manifest names a missing file: {entry}")
-    return [path]
+    return [_substitute(docs, path)]
+
+
+def _substitute(docs: Path, path: Path) -> Path:
+    """Return docs/spec/glossary.md for chapter 12 when it exists, else ``path``."""
+    glossary = docs / GLOSSARY
+    if path == docs / CHAPTER12 and glossary.is_file():
+        return glossary
+    return path
 
 
 def load_manifest(docs: Path) -> Manifest:

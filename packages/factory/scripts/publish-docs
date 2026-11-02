@@ -16,7 +16,7 @@
 # Exit codes:
 #   0  PDF written
 #   1  a check failed; no PDF written, details on stderr
-#   2  a precondition failed (Docker, docs/, manifest, architecture.dsl)
+#   2  a precondition failed (Docker, docs/, manifest, docs/spec/architecture.dsl)
 #
 # Environment:
 #   PUBLISH_DOCS_IMAGE  render image to use instead of building one
@@ -64,11 +64,17 @@ mkdir -p "${BUILD}/model"
 # Without a manifest the assembler prints a starter and exits 2, so the model
 # stage is skipped.
 if [ -f "${DOCS}/publish-docs.yaml" ]; then
-    [ -f "${DOCS}/arc42/architecture.dsl" ] || fail_pre "missing docs/arc42/architecture.dsl"
-    cp -r "${DOCS}/arc42" "${BUILD}/model/arc42"
+    [ -f "${DOCS}/spec/architecture.dsl" ] || fail_pre "missing docs/spec/architecture.dsl"
+    # The build copy keeps the docs/ layout, so a relative theme line such as
+    # `theme ../assets/themes/x.json` resolves inside it.
+    cp -r "${DOCS}/spec" "${BUILD}/model/spec"
+    if [ -d "${DOCS}/assets/themes" ]; then
+        mkdir -p "${BUILD}/model/assets"
+        cp -r "${DOCS}/assets/themes" "${BUILD}/model/assets/themes"
+    fi
     if ! STRUCTURIZR_DOCS="${BUILD}/model" "${FACTORY}/scripts/structurizr" validate >"${BUILD}/structurizr.log" 2>&1; then
         cat "${BUILD}/structurizr.log" >&2
-        echo "FAIL structurizr-validate: docs/arc42/architecture.dsl is not valid" >&2
+        echo "FAIL structurizr-validate: docs/spec/architecture.dsl is not valid" >&2
         exit 1
     fi
     if ! STRUCTURIZR_DOCS="${BUILD}/model" "${FACTORY}/scripts/structurizr" export-svg >>"${BUILD}/structurizr.log" 2>&1; then
