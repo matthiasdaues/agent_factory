@@ -444,3 +444,161 @@ def test_CAL_03_structurizr_validate_accepts_the_migrated_dsl(migrated):
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "ERROR" not in result.stdout + result.stderr
+
+
+# ── CAL-03-IT-01 and CAL-03-IT-06: removals of the actor-goal list and ──
+# ── the use-case files, also from the archive (ST-0319) ─────────────────
+
+ARCHIVE_GOAL_LIST = "docs/~archive/spec/actor-goal-list.md"
+ARCHIVE_USE_CASE = "docs/~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md"
+ARCHIVE_NOTES = "docs/~archive/spec/old-notes.md"
+UC_07 = "docs/spec/use_cases/UC-07.md"
+REMOVAL_SET = [ARCHIVE_GOAL_LIST, ARCHIVE_USE_CASE, UC_07]
+
+OLD_LAYOUT_ARCHIVE: dict[str, str] = {
+    **OLD_LAYOUT_PAYMENTS,
+    ARCHIVE_GOAL_LIST: "# Actor-goal list\n",
+    ARCHIVE_USE_CASE: "# UC-04 Dispatch an agent via trigger\n",
+    ARCHIVE_NOTES: "# Old notes\n",
+    UC_07: "# UC-07\n",
+}
+
+
+def _uc07_untracked(root: Path) -> None:
+    git(root, "rm", "-q", "--cached", UC_07)
+    git(root, "commit", "-q", "-m", "untrack UC-07")
+
+
+def _uc07_ignored(root: Path) -> None:
+    (root / ".gitignore").write_text("use_cases/UC-07.md\n")
+    git(root, "rm", "-q", "--cached", UC_07)
+    git(root, "add", ".gitignore")
+    git(root, "commit", "-q", "-m", "ignore UC-07")
+
+
+def _uc07_staged(root: Path) -> None:
+    (root / UC_07).write_text("# UC-07 staged\n")
+    git(root, "add", UC_07)
+
+
+def _uc07_unstaged(root: Path) -> None:
+    (root / UC_07).write_text("# UC-07 unstaged\n")
+
+
+class TestRemovals:
+    """The removal set: actor-goal-list.md and use_cases/ files under docs/."""
+
+    @pytest.mark.spec("CAL-03-CT-01")
+    @pytest.mark.parametrize(
+        ("path", "removed"),
+        [
+            ("docs/spec/actor-goal-list.md", True),
+            (ARCHIVE_GOAL_LIST, True),
+            (ARCHIVE_USE_CASE, True),
+            (UC_07, True),
+            ("docs/spec/use_cases/nested/UC-08.md", True),
+            (ARCHIVE_NOTES, False),
+            ("docs/spec/scope-map.md", False),
+            ("use_cases/UC-01.md", False),
+            ("actor-goal-list.md", False),
+        ],
+    )
+    def test_CAL_03_removal_set_holds_goal_list_and_use_case_files(
+        self, migrate, path: str, removed: bool
+    ):
+        assert migrate.in_removal_set(path) is removed
+
+    @pytest.mark.spec("CAL-03-IT-01")
+    def test_CAL_03_goal_list_and_use_cases_removed_with_git_also_from_archive(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "old-layout-archive", OLD_LAYOUT_ARCHIVE)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        status = git(root, "status")
+        for rel in REMOVAL_SET:
+            assert f"deleted:    {rel}" in status
+            assert not (root / rel).exists()
+            assert f"remove: {rel}" in result.stdout
+        entries = {line[3:]: line[:2] for line in porcelain(root).splitlines()}
+        for rel in REMOVAL_SET:
+            assert entries[rel] == "D "
+        assert ARCHIVE_NOTES not in porcelain(root)
+        assert (root / ARCHIVE_NOTES).read_text() == "# Old notes\n"
+        assert renames(root) == PATH_TABLE_ROWS
+        assert "delete by hand" not in result.stdout
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    @pytest.mark.parametrize(
+        "set_state",
+        [_uc07_untracked, _uc07_ignored, _uc07_staged, _uc07_unstaged],
+        ids=["untracked", "ignored", "staged", "unstaged"],
+    )
+    def test_CAL_03_removal_file_git_cannot_remove_safely_stays_and_is_listed(
+        self, tmp_path: Path, set_state
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_ARCHIVE)
+        set_state(root)
+        content = (root / UC_07).read_text()
+        index_before = git(root, "ls-files", "-s", "--", UC_07)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert (root / UC_07).read_text() == content
+        assert git(root, "ls-files", "-s", "--", UC_07) == index_before
+        assert f"delete by hand: {UC_07}" in result.stdout
+        assert f"remove: {UC_07}" not in result.stdout
+        assert not (root / ARCHIVE_GOAL_LIST).exists()
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    def test_CAL_03_dry_run_lists_removals_and_files_to_delete_by_hand(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_ARCHIVE)
+        _uc07_unstaged(root)
+        before = porcelain(root)
+        result = run_script(root, "--dry-run")
+        assert result.returncode == 0, result.stderr
+        assert f"remove: {ARCHIVE_GOAL_LIST}\n" in result.stdout
+        assert f"remove: {ARCHIVE_USE_CASE}\n" in result.stdout
+        assert f"delete by hand: {UC_07}\n" in result.stdout
+        assert porcelain(root) == before
+        assert (root / ARCHIVE_GOAL_LIST).is_file()
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    def test_CAL_03_project_with_only_removals_is_still_work(self, tmp_path: Path):
+        files = {
+            **NEW_LAYOUT_PAYMENTS,
+            ARCHIVE_GOAL_LIST: "# Actor-goal list\n",
+            ARCHIVE_NOTES: "# Old notes\n",
+        }
+        root = make_project(tmp_path / "p", files)
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == f"remove: {ARCHIVE_GOAL_LIST}\n"
+        assert porcelain(root) == f"D  {ARCHIVE_GOAL_LIST}\n"
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+    def test_CAL_03_failure_after_a_removal_restores_the_removed_files(
+        self, tmp_path: Path
+    ):
+        root = make_project(tmp_path / "p", OLD_LAYOUT_ARCHIVE)
+        work = root / "docs/spec/work"
+        work.mkdir()
+        work.chmod(0o555)
+        before = porcelain(root)
+        try:
+            result = run_script(root)
+        finally:
+            work.chmod(0o755)
+        assert result.returncode == 1
+        assert "undone" in result.stderr
+        assert porcelain(root) == before
+        for rel in REMOVAL_SET:
+            assert (root / rel).read_text() == OLD_LAYOUT_ARCHIVE[rel]
+
+    @pytest.mark.spec("CAL-03-IT-06")
+    def test_CAL_03_script_has_no_forced_or_plain_file_removal(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        for forbidden in ('"-f"', "--force", "os.remove", "unlink", "shutil.rmtree"):
+            assert forbidden not in source, forbidden
