@@ -94,6 +94,47 @@ class TestManifest:
         assert not (tmp_path / "b" / "main.qd").exists()
 
 
+@pytest.mark.spec("CAL-11-CT-01")
+class TestChapter12Glossary:
+    """Chapter 12 of the manifest resolves to docs/spec/glossary.md (ST-0334)."""
+
+    @pytest.fixture
+    def migrated(self, docs: Path) -> Path:
+        write(docs, "arc42/12_glossary.md", "# 12. Glossary\n\nThe terms are in [the glossary](../spec/glossary.md).\n")
+        write(docs, "spec/glossary.md", "# Glossary\n\n| Term | Definition | Avoid |\n| --- | --- | --- |\n| Ledger Entry | A booked line. | |\n")
+        return docs
+
+    @pytest.mark.parametrize("selector", ["arc42/12_glossary.md", "arc42/*.md"])
+    def test_chapter_12_selector_resolves_to_glossary(self, migrated: Path, selector: str):
+        write(migrated, "publish-docs.yaml", f"title: T\nchapters:\n  - arc42/01_intro.md\n  - {selector}\n")
+        chapters = da.load_manifest(migrated).chapters
+        rel = [p.relative_to(migrated).as_posix() for p in chapters]
+        assert "spec/glossary.md" in rel
+        assert "arc42/12_glossary.md" not in rel
+        assert rel[0] == "arc42/01_intro.md"
+
+    def test_glob_keeps_other_chapters_in_order(self, migrated: Path):
+        write(migrated, "publish-docs.yaml", "title: T\nchapters:\n  - arc42/*.md\n")
+        rel = [p.relative_to(migrated).as_posix() for p in da.load_manifest(migrated).chapters]
+        assert rel == ["arc42/01_intro.md", "arc42/06_runtime.md", "spec/glossary.md"]
+
+    def test_manifest_without_chapter_12_has_no_glossary(self, migrated: Path):
+        rel = [p.relative_to(migrated).as_posix() for p in da.load_manifest(migrated).chapters]
+        assert "spec/glossary.md" not in rel
+
+    def test_unmigrated_chapter_12_stays(self, docs: Path):
+        write(docs, "arc42/12_glossary.md", "# 12. Glossary\n\n| Term | Definition |\n| --- | --- |\n| Ledger Entry | A booked line. |\n")
+        write(docs, "publish-docs.yaml", "title: T\nchapters:\n  - arc42/12_glossary.md\n")
+        rel = [p.relative_to(docs).as_posix() for p in da.load_manifest(docs).chapters]
+        assert rel == ["arc42/12_glossary.md"]
+
+    def test_assembled_chapter_12_shows_glossary_terms(self, migrated: Path, tmp_path: Path):
+        write(migrated, "publish-docs.yaml", "title: T\nchapters:\n  - arc42/12_glossary.md\n")
+        qd, _, _ = build(migrated, tmp_path)
+        assert "Ledger Entry" in qd
+        assert "The terms are in" not in qd
+
+
 class TestRewriteRules:
     def test_mermaid_body_goes_to_file_unchanged(self, docs: Path, tmp_path: Path):
         qd, expected, out = build(docs, tmp_path)

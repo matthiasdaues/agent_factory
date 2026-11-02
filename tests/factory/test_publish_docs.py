@@ -1,7 +1,9 @@
 """End-to-end tests for `publish-docs pdf` on a generated fixture project (ST-0311).
 
 The fixture is written at run time: its Markdown holds dead repository links
-on purpose, which the repository's own link-check would reject as files.
+on purpose, which the repository's own link-check would reject as files. It
+is written in the old layout, committed, and then migrated with
+`migrate-spec-layout`, as a project maintainer would (ST-0334).
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, requires_docker
 pytestmark = [requires_docker, pytest.mark.container]
 
 SCRIPT = SOURCE_SCRIPTS_DIR / "publish-docs"
+MIGRATE = SOURCE_SCRIPTS_DIR / "migrate-spec-layout"
 DOCKERFILE = REPO_ROOT / "packages/factory/docker/publish-docs/Dockerfile"
 IMAGE = "agent-factory/publish-docs:" + hashlib.sha256(DOCKERFILE.read_bytes()).hexdigest()[:12]
 
@@ -29,6 +32,7 @@ FIXTURE = {
 title: Demo — Architecture
 chapters:
   - arc42/0*.md
+  - arc42/12_glossary.md
   - spec/entity-model.md
 appendix:
   title: Architecture decisions
@@ -55,7 +59,14 @@ workspace "Demo" "Fixture for the publish-docs end-to-end test." {
             include *
             autolayout lr
         }
+        theme themes/demo.json
     }
+}
+""",
+    "arc42/themes/demo.json": """\
+{
+  "name": "Demo",
+  "elements": [{ "tag": "Person", "shape": "Person" }]
 }
 """,
     "arc42/01_introduction.md": """\
@@ -99,6 +110,13 @@ sequenceDiagram
     E->>W: Submit for approval
     W-->>E: Accepted
 ```
+""",
+    "arc42/12_glossary.md": """\
+# 12. Glossary
+
+| Term         | Definition                           |
+| ------------ | ------------------------------------ |
+| Ledger Entry | One booked line of the demo records. |
 """,
     "spec/entity-model.md": """\
 ---
@@ -182,9 +200,15 @@ def make_project(base: Path, name: str = "demo", edits: dict[str, str] | None = 
         path.write_text(text, encoding="utf-8")
     (docs / "assets/images/rack.png").write_bytes(_png())
     _git(root.parent, "init", "-q", "-b", "main", str(root))
-    _git(root, "add", "-A")
-    _git(root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "fixture")
+    _commit(root, "fixture")
+    subprocess.run([str(MIGRATE), str(root)], capture_output=True, text=True, check=True, env=_env())
+    _commit(root, "migrate")
     return root
+
+
+def _commit(root: Path, message: str) -> None:
+    _git(root, "add", "-A")
+    _git(root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", message)
 
 
 def publish(root: Path) -> subprocess.CompletedProcess:
@@ -339,3 +363,24 @@ def test_invalid_dsl_stops_before_rendering(tmp_path: Path):
     assert result.returncode == 1
     assert "FAIL structurizr-validate" in result.stderr
     assert not (root / ".current-work/publish-docs/build/src/main.qd").exists()
+
+
+@pytest.mark.spec("CAL-11-IT-01")
+def test_chapter_12_shows_the_glossary_and_manifest_is_unchanged(published):
+    root, _ = published
+    assert (root / "docs/spec/architecture.dsl").is_file()
+    assert (root / "docs/assets/themes/demo.json").is_file()
+    assert _git(root, "diff", "HEAD~1", "--", "docs/publish-docs.yaml") == ""
+    text = re.sub(r"\s+", " ", pdf_text(root, PDF))
+    chapter12 = text[text.rindex("Glossary") :]
+    assert "Ledger Entry" in chapter12
+    assert "The terms are in" not in text
+
+
+def test_missing_dsl_names_the_spec_path(tmp_path: Path):
+    root = make_project(tmp_path)
+    (root / "docs/spec/architecture.dsl").unlink()
+    result = publish(root)
+    assert result.returncode == 2
+    assert "docs/spec/architecture.dsl" in result.stderr
+    assert not (root / PDF).exists()
