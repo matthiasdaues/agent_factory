@@ -28,6 +28,8 @@ impact:
     - packages/factory/skills/maintain-architecture/SKILL.md
     - packages/factory/skills/qa-strategy-from-spec/SKILL.md
     - packages/factory/skills/detect-test-regime/SKILL.md
+    - packages/factory/skills/crap-score/SKILL.md
+    - packages/factory/skills/mutation-testing/SKILL.md
     - docs/proposals/core-artifact-layout.md
 
 governance:
@@ -56,23 +58,23 @@ estimate:
 
 ## Primer
 
-In the Agent Factory, agents write the files that describe a software project. The most important ones form the core. People edit a core file, other files derive from it, and an automatic check, called a gate, tests it. Each agent declares which files it reads and which it writes.
+In the Agent Factory, agents write the files that describe a software project. The most important files form the core. A person edits a core file, other files derive from it, and an automatic check, called a gate, tests it. Each agent declares in its definition which files it reads and writes.
 
-Today three core files have no agent that writes them, so they are never created. Eight have no review, so nobody confirms them. The state machine file, which describes how each entity changes its status, has two writers. The requirements agent does too much: it interviews, maps the scope, writes the behaviour, models the data, and plans the tests.
+Take the state machine file, which describes how each entity changes its status. Today two agents write it. The requirements agent declares it, and the architecture agent changes it without declaring it. Three other core files have no writer, so nobody creates them. Eight core files have no review, so nobody confirms them.
 
-The proposal sorts the core into three families, and each family gets one owner. The requirements agent keeps scope and behaviour, which say what the system must do. A new domain-modeling agent takes domain structure: the glossary, the data model, and the rules and contracts written in terms of the entities. The architecture agent owns the components and their dependency rules. Outside the core, a new test-strategy agent owns the record of how the project tests and the test plan for each feature. Virgil, the guide agent that runs the project setup called fitting, owns the file that tells agents where project knowledge lives.
+The proposal sorts the core into three families. Scope and behaviour say what the system must do, and the requirements agent keeps them. Domain structure describes the entities: the glossary, the entity model, the state machines, and the rules written in terms of the entities. A new domain-modeling agent owns it. The architecture agent owns the components and their dependency rules. A file keeps its owner whichever workflow asks for it. Outside the core, a new test-strategy agent records how the project tests and plans the tests for each feature. Virgil, the guide agent for project setup, owns the file that tells agents where project knowledge lives.
 
-Every core file then has exactly one producer, the agent that writes it, and a declared review in a separate session. A test reads the index of all agent definitions and fails when a core file has no producer, more than one producer, or no reviewer. The spec-review agent reviews the behaviour files and the domain structure. The architecture-review agent reviews the architecture. The stakeholder, the person who owns the domain, confirms the scope map and every glossary term, because only that person can settle what a term means. Terms found in the code enter the glossary as drafts until the stakeholder confirms them.
+Every core file then has one producer, the agent that writes it, and a review in a separate session. The producer names its reviewers in its definition. A test fails when a core file has no producer, several producers, or no reviewer. The spec-review agent reviews behaviour and domain structure, and the architecture-review agent reviews the architecture. The stakeholder, the person who owns the domain, confirms the scope map. The stakeholder also confirms every glossary term, because only that person can settle what a term means.
 
-An agent that reads a file it does not own reports a finding and leaves the file alone. Take a case from the proposal. The code renames a task status from PENDING to WAITING, but the state machine file still says PENDING. The reconciliation agent compares the core with the code and writes a report row that names the file and its owner, the domain-modeling agent. The domain-modeling agent updates the file, and the spec review confirms the change.
+An agent that reads a file it does not own reports a finding and leaves the file alone. Say the code renames a task status from PENDING to WAITING, but the state machine file still says PENDING. The reconciliation agent compares the core with the code and writes a report row that names the file and its owner. The domain-modeling agent updates the file, and the spec-review agent confirms the change. The finder does not fix the error, because the file would then have several writers and the fix would skip the owner's review.
 
-The obvious shortcut lets the agent that finds an error fix it. The proposal does not take it, because the file would then have several writers, and the fix would skip the owner's review. The same rule holds during implementation. The developer agent and the implementation agent, which hands out stories in waves, edit no specification file. The developer agent writes each drift into one report per wave. A wave closes only when the owners have fixed every row and their reviews have confirmed the fixes. So the specification lags the code by one wave at most.
+The same rule holds during implementation. The implementation agent hands out stories in waves to the developer agent, and neither agent edits a specification file. The developer agent writes each drift as a row of the wave's spec-feedback report. A wave closes only when the owners have fixed every row and their reviews have confirmed the fixes. So the specification lags the code by one wave at most.
 
-The proposal leaves no question open.
+The test-strategy agent also owns the gates that measure the tests, such as mutation testing. It chooses these gates and sets their thresholds. The implementation agent still runs them after each story, because a gate must block before the merge.
 
 ## Summary
 
-Every core artifact gets exactly one producing agent and one review, and both are declared in the agents' frontmatter. The requirements agent keeps scope and behaviour and gives up two artifact families. A new domain-modeling agent takes domain structure: the glossary, the data model, and the rules and contracts written in terms of the entities. A new test-strategy agent takes test practice: the record of how the project tests, and the QA strategies. The first release closes every producer and review gap on the [project truth map](project-truth-map.drawio). It builds on the [core artifact layout](core-artifact-layout.md) and starts after that release's agent stories are merged.
+Every core artifact gets exactly one producing agent and one review, and both are declared in the agents' frontmatter. The requirements agent keeps scope and behaviour and gives up two artifact families. A new domain-modeling agent takes domain structure: the glossary, the data model, and the rules and contracts written in terms of the entities. A new test-strategy agent takes test practice: the record of how the project tests, the QA strategies, and the quality guardrails that measure the tests. The first release closes every producer and review gap on the [project truth map](project-truth-map.drawio). It builds on the [core artifact layout](core-artifact-layout.md) and starts after that release's agent stories are merged.
 
 ## Motivation
 
@@ -96,7 +98,7 @@ A core file without a producer is never created. A core file without a review is
 
 ### Artifact families and owners
 
-The core splits into three families, each with one owner: scope and behaviour (requirements agent), domain structure (domain-modeling agent), and architecture (architecture agent) (DEC-02). Outside the core, the test practice family, `testing.yaml` and the QA strategies, has its own owner, the test-strategy agent (DEC-10). The paths are those of the core artifact layout (DEC-05).
+The core splits into three families, each with one owner: scope and behaviour (requirements agent), domain structure (domain-modeling agent), and architecture (architecture agent) (DEC-02). Outside the core, the test practice family, `testing.yaml`, the QA strategies and the test guardrails, has its own owner, the test-strategy agent (DEC-10, DEC-23). The paths are those of the core artifact layout (DEC-05).
 
 Each core artifact has this contract:
 
@@ -169,12 +171,24 @@ The architecture agent declares `dependency-rules.dsl` as an output. It writes n
 A new agent definition, `packages/factory/agents/test-strategy-agent.md`, owns the test practice family (DEC-10). The family has two files: `docs/testing.yaml` records how the project tests, and each `docs/spec/work/<feature>-qa-strategy.md` plans what to test for one feature. The QA strategy is built from the layer bindings in `testing.yaml`, so both files belong to one owner.
 
 - **Tier:** strong, because assigning each contract its owning test layer is judgment. Three agents work from the QA strategy: the QA agent, the code-review agent, and the developer agent (DEC-13).
-- **Skills:** `detect-test-regime` and `qa-strategy-from-spec`.
+- **Skills:** `detect-test-regime`, `qa-strategy-from-spec`, `crap-score`, and `mutation-testing`.
 - **Inputs required:** the feature file, `interface-contracts.md`, and `entity-model.md` for a QA strategy; the test suites in the code for `testing.yaml`.
 - **Outputs:** `docs/testing.yaml` and `docs/spec/work/*-qa-strategy.md`.
 - **Handoff:** the planning agent, which assigns the strategy's contracts to stories in its testability probe.
 
 The planning agent and the QA agent do not write the QA strategy. The planning agent already carries the whole backlog sequence, and the QA agent reviews code against the strategy.
+
+### Quality guardrails
+
+The test-strategy agent owns the guardrails that measure the tests: `crap-score`, `mutation-testing`, and `test-design-verify` (DEC-24). A later gate that measures the tests, such as a coverage gate, joins this family.
+
+Owning a guardrail means three jobs. The test-strategy agent chooses the gates and sets their thresholds in the `gates` section of `testing.yaml`. It sets up the project's mutation testing. It also judges the results that a number alone does not settle, such as surviving mutants, against the contract owners in the QA strategy. When a threshold proves wrong, the test-strategy agent adjusts it.
+
+The test-strategy agent does not run the gates (DEC-23), because running a gate needs no judgment and a gate must block before the merge. The implementation agent runs them after each story, as today, and a failing gate blocks the merge. The developer agent may run them before it hands a story back.
+
+Take a case. After ST-0318, `crap-score` reports the function `plan_moves` at 42, above the threshold of 30 in `testing.yaml`. The implementation agent blocks the merge, and the developer agent simplifies the function or adds tests. After the same story, mutation testing leaves three surviving mutants in the path-table planner. The test-strategy agent classifies them by contract owner, and each survivor in an owned contract becomes a missing test.
+
+`dependency-check` stays with the architecture agent. It checks the code against `dependency-rules.dsl`, so its findings go to the architecture agent, which owns those rules.
 
 ### The seam files
 
@@ -253,6 +267,7 @@ Each story of this proposal names its overlapping layout story as a dependency. 
 - The spec-review agent and `inspect-spec` review every artifact of two families, the glossary included.
 - The architecture-review agent reviews `dependency-rules.dsl`.
 - The new test-strategy agent declares `testing.yaml` and the QA strategies, and Virgil stops declaring `testing.yaml`.
+- The test-strategy agent owns the test guardrails `crap-score`, `mutation-testing`, and `test-design-verify`; the implementation agent keeps running them, and `dependency-check` stays with the architecture agent.
 - The reconciliation agent edits no core file and reports every finding in one consolidated report per run.
 - The developer and implementation agents edit no specification file. Drift goes into one spec-feedback report per wave, and the wave closes only when the owners have fixed it.
 - Every core output declaration carries `reviewed_by:`, `index-lint` checks it, and a test checks the producer and review contract against `INDEX.yaml`.
@@ -281,7 +296,8 @@ No question is open.
 - `agents/architecture-agent.md` declares `docs/spec/dependency-rules.dsl`. `maintain-architecture` contains no step that writes `state-machines.md`.
 - The spec-review agent declares every scope-and-behaviour and domain-structure artifact as a required input, and `inspect-spec` has a check for each structure file and for the glossary.
 - The architecture-review agent declares `docs/spec/dependency-rules.dsl` as a required input.
-- `agents/test-strategy-agent.md` exists, lists `detect-test-regime` and `qa-strategy-from-spec` as its skills, and declares `docs/testing.yaml` and `docs/spec/work/*-qa-strategy.md` as its outputs. No other agent declares either.
+- `agents/test-strategy-agent.md` exists, lists `detect-test-regime`, `qa-strategy-from-spec`, `crap-score`, and `mutation-testing` as its skills, and declares `docs/testing.yaml` and `docs/spec/work/*-qa-strategy.md` as its outputs. No other agent declares either.
+- The implementation agent still runs `crap-score`, `mutation-testing`, and `test-design-verify` after each story and blocks the merge on a failure. Only the test-strategy agent writes the `gates` section of `testing.yaml`, and `dependency-check` findings name the architecture agent as owner.
 - `agents/virgil.md` does not declare `docs/testing.yaml` as an output, and the fitting's step 2b names the test-strategy agent.
 - A test reads `INDEX.yaml` and fails when a core artifact is declared as an output by no agent or by more than one agent, or when its declaration has no `reviewed_by:` or an empty list.
 - `index-lint` fails when an entry of a `reviewed_by:` list names no existing agent and is not `stakeholder`, or names an agent that does not declare the artifact as a required input.
@@ -295,30 +311,32 @@ No question is open.
 
 ## Decisions
 
-| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                              | Raised by                            |
-| ------ | ---------- | ---------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| DEC-01 | 2026-11-02 | decision   | stakeholder | A core artifact must have a producer and a review; "none" is a defect, not a valid state.                                                                                             | project truth map                    |
-| DEC-02 | 2026-11-02 | decision   | stakeholder | The requirements agent splits by artifact family into scope and behaviour, domain structure, and architecture.                                                                        | project truth map                    |
-| DEC-03 | 2026-11-02 | decision   | stakeholder | State machines belong to the domain structure family, beside the entity model; the architecture agent only reads them.                                                                | state machine question               |
-| DEC-04 | 2026-11-02 | decision   | stakeholder | Validation rules and interface contracts belong to the domain structure family, because both are written in terms of the entities.                                                    | ownership cut                        |
-| DEC-05 | 2026-11-02 | decision   | stakeholder | The proposal builds on the core artifact layout and runs after it; it does not amend the layout backlog.                                                                              | backlog question                     |
-| DEC-06 | 2026-11-02 | decision   | stakeholder | Three derivations hold in the target model: entity model to state machines, entity model to schemas, and `architecture.dsl` to `dependency-rules.dsl`.                                | proposed ownership map               |
-| DEC-07 | 2026-11-02 | decision   | stakeholder | `capture-context` leaves the requirements agent; Virgil owns it in fitting.                                                                                                           | ownership cut                        |
-| DEC-08 | 2026-11-02 | decision   | stakeholder | The missing gates for the entity model, `schemas/*`, and `testing.yaml` get a separate proposal.                                                                                      | ownership cut                        |
-| DEC-09 | 2026-11-02 | decision   | stakeholder | Workflows should not depend on playbooks; ownership follows artifact families, and a later proposal designs the workflows.                                                            | playbook discussion                  |
-| DEC-10 | 2026-11-02 | decision   | stakeholder | A new test-strategy agent owns the test practice family, `testing.yaml` and the QA strategies; the planning agent is already too large to take them.                                  | open question: QA strategy owner     |
-| DEC-11 | 2026-11-02 | assumption | author      | In fitting step 2b, the session takes the test-strategy agent's role, so Virgil writes no file it does not declare.                                                                   | DEC-10                               |
-| DEC-12 | 2026-11-02 | decision   | stakeholder | The domain-modeling agent runs at the strong tier, like the requirements and architecture agents it sits between.                                                                     | open question: agent tier            |
-| DEC-13 | 2026-11-02 | decision   | stakeholder | The test-strategy agent runs at the strong tier; the layer assignment is judgment, and the agent is not split by skill to save cost on the scan.                                      | grilling: agent tier                 |
-| DEC-14 | 2026-11-02 | decision   | stakeholder | Every glossary term needs the stakeholder; terms seeded from code are drafts, confirmed with their domain area's scope-map batch.                                                     | open question: glossary confirmation |
-| DEC-15 | 2026-11-02 | assumption | author      | A draft domain section of the glossary is marked by a `Status: draft` line, so the layout's Term/Definition/Avoid tables stay unchanged.                                              | DEC-14                               |
-| DEC-16 | 2026-11-02 | decision   | stakeholder | `reverse-map` writes term candidates to `docs/spec/work/term-candidates.md`; the domain-modeling agent turns them into draft glossary terms, so the glossary keeps one producer.      | grilling: single producer            |
-| DEC-17 | 2026-11-02 | decision   | stakeholder | The reconciliation agent edits no core file. It reports every finding in one consolidated report per run, not as separate finding files, and the owners fix.                          | grilling: single producer            |
-| DEC-18 | 2026-11-02 | decision   | stakeholder | The developer and implementation agents edit no specification file. Drift goes into one spec-feedback report per wave, and the wave closes only when the owners have fixed every row. | grilling: single producer            |
-| DEC-19 | 2026-11-02 | assumption | author      | The spec-feedback report lives at `docs/reviews/spec-feedback-<feature-branch>-wave-<n>.md`, beside the reconciliation reports.                                                       | DEC-18                               |
-| DEC-20 | 2026-11-02 | decision   | stakeholder | The review of a core artifact is declared on the producer's output declaration as `reviewed_by:`, naming an agent or `stakeholder`; `index-lint` checks it.                           | grilling: contract test              |
-| DEC-21 | 2026-11-02 | decision   | stakeholder | `run-step` eligibility stays existence-based; eligibility on reviewed inputs waits for the workflow proposal (DEC-09).                                                                | grilling: run-step                   |
-| DEC-22 | 2026-11-02 | decision   | stakeholder | `reviewed_by:` holds a list, so an artifact can have several reviewers; the glossary declares the spec-review agent and the stakeholder.                                              | lector plan C2                       |
+| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                                | Raised by                              |
+| ------ | ---------- | ---------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| DEC-01 | 2026-11-02 | decision   | stakeholder | A core artifact must have a producer and a review; "none" is a defect, not a valid state.                                                                                               | project truth map                      |
+| DEC-02 | 2026-11-02 | decision   | stakeholder | The requirements agent splits by artifact family into scope and behaviour, domain structure, and architecture.                                                                          | project truth map                      |
+| DEC-03 | 2026-11-02 | decision   | stakeholder | State machines belong to the domain structure family, beside the entity model; the architecture agent only reads them.                                                                  | state machine question                 |
+| DEC-04 | 2026-11-02 | decision   | stakeholder | Validation rules and interface contracts belong to the domain structure family, because both are written in terms of the entities.                                                      | ownership cut                          |
+| DEC-05 | 2026-11-02 | decision   | stakeholder | The proposal builds on the core artifact layout and runs after it; it does not amend the layout backlog.                                                                                | backlog question                       |
+| DEC-06 | 2026-11-02 | decision   | stakeholder | Three derivations hold in the target model: entity model to state machines, entity model to schemas, and `architecture.dsl` to `dependency-rules.dsl`.                                  | proposed ownership map                 |
+| DEC-07 | 2026-11-02 | decision   | stakeholder | `capture-context` leaves the requirements agent; Virgil owns it in fitting.                                                                                                             | ownership cut                          |
+| DEC-08 | 2026-11-02 | decision   | stakeholder | The missing gates for the entity model, `schemas/*`, and `testing.yaml` get a separate proposal.                                                                                        | ownership cut                          |
+| DEC-09 | 2026-11-02 | decision   | stakeholder | Workflows should not depend on playbooks; ownership follows artifact families, and a later proposal designs the workflows.                                                              | playbook discussion                    |
+| DEC-10 | 2026-11-02 | decision   | stakeholder | A new test-strategy agent owns the test practice family, `testing.yaml` and the QA strategies; the planning agent is already too large to take them.                                    | open question: QA strategy owner       |
+| DEC-11 | 2026-11-02 | assumption | author      | In fitting step 2b, the session takes the test-strategy agent's role, so Virgil writes no file it does not declare.                                                                     | DEC-10                                 |
+| DEC-12 | 2026-11-02 | decision   | stakeholder | The domain-modeling agent runs at the strong tier, like the requirements and architecture agents it sits between.                                                                       | open question: agent tier              |
+| DEC-13 | 2026-11-02 | decision   | stakeholder | The test-strategy agent runs at the strong tier; the layer assignment is judgment, and the agent is not split by skill to save cost on the scan.                                        | grilling: agent tier                   |
+| DEC-14 | 2026-11-02 | decision   | stakeholder | Every glossary term needs the stakeholder; terms seeded from code are drafts, confirmed with their domain area's scope-map batch.                                                       | open question: glossary confirmation   |
+| DEC-15 | 2026-11-02 | assumption | author      | A draft domain section of the glossary is marked by a `Status: draft` line, so the layout's Term/Definition/Avoid tables stay unchanged.                                                | DEC-14                                 |
+| DEC-16 | 2026-11-02 | decision   | stakeholder | `reverse-map` writes term candidates to `docs/spec/work/term-candidates.md`; the domain-modeling agent turns them into draft glossary terms, so the glossary keeps one producer.        | grilling: single producer              |
+| DEC-17 | 2026-11-02 | decision   | stakeholder | The reconciliation agent edits no core file. It reports every finding in one consolidated report per run, not as separate finding files, and the owners fix.                            | grilling: single producer              |
+| DEC-18 | 2026-11-02 | decision   | stakeholder | The developer and implementation agents edit no specification file. Drift goes into one spec-feedback report per wave, and the wave closes only when the owners have fixed every row.   | grilling: single producer              |
+| DEC-19 | 2026-11-02 | assumption | author      | The spec-feedback report lives at `docs/reviews/spec-feedback-<feature-branch>-wave-<n>.md`, beside the reconciliation reports.                                                         | DEC-18                                 |
+| DEC-20 | 2026-11-02 | decision   | stakeholder | The review of a core artifact is declared on the producer's output declaration as `reviewed_by:`, naming an agent or `stakeholder`; `index-lint` checks it.                             | grilling: contract test                |
+| DEC-21 | 2026-11-02 | decision   | stakeholder | `run-step` eligibility stays existence-based; eligibility on reviewed inputs waits for the workflow proposal (DEC-09).                                                                  | grilling: run-step                     |
+| DEC-22 | 2026-11-02 | decision   | stakeholder | `reviewed_by:` holds a list, so an artifact can have several reviewers; the glossary declares the spec-review agent and the stakeholder.                                                | lector plan C2                         |
+| DEC-23 | 2026-11-02 | decision   | stakeholder | The test-strategy agent owns the post-implementation test guardrails; the implementation agent or the developer agent runs them.                                                        | stakeholder, after the proposal opened |
+| DEC-24 | 2026-11-02 | decision   | stakeholder | The test guardrail family is `crap-score`, `mutation-testing`, and `test-design-verify`, plus later gates that measure the tests; `dependency-check` stays with the architecture agent. | grilling: guardrail members            |
 
 ## Review findings
 
