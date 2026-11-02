@@ -158,3 +158,57 @@ class TestSelectReadOnly:
 
         after = set(tmp_path.rglob("*"))
         assert before == after
+
+
+ROUTING_INPUTS = [
+    {"type": "feature", "path_pattern": "docs/spec/features/*.feature"},
+    {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
+]
+
+
+def _build_project(root, feature_dir):
+    """Build a project with a scope map, an accepted proposal, and payments.feature in feature_dir."""
+    spec = root / "docs" / "spec"
+    spec.mkdir(parents=True)
+    (spec / "scope-map.md").write_text("# Scope Map\n")
+    proposals = root / "docs" / "proposals"
+    proposals.mkdir(parents=True)
+    (proposals / "payments.md").write_text("---\nstatus: accepted\n---\n# Payments\n")
+    (root / feature_dir).mkdir(parents=True, exist_ok=True)
+    (root / feature_dir / "payments.feature").write_text("Feature: Payments\n")
+
+
+class TestSelectRoutesByFeatureFolder:
+    def test_feature_in_features_folder_completes_requirements(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        project = tmp_path / "routed-project"
+        _build_project(project, "docs/spec/features")
+        agents_dir = _write_agent(
+            tmp_path, "planning-agent", inputs_required=ROUTING_INPUTS
+        )
+        monkeypatch.chdir(project)
+
+        result = intent.main(["select", "--agents-dir", str(agents_dir)])
+
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "✓ planning-agent" in out
+        assert "✓ feature: docs/spec/features/payments.feature" in out
+
+    def test_feature_at_top_of_spec_leaves_requirements_open(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        project = tmp_path / "top-level-project"
+        _build_project(project, "docs/spec")
+        agents_dir = _write_agent(
+            tmp_path, "planning-agent", inputs_required=ROUTING_INPUTS
+        )
+        monkeypatch.chdir(project)
+
+        result = intent.main(["select", "--agents-dir", str(agents_dir)])
+
+        assert result == 0
+        out = capsys.readouterr().out
+        assert "✗ planning-agent" in out
+        assert "✗ feature: no file matching docs/spec/features/*.feature" in out

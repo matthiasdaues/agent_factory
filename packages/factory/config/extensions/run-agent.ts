@@ -11,8 +11,7 @@
  * Symlinked to `.pi/extensions/run-agent.ts` by `.agent-factory/factory/scripts/init-factory`,
  * the same pattern the git-safety guardrail uses. Reversed by `remove-factory`.
  *
- * See docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md and
- * docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md.
+ * See docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md.
  */
 import { execFileSync, spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
