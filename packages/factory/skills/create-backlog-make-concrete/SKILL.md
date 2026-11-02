@@ -88,7 +88,7 @@ stored state. Every lifecycle constraint the story enforces should be visible in
 the demo.
 
 **Deferred questions.** Move deferred questions (those with exp
-rationale instead of a resolved answer) to `docs/spec/todo.md` per the
+rationale instead of a resolved answer) to `docs/spec/work/todo.md` per the
 [todo format](../../rulebooks/conventions/todo-format.md). Reco
 and deferral rationale. The deferred item stays in the Resolve Before
 Implementation section with its deferral blockquote — it is not

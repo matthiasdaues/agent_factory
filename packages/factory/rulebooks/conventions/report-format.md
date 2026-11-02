@@ -42,7 +42,7 @@ Row format: [review-report.md template](../templates/review-report.md).
 
 - **Defect** — the artifact is wrong: contradicts spec, breaks a principle with consequences, has a bug, or is unusable as-is.
 - **Suggestion** — usable but improvable: sharper wording, simplification, idiomatic pattern.
-- **Question** — needs the author to clarify intent. Also record in `docs/spec/todo.md` per [todo-format.md](todo-format.md).
+- **Question** — needs the author to clarify intent. Also record in `docs/spec/work/todo.md` per [todo-format.md](todo-format.md).
 
 Every finding must state **what is wrong** and **what to do** — no "this looks off" without a fix direction.
 
