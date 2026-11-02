@@ -4,7 +4,7 @@ source: atam-review
 severity: medium
 category: defect
 artifact: docs/adr/0026-layout-migration-runs-inside-the-factory-update.md#decision
-status: open
+status: fixed
 traces: [ADR-0026, ADR-0023, DEC-11, DEC-17]
 ---
 
@@ -31,3 +31,5 @@ A project at `v0.12.0` or earlier has a related gap. Its manifest is `.agent-fac
 3. `init-factory` at the layout release or later lists the old layout paths it still finds on every run, the same way it does on a first install. A project that missed the migration then learns about it.
 
 Add a scenario for an update from a version before 1.1.0 to `core-artifact-layout.feature`, or record why such a scenario is out of scope.
+
+**Resolution:** `init-factory` writes the new `factory_version` into `install.json` only after `migrate-spec-layout` exits 0. After a failure the record keeps the prior version, so the next run retries the migration. `init-factory` reports the old layout and names the fix: run the update again. An `update-factory` before 1.1.0 restores nothing. ADR-0026 records this state as an accepted, temporary risk: the developer runs the update again, and the new `update-factory` and `init-factory` retry the migration. No minimum installed version applies. A project with only `.agent-factory/factory-install.json`, the record up to `v0.12.0`, counts as an older install, so the script runs. ADR-0026 (Decision and Consequences), the dynamic views `UpdateLayoutMigration` and `UpdateLayoutMigrationRollback`, chapter 6.10.6 and 6.10.7, chapter 5, and chapter 9 state this. Scenarios in `core-artifact-layout.feature` belong to the requirements fix pass.

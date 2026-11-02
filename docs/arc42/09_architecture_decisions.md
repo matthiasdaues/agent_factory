@@ -222,8 +222,11 @@ and `docs/spec/glossary.md` holds the terms. ADRs, `testing.yaml`, and
 **ADR-0026** moves installed projects into the layout as part of the factory
 update. The new version's `init-factory` runs `migrate-spec-layout` as its
 last step when the prior `factory_version` is older than the layout release.
-The approval of the update covers the move. A failed migration undoes its own
-changes, and the update rolls back the factory tree. Folding the context map
+The approval of the update covers the move. Tracked files move with `git mv`
+and all other files with a plain file move, so no git state blocks the move. A
+failed migration undoes its own changes, and `init-factory` keeps the prior
+`factory_version`, so the next update retries. `update-factory` 1.1.0 and
+later also roll back the factory tree. Folding the context map
 into domain concerns stays a separate step with
 `capture-context --fold-context-map`.
 

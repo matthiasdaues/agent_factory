@@ -4,7 +4,7 @@ source: atam-review
 severity: medium
 category: defect
 artifact: docs/adr/0026-layout-migration-runs-inside-the-factory-update.md#decision
-status: open
+status: fixed
 traces: [ADR-0026, DEC-06, DEC-17]
 ---
 
@@ -23,3 +23,5 @@ So a common working-tree state blocks the update with no clear reason. The self-
 - ignored: a plain move, or left in place.
 
 Add a check that runs before the first change. When the script refuses, it exits non-zero before it changes anything. It names each blocking file and the command that clears it, so the developer can fix the state and run the update again. Add the chosen behavior to the `migrate-spec-layout` contract in `interface-contracts.md` and a scenario to `core-artifact-layout.feature`.
+
+**Resolution:** ADR-0026 defines the command per git state, and no git state blocks the migration. A tracked file moves with `git mv` and is removed with `git rm`, also with uncommitted changes. An untracked or ignored file moves with a plain file move; the script keeps a copy until it exits, so the self-undo can restore it. An untracked or ignored file that the path table removes stays in place and is listed for the developer (stakeholder, 2026-11-02). A check before the first change refuses during a merge, a rebase, or a held index lock (stakeholder, 2026-11-02). The DSL relationships of `migrate-spec-layout`, the dynamic views, chapter 5, chapter 6.10.6, and the glossary state this. The contract in `interface-contracts.md` and a scenario in `core-artifact-layout.feature` belong to the requirements fix pass.
