@@ -49,13 +49,13 @@ Two more -- `schema-validate` and `policy-validate` -- are on-demand validators 
 
 Three additional on-demand validators enforce semantic code quality and architecture routing. Two are invoked by the implementation-agent dispatcher (not by hooks) and are described in [section 5.2.3](#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check); one determines whether a feature needs the architecture phase:
 
-| Component              | Trigger Point                                   | What it validates                                           | Exit codes                       |
-| ---------------------- | ----------------------------------------------- | ----------------------------------------------------------- | -------------------------------- |
-| **crap-score**         | Dispatcher, after developer-agent commit        | CRAP score (cyclomatic complexity x coverage) per function  | 0 (pass), 1 (fail)               |
-| **dependency-check**   | Dispatcher, after developer-agent commit        | Imports conform to architecture.dsl dependency rules        | 0 (pass), 1 (violations)         |
-| **module-graph-check** | Orchestrating session, at architecture boundary | Feature touches no new modules or inverted dependencies     | 0 (skip architecture), 1 (enter) |
-| **Fence Runner**       | After agent activity completion                 | Agent declared outputs exist and pass applicable validators | 0 (pass), 1 (violations)         |
-| **Proposal Validator** | `intent assess`, on-demand                      | Proposal file existence, markdown format, required fields   | 0 (pass), 1 (violations)         |
+| Component              | Trigger Point                                   | What it validates                                           | Exit codes                              |
+| ---------------------- | ----------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
+| **crap-score**         | Dispatcher, after developer-agent commit        | CRAP score (cyclomatic complexity x coverage) per function  | 0 (pass), 1 (fail)                      |
+| **dependency-check**   | Dispatcher, after developer-agent commit        | Imports conform to architecture.dsl dependency rules        | 0 (pass), 1 (violations)                |
+| **module-graph-check** | Orchestrating session, at architecture boundary | Feature touches no new modules or inverted dependencies     | 0 (result on stdout), 2 (input missing) |
+| **Fence Runner**       | After agent activity completion                 | Agent declared outputs exist and pass applicable validators | 0 (pass), 1 (violations)                |
+| **Proposal Validator** | `intent assess`, on-demand                      | Proposal file existence, markdown format, required fields   | 0 (pass), 1 (violations)                |
 
 ### 5.2.1 Project-Owned Test Gates via Charter Declaration
 
@@ -218,7 +218,7 @@ Every building block's entry point, invoked how, and by whom:
 | crap-score                   | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                            |
 | dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                      |
 | concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                |
-| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check <proposal-path>`                | 0 (no change), 1 (change detected)            |
+| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check [--proposal PATH]`              | 0 (result on stdout), 2 (input missing)       |
 | Fence Runner                 | Post-agent-activity validation         | Python module (`packages/factory/engine/fence.py`)                                 | 0 (pass), 1 (violations)                      |
 | Proposal Validator           | `intent assess`, on-demand             | Python module (`packages/factory/engine/validators/proposal.py`)                   | 0 (pass), 1 (violations)                      |
 | Session Binding Manager      | Session start, workstream binding      | Python module (`packages/factory/engine/session_binding.py`)                       | (internal)                                    |

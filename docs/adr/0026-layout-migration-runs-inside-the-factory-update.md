@@ -56,8 +56,8 @@ is not asked about the move. Declining the update means no update (DEC-17).
 **Version test.** `init-factory` reads the `factory_version` of the prior
 install record `.agent-factory/install.json` before it writes anything to
 that file. `init-factory` runs the script when the prior version is older
-than the layout release. Planning sets
-the layout release (gap CAL-G02).
+than the layout release `1.4.0`, the constant `LAYOUT_RELEASE` of
+`init-factory` (CAL-G02).
 
 The comparison follows the precedence rules of Semantic Versioning 2.0.0.
 Major, minor, and patch compare as numbers, so `1.4.0` is older than

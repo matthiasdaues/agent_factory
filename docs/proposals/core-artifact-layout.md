@@ -34,7 +34,7 @@ impact:
     - packages/factory/skills/grilling/SKILL.md
     - packages/factory/skills/capture-context/SKILL.md
     - packages/factory/rulebooks/conventions/context-format.md
-    - packages/factory/rulebooks/templates/context.md
+    - packages/factory/rulebooks/templates/glossary.md
     - packages/factory/rulebooks/templates/context-map.md
     - packages/factory/scripts/concern-lint
     - docs/agent-context.md
