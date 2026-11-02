@@ -15,8 +15,10 @@ Owned contracts:
   - CAL-01-LN-01: the top of this repository's docs/spec/ holds only core
     files and the folders features/, schemas/, areas/, work/ (structural)
   - CAL-14-LN-01: every section of this repository's glossary is a
-    Term/Definition/Avoid table, and no actor-goal list or use_cases folder
+    Term/Definition/Avoid table, and no actor-goal list or use-case folder
     remains under docs/ (structural)
+  - CAL-13-LN-01 and CAL-13-LN-02: no old path and no old routing file
+    comes back into the factory outside its exclusions (structural)
 """
 
 from __future__ import annotations
@@ -262,24 +264,24 @@ SPEC_WRITERS = {
     ),
 }
 
-OLD_PATH_PATTERNS = re.compile(
-    "|".join(
-        (
-            r"supplementary_specs",
-            r"docs/arc42/[a-z-]+\.dsl",
-            r"docs/spec/[^/]+\.feature",
-            r"docs/spec/prd\.md",
-            r"docs/spec/[^/]+-(gaps|qa-strategy)\.md",
-            r"docs/spec/todos?\.md",
-            r"docs/arc42/themes",
-            r"arc42/\(architecture",
-            r"UC-XX",
-            r"use_cases",
-            r"actor-goal-list",
-            OLD_ROUTING_FILE.pattern,
-        )
-    )
+#: The eleven old-path patterns of the proposal's Completion Criteria, as grep
+#: regexes. A character class such as ``[_]`` stands for the literal character,
+#: so this file's own text does not match the grep it runs (CAL-13).
+OLD_PATH_GREPS = (
+    "supplementary[_]specs",
+    r"docs/arc42/[a-z-]+\.dsl",
+    r"docs/spec/[^/]+\.feature",
+    r"docs/spec/prd\.md",
+    r"docs/spec/[^/]+-(gaps|qa-strategy)\.md",
+    r"docs/spec/todos?\.md",
+    r"docs/arc42/[t]hemes",
+    r"arc42/\(architecture",
+    "UC[-]XX",
+    "use[_]cases",
+    "actor[-]goal[-]list",
 )
+
+OLD_PATH_PATTERNS = re.compile("|".join((*OLD_PATH_GREPS, OLD_ROUTING_FILE.pattern)))
 
 SPEC_WRITER_FILES = (
     "agents/requirements-agent.md",
@@ -375,12 +377,160 @@ def test_glossary_section_is_one_term_table(heading: str) -> None:
     assert not any(TERM_TABLE_HEADER.match(row) for row in rows[1:])
 
 
+#: Built from parts, so this file does not match the CAL-13 guard it shares a
+#: repository with.
+ACTOR_GOAL_LIST_NAME = "actor-goal" + "-list.md"
+USE_CASE_FOLDER_NAME = "use" + "_cases"
+
+
 @pytest.mark.spec("CAL-14")
 def test_no_actor_goal_list_or_use_case_folder_under_docs() -> None:
     found = sorted(
         str(path.relative_to(REPO_ROOT))
         for path in (REPO_ROOT / "docs").rglob("*")
-        if path.name == "actor-goal-list.md"
-        or (path.is_dir() and path.name == "use_cases")
+        if path.name == ACTOR_GOAL_LIST_NAME
+        or (path.is_dir() and path.name == USE_CASE_FOLDER_NAME)
     )
     assert found == []
+
+
+# --- CAL-13-LN-01, CAL-13-LN-02: no old path comes back into the factory ----
+
+#: The factory files the greps of CAL-13 read. ``.pre-commit-config.yaml`` is
+#: one file; the other two entries are folders.
+GUARD_SCOPE = ("packages/factory", "tests/factory", ".pre-commit-config.yaml")
+GUARD_ROUTING_SCOPE = ("packages/factory",)
+CAPTURE_CONTEXT_SKILL = "packages/factory/skills/capture-context/SKILL.md"
+FOLD_SECTION = "## `--fold-context-map`"
+
+
+#: Files that hold old paths on purpose. Each entry names the reason.
+INTENTIONAL_OLD_PATH_FILES = {
+    # Old-layout fixtures: init-factory moves a payments feature file from the
+    # old flat docs/spec/ folder into docs/spec/features/, and the test asserts
+    # the old file.
+    "tests/factory/test_init_factory.py": "old-layout fixtures of the init migration",
+    # Old-layout fixtures: update-factory maps the old feature path to the new
+    # one, and the test asserts both paths.
+    "tests/factory/test_update_factory.py": "old-layout fixtures of the update migration",
+    # Pattern literals: the fold tests hold the old-path regexes they check for.
+    "tests/factory/test_capture_context_fold.py": "pattern literals of the fold check",
+}
+
+
+def _guard_excluded(rel: str) -> bool:
+    """True for the files the CAL-13 exclusions name: CHANGELOG.md, reports/,
+    the migration script and its tests, and the intentional old-path files."""
+    return (
+        Path(rel).name == "CHANGELOG.md"
+        or rel.startswith("packages/factory/reports/")
+        or rel == "packages/factory/scripts/migrate-spec-layout"
+        or rel == "tests/factory/test_migrate_spec_layout.py"
+        or rel in INTENTIONAL_OLD_PATH_FILES
+    )
+
+
+def _guard_files(root: Path, scope: tuple[str, ...]) -> list[Path]:
+    """Return every text file under the scope entries of ``root``."""
+    files: list[Path] = []
+    for entry in scope:
+        base = root / entry
+        if base.is_file():
+            files.append(base)
+        elif base.is_dir():
+            files.extend(
+                path
+                for path in base.rglob("*")
+                if path.is_file()
+                and "__pycache__" not in path.parts
+                and path.suffix != ".pyc"
+            )
+    return sorted(files)
+
+
+def guard_hits(root: Path, pattern: str, scope: tuple[str, ...]) -> list[str]:
+    """Return one ``file:line matches pattern: text`` entry per hit outside the
+    exclusions. The fold section of the capture-context skill is blanked
+    before the routing-file grep, and only there."""
+    regex = re.compile(pattern)
+    hits: list[str] = []
+    for path in _guard_files(root, scope):
+        rel = path.relative_to(root).as_posix()
+        if _guard_excluded(rel):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if rel == CAPTURE_CONTEXT_SKILL and pattern == OLD_ROUTING_FILE.pattern:
+            fold = section(text, FOLD_SECTION)
+            text = text.replace(fold, "\n" * fold.count("\n"))
+        for number, line in enumerate(text.splitlines(), 1):
+            if regex.search(line):
+                hits.append(f"{rel}:{number} matches {pattern}: {line.strip()}")
+    return hits
+
+
+def all_old_path_hits(root: Path) -> list[str]:
+    """Hits of the eleven old-path greps in the CAL-13 scope."""
+    return [
+        hit
+        for pattern in OLD_PATH_GREPS
+        for hit in guard_hits(root, pattern, GUARD_SCOPE)
+    ]
+
+
+def routing_file_hits(root: Path) -> list[str]:
+    """Hits of the old routing files in the packages/factory scope."""
+    return guard_hits(root, OLD_ROUTING_FILE.pattern, GUARD_ROUTING_SCOPE)
+
+
+@pytest.mark.spec("CAL-13")
+@pytest.mark.parametrize("pattern", OLD_PATH_GREPS)
+def test_no_factory_file_names_an_old_path(pattern: str) -> None:
+    assert guard_hits(REPO_ROOT, pattern, GUARD_SCOPE) == []
+
+
+@pytest.mark.spec("CAL-13")
+def test_no_factory_file_names_an_old_routing_file_outside_the_fold() -> None:
+    assert routing_file_hits(REPO_ROOT) == []
+
+
+@pytest.mark.spec("CAL-13")
+def test_guard_names_file_line_and_pattern_of_a_skill_naming_the_prd(
+    tmp_path: Path,
+) -> None:
+    skill = tmp_path / "packages/factory/skills/write-prd/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text("Write the PRD to docs/spec/" + "prd.md.\n", encoding="utf-8")
+    hits = all_old_path_hits(tmp_path)
+    assert len(hits) == 1
+    assert hits[0].startswith("packages/factory/skills/write-prd/SKILL.md:1 matches ")
+    assert OLD_PATH_GREPS[3] in hits[0]
+
+
+@pytest.mark.spec("CAL-13")
+def test_guard_reports_context_file_outside_the_fold_section(tmp_path: Path) -> None:
+    agent = tmp_path / "packages/factory/agents/example.md"
+    agent.parent.mkdir(parents=True)
+    agent.write_text("Read the old docs/" + "CONTEXT.md first.\n", encoding="utf-8")
+    hits = routing_file_hits(tmp_path)
+    assert len(hits) == 1
+    assert hits[0].startswith("packages/factory/agents/example.md:1 ")
+
+
+@pytest.mark.spec("CAL-13")
+def test_guard_skips_context_file_inside_the_fold_section(tmp_path: Path) -> None:
+    skill = tmp_path / CAPTURE_CONTEXT_SKILL
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        "## Modes\n\n"
+        "Read the old docs/" + "CONTEXT.md file.\n\n"
+        "## `--fold-context-map`\n\n"
+        "Read `docs/arc42/" + "CONTEXT-MAP.md`.\n\n"
+        "## Bare invocation\n\nDone.\n",
+        encoding="utf-8",
+    )
+    hits = routing_file_hits(tmp_path)
+    assert len(hits) == 1
+    assert hits[0].startswith(f"{CAPTURE_CONTEXT_SKILL}:3 ")

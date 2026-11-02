@@ -2004,18 +2004,26 @@ class TestFailedMigrationRollsTheUpdateBack:
 # The arch-lint comment and entry lines of the 1.3.3 hook template. The rest
 # of the 1.3.3 block equals the current template, except the files: value.
 ARCH_LINT_LINES_1_3_3 = (
-    "      # Compare architecture documentation against the C4 model\n"
-    "      # (the Structurizr DSL file). Catches names that appear in\n",
-    '          "$AF"/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate\n'
-    "          --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg\n"
-    "          2>/dev/null; exit $rc'\n",
+    (
+        "      # Compare architecture documentation against the C4 model\n"
+        "      # (the Structurizr DSL file). Catches names that appear in\n"
+    ),
+    (
+        '          "$AF"/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate\n'
+        "          --allow-missing-docs-dir; rc=$?; git add docs/assets/images/*.svg\n"
+        "          2>/dev/null; exit $rc'\n"
+    ),
 )
 ARCH_LINT_LINES_NOW = (
-    "      # Compare chapter 5 in docs/arc42/ against the C4 model\n"
-    "      # (docs/spec/architecture.dsl). Catches names that appear in\n",
-    '          "$AF"/factory/scripts/arch-lint --dsl docs/spec/architecture.dsl\n'
-    "          --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?;\n"
-    "          git add docs/assets/images/*.svg 2>/dev/null; exit $rc'\n",
+    (
+        "      # Compare chapter 5 in docs/arc42/ against the C4 model\n"
+        "      # (docs/spec/architecture.dsl). Catches names that appear in\n"
+    ),
+    (
+        '          "$AF"/factory/scripts/arch-lint --dsl docs/spec/architecture.dsl\n'
+        "          --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir; rc=$?;\n"
+        "          git add docs/assets/images/*.svg 2>/dev/null; exit $rc'\n"
+    ),
 )
 ARCH_LINT_TRIGGERS = (
     "docs/spec/architecture.dsl",
@@ -2026,7 +2034,11 @@ ARCH_LINT_TRIGGERS = (
 def _hook_config_1_3_3() -> str:
     """The project's .pre-commit-config.yaml with the factory hook block as
     the 1.3.3 template wrote it, and the project's own hook."""
-    from test_migrate_spec_layout import OLD_ARCH_LINT_FILES, PROJECT_HOOK, factory_block
+    from test_migrate_spec_layout import (
+        OLD_ARCH_LINT_FILES,
+        PROJECT_HOOK,
+        factory_block,
+    )
 
     block = factory_block(OLD_ARCH_LINT_FILES)
     for old, new in zip(ARCH_LINT_LINES_1_3_3, ARCH_LINT_LINES_NOW):

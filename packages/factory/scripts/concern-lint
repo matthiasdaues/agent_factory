@@ -39,7 +39,9 @@ from pathlib import Path
 _HERE = str(Path(__file__).resolve().parent)
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-from _main_checkout import installed_copy_in_main_checkout as _installed_copy_in_main_checkout  # noqa: E402
+from _main_checkout import (
+    installed_copy_in_main_checkout as _installed_copy_in_main_checkout,
+)
 
 SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 

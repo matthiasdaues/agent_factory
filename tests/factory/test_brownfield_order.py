@@ -46,7 +46,7 @@ def _stage1_text() -> str:
 
 class TestPlaybookStage1Order:
     def test_step_headings_follow_decided_order(self):
-        headings = re.findall(r"^### Step (2\.\d) — (.+)$", _stage1_text(), re.M)
+        headings = re.findall(r"^### Step (2\.\d) — (.+)$", _stage1_text(), re.MULTILINE)
         assert [n for n, _ in headings] == [n for n, _ in _STAGE1_ORDER]
         for (_, title), (_, keyword) in zip(headings, _STAGE1_ORDER):
             assert keyword in title, f"{title!r} lacks {keyword!r}"
@@ -85,13 +85,13 @@ class TestArchitectureAgentWorkflow:
         return text[start:end]
 
     def test_workflow_names_no_archive_step(self):
-        steps = re.findall(r"^\d+\. .+$", self._workflow(), re.M)
+        steps = re.findall(r"^\d+\. .+$", self._workflow(), re.MULTILINE)
         assert steps
         for step in steps:
             assert "archive" not in step.lower(), step
 
     def test_workflow_steps_are_numbered_from_one(self):
-        numbers = [int(n) for n in re.findall(r"^(\d+)\. ", self._workflow(), re.M)]
+        numbers = [int(n) for n in re.findall(r"^(\d+)\. ", self._workflow(), re.MULTILINE)]
         assert numbers == list(range(1, len(numbers) + 1))
 
 

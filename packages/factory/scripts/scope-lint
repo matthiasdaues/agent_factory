@@ -36,7 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 _HERE = str(Path(__file__).resolve().parent)
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-from _main_checkout import main_checkout as _main_checkout  # noqa: E402
+from _main_checkout import main_checkout as _main_checkout
 
 
 @dataclass
