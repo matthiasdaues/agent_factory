@@ -475,8 +475,8 @@ class TestArchitectureAgentBrownfieldEntry:
 
     def test_eligible_with_feature_and_no_scope_map(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "docs" / "spec").mkdir(parents=True)
-        (tmp_path / "docs" / "spec" / "a.feature").write_text("Feature: A\n")
+        (tmp_path / "docs" / "spec" / "features").mkdir(parents=True)
+        (tmp_path / "docs" / "spec" / "features" / "a.feature").write_text("Feature: A\n")
 
         assert evaluate_agent(_architecture_agent())["eligible"] is True
 

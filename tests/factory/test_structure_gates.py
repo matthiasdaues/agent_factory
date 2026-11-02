@@ -397,7 +397,9 @@ class TestContainerOnlyModel:
         """BUG-0090: no DSL components and a 5.1 container table exit 0."""
         docs = tmp_path / "docs" / "arc42"
         docs.mkdir(parents=True)
-        (docs / "architecture.dsl").write_text(
+        dsl = tmp_path / "docs" / "spec" / "architecture.dsl"
+        dsl.parent.mkdir()
+        dsl.write_text(
             "workspace {\n  model {\n    s = softwareSystem \"S\" {\n"
             "      web = container \"Web\"\n      db = container \"Database\"\n"
             "    }\n  }\n}\n"
@@ -410,5 +412,5 @@ class TestContainerOnlyModel:
             "| Web       | Serve pages    |\n"
             "| Database  | Store data     |\n"
         )
-        rc = al.main(["--docs-dir", str(docs), "--no-validate"])
+        rc = al.main(["--dsl", str(dsl), "--docs-dir", str(docs), "--no-validate"])
         assert rc == 0

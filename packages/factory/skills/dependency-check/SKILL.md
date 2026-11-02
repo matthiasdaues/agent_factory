@@ -7,7 +7,7 @@ category: implementation
 # Dependency Check
 
 Run a deterministic architectural integrity gate that compares forbidden
-dependencies declared in `docs/arc42/dependency-rules.dsl` against source
+dependencies declared in `docs/spec/dependency-rules.dsl` against source
 imports.
 
 ## What it enforces
@@ -30,7 +30,7 @@ deterministic Python baseline needed by the Factory fixture and gate loop.
 
 ## Rule format
 
-Add dependency rules to `docs/arc42/dependency-rules.dsl`, one plain
+Add dependency rules to `docs/spec/dependency-rules.dsl`, one plain
 statement per line:
 
 ```text
@@ -59,7 +59,7 @@ Optional arguments:
 .agent-factory/factory/scripts/dependency-check   --story-id ST-0103   --dsl-path factory/fixtures/quality-gates/dependency-violation/architecture.dsl   --source-root factory/fixtures/quality-gates/dependency-violation
 ```
 
-- `--dsl-path` defaults to `docs/arc42/dependency-rules.dsl`
+- `--dsl-path` defaults to `docs/spec/dependency-rules.dsl`
 - `--source-root` defaults to the current directory
 - `--story-id` defaults to `STORY_ID`, then the current git branch, then
   `adhoc`

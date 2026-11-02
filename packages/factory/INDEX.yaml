@@ -9,18 +9,18 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1235
-    total_tokens: 8307
+    tokens: 1231
+    total_tokens: 8341
     inputs:
       required:
         - any_of:
             - type: feature
-              path_pattern: docs/spec/*.feature
+              path_pattern: docs/spec/features/*.feature
             - type: scope-map
               path_pattern: docs/spec/scope-map.md
       context:
-        - docs/CONTEXT.md
-        - docs/spec/prd.md
+        - docs/spec/glossary.md
+        - docs/spec/work/prd.md
         - docs/reviews/atam-review.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
@@ -31,7 +31,7 @@ agents:
         - path_pattern: docs/arc42/*.md
           validator: ""
           required: true
-        - path_pattern: docs/arc42/architecture.dsl
+        - path_pattern: docs/spec/architecture.dsl
           validator: ""
           required: true
         - path_pattern: docs/README.md
@@ -48,19 +48,19 @@ agents:
     tier: strong
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
-    tokens: 742
-    total_tokens: 5661
+    tokens: 744
+    total_tokens: 5662
     inputs:
       required:
         - type: feature
-          path_pattern: docs/spec/*.feature
+          path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
         - type: architecture
-          path_pattern: docs/arc42/architecture.dsl
+          path_pattern: docs/spec/architecture.dsl
       context:
-        - docs/CONTEXT.md
-        - docs/spec/prd.md
+        - docs/spec/glossary.md
+        - docs/spec/work/prd.md
         - docs/*.md
         - docs/assets/images/*
         - docs/agent-context.md
@@ -549,7 +549,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3782
-    total_tokens: 18374
+    total_tokens: 18372
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -632,12 +632,12 @@ skills:
     category: architecture
     description: Two-pass architecture review — deterministic arch-lint (structure, DSL consistency, diagram references) then ATAM evaluation against quality attribute scenarios. Files findings as local markdown files.
     path: skills/atam-review/SKILL.md
-    tokens: 823
+    tokens: 822
   - name: maintain-architecture
     category: architecture
     description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
     path: skills/maintain-architecture/SKILL.md
-    tokens: 1267
+    tokens: 1262
   - name: model-structurizr-slice
     category: architecture
     description: Model an increment, MVP, or release in a canonical Structurizr DSL workspace. Use to tag and style a component subset, map runtime deployment, create static and dynamic slice views, separate data models from C4 views, or fix diagrams that mix structure, deployment, behavior, and data.
@@ -657,7 +657,7 @@ skills:
     category: architecture
     description: Create arc42 architecture documentation and a Structurizr C4 model from the specification.
     path: skills/scaffold-arc42/SKILL.md
-    tokens: 1001
+    tokens: 1044
   - name: write-adr
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
@@ -712,7 +712,7 @@ skills:
     category: implementation
     description: Enforce dependency-rules.dsl dependency rules by scanning source imports and writing a JSON gate report.
     path: skills/dependency-check/SKILL.md
-    tokens: 763
+    tokens: 757
   - name: implement-issue
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
@@ -832,7 +832,7 @@ skills:
     category: utility
     description: Run every applicable deterministic gate on demand, mid-session — the custom lint scripts plus ruff and mdformat — without needing a git commit.
     path: skills/validate/SKILL.md
-    tokens: 1348
+    tokens: 1346
   - name: adversarial-review
     category: research
     description: Test a claim, its evidence, and refutation attempts against ten review checks, classify defects, and produce a vote tied to exact claim hash.
@@ -885,7 +885,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 15073
+    total_tokens: 15108
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -899,7 +899,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 64338
+    total_tokens: 64373
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -920,8 +920,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 948
-    total_tokens: 45194
+    tokens: 955
+    total_tokens: 45202
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -938,7 +938,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 108605
+    total_tokens: 108640
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -956,7 +956,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 107926
+    total_tokens: 107961
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

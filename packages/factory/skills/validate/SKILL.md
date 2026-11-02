@@ -22,7 +22,7 @@ Run in this order — cheap and universal first, project-specific last:
 | 4   | link-check        | Always (checks project Markdown links)                                      | `git ls-files -z '*.md' ':!.agent-factory/**' \| xargs -0 .agent-factory/factory/scripts/link-check`    |
 | 5   | mermaid-lint      | Always                                                                      | `.agent-factory/factory/scripts/mermaid-lint`                                                           |
 | 6   | spec-lint         | `docs/spec/` exists                                                         | `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec`                                         |
-| 7   | arch-lint         | `docs/arc42/architecture.dsl` or `docs/adr/` exists                         | `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir` |
+| 7   | arch-lint         | `docs/spec/architecture.dsl` or `docs/adr/` exists                          | `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42 --no-validate --allow-missing-docs-dir` |
 | 8   | backlog-lint      | `backlog/` exists                                                           | `.agent-factory/factory/scripts/backlog-lint --backlog-dir backlog`                                     |
 | 9   | matrix-lint       | `.agent-factory/config/model.conf` exists                                   | `.agent-factory/factory/scripts/matrix-lint --matrix .agent-factory/config/model.conf`                  |
 | 10  | statemachine-lint | `docs/spec/` exists                                                         | `.agent-factory/factory/scripts/statemachine-lint --spec-dir docs/spec`                                 |

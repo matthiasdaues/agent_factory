@@ -9,13 +9,14 @@ category: architecture
 Create architecture documentation from the specification using the **arc42** template and **Structurizr DSL** for **C4** models. Apply **Clean Architecture** for layer and component boundaries.
 
 Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
-Read `docs/arc42/CONTEXT.md` if it exists — use the project's domain vocabulary throughout.
+Read `docs/spec/glossary.md` if it exists — use the project's domain vocabulary throughout.
 
 ## Step 1 — Create the arc42 file structure
 
-Create the following under `docs/`. Keep `README.md` as the only file directly
-in `docs/`; arc42 prose and the Structurizr source live in `docs/arc42/`, while
-the existing supporting folders remain unchanged:
+Create the following under `docs/`. Add no file directly in `docs/` except
+`README.md`. The arc42 chapters live in `docs/arc42/`, the Structurizr source in
+`docs/spec/`, and its theme in `docs/assets/themes/`. Existing files stay where
+they are:
 
 ```
 docs/
@@ -32,14 +33,15 @@ docs/
 │   ├── 09_architecture_decisions.md   ← index linking to docs/adr/*
 │   ├── 10_quality_requirements.md
 │   ├── 11_risks_and_technical_debt.md
-│   ├── 12_glossary.md
-│   ├── architecture.dsl
-│   └── themes/
-│       └── default/
-│           └── theme.json
+│   └── 12_glossary.md                 ← one line linking to docs/spec/glossary.md
+├── spec/
+│   └── architecture.dsl
 ├── adr/
 └── assets/
-    └── images/
+    ├── images/
+    └── themes/
+        └── default/
+            └── theme.json
 ```
 
 Rules:
@@ -64,9 +66,9 @@ Format every chapter file and `docs/README.md` via `.agent-factory/factory/scrip
 
 ## Step 2 — Define the C4 model
 
-Copy the default Structurizr theme from `.agent-factory/factory/themes/structurizr/default/` into `docs/arc42/themes/default/`.
+Copy the default Structurizr theme from `.agent-factory/factory/themes/structurizr/default/` into `docs/assets/themes/default/`. The DSL's `theme` line points there: `theme ../assets/themes/default/theme.json`.
 
-Create `docs/arc42/architecture.dsl` using **Structurizr DSL** — see [STRUCTURIZR.md](STRUCTURIZR.md) for syntax reference.
+Create `docs/spec/architecture.dsl` using **Structurizr DSL** — see [STRUCTURIZR.md](STRUCTURIZR.md) for syntax reference.
 
 The workspace `properties` block must include `"arc42.projected" "false"` by default. This property is set to `"true"` by the architecture-agent only when the user requests arc42 chapter projection from the DSL.
 
@@ -78,7 +80,7 @@ Validate the model:
 .agent-factory/factory/scripts/structurizr validate
 ```
 
-**Completion**: `docs/arc42/architecture.dsl` validates without errors, views cover system context and containers at minimum.
+**Completion**: `docs/spec/architecture.dsl` validates without errors, views cover system context and containers at minimum.
 
 ## Step 3 — Export and embed diagrams
 

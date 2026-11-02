@@ -100,7 +100,7 @@ _ANY_OF_FRONTMATTER = (
     "  required:\n"
     "    - any_of:\n"
     "        - type: feature\n"
-    '          path_pattern: "docs/spec/*.feature"\n'
+    '          path_pattern: "docs/spec/features/*.feature"\n'
     "        - type: scope-map\n"
     "          path_pattern: docs/spec/scope-map.md\n"
     "    - type: dsl\n"
@@ -113,7 +113,7 @@ _ANY_OF_FRONTMATTER = (
 _ANY_OF_REQUIRED = [
     {
         "any_of": [
-            {"type": "feature", "path_pattern": "docs/spec/*.feature"},
+            {"type": "feature", "path_pattern": "docs/spec/features/*.feature"},
             {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
         ]
     },
@@ -140,7 +140,7 @@ class TestIndexLintAnyOf:
         assert arch["inputs"]["required"] == [
             {
                 "any_of": [
-                    {"type": "feature", "path_pattern": "docs/spec/*.feature"},
+                    {"type": "feature", "path_pattern": "docs/spec/features/*.feature"},
                     {"type": "scope-map", "path_pattern": "docs/spec/scope-map.md"},
                 ]
             }
