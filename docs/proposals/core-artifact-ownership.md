@@ -75,7 +75,7 @@ estimate:
 
 ## Primer
 
-In the Agent Factory, agents write the files that describe a software project. The most important files form the core. A person edits a core file, other files derive from it, and an automatic check, called a gate, tests it. Each agent declares in its definition which files it reads and writes.
+In the Agent Factory, agents write the files that describe a software project. The most important files form the core. A person edits a core file, other files derive from it, and an automatic check, called a gate, checks it. Each agent declares in its definition which files it reads and writes.
 
 Take the state machine file, which describes how each entity changes its status. Today two agents write it. The requirements agent declares it, and the architecture agent changes it without declaring it. Three other core files have no writer, so nobody creates them. Eight core files have no review, so nobody confirms them.
 
@@ -83,7 +83,7 @@ The proposal sorts the core into three families. Scope and behaviour say what th
 
 Every core file then has one producer, the agent that writes it, and a review in a separate session. The producer names its reviewers in its definition. A test fails when a core file has no producer, several producers, or no reviewer. The spec-review agent reviews behaviour and domain structure, and the architecture-review agent reviews the architecture. The stakeholder, the person who owns the domain, confirms the scope map. The stakeholder also confirms every glossary term, because only that person can settle what a term means.
 
-An agent that reads a file it does not own reports a finding and leaves the file alone. Say the code renames a task status from PENDING to WAITING, but the state machine file still says PENDING. The reconciliation agent compares the core with the code and writes a report row that names the file and its owner. The domain-modeling agent updates the file, and the spec-review agent confirms the change. The finder does not fix the error, because the file would then have several writers and the fix would skip the owner's review.
+An agent that reads a file it does not own reports a finding and leaves the file alone. Say the code renames a task status from PENDING to WAITING, but the state machine file still says PENDING. The reconciliation agent compares the core with the code and writes a report row that names the file and its owner. The domain-modeling agent updates the file, and the spec-review agent confirms the change. The agent that found the error does not fix it. Otherwise the file would have several writers, and the fix would skip the owner's review.
 
 The same rule holds during implementation. The implementation agent hands out stories in waves to the developer agent, and neither agent edits a specification file. The developer agent writes each drift as a row of its story's spec-feedback report. A wave closes only when the owners have fixed every row and their reviews have confirmed the fixes. So the specification lags the code by one wave at most.
 
@@ -91,7 +91,7 @@ The test-strategy agent also owns the gates that measure the tests, such as muta
 
 ## Summary
 
-Every core artifact gets exactly one producing agent and one review, and both are declared in the agents' frontmatter. The requirements agent keeps scope and behaviour and gives up two artifact families. A new domain-modeling agent takes domain structure: the glossary, the data model, and the rules and contracts written in terms of the entities. A new test-strategy agent takes test practice: the record of how the project tests, the QA strategies, and the quality guardrails that measure the tests. The first release closes every producer and review gap on the [project truth map](project-truth-map.drawio). It builds on the [core artifact layout](core-artifact-layout.md) and starts after that release's agent stories are merged.
+Every core artifact gets exactly one producing agent and one review, and both are declared in the agents' frontmatter. The requirements agent keeps scope and behaviour and gives up two artifact families. A new domain-modeling agent takes domain structure: the glossary, the data model, and the rules and contracts written in terms of the entities. A new test-strategy agent takes test practice: the record of how the project tests, the QA strategies, and the test guardrails, which measure the tests. The first release closes every producer and review gap on the [project truth map](project-truth-map.drawio). It builds on the [core artifact layout](core-artifact-layout.md) and starts after the agent stories of the layout are merged.
 
 ## Motivation
 
@@ -115,7 +115,7 @@ A core file without a producer is never created. A core file without a review is
 
 ### Artifact families and owners
 
-The core splits into three families, each with one owner: scope and behaviour (requirements agent), domain structure (domain-modeling agent), and architecture (architecture agent) (DEC-02). Outside the core, the test practice family, `testing.yaml`, the QA strategies and the test guardrails, has its own owner, the test-strategy agent (DEC-10, DEC-23). The paths are those of the core artifact layout (DEC-05).
+The core splits into three families, each with one owner: scope and behaviour (requirements agent), domain structure (domain-modeling agent), and architecture (architecture agent) (DEC-02). Outside the core, the test-strategy agent owns the test practice family: `testing.yaml`, the QA strategies, and the test guardrails (DEC-10, DEC-23). The paths are those of the core artifact layout (DEC-05).
 
 Each core artifact has this contract:
 
@@ -147,13 +147,13 @@ The domain-modeling agent derives within its family, and the architecture agent 
 
 ### The requirements agent
 
-The requirements agent keeps the interviews and the behaviour: `capture-vision`, `clarify-requirements`, `grill-me`, `grill-with-docs`, `reverse-map`, and `derive-feature`. It writes the scope map, the feature files, the gaps reports, and the area specs. Its workflow gains a step that writes an area spec for a subsystem the stakeholder names as needing more depth than its feature files give. `reverse-map` writes term candidates, not the glossary (DEC-16).
+The requirements agent keeps the interviews and the behaviour: `capture-vision`, `clarify-requirements`, `grill-me`, `grill-with-docs`, `reverse-map`, and `derive-feature`. It writes the scope map, the feature files, the gaps reports, and the area specs. Its workflow has a step that writes an area spec. The step runs for each subsystem that, in the stakeholder's view, needs more depth than its feature files give. `reverse-map` writes term candidates, not the glossary (DEC-16).
 
 Three jobs belong to other owners:
 
 - **Structure files.** Step 1d of its workflow, "Produce supplementary specs", goes to the domain-modeling agent.
 - **QA strategy.** Step 2 and the skill `qa-strategy-from-spec` go to the test-strategy agent (DEC-10).
-- **Agent context.** The skill `capture-context` is not in its skill list. Virgil owns it in fitting (DEC-07).
+- **Agent context.** The skill `capture-context` is not in its skill list. Virgil owns the skill in fitting (DEC-07).
 
 Its handoff names the domain-modeling agent as the next producer.
 
@@ -178,22 +178,22 @@ A term found in the code takes a longer path. During its sweep of the tests and 
 
 The glossary holds only confirmed terms (DEC-15). A candidate stays in the work file with its proposed definition until the stakeholder confirms it. The domain-modeling agent asks for that confirmation in its own session, one domain area at a time, as `reverse-map` presents its scope batches (DEC-26). It moves each confirmed term into the glossary's Term/Definition/Avoid table and removes it from the work file. A rejected definition stays in the work file with the stakeholder's note. So a term in the glossary is confirmed and a term in the work file is not, and no other record is needed. An unattended run leaves its proposals in the work file until a session with the stakeholder. The spec review files a finding for every candidate that has a proposed definition but no confirmation.
 
-Other agents meet terms too. The requirements agent reaches `grilling` in domain-modeling mode through `clarify-requirements`, and Virgil runs `grilling` on proposals. Run by any agent other than the domain-modeling agent, `grilling` and `domain-modeling` write a settled term as a row of `term-candidates.md`, never into `glossary.md`. A term the stakeholder settled in such a session carries that confirmation in its row, and the domain-modeling agent moves it into the glossary without asking again.
+Other agents meet terms too. The requirements agent reaches `grilling` in domain-modeling mode through `clarify-requirements`, and Virgil runs `grilling` on proposals. When any agent other than the domain-modeling agent runs `grilling` or `domain-modeling`, the skill writes a settled term as a row of `term-candidates.md`, never into `glossary.md`. A term the stakeholder settled in such a session carries that confirmation in its row, and the domain-modeling agent moves it into the glossary without asking again.
 
 ### The architecture agent
 
-The architecture agent declares `dependency-rules.dsl` as an output. It writes no `state-machines.md`. Step 5 of `maintain-architecture` is a read check: the architecture agent compares the components with the state machines. When they contradict each other, it files an `ARCH` finding in `docs/findings/` with the domain-modeling agent as owner, so it declares `docs/findings/ARCH-*.md` as an output.
+The architecture agent declares `dependency-rules.dsl` as an output. It writes no `state-machines.md`. Step 5 of `maintain-architecture` is a read check: the architecture agent compares the components with the state machines. When they contradict each other, it files an `ARCH` finding in `docs/findings/` with the domain-modeling agent as owner. So the architecture agent also declares `docs/findings/ARCH-*.md` as an output.
 
 ### The test-strategy agent
 
-A new agent definition, `packages/factory/agents/test-strategy-agent.md`, owns the test practice family (DEC-10). The family has two files: `docs/testing.yaml` records how the project tests, and each `docs/spec/work/<feature>-qa-strategy.md` plans what to test for one feature. The QA strategy is built from the layer bindings in `testing.yaml`, so both files belong to one owner.
+A new agent definition, `packages/factory/agents/test-strategy-agent.md`, owns the test practice family (DEC-10). The family has two kinds of file and the test guardrails. `docs/testing.yaml` records how the project tests, and each `docs/spec/work/<feature>-qa-strategy.md` plans what to test for one feature. The QA strategy is built from the layer bindings in `testing.yaml`, so both files belong to one owner. The test guardrails are configured in `testing.yaml` too, as [Quality guardrails](#quality-guardrails) describes.
 
-- **Tier:** strong, because assigning each contract its owning test layer is judgment. Three agents work from the QA strategy: the QA agent, the code-review agent, and the developer agent (DEC-13).
+- **Tier:** strong, because assigning each contract its owning test layer needs judgment. A wrong assignment spreads, because three agents work from the QA strategy: the QA agent, the code-review agent, and the developer agent (DEC-13).
 - **Skills:** `detect-test-regime`, `qa-strategy-from-spec`, `crap-score`, and `mutation-testing`.
 - **Inputs required:** none, because the agent can always scan the test suites for `testing.yaml`.
 - **Inputs as context:** the feature files, `interface-contracts.md`, `entity-model.md`, and `docs/testing.yaml`. Its workflow writes a QA strategy only when a feature file and both structure files exist.
 - **Outputs:** `docs/testing.yaml`, with `reviewed_by: [stakeholder]`, and `docs/spec/work/*-qa-strategy.md`.
-- **Pause point:** every change to `testing.yaml` waits for the stakeholder's confirmation, such as a new threshold (DEC-31).
+- **Pause point:** every change to `testing.yaml`, such as a new threshold, waits for the stakeholder's confirmation (DEC-31).
 - **Handoff:** the planning agent, which assigns the strategy's contracts to stories in its testability probe.
 
 The planning agent and the QA agent do not write the QA strategy. The planning agent already carries the whole backlog sequence, and the QA agent reviews code against the strategy.
@@ -202,9 +202,9 @@ The planning agent and the QA agent do not write the QA strategy. The planning a
 
 The test-strategy agent owns the guardrails that measure the tests: `crap-score`, `mutation-testing`, and `test-design-verify` (DEC-24). A later gate that measures the tests, such as a coverage gate, joins this family.
 
-Owning a guardrail means three jobs. The test-strategy agent chooses the gates and sets their thresholds in the `gates` section of `testing.yaml`. It sets up the project's mutation testing and writes the project's mutation command to `gates.mutation_testing.command` (DEC-30). It also handles the surviving mutants that a developer agent cannot resolve inside the coding loop, which the `mutation-testing` skill files as QA findings.
+Owning a guardrail means three jobs. The test-strategy agent chooses the gates and sets their thresholds in the `gates` section of `testing.yaml`. It sets up the project's mutation testing and writes the project's mutation command to `gates.mutation_testing.command` (DEC-30). It also handles each surviving mutant that a developer agent cannot resolve inside the coding loop. The `mutation-testing` skill files such a mutant as a QA finding.
 
-The test-strategy agent does not run the gates (DEC-23), because running a gate needs no judgment and a gate must block before the merge. In automated mode, the implementation agent runs the `crap-score` and `test-design-verify` scripts and the command in `gates.mutation_testing.command` after each story, and a failing gate blocks the merge. In manual mode, the developer agent runs them before it hands a story back.
+The test-strategy agent does not run the gates (DEC-23), because running a gate needs no judgment and a gate must block before the merge. In automated mode, the implementation agent runs three gates after each story: the `crap-score` and `test-design-verify` scripts and the command in `gates.mutation_testing.command`. A failing gate blocks the merge. In manual mode, the developer agent runs them before it hands a story back.
 
 Take a case. After ST-0318, `crap-score` reports the function `plan_moves` at 42, above the threshold of 30 in `testing.yaml`. The implementation agent blocks the merge, and the developer agent simplifies the function or adds tests. After the same story, mutation testing leaves three surviving mutants in the path-table planner. The developer agent resolves each one before the merge, as the `mutation-testing` skill requires: it removes dead code, adds the missing test, or files a QA finding. A QA finding goes to the test-strategy agent.
 
@@ -212,7 +212,7 @@ Take a case. After ST-0318, `crap-score` reports the function `plan_moves` at 42
 
 ### The seam files
 
-The seam is the two files in `docs/` that describe how agents work in this project, not the system itself: `agent-context.md` and `testing.yaml`. The two files have different owners.
+The seam consists of the two files in `docs/` that describe how agents work in this project, not the system itself: `agent-context.md` and `testing.yaml`. The two files have different owners.
 
 | Seam file          | Producer                                  | Gate           | Review                    |
 | ------------------ | ----------------------------------------- | -------------- | ------------------------- |
@@ -223,7 +223,7 @@ For step 2b of the fitting, the session takes the test-strategy agent's role, be
 
 ### Reviews
 
-The spec-review agent reviews the feature files, the glossary, the structure files, the area specs, and `schemas/*`. It declares the feature files, the glossary, and the structure files as required inputs. It declares the area specs and `schemas/*` as context inputs, because a project may have neither, and a missing required input would keep the review from ever running (DEC-25). It also declares the scope map as a required input, but only reads it; the stakeholder reviews it. `inspect-spec` has a check for each structure file and reviews the glossary itself: one term per concept, every term defined, and no term from an Avoid column in use.
+The spec-review agent reviews the feature files, the glossary, the structure files, the area specs, and `schemas/*`. It declares the feature files, the glossary, and the structure files as required inputs. It declares the area specs and `schemas/*` as context inputs, because a project may have neither (DEC-25). A missing required input would keep the review from ever running. It also declares the scope map as a required input, but it only reads the scope map. The stakeholder reviews it. `inspect-spec` has a check for each structure file and reviews the glossary itself: one term per concept, every term defined, and no term from an Avoid column in use.
 
 The architecture-review agent declares `dependency-rules.dsl` as a required input. Its review checks that the rules match the component view.
 
@@ -242,7 +242,7 @@ outputs:
       reviewed_by: [spec-review-agent, stakeholder]
 ```
 
-Seam declarations carry the field too, so `testing.yaml` declares `reviewed_by: [stakeholder]` (DEC-31). `index-lint` carries the field into `INDEX.yaml`. It fails when a named agent does not exist, or when that agent declares the artifact neither as a required nor as a context input. So the contract test reads `INDEX.yaml` alone. An agent that only reads an artifact, such as the QA agent reading a feature file, never counts as its review.
+Seam declarations carry the field too, so `testing.yaml` declares `reviewed_by: [stakeholder]` (DEC-31). `index-lint` carries the field into `INDEX.yaml`. It fails when a named agent does not exist, or when that agent declares the artifact neither as a required nor as a context input. So the contract test needs only `INDEX.yaml` and the core list, as [The core list](#the-core-list) describes. An agent that only reads an artifact, such as the QA agent reading a feature file, never counts as its review.
 
 ### The core list
 
@@ -250,7 +250,7 @@ A new file, `packages/factory/rulebooks/core-artifacts.yaml`, lists every core a
 
 ### Reconciliation
 
-The reconciliation agent compares the core with the code, and it edits no core file (DEC-17). It writes one consolidated report per run, `docs/reviews/reconciliation-<date>.md`. The report holds every finding as a row of one table, and no finding goes into a separate finding file. The rows use the statuses of the spec-feedback report below (DEC-28). The reconciliation agent keeps no skill or output that writes outside its report: `capture-context` leaves its skill list, and `docs/*.md`, `docs/adr/*.md`, and `docs/CONTEXT.md` leave its outputs. Drift in an ADR becomes a row for the architecture agent, and drift in `agent-context.md` a row for Virgil.
+The reconciliation agent compares the core with the code, and it edits no core file (DEC-17). It writes one consolidated report per run, `docs/reviews/reconciliation-<date>.md`. The report holds every finding as a row of one table, and no finding goes into a separate finding file. The rows use the statuses of the spec-feedback report below (DEC-28). The reconciliation agent keeps no skill or output that writes outside its report: `capture-context` leaves its skill list, and `docs/*.md`, `docs/adr/*.md`, and `docs/CONTEXT.md` leave its outputs. Drift in an ADR becomes a row for the architecture agent, and drift in `agent-context.md` becomes a row for Virgil.
 
 Each row names the artifact, the mismatch with its evidence in the code, and the artifact's owner. The owner fixes its rows on its next run, and the fix goes through the owner's review. When the review finds that the code breaks an accepted requirement, the row becomes `rejected`, and a bug finding against the code takes its place. The next reconciliation run checks each fixed row.
 
@@ -258,7 +258,7 @@ Take a case. The code renames the task status `PENDING` to `WAITING`, and `state
 
 ### Spec feedback during implementation
 
-The developer agent and the implementation agent edit no specification file (DEC-18). When an implementation reveals drift, the developer agent writes a row into its story's spec-feedback report, `docs/spec/work/spec-feedback-<story-id>.md` (DEC-19, DEC-27). Each story has its own report, because the developer agents of a wave run in parallel and the dispatch contract gives every concurrent assignment its own output path. `spec-feedback` Step 2 writes report rows.
+The developer agent and the implementation agent edit no specification file (DEC-18). When an implementation reveals drift, the developer agent writes a row into its story's spec-feedback report, `docs/spec/work/spec-feedback-<story-id>.md` (DEC-19, DEC-27). Each story has its own report, because the developer agents of a wave run in parallel and the dispatch contract gives every concurrent assignment its own output path. Step 2 of `spec-feedback` writes these rows.
 
 Each row names the artifact, the drift, its evidence in the code, the owner, and a status (DEC-28):
 
@@ -290,7 +290,7 @@ The proposal builds on the core artifact layout. It plans no story that edits a 
 | ST-0341      | `agents/architecture-agent.md`, `agents/architecture-review-agent.md`, `maintain-architecture`, `atam-review`                   |
 | ST-0342      | `INDEX.yaml`, `scripts/intent`, `tests/factory/test_index_lint.py`                                                              |
 
-Each story of this proposal names its overlapping layout story as a dependency. ST-0337 makes `reverse-map` write the glossary. After ST-0337 is merged, a story of this proposal redirects that output to the candidates file.
+Each story of this proposal names its overlapping layout story as a dependency. ST-0337 makes `reverse-map` write the glossary. After ST-0337 is merged, a story of this proposal redirects that output to `docs/spec/work/term-candidates.md`.
 
 ## Scope
 
@@ -303,7 +303,7 @@ Each story of this proposal names its overlapping layout story as a dependency. 
 - The spec-review agent and `inspect-spec` review every artifact of two families, the glossary included.
 - The architecture-review agent reviews `dependency-rules.dsl`.
 - The new test-strategy agent declares `testing.yaml` and the QA strategies, and Virgil stops declaring `testing.yaml`.
-- The test-strategy agent owns the test guardrails `crap-score`, `mutation-testing`, and `test-design-verify`; the implementation agent keeps running them, and `dependency-check` stays with the architecture agent.
+- The test-strategy agent owns the test guardrails `crap-score`, `mutation-testing`, and `test-design-verify`. The implementation agent keeps running them, and `dependency-check` stays with the architecture agent.
 - The reconciliation agent edits no core file and reports every finding in one consolidated report per run.
 - The developer and implementation agents edit no specification file. Drift goes into one spec-feedback report per story, and `dispatch close-wave` fails while a row of the wave's reports is `open` or `fixed`.
 - The implementation agent runs the project's mutation command from `testing.yaml` as a gate.
@@ -322,7 +322,7 @@ Each story of this proposal names its overlapping layout story as a dependency. 
 ## Design Details
 
 - **Migration of existing projects.** No file moves. Only the agents that write the files change. A project's existing structure files stay as they are, and the domain-modeling agent takes them over on its next run.
-- **Eligibility.** `run-step` counts an agent as eligible when the files of its required inputs exist, as today (DEC-21). The order requirements agent, domain-modeling agent, spec-review agent follows from the declared inputs. The test-strategy agent can become eligible while the spec review still runs. The user then chooses the order, and a contract that the review changes needs a revised QA strategy.
+- **Eligibility.** `run-step` counts an agent as eligible when the files of its required inputs exist, as today (DEC-21). The declared inputs set the order: first the requirements agent, then the domain-modeling agent, then the spec-review agent. The test-strategy agent can become eligible while the spec review still runs. The user then chooses the order. A contract that the review changes needs a revised QA strategy.
 - **Findings across owners.** A finding about an artifact names that artifact's owner in a new `owner:` field of its frontmatter, defined in `finding-format.md` and `templates/finding.md`. So the fix goes to the owner and not to the reader who found it.
 
 ## Open Questions
@@ -347,7 +347,7 @@ No question is open.
 - `agents/developer-agent.md` and `agents/implementation-agent.md` do not declare `docs/spec/**/*.md` as an output. The developer agent declares `docs/spec/work/spec-feedback-*.md`, and `spec-feedback` Step 2 writes report rows instead of editing a specification file.
 - `dispatch close-wave` fails while a spec-feedback report of the wave's stories has a row with status `open` or `fixed`. The dispatch contract states the same rule, and its manual-mode section states it per story.
 - `agents/architecture-agent.md` declares `docs/findings/ARCH-*.md`, and `finding-format.md` and `templates/finding.md` define an `owner:` field.
-- Run by an agent other than the domain-modeling agent, `grilling` and `domain-modeling` write no `glossary.md`; they write rows of `term-candidates.md`.
+- When an agent other than the domain-modeling agent runs `grilling` or `domain-modeling`, the skill writes no `glossary.md`. It writes rows of `term-candidates.md`.
 - The domain-modeling agent's workflow has a pause point for the stakeholder's confirmation of term definitions and a step that writes `schemas/*`. The requirements agent's workflow has a step that writes an area spec.
 - The four playbooks named in the Scope name the new owners where they named a moved responsibility.
 - `reverse-map` writes no `glossary.md`. It writes its term candidates to `docs/spec/work/term-candidates.md`, and the domain-modeling agent declares that file as an input.
