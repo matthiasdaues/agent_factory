@@ -249,7 +249,7 @@ erDiagram
 
 - **CONCERN_REGISTRY** has exactly three category headings: Always (cross-cutting), Technical concerns, and Domain concerns.
 - **CONCERN_ENTRY** has a description and at least one `Read:` path. `Boundary:` paths are optional. Cross-cutting entries always apply; story frontmatter selects technical and domain entries.
-- **CONCERN_ENTRY.folded** marks a domain concern that `capture-context --fold-context-map` wrote from a bounded context of a context map or a routing-only `CONTEXT.md`. A folded concern need not match a scope-map area, and `capture-context --update --scan` keeps it. The form of the mark is open (gap CAL-G03 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)).
+- **CONCERN_ENTRY.folded** marks a domain concern that `capture-context --fold-context-map` wrote from a bounded context of a context map or a routing-only `CONTEXT.md`. A folded concern need not match a scope-map area, and `capture-context --update --scan` keeps it. The mark is the line `Folded: yes` directly after the concern's description line, and `concern-lint` accepts it only under `## Domain concerns` (gap CAL-G03 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md), settled by ST-0328).
 - **STORY.concerns** is advisory and uses only confirmed registry headings. A missing vocabulary entry is proposed and confirmed before use.
 - **TESTING_YAML** is not routing content. Factory consumers resolve only `docs/testing.yaml`; there is no legacy-path fallback.
 - **CTX_FINDING** is produced by `concern-lint`. Legacy YAML context or `docs/charter/` beside the registry is an error.

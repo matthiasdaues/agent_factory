@@ -337,7 +337,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2272
-    total_tokens: 20004
+    total_tokens: 21287
     inputs:
       required:
         - type: scope-map
@@ -393,7 +393,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1753
-    total_tokens: 19998
+    total_tokens: 21281
     inputs:
       required:
         - any_of:
@@ -549,7 +549,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3782
-    total_tokens: 17089
+    total_tokens: 18372
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -580,9 +580,9 @@ agents:
 skills:
   - name: capture-context
     category: requirements
-    description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. Bare invocation migrates legacy YAML to the concern model.
+    description: Initialize or update docs/agent-context.md — the concern-based routing interface between agents and project knowledge. --init seeds concerns from a repo scan. --init --scan adds documentation discovery. --update --scan refreshes an existing file by diffing a rescan against current content. --fold-context-map folds a context map into domain concerns. Bare invocation migrates legacy YAML to the concern model.
     path: skills/capture-context/SKILL.md
-    tokens: 5988
+    tokens: 7271
   - name: capture-vision
     category: requirements
     description: Capture a project vision through structured interview.
@@ -899,7 +899,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 61807
+    total_tokens: 64373
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -921,7 +921,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 43919
+    total_tokens: 45202
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -938,7 +938,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 106074
+    total_tokens: 108640
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -956,7 +956,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 105395
+    total_tokens: 107961
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
