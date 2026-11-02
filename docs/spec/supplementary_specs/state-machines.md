@@ -115,6 +115,10 @@ On DirectRegistryEdit:
   ChangeState(CONCERN_REGISTRY)
 On ConfirmNewConcern:
   ChangeState(CONCERN_REGISTRY)
+On FoldContextMap:
+  ChangeState(CONCERN_REGISTRY)
+On UpdateScan:
+  ChangeState(CONCERN_REGISTRY)
 
 State: LEGACY_UNCHANGED
 On DetectLegacyYaml:
@@ -133,6 +137,8 @@ stateDiagram-v2
     MIGRATION_PROPOSED --> LEGACY_UNCHANGED : UserDeclinesMigration
     CONCERN_REGISTRY --> CONCERN_REGISTRY : DirectRegistryEdit
     CONCERN_REGISTRY --> CONCERN_REGISTRY : ConfirmNewConcern
+    CONCERN_REGISTRY --> CONCERN_REGISTRY : FoldContextMap
+    CONCERN_REGISTRY --> CONCERN_REGISTRY : UpdateScan
     LEGACY_UNCHANGED --> MIGRATION_PROPOSED : DetectLegacyYaml
 ```
 
@@ -141,6 +147,7 @@ stateDiagram-v2
 - **NO_CONTEXT** means the concern registry is absent. Initialization proposes concern batches and writes only after user confirmation.
 - **MIGRATION_PROPOSED** preserves all legacy files until the user confirms the proposed mapping.
 - **CONCERN_REGISTRY** is the current model. The team edits it directly, and new controlled-vocabulary entries require confirmation.
+- **FoldContextMap** is `capture-context --fold-context-map`. It adds one domain concern marked as folded per context of a context map or a routing-only `CONTEXT.md`, and shows the result to the developer. **UpdateScan** is `capture-context --update --scan`; it never removes a folded concern. See [core-artifact-layout.feature](../core-artifact-layout.feature).
 - **LEGACY_UNCHANGED** records a declined migration. A later bare `capture-context` invocation may propose migration again.
 - Confirmed migration moves test configuration to `docs/testing.yaml` and removes legacy routing formats. `concern-lint` validates the resulting single-format state.
 

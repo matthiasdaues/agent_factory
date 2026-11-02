@@ -110,9 +110,10 @@ erDiagram
         string feature_link "nullable — path to implementing code, anchors conceptual rule to codebase"
     }
     ANCHOR_FILE_SET {
-        string architecture_dsl "docs/arc42/architecture.dsl"
+        string architecture_dsl "docs/spec/architecture.dsl"
         string scope_map "docs/spec/scope-map.md"
-        string context "docs/CONTEXT.md"
+        string glossary "docs/spec/glossary.md"
+        string agent_context "docs/agent-context.md"
     }
 ```
 
@@ -125,7 +126,7 @@ erDiagram
 - **DISPATCH_LEDGER** is the script-owned dispatch record at `.current-work/<feature-branch>/dispatch-ledger.yaml`; each story entry tracks lifecycle fields including `tier`, `attempts`, and the pre-spawn `prepared` state, and each `WaveCloseout` entry records a wave summary (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`).
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
 - **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding; rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified; the `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
-- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding. The three files are checked by file existence, not by a gate marker. Their presence signals readiness for feature work; their absence suggests running `brownfield-onboarding` first.
+- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding, and the brownfield Stage 1 exit checks the same set. The four files are checked by file existence, not by a gate marker. The glossary and the agent context file both count: one holds the domain vocabulary, the other routes agents to it (gap CAL-G01 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)). Their presence signals readiness for feature work; the absence of any one suggests running `brownfield-onboarding` first. See [validation-rules.md § Anchor-file prerequisite](validation-rules.md#anchor-file-prerequisite-feature-addition).
 
 ## Test-Design Entities
 
@@ -217,6 +218,7 @@ erDiagram
         string category "cross-cutting | technical | domain"
         string name "controlled vocabulary"
         string description
+        boolean folded "domain only, set by capture-context --fold-context-map"
     }
     ROUTED_PATH {
         string kind "Read | Boundary"
@@ -247,6 +249,7 @@ erDiagram
 
 - **CONCERN_REGISTRY** has exactly three category headings: Always (cross-cutting), Technical concerns, and Domain concerns.
 - **CONCERN_ENTRY** has a description and at least one `Read:` path. `Boundary:` paths are optional. Cross-cutting entries always apply; story frontmatter selects technical and domain entries.
+- **CONCERN_ENTRY.folded** marks a domain concern that `capture-context --fold-context-map` wrote from a bounded context of a context map or a routing-only `CONTEXT.md`. A folded concern need not match a scope-map area, and `capture-context --update --scan` keeps it. The form of the mark is open (gap CAL-G03 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)).
 - **STORY.concerns** is advisory and uses only confirmed registry headings. A missing vocabulary entry is proposed and confirmed before use.
 - **TESTING_YAML** is not routing content. Factory consumers resolve only `docs/testing.yaml`; there is no legacy-path fallback.
 - **CTX_FINDING** is produced by `concern-lint`. Legacy YAML context or `docs/charter/` beside the registry is an error.
@@ -256,6 +259,46 @@ erDiagram
 - [actor-goal-list.md](../../~archive/spec/actor-goal-list.md)
 - [test-design.feature](../test-design.feature)
 - [agent-context.feature](../agent-context.feature)
+
+## Glossary Entities
+
+The glossary is the core file that holds a project's domain vocabulary. Agents find a term there, and `spec-lint` checks that the other core files use it. See [core-artifact-layout.feature](../core-artifact-layout.feature).
+
+```mermaid
+erDiagram
+    GLOSSARY ||--|{ GLOSSARY_SECTION : contains
+    GLOSSARY_SECTION ||--o{ GLOSSARY_ROW : holds
+    CONCERN_ENTRY }o--o| GLOSSARY : "routes to"
+    GLOSSARY_CHAPTER_STUB |o--|| GLOSSARY : "links to"
+
+    GLOSSARY {
+        string path "docs/spec/glossary.md"
+        string kind "core file"
+    }
+    GLOSSARY_SECTION {
+        string heading "a bounded context or a topic, such as Acronyms and Abbreviations"
+        string columns "Term | Definition | Avoid, in this order"
+    }
+    GLOSSARY_ROW {
+        string term "the defined word or phrase"
+        string definition
+        string avoid "words not to use for the term, may be empty"
+    }
+    GLOSSARY_CHAPTER_STUB {
+        string path "docs/arc42/12_glossary.md, only in a project with arc42"
+        string first_line "one line that links to docs/spec/glossary.md"
+    }
+```
+
+### Notes
+
+- **GLOSSARY** has one table per section, and every table has the columns Term, Definition, and Avoid (DEC-12 of the proposal [core-artifact-layout.md](../../proposals/core-artifact-layout.md#decisions)).
+- **GLOSSARY_SECTION** covers one bounded context or one topic (DEC-15). Which bounded contexts exist is a routing fact that `docs/agent-context.md` holds, not the glossary.
+- **GLOSSARY_SECTION.heading** comes from its source during the migration. A chapter 12 section keeps its heading. A table directly under the chapter 12 title becomes the section "Terms". The terms of a `CONTEXT.md` become a section named after that file's title. The terms of a per-context `CONTEXT.md` become that context's section.
+- **GLOSSARY_ROW.avoid** is empty for every row the migration takes from a two-column table. A row converted from the list form of `CONTEXT.md` takes its `_Avoid_:` entry.
+- **GLOSSARY_ROW.term** may appear in more than one section after the migration. The script lists each such term, and the developer removes the duplicates in a follow-up step (DEC-18). Whether a term may appear twice inside one section is not specified (gap CAL-G13 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)).
+- `domain-modeling` writes a new term as a row of the section for its context. `spec-lint` `GLOSS001` reads the terms from the Term column. It reports, as `info`, a term that no other core file uses, and it counts neither `glossary.md` nor the files in `docs/spec/work/` as uses.
+- **GLOSSARY_CHAPTER_STUB** keeps every chapter 12 section that holds no table, below the link line. `publish-docs` renders `docs/spec/glossary.md` wherever a manifest selects `arc42/12_glossary.md` (DEC-16).
 
 ## Local Usage Analysis Entities
 

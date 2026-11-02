@@ -90,16 +90,17 @@ The `script_exit_zero` precondition evaluator resolves `test_command` from `docs
 
 ## Anchor-file prerequisite (feature-addition)
 
-The `feature-addition` playbook checks for the existence of three anchor files before proceeding. This replaces the former prerequisite "existing project with spec and architecture."
+The `feature-addition` playbook checks that four anchor files exist before it proceeds. The brownfield Stage 1 exit (Step 2.6 of `brownfield-onboarding`) checks the same four files.
 
-- The three anchor files are: `docs/arc42/architecture.dsl`, `docs/spec/scope-map.md`, and `docs/CONTEXT.md`.
+- The four anchor files are `docs/spec/architecture.dsl`, `docs/spec/scope-map.md`, `docs/spec/glossary.md`, and `docs/agent-context.md`.
+- `docs/spec/glossary.md` holds the domain vocabulary, and `docs/agent-context.md` routes agents to it. Both must exist. `docs/CONTEXT.md` is not an anchor file, because no migrated project has it (gap CAL-G01 in [core-artifact-layout-gaps.md](../core-artifact-layout-gaps.md)).
 - The check is file-existence only — no content validation, no gate marker, no structural inspection.
-- If all three exist, the prerequisite passes and the playbook proceeds normally.
-- If any file is missing, the playbook reports which files are absent and suggests running `brownfield-onboarding` to establish the baseline.
-- Full specification artifacts (`docs/spec/prd.md`, `docs/spec/*.feature`, `docs/spec/scope-map.md`, `docs/spec/supplementary_specs/*.md`) are optional inputs that deepen the process when present, not prerequisites.
+- If all four exist, the prerequisite passes and the playbook proceeds normally.
+- If any file is missing, the playbook names each missing file and suggests running `brownfield-onboarding` to establish the baseline.
+- Full specification artifacts (`docs/spec/work/prd.md`, `docs/spec/features/*.feature`, and the other single-file core artifacts in `docs/spec/`) are optional inputs that deepen the process when present, not prerequisites.
 - The anchor-file check does not distinguish between a brownfield-lite baseline (Stage 1 only) and a fully reverse-engineered project (Stage 2 complete). The depth is a continuum; the prerequisite only establishes the minimum.
 
-See [newcomer-onboarding.feature](../newcomer-onboarding.feature) and [entity-model.md § ANCHOR_FILE_SET](entity-model.md).
+See [core-artifact-layout.feature](../core-artifact-layout.feature), [newcomer-onboarding.feature](../newcomer-onboarding.feature), and [entity-model.md § ANCHOR_FILE_SET](entity-model.md#notes).
 
 ## Reverse-map confidence hierarchy
 
@@ -154,6 +155,7 @@ See [newcomer-onboarding.feature](../newcomer-onboarding.feature).
 - Category headings are exactly `## Always (cross-cutting)`, `## Technical concerns`, and `## Domain concerns`.
 - Cross-cutting concerns are always active and never repeated in story frontmatter.
 - Technical and domain concern names form a controlled vocabulary. The planning maintainer proposes and obtains confirmation for a new entry before a story uses it.
+- `capture-context --fold-context-map` writes one domain concern per context of a context map or a routing-only `CONTEXT.md`, and marks it as folded. A folded concern has a `Read:` path that passes `CTX-PATHS`. `capture-context --update --scan` keeps every folded concern, also when it is not a scope-map area. See [core-artifact-layout.feature](../core-artifact-layout.feature).
 - `update-context` is retired and performs no write. The team maintains `docs/agent-context.md` directly.
 - `detect-test-regime` and test gates own the schema and values in `docs/testing.yaml`; concern validation does not parse test configuration.
 
@@ -312,7 +314,7 @@ For each artifact type, the following mechanical validation checks apply. Semant
 
 **Entity model.** File exists at `docs/spec/entity-model.yaml`. Passes LinkML metamodel validation. `linkml-lint` reports no errors. Every referenced class and slot resolves.
 
-**Architecture.** File exists at `docs/arc42/architecture.dsl`. Passes Structurizr validation. Passes architecture lint (`arch-lint`). Referenced views resolve.
+**Architecture.** File exists at `docs/spec/architecture.dsl`. Passes Structurizr validation. Passes architecture lint (`arch-lint`). Referenced views resolve.
 
 **Feature specifications.** Every `.feature` file referenced by the scope map exists. Each file parses as valid Gherkin. First-line scope comment is present and valid.
 
