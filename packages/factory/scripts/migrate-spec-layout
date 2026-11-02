@@ -5,7 +5,11 @@ What: Moves the files of the path table in
       docs/proposals/core-artifact-layout.md into the core artifact layout.
       A tracked file moves with `git mv`, so git records a rename. An
       untracked or ignored file moves with a plain move. The script also
-      rewrites the `theme` line of docs/spec/architecture.dsl.
+      rewrites the `theme` line of docs/spec/architecture.dsl. It removes
+      actor-goal-list.md and every file in a use_cases/ folder under docs/,
+      docs/~archive/ included, with `git rm`. A file in that removal set
+      that git cannot remove safely stays and is listed as
+      `delete by hand: <path>`.
 When: init-factory runs it as its last step on an update; a developer can
       run it by hand.
 By:   init-factory, or the project maintainer.
@@ -14,7 +18,7 @@ Usage:
     packages/factory/scripts/migrate-spec-layout [--dry-run] [TARGET]
 
 TARGET defaults to the current directory. --dry-run prints the planned moves
-and changes no file.
+and removals and changes no file.
 
 Exit codes:
     0  success, no work, or --dry-run
@@ -22,7 +26,8 @@ Exit codes:
     2  refused before the first change: busy repository, a destination that
        already exists, or bad arguments
 
-The script never commits, never runs `git rm -f`, and never deletes a file.
+The script never commits, never forces `git rm`, and never deletes a file
+outside git.
 """
 
 from __future__ import annotations
@@ -52,6 +57,10 @@ ARC42_DSL_FILES = {"architecture.dsl", "dependency-rules.dsl"}
 
 # A `theme` line whose path is relative to docs/arc42/themes/.
 THEME_LINE = re.compile(r"^(\s*theme\s+)([\"']?)themes/", re.MULTILINE)
+
+DOCS = "docs"
+GOAL_LIST = "actor-goal-list.md"
+USE_CASES = "use_cases"
 
 
 def new_path(rel: str) -> str:
@@ -108,7 +117,7 @@ def plan_moves(root: Path) -> list[tuple[str, str]]:
     for path in candidates:
         rel = path.relative_to(root).as_posix()
         target = new_path(rel)
-        if target != rel:
+        if target != rel and not in_removal_set(rel):
             moves.append((rel, target))
     return sorted(moves, key=lambda move: (_move_rank(move[1]), move[0]))
 
@@ -143,6 +152,64 @@ def busy_state(root: Path) -> str | None:
 def tracked_files(root: Path) -> set[str]:
     out = _git(root, "ls-files", "-z")
     return {p for p in out.stdout.split("\0") if p}
+
+
+def in_removal_set(rel: str) -> bool:
+    """Tell whether the path table removes ``rel``.
+
+    The removal set holds actor-goal-list.md and every file in a folder named
+    use_cases, anywhere under docs/, docs/~archive/ included (DEC-10).
+    """
+    parts = PurePosixPath(rel).parts
+    if len(parts) < 2 or parts[0] != DOCS:
+        return False
+    return parts[-1] == GOAL_LIST or USE_CASES in parts[1:-1]
+
+
+def _status_paths(porcelain_z: str) -> set[str]:
+    """Collect every path that `git status --porcelain -z` names."""
+    fields = porcelain_z.split("\0")
+    paths: set[str] = set()
+    index = 0
+    while index < len(fields):
+        entry = fields[index]
+        index += 1
+        if len(entry) < 4:
+            continue
+        paths.add(entry[3:])
+        if entry[0] in "RC":
+            paths.add(fields[index])
+            index += 1
+    return paths
+
+
+def plan_removals(root: Path, git: bool) -> tuple[list[str], list[str]]:
+    """Split the removal set under ``root`` into (git removes, delete by hand).
+
+    ``git rm`` removes a file only when git tracks it and it has no staged or
+    unstaged change, so git history keeps its whole content. Every other file
+    of the set stays for the developer to delete.
+    """
+    docs = root / DOCS
+    if not docs.is_dir():
+        return [], []
+    found = sorted(
+        rel
+        for rel in (p.relative_to(root).as_posix() for p in docs.rglob("*"))
+        if in_removal_set(rel) and (root / rel).is_file()
+    )
+    if not found:
+        return [], []
+    if not git:
+        return [], found
+    tracked = tracked_files(root)
+    out = _git(
+        root, "status", "--porcelain", "-z", "--ignored", "--untracked-files=all"
+    )
+    changed = _status_paths(out.stdout)
+    removable = [rel for rel in found if rel in tracked and rel not in changed]
+    by_hand = [rel for rel in found if rel not in removable]
+    return removable, by_hand
 
 
 class Run:
@@ -182,6 +249,16 @@ class Run:
                 self._check_git("mv", "--", new, old)
             else:
                 dst.rename(src)
+
+        self.undo_steps.append(undo)
+
+    def remove(self, rel: str) -> None:
+        """Remove a clean tracked file with ``git rm``, which keeps its history."""
+        self._check_git("rm", "-q", "--", rel)
+
+        def undo() -> None:
+            self._check_git("reset", "-q", "HEAD", "--", rel)
+            self._check_git("checkout", "--", rel)
 
         self.undo_steps.append(undo)
 
@@ -257,10 +334,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     moves = plan_moves(root)
-    if not moves:
+    git = is_git_repo(root)
+    removals, by_hand = plan_removals(root, git)
+    if not moves and not removals and not by_hand:
         return 0
 
-    git = is_git_repo(root)
     if not args.dry_run:
         refusal = refuse_reason(root, moves, git)
         if refusal:
@@ -277,12 +355,18 @@ def main(argv: list[str] | None = None) -> int:
         old_dsl = (root / f"{ARC42}/architecture.dsl").read_text(encoding="utf-8")
         if THEME_LINE.search(old_dsl):
             print(f"{DSL}: theme themes/ -> theme ../assets/themes/")
+    for rel in removals:
+        print(f"remove: {rel}")
+    for rel in by_hand:
+        print(f"delete by hand: {rel}")
     if args.dry_run:
         return 0
 
     tracked = tracked_files(root) if git else set()
     run = Run(root)
     try:
+        for rel in removals:
+            run.remove(rel)
         for old, new in moves:
             run.move(old, new, old in tracked)
         if dsl_moves:

@@ -20,6 +20,8 @@ import hashlib
 import io
 import json
 import os
+import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
@@ -1774,3 +1776,45 @@ class TestMainRefreshesHooksAfterInit:
 
         assert code == 0
         assert order == ["init", "refresh:True"]
+
+
+# ---------------------------------------------------------------------------
+# CAL-07-IT-01: an approved update moves the project into the new layout
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.spec("CAL-07-IT-01")
+def test_CAL_07_approved_update_moves_the_project_into_the_new_layout(tmp_path):
+    from test_init_factory import (
+        make_installed_1_3_3,
+        read_factory_version,
+        stage_source,
+    )
+
+    target = make_installed_1_3_3(tmp_path)
+    source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+            "--target", str(target), "--source", str(source),
+        ],
+        input="yes\n", capture_output=True, text=True, env=env, check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    prompts = [
+        line for line in result.stdout.splitlines() if "(yes to confirm)" in line
+    ]
+    assert len(prompts) == 1
+    assert "Proceed with update?" in prompts[0]
+    assert "docs/spec/payments.feature -> docs/spec/features/payments.feature" in (
+        result.stdout
+    )
+    spec = target / "docs" / "spec"
+    assert (spec / "features" / "payments.feature").is_file()
+    assert (spec / "work" / "prd.md").is_file()
+    assert not (spec / "payments.feature").exists()
+    assert read_factory_version(target) == "1.4.0"
