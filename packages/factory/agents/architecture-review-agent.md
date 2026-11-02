@@ -11,14 +11,14 @@ skills:
 inputs:
   required:
     - type: feature
-      path_pattern: "docs/spec/*.feature"
+      path_pattern: "docs/spec/features/*.feature"
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
     - type: architecture
-      path_pattern: docs/arc42/architecture.dsl
+      path_pattern: docs/spec/architecture.dsl
   context:
-    - docs/CONTEXT.md
-    - docs/spec/prd.md
+    - docs/spec/glossary.md
+    - docs/spec/work/prd.md
     - docs/*.md
     - docs/assets/images/*
     - docs/agent-context.md

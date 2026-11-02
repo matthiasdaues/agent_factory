@@ -40,8 +40,8 @@ Run this playbook when:
 **Expected outputs**:
 
 - `docs/reviews/reconciliation-*.md` (discrepancy report)
-- Updated `docs/spec/supplementary_specs/` (if spec was stale)
-- Updated `CONTEXT.md` (if terminology drifted)
+- Updated core files in `docs/spec/` (if spec was stale)
+- Updated `docs/spec/glossary.md` (if terminology drifted)
 - `docs/findings/RECON-*.md` (code defects, if found)
 
 ### Step 1.2 — Review Discrepancy Report
@@ -56,7 +56,7 @@ Look for:
 
 - **Spec stale** — Documentation doesn't match code behavior
 - **Undocumented** — Features in code not in spec
-- **Terminology drift** — Terms used differently in code vs `CONTEXT.md`
+- **Terminology drift** — Terms used differently in code vs `docs/spec/glossary.md`
 
 ## Decision Point 1.3
 
@@ -152,7 +152,7 @@ Final checks:
 - [ ] `spec-lint` passes
 - [ ] `arch-lint` passes
 - [ ] All `RECON-*` findings resolved
-- [ ] Terminology consistent between code and `CONTEXT.md`
+- [ ] Terminology consistent between code and `docs/spec/glossary.md`
 - [ ] Supplementary specs match implementation
 - [ ] State machines match code behavior
 
@@ -164,7 +164,7 @@ For updating a **single document** without full reconciliation:
 
 ```bash
 # Manual: Open session, ask agent
-"Update docs/spec/supplementary_specs/interface-contracts.md to match current API implementation"
+"Update docs/spec/interface-contracts.md to match current API implementation"
 ```
 
 Use full reconciliation playbook for comprehensive sync.

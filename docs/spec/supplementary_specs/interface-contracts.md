@@ -240,6 +240,8 @@ All stories must have YAML frontmatter with the following fields:
 | Exit code | `0` on success (regardless of architecture_change result); `2` on missing input file                                                                                    |
 | stdout    | `architecture_change=true\|false`; optional `new_modules=`, `new_dependency=`, `inverted_dependency=` lines                                                             |
 
+The three path arguments default to the core in `docs/spec/`: `--dsl-path` to `docs/spec/architecture.dsl`, `--interface-contracts` to `docs/spec/interface-contracts.md`, and `--entity-model` to `docs/spec/entity-model.md` (ST-0341). A project in the old layout passes its paths explicitly.
+
 The script derives the module map from `architecture.dsl` (containers, components, relationships), compares it against Phase 1 outputs, and checks three conditions: (a) new module not in DSL, (b) changed public interface, (c) new or inverted dependency direction. Override semantics: `false`→`true` machine wins (annotated `# mechanical detection`); `true`→`false` prior human declaration respected conservatively. A new entity in an existing module does not trigger `architecture_change=true`.
 
 ## `.agent-factory/factory/scripts/test-design-verify`
