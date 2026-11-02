@@ -18,9 +18,10 @@ New-model validation (test-design-pass present)
 
 Old-model validation (no test-design-pass, legacy sections present)
   1. Read the story's ``traces:`` frontmatter.
-  2. For each trace ID, look up the corresponding entry in
-     ``docs/spec/scope-map.md`` to find the ``.feature`` file and Rule.
-  3. Read the ``.feature`` file and collect the Scenarios under that Rule.
+  2. For each trace ID, look up the corresponding entry in the scope
+     map (``docs/spec/scope-map.md``) to find the Rule and its feature file.
+  3. Read that feature file from ``docs/spec/features/`` and collect the
+     Scenarios under the Rule.
   4. Verify each reachable Scenario has a corresponding entry in
      ``#### Failure scenarios`` (owning stories) or ``#### Prior Tests``
      (non-owning stories), or a valid waiver.
@@ -47,7 +48,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 DEFAULT_SCOPE_MAP = "docs/spec/scope-map.md"
-DEFAULT_SPEC_DIR = "docs/spec"
+DEFAULT_SPEC_DIR = "docs/spec/features"
 DEFAULT_REPORT_DIR = ".current-work/test-design-verify"
 DEFAULT_EPICS = "backlog/epics.md"
 
@@ -500,6 +501,13 @@ def parse_feature_rules(text: str) -> list[tuple[str, list[str]]]:
     return rules
 
 
+def _feature_path(spec_dir: Path, feature_name: str) -> Path:
+    """Place a feature file named by a trace ID or a scope-map link in the
+    feature folder. The folder is the only place a feature file is read
+    from, whatever directory the link names."""
+    return spec_dir / Path(feature_name).name
+
+
 def _load_feature_rules(feature_path: Path, trace_id: str) -> list[tuple[str, list[str]]]:
     """Read and parse a .feature file, raising ConfigError (not an OS
     error) when it is missing — the gate's exit-2 contract stays uniform
@@ -546,7 +554,7 @@ def _resolve_shorthand(
     if rule_num < 1 or rule_num > len(matching_rows):
         raise ConfigError(f"missing scope-map entry for trace ID '{trace_id}'")
 
-    feature_path = spec_dir / feature_name
+    feature_path = _feature_path(spec_dir, feature_name)
     rules = _load_feature_rules(feature_path, trace_id)
     if rule_num > len(rules):
         raise ConfigError(
@@ -574,7 +582,7 @@ def _resolve_generic_token(
         raise ConfigError(f"trace ID '{trace_id}' does not resolve to a .feature rule")
 
     feature_name = feature_match.group(1)
-    feature_path = spec_dir / feature_name
+    feature_path = _feature_path(spec_dir, feature_name)
     rules = _load_feature_rules(feature_path, trace_id)
     for rule_text, scenarios in rules:
         if rule_text.strip() == row.rule.strip():

@@ -15,13 +15,13 @@ inputs:
     - type: story
       path_pattern: "backlog/ST-*.md"
     - type: feature
-      path_pattern: "docs/spec/{name}.feature"
+      path_pattern: "docs/spec/features/{name}.feature"
     - type: qa-strategy
-      path_pattern: "docs/spec/{name}-qa-strategy.md"
+      path_pattern: "docs/spec/work/{name}-qa-strategy.md"
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
   context:
-    - docs/CONTEXT.md
+    - docs/spec/glossary.md
     - docs/agent-context.md
     - docs/testing.yaml
     - .agent-factory/factory/rulebooks/conventions/finding-format.md
@@ -72,7 +72,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    branch, merge base against `dev`.
 
 2. **Read context** — Read the QA strategy document
-   (`docs/spec/<feature-name>-qa-strategy.md`) when it exists. Fall back to
+   (`docs/spec/work/<feature-name>-qa-strategy.md`) when it exists. Fall back to
    `docs/spec/scope-map.md` and supplementary specs. Read the backlog stories
    that were implemented in the wave to understand intent.
 
