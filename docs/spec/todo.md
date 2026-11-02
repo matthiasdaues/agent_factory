@@ -109,3 +109,17 @@ and `todos.md` (`T-01`…). Agents and skills refer to both names.
 
 **Action:** merge them into one list with one ID scheme, and update every
 reference to a renumbered entry.
+
+## T-0009 — Dispatch briefs must not use `git stash`
+
+- status: open
+- source: implementation of `core-artifact-layout`, wave 1 (2026-11-02)
+
+All linked worktrees share one stash list. A developer brief told agents to
+set work aside with `git stash`, and the entries of ST-0325 and ST-0335
+collided. The merged result still passed, but only by luck.
+
+**Action:** remove `git stash` from the developer brief template and the
+dispatch contract, prescribe a temporary WIP commit instead, and add a
+`step-guard` or guardrail check that blocks bare `git stash` inside a story
+worktree.
