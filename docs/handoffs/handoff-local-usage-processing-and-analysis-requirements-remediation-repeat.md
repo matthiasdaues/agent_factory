@@ -36,23 +36,23 @@ Open items: [SPEC-0021](../findings/SPEC-0021.md) and [SPEC-0022](../findings/SP
 - docs/findings/SPEC-0021.md
 - docs/findings/SPEC-0022.md
 - docs/proposals/usage-processing-and-storage.md
-- docs/spec/agent-context.feature
-- docs/spec/local-usage-processing-and-analysis.feature
-- docs/spec/local-usage-processing-and-analysis-gaps.md
-- docs/spec/local-usage-processing-and-analysis-qa-strategy.md
-- docs/spec/prd.md
+- docs/spec/features/agent-context.feature
+- docs/spec/features/local-usage-processing-and-analysis.feature
+- docs/spec/work/local-usage-processing-and-analysis-gaps.md
+- docs/spec/work/local-usage-processing-and-analysis-qa-strategy.md
+- docs/spec/work/prd.md
 - docs/spec/scope-map.md
-- docs/spec/test-design.feature
-- docs/spec/test-gate-presence.feature
-- docs/spec/test-design-qa-strategy.md
-- docs/spec/supplementary_specs/entity-model.md
-- docs/spec/supplementary_specs/interface-contracts.md
-- docs/spec/supplementary_specs/validation-rules.md
-- docs/spec/todos.md
+- docs/spec/features/test-design.feature
+- docs/spec/features/test-gate-presence.feature
+- docs/spec/work/test-design-qa-strategy.md
+- docs/spec/entity-model.md
+- docs/spec/interface-contracts.md
+- docs/spec/validation-rules.md
+- docs/spec/work/todos.md
 
 ## Gate and verification evidence
 
-Gates: `.agent-factory/factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation-repeat.md --repo-root .` passes. `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` passes with 0 errors, 0 warnings, and 27 pre-existing informational notices across 18 files. `.agent-factory/factory/scripts/statemachine-lint docs/spec/supplementary_specs/state-machines.md` passes with 0 errors, 0 warnings, and 0 information findings. Changed-artifact `.agent-factory/factory/scripts/link-check` passes. `git diff --check` passes. Commit hooks repeated mdformat, link-check, spec-lint, Mermaid lint, and statemachine-lint successfully.
+Gates: `.agent-factory/factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation-repeat.md --repo-root .` passes. `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` passes with 0 errors, 0 warnings, and 27 pre-existing informational notices across 18 files. `.agent-factory/factory/scripts/statemachine-lint docs/spec/state-machines.md` passes with 0 errors, 0 warnings, and 0 information findings. Changed-artifact `.agent-factory/factory/scripts/link-check` passes. `git diff --check` passes. Commit hooks repeated mdformat, link-check, spec-lint, Mermaid lint, and statemachine-lint successfully.
 Verification: the proposal's operational-preflight proof and completion criterion require all six ancestry codes, including `USAGE_ANCESTRY_PARENT_CONFLICT`. The entity diagram and prose both require exactly one latest snapshot per logical run. Requirements changed no finding status.
 
 ## Next action

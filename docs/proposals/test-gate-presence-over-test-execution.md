@@ -15,9 +15,9 @@ impact:
   boundaries:
     - docs/spec/use_cases/UC-09-run-tests-via-hook.md
     - docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md
-    - docs/spec/prd.md
-    - docs/spec/supplementary_specs/interface-contracts.md
-    - docs/spec/supplementary_specs/validation-rules.md
+    - docs/spec/work/prd.md
+    - docs/spec/interface-contracts.md
+    - docs/spec/validation-rules.md
     - docs/adr/0003-test-execution-via-hooks.md
     - .agent-factory/factory/scripts/run-tests
     - .agent-factory/factory/scripts/init-factory
@@ -170,10 +170,10 @@ The following specification documents reference `.agent-factory/factory/scripts/
 
 - **UC-09** (`docs/spec/use_cases/UC-09-run-tests-via-hook.md`): rewrite to reflect that testing is project-owned infrastructure, with Factory's role limited to guardrail enforcement (agent test prohibition via charter-declared allowlist) and FSM gate evaluation via the charter declaration.
 - **ADR-0003** (`docs/adr/0003-test-execution-via-hooks.md`): amend to record this design change — Factory no longer owns test execution, only structural gates. The "Agentic Creation, Deterministic Validation" principle still holds, but the validation mechanism for tests is project-owned, not Factory-owned.
-- **prd.md** (`docs/spec/prd.md`): revise G9 (goal statement naming `run-tests`) and FR-I (six sub-requirements FR-I1 through FR-I6 describing auto-detection, modes, JSON summary, and gate invocation). These describe the deleted script's behavior and must be rewritten to reflect project-owned testing via charter declaration. FSM gate condition references update from `.agent-factory/factory/scripts/run-tests` to charter-resolved `test_command`.
+- **prd.md** (`docs/spec/work/prd.md`): revise G9 (goal statement naming `run-tests`) and FR-I (six sub-requirements FR-I1 through FR-I6 describing auto-detection, modes, JSON summary, and gate invocation). These describe the deleted script's behavior and must be rewritten to reflect project-owned testing via charter declaration. FSM gate condition references update from `.agent-factory/factory/scripts/run-tests` to charter-resolved `test_command`.
 - **UC-10** (`docs/spec/use_cases/UC-10-invoke-a-factory-agent-under-pi.md`): update BR-033 allowlist reference and acceptance criteria from `.agent-factory/factory/scripts/run-tests --staged` to charter-declared `test_staged_command`.
-- **interface-contracts.md** (`docs/spec/supplementary_specs/interface-contracts.md`): update guardrail binding references.
-- **validation-rules.md** (`docs/spec/supplementary_specs/validation-rules.md`): revise the entire Test execution section — BR-023 (framework detection), BR-024 (agent allowlist), BR-025 (`--changed-only` mode), BR-026 (`--full` mode), BR-027 (JSON summary), BR-028 (`--staged` mode), and BR-029 (pre-commit trigger conditions). All seven business rules describe the deleted script's behavior and must be rewritten to reflect the charter-declared, project-owned testing model.
+- **interface-contracts.md** (`docs/spec/interface-contracts.md`): update guardrail binding references.
+- **validation-rules.md** (`docs/spec/validation-rules.md`): revise the entire Test execution section — BR-023 (framework detection), BR-024 (agent allowlist), BR-025 (`--changed-only` mode), BR-026 (`--full` mode), BR-027 (JSON summary), BR-028 (`--staged` mode), and BR-029 (pre-commit trigger conditions). All seven business rules describe the deleted script's behavior and must be rewritten to reflect the charter-declared, project-owned testing model.
 - **ADR-0012** (`docs/adr/0012-dispatcher-owned-semantic-gate-loop.md`): the dispatcher's three-gate quality sequence (`crap-score`, `mutation-analysis`, `dependency-check`) loses its second gate. The sequence becomes two gates (`crap-score`, `dependency-check`). Mutation testing is entirely the project's responsibility — if the project sets it up, it runs through the project's own hooks or CI, not the dispatcher's gate loop. Amend the ADR to document this architectural change to the gate sequence.
 - **implementation-agent** (`.agent-factory/factory/agents/implementation-agent.md`): remove `.agent-factory/factory/scripts/mutation-analysis` from `inputs:`, change the hardcoded three-gate default to two gates (`crap-score`, `dependency-check`), and remove the `mutation-analysis` CLI invocation from the gate execution section. This agent executes the gate sequence described in ADR-0012 and must stay consistent with the two-gate change.
 

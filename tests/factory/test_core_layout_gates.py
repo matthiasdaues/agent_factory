@@ -1,7 +1,7 @@
 """Integration tests: each gate checks the core at its new path (CAL-09-IT-01).
 
 Rule `Project maintainer's gates check the core at its new paths` in
-docs/spec/core-artifact-layout.feature, Scenario Outline `Each gate fails on a
+docs/spec/features/core-artifact-layout.feature, Scenario Outline `Each gate fails on a
 deliberate error at the new path`.
 
 Every gate runs as a subprocess with its default paths, from the root of the
@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import SOURCE_SCRIPTS_DIR, requires_docker
+from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, requires_docker
 
 # --- Fixture `new-layout-gates` ------------------------------------------------
 
@@ -359,3 +359,101 @@ def test_CAL_09_spec_lint_reads_validation_rules_from_spec(
     else:
         assert result.returncode == 0, output
         assert "[ERROR" not in output
+
+
+# --- CAL-14-IT-01: every gate passes on the migrated factory repository --------
+# Each gate runs by its own command, not through pre-commit, because
+# .pre-commit-config.yaml has no hook for scope-lint, dependency-check, or
+# structurizr and runs arch-lint with --no-validate.
+
+
+def repository_markdown() -> list[str]:
+    """Every tracked Markdown file under docs/, outside docs/~archive/."""
+    listed = subprocess.run(
+        ["git", "ls-files", "docs/*.md"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    return [path for path in listed if not path.startswith("docs/~archive/")]
+
+
+REPOSITORY_GATES = {
+    "link-check": ("link-check",),
+    "arch-lint": ("arch-lint",),
+    "dependency-check": ("dependency-check",),
+    "spec-lint": ("spec-lint",),
+    "statemachine-lint": ("statemachine-lint", "--spec-dir", "docs/spec"),
+}
+
+# scope-lint carries findings from before the migration (todo T-0010). The
+# baseline is the content of story/ST-0343's parent, moved by the same
+# migration script and checked against the same workstreams.
+SCOPE_LINT_BASELINE = "2f1a955f"
+
+
+@pytest.mark.spec("CAL-14")
+@pytest.mark.parametrize("gate", REPOSITORY_GATES)
+def test_CAL_14_gate_passes_on_the_factory_repository(gate: str) -> None:
+    script, *args = REPOSITORY_GATES[gate]
+    if gate == "link-check":
+        args = repository_markdown()
+    result = run_gate(REPO_ROOT, script, *args)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def git_output(root: Path, *args: str) -> str:
+    """Run git in `root` and return its standard output."""
+    return subprocess.run(
+        ["git", *args], cwd=root, capture_output=True, text=True, check=True
+    ).stdout
+
+
+def scope_lint_errors(root: Path) -> set[str]:
+    """The ERROR lines that scope-lint prints when it runs from `root`."""
+    output = run_gate(root, "scope-lint").stdout
+    return {line for line in output.splitlines() if line.startswith("ERROR: ")}
+
+
+@pytest.mark.spec("CAL-14")
+def test_CAL_14_scope_lint_reports_no_finding_new_since_the_migration(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline"
+    baseline.mkdir()
+    archive = subprocess.run(
+        ["git", "archive", SCOPE_LINT_BASELINE, "backlog", "docs"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=True,
+    ).stdout
+    subprocess.run(["tar", "-x"], cwd=baseline, input=archive, check=True)
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    for command in (
+        ["git", "init", "-q"],
+        ["git", "add", "-A"],
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"],
+    ):
+        subprocess.run(command, cwd=baseline, env=env, check=True)
+    migration = run_gate(baseline, "migrate-spec-layout")
+    assert migration.returncode == 0, migration.stdout + migration.stderr
+    (baseline / ".agent-factory").symlink_to(REPO_ROOT / ".agent-factory")
+
+    untracked = set(
+        git_output(REPO_ROOT, "ls-files", "--others", "--exclude-standard").split()
+    )
+    new = sorted(
+        line
+        for line in scope_lint_errors(REPO_ROOT) - scope_lint_errors(baseline)
+        if line.removeprefix("ERROR: ").split(" — ")[0] not in untracked
+    )
+    assert new == []
+
+
+@requires_docker
+@pytest.mark.container
+@pytest.mark.spec("CAL-14")
+def test_CAL_14_structurizr_validate_passes_on_the_factory_repository() -> None:
+    result = run_gate(REPO_ROOT, "structurizr", "validate")
+    assert result.returncode == 0, result.stdout + result.stderr

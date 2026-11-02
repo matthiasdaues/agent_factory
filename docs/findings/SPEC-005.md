@@ -3,7 +3,7 @@ id: SPEC-005
 source: spec-review
 severity: major
 category: defect
-artifact: docs/spec/prd.md#fr-k--session-transcript-token-control
+artifact: docs/spec/work/prd.md#fr-k--session-transcript-token-control
 status: resolved
 resolved_by: requirements-agent
 resolution_date: 2026-08-04

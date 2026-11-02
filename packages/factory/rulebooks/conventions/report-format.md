@@ -97,4 +97,4 @@ transport metadata outside this four-field object.
 - [inspect-spec § Step 3 — Write the review report](../../skills/inspect-spec/SKILL.md#step-3--write-the-review-report)
 - [atam-review § Step 4 — Write the review report](../../skills/atam-review/SKILL.md#step-4--write-the-review-report)
 - [fagan-review § Step 3 — Write the review report](../../skills/fagan-review/SKILL.md#step-3--write-the-review-report)
-- [interface-contracts.md § Child-result envelope](../../../../docs/spec/supplementary_specs/interface-contracts.md)
+- [interface-contracts.md § Child-result envelope](../../../../docs/spec/interface-contracts.md)

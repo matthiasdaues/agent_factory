@@ -35,7 +35,7 @@
 
 | Artifact                                                      | Path                                                            |
 | ------------------------------------------------------------- | --------------------------------------------------------------- |
-| Updated architecture.dsl (contextLint component)              | `docs/arc42/architecture.dsl`                                   |
+| Updated architecture.dsl (contextLint component)              | `docs/spec/architecture.dsl`                                    |
 | ADR-0013: YAML replaces markdown charter (Pugh Matrix)        | `docs/adr/0013-yaml-agent-context-replaces-markdown-charter.md` |
 | ADR-0014: Two-layer routing, two-mode lifecycle               | `docs/adr/0014-two-layer-routing-with-two-mode-lifecycle.md`    |
 | Updated building block view (§5.2.5 agent-context validation) | `docs/arc42/05_building_block_view.md`                          |

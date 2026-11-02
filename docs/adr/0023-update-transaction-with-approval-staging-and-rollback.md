@@ -10,7 +10,7 @@ evaluation: none
 
 ADR-0010 introduced `update-factory` as a remove-and-reinstall command that calls `init-factory` to refresh the installed Factory tree. ADR-0022 added a layered installation bootstrap (`install-agent-factory`) that wraps `init-factory` with preflight, consent, and verification. ADR-0022 states that `update-factory` continues to call `init-factory` directly, bypassing the bootstrap's preflight and consent because the host environment was validated at first install.
 
-The accepted [value-first onboarding feature](../spec/value-first-onboarding-journey.feature) and the [update-factory interface contract](../spec/supplementary_specs/interface-contracts.md#update-factory) require behaviors that contradict this bypass:
+The accepted [value-first onboarding feature](../spec/features/value-first-onboarding-journey.feature) and the [update-factory interface contract](../spec/interface-contracts.md#update-factory) require behaviors that contradict this bypass:
 
 - A normal update requires confirmation before download or mutation.
 - The complete replacement is downloaded, verified, and staged before application.

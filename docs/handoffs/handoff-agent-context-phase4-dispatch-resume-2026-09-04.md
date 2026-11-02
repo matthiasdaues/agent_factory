@@ -97,7 +97,7 @@ Path: `.current-work/feature/agent-context/dispatch-ledger.yaml`
 | Dispatch ledger                | `.current-work/feature/agent-context/dispatch-ledger.yaml`                                                                                                  |
 | ST-0190 handoff contract       | `.current-work/worktrees/feature/agent-context/.current-work/worktrees/story-ST-0190/.current-work/feature/agent-context/story/ST-0190/handoff-contract.md` |
 | ST-0190 step manifest          | `.current-work/worktrees/feature/agent-context/.current-work/worktrees/story-ST-0190/.current-work/feature/agent-context/story/ST-0190/current-step.yml`    |
-| Gherkin spec                   | `docs/spec/agent-context.feature`                                                                                                                           |
+| Gherkin spec                   | `docs/spec/features/agent-context.feature`                                                                                                                  |
 | Proposal (accepted)            | `docs/proposals/yaml-charter-lifecycle.md`                                                                                                                  |
 | Testing charter                | `docs/charter/testing.yaml`                                                                                                                                 |
 

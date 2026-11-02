@@ -36,20 +36,20 @@
 
 | Artifact                                                       | Path                                                       |
 | -------------------------------------------------------------- | ---------------------------------------------------------- |
-| Gherkin feature file (10 Rules, 42 Scenarios)                  | `docs/spec/agent-context.feature`                          |
-| Gaps report (actor-goal matrix, 5 resolved decisions)          | `docs/spec/agent-context-gaps.md`                          |
-| QA strategy (contract owners, boundary cases, severity triage) | `docs/spec/agent-context-qa-strategy.md`                   |
+| Gherkin feature file (10 Rules, 42 Scenarios)                  | `docs/spec/features/agent-context.feature`                 |
+| Gaps report (actor-goal matrix, 5 resolved decisions)          | `docs/spec/work/agent-context-gaps.md`                     |
+| QA strategy (contract owners, boundary cases, severity triage) | `docs/spec/work/agent-context-qa-strategy.md`              |
 | Scope map (10 new rows, status "specified")                    | `docs/spec/scope-map.md`                                   |
-| Entity model (agent-context entities, ER diagram)              | `docs/spec/supplementary_specs/entity-model.md`            |
-| Interface contracts (context-lint CLI contract)                | `docs/spec/supplementary_specs/interface-contracts.md`     |
-| State machines (mode lifecycle: PRIMARY to INDEX)              | `docs/spec/supplementary_specs/state-machines.md`          |
-| Validation rules (11 CX-\* codes including CX-MODE-INVALID)    | `docs/spec/supplementary_specs/validation-rules.md`        |
+| Entity model (agent-context entities, ER diagram)              | `docs/spec/entity-model.md`                                |
+| Interface contracts (context-lint CLI contract)                | `docs/spec/interface-contracts.md`                         |
+| State machines (mode lifecycle: PRIMARY to INDEX)              | `docs/spec/state-machines.md`                              |
+| Validation rules (11 CX-\* codes including CX-MODE-INVALID)    | `docs/spec/validation-rules.md`                            |
 | Spec review report                                             | `docs/reviews/spec-review-2026-09-03.md`                   |
 | Resolved findings                                              | `docs/findings/SPEC-0012.md`, `docs/findings/SPEC-0013.md` |
 
 ## Design decisions resolved during grilling
 
-These were resolved before spec derivation and are recorded in `docs/spec/agent-context-gaps.md`:
+These were resolved before spec derivation and are recorded in `docs/spec/work/agent-context-gaps.md`:
 
 1. **`testing.yaml` mid-migration:** Format detection walks both `docs/agent-context/testing.yaml` and `docs/charter/testing.yaml` independently. No CX-FORMAT error for split location.
 2. **`capture-context` on legacy markdown:** Operates on whatever format it finds. `--init --scan` offers migration optionally, never forces it.
@@ -62,7 +62,7 @@ These were resolved before spec derivation and are recorded in `docs/spec/agent-
 The proposal declares `architecture_change: true` with `scope: cross_component`. The mechanical architecture check confirms this. The architecture-agent should:
 
 1. Read the proposal and all Phase 1 artifacts listed above.
-2. Update `docs/arc42/architecture.dsl` — the agent-context layer is a new cross-cutting concern affecting skills, scripts, agents, and playbooks.
+2. Update `docs/spec/architecture.dsl` — the agent-context layer is a new cross-cutting concern affecting skills, scripts, agents, and playbooks.
 3. Write ADRs for key decisions (YAML over markdown, two-mode lifecycle, two-layer routing).
 4. Update arc42 chapters as needed (building block view, runtime view for mode transition, deployment view if applicable).
 5. Run architecture review when done.

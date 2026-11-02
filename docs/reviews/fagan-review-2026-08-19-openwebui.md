@@ -11,7 +11,7 @@ scope: Fagan Inspection only — no OWASP pass, no bug-hunt/fix loop, no code ch
 ## Roles
 
 - **Moderator/Reader/Tester:** qa-agent (this session).
-- **Author:** absent. Author-clarification items are recorded as Questions (Q1–Q2) and filed in [docs/spec/todo.md](../spec/todo.md).
+- **Author:** absent. Author-clarification items are recorded as Questions (Q1–Q2) and filed in [docs/spec/todo.md](../spec/work/todo.md).
 
 The target is a Pi extension that registers named OpenWebUI instances as pi providers with dynamic model discovery from `/api/models`. Framework claims were verified against the installed pi package (`@earendil-works/pi-coding-agent`, `dist/core/resolve-config-value.js`, `dist/core/model-runtime.js`, README/docs env-var table) rather than assumed.
 

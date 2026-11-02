@@ -443,7 +443,7 @@ Rule: Brownfield operator bootstraps the canonical concept model
 Scenario: Brownfield bootstrap produces three canonical objects
   Given a fitted brownfield repository with existing code, tests, and persistence schemas
   When the brownfield CONCEPT bootstrap completes
-  Then docs/arc42/architecture.dsl exists
+  Then docs/spec/architecture.dsl exists
   And docs/spec/scope-map.md exists
   And docs/spec/entity-model.yaml exists
 

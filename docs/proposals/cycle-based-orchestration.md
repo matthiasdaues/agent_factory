@@ -30,7 +30,7 @@ impact:
     - packages/factory/rulebooks/templates/research-brief.md
     - packages/usage
     - docs/proposals/deterministic-factory-engine.md
-    - docs/arc42/architecture.dsl
+    - docs/spec/architecture.dsl
     - docs/arc42/05_building_block_view.md
     - docs/arc42/06_runtime_view.md
     - docs/arc42/08_crosscutting_concepts.md
@@ -119,7 +119,7 @@ is to establish the baseline, then deliver each proposal proportionally.
   cycles and exits earlier. A large change traverses more. The system
   recommends a route from artifact state. The human decides.
 - The canonical concept model consists of `docs/spec/scope-map.md`,
-  `docs/spec/entity-model.yaml`, and `docs/arc42/architecture.dsl`. Their
+  `docs/spec/entity-model.yaml`, and `docs/spec/architecture.dsl`. Their
   existence provides the factory's recommended baseline. Their content is
   revisable. Every cycle checks whether implementation evidence requires them
   to be adapted, reconciled, or redesigned. Proposals are origins. Feature
@@ -171,7 +171,7 @@ bootstrap. An accepted feature proposal is not required for the bootstrap.
 
 The brownfield CONCEPT bootstrap produces these canonical concept objects:
 
-- `docs/arc42/architecture.dsl` — system structure, dependencies, runtime, and
+- `docs/spec/architecture.dsl` — system structure, dependencies, runtime, and
   deployment
 - `docs/spec/scope-map.md` — implemented behavior with evidence references
 - `docs/spec/entity-model.yaml` — LinkML entities, relationships, and invariants
@@ -179,7 +179,7 @@ The brownfield CONCEPT bootstrap produces these canonical concept objects:
 The LinkML file is the canonical entity model. Markdown and rendered Entity
 Relationship Diagram (ERD) files are derived projections. The canonical path
 resolves the location decision recorded in
-[T-0006](../spec/todo.md#t-0006--harmonize-the-canonical-erd-location-across-scenarios).
+[T-0006](../spec/work/todo.md#t-0006--harmonize-the-canonical-erd-location-across-scenarios).
 
 The bootstrap assessment recommends feature delivery when all three objects
 exist, pass deterministic validation, and have no unresolved major review
@@ -558,9 +558,9 @@ Give the proposal its technical shape. Produce the canonical concept model.
   - `docs/spec/entity-model.yaml` — what things mean (domain entities,
     their relationships, and their invariants; distinct from the domain
     vocabulary in `docs/CONTEXT.md`, which names and defines terms)
-  - `docs/arc42/architecture.dsl` — how it is shaped
+  - `docs/spec/architecture.dsl` — how it is shaped
 - **Out — elaborations:**
-  - `docs/spec/*.feature` — behavioral contracts derived from scope-map
+  - `docs/spec/features/*.feature` — behavioral contracts derived from scope-map
   - `docs/adr/*.md` — decisions crystallized during concept work
 - **Agents/skills:** requirements-agent, architecture-agent, derive-feature,
   reverse-map, capture-context, domain-modeling
@@ -817,7 +817,7 @@ table defines the complete first-release readiness evidence.
 | Proposal                     | Active `docs/proposals/<name>.md`                                   | Proposal format passes; required sections exist; recorded status matches the route                                |
 | Scope map                    | `docs/spec/scope-map.md`                                            | Scope-map validation passes; behavior identifiers are unique; evidence and feature references resolve             |
 | Entity model                 | `docs/spec/entity-model.yaml`                                       | The LinkML readiness checks in this proposal pass; derived projections match the assessed source                  |
-| Architecture                 | `docs/arc42/architecture.dsl`                                       | Structurizr validation and architecture lint pass; referenced views resolve                                       |
+| Architecture                 | `docs/spec/architecture.dsl`                                        | Structurizr validation and architecture lint pass; referenced views resolve                                       |
 | Feature specifications       | Feature references declared by the scope map                        | Every referenced Gherkin file parses; required tags exist; scope-map identifiers resolve                          |
 | Gaps report                  | Gaps report derived for the active proposal                         | Required sections exist; every recorded gap has an identifier and disposition                                     |
 | Architecture Decision Record | Decision references declared by the proposal or architecture        | Every referenced Architecture Decision Record has valid metadata, status, context, and decision sections          |

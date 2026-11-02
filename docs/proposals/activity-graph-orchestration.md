@@ -145,13 +145,13 @@ inputs:
   context:
     - docs/arc42/CONTEXT.md
     - docs/spec/scope-map.md
-    - docs/spec/*.feature
+    - docs/spec/features/*.feature
     - docs/reviews/atam-review.md
     - docs/agent-context.md
 outputs:
   minimum_changed: 2
   declarations:
-    - path_pattern: docs/arc42/architecture.dsl
+    - path_pattern: docs/spec/architecture.dsl
       validator: arch-lint
       required: true
     - path_pattern: docs/arc42/*.md

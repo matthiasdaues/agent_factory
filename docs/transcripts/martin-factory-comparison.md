@@ -207,7 +207,7 @@ the interface is self-documenting.
 
 **`brownfield-onboarding.md`** encodes this at the project level:
 
-> *"MUST start onboarding by creating and filling `docs/arc42/architecture.dsl`
+> *"MUST start onboarding by creating and filling `docs/spec/architecture.dsl`
 > from code before writing architecture prose."*
 >
 > *"MUST treat arc42 chapters 05, 06, and 07 as derived explanations of

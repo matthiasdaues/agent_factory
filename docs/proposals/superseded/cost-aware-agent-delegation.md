@@ -76,7 +76,7 @@ is the *procedure* that turns the principle into repeatable decisions:
    dispatcher cannot disagree with the planner on the record.
 
 2. **A two-line handoff.** The subagent prompt in
-   [implementation-agent.md § Workflow](../../../.agent-factory/factory/agents/implementation-agent.md#workflow)
+   [implementation-agent.md § Workflow](../../../.agent-factory/factory/agents/implementation-agent.md#workflow--automated-mode)
    names a story path and a branch. It states no allowed write paths, no
    forbidden actions, no stop conditions, and no return schema. The dispatcher
    then verifies the result against git and the gates because the report
@@ -204,7 +204,7 @@ assigns tiers from the same table the dispatcher checks them against.
 `dispatch prepare-wave` and `dispatch prepare-story` generate the full
 subagent prompt from the story file and the prepared worktree, replacing the
 prose template in
-[implementation-agent.md § Workflow](../../../.agent-factory/factory/agents/implementation-agent.md#workflow).
+[implementation-agent.md § Workflow](../../../.agent-factory/factory/agents/implementation-agent.md#workflow--automated-mode).
 The generated prompt carries exactly seven parts:
 
 | Part              | Source                           | Content                                                                                                                       |

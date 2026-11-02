@@ -72,11 +72,11 @@ outputs: []  # Empty outputs
 ```yaml
 id: ST-0000
 inputs:
-  - docs/spec/prd.md
+  - docs/spec/work/prd.md
 max_input_tokens: 1000  # Very small budget
 ```
 
-If `docs/spec/prd.md` is 0 bytes, the context guard allows spawn, but the agent may still exceed token budget due to YAML parsing overhead.
+If `docs/spec/work/prd.md` is 0 bytes, the context guard allows spawn, but the agent may still exceed token budget due to YAML parsing overhead.
 
 **Current Behavior:** Context guard only sums file sizes, not YAML parsing overhead.
 

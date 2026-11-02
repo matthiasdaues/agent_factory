@@ -34,19 +34,19 @@ Open items: [SPEC-0015](../findings/SPEC-0015.md), [SPEC-0016](../findings/SPEC-
 - docs/findings/SPEC-0019.md
 - docs/proposals/factory-concern-oriented-agent-context.md
 - docs/proposals/usage-processing-and-storage.md
-- docs/spec/agent-context.feature
-- docs/spec/local-usage-processing-and-analysis.feature
-- docs/spec/local-usage-processing-and-analysis-gaps.md
-- docs/spec/local-usage-processing-and-analysis-qa-strategy.md
+- docs/spec/features/agent-context.feature
+- docs/spec/features/local-usage-processing-and-analysis.feature
+- docs/spec/work/local-usage-processing-and-analysis-gaps.md
+- docs/spec/work/local-usage-processing-and-analysis-qa-strategy.md
 - docs/spec/scope-map.md
-- docs/spec/supplementary_specs/entity-model.md
-- docs/spec/supplementary_specs/interface-contracts.md
-- docs/spec/supplementary_specs/state-machines.md
-- docs/spec/supplementary_specs/validation-rules.md
+- docs/spec/entity-model.md
+- docs/spec/interface-contracts.md
+- docs/spec/state-machines.md
+- docs/spec/validation-rules.md
 
 ## Gate and verification evidence
 
-Gates: `.agent-factory/factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation.md` reported that the handoff is structurally valid; `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` passed with 0 errors, 0 warnings, and 27 pre-existing informational notices across 18 files; `.agent-factory/factory/scripts/statemachine-lint docs/spec/supplementary_specs/state-machines.md` passed with 0 errors, 0 warnings, and 0 info; changed-artifact `.agent-factory/factory/scripts/link-check` passed; changed-Mermaid `.agent-factory/factory/scripts/mermaid-lint` passed; `.agent-factory/factory/scripts/validate` passed on all changed Markdown; `git diff --check` passed. Commit hooks repeated mdformat, link-check, spec-lint, and statemachine-lint successfully.
+Gates: `.agent-factory/factory/scripts/handoff-lint docs/handoffs/handoff-local-usage-processing-and-analysis-requirements-remediation.md` reported that the handoff is structurally valid; `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` passed with 0 errors, 0 warnings, and 27 pre-existing informational notices across 18 files; `.agent-factory/factory/scripts/statemachine-lint docs/spec/state-machines.md` passed with 0 errors, 0 warnings, and 0 info; changed-artifact `.agent-factory/factory/scripts/link-check` passed; changed-Mermaid `.agent-factory/factory/scripts/mermaid-lint` passed; `.agent-factory/factory/scripts/validate` passed on all changed Markdown; `git diff --check` passed. Commit hooks repeated mdformat, link-check, spec-lint, and statemachine-lint successfully.
 Verification: focused checks confirmed all feature Rule names occur in `docs/spec/scope-map.md`, exactly six query-model-v1 schema headings exist, the complete maximum evidence tuple is declared, LU-12 owns UI documentation/bootstrap behavior, LU-13 owns locked DuckDB/PyArrow and offline-cache behavior, obsolete `context-lint` and YAML-routing terms are absent from the rewritten live agent-context specification and supplementary traces, and no finding file status was changed.
 
 ## Next action

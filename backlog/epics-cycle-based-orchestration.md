@@ -5,7 +5,7 @@ scope: global
 # Cycle-Based Orchestration EPICs
 
 This plan implements the approved seven-EPIC decomposition for
-[cycle-based orchestration](../docs/spec/cycle-based-orchestration.feature).
+[cycle-based orchestration](../docs/~archive/spec/cycle-based-orchestration.feature).
 The architecture follows
 [ADR-0017](../docs/adr/0017-cycle-based-orchestration-supersedes-linear-playbook-fsm.md).
 Capacity tiers follow the
@@ -28,13 +28,13 @@ eligible agent.
 
 ### Actor Goals
 
-- A human operator [starts a named workstream](../docs/spec/cycle-based-orchestration.feature)
+- A human operator [starts a named workstream](../docs/~archive/spec/cycle-based-orchestration.feature)
   from menu option B.
-- A human operator [continues an existing workstream](../docs/spec/cycle-based-orchestration.feature)
+- A human operator [continues an existing workstream](../docs/~archive/spec/cycle-based-orchestration.feature)
   from menu option C.
-- An agent maintainer [assigns cycle eligibility](../docs/spec/cycle-based-orchestration.feature)
+- An agent maintainer [assigns cycle eligibility](../docs/~archive/spec/cycle-based-orchestration.feature)
   without changing indexed identities.
-- A human operator [runs the next eligible step](../docs/spec/cycle-based-orchestration.feature)
+- A human operator [runs the next eligible step](../docs/~archive/spec/cycle-based-orchestration.feature)
   from workstream state.
 
 ### Current State and Required Behavior
@@ -134,16 +134,16 @@ pre-migration index and command contracts.
 
 ### Ownership Resolution
 
-| Contract                                            | `.feature` Rule                                                                                                                                                                                  | Owner                                | Rationale                                |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ---------------------------------------- |
-| Start a new workstream                              | [Human operator starts a new workstream](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-starts-a-new-workstream)                                                             | Start and reopen workstreams         | Introduces creation and session binding. |
-| Continue an existing workstream                     | [Human operator continues an existing workstream](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-continues-an-existing-workstream)                                           | Start and reopen workstreams         | Introduces listing and reopening.        |
-| Load and validate the delivery model                | [Engine loads and validates the delivery model](../docs/spec/cycle-based-orchestration.feature#rule-engine-loads-and-validates-the-delivery-model)                                               | Assess evidence and recommend routes | Introduces the validated routing model.  |
-| Evaluate artifact readiness                         | [Engine evaluates artifact readiness for route recommendations](../docs/spec/cycle-based-orchestration.feature#rule-engine-evaluates-artifact-readiness-for-route-recommendations)               | Assess evidence and recommend routes | Introduces structured readiness results. |
-| Recommend routes from evidence                      | [Engine recommends routes based on artifact evidence](../docs/spec/cycle-based-orchestration.feature#rule-engine-recommends-routes-based-on-artifact-evidence)                                   | Assess evidence and recommend routes | Introduces recommendation cardinality.   |
-| Reconcile changed code and canonical artifacts      | [Reconciliation runs when a cycle changes code or canonical artifacts](../docs/spec/cycle-based-orchestration.feature#rule-reconciliation-runs-when-a-cycle-changes-code-or-canonical-artifacts) | Assess evidence and recommend routes | First exercises reconciliation at exit.  |
-| Replace agent phase ordinals with cycle eligibility | [Agent definitions carry cycle eligibility instead of phase ordinals](../docs/spec/cycle-based-orchestration.feature#rule-agent-definitions-carry-cycle-eligibility-instead-of-phase-ordinals)   | Assign and run eligible agents       | Introduces eligibility metadata.         |
-| Execute cycle steps from observable state           | [`run-step` executes cycle steps instead of playbook steps](../docs/spec/cycle-based-orchestration.feature#rule-run-step-executes-cycle-steps-instead-of-playbook-steps)                         | Assign and run eligible agents       | Introduces cycle-based step resolution.  |
+| Contract                                            | `.feature` Rule                                                                                                                                                                                           | Owner                                | Rationale                                |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
+| Start a new workstream                              | [Human operator starts a new workstream](../docs/~archive/spec/cycle-based-orchestration.feature#rule-human-operator-starts-a-new-workstream)                                                             | Start and reopen workstreams         | Introduces creation and session binding. |
+| Continue an existing workstream                     | [Human operator continues an existing workstream](../docs/~archive/spec/cycle-based-orchestration.feature#rule-human-operator-continues-an-existing-workstream)                                           | Start and reopen workstreams         | Introduces listing and reopening.        |
+| Load and validate the delivery model                | [Engine loads and validates the delivery model](../docs/~archive/spec/cycle-based-orchestration.feature#rule-engine-loads-and-validates-the-delivery-model)                                               | Assess evidence and recommend routes | Introduces the validated routing model.  |
+| Evaluate artifact readiness                         | [Engine evaluates artifact readiness for route recommendations](../docs/~archive/spec/cycle-based-orchestration.feature#rule-engine-evaluates-artifact-readiness-for-route-recommendations)               | Assess evidence and recommend routes | Introduces structured readiness results. |
+| Recommend routes from evidence                      | [Engine recommends routes based on artifact evidence](../docs/~archive/spec/cycle-based-orchestration.feature#rule-engine-recommends-routes-based-on-artifact-evidence)                                   | Assess evidence and recommend routes | Introduces recommendation cardinality.   |
+| Reconcile changed code and canonical artifacts      | [Reconciliation runs when a cycle changes code or canonical artifacts](../docs/~archive/spec/cycle-based-orchestration.feature#rule-reconciliation-runs-when-a-cycle-changes-code-or-canonical-artifacts) | Assess evidence and recommend routes | First exercises reconciliation at exit.  |
+| Replace agent phase ordinals with cycle eligibility | [Agent definitions carry cycle eligibility instead of phase ordinals](../docs/~archive/spec/cycle-based-orchestration.feature#rule-agent-definitions-carry-cycle-eligibility-instead-of-phase-ordinals)   | Assign and run eligible agents       | Introduces eligibility metadata.         |
+| Execute cycle steps from observable state           | [`run-step` executes cycle steps instead of playbook steps](../docs/~archive/spec/cycle-based-orchestration.feature#rule-run-step-executes-cycle-steps-instead-of-playbook-steps)                         | Assign and run eligible agents       | Introduces cycle-based step resolution.  |
 
 ## Epic 2 — Select, Retry, and Check a Cycle
 
@@ -154,11 +154,11 @@ commands to select or retry a cycle and check the resulting state safely.
 
 ### Actor Goals
 
-- A human operator [selects any cycle](../docs/spec/cycle-based-orchestration.feature)
+- A human operator [selects any cycle](../docs/~archive/spec/cycle-based-orchestration.feature)
   and sees evidence warnings.
-- A human operator [retries the current cycle](../docs/spec/cycle-based-orchestration.feature)
+- A human operator [retries the current cycle](../docs/~archive/spec/cycle-based-orchestration.feature)
   and sees the attempt result.
-- A project maintainer [checks cycle models and workstream states](../docs/spec/cycle-based-orchestration.feature).
+- A project maintainer [checks cycle models and workstream states](../docs/~archive/spec/cycle-based-orchestration.feature).
 
 ### Current State and Required Behavior
 
@@ -263,15 +263,15 @@ remains in this EPIC.
 
 ### Ownership Resolution
 
-| Contract                                          | `.feature` Rule                                                                                                                                                      | Owner                     | Rationale                                       |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------- |
-| Select the next cycle                             | [Human operator selects the next cycle](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-selects-the-next-cycle)                                   | Select a cycle safely     | Introduces human cycle selection.               |
-| Enforce delegated retry limits                    | [Engine enforces delegated retry limits](../docs/spec/cycle-based-orchestration.feature#rule-engine-enforces-delegated-retry-limits)                                 | Retry a cycle safely      | Introduces retry decisions and attempt changes. |
-| Transition workstream state atomically            | [Adapter transitions workstream state atomically](../docs/spec/cycle-based-orchestration.feature#rule-adapter-transitions-workstream-state-atomically)               | Select a cycle safely     | Introduces state mutation and binding updates.  |
-| Handle concurrent workstream access               | [Adapter handles concurrent workstream access](../docs/spec/cycle-based-orchestration.feature#rule-adapter-handles-concurrent-workstream-access)                     | Select a cycle safely     | Introduces locking and conflict handling.       |
-| Retire the phase command with diagnostic guidance | [phase command exits as a diagnostic stub](../docs/spec/cycle-based-orchestration.feature#rule-phase-command-exits-as-a-diagnostic-stub)                             | Check migration integrity | Introduces the diagnostic stub.                 |
-| Validate cycle models and state files             | [transition-lint validates cycle models and state files](../docs/spec/cycle-based-orchestration.feature#rule-transition-lint-validates-cycle-models-and-state-files) | Check migration integrity | Introduces migrated integrity checks.           |
-| Keep acceptance-commit contracts                  | [Kept contracts preserve acceptance-commit behavior](../docs/spec/cycle-based-orchestration.feature#rule-kept-contracts-preserve-acceptance-commit-behavior)         | Check migration integrity | First verifies compatibility after migration.   |
+| Contract                                          | `.feature` Rule                                                                                                                                                               | Owner                     | Rationale                                       |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------- |
+| Select the next cycle                             | [Human operator selects the next cycle](../docs/~archive/spec/cycle-based-orchestration.feature#rule-human-operator-selects-the-next-cycle)                                   | Select a cycle safely     | Introduces human cycle selection.               |
+| Enforce delegated retry limits                    | [Engine enforces delegated retry limits](../docs/~archive/spec/cycle-based-orchestration.feature#rule-engine-enforces-delegated-retry-limits)                                 | Retry a cycle safely      | Introduces retry decisions and attempt changes. |
+| Transition workstream state atomically            | [Adapter transitions workstream state atomically](../docs/~archive/spec/cycle-based-orchestration.feature#rule-adapter-transitions-workstream-state-atomically)               | Select a cycle safely     | Introduces state mutation and binding updates.  |
+| Handle concurrent workstream access               | [Adapter handles concurrent workstream access](../docs/~archive/spec/cycle-based-orchestration.feature#rule-adapter-handles-concurrent-workstream-access)                     | Select a cycle safely     | Introduces locking and conflict handling.       |
+| Retire the phase command with diagnostic guidance | [phase command exits as a diagnostic stub](../docs/~archive/spec/cycle-based-orchestration.feature#rule-phase-command-exits-as-a-diagnostic-stub)                             | Check migration integrity | Introduces the diagnostic stub.                 |
+| Validate cycle models and state files             | [transition-lint validates cycle models and state files](../docs/~archive/spec/cycle-based-orchestration.feature#rule-transition-lint-validates-cycle-models-and-state-files) | Check migration integrity | Introduces migrated integrity checks.           |
+| Keep acceptance-commit contracts                  | [Kept contracts preserve acceptance-commit behavior](../docs/~archive/spec/cycle-based-orchestration.feature#rule-kept-contracts-preserve-acceptance-commit-behavior)         | Check migration integrity | First verifies compatibility after migration.   |
 
 ## Epic 3 — Switch Workstreams During a Session
 
@@ -284,7 +284,7 @@ Objective-change detection uses only mechanical signals defined below.
 
 ### Actor Goals
 
-- A human operator [confirms or declines a workstream switch](../docs/spec/cycle-based-orchestration.feature).
+- A human operator [confirms or declines a workstream switch](../docs/~archive/spec/cycle-based-orchestration.feature).
 
 ### Current State and Required Behavior
 
@@ -383,9 +383,9 @@ this EPIC.
 
 ### Ownership Resolution
 
-| Contract                              | `.feature` Rule                                                                                                                                        | Owner                                    | Rationale                                |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- | ---------------------------------------- |
-| Switch workstreams during one session | [Human operator switches workstreams mid-session](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-switches-workstreams-mid-session) | Suggest and execute a mid-session switch | First introduces the switching contract. |
+| Contract                              | `.feature` Rule                                                                                                                                                 | Owner                                    | Rationale                                |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| Switch workstreams during one session | [Human operator switches workstreams mid-session](../docs/~archive/spec/cycle-based-orchestration.feature#rule-human-operator-switches-workstreams-mid-session) | Suggest and execute a mid-session switch | First introduces the switching contract. |
 
 ## Epic 4 — Delegate Bounded Cycle Routing
 
@@ -399,8 +399,8 @@ interface contracts § cycle-grant (section removed).
 
 ### Actor Goals
 
-- A human operator [delegates an ordered route](../docs/spec/cycle-based-orchestration.feature).
-- A human operator [delegates through a destination](../docs/spec/cycle-based-orchestration.feature).
+- A human operator [delegates an ordered route](../docs/~archive/spec/cycle-based-orchestration.feature).
+- A human operator [delegates through a destination](../docs/~archive/spec/cycle-based-orchestration.feature).
 
 ### Current State and Required Behavior
 
@@ -497,10 +497,10 @@ inspecting grants. No testability red flag remains in this EPIC.
 
 ### Ownership Resolution
 
-| Contract                               | `.feature` Rule                                                                                                                                      | Owner                          | Rationale                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------------------------------- |
-| Follow a human-authored route sequence | [Human operator delegates a route sequence](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-delegates-a-route-sequence)           | Follow an ordered route        | First completes ordered delegated execution.  |
-| Continue through a named destination   | [Human operator delegates through a destination](../docs/spec/cycle-based-orchestration.feature#rule-human-operator-delegates-through-a-destination) | Continue through a destination | First completes destination-based delegation. |
+| Contract                               | `.feature` Rule                                                                                                                                               | Owner                          | Rationale                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------------------------------- |
+| Follow a human-authored route sequence | [Human operator delegates a route sequence](../docs/~archive/spec/cycle-based-orchestration.feature#rule-human-operator-delegates-a-route-sequence)           | Follow an ordered route        | First completes ordered delegated execution.  |
+| Continue through a named destination   | [Human operator delegates through a destination](../docs/~archive/spec/cycle-based-orchestration.feature#rule-human-operator-delegates-through-a-destination) | Continue through a destination | First completes destination-based delegation. |
 
 ## Epic 5 — Analyse Usage by Workstream and Cycle
 
@@ -512,7 +512,7 @@ records.
 
 ### Actor Goals
 
-- A usage analyst [groups usage by workstream and cycle](../docs/spec/cycle-based-orchestration.feature).
+- A usage analyst [groups usage by workstream and cycle](../docs/~archive/spec/cycle-based-orchestration.feature).
 
 ### Current State and Required Behavior
 
@@ -600,10 +600,10 @@ EPIC.
 
 ### Ownership Resolution
 
-| Contract                                   | `.feature` Rule                                                                                                                                                          | Owner                      | Rationale                              |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | -------------------------------------- |
-| Capture workstream and cycle usage context | [Usage records carry workstream and cycle context](../docs/spec/cycle-based-orchestration.feature#rule-usage-records-carry-workstream-and-cycle-context)                 | Capture attributable usage | Introduces attributable record fields. |
-| Query by workstream and cycle dimensions   | [Usage analyst queries by workstream and cycle dimensions](../docs/spec/cycle-based-orchestration.feature#rule-usage-analyst-queries-by-workstream-and-cycle-dimensions) | Query attributable totals  | Introduces both analysis dimensions.   |
+| Contract                                   | `.feature` Rule                                                                                                                                                                   | Owner                      | Rationale                              |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | -------------------------------------- |
+| Capture workstream and cycle usage context | [Usage records carry workstream and cycle context](../docs/~archive/spec/cycle-based-orchestration.feature#rule-usage-records-carry-workstream-and-cycle-context)                 | Capture attributable usage | Introduces attributable record fields. |
+| Query by workstream and cycle dimensions   | [Usage analyst queries by workstream and cycle dimensions](../docs/~archive/spec/cycle-based-orchestration.feature#rule-usage-analyst-queries-by-workstream-and-cycle-dimensions) | Query attributable totals  | Introduces both analysis dimensions.   |
 
 ## Epic 6 — Bootstrap a Brownfield Concept Model
 
@@ -615,12 +615,12 @@ model.
 
 ### Actor Goals
 
-- A brownfield operator [creates and checks three canonical concept objects](../docs/spec/cycle-based-orchestration.feature).
+- A brownfield operator [creates and checks three canonical concept objects](../docs/~archive/spec/cycle-based-orchestration.feature).
 
 ### Current State and Required Behavior
 
 `packages/factory/playbooks/brownfield-onboarding.md` currently produces
-`docs/arc42/architecture.dsl` and `docs/spec/scope-map.md`. It treats the
+`docs/spec/architecture.dsl` and `docs/spec/scope-map.md`. It treats the
 handwritten supplementary entity-model document as optional later work. The
 repository has no canonical `docs/spec/entity-model.yaml`.
 
@@ -711,10 +711,10 @@ database. No testability red flag remains in this EPIC.
 
 ### Ownership Resolution
 
-| Contract                                  | `.feature` Rule                                                                                                                                                              | Owner                             | Rationale                                       |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------- |
-| Bootstrap the canonical concept model     | [Brownfield operator bootstraps the canonical concept model](../docs/spec/cycle-based-orchestration.feature#rule-brownfield-operator-bootstraps-the-canonical-concept-model) | Complete the brownfield bootstrap | Introduces the three-object bootstrap.          |
-| Use LinkML as the canonical domain source | [LinkML entity model serves as canonical domain source](../docs/spec/cycle-based-orchestration.feature#rule-linkml-entity-model-serves-as-canonical-domain-source)           | Create the canonical LinkML model | Introduces validation, generation, and storage. |
+| Contract                                  | `.feature` Rule                                                                                                                                                                       | Owner                             | Rationale                                       |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------- |
+| Bootstrap the canonical concept model     | [Brownfield operator bootstraps the canonical concept model](../docs/~archive/spec/cycle-based-orchestration.feature#rule-brownfield-operator-bootstraps-the-canonical-concept-model) | Complete the brownfield bootstrap | Introduces the three-object bootstrap.          |
+| Use LinkML as the canonical domain source | [LinkML entity model serves as canonical domain source](../docs/~archive/spec/cycle-based-orchestration.feature#rule-linkml-entity-model-serves-as-canonical-domain-source)           | Create the canonical LinkML model | Introduces validation, generation, and storage. |
 
 ## Epic 7 — Link Research to Delivery Work
 
@@ -726,7 +726,7 @@ graphs.
 
 ### Actor Goals
 
-- A research user [links a brief to delivery and returns a validated report](../docs/spec/cycle-based-orchestration.feature).
+- A research user [links a brief to delivery and returns a validated report](../docs/~archive/spec/cycle-based-orchestration.feature).
 
 ### Current State and Required Behavior
 
@@ -811,6 +811,6 @@ resume output. No testability red flag remains in this EPIC.
 
 ### Ownership Resolution
 
-| Contract                       | `.feature` Rule                                                                                                                                      | Owner                 | Rationale                                   |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------- |
-| Link research to delivery work | [Delivery cycle creates a linked research brief](../docs/spec/cycle-based-orchestration.feature#rule-delivery-cycle-creates-a-linked-research-brief) | Create a linked brief | First introduces the linked-brief contract. |
+| Contract                       | `.feature` Rule                                                                                                                                               | Owner                 | Rationale                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------- |
+| Link research to delivery work | [Delivery cycle creates a linked research brief](../docs/~archive/spec/cycle-based-orchestration.feature#rule-delivery-cycle-creates-a-linked-research-brief) | Create a linked brief | First introduces the linked-brief contract. |

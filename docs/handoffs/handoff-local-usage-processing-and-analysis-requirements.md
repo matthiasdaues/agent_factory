@@ -27,15 +27,15 @@ Open items: No unresolved requirement or design decision. The QA strategy record
 
 - docs/handoffs/handoff-local-usage-processing-and-analysis-requirements.md
 - docs/proposals/usage-processing-and-storage.md
-- docs/spec/local-usage-processing-and-analysis.feature
-- docs/spec/local-usage-processing-and-analysis-gaps.md
-- docs/spec/local-usage-processing-and-analysis-qa-strategy.md
+- docs/spec/features/local-usage-processing-and-analysis.feature
+- docs/spec/work/local-usage-processing-and-analysis-gaps.md
+- docs/spec/work/local-usage-processing-and-analysis-qa-strategy.md
 - docs/spec/scope-map.md
-- docs/spec/supplementary_specs/entity-model.md
-- docs/spec/supplementary_specs/interface-contracts.md
-- docs/spec/supplementary_specs/state-machines.md
-- docs/spec/supplementary_specs/validation-rules.md
-- docs/spec/agent-context.feature
+- docs/spec/entity-model.md
+- docs/spec/interface-contracts.md
+- docs/spec/state-machines.md
+- docs/spec/validation-rules.md
+- docs/spec/features/agent-context.feature
 - docs/testing.yaml
 
 ## Gate and verification evidence

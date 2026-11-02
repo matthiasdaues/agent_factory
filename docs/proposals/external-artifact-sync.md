@@ -71,7 +71,7 @@ already lives.
 | --------------- | ----------------------------- | ----------------------------------------- | --------------------------------------------------- |
 | Backlog stories | `backlog/ST-*.md`             | GitHub Issue → Jira (via org integration) | Yes — status, priority, sprint, acceptance criteria |
 | Findings        | `docs/findings/<TAG>-NNNN.md` | GitHub Issues (labeled by tag)            | No — findings are resolved in code                  |
-| Todo entries    | `docs/spec/todo.md`           | None (session-internal, low volume)       | No                                                  |
+| Todo entries    | `docs/spec/work/todo.md`      | None (session-internal, low volume)       | No                                                  |
 
 ### Push channel: GitHub Action
 

@@ -19,7 +19,7 @@ both pass the licence filter (DEC-14).
 
 **Status.** The proposal is re-accepted (DEC-16).
 [ADR-0024](../../docs/adr/0024-dbml-as-entity-model-language.md) records the
-decision, and T-0006 in `docs/spec/todo.md` now names DBML.
+decision, and T-0006 in `docs/spec/work/todo.md` now names DBML.
 
 ## Pugh Matrix
 

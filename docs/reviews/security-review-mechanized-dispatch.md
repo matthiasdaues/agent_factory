@@ -129,7 +129,7 @@ ______________________________________________________________________
 
 ### ⚠️ **Bash Guard False Positives**
 
-**Finding (Low):** Best-effort bash path extraction may produce false positives (e.g., `echo 'x' > docs/spec/prd.md` is denied even if `docs/spec/prd.md` is in declared outputs because `echo` is not in `WRITE_COMMANDS`).
+**Finding (Low):** Best-effort bash path extraction may produce false positives (e.g., `echo 'x' > docs/spec/work/prd.md` is denied even if `docs/spec/work/prd.md` is in declared outputs because `echo` is not in `WRITE_COMMANDS`).
 
 **OWASP Mapping:** N/A\
 **Severity:** ⚠️ **Low** — Acceptable tradeoff for simplicity. A strict parser would be complex and error-prone.

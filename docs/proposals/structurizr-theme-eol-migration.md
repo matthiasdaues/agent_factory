@@ -12,7 +12,7 @@ impact:
   architecture_change: false
   external_contract_change: false
   boundaries:
-    - docs/arc42/architecture.dsl
+    - docs/spec/architecture.dsl
     - packages/factory/skills/scaffold-arc42/SKILL.md
     - packages/factory/skills/scaffold-arc42/STRUCTURIZR.md
 
@@ -42,7 +42,7 @@ estimate:
 ## Summary
 
 Structurizr is the tool we use to define and export architecture
-diagrams from a workspace file (`docs/arc42/architecture.dsl`). Themes
+diagrams from a workspace file (`docs/spec/architecture.dsl`). Themes
 provide the visual styles, element shapes, and icons for those diagrams.
 
 The Structurizr cloud service reaches end-of-life on 30 September 2026.
@@ -55,7 +55,7 @@ local file path.
 ## Motivation
 
 Our architecture export pipeline uses `theme default` in the workspace
-file `docs/arc42/architecture.dsl`. The Structurizr Domain-Specific
+file `docs/spec/architecture.dsl`. The Structurizr Domain-Specific
 Language (DSL) parser resolves `theme default` to
 `https://static.structurizr.com/themes/default/theme.json`. After
 30 September 2026 that URL will stop resolving and every diagram export
@@ -84,14 +84,14 @@ going away.
    `packages/factory/themes/structurizr/default/`. The theme ships with
    every factory install.
 2. **Update `scaffold-arc42`** to copy the `default` theme from the
-   factory into `docs/arc42/themes/default/` during scaffolding and
+   factory into `docs/assets/themes/default/` during scaffolding and
    write `theme themes/default/theme.json` instead of `theme default`.
 3. **Rewrite this project's `architecture.dsl`**: replace
    `theme default` with `theme themes/default/theme.json`.
 4. **Update factory references** to the `theme default` directive in
    `packages/factory/skills/scaffold-arc42/SKILL.md` and
    `packages/factory/skills/scaffold-arc42/STRUCTURIZR.md`.
-5. **Add a `.gitattributes` entry** marking `docs/arc42/themes/` as
+5. **Add a `.gitattributes` entry** marking `docs/assets/themes/` as
    linguist-generated so theme icons do not clutter diffs or language
    statistics.
 

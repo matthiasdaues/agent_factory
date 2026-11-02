@@ -2,7 +2,7 @@
 lifecycle.
 
 Owned contracts (EPIC 5 Ownership Resolution table,
-docs/spec/value-first-onboarding-journey-qa-strategy.md):
+docs/spec/work/value-first-onboarding-journey-qa-strategy.md):
 
   - VFO-08-IT-01 — Repository state selects a detached worktree or a plain
     sandbox (`Scenario: Repository with a commit uses a detached

@@ -3,7 +3,7 @@ id: SPEC-003
 source: spec-review
 severity: major
 category: defect
-artifact: docs/spec/prd.md#fr-l--dispatch-safeguard-assurance-audit
+artifact: docs/spec/work/prd.md#fr-l--dispatch-safeguard-assurance-audit
 status: resolved
 resolved_by: requirements-agent
 resolution_date: 2026-08-04

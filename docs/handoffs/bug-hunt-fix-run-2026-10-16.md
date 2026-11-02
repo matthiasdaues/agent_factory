@@ -103,8 +103,8 @@ BUG-0067 stay open as design decisions.
     conventions, templates). `todos.md` remains in `INDEX.yaml`,
     `coaching-agent`, `spec-review-agent`, `requirements-agent`,
     `brownfield-onboarding`, `architecture-review`, `test_spec_lint.py`,
-    `docs/spec/prd.md`, `validation-rules.md`; this repository has both
-    `docs/spec/todo.md` and `docs/spec/todos.md`. Clean up after the run.
+    `docs/spec/work/prd.md`, `validation-rules.md`; this repository has both
+    `docs/spec/work/todo.md` and `docs/spec/work/todos.md`. Clean up after the run.
 21. `merge-precommit-config` (low): after BUG-0081 a plain merge is a no-op
     once any factory id exists; only `--update` adds missing hooks, and
     VIRGIL's fitting never passes it. `init-factory` re-run (e.g. adding

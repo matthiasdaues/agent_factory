@@ -127,6 +127,6 @@ Factory stops owning test execution entirely. The `.agent-factory/factory/script
 
 ## Referenced from
 
-- [UC-09 — Ensure Project-Owned Test Gates Exist](../~archive/spec/use_cases/UC-09-run-tests-via-hook.md)
+- `UC-09 — Ensure Project-Owned Test Gates Exist`
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
 - [08_crosscutting_concepts.md § 8.1](../arc42/08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)

@@ -1,7 +1,7 @@
 """Deterministic text checks for the core artifact layout.
 
 Each block below owns one contract row of
-docs/spec/core-artifact-layout-qa-strategy.md and carries its Rule's scope
+docs/spec/work/core-artifact-layout-qa-strategy.md and carries its Rule's scope
 identifier in a ``spec`` marker. Add a new contract as its own block with its
 own test functions; share only the helpers in this header.
 
@@ -12,6 +12,11 @@ Owned contracts:
   - CAL-12-LN-01: domain-modeling writes terms as Term/Definition/Avoid rows
     of docs/spec/glossary.md, the term readers look terms up there, and no
     owned file names a CONTEXT.md as a term store (structural)
+  - CAL-01-LN-01: the top of this repository's docs/spec/ holds only core
+    files and the folders features/, schemas/, areas/, work/ (structural)
+  - CAL-14-LN-01: every section of this repository's glossary is a
+    Term/Definition/Avoid table, and no actor-goal list or use_cases folder
+    remains under docs/ (structural)
 """
 
 from __future__ import annotations
@@ -308,4 +313,74 @@ def test_spec_writer_file_names_no_old_path(path: str) -> None:
         for number, line in enumerate(read_factory_file(path).splitlines(), 1)
         if OLD_PATH_PATTERNS.search(line)
     ]
+    assert found == []
+
+
+# --- CAL-01-LN-01: the top of the factory's docs/spec/ ------------------------
+
+SPEC_CORE_FILES = {
+    "architecture.dsl",
+    "dependency-rules.dsl",
+    "entity-model.md",
+    "glossary.md",
+    "interface-contracts.md",
+    "scope-map.md",
+    "state-machines.md",
+    "validation-rules.md",
+}
+SPEC_FOLDERS = {"features", "schemas", "areas", "work"}
+
+
+@pytest.mark.spec("CAL-01")
+def test_top_of_spec_holds_only_core_files_and_folders() -> None:
+    strays = sorted(
+        entry.name
+        for entry in (REPO_ROOT / "docs" / "spec").iterdir()
+        if not (
+            (entry.is_file() and entry.name in SPEC_CORE_FILES)
+            or (entry.is_dir() and entry.name in SPEC_FOLDERS)
+        )
+    )
+    assert strays == []
+
+
+# --- CAL-14-LN-01: glossary tables and no use-case files ----------------------
+
+TERM_TABLE_HEADER = re.compile(r"^\|\s*Term\s*\|\s*Definition\s*\|\s*Avoid\s*\|$")
+TABLE_RULE = re.compile(r"^\|[\s|:-]+\|$")
+
+
+def glossary_sections() -> dict[str, str]:
+    """Map each `## ` heading of the repository glossary to its text."""
+    text = (REPO_ROOT / "docs" / "spec" / "glossary.md").read_text(encoding="utf-8")
+    parts = re.split(r"^## (.+)$", text, flags=re.MULTILINE)
+    return dict(zip(parts[1::2], parts[2::2], strict=True))
+
+
+@pytest.mark.spec("CAL-14")
+def test_glossary_has_the_acronyms_section() -> None:
+    assert "Acronyms and Abbreviations" in glossary_sections()
+
+
+@pytest.mark.spec("CAL-14")
+@pytest.mark.parametrize("heading", glossary_sections())
+def test_glossary_section_is_one_term_table(heading: str) -> None:
+    rows = [
+        line.strip()
+        for line in glossary_sections()[heading].splitlines()
+        if line.strip().startswith("|") and not TABLE_RULE.match(line.strip())
+    ]
+    assert rows, f"section {heading!r} has no table"
+    assert TERM_TABLE_HEADER.match(rows[0]), rows[0]
+    assert not any(TERM_TABLE_HEADER.match(row) for row in rows[1:])
+
+
+@pytest.mark.spec("CAL-14")
+def test_no_actor_goal_list_or_use_case_folder_under_docs() -> None:
+    found = sorted(
+        str(path.relative_to(REPO_ROOT))
+        for path in (REPO_ROOT / "docs").rglob("*")
+        if path.name == "actor-goal-list.md"
+        or (path.is_dir() and path.name == "use_cases")
+    )
     assert found == []

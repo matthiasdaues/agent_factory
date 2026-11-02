@@ -26,7 +26,7 @@ impact:
     - packages/factory/scripts/phase
     - packages/factory/scripts/transition-lint
     - packages/factory/scripts/init-factory
-    - docs/arc42/architecture.dsl
+    - docs/spec/architecture.dsl
     - docs/arc42/05_building_block_view.md
     - docs/arc42/06_runtime_view.md
     - docs/arc42/08_crosscutting_concepts.md
@@ -162,7 +162,7 @@ uv run pytest --tb=short --quiet
 ### 2. Characterize the two command adapters
 
 Create `tests/factory/test_phase.py` and extend
-[`tests/factory/test_transition_lint.py`](../../tests/factory/test_transition_lint.py)
+`tests/factory/test_transition_lint.py`
 before moving implementation. The tests invoke the tracked scripts as
 subprocesses and freeze these public contracts.
 
@@ -275,9 +275,9 @@ The extraction supports exactly the syntax both scripts implement today:
   type coercion are not supported.
 
 The canonical domain keys and lifecycle remain documented by
-[`greenfield-development.fsm.yml`](../../packages/factory/playbooks/greenfield-development.fsm.yml)
+`greenfield-development.fsm.yml`
 and
-[`state-machines.md`](../spec/supplementary_specs/state-machines.md). Tests feed
+[`state-machines.md`](../spec/state-machines.md). Tests feed
 the same fixtures through both old adapter contracts and the extracted codec
 before duplicate parsers are deleted.
 
@@ -402,7 +402,7 @@ covering these exact active sources:
   and
   [`brownfield-onboarding.md`](../../packages/factory/playbooks/brownfield-onboarding.md)
   call the deleted `.agent-factory/factory/scripts/charter-lint`;
-- [`interface-contracts.md`](../spec/supplementary_specs/interface-contracts.md)
+- [`interface-contracts.md`](../spec/interface-contracts.md)
   still publishes the deleted `charter-lint` command;
 - [`scope-map.md`](../spec/scope-map.md) assigns a feature to the deleted
   `.agent-factory/factory/scripts/run-tests` command;

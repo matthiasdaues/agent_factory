@@ -19,11 +19,11 @@ The specification is ready for architecture. The fix commit resolves all four ma
 Artifacts read:
 
 - `git show e5cf4a17`: the fix commit
-- [core-artifact-layout.feature](../spec/core-artifact-layout.feature): 15 Rules, read in full
-- [core-artifact-layout-gaps.md](../spec/core-artifact-layout-gaps.md): gaps CAL-G01 to CAL-G16 and the decision on SPEC-0024
-- [core-artifact-layout-qa-strategy.md](../spec/core-artifact-layout-qa-strategy.md): the rows the fixes changed
-- [interface-contracts.md § migrate-spec-layout](../spec/supplementary_specs/interface-contracts.md), the `update-factory` Layout move row, and the consumer hook Layout move row
-- [validation-rules.md § Anchor-file prerequisite](../spec/supplementary_specs/validation-rules.md#anchor-file-prerequisite-feature-addition)
+- [core-artifact-layout.feature](../spec/features/core-artifact-layout.feature): 15 Rules, read in full
+- [core-artifact-layout-gaps.md](../spec/work/core-artifact-layout-gaps.md): gaps CAL-G01 to CAL-G16 and the decision on SPEC-0024
+- [core-artifact-layout-qa-strategy.md](../spec/work/core-artifact-layout-qa-strategy.md): the rows the fixes changed
+- [interface-contracts.md § migrate-spec-layout](../spec/interface-contracts.md), the `update-factory` Layout move row, and the consumer hook Layout move row
+- [validation-rules.md § Anchor-file prerequisite](../spec/validation-rules.md#anchor-file-prerequisite-feature-addition)
 - The first review report and the findings `SPEC-0024` to `SPEC-0027`
 
 `spec-lint` summary: `spec-lint: 0 error(s), 0 warning(s), 25 info across 26 spec file(s).`

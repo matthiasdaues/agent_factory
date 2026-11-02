@@ -1,6 +1,6 @@
 """Contract tests for the format-detection chain in factory/scripts/context-lint.
 
-Covers ACX-11 from docs/spec/agent-context-qa-strategy.md: the three-step
+Covers ACX-11 from docs/spec/work/agent-context-qa-strategy.md: the three-step
 chain that resolves whether a project uses the YAML agent-context format,
 a legacy YAML charter, or a legacy markdown charter, relative to a project
 root -- and reports CX-FORMAT when files exist at more than one of the

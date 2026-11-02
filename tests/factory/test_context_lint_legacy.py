@@ -1,7 +1,7 @@
 """Integration test for the legacy markdown charter fallback path in
 factory/scripts/context-lint.
 
-Covers ACX-12 from docs/spec/agent-context-qa-strategy.md: a project with no
+Covers ACX-12 from docs/spec/work/agent-context-qa-strategy.md: a project with no
 docs/agent-context/ directory, only docs/charter/*.md, gets validated with
 the existing CH-* finding codes when context-lint runs with no explicit
 --context-dir or --charter-dir override -- format detection dispatches to

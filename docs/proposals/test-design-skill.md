@@ -75,7 +75,7 @@ A new skill at `.agent-factory/factory/skills/test-design/SKILL.md` in the plann
 **Inputs:**
 
 - `backlog/epics.md` — confirmed epic slicing with building-block inventory
-- `docs/spec/*.feature` — consolidated Gherkin behavioral contracts
+- `docs/spec/features/*.feature` — consolidated Gherkin behavioral contracts
 - `docs/spec/scope-map.md` — contract IDs and architecture owners
 - `docs/charter/testing.yaml` — suites, runners, markers, link to the testing strategy, and gate configuration
 

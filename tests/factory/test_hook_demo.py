@@ -1,7 +1,7 @@
 """Contract tests for ST-0289: gate demonstration before choosing hooks.
 
 Owned contracts (EPIC 4 Ownership Resolution table,
-docs/spec/value-first-onboarding-journey-qa-strategy.md):
+docs/spec/work/value-first-onboarding-journey-qa-strategy.md):
 
   - VFO-07-IT-01 — Gate demonstration shows failure and success without
     target changes (`Scenario: Gate demonstration shows one

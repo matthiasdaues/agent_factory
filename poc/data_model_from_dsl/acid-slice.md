@@ -7,7 +7,7 @@ title: Acid Slice
 This file specifies the nine entities that every candidate story ports. It is
 the fixed input of the [data-model DSL PoC](proposal-data-model-dsl-technical-poc.md).
 
-**Source:** Gigacron `docs/spec/supplementary_specs/entity-model.md` at commit
+**Source:** Gigacron `docs/spec/entity-model.md` at commit
 `40954f18fe72b237ecc865905a31cf0b9b146556`. Every column, constraint, and enum
 value below is copied from that file. Nothing is invented.
 

@@ -10,7 +10,7 @@ reviewed_against: bb6849e7600dc7974031128cdcc7f0a343fc082f
 
 This document consolidates implementation issues found while reviewing
 [ST-0086](../../backlog/ST-0086.md) against the
-[Mechanized Dispatch QA Strategy](../spec/supplementary_specs/mechanized-dispatch-qa-strategy.md).
+[Mechanized Dispatch QA Strategy](../spec/work/mechanized-dispatch-qa-strategy.md).
 It replaces individual finding files for this review.
 
 ## Current disposition
@@ -34,7 +34,7 @@ exercised by the current suite.
 ## Enhanced-strategy repeat pass
 
 The review was repeated after hardening the
-[Mechanized Dispatch QA Strategy](../spec/supplementary_specs/mechanized-dispatch-qa-strategy.md).
+[Mechanized Dispatch QA Strategy](../spec/work/mechanized-dispatch-qa-strategy.md).
 The repeat pass exercised the newly explicit boundaries directly.
 
 | Strategy check                             | Result                   | Evidence                                                                                                                            |
@@ -82,7 +82,7 @@ rejected when loaded and when saved, not only when passed to `set_sha()`.
 **Severity:** Major
 
 **What is wrong:** The
-[Layer 2b strategy](../spec/supplementary_specs/mechanized-dispatch-qa-strategy.md#2b-story-lifecycle-state-machine)
+[Layer 2b strategy](../spec/work/mechanized-dispatch-qa-strategy.md#2b-story-lifecycle-state-machine)
 sets "Every invalid pair" as the boundary. The current test list samples 15
 invalid transitions and separately checks outbound transitions from `DONE`.
 It does not derive and test the complete complement of valid and idempotent

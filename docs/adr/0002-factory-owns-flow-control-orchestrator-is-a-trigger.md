@@ -29,7 +29,7 @@ Criteria drawn from the planned `10_quality_requirements.md` quality tree; **Sin
 | Preserves each subsystem's legitimate independent concerns (`orchestrator/`'s `RUN_LOCK`, audit trail) | 1      | 0             | +1                                            | 0                          | -1                                       |
 | **Weighted total**                                                                                     |        | **0**         | **+8**                                        | **-14**                    | **+1**                                   |
 
-B wins decisively. C is actively worse than the status quo — two independent, unreconciled models of "what phase are we in" is a direct SOLID Single-Responsibility violation, guaranteed to drift. D scores close to A only because deleting `orchestrator/`'s own `RUN`/`RUN_LOCK`/audit-trail bookkeeping — concerns `.agent-factory/factory/`'s marker was never meant to absorb (see [PRD § NG1](../spec/prd.md#non-goals)) — both costs more to build and throws away functionality unrelated to flow-control ownership. B pays a real, already-incurred migration cost (building and wiring four mechanisms) but is the only option that is CLI-agnostic, has one clear owner of flow-control state, and leaves `orchestrator/`'s own, separate run-tracking concerns untouched.
+B wins decisively. C is actively worse than the status quo — two independent, unreconciled models of "what phase are we in" is a direct SOLID Single-Responsibility violation, guaranteed to drift. D scores close to A only because deleting `orchestrator/`'s own `RUN`/`RUN_LOCK`/audit-trail bookkeeping — concerns `.agent-factory/factory/`'s marker was never meant to absorb (see [PRD § NG1](../spec/work/prd.md#non-goals)) — both costs more to build and throws away functionality unrelated to flow-control ownership. B pays a real, already-incurred migration cost (building and wiring four mechanisms) but is the only option that is CLI-agnostic, has one clear owner of flow-control state, and leaves `orchestrator/`'s own, separate run-tracking concerns untouched.
 
 ## Decision
 
@@ -37,16 +37,16 @@ B wins decisively. C is actively worse than the status quo — two independent, 
 
 `orchestrator/` is one possible trigger of these mechanisms — a stand-in for a human manually running `transition-lint`, `phase advance`, `phase retry`, and `trigger` by hand. You and the orchestrator CLI are peers: both only invoke `.agent-factory/factory/` tooling; neither holds flow-control authority the other lacks.
 
-`orchestrator/` keeps its own `RUN`/`RUN_LOCK` bookkeeping and invocation audit trail — concerns distinct from "what phase are we in," which `.agent-factory/factory/` does not duplicate (see [PRD § NG1](../spec/prd.md#non-goals)).
+`orchestrator/` keeps its own `RUN`/`RUN_LOCK` bookkeeping and invocation audit trail — concerns distinct from "what phase are we in," which `.agent-factory/factory/` does not duplicate (see [PRD § NG1](../spec/work/prd.md#non-goals)).
 
-This documentation ([docs/](../README.md)) supersedes the informal prior description in [docs/arc42/concepts.md § The phase chain](../arc42/concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../.agent-factory/factory/docs/factory-guide.md#playbook-phase-gates) as the rigorous statement of this boundary.
+This documentation ([docs/](../README.md)) supersedes the informal prior description in [docs/arc42/concepts.md § The phase chain](../arc42/concepts.md#the-phase-chain) and [factory/docs/factory-guide.md § Playbook phase gates](../../.agent-factory/factory/docs/factory-guide.md) as the rigorous statement of this boundary.
 
 ## Consequences
 
 **Positive**
 
 - One clear owner of flow-control state. A human, `orchestrator/`, or a freshly started agent session all read the same marker and FSM and reach the same answer — no process-local state to be out of sync with.
-- CLI-agnostic by construction: `greenfield-development.fsm.yml` can be driven end to end with `transition-lint`, `phase advance`/`retry`, and `trigger` alone, with `orchestrator/` never involved (see [PRD § 6 Success Criteria](../spec/prd.md#6-success-criteria)).
+- CLI-agnostic by construction: `greenfield-development.fsm.yml` can be driven end to end with `transition-lint`, `phase advance`/`retry`, and `trigger` alone, with `orchestrator/` never involved (see [PRD § 6 Success Criteria](../spec/work/prd.md#6-success-criteria)).
 - `orchestrator/`'s own legitimate concerns — its `RUN_LOCK` single-active-run invariant, its invocation log — stay intact and untouched; this decision narrows what `orchestrator/` owns, it does not gut it.
 
 **Negative / risks**
@@ -59,4 +59,4 @@ This documentation ([docs/](../README.md)) supersedes the informal prior descrip
 
 - `04_solution_strategy.md` § 4.1 (planned chapter)
 - [09_architecture_decisions.md](../arc42/09_architecture_decisions.md)
-- [docs/spec/prd.md § 1 Problem Statement](../spec/prd.md#1-problem-statement)
+- [docs/spec/prd.md § 1 Problem Statement](../spec/work/prd.md#1-problem-statement)

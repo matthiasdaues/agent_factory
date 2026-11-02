@@ -20,7 +20,7 @@ UC-09 introduces BR-024, which extends `block-dangerous-git.sh` (the subject of 
 ## Location
 
 - **Use Case**: docs/spec/use_cases/UC-07-block-a-dangerous-git-command.md
-- **Business Rule**: docs/spec/supplementary_specs/validation-rules.md § BR-024
+- **Business Rule**: docs/spec/validation-rules.md § BR-024
 - **Extending Use Case**: docs/spec/use_cases/UC-09-run-tests-via-hook.md
 
 ## Evidence
@@ -35,7 +35,7 @@ UC-09 introduces BR-024, which extends `block-dangerous-git.sh` (the subject of 
 
 **And BR-020** (in UC-07) states:
 
-> **BR-020**: the hook's deny list is a second, independent layer on top of `trigger`'s own `--disallowedTools`/`--deny-tool` (see [UC-04 § Business Rules](../~archive/spec/use_cases/UC-04-dispatch-an-agent-via-trigger.md#business-rules)) — belt-and-suspenders, not a single point of failure; a background session denied by one layer is denied before the verb is even offered as available, not merely rejected after asking.
+> **BR-020**: the hook's deny list is a second, independent layer on top of `trigger`'s own `--disallowedTools`/`--deny-tool` (see `UC-04 § Business Rules`) — belt-and-suspenders, not a single point of failure; a background session denied by one layer is denied before the verb is even offered as available, not merely rejected after asking.
 
 BR-020 references UC-04 but does not cross-reference UC-09's extension of the deny list.
 
@@ -67,7 +67,7 @@ This makes the extension explicit and provides a forward reference to UC-09 wher
 
 - docs/spec/use_cases/UC-07-block-a-dangerous-git-command.md
 - docs/spec/use_cases/UC-09-run-tests-via-hook.md
-- docs/spec/supplementary_specs/validation-rules.md § BR-020, BR-024
+- docs/spec/validation-rules.md § BR-020, BR-024
 
 ## Category Rationale
 

@@ -131,7 +131,7 @@ Enforces module dependency directions declared in `architecture.dsl`. Neither TD
 | **Skill file**       | `.agent-factory/factory/skills/dependency-check/SKILL.md`                                                      |
 | **Tool candidates**  | `deptrack` (general), `dependency-cruiser` (JS/TS), `arch-pkg` (Go)                                            |
 | **What it enforces** | Module dependency directions match `architecture.dsl` declarations                                             |
-| **Inputs**           | `docs/arc42/architecture.dsl`, source files                                                                    |
+| **Inputs**           | `docs/spec/architecture.dsl`, source files                                                                     |
 | **Outputs**          | JSON report per rule (pass/fail, violating import), logged to `.current-work/dependency-check/<story-id>.json` |
 
 #### Invocation model — developer/gate separation
@@ -222,7 +222,7 @@ The `.feature` files are live during the entire slice lifecycle (Phases 1–5). 
 | Rule                                      | Status      | Slice | Feature file              |
 | ----------------------------------------- | ----------- | ----- | ------------------------- |
 | Rule: User authenticates via SSO          | implemented | 1     | docs/~archive/spec/slice-1.feature  |
-| Rule: Admin configures tenant settings    | specified   | 2     | docs/spec/slice-2.feature |
+| Rule: Admin configures tenant settings    | specified   | 2     | docs/spec/features/slice-2.feature |
 | Rule: System exports audit log            | deferred    | —     | —                         |
 ```
 
@@ -296,7 +296,7 @@ which owner survives and why. Reference to `testing-strategy.md § Delete
 overlapping tests safely` as the protocol.
 ```
 
-**Source inputs:** `docs/spec/<feature-name>.feature` (the Rule groupings provide the actor-goal matrix), `docs/spec/supplementary_specs/entity-model.md`, `docs/spec/supplementary_specs/interface-contracts.md`
+**Source inputs:** `docs/spec/<feature-name>.feature` (the Rule groupings provide the actor-goal matrix), `docs/spec/entity-model.md`, `docs/spec/interface-contracts.md`
 
 **What it is not:** It is not a generic testing policy. It is not `testing-strategy.md` reformatted. It is a per-feature QA plan that tells the `qa-agent` how to specialise the generic strategy for this feature's specific contracts and risk profile.
 
@@ -322,11 +322,11 @@ At the end of Phase 1 (after the proposal is accepted), before Phase 3 begins:
 
 ```
 Mechanical check:
-  1. Read docs/arc42/architecture.dsl — derive the current module map
+  1. Read docs/spec/architecture.dsl — derive the current module map
      (which directories own which modules, which modules depend on which)
   2. Read the feature's Phase 1 outputs:
-     - docs/spec/supplementary_specs/interface-contracts.md — new or changed interfaces
-     - docs/spec/supplementary_specs/entity-model.md — new entities
+     - docs/spec/interface-contracts.md — new or changed interfaces
+     - docs/spec/entity-model.md — new entities
   3. For each interface or entity declared by the feature:
      - Map it to the module(s) in the DSL it belongs to
      - Check if it targets a module not present in the DSL (new module)
@@ -396,7 +396,7 @@ Each fixture directory is a self-contained project with source files, a test sui
 
 ### Archive Path Convention
 
-The `~archive/` directory referenced by the scope map and the [handoff convention](../../../.agent-factory/factory/rulebooks/rules.md#handoffs) lives under `docs/`: `docs/~archive/`. Archived artifacts preserve their original path relative to `docs/` — for example, `docs/spec/slice-1.feature` archives to `docs/~archive/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
+The `~archive/` directory referenced by the scope map and the [handoff convention](../../../.agent-factory/factory/rulebooks/rules.md#handoffs) lives under `docs/`: `docs/~archive/`. Archived artifacts preserve their original path relative to `docs/` — for example, `docs/spec/features/slice-1.feature` archives to `docs/~archive/spec/slice-1.feature`. This convention applies to both `.feature` files archived after implementation and superseded documentation artifacts archived per the handoff rule.
 
 **Delivery order within the release:** The scope is one release, but stories should be sequenced by dependency:
 
@@ -513,11 +513,11 @@ The `.feature` file is not only a specification document — it is a test specif
 
 Both the `greenfield-development` and `brownfield-onboarding` playbooks produce the same terminal state: a project that is ready to receive feature work through `feature-addition`. The terminal artifacts are:
 
-| Artifact                      | Description                                                                                            |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `docs/spec/scope-map.md`      | All known actor-goal pairs as Rules, with status `deferred` (greenfield) or `implemented` (brownfield) |
-| `docs/arc42/architecture.dsl` | Structurizr C4 model of the system's module structure and dependencies                                 |
-| Arc42 prose (chapters 01–12)  | Architecture documentation derived from `architecture.dsl`                                             |
+| Artifact                     | Description                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `docs/spec/scope-map.md`     | All known actor-goal pairs as Rules, with status `deferred` (greenfield) or `implemented` (brownfield) |
+| `docs/spec/architecture.dsl` | Structurizr C4 model of the system's module structure and dependencies                                 |
+| Arc42 prose (chapters 01–12) | Architecture documentation derived from `architecture.dsl`                                             |
 
 **Greenfield terminal condition:** The playbook ends when the scope map exists with all Rules from the initial specification marked `deferred`, `architecture.dsl` models the planned module structure, and arc42 prose passes architecture review. No `.feature` files exist yet — those are produced per-slice when `feature-addition` begins.
 

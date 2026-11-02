@@ -154,7 +154,7 @@ ERROR: Multiple test frameworks detected (pyproject.toml, package.json).
 
 ## References
 
-- docs/spec/supplementary_specs/validation-rules.md § BR-023
+- docs/spec/validation-rules.md § BR-023
 - docs/adr/0003-test-execution-via-hooks.md (Context § Consequences)
 - docs/arc42/05_building_block_view.md § 5.2.1 (run-tests component)
 

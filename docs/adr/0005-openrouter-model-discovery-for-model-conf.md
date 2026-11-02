@@ -51,5 +51,5 @@ There is no genuine third contender once "runtime must stay deterministic and of
 
 - [09_architecture_decisions.md](../arc42/09_architecture_decisions.md)
 - [config/model.conf](../../.agent-factory/config/model.conf)
-- [docs/spec/prd.md § FR-J](../spec/prd.md#4-functional-requirements)
+- [docs/spec/prd.md § FR-J](../spec/work/prd.md#4-functional-requirements)
 - [docs/adr/0004-pi-subagent-invocation-via-subprocess-spawn.md](0004-pi-subagent-invocation-via-subprocess-spawn.md)
