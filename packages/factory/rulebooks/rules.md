@@ -215,7 +215,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 
 → [todo-format.md](conventions/todo-format.md)
 
-- **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/todo.md` — not left implicit in conversation.
+- **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/work/todo.md` — not left implicit in conversation.
 
 ## Versioning
 

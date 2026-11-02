@@ -164,3 +164,35 @@ class TestAssessExitCode:
         os.chdir(tmp_path)
         result = intent.main(["assess"])
         assert result == 0
+
+
+class TestAssessCoreLayoutPaths:
+    def test_feature_in_features_folder_counted(self, tmp_path, capsys, monkeypatch):
+        features = tmp_path / "docs" / "spec" / "features"
+        features.mkdir(parents=True)
+        (features / "payments.feature").write_text("Feature: Payments\n")
+        (tmp_path / "docs" / "spec" / "stale.feature").write_text("Feature: Stale\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = intent.main(["assess", "--format", "json"])
+
+        assert result == 0
+        data = json.loads(capsys.readouterr().out)
+        features_found = [d["artifact_ref"] for d in data if d["artifact_type"] == "feature"]
+        assert features_found == ["docs/spec/features/payments.feature"]
+
+    def test_qa_strategy_in_work_folder_counted(self, tmp_path, capsys, monkeypatch):
+        work = tmp_path / "docs" / "spec" / "work"
+        work.mkdir(parents=True)
+        (work / "payments-qa-strategy.md").write_text(
+            "---\ntitle: QA\nstatus: draft\nscope: payments\n---\n# QA\n"
+        )
+        (tmp_path / "docs" / "spec" / "stale-qa-strategy.md").write_text("# QA\n")
+        monkeypatch.chdir(tmp_path)
+
+        result = intent.main(["assess", "--format", "json"])
+
+        assert result == 0
+        data = json.loads(capsys.readouterr().out)
+        strategies = [d["artifact_ref"] for d in data if d["artifact_type"] == "qa-strategy"]
+        assert strategies == ["docs/spec/work/payments-qa-strategy.md"]

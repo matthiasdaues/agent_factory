@@ -49,7 +49,7 @@ agents:
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
     tokens: 742
-    total_tokens: 5660
+    total_tokens: 5661
     inputs:
       required:
         - type: feature
@@ -104,13 +104,13 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 480
-    total_tokens: 1248
+    tokens: 482
+    total_tokens: 1251
     inputs:
       context:
         - docs/CONTEXT.md
         - docs/reviews/retro-*.md
-        - docs/spec/todos.md
+        - docs/spec/work/todos.md
     outputs:
       minimum_changed: 1
       declarations:
@@ -123,7 +123,7 @@ agents:
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
     tokens: 980
-    total_tokens: 6141
+    total_tokens: 6145
     inputs:
       required:
         - type: story
@@ -297,7 +297,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1290
-    total_tokens: 9698
+    total_tokens: 9702
     inputs:
       required:
         - type: feature
@@ -337,7 +337,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2272
-    total_tokens: 20000
+    total_tokens: 20004
     inputs:
       required:
         - type: scope-map
@@ -393,7 +393,7 @@ agents:
     description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1753
-    total_tokens: 19995
+    total_tokens: 19998
     inputs:
       required:
         - any_of:
@@ -520,7 +520,7 @@ agents:
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
     tokens: 701
-    total_tokens: 4428
+    total_tokens: 4429
     inputs:
       required:
         - type: feature
@@ -692,7 +692,7 @@ skills:
     category: planning
     description: "Incorporate grilling results into a backlog story: fill resolved contract decisions into their home sections, write concrete Required API Behavior, and prepare the story for slicing. Phase 6 of the create-backlog sequence."
     path: skills/create-backlog-make-concrete/SKILL.md
-    tokens: 1253
+    tokens: 1254
   - name: slice-story
     category: planning
     description: Cut a concrete backlog story into independently implementable slices along contract boundaries. Phase 7 of the create-backlog sequence.
@@ -817,7 +817,7 @@ skills:
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
-    tokens: 768
+    tokens: 769
   - name: run-step
     category: utility
     description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
@@ -885,7 +885,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 15072
+    total_tokens: 15073
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -898,8 +898,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3327
-    total_tokens: 61717
+    tokens: 3373
+    total_tokens: 61772
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -909,7 +909,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15431
+    total_tokens: 15435
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -921,7 +921,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 948
-    total_tokens: 43905
+    total_tokens: 43911
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -937,8 +937,8 @@ playbooks:
       - code-review-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4632
-    total_tokens: 105987
+    tokens: 4667
+    total_tokens: 106039
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -956,7 +956,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2737
-    total_tokens: 105340
+    total_tokens: 105360
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -972,7 +972,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 15934
+    total_tokens: 15938
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1017,7 +1017,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4844
+    tokens: 4845
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1045,7 +1045,7 @@ rulebooks:
   - name: cross-reference-format
     category: conventions
     path: rulebooks/conventions/cross-reference-format.md
-    tokens: 588
+    tokens: 591
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
@@ -1081,7 +1081,7 @@ rulebooks:
   - name: report-format
     category: conventions
     path: rulebooks/conventions/report-format.md
-    tokens: 1165
+    tokens: 1166
   - name: research-claim-admission-policy
     category: conventions
     path: rulebooks/conventions/research-claim-admission-policy.md
@@ -1125,7 +1125,7 @@ rulebooks:
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
-    tokens: 414
+    tokens: 416
   - name: touches-hygiene
     category: conventions
     path: rulebooks/conventions/touches-hygiene.md
