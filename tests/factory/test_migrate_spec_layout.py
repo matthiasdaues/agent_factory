@@ -575,7 +575,10 @@ class TestRemovals:
         root = make_project(tmp_path / "p", files)
         result = run_script(root)
         assert result.returncode == 0, result.stderr
-        assert result.stdout == f"remove: {ARCHIVE_GOAL_LIST}\n"
+        # The fold step follows because docs/arc42/CONTEXT-MAP.md remains.
+        assert result.stdout.splitlines()[:1] == [f"remove: {ARCHIVE_GOAL_LIST}"]
+        assert len(result.stdout.splitlines()) == 2
+        assert "capture-context --fold-context-map" in result.stdout.splitlines()[1]
         assert porcelain(root) == f"D  {ARCHIVE_GOAL_LIST}\n"
 
     @pytest.mark.spec("CAL-03-IT-04")
@@ -1247,3 +1250,283 @@ class TestLinkRewrite:
         assert porcelain(root) == before
         for rel in (DECISIONS, "docs/spec/todo.md", "docs/spec/scope-map.md"):
             assert (root / rel).read_bytes() == OLD_LAYOUT_LINKS[rel].encode()
+
+
+# ── CAL-06-CT-02 and CAL-06-IT-01: the terms of each CONTEXT.md become a ──
+# ── glossary section of their own (ST-0324) ─────────────────────────────
+
+CONTEXT = "docs/CONTEXT.md"
+ARC42_CONTEXT = "docs/arc42/CONTEXT.md"
+LEDGER_CONTEXT = "packages/ledger/CONTEXT.md"
+CONTEXT_MAP = "docs/arc42/CONTEXT-MAP.md"
+FOLD_STEP = "capture-context --fold-context-map"
+CLEANUP_STEP = "remove the duplicate terms"
+
+BILLING_CONTEXT = (
+    "# Billing\n\n"
+    "Bills customers for delivered orders.\n\n"
+    "## Language\n\n"
+    "**Invoice**:\n"
+    "A request for payment sent to a customer after delivery.\n"
+    "_Avoid_: Bill, payment request\n\n"
+    "**Customer**:\n"
+    "A person or organization that places orders.\n"
+    "_Avoid_: Client, buyer, account\n"
+)
+BILLING_ROUTING = "# Billing\n\nBills customers for delivered orders.\n"
+BILLING_SECTION = (
+    "## Billing\n\n"
+    "| Term     | Definition                                               "
+    "| Avoid                  |\n"
+    "| -------- | -------------------------------------------------------- "
+    "| ---------------------- |\n"
+    "| Invoice  | A request for payment sent to a customer after delivery. "
+    "| Bill, payment request  |\n"
+    "| Customer | A person or organization that places orders.             "
+    "| Client, buyer, account |\n"
+)
+LEDGER_FILE = (
+    "# Ledger\n\nKeeps the books.\n\n## Language\n\n"
+    "**Ledger Entry**: One booked line.\n"
+)
+ROUTING_ONLY = "# Architecture\n\nRead the arc42 chapters for the building blocks.\n"
+MAP_TEXT = (
+    "# Context Map\n\n## Contexts\n\n"
+    "- **Ledger** — the books. See `packages/ledger/CONTEXT.md`.\n"
+)
+
+
+def make_vocabulary_project(root: Path) -> Path:
+    """Build ``old-layout-vocabulary``: old-layout-glossary plus vocabulary files."""
+    make_glossary_project(root)
+    for rel, text in {
+        CONTEXT: BILLING_CONTEXT,
+        CONTEXT_MAP: MAP_TEXT,
+        LEDGER_CONTEXT: LEDGER_FILE,
+        ARC42_CONTEXT: ROUTING_ONLY,
+    }.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text, encoding="utf-8")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "vocabulary files")
+    return root
+
+
+def _headings(text: str) -> list[str]:
+    return [line[3:] for line in text.splitlines() if line.startswith("## ")]
+
+
+class TestVocabulary:
+    """The terms of each CONTEXT.md move into the glossary; routing stays."""
+
+    @pytest.mark.spec("CAL-06-CT-02")
+    def test_CAL_06_list_form_becomes_rows_and_language_section_goes(self, migrate):
+        text = (
+            BILLING_CONTEXT.replace("## Language", "## Language\n")
+            + "\n## Relationships\n\nBilling reads the ledger.\n"
+        )
+        section, rest = migrate.convert_context(text, CONTEXT)
+        assert section.heading == "Billing"
+        assert section.rows == [
+            (
+                "Invoice",
+                "A request for payment sent to a customer after delivery.",
+                "Bill, payment request",
+            ),
+            (
+                "Customer",
+                "A person or organization that places orders.",
+                "Client, buyer, account",
+            ),
+        ]
+        assert migrate.render_sections([section]) + "\n" == BILLING_SECTION
+        assert (
+            rest
+            == BILLING_ROUTING + "\n## Relationships\n\nBilling reads the ledger.\n"
+        )
+
+    @pytest.mark.spec("CAL-06-CT-02")
+    def test_CAL_06_definition_on_the_term_line_and_a_bar_in_a_cell(self, migrate):
+        section, rest = migrate.convert_context(
+            "## Language\n\n**A|B**: Either a or\nb.\n", "x/CONTEXT.md"
+        )
+        assert section.heading == "x/CONTEXT.md"
+        assert section.rows == [("A\\|B", "Either a or b.", "")]
+        assert rest == "\n"
+
+    @pytest.mark.spec("CAL-06-CT-02")
+    def test_CAL_06_context_without_language_gives_no_terms(self, migrate):
+        assert migrate.convert_context(ROUTING_ONLY, ARC42_CONTEXT) is None
+
+    @pytest.mark.spec("CAL-06-CT-02")
+    @pytest.mark.parametrize(
+        "body",
+        [
+            "Some prose first.\n",
+            "- **Invoice**: A bill.\n",
+            "**Invoice**:\n### Group\n",
+        ],
+    )
+    def test_CAL_06_language_section_outside_the_list_form_is_an_error(
+        self, migrate, body
+    ):
+        with pytest.raises(migrate.ListFormError):
+            migrate.convert_context("# Billing\n\n## Language\n\n" + body, CONTEXT)
+
+    @pytest.mark.spec("CAL-06-CT-02")
+    def test_CAL_06_duplicate_terms_compare_without_markup_and_case(self, migrate):
+        glossary = migrate.render_glossary(
+            [
+                migrate.GlossarySection("Terms", rows=[("**Invoice**", "x")]),
+                migrate.GlossarySection("Billing", rows=[("invoice", "y", "")]),
+                migrate.GlossarySection("Ledger", rows=[("Entry", "z", "")]),
+            ]
+        )
+        assert migrate.duplicate_terms(glossary) == [("Invoice", ["Terms", "Billing"])]
+
+    @pytest.mark.spec("CAL-06-IT-01")
+    def test_CAL_06_two_vocabularies_never_stop_the_script(self, tmp_path: Path):
+        root = make_vocabulary_project(tmp_path / "old-layout-vocabulary")
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        glossary = (root / GLOSSARY).read_text(encoding="utf-8")
+        assert _headings(glossary) == [
+            "Terms",
+            "Usage Analysis Vocabulary",
+            "Billing",
+            "Ledger",
+        ]
+        assert glossary.startswith(GLOSSARY_EXPECTED)
+        assert BILLING_SECTION in glossary
+        assert ["Ledger Entry", "One booked line.", ""] in _rows(glossary)
+        lines = result.stdout.splitlines()
+        assert "duplicate term: Invoice in Terms, Billing" in lines
+        assert any(FOLD_STEP in line for line in lines)
+        assert CLEANUP_STEP in lines[-1] and "domain-modeling" in lines[-1]
+        assert (root / CONTEXT).read_text(encoding="utf-8") == BILLING_ROUTING
+        assert (root / ARC42_CONTEXT).read_bytes() == ROUTING_ONLY.encode()
+        assert (root / CONTEXT_MAP).read_text(encoding="utf-8") == MAP_TEXT
+        for path in root.rglob("CONTEXT.md"):
+            assert "## Language" not in path.read_text(encoding="utf-8"), path
+
+    @pytest.mark.spec("CAL-06-IT-01")
+    @pytest.mark.parametrize(
+        ("source", "files"),
+        [
+            (CONTEXT, {CONTEXT: BILLING_CONTEXT}),
+            (ARC42_CONTEXT, {ARC42_CONTEXT: BILLING_CONTEXT}),
+            (
+                LEDGER_CONTEXT,
+                {CONTEXT_MAP: MAP_TEXT, LEDGER_CONTEXT: LEDGER_FILE},
+            ),
+        ],
+    )
+    def test_CAL_06_each_vocabulary_source_without_chapter_12_creates_the_glossary(
+        self, tmp_path: Path, source, files
+    ):
+        root = make_project(tmp_path / "p", {**NEW_LAYOUT_PAYMENTS, **files})
+        (root / GLOSSARY).unlink()
+        git(root, "commit", "-q", "-am", "no glossary")
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        glossary = (root / GLOSSARY).read_text(encoding="utf-8")
+        heading = "Ledger" if source == LEDGER_CONTEXT else "Billing"
+        assert _headings(glossary) == [heading]
+        entries = {line[3:]: line[:2] for line in porcelain(root).splitlines()}
+        assert entries[GLOSSARY] == "A "
+        assert "## Language" not in (root / source).read_text(encoding="utf-8")
+        assert f"{source} -> {GLOSSARY}" in result.stdout
+        assert FOLD_STEP in result.stdout
+        assert "duplicate term" not in result.stdout
+        assert CLEANUP_STEP not in result.stdout
+
+    @pytest.mark.spec("CAL-06-IT-01")
+    def test_CAL_06_existing_glossary_gets_the_context_terms_appended(
+        self, tmp_path: Path
+    ):
+        existing = (
+            "# Glossary\n\n## Terms\n\n"
+            "| Term    | Definition | Avoid |\n| ------- | ---------- | ----- |\n"
+            "| Invoice | A bill.    |       |\n"
+        )
+        root = make_project(
+            tmp_path / "p",
+            {**NEW_LAYOUT_PAYMENTS, GLOSSARY: existing, CONTEXT: BILLING_CONTEXT},
+        )
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert (root / GLOSSARY).read_text(encoding="utf-8") == (
+            existing + "\n" + BILLING_SECTION
+        )
+        assert "duplicate term: Invoice in Terms, Billing" in result.stdout
+        assert CLEANUP_STEP in result.stdout
+        assert (root / CONTEXT).read_text(encoding="utf-8") == BILLING_ROUTING
+
+    @pytest.mark.spec("CAL-06-IT-01")
+    def test_CAL_06_routing_only_context_in_the_new_layout_gives_no_work(
+        self, tmp_path: Path
+    ):
+        root = make_project(
+            tmp_path / "p", {**NEW_LAYOUT_PAYMENTS, CONTEXT: ROUTING_ONLY}
+        )
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == ""
+        assert porcelain(root) == ""
+
+    @pytest.mark.spec("CAL-06-IT-01")
+    def test_CAL_06_language_section_outside_the_list_form_refuses(
+        self, tmp_path: Path
+    ):
+        text = "# Billing\n\n## Language\n\nInvoices are bills.\n"
+        root = make_project(tmp_path / "p", {**NEW_LAYOUT_PAYMENTS, CONTEXT: text})
+        result = run_script(root)
+        assert result.returncode == 2
+        assert CONTEXT in result.stderr
+        assert porcelain(root) == ""
+
+    @pytest.mark.spec("CAL-03-IT-04")
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+    def test_CAL_06_failure_after_a_language_removal_restores_every_file(
+        self, tmp_path: Path
+    ):
+        root = make_vocabulary_project(tmp_path / "p")
+        work = root / "docs/spec/work"
+        work.mkdir()
+        work.chmod(0o555)
+        before = porcelain(root)
+        try:
+            result = run_script(root)
+        finally:
+            work.chmod(0o755)
+        assert result.returncode == 1
+        assert "undone" in result.stderr
+        assert porcelain(root) == before
+        assert not (root / GLOSSARY).exists()
+        assert (root / CONTEXT).read_text(encoding="utf-8") == BILLING_CONTEXT
+        assert (root / LEDGER_CONTEXT).read_text(encoding="utf-8") == LEDGER_FILE
+
+    @pytest.mark.spec("CAL-06-IT-01")
+    def test_CAL_06_existing_glossary_with_chapter_12_and_context_terms_exits_0(
+        self, tmp_path: Path
+    ):
+        existing = "# Glossary\n\n## Acronyms\n\n| Term | Definition | Avoid |\n| --- | --- | --- |\n| SLA | Service level agreement. | |\n"
+        root = make_vocabulary_project(tmp_path / "p")
+        (root / GLOSSARY).write_text(existing, encoding="utf-8")
+        git(root, "add", "-A")
+        git(root, "commit", "-q", "-m", "glossary")
+        result = run_script(root)
+        assert result.returncode == 0, result.stderr
+        glossary = (root / GLOSSARY).read_text(encoding="utf-8")
+        assert glossary.startswith(existing)
+        assert _headings(glossary) == [
+            "Acronyms",
+            "Terms",
+            "Usage Analysis Vocabulary",
+            "Billing",
+            "Ledger",
+        ]
+        assert "duplicate term: Invoice in Terms, Billing" in result.stdout
+        assert (root / CHAPTER12).read_text(encoding="utf-8") == STUB_EXPECTED
+        entries = {line[3:]: line[:2] for line in porcelain(root).splitlines()}
+        assert entries[GLOSSARY] == "M "
