@@ -15,7 +15,7 @@ File an item when a decision is deferred, a question can't be answered inline, o
 
 ## File location
 
-Single file: `docs/spec/todo.md`. Create lazily — only when the first item is filed.
+Single file: `docs/spec/work/todo.md`. Create lazily — only when the first item is filed.
 
 ## Entry format
 
@@ -31,7 +31,7 @@ Skeleton: [todo-entry.md template](../templates/todo-entry.md).
 
 ## Format
 
-Run `.agent-factory/factory/scripts/mdformat --number docs/spec/todo.md` after every edit, per [markdown-formatting.md](markdown-formatting.md).
+Run `.agent-factory/factory/scripts/mdformat --number docs/spec/work/todo.md` after every edit, per [markdown-formatting.md](markdown-formatting.md).
 
 ## Referenced from
 
