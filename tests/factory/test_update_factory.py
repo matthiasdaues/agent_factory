@@ -1818,3 +1818,123 @@ def test_CAL_07_approved_update_moves_the_project_into_the_new_layout(tmp_path):
     assert (spec / "work" / "prd.md").is_file()
     assert not (spec / "payments.feature").exists()
     assert read_factory_version(target) == "1.4.0"
+
+
+# ---------------------------------------------------------------------------
+# CAL-07-IT-03: a failed migration rolls the whole update back
+# ---------------------------------------------------------------------------
+
+
+def _tree_bytes(root: Path, *, skip: tuple[str, ...] = ()) -> dict[str, object]:
+    """Map each path under ``root`` to its bytes, its link target, or a
+    directory marker, leaving out the top-level names in ``skip``."""
+    tree: dict[str, object] = {}
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        if rel.split("/", 1)[0] in skip:
+            continue
+        if path.is_symlink():
+            tree[rel] = ("link", os.readlink(path))
+        elif path.is_dir():
+            tree[rel] = ("dir",)
+        else:
+            tree[rel] = path.read_bytes()
+    return tree
+
+
+def _make_installed_1_3_3_failing(tmp_path: Path) -> Path:
+    """Fixture installed-1.3.3-failing: installed-1.3.3 of ST-0330 on the
+    old-layout-hooks project of ST-0322, with an empty docs/spec/work/ the
+    caller makes read-only, so the migration fails after its link rewrites
+    and its hook rewrite."""
+    from test_init_factory import read_factory_version, run_init, stage_source
+    from test_migrate_spec_layout import OLD_LAYOUT_HOOKS, make_project
+
+    target = make_project(tmp_path / "installed-1.3.3-failing", OLD_LAYOUT_HOOKS)
+    source = stage_source(tmp_path / "source-1.3.3", "1.3.3")
+    first = run_init(source, target, "--cli", "claude", "--project-name", "payments")
+    assert first.returncode == 0, first.stderr
+    assert read_factory_version(target) == "1.3.3"
+    (target / "docs" / "spec" / "work").mkdir()
+    return target
+
+
+@pytest.fixture(scope="class")
+def failed_update_run(tmp_path_factory):
+    """Run an approved update to 1.4.0 on installed-1.3.3-failing.
+
+    The class-scoped fixture runs before the per-test ``_scrub_git_env``,
+    so it drops the GIT_* variables a pre-commit hook leaks itself."""
+    from test_init_factory import stage_source
+    from test_migrate_spec_layout import porcelain
+
+    tmp_path = tmp_path_factory.mktemp("failed-update")
+    with pytest.MonkeyPatch.context() as patch:
+        for key in [k for k in os.environ if k.startswith("GIT_")]:
+            patch.delenv(key)
+        target = _make_installed_1_3_3_failing(tmp_path)
+        source = stage_source(tmp_path / "source-1.4.0", "1.4.0")
+        work = target / "docs" / "spec" / "work"
+        work.chmod(0o555)
+        try:
+            before = _tree_bytes(target, skip=(".git",))
+            status_before = porcelain(target)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+                    "--target", str(target), "--source", str(source),
+                ],
+                input="yes\n", capture_output=True, text=True, check=False,
+            )
+            after = _tree_bytes(target, skip=(".git",))
+            status_after = porcelain(target)
+        finally:
+            work.chmod(0o755)
+    return target, before, after, status_before, status_after, result
+
+
+def _part(tree: dict[str, object], prefix: str) -> dict[str, object]:
+    return {rel: data for rel, data in tree.items() if rel.startswith(prefix)}
+
+
+def _project_files(tree: dict[str, object]) -> dict[str, object]:
+    """The project's own files: no factory install, no hook config."""
+    return {
+        rel: data for rel, data in tree.items()
+        if not rel.startswith(".agent-factory") and rel != ".pre-commit-config.yaml"
+    }
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores folder permissions")
+class TestFailedMigrationRollsTheUpdateBack:
+    """A failed migration inside an approved update restores every part
+    the update touched (CAL-07-IT-03)."""
+
+    @pytest.mark.spec("CAL-07-IT-03")
+    def test_CAL_07_failed_migration_rolls_the_whole_update_back(
+        self, failed_update_run
+    ):
+        from test_init_factory import read_factory_version
+
+        target, before, after, status_before, status_after, result = failed_update_run
+        factory = ".agent-factory/factory/"
+        config = ".pre-commit-config.yaml"
+
+        # The migration got as far as the link and hook rewrites.
+        assert "hook: .pre-commit-config.yaml" in result.stdout
+        assert "link: " in result.stdout
+        # Forbidden: an update that hides the failure or exits 0.
+        assert result.returncode != 0
+        assert "the sourced init-factory did not complete" in result.stderr
+        assert "previous installation has been restored" in result.stderr
+        # Forbidden: a project file left moved or rewritten.
+        assert _project_files(after) == _project_files(before)
+        assert status_after == status_before
+        # Forbidden: the hook block left at the new files values.
+        assert after[config] == before[config]
+        # Forbidden: the factory tree left at 1.4.0.
+        assert _part(after, factory) == _part(before, factory)
+        # Forbidden: install.json recording the new version.
+        assert read_factory_version(target) == "1.3.3"
+        assert _part(after, ".agent-factory") == _part(before, ".agent-factory")
