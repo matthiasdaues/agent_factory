@@ -6,7 +6,7 @@ inputs:
   context:
     - backlog/ST-NNNN.md
     - backlog/epics.md
-    - "docs/spec/*.feature"
+    - "docs/spec/features/*.feature"
     - docs/spec/scope-map.md
     - docs/testing.yaml
 outputs:
@@ -42,7 +42,7 @@ Follow the [testing.yaml prerequisite guard](../../rulebooks/conventions/testing
 - `backlog/epics.md` — the `### Ownership Resolution` table for the story's
   EPIC, produced by the `testability-probe` skill. Contains ownership
   assignments ("contract X owned by ST-NNNN").
-- `docs/spec/*.feature` — consolidated Gherkin behavioral contracts.
+- `docs/spec/features/*.feature` — consolidated Gherkin behavioral contracts.
 - `docs/spec/scope-map.md` — joins behavioral-rule sentences to their
   `.feature` source and implementation code.
 - `testing.yaml (at docs/testing.yaml)` — `testing_strategy:` link,

@@ -5,7 +5,7 @@ category: planning
 inputs:
   context:
     - backlog/epics.md
-    - "docs/spec/*.feature"
+    - "docs/spec/features/*.feature"
     - docs/spec/scope-map.md
     - docs/testing.yaml
 outputs:
@@ -40,10 +40,10 @@ Follow the [testing.yaml prerequisite guard](../../rulebooks/conventions/testing
 
 - `backlog/epics.md` — confirmed epic slicing with EPIC-level Actor Goals and
   a Building-Block Inventory table per EPIC.
-- `docs/spec/*.feature` — consolidated Gherkin behavioral contracts. Each
+- `docs/spec/features/*.feature` — consolidated Gherkin behavioral contracts. Each
   `Rule:` groups the Scenarios for one actor-goal pair.
-- `docs/spec/scope-map.md` — joins behavioral-rule sentences to their `.feature`
-  source and, once implemented, to the code that realizes them.
+- `docs/spec/scope-map.md` — joins behavioral-rule sentences to their feature
+  file and, once implemented, to the code that realizes them.
 - `testing.yaml (at docs/testing.yaml)` — `testing_strategy:` link and `suites:`
   section (used only for the prerequisite guard and for identifying test suite
   locations when naming instrumentation boundaries).
@@ -55,7 +55,7 @@ Follow the [testing.yaml prerequisite guard](../../rulebooks/conventions/testing
 Each EPIC in `epics.md` lists **Actor Goals** that are the same sentences as
 `.feature` `Rule:` titles (`create-backlog-epics` requires every User Goal to
 belong to exactly one EPIC, and EPIC Actor Goals are written verbatim from the
-actor-goal list). For each EPIC:
+scope map's Rule column). For each EPIC:
 
 1. Match each Actor Goal sentence to its `.feature` `Rule:` — either directly
    (the Rule title matches the goal) or through `docs/spec/scope-map.md`,

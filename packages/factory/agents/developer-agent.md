@@ -12,16 +12,16 @@ skills:
 inputs:
   required:
     - type: feature
-      path_pattern: "docs/spec/*.feature"
+      path_pattern: "docs/spec/features/*.feature"
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
     - type: supplementary-spec
-      path_pattern: "docs/spec/supplementary_specs/*.md"
+      path_pattern: "docs/spec/*.md"
     - type: story
       path_pattern: "backlog/ST-{id}.md"
   context:
-    - docs/spec/prd.md
-    - docs/CONTEXT.md
+    - docs/spec/work/prd.md
+    - docs/spec/glossary.md
     - docs/agent-context.md
     - docs/testing.yaml
     - .agent-factory/factory/rulebooks/conventions/commit-conventions.md
@@ -68,7 +68,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 **Invoke skills:** `implement-issue`, `spec-feedback`
 
-1. **Analyse** — Read story, trace to Use Cases, record analysis in the story's `## Analysis` section. If `docs/spec/<feature-name>.feature` exists, it is the primary acceptance specification. If outputs touch `packages/server`, load `vue-best-practices`. Read the story's `concerns:` field and follow matching sections in `agent-context.md`. Cross-cutting concerns are always read. When `concerns:` is absent, read the full concern registry by judgment. Read `testing.yaml` (at `docs/testing.yaml`) for per-suite run commands. Read the document referenced by `testing_strategy:` for test clusters, budgets, and fixture rules. If the story lacks a Goal section, flag incomplete and request completion before starting.
+1. **Analyse** — Read the story and follow its `traces:` to the story's Rule: look the Rule up in `docs/spec/scope-map.md`, then read it in the feature file the row names under `docs/spec/features/`. Record the analysis in the story's `## Analysis` section. The feature file is the primary acceptance specification. If outputs touch `packages/server`, load `vue-best-practices`. Read the story's `concerns:` field and follow matching sections in `agent-context.md`. Cross-cutting concerns are always read. When `concerns:` is absent, read the full concern registry by judgment. Read `testing.yaml` (at `docs/testing.yaml`) for per-suite run commands. Read the document referenced by `testing_strategy:` for test clusters, budgets, and fixture rules. If the story lacks a Goal section, flag incomplete and request completion before starting.
 2. **Agree seams** — Identify test boundaries; prefer existing seams, highest level possible. If the story's Inputs section lists pre-existing tests, those listed test files are your specification — read them as your acceptance criteria. If a `.feature` file governs the story, its Scenarios are the seams: each Scenario is one tracer bullet, and its `@`-references name the existing modules and functions the step definitions should call or extend (see [Executable Specification](#executable-specification--feature-workflow)).
    - **Find existing contract tests.** Scan the test suite for contract tests and markers (`@pytest.mark.spec`, `@pytest.mark.contract`, or project-equivalent markers) that cover the modules this story touches. Your implementation must keep these green. Note any gaps: modules being modified or introduced that have no contract-test owner.
 3. **Red-Green-Refactor** — Determine the RED source in order:
@@ -80,13 +80,13 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    - **Add a smoke test when a user-facing path exists.** If the story introduces or modifies a user-facing path (CLI command, API endpoint, UI flow), write one smoke test that exercises the golden path end-to-end. One journey that would break visibly if the wiring is wrong. Use the project's existing smoke-test or integration-test style; if none exists, place it under the integration-test layer and follow the project's assertion conventions.
 4. **Commit** — Per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `feat: <description> (ST-NNNN)`, set `status: done`. If invoked with `--no-commit` alone: stage all changed files (`git add`), skip the commit, and return a summary of staged changes and passing tests. If invoked with `--no-stage --no-commit`: do not stage or commit and do not set `status: done`; return a summary of unstaged changes and passing tests for human review.
 5. **Spec feedback** — Check whether the test harness matches what the QA strategy prescribes, then check for spec drift. Update docs if needed; invoke `write-adr` for new decisions.
-   - **Harness-mismatch check:** Compare the project's available test infrastructure against the QA strategy's contract-owner table. A mismatch is anything that prevents testing a contract at its prescribed layer: missing fixture patterns, unavailable markers, wrong runner. When you find one, invoke `spec-feedback` against the QA strategy (`docs/spec/qa-strategy.md` or equivalent). Name the contract, its prescribed layer, what is missing, and propose a correction. Update the QA strategy in this story or in a follow-up QA loop — do not defer indefinitely.
+   - **Harness-mismatch check:** Compare the project's available test infrastructure against the QA strategy's contract-owner table. A mismatch is anything that prevents testing a contract at its prescribed layer: missing fixture patterns, unavailable markers, wrong runner. When you find one, invoke `spec-feedback` against the QA strategy (`docs/spec/work/<feature-name>-qa-strategy.md` or equivalent). Name the contract, its prescribed layer, what is missing, and propose a correction. Update the QA strategy in this story or in a follow-up QA loop — do not defer indefinitely.
 
 **Pause points:** Analysis confirmation before coding · Seams confirmation before tests.
 
 ## Executable Specification — `.feature` Workflow
 
-When `docs/spec/<feature-name>.feature` exists for this story, it is the acceptance specification — the framework executes it directly. Do not read UC-XX files for a story governed by a `.feature` file.
+When `docs/spec/features/<feature-name>.feature` exists for this story, it is the acceptance specification — the framework executes it directly.
 
 1. **Read the `.feature` file.** Its Rule/Scenario structure defines what to implement and test. A Rule groups the Scenarios for one actor-goal pair; each Scenario is one tracer bullet.
 2. **Follow the `@`-references.** A Gherkin comment such as `` `@src/auth/sso.py::SSOHandler.authenticate` `` attached to a Rule or Scenario names existing code the step definitions should call or extend. A Scenario with no such reference specifies new behavior — write it from scratch. Do not add `@`-references yourself; that annotation is written back during Phase 5 reconciliation, not by this agent.
@@ -98,6 +98,6 @@ When `docs/spec/<feature-name>.feature` exists for this story, it is the accepta
 
 - All acceptance criteria tests pass, all existing tests still pass
 - When a `.feature` file governs the story, it passes end-to-end through the Gherkin test runner and its step definitions exist under `tests/features/steps/`
-- Story references Use Case IDs, or the governing `.feature` file's Rules when no UC-XX files apply
+- Story references the governing `.feature` file's Rules
 - Conventional Commit with story ID and `status: done`; all changes staged and tests green with `--no-commit`; or all changes unstaged and tests green with `--no-stage --no-commit`
 - Spec matches implementation
