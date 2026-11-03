@@ -273,13 +273,14 @@ All stories must have YAML frontmatter with the following fields:
 
 ## `.agent-factory/factory/scripts/dependency-check`
 
-|                 |                                                                                                     |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| Usage           | `dependency-check [--dsl-path PATH] [--source-root DIR] [--story-id ID] [--report-dir DIR]`         |
-| `--dsl-path`    | The dependency rules. Default `docs/spec/dependency-rules.dsl`                                      |
-| `--source-root` | The folder whose Python files are scanned. Default `.`                                              |
-| Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/` |
-| Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise         |
+|                 |                                                                                                                  |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Usage           | `dependency-check [--dsl-path PATH] [--source-root DIR] [--story-id ID] [--report-dir DIR]`                      |
+| `--dsl-path`    | The dependency rules. Default `docs/spec/dependency-rules.dsl`                                                   |
+| `--source-root` | The folder whose Python files are scanned. Default `.`                                                           |
+| Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/`              |
+| Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise                      |
+| Owner           | Each result entry carries `owner: architecture-agent`, the owner of every violation (field name per gap CAO-G07) |
 
 ## `.agent-factory/factory/scripts/scope-lint`
 
@@ -357,12 +358,13 @@ gates:
     # Skipped when no test-design sections are present.
 ```
 
-| Field                            | Type  | Required | Notes                                                                            |
-| -------------------------------- | ----- | -------- | -------------------------------------------------------------------------------- |
-| `gates.crap_score.enabled`       | bool  | yes      | Whether the dispatcher runs the crap-score gate                                  |
-| `gates.crap_score.threshold`     | float | yes      | Per-function CRAP threshold; replaces the dead-code house-rules lookup           |
-| `gates.mutation_testing.enabled` | bool  | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready |
-| `gates.test_design_verify`       | —     | no       | Conditional; active when test-design output exists in the story                  |
+| Field                            | Type   | Required | Notes                                                                                                                                                    |
+| -------------------------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gates.crap_score.enabled`       | bool   | yes      | Whether the dispatcher runs the crap-score gate                                                                                                          |
+| `gates.crap_score.threshold`     | float  | yes      | Per-function CRAP threshold; replaces the dead-code house-rules lookup                                                                                   |
+| `gates.mutation_testing.enabled` | bool   | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready                                                                         |
+| `gates.mutation_testing.command` | string | no       | The project's mutation command, written by the test-strategy agent. Enabled without a command, the gate fails and names the test-strategy agent (BR-066) |
+| `gates.test_design_verify`       | —      | no       | Conditional; active when test-design output exists in the story                                                                                          |
 
 ## `docs/testing.yaml` — `risk_classes` section schema
 
@@ -920,3 +922,96 @@ The remote release base exposes `<base>/latest`,
 | Core paths     | Reads `entity-model.md` (required, `STRUCT005`, `TRACE004`), `state-machines.md`, and the todo lists `work/todo.md` and `work/todos.md` under `--spec-dir`; reads no old path      |
 | Removed checks | The checks that read use-case files or the actor-goal list are gone (DEC-10): `STRUCT001` to `STRUCT004`, `STRUCT006`, `FMT001` to `FMT004`, `TRACE001`, and `TRACE006`            |
 | Exit code      | 1 on any error finding, 0 when clean or with `--report-only`, 2 on a usage error                                                                                                   |
+
+## Core Artifact Ownership Contracts
+
+The contracts of [core-artifact-ownership.feature](features/core-artifact-ownership.feature).
+Values that the proposal leaves open carry the gap identifier of
+[core-artifact-ownership-gaps.md](work/core-artifact-ownership-gaps.md).
+
+### `packages/factory/rulebooks/core-artifacts.yaml`
+
+| Property | Contract                                                                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Readers  | The producer and review contract test, `index-lint` for its reviewer check (CAO-G06), and `dispatch close-wave` to tell core rows from other rows (BR-062) |
+| Entry    | `path_pattern`, `sample_path`, `family`, and `optional` (field names per CAO-G05)                                                                          |
+| Family   | `scope-and-behaviour`, `domain-structure`, `architecture`, or `seam`                                                                                       |
+| Optional | `true` when a project may lack the artifact. Its reviewer then declares it as a context input (DEC-25)                                                     |
+
+| Path pattern                       | Family              | Producer              | Reviewed by                    | Optional        |
+| ---------------------------------- | ------------------- | --------------------- | ------------------------------ | --------------- |
+| `docs/spec/scope-map.md`           | scope-and-behaviour | requirements-agent    | stakeholder                    | false           |
+| `docs/spec/features/*.feature`     | scope-and-behaviour | requirements-agent    | spec-review-agent              | false           |
+| `docs/spec/areas/*.md`             | scope-and-behaviour | requirements-agent    | spec-review-agent              | true            |
+| `docs/spec/glossary.md`            | domain-structure    | domain-modeling-agent | spec-review-agent, stakeholder | false           |
+| `docs/spec/entity-model.md`        | domain-structure    | domain-modeling-agent | spec-review-agent              | false           |
+| `docs/spec/state-machines.md`      | domain-structure    | domain-modeling-agent | spec-review-agent              | true            |
+| `docs/spec/validation-rules.md`    | domain-structure    | domain-modeling-agent | spec-review-agent              | true            |
+| `docs/spec/interface-contracts.md` | domain-structure    | domain-modeling-agent | spec-review-agent              | true            |
+| `docs/spec/schemas/*`              | domain-structure    | domain-modeling-agent | spec-review-agent              | true            |
+| `docs/spec/architecture.dsl`       | architecture        | architecture-agent    | architecture-review-agent      | false (CAO-G12) |
+| `docs/spec/dependency-rules.dsl`   | architecture        | architecture-agent    | architecture-review-agent      | true            |
+| `docs/agent-context.md`            | seam                | virgil                | stakeholder                    | false (CAO-G12) |
+| `docs/testing.yaml`                | seam                | test-strategy-agent   | stakeholder                    | true (CAO-G12)  |
+
+### Output declaration fields
+
+| Field          | Contract                                                                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reviewed_by:` | A list of agent names or `stakeholder`, on every core and seam output declaration (BR-058). Working output carries none                            |
+| `edits:`       | `wording` for a declaration that changes wording and never meaning, such as the lector agent's `docs/**/*.md`. The contract test skips it (BR-060) |
+
+### `index-lint` reviewer check
+
+| Property  | Contract                                                                                                                                                           |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Writes    | `reviewed_by:` and `edits:` of every output declaration into `INDEX.yaml`, beside `path_pattern`, `validator`, and `required`                                      |
+| Fails     | On a `reviewed_by:` entry that is neither `stakeholder` nor an existing agent, or that names an agent without the artifact as a required or context input (BR-059) |
+| Matching  | Producer output and reviewer input match through the sample path (BR-057)                                                                                          |
+| Exit code | `1` in `--check` mode on a reviewer finding or a stale catalog; `0` otherwise                                                                                      |
+
+### `dispatch close-wave`
+
+| Property    | Contract                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reads       | `docs/spec/work/spec-feedback-<story-id>.md` of every story in the wave, and `packages/factory/rulebooks/core-artifacts.yaml` as installed       |
+| Fails       | While a row is `open`, or `fixed` on an artifact of the core list (BR-062). The error names the report, the artifact, and the status of each row |
+| Passes      | On `confirmed` and `rejected` rows, on `fixed` rows about other artifacts, and for a story without a report (BR-063)                             |
+| Manual mode | `close-wave` does not run. The dispatch contract's manual-mode section states the same rule per story (BR-064)                                   |
+
+### Report rows: spec-feedback and reconciliation
+
+Both reports hold one Markdown table with the columns below. The column names
+are the reading of gap CAO-G04.
+
+| Column   | Contract                                                                                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Artifact | The path of the artifact that drifted, such as `docs/spec/validation-rules.md`                                                                             |
+| Drift    | The mismatch between the artifact and the code, in one sentence                                                                                            |
+| Evidence | The code path and line that show the mismatch                                                                                                              |
+| Owner    | The producer of the artifact, such as `domain-modeling-agent`                                                                                              |
+| Status   | `open`, `fixed`, `confirmed`, or `rejected`, set as [BR-061](validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) defines |
+
+| Report         | Path                                         | Writer of `open` rows                    |
+| -------------- | -------------------------------------------- | ---------------------------------------- |
+| Spec feedback  | `docs/spec/work/spec-feedback-<story-id>.md` | developer agent, through `spec-feedback` |
+| Reconciliation | `docs/reviews/reconciliation-<date>.md`      | reconciliation agent, one per run        |
+
+### `docs/spec/work/term-candidates.md`
+
+| Column              | Contract                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| Term                | The term as the code or the session names it                                        |
+| Domain area         | The scope-map area the term belongs to; the stakeholder confirms one area at a time |
+| Source              | The code path or the session that found the term                                    |
+| Proposed definition | Written by the domain-modeling agent, or by the session that settled the term       |
+| Status              | `candidate`, `proposed`, `confirmed`, or `rejected` (BR-065)                        |
+| Note                | The stakeholder's reason on a `rejected` row                                        |
+
+### Finding frontmatter `owner:`
+
+| Property | Contract                                                                                                          |
+| -------- | ----------------------------------------------------------------------------------------------------------------- |
+| Field    | `owner:` names the agent that owns the artifact the finding is about                                              |
+| Routing  | The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase        |
+| Tags     | The tag table adds `ARCH` (the architecture agent's read check) and `QA` (an unresolved mutant) and drops `RECON` |

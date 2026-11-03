@@ -597,3 +597,105 @@ stateDiagram-v2
 The first-task lifecycle never creates a branch or commit. Retention copies
 reference artifacts after separate consent. Production work begins through a
 normal workstream and does not reuse the sandbox as production state.
+
+## Core Artifact Ownership State Machines
+
+Two kinds of row move through statuses in
+[core-artifact-ownership.feature](features/core-artifact-ownership.feature):
+a row of a drift report and a row of the term-candidate file. Written per
+[state-machine-notation.md § Canonical Format](../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format):
+pseudocode is authoritative, Mermaid is derived.
+
+### Report Row Lifecycle
+
+A row of `docs/spec/work/spec-feedback-<story-id>.md` or of
+`docs/reviews/reconciliation-<date>.md`. BR-061 names who sets each status,
+and BR-062 names the statuses that block `dispatch close-wave`.
+
+#### Pseudocode
+
+```text
+State: OPEN
+On OwnerFixesArtifact:
+  ChangeState(FIXED)
+
+State: FIXED
+On ReviewAccepts:
+  ChangeState(CONFIRMED)
+On ReviewRejects:
+  ChangeState(REJECTED)
+
+State: CONFIRMED
+  # terminal — no outbound transitions
+
+State: REJECTED
+  # terminal — a BUG finding against the code takes the row's place
+```
+
+#### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> OPEN
+    OPEN --> FIXED : OwnerFixesArtifact
+    FIXED --> CONFIRMED : ReviewAccepts
+    FIXED --> REJECTED : ReviewRejects
+    FIXED --> [*]
+    CONFIRMED --> [*]
+    REJECTED --> [*]
+```
+
+#### Notes
+
+- **OPEN** is the status the developer agent or the reconciliation agent writes.
+- **FIXED** ends the row when its artifact has no declared review, such as a QA strategy or an ADR (DEC-35). On a core or seam artifact the row waits for the review.
+- **REJECTED** means the review found that the code breaks an accepted requirement. The reviewer files a `BUG` finding with the developer agent as owner.
+
+### Term Candidate Lifecycle
+
+A row of `docs/spec/work/term-candidates.md`. BR-065 holds the rules.
+
+#### Pseudocode
+
+```text
+State: CANDIDATE
+On DomainModelingProposesDefinition:
+  ChangeState(PROPOSED)
+
+State: PROPOSED
+On StakeholderConfirms:
+  ChangeState(CONFIRMED)
+On StakeholderRejects:
+  ChangeState(REJECTED)
+
+State: CONFIRMED
+On DomainModelingMovesTerm:
+  ChangeState(IN_GLOSSARY)
+
+State: REJECTED
+  # terminal until the stakeholder decides gap CAO-G09
+
+State: IN_GLOSSARY
+  # terminal — the row leaves the work file
+```
+
+#### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> CANDIDATE
+    [*] --> CONFIRMED
+    CANDIDATE --> PROPOSED : DomainModelingProposesDefinition
+    PROPOSED --> CONFIRMED : StakeholderConfirms
+    PROPOSED --> REJECTED : StakeholderRejects
+    CONFIRMED --> IN_GLOSSARY : DomainModelingMovesTerm
+    REJECTED --> [*]
+    IN_GLOSSARY --> [*]
+```
+
+#### Notes
+
+- **CANDIDATE** is the row that `reverse-map` writes: only the name and its source are known.
+- A row starts at **CONFIRMED** when the stakeholder settled the term in a session of another agent, such as Virgil's `grilling`.
+- **IN_GLOSSARY** is not a value of the Status column. It names the moment the domain-modeling agent writes the glossary row and removes the work-file row.
+- An unattended run of the domain-modeling agent leaves its rows at **PROPOSED**. The spec review files a finding for each of them.
