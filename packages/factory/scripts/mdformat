@@ -1,15 +1,17 @@
 #!/bin/bash
 # mdformat - Zero-local-install wrapper around mdformat + its plugins
 #
-# What: uvx wrapper around mdformat plus its GFM/ruff/frontmatter plugins.
+# What: uvx wrapper around mdformat plus its GFM/ruff/frontmatter/footnote
+#       plugins.
 # When: On commit for Markdown; on demand via /validate; wherever a skill
 #       formats Markdown.
 # By:   pre-commit hooks `mdformat` / `mdformat-orchestrator`; many skills
 #       (retrospective, write-adr, ...).
 #
 # The factory's Markdown artifacts (specs, ADRs, findings, reports) need
-# mdformat plus three plugins (mdformat-gfm for tables, mdformat-ruff for
-# Python code blocks, mdformat-frontmatter to protect YAML frontmatter).
+# mdformat plus four plugins (mdformat-gfm for tables, mdformat-ruff for
+# Python code blocks, mdformat-frontmatter to protect YAML frontmatter,
+# mdformat-footnote to keep footnotes intact).
 # Rather than requiring every consuming project to declare these in its own
 # pyproject.toml (T-37), this wraps `uvx` so the same command works whether
 # or not the target project is even a Python project — mirroring
@@ -30,4 +32,5 @@ exec uvx \
     --with mdformat-gfm \
     --with mdformat-ruff \
     --with mdformat-frontmatter \
+    --with mdformat-footnote \
     mdformat "$@"

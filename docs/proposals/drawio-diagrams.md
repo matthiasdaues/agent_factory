@@ -1,5 +1,6 @@
 ---
 schema_version: 2
+scope: global
 title: Draw.io Diagrams
 status: draft
 owner: agent-factory
@@ -40,7 +41,7 @@ The primer is written last, by the `write-primer` skill, once the design is sett
 
 ## Summary
 
-The Factory gains a skill set for editable draw.io diagrams. An agent writes only the structure of a diagram: its shapes, its containers, and its edges. The draw.io layout engine places them, and the agent renders the result and looks at it before it hands the diagram over. Each diagram is one `.drawio.svg` file in `docs/assets/diagrams/`, which draw.io opens as a diagram and Markdown shows as an image. The first release covers flow and dependency diagrams that a Structurizr view or a Mermaid block cannot hold, such as the [project truth map](project-truth-map.drawio).
+The Factory gains a skill set for editable draw.io diagrams. An agent writes only the structure of a diagram: its shapes, its containers, and its edges. The draw.io layout engine places them, and the agent renders the result and looks at it before it hands the diagram over. Each diagram is one `.drawio.svg` file in `docs/assets/diagrams/`, which draw.io opens as a diagram and Markdown shows as an image. The first release covers flow and dependency diagrams that a Structurizr view or a Mermaid block cannot hold, such as the [project truth map](../../poc/workflow/project-truth-map.drawio).
 
 ## Motivation
 

@@ -1,5 +1,6 @@
 ---
 schema_version: 2
+scope: global
 title: Git Guard and Merge Gates
 status: draft
 owner: Matthias Daues
