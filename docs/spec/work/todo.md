@@ -182,3 +182,24 @@ data is lost, and the run exits 0.
 **Action:** count sections by position in `duplicate_terms`, or name
 subheading sections after their context (for example `Billing: Orders`), and
 add a test.
+
+## T-0014 — `dispatch` has no command that closes a dispatch
+
+- status: open
+- source: closing the `core-artifact-layout` dispatch (2026-11-03)
+
+The Close section of `dispatch-contract.md` and the implementation-agent
+definition give the dispatch script the cleanup duty: check that every story
+is terminal, run `git worktree prune`, remove the worktrees and delete the
+branches of merged stories, keep blocked ones, and save the ledger. The script
+has no command for it; `close-wave` only records the wave. After the
+`core-artifact-layout` dispatch, five worktrees and seven merged branches were
+left and had to be removed by hand.
+
+**Action:** add `dispatch close [--abandon --reason <text>]`. A completed
+close refuses while a story is not terminal, removes merged worktrees with
+`git worktree remove` and their branches with `git branch -d`, keeps blocked
+ones, prunes, and records the close in the ledger. An abandoned close records
+the reason and force-removes the dispatch's worktrees and branches. Add a test
+per case, and point the Close section and the implementation-agent at the
+command.
