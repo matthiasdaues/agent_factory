@@ -41,7 +41,7 @@ Each completion criterion of the proposal traces to a Rule or to a question belo
 | The requirements agent's handoff names the domain-modeling agent                                         | CAO-03                             |
 | The architecture agent declares `dependency-rules.dsl`; `maintain-architecture` writes no state machines | CAO-07                             |
 | The spec-review agent's required and context inputs; `inspect-spec` checks each structure file           | CAO-08                             |
-| The architecture-review agent declares `dependency-rules.dsl` as a required input                        | CAO-09, question CAO-G01           |
+| The architecture-review agent declares `dependency-rules.dsl` as a context input                         | CAO-09, CAO-G01                    |
 | `test-strategy-agent.md` exists with four skills, no required input, and two outputs                     | CAO-10                             |
 | The implementation agent runs four gates and blocks the merge; manual mode runs them in the developer    | CAO-11                             |
 | The `dependency-check` JSON report names the architecture agent as owner                                 | CAO-07, question CAO-G07           |
@@ -65,7 +65,7 @@ Each completion criterion of the proposal traces to a Rule or to a question belo
 | The architecture-review agent reads `dependency-rules.dsl` as context; the core list marks it optional   | CAO-09                             |
 | A `rejected` row becomes a `BUG` finding with the developer agent as owner                               | CAO-14, CAO-17, question CAO-G11   |
 | `index-lint` carries `reviewed_by:` and `edits:` and matches by sample path                              | CAO-02, questions CAO-G06, CAO-G14 |
-| The test-strategy agent declares the mutation tool's configuration files                                 | CAO-10, question CAO-G08           |
+| The mutation tool's configuration stays in the project's own files                                       | CAO-10, decided CAO-G08            |
 | `index-lint --check` passes                                                                              | CAO-02                             |
 
 ## Missing Rules
@@ -80,13 +80,15 @@ None. Every Rule has at least one Scenario.
 
 Each question gives one case, the outcome of each option, the recommendation, and what the answer settles.
 
+The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendation of every other question (G01 to G07, G09, G11 to G16) on the same day. The specification follows each recommendation.
+
 ### CAO-G01: Does the architecture-review agent require `dependency-rules.dsl`?
 
 - **Case:** A migrated project has `architecture.dsl` and no `dependency-rules.dsl`, because no agent wrote the file before this feature.
 - **Options:** With a required input, the architecture-review agent never becomes eligible in that project. With a context input, the review runs and checks the rules once the file exists.
 - **Conflict:** The Reviews section and the completion criterion on line 375 say "required input". The criterion on line 396 and the fix of PROP-31 say "context input".
 - **Recommendation:** Context input, as PROP-31 and DEC-25 decide. The specification follows this reading.
-- **Settles:** CAO-09 and the criterion on line 375, which then needs a correction in the proposal.
+- **Settles:** CAO-09 and the criterion on line 375. The proposal now says "context input" there (2026-11-03).
 
 ### CAO-G02: When does the test-strategy agent handle an open `QA` finding?
 
@@ -133,10 +135,9 @@ Each question gives one case, the outcome of each option, the recommendation, an
 
 ### CAO-G08: How does a fixed agent definition declare project-specific mutation files?
 
-- **Case:** A Python project configures mutmut in `setup.cfg`. A TypeScript project configures Stryker in `stryker.config.json`. The test-strategy agent definition ships with the factory and is the same in both.
-- **Options:** `testing.yaml` lists the files in a field, and the agent declares a pattern that covers both, which makes the declaration wide. Or the factory ships one declaration per supported tool. Or the agent writes only `gates.mutation_testing.command`, and the project maintainer writes the tool's configuration.
-- **Recommendation:** The stakeholder decides, because the proposal names the files only "as named in the project's `testing.yaml`" and names no field. The specification states only that each file the setup writes matches an output declaration.
-- **Settles:** CAO-10, `Scenario: The test-strategy agent declares the files its mutation setup writes`, and the `testing.yaml` contract.
+- **Case:** A Python project configures mutmut in `setup.cfg`. A Java project configures PIT in `pom.xml`. The test-strategy agent definition ships with the factory and is the same in both.
+- **Decision (stakeholder, 2026-11-03, DEC-36):** Mutation testing is a project capability. The tool's configuration lives in the project's own files, and a story sets it up with the `mutation-testing` skill as guidance. `testing.yaml` holds only `gates.mutation_testing.enabled` and `gates.mutation_testing.command`. The test-strategy agent declares no configuration file of the tool, and the Factory knows no tool format.
+- **Settles:** CAO-10, `Scenario: The mutation tool's configuration stays in the project's own files`, the `testing.yaml` contract, and the criterion that replaced PROP-35's.
 
 ### CAO-G09: May a rejected term definition be proposed again?
 
@@ -149,7 +150,7 @@ Each question gives one case, the outcome of each option, the recommendation, an
 
 - **Case:** The test-strategy agent records in QA-0003 that a contract test for `plan_moves` is missing. The planning agent must later add that test to a story.
 - **Options:** The status stays `open`, so the orchestrator keeps routing QA-0003 to the test-strategy agent. Or the status becomes `resolved`, so the open-finding loop ends but the planning agent must look for resolved findings with a missing test.
-- **Recommendation:** The stakeholder decides. The finding format knows only `open` and `resolved`, and the proposal says only "it sets the finding's status".
+- **Decision (stakeholder, 2026-11-03):** The status stays `open`, and `owner:` moves from the test-strategy agent to the planning agent. The finding becomes `resolved` when the story that adds the test merges. The implementation agent dispatches the test-strategy agent only for open `QA` findings that it owns.
 - **Settles:** CAO-12 and the finding format.
 
 ### CAO-G11: Which agents declare `BUG` findings?

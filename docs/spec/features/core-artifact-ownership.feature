@@ -475,10 +475,12 @@ Feature: Core artifact ownership
       And the planning agent does not run detect-test-regime
       # @packages/factory/agents/planning-agent.md
 
-    Scenario: The test-strategy agent declares the files its mutation setup writes
-      Given docs/testing.yaml names the configuration files of the project's mutation tool
-      When the test-strategy agent sets up mutation testing
-      Then every file it writes for the setup matches one of its output declarations
+    Scenario: The mutation tool's configuration stays in the project's own files
+      Given a project whose mutation tool reads its configuration from the project's build file
+      When the test-strategy agent enables mutation testing
+      Then it writes gates.mutation_testing.enabled and gates.mutation_testing.command in docs/testing.yaml
+      And it writes no configuration file of the mutation tool
+      And no output declaration of the test-strategy agent names a mutation tool's configuration file
 
   Rule: Implementation agent blocks a merge on a failing test guardrail
     # actor: Implementation agent
@@ -539,7 +541,7 @@ Feature: Core artifact ownership
       Then docs/findings/ has a new QA finding with owner: test-strategy-agent
 
     Scenario: The implementation agent dispatches the test-strategy agent for each open QA finding
-      Given ST-0318 has merged and QA-0003 is open
+      Given ST-0318 has merged and QA-0003 is open with owner: test-strategy-agent
       When the implementation agent handles the merged story
       Then it dispatches the test-strategy agent for QA-0003
 
@@ -547,18 +549,24 @@ Feature: Core artifact ownership
       Given the test-strategy agent works on QA-0003
       When it decides that <decision>
       Then it <action>
-      And it sets the status of QA-0003
+      And QA-0003 has status <status> and owner <owner>
 
       Examples:
-        | decision                                     | action                                              |
-        | the contract has the wrong owning test layer | changes the contract-owner table of the QA strategy |
-        | a test is missing                            | records in QA-0003 which test is missing            |
+        | decision                                     | action                                              | status   | owner               |
+        | the contract has the wrong owning test layer | changes the contract-owner table of the QA strategy | resolved | test-strategy-agent |
+        | a test is missing                            | records in QA-0003 which test is missing            | open     | planning-agent      |
 
     Scenario: The planning agent reads QA findings to add a missing test to a story
       Given QA-0003 records that a contract test for plan_moves is missing
       When the planning agent cuts the next stories
       Then it reads docs/findings/QA-0003.md as a context input
       # @packages/factory/agents/planning-agent.md
+
+    Scenario: A QA finding for a missing test resolves when a story adds the test
+      Given QA-0003 is open with owner: planning-agent
+      And story ST-0352 names QA-0003 and adds the contract test for plan_moves
+      When ST-0352 merges
+      Then QA-0003 has status resolved
 
   Rule: Developer agent reports specification drift without editing the specification
     # actor: Developer agent

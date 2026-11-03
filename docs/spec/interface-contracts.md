@@ -358,13 +358,13 @@ gates:
     # Skipped when no test-design sections are present.
 ```
 
-| Field                            | Type   | Required | Notes                                                                                                                                                    |
-| -------------------------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gates.crap_score.enabled`       | bool   | yes      | Whether the dispatcher runs the crap-score gate                                                                                                          |
-| `gates.crap_score.threshold`     | float  | yes      | Per-function CRAP threshold; replaces the dead-code house-rules lookup                                                                                   |
-| `gates.mutation_testing.enabled` | bool   | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready                                                                         |
-| `gates.mutation_testing.command` | string | no       | The project's mutation command, written by the test-strategy agent. Enabled without a command, the gate fails and names the test-strategy agent (BR-066) |
-| `gates.test_design_verify`       | —      | no       | Conditional; active when test-design output exists in the story                                                                                          |
+| Field                            | Type   | Required | Notes                                                                                                                                                                                                                                  |
+| -------------------------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gates.crap_score.enabled`       | bool   | yes      | Whether the dispatcher runs the crap-score gate                                                                                                                                                                                        |
+| `gates.crap_score.threshold`     | float  | yes      | Per-function CRAP threshold; replaces the dead-code house-rules lookup                                                                                                                                                                 |
+| `gates.mutation_testing.enabled` | bool   | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready                                                                                                                                                       |
+| `gates.mutation_testing.command` | string | no       | The project's mutation command, written by the test-strategy agent. Enabled without a command, the gate fails and names the test-strategy agent (BR-066). The tool's own configuration lives in the project's files, not here (DEC-36) |
+| `gates.test_design_verify`       | —      | no       | Conditional; active when test-design output exists in the story                                                                                                                                                                        |
 
 ## `docs/testing.yaml` — `risk_classes` section schema
 
