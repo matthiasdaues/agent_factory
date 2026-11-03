@@ -216,3 +216,19 @@ no overview before the building blocks.
 
 **Action:** create chapters 01 to 04 and 11 in a separate architecture pass,
 derived from `architecture.dsl` and the accepted proposals.
+
+## T-0016 — No rule decides which review findings must be fixed
+
+- status: open
+- source: [review-scrapbook.md](../../../poc/workflow/review-scrapbook.md) BAD-04, and [manual-mode-gates.md](../../proposals/manual-mode-gates.md) DEC-06 (2026-11-03)
+
+Every review loop files each finding and loops back until none is open. No
+loop has a threshold below which a finding is recorded and left unfixed. So
+late passes spend tokens on edge cases that an earlier fix created, and
+`story-gates` in manual mode blocks on every open finding.
+
+**Action:** write a separate proposal for a threshold that applies to every
+review loop. A finding blocks only when quantifiable measures put it above
+the threshold: a named failure case, a risk assessment, and an expected cost,
+that is, the probability times the cost of the failure. The proposal also
+decides which of these measures can be quantified reliably.
