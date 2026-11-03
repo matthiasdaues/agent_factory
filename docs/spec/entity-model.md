@@ -19,7 +19,7 @@ erDiagram
     FINDING {
         string id "TAG-NNNN"
         string status "open | resolved, frontmatter field"
-        string owner "agent that owns the artifact the finding is about"
+        string owner "agent that acts on the finding next"
     }
     HANDOFF ||--o{ ARTIFACT_REFERENCE : names
     HANDOFF ||--|| REPOSITORY_STATE : records
@@ -120,14 +120,14 @@ erDiagram
 
 ## Notes
 
-- **FINDING.status** is read from the finding file's YAML frontmatter (a `---`-delimited block whose first line is exactly `---`). open finding counts check files matching a glob whose `status` is exactly `open`. Filing conventions: [finding-format.md § When to file](../../.agent-factory/factory/rulebooks/conventions/finding-format.md#when-to-file).
-- **CATALOG** is `.agent-factory/factory/INDEX.yaml` — one file holding four entry types (agents, skills, playbooks, rulebooks). It is generated wholesale on every `index-lint` run. there is no per-entry incremental update. Every entry carries a `tokens` field. agents and playbooks also carry `total_tokens`.
+- **FINDING.status** is read from the finding file's YAML frontmatter (a `---`-delimited block whose first line is exactly `---`). Open finding counts check files matching a glob whose `status` is exactly `open`. Filing conventions: [finding-format.md § When to file](../../.agent-factory/factory/rulebooks/conventions/finding-format.md#when-to-file).
+- **CATALOG** is `.agent-factory/factory/INDEX.yaml` — one file holding four entry types (agents, skills, playbooks, rulebooks). It is generated wholesale on every `index-lint` run. There is no per-entry incremental update. Every entry carries a `tokens` field. Agents and playbooks also carry `total_tokens`.
 - **AGENT_ENTRY.tier** and **MODEL_MATRIX_ENTRY.tier** share the same three-value vocabulary (`economy | standard | strong`). `trigger` resolves an agent's dispatch model by looking up `<cli>.<tier>` in `config/model.conf`.
 - **HANDOFF** is the restart contract between two workflow phases. It owns phase continuity. **REPOSITORY_STATE** owns the exact revision and validation evidence, and **ARTIFACT_REFERENCE** names durable information instead of embedding it in a transcript. **HANDOFF_SEMANTIC_REVIEW** records the separate human/agent judgment that the mechanically valid handoff omitted or distorted no material fact.
-- **DISPATCH_LEDGER** is the script-owned dispatch record at `.current-work/<feature-branch>/dispatch-ledger.yaml`. each story entry tracks lifecycle fields including `tier`, `attempts`, and the pre-spawn `prepared` state, and each `WaveCloseout` entry records a wave summary (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`).
+- **DISPATCH_LEDGER** is the script-owned dispatch record at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Each story entry tracks lifecycle fields including `tier`, `attempts`, and the pre-spawn `prepared` state, and each `WaveCloseout` entry records a wave summary (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`).
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
-- **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding. rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified. the `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](features/newcomer-onboarding.feature).
-- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding, and the brownfield Stage 1 exit checks the same set. The four files are checked by file existence, not by a gate marker. The glossary and the agent context file both count: one holds the domain vocabulary, the other routes agents to it (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). Their presence signals readiness for feature work. the absence of any one suggests running `brownfield-onboarding` first. See [validation-rules.md § Anchor-file prerequisite](validation-rules.md#anchor-file-prerequisite-feature-addition).
+- **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding. Rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified. The `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](features/newcomer-onboarding.feature).
+- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding, and the brownfield Stage 1 exit checks the same set. The four files are checked by file existence, not by a gate marker. The glossary and the agent context file both count: one holds the domain vocabulary, the other routes agents to it (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). Their presence signals readiness for feature work. The absence of any one suggests running `brownfield-onboarding` first. See [validation-rules.md § Anchor-file prerequisite](validation-rules.md#anchor-file-prerequisite-feature-addition).
 
 ## Test-Design Entities
 
@@ -249,10 +249,10 @@ erDiagram
 ### Notes
 
 - **CONCERN_REGISTRY** has exactly three category headings: Always (cross-cutting), Technical concerns, and Domain concerns.
-- **CONCERN_ENTRY** has a description and at least one `Read:` path. `Boundary:` paths are optional. Cross-cutting entries always apply. story frontmatter selects technical and domain entries.
+- **CONCERN_ENTRY** has a description and at least one `Read:` path. `Boundary:` paths are optional. Cross-cutting entries always apply. Story frontmatter selects technical and domain entries.
 - **CONCERN_ENTRY.folded** marks a domain concern that `capture-context --fold-context-map` wrote from a bounded context of a context map or a routing-only `CONTEXT.md`. A folded concern need not match a scope-map area, and `capture-context --update --scan` keeps it. The mark is the line `Folded: yes` directly after the concern's description line, and `concern-lint` accepts it only under `## Domain concerns` (CAL-G03 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)).
 - **STORY.concerns** is advisory and uses only confirmed registry headings. A missing vocabulary entry is proposed and confirmed before use.
-- **TESTING_YAML** is not routing content. Factory consumers resolve only `docs/testing.yaml`. there is no legacy-path fallback.
+- **TESTING_YAML** is not routing content. Factory consumers resolve only `docs/testing.yaml`. There is no legacy-path fallback.
 - **CTX_FINDING** is produced by `concern-lint`. Legacy YAML context or `docs/charter/` beside the registry is an error.
 
 ## Referenced from
@@ -422,18 +422,18 @@ erDiagram
 
 - `INPUT_SET` is immutable for one query and contains only sorted, top-level `*.jsonl` paths from the selected usage directory.
 - Evidence identity is `(normalized_source_path, source_line)`. The path is relative to the selected usage directory, uses `/` separators, has `.` removed, rejects `..`, absolute paths, invalid UTF-8, and Unicode-normalizes each segment to NFC. Line numbers are one-based positive integers.
-- The closed registry keys are exactly `claude-code`, `pi`, `codex`, `copilot`, and `opencode`. Every CLI uses logical-run key `(cli, session_id, run_id)`. For Claude Code, Pi, and OpenCode this distinguishes additive child or descendant runs. for Codex and GitHub Copilot CLI it distinguishes inclusive roots from attribution-only descendants. `parent_run_id` establishes ancestry but is not part of identity. Source path, source line, capture sequence, and record content never enter the logical-run key.
-- Before `LATEST_RUN_SNAPSHOT` selection, all otherwise valid evidence snapshots for one logical-run key must have exactly one distinct `parent_run_id`, with null treated as a value. Disagreement classifies every snapshot for that key as a `PREFLIGHT_FAILURE` with `USAGE_ANCESTRY_PARENT_CONFLICT`. no evidence snapshot establishes or overrides the logical run's parent.
+- The closed registry keys are exactly `claude-code`, `pi`, `codex`, `copilot`, and `opencode`. Every CLI uses logical-run key `(cli, session_id, run_id)`. For Claude Code, Pi, and OpenCode this distinguishes additive child or descendant runs. For Codex and GitHub Copilot CLI it distinguishes inclusive roots from attribution-only descendants. `parent_run_id` establishes ancestry but is not part of identity. Source path, source line, capture sequence, and record content never enter the logical-run key.
+- Before `LATEST_RUN_SNAPSHOT` selection, all otherwise valid evidence snapshots for one logical-run key must have exactly one distinct `parent_run_id`, with null treated as a value. Disagreement classifies every snapshot for that key as a `PREFLIGHT_FAILURE` with `USAGE_ANCESTRY_PARENT_CONFLICT`. No evidence snapshot establishes or overrides the logical run's parent.
 - Each `(cli, session_id)` partition contains exactly one root with null `parent_run_id`. Every non-root parent resolves to a distinct logical run in the same partition. The parent graph is acyclic, every run is reachable from the root, direct children name the root's `run_id`, and descendants are its transitive closure.
 - Missing parents, cross-CLI or cross-session parents, self-links, cycles, and root counts other than one create `PREFLIGHT_FAILURE` rows with the stable `USAGE_ANCESTRY_*` codes and prevent canonical accounting.
 - Every selected line produces exactly one `USAGE_RECORD` or `PREFLIGHT_FAILURE` in query scope.
-- `normalized_total` equals `normalized_input + normalized_output`. token counters are non-negative.
-- `LATEST_RUN_SNAPSHOT` selects the greatest tuple `(capture_sequence, normalized_source_path, source_line)`: capture sequence numerically ascending, normalized path by unsigned UTF-8 byte lexicographic order, and line number numerically ascending. Selection takes the maximum tuple. this makes the later line win within one file and removes source identity after one snapshot remains per logical-run key.
+- `normalized_total` equals `normalized_input + normalized_output`. Token counters are non-negative.
+- `LATEST_RUN_SNAPSHOT` selects the greatest tuple `(capture_sequence, normalized_source_path, source_line)`: capture sequence numerically ascending, normalized path by unsigned UTF-8 byte lexicographic order, and line number numerically ascending. Selection takes the maximum tuple. This makes the later line win within one file and removes source identity after one snapshot remains per logical-run key.
 - `CANONICAL_SESSION_USAGE` has one accounting result per session. Its rule is selected from the closed five-CLI registry.
-- `CACHE_EFFICIENCY_SIGNAL` distinguishes unavailable, input-only, and measured values. unavailable is not zero.
+- `CACHE_EFFICIENCY_SIGNAL` distinguishes unavailable, input-only, and measured values. Unavailable is not zero.
 - A stable `QUERY_RESULT` other than `capture_health` exists only when the input set has zero failures.
 - `PARQUET_EXPORT` is derived, attributable, atomic, and rebuildable. It is never authoritative state.
-- `INSTALLED_COMPONENT` and `.agent-factory/usage/` have independent lifecycles. Component removal preserves evidence. full Factory removal does not.
+- `INSTALLED_COMPONENT` and `.agent-factory/usage/` have independent lifecycles. Component removal preserves evidence. Full Factory removal does not.
 
 ## Activity-Graph Orchestration Entities
 
@@ -529,14 +529,14 @@ erDiagram
 - **AGENT_DEFINITION** is parsed from agent definition files under `packages/factory/agents/` (tracked source) or `.agent-factory/factory/agents/` (installed copy). `inputs.required` and `outputs` determine the agent's position in the precondition graph. `inputs.context` is reading material, not a graph edge. Agent definitions missing `outputs.minimum_changed` or whose declarations omit `path_pattern`, `validator`, or `required` are invalid.
 - **REQUIRED_INPUT** declares one artifact the agent needs. A `conditions` list adds constraints checked against YAML frontmatter. An entry with no `conditions` key checks file existence only. Each condition type is mutually exclusive: `field`+`value`, `field`+`one_of`, or `check`.
 - **INPUT_CONDITION** with `check` references a trusted validator by name. The engine resolves the name to a bash script under `.agent-factory/factory/scripts/` or a Python validator under `.agent-factory/factory/engine/validators/`. The model never contains shell commands.
-- **OUTPUT_DECLARATION** names a `validator` that runs against created or modified files matching `path_pattern` after the activity completes. `required: true` means the fence fails if no match exists. `required: false` means the output is optional — if it changed, its validator runs. if it did not change, it is skipped.
+- **OUTPUT_DECLARATION** names a `validator` that runs against created or modified files matching `path_pattern` after the activity completes. `required: true` means the fence fails if no match exists. `required: false` means the output is optional — if it changed, its validator runs. If it did not change, it is skipped.
 - **PRECONDITION_EVIDENCE** is the evaluator's per-requirement result. One evidence record per required input per agent. The evaluator never writes repository state.
 - **FENCE_EVIDENCE** is stored at `.agent-factory/checks/fences/<session-id>/<invocation-id>.yaml`. The aggregate passes only when every required output changed, `declarations_changed >= minimum_required`, and every invoked validator passed. Fence failure does not block human action. For external orchestrators, the fence result determines whether chaining proceeds.
 - **VALIDATOR_RESULT** is immutable once produced. Every result carries the assessed commit SHA, individual check results, and warnings.
 - **WORKSTREAM_STATE** is persisted at `.agent-factory/workstreams/<workstream-id>.yaml`. The file is immutable after creation — no `cycle`, `attempt`, `revision`, `delegation`, or `work` fields. Multiple sessions may bind to the same workstream. No concurrency control is needed because the file does not change.
 - **SESSION_BINDING** is persisted at `.agent-factory/workstreams/sessions/<session-id>.yaml`. The `workstream_id` key must always be present: a known identifier means the session is bound, explicit `null` means Open Stage, and a missing key fails validation. Selecting a different workstream updates `workstream_id` and `bound_at`. The binding is session-scoped and dies with the session.
 - **GOVERNED_ARTIFACT** is any artifact in the closed first-release set: proposals, epics, stories, Gherkin feature files, `architecture.dsl`, `scope-map.md`, and `entity-model.yaml`. The `scope` field is read from YAML frontmatter when present, otherwise from a `scope:` declaration on the first line of the file. Proposals use `scope` in place of `title`. A lint check at artifact creation time verifies the declaration is present and carries either `global` or a known workstream identifier.
-- **Path resolution:** The evaluator resolves a `path_pattern` in four ordered steps: glob expansion (replace placeholders with `*`), scope filtering (keep only candidates whose `scope` matches the bound workstream or equals `global`. skipped in Open Stage), condition checking (evaluate all conditions, remove failing candidates), and cardinality (zero = unsatisfied, one = satisfied, multiple = reported for human selection).
+- **Path resolution:** The evaluator resolves a `path_pattern` in four ordered steps: glob expansion (replace placeholders with `*`), scope filtering (keep only candidates whose `scope` matches the bound workstream or equals `global`, except in Open Stage, which skips this step), condition checking (evaluate all conditions, remove failing candidates), and cardinality (zero = unsatisfied, one = satisfied, multiple = reported for human selection).
 - **No delegation in the engine.** Chaining happens externally — an external orchestrator inspects evaluator evidence after each fence. No delegation grant, attempt counter, or retry limit exists in the engine, agent definitions, or session bindings.
 
 ## OpenCode CLI Integration Entities
@@ -732,7 +732,7 @@ erDiagram
 - **OPENCODE_CATALOG** is the OpenCode-visible catalog surface. Agents live under `.opencode/agents/`. Skills live under `.agents/skills/`, which OpenCode discovers natively. The catalog is linked from `.opencode/INDEX.yaml`.
 - **OPENCODE_AGENT_DEF** carries a `model` field derived from the agent's tier mapping in `model.conf`. This is a workaround for the model inheritance bug (OpenCode issue #49765). Each generated definition has explicit model, mode, and permission fields.
 - **MODEL_MATRIX_ENTRY.cli** gains the value `opencode` alongside the existing `copilot`, `codex`, and `pi`. Claude Code resolves its model outside `model.conf`.
-- **INSTALL_MANIFEST** at `.agent-factory/install.json` records every path init-factory creates for each CLI. `remove-factory` uses this record to remove Factory-owned paths without disturbing user-owned files. Its `factory_version` names the release whose `init-factory` last completed. On an update to the core artifact layout, `init-factory` writes the new version only after `migrate-spec-layout` succeeds. A missing `factory_version`, the value `unknown`, or a value that is not a semantic version counts as older than the layout release. only a missing `install.json` marks a first install. See [interface-contracts.md § init-factory](interface-contracts.md#factoryscriptsinit-factory).
+- **INSTALL_MANIFEST** at `.agent-factory/install.json` records every path init-factory creates for each CLI. `remove-factory` uses this record to remove Factory-owned paths without disturbing user-owned files. Its `factory_version` names the release whose `init-factory` last completed. On an update to the core artifact layout, `init-factory` writes the new version only after `migrate-spec-layout` succeeds. A missing `factory_version`, the value `unknown`, or a value that is not a semantic version counts as older than the layout release. Only a missing `install.json` marks a first install. See [interface-contracts.md § init-factory](interface-contracts.md#factoryscriptsinit-factory).
 
 ## Core Artifact Ownership Entities
 
@@ -767,7 +767,7 @@ erDiagram
         string path_pattern
         bool   required
         string validator
-        list   reviewed_by "agent names or stakeholder. core and seam artifacts only"
+        list   reviewed_by "agent names or stakeholder, on core and seam artifacts only"
         string edits "nullable, wording for an agent that never changes meaning"
     }
     REVIEWER {
@@ -781,7 +781,7 @@ erDiagram
         string artifact "path of the artifact that drifted"
         string drift "the mismatch, in one sentence"
         string evidence "code path and line"
-        string owner "producer of the artifact"
+        string owner "producer of the artifact, which acts on the row first"
         string status "open | fixed | confirmed | rejected"
     }
     TERM_CANDIDATE_FILE {
@@ -793,7 +793,7 @@ erDiagram
         string source "code path or session that found the term"
         string proposed_definition "nullable"
         string status "candidate | proposed | confirmed | rejected"
-        string note "nullable, the stakeholder's reason on a rejected row"
+        string note "nullable, the stakeholder's reason for a rejection, kept on a new proposal"
     }
     GLOSSARY_TERM {
         string term
@@ -804,8 +804,8 @@ erDiagram
 
 ### Notes
 
-- **CORE_LIST_ENTRY** has exactly one producing **OUTPUT_DECLARATION** (BR-056). A declaration with `edits: wording` never counts as one (BR-060). The field names are the reading of gap CAO-G05 in [core-artifact-ownership-gaps.md](work/core-artifact-ownership-gaps.md).
+- **CORE_LIST_ENTRY** has exactly one producing **OUTPUT_DECLARATION** (BR-056). A declaration with `edits: wording` never counts as one (BR-060). Gap CAO-G05 in [core-artifact-ownership-gaps.md](work/core-artifact-ownership-gaps.md) decides the field names.
 - **OUTPUT_DECLARATION.reviewed_by** names at least one **REVIEWER** on a core or seam artifact (BR-058). Each named agent declares the artifact as a required or a context input (BR-059).
-- **REPORT_ROW** follows the [Report Row Lifecycle](state-machines.md#report-row-lifecycle). Its column names are the reading of gap CAO-G04. Each story has its own spec-feedback report, so parallel developer agents never write the same file (DEC-27).
+- **REPORT_ROW** follows the [Report Row Lifecycle](state-machines.md#report-row-lifecycle). Gap CAO-G04 decides its column names. Each story has its own spec-feedback report, so parallel developer agents never write the same file (DEC-27).
 - **TERM_CANDIDATE_ROW** follows the [Term Candidate Lifecycle](state-machines.md#term-candidate-lifecycle). **GLOSSARY_TERM** is the row of the glossary table that [§ Glossary Entities](#glossary-entities) describes.
-- **FINDING.owner** names the agent that owns the artifact. The orchestrator routes each open finding to that agent. The tags `ARCH` and `QA` join the tag table, and `RECON` leaves it.
+- **FINDING.owner** names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). The orchestrator routes each open finding to that agent. The tags `ARCH` and `QA` join the tag table, and `RECON` leaves it.

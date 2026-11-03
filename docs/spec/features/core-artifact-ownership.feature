@@ -134,10 +134,10 @@ Feature: Core artifact ownership
       Then index-lint reports no reviewer finding for docs/spec/scope-map.md
 
     Scenario: A reader is never counted as a review
-      Given the QA agent declares docs/spec/features/{name}.feature as a required input
-      And no output declaration names qa-agent in reviewed_by:
+      Given the requirements agent declares docs/spec/features/{name}.feature with reviewed_by: []
+      And the QA agent declares docs/spec/features/*.feature as a required input
       When the factory maintainer runs the contract test
-      Then the review of the feature files is the spec-review agent alone
+      Then the test fails and names docs/spec/features/*.feature as an artifact without a review
 
     Scenario: The factory catalog is up to date after the change
       Given the factory's agent definitions after this feature
@@ -151,8 +151,8 @@ Feature: Core artifact ownership
     Scenario: The requirements agent declares three core outputs and its working output
       Given the requirements agent definition after this feature
       When the factory maintainer reads its output declarations
-      Then the core outputs are docs/spec/scope-map.md, docs/spec/features/*.feature, and docs/spec/areas/*.md
-      And the other outputs are the gaps reports, docs/spec/work/term-candidates.md, the spec-feedback reports, and the reconciliation reports
+      Then its outputs include the core outputs docs/spec/scope-map.md, docs/spec/features/*.feature, and docs/spec/areas/*.md
+      And its outputs include the gaps reports, docs/spec/work/term-candidates.md, the spec-feedback reports, the reconciliation reports, and docs/findings/BUG-*.md
       And no output declaration names a QA strategy, a structure file, or the glossary
 
     Scenario: The requirements agent hands QA strategy and agent context to their owners
@@ -181,8 +181,9 @@ Feature: Core artifact ownership
       When the factory maintainer reads its frontmatter
       Then the tier is strong
       And the required inputs are docs/spec/scope-map.md and docs/spec/features/*.feature
-      And the context inputs are docs/spec/glossary.md, docs/spec/work/term-candidates.md, the source code, and docs/agent-context.md
-      And the outputs are glossary.md, entity-model.md, state-machines.md, validation-rules.md, interface-contracts.md, and schemas/* under docs/spec/
+      And the context inputs are docs/spec/glossary.md, docs/spec/work/term-candidates.md, src/**/*, and docs/agent-context.md
+      And its outputs include the core outputs glossary.md, entity-model.md, state-machines.md, validation-rules.md, interface-contracts.md, and schemas/* under docs/spec/
+      And its outputs include docs/spec/work/term-candidates.md, the spec-feedback reports, the reconciliation reports, and docs/findings/BUG-*.md
       And glossary.md and entity-model.md are declared with required: true
 
     Scenario: The domain-modeling agent becomes eligible after the requirements agent
@@ -260,6 +261,13 @@ Feature: Core artifact ownership
       Then the row Slot has the status rejected
       And its Note column gives the stakeholder's reason
       And docs/spec/glossary.md has no row for Slot
+
+    Scenario: A rejected term returns to proposed with a new definition
+      Given the row Slot has the status rejected and the note that a Slot is not a time window
+      When the domain-modeling agent writes a new definition of Slot from the note
+      Then the row Slot has the status proposed
+      And its Note column still gives the stakeholder's reason
+      And the domain-modeling agent presents Slot at its next pause point with the stakeholder
 
     Scenario: An unattended run leaves its proposals in the work file
       Given the domain-modeling agent runs without a stakeholder in the session
@@ -495,8 +503,9 @@ Feature: Core artifact ownership
       And the developer agent gets a fix iteration for plan_moves
 
     Scenario: The implementation agent runs the project's mutation command as a gate
-      Given docs/testing.yaml enables mutation testing with gates.mutation_testing.command set
-      When the implementation agent runs the gates after a story
+      Given docs/testing.yaml enables crap-score and mutation testing with gates.mutation_testing.command set
+      And the story has a Test Design section and no quality-gates field
+      When the implementation agent runs the gates after the story
       Then it runs crap-score, test-design-verify, dependency-check, and the command in gates.mutation_testing.command
       And a non-zero exit of any of them blocks the merge
 
@@ -506,18 +515,19 @@ Feature: Core artifact ownership
       Then the mutation gate fails
       And the failure names the test-strategy agent
 
-    Scenario Outline: The gate list comes from the story first, then from testing.yaml, then from the default
-      Given a story with <story field>
+    Scenario Outline: The test guardrails come from the story first, then from testing.yaml, then from the default
+      Given a story with <story field> and <test design>
       And docs/testing.yaml <gates section>
       When the implementation agent picks the gates for the story
       Then it runs <gates run>
 
       Examples:
-        | story field                 | gates section                               | gates run                                              |
-        | quality-gates: [crap-score] | enables crap-score and mutation testing     | crap-score                                             |
-        | no quality-gates field      | enables crap-score only                     | crap-score                                             |
-        | no quality-gates field      | has no gates section                        | crap-score and dependency-check                        |
-        | no quality-gates field      | has no gates section and a mutation command | crap-score, dependency-check, and the mutation command |
+        | story field                 | test design             | gates section                                          | gates run                                              |
+        | quality-gates: [crap-score] | no Test Design section  | enables crap-score and mutation testing with a command | crap-score and dependency-check                        |
+        | quality-gates: [crap-score] | a Test Design section   | enables crap-score and mutation testing with a command | crap-score, test-design-verify, and dependency-check   |
+        | no quality-gates field      | no Test Design section  | enables crap-score and mutation testing with a command | crap-score, dependency-check, and the mutation command |
+        | no quality-gates field      | no Test Design section  | enables only mutation testing with a command           | dependency-check and the mutation command              |
+        | no quality-gates field      | no Test Design section  | has no gates section                                   | crap-score and dependency-check                        |
 
     Scenario: The developer agent runs the gates in manual mode
       Given the implementation agent runs in manual mode
@@ -544,6 +554,13 @@ Feature: Core artifact ownership
       Given ST-0318 has merged and QA-0003 is open with owner: test-strategy-agent
       When the implementation agent handles the merged story
       Then it dispatches the test-strategy agent for QA-0003
+
+    Scenario: The test-strategy agent skips an open QA finding whose owner is the planning agent
+      Given QA-0003 is open with owner: planning-agent
+      And QA-0004 is open with owner: test-strategy-agent
+      When the test-strategy agent picks the open QA findings it works on
+      Then it works on QA-0004
+      And QA-0003 is unchanged
 
     Scenario Outline: The test-strategy agent resolves a QA finding in one of two ways
       Given the test-strategy agent works on QA-0003
@@ -689,7 +706,7 @@ Feature: Core artifact ownership
       When the reconciliation agent runs again
       Then it checks the row's mismatch against the code
 
-  Rule: Owner receives every finding about its artifact
+  Rule: Owner receives every finding it acts on next
     # actor: Factory maintainer
     # @packages/factory/rulebooks/conventions/finding-format.md
     # @packages/factory/rulebooks/templates/finding.md
@@ -698,6 +715,7 @@ Feature: Core artifact ownership
       Given finding-format.md and templates/finding.md after this feature
       When the factory maintainer reads them
       Then the finding frontmatter has an owner: field
+      And the format defines the owner as the agent that acts on the finding next
       And the tag table lists ARCH and QA
       And the tag table does not list RECON
 
@@ -738,6 +756,10 @@ Feature: Core artifact ownership
         | architecture-review-agent | docs/reviews/reconciliation-*.md  |
         | spec-review-agent         | docs/findings/BUG-*.md            |
         | architecture-review-agent | docs/findings/BUG-*.md            |
+        | requirements-agent        | docs/findings/BUG-*.md            |
+        | domain-modeling-agent     | docs/findings/BUG-*.md            |
+        | test-strategy-agent       | docs/findings/BUG-*.md            |
+        | virgil                    | docs/findings/BUG-*.md            |
 
     Scenario: The single-producer rule does not count working output
       Given several agents declare docs/spec/work/term-candidates.md

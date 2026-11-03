@@ -616,10 +616,12 @@ and BR-062 names the statuses that block `dispatch close-wave`.
 
 ```text
 State: OPEN
+  # initial — the developer agent or the reconciliation agent writes the row
 On OwnerFixesArtifact:
   ChangeState(FIXED)
 
 State: FIXED
+  # terminal when the artifact has no declared review, such as a QA strategy or an ADR
 On ReviewAccepts:
   ChangeState(CONFIRMED)
 On ReviewRejects:
@@ -659,6 +661,7 @@ A row of `docs/spec/work/term-candidates.md`. BR-065 holds the rules.
 
 ```text
 State: CANDIDATE
+  # initial — reverse-map or another agent records a term it found
 On DomainModelingProposesDefinition:
   ChangeState(PROPOSED)
 
@@ -669,11 +672,14 @@ On StakeholderRejects:
   ChangeState(REJECTED)
 
 State: CONFIRMED
+  # initial when the stakeholder settled the term in a session of another agent
 On DomainModelingMovesTerm:
   ChangeState(IN_GLOSSARY)
 
 State: REJECTED
-  # terminal until the stakeholder decides gap CAO-G09
+On DomainModelingProposesDefinition:
+  # the new definition uses the stakeholder's note, and the row keeps the note
+  ChangeState(PROPOSED)
 
 State: IN_GLOSSARY
   # terminal — the row leaves the work file
@@ -688,8 +694,8 @@ stateDiagram-v2
     CANDIDATE --> PROPOSED : DomainModelingProposesDefinition
     PROPOSED --> CONFIRMED : StakeholderConfirms
     PROPOSED --> REJECTED : StakeholderRejects
+    REJECTED --> PROPOSED : DomainModelingProposesDefinition
     CONFIRMED --> IN_GLOSSARY : DomainModelingMovesTerm
-    REJECTED --> [*]
     IN_GLOSSARY --> [*]
 ```
 
@@ -698,4 +704,5 @@ stateDiagram-v2
 - **CANDIDATE** is the row that `reverse-map` writes: only the name and its source are known.
 - A row starts at **CONFIRMED** when the stakeholder settled the term in a session of another agent, such as Virgil's `grilling`.
 - **IN_GLOSSARY** is not a value of the Status column. It names the moment the domain-modeling agent writes the glossary row and removes the work-file row.
+- **REJECTED** waits for a new definition. The domain-modeling agent writes it from the stakeholder's note, the row returns to **PROPOSED**, and the stakeholder sees it at the next pause point (CAO-G09).
 - An unattended run of the domain-modeling agent leaves its rows at **PROPOSED**. The spec review files a finding for each of them.

@@ -203,18 +203,18 @@ All stories must have YAML frontmatter with the following fields:
 
 #### Optional fields
 
-| Field           | Type             | Notes                                                                                                                         |
-| --------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `deps`          | array of strings | Story IDs that must complete first; must match pattern `ST-\d{4,}`                                                            |
-| `traces`        | array of strings | Use Case / ADR / component IDs this story implements                                                                          |
-| `tests`         | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only                               |
-| `risk_domains`  | array of strings | Closed enum: `security`, `privacy`, `data_integrity`, `compatibility`, `reliability`, `operations`                            |
-| `strategy`      | string           | Closed enum: `direct`, `seams-first`, `deletion`; defaults to `direct` when absent                                            |
-| `seam_outputs`  | array of strings | Optional seams-first test outputs; validated only when present                                                                |
-| `impl_outputs`  | array of strings | Optional seams-first implementation outputs; validated only when present                                                      |
-| `concerns`      | mapping          | `{domain: [string], technical: [string]}`; both keys optional. Names must match `###` headings in `docs/agent-context.md`     |
-| `quality-gates` | array of strings | Closed enum: `crap-score`, `mutation-analysis`, `dependency-check`; omitting a default gate requires justification in `notes` |
-| `notes`         | string           | Free-text; required justification when `quality-gates` omits a default gate                                                   |
+| Field           | Type             | Notes                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deps`          | array of strings | Story IDs that must complete first; must match pattern `ST-\d{4,}`                                                                                                                                                                                                                                                                                                                                        |
+| `traces`        | array of strings | Use Case / ADR / component IDs this story implements                                                                                                                                                                                                                                                                                                                                                      |
+| `tests`         | array of strings | Pre-existing test file paths covering acceptance criteria; missing files generate warnings only                                                                                                                                                                                                                                                                                                           |
+| `risk_domains`  | array of strings | Closed enum: `security`, `privacy`, `data_integrity`, `compatibility`, `reliability`, `operations`                                                                                                                                                                                                                                                                                                        |
+| `strategy`      | string           | Closed enum: `direct`, `seams-first`, `deletion`; defaults to `direct` when absent                                                                                                                                                                                                                                                                                                                        |
+| `seam_outputs`  | array of strings | Optional seams-first test outputs; validated only when present                                                                                                                                                                                                                                                                                                                                            |
+| `impl_outputs`  | array of strings | Optional seams-first implementation outputs; validated only when present                                                                                                                                                                                                                                                                                                                                  |
+| `concerns`      | mapping          | `{domain: [string], technical: [string]}`; both keys optional. Names must match `###` headings in `docs/agent-context.md`                                                                                                                                                                                                                                                                                 |
+| `quality-gates` | array of strings | Closed enum: `crap-score`, `mutation-testing`. Picks the test guardrails before the `gates` section of `docs/testing.yaml` ([BR-066](validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)). `test-design-verify` and `dependency-check` are not in the enum, because they run without a pick. Omitting `crap-score`, the default gate, requires justification in `notes` |
+| `notes`         | string           | Free-text; required justification when `quality-gates` omits `crap-score`                                                                                                                                                                                                                                                                                                                                 |
 
 ### Validation rules
 
@@ -229,7 +229,7 @@ All stories must have YAML frontmatter with the following fields:
 - `strategy: seams-first` requires `seam_outputs ∪ impl_outputs == outputs`
 - Machine field names (`tier`, `deps`, `traces`, `outputs`) must not appear as prose headings or bold terms in the story body
 - `concerns` must be a mapping with only `domain` and `technical` keys (both optional); each value must be a list of strings
-- `quality-gates` is a closed enum (`crap-score`, `mutation-analysis`, `dependency-check`); omitting a factory-default gate requires justification in `notes`
+- `quality-gates` is a closed enum (`crap-score`, `mutation-testing`); omitting `crap-score` requires justification in `notes`, and omitting `dependency-check` needs no note
 
 ## `.agent-factory/factory/scripts/arch-lint`
 
@@ -273,14 +273,14 @@ All stories must have YAML frontmatter with the following fields:
 
 ## `.agent-factory/factory/scripts/dependency-check`
 
-|                 |                                                                                                                  |
-| --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Usage           | `dependency-check [--dsl-path PATH] [--source-root DIR] [--story-id ID] [--report-dir DIR]`                      |
-| `--dsl-path`    | The dependency rules. Default `docs/spec/dependency-rules.dsl`                                                   |
-| `--source-root` | The folder whose Python files are scanned. Default `.`                                                           |
-| Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/`              |
-| Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise                      |
-| Owner           | Each result entry carries `owner: architecture-agent`, the owner of every violation (field name per gap CAO-G07) |
+|                 |                                                                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Usage           | `dependency-check [--dsl-path PATH] [--source-root DIR] [--story-id ID] [--report-dir DIR]`                             |
+| `--dsl-path`    | The dependency rules. Default `docs/spec/dependency-rules.dsl`                                                          |
+| `--source-root` | The folder whose Python files are scanned. Default `.`                                                                  |
+| Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/`                     |
+| Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise                             |
+| Owner           | Each result entry carries `owner: architecture-agent`, the owner of every violation (field name decided in gap CAO-G07) |
 
 ## `.agent-factory/factory/scripts/scope-lint`
 
@@ -345,6 +345,8 @@ The gate is skipped when the story has no `#### Test Design` section and no `###
 ## `docs/testing.yaml` — `gates` section schema
 
 The `gates` section centralizes gate configuration that the dispatcher reads at runtime. It does not define gate execution ordering; [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
+
+The section picks only the test guardrails. `dependency-check` has no entry here, because the implementation agent runs it after every story ([BR-066](validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)).
 
 ```yaml
 gates:
@@ -926,15 +928,15 @@ The remote release base exposes `<base>/latest`,
 ## Core Artifact Ownership Contracts
 
 The contracts of [core-artifact-ownership.feature](features/core-artifact-ownership.feature).
-Values that the proposal leaves open carry the gap identifier of
-[core-artifact-ownership-gaps.md](work/core-artifact-ownership-gaps.md).
+A value that the proposal leaves open carries the identifier of the gap in
+[core-artifact-ownership-gaps.md](work/core-artifact-ownership-gaps.md) that decides it.
 
 ### `packages/factory/rulebooks/core-artifacts.yaml`
 
 | Property | Contract                                                                                                                                                   |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Readers  | The producer and review contract test, `index-lint` for its reviewer check (CAO-G06), and `dispatch close-wave` to tell core rows from other rows (BR-062) |
-| Entry    | `path_pattern`, `sample_path`, `family`, and `optional` (field names per CAO-G05)                                                                          |
+| Entry    | `path_pattern`, `sample_path`, `family`, and `optional` (field names decided in CAO-G05)                                                                   |
 | Family   | `scope-and-behaviour`, `domain-structure`, `architecture`, or `seam`                                                                                       |
 | Optional | `true` when a project may lack the artifact. Its reviewer then declares it as a context input (DEC-25)                                                     |
 
@@ -981,15 +983,15 @@ Values that the proposal leaves open carry the gap identifier of
 
 ### Report rows: spec-feedback and reconciliation
 
-Both reports hold one Markdown table with the columns below. The column names
-are the reading of gap CAO-G04.
+Both reports hold one Markdown table with the columns below. Gap CAO-G04
+decides the column names.
 
 | Column   | Contract                                                                                                                                                   |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Artifact | The path of the artifact that drifted, such as `docs/spec/validation-rules.md`                                                                             |
 | Drift    | The mismatch between the artifact and the code, in one sentence                                                                                            |
 | Evidence | The code path and line that show the mismatch                                                                                                              |
-| Owner    | The producer of the artifact, such as `domain-modeling-agent`                                                                                              |
+| Owner    | The producer of the artifact, which acts on the row first, such as `domain-modeling-agent`                                                                 |
 | Status   | `open`, `fixed`, `confirmed`, or `rejected`, set as [BR-061](validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) defines |
 
 | Report         | Path                                         | Writer of `open` rows                    |
@@ -999,19 +1001,19 @@ are the reading of gap CAO-G04.
 
 ### `docs/spec/work/term-candidates.md`
 
-| Column              | Contract                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------- |
-| Term                | The term as the code or the session names it                                        |
-| Domain area         | The scope-map area the term belongs to; the stakeholder confirms one area at a time |
-| Source              | The code path or the session that found the term                                    |
-| Proposed definition | Written by the domain-modeling agent, or by the session that settled the term       |
-| Status              | `candidate`, `proposed`, `confirmed`, or `rejected` (BR-065)                        |
-| Note                | The stakeholder's reason on a `rejected` row                                        |
+| Column              | Contract                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| Term                | The term as the code or the session names it                                                      |
+| Domain area         | The scope-map area the term belongs to; the stakeholder confirms one area at a time               |
+| Source              | The code path or the session that found the term                                                  |
+| Proposed definition | Written by the domain-modeling agent, or by the session that settled the term                     |
+| Status              | `candidate`, `proposed`, `confirmed`, or `rejected` (BR-065)                                      |
+| Note                | The stakeholder's reason for a rejection; the row keeps it when it returns to `proposed` (BR-065) |
 
 ### Finding frontmatter `owner:`
 
-| Property | Contract                                                                                                          |
-| -------- | ----------------------------------------------------------------------------------------------------------------- |
-| Field    | `owner:` names the agent that owns the artifact the finding is about                                              |
-| Routing  | The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase        |
-| Tags     | The tag table adds `ARCH` (the architecture agent's read check) and `QA` (an unresolved mutant) and drops `RECON` |
+| Property | Contract                                                                                                                                                                                                                                        |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Field    | `owner:` names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10) |
+| Routing  | The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase                                                                                                                                      |
+| Tags     | The tag table adds `ARCH` (the architecture agent's read check) and `QA` (an unresolved mutant) and drops `RECON`                                                                                                                               |
