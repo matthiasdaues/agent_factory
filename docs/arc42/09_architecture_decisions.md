@@ -34,6 +34,9 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0024 | [DBML as the entity-model language](../adr/0024-dbml-as-entity-model-language.md)                                                                             | accepted               | pugh-matrix |
 | 0025 | [Core artifact layout under `docs/spec/`](../adr/0025-core-artifact-layout-under-docs-spec.md)                                                                | accepted               | none        |
 | 0026 | [Layout migration runs inside the factory update](../adr/0026-layout-migration-runs-inside-the-factory-update.md)                                             | accepted               | none        |
+| 0027 | [Split the requirements agent by artifact family](../adr/0027-split-the-requirements-agent-by-artifact-family.md)                                             | proposed               | none        |
+| 0028 | [Declared review and a core list check ownership](../adr/0028-declared-review-and-core-list-check-ownership.md)                                               | proposed               | none        |
+| 0029 | [Per-story drift reports block the wave close](../adr/0029-per-story-drift-reports-block-the-wave-close.md)                                                   | proposed               | none        |
 
 ## Key Decisions
 
@@ -231,6 +234,27 @@ layout release supports only an installed `update-factory` `v1.1.0-rc` or
 later. Folding the context map
 into domain concerns stays a separate step with
 `capture-context --fold-context-map`.
+
+### Core Artifact Ownership
+
+**ADR-0027** gives each artifact family one producer. The requirements agent
+keeps scope and behaviour. A new domain-modeling agent takes the glossary and
+the structure files, and the architecture agent adds `dependency-rules.dsl`
+and stops writing state machines. A new test-strategy agent takes
+`testing.yaml`, the QA strategies, and the test guardrails, which the
+implementation agent keeps running. The decision amends ADR-0012: mutation
+testing runs as a gate through the project's command.
+
+**ADR-0028** declares each review on the producer's output declaration as
+`reviewed_by:`. The core list `core-artifacts.yaml` is the single source for
+the set of core and seam artifacts. The ownership contract test and
+`index-lint --check` match its sample paths against the agents' declarations.
+See [8.17](08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review).
+
+**ADR-0029** sends specification drift found during implementation to the
+artifact's owner as a row of a per-story spec-feedback report. `dispatch close-wave` fails while a row is `open`, or `fixed` on a core or seam
+artifact, so the specification lags the code by one wave at most. See
+[6.12](06_runtime_view.md#612-spec-feedback-and-wave-close).
 
 ## Superseded Decisions
 

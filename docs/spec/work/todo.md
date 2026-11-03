@@ -203,3 +203,16 @@ ones, prunes, and records the close in the ledger. An abandoned close records
 the reason and force-removes the dispatch's worktrees and branches. Add a test
 per case, and point the Close section and the implementation-agent at the
 command.
+
+## T-0015 — arc42 has no chapters 01 to 04 and 11
+
+- status: open
+- source: architecture pass of `core-artifact-ownership` (2026-11-03)
+
+`docs/arc42/` holds chapters 05 to 10 and 12. Introduction and goals,
+constraints, context and scope, solution strategy, and risks and technical
+debt are missing. So a reader of the architecture finds no stated goals and
+no overview before the building blocks.
+
+**Action:** create chapters 01 to 04 and 11 in a separate architecture pass,
+derived from `architecture.dsl` and the accepted proposals.

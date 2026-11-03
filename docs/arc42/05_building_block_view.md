@@ -28,6 +28,10 @@ and local JSONL spool.
 | **Usage Analysis Runtime** | Reads a snapshotted input set and publishes versioned local DuckDB views                                                                                       | Python, DuckDB, PyArrow           |
 | DuckDB UI                  | Optional ephemeral localhost exploration of the published views                                                                                                | DuckDB bundled UI                 |
 | Installed Analysis Module  | Locked executable package, SQL, registry, and contract copy under `.agent-factory/usage-analysis/`                                                             | Files (storage)                   |
+| **Factory Agents**         | Agent definitions under `packages/factory/agents/`; a CLI session runs one definition and writes only the outputs it declares                                  | Markdown with YAML frontmatter    |
+| Core Artifacts             | The core files under `docs/spec/` and the seam files `docs/agent-context.md` and `docs/testing.yaml`; each has exactly one producer and a declared review      | Markdown, DSL, YAML (storage)     |
+| Working Output             | Files under `docs/spec/work/`, `docs/reviews/`, and `docs/findings/`; several declared writers, each changing only its part                                    | Markdown (storage)                |
+| Core List                  | `packages/factory/rulebooks/core-artifacts.yaml`: every core and seam artifact with its path pattern, sample path, family, and whether a project may lack it   | YAML (storage)                    |
 
 ![Containers](../assets/images/Containers.svg)
 
@@ -49,13 +53,14 @@ Two more -- `schema-validate` and `policy-validate` -- are on-demand validators 
 
 Three additional on-demand validators enforce semantic code quality and architecture routing. Two are invoked by the implementation-agent dispatcher (not by hooks) and are described in [section 5.2.3](#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check); one determines whether a feature needs the architecture phase:
 
-| Component              | Trigger Point                                   | What it validates                                           | Exit codes                              |
-| ---------------------- | ----------------------------------------------- | ----------------------------------------------------------- | --------------------------------------- |
-| **crap-score**         | Dispatcher, after developer-agent commit        | CRAP score (cyclomatic complexity x coverage) per function  | 0 (pass), 1 (fail)                      |
-| **dependency-check**   | Dispatcher, after developer-agent commit        | Imports conform to architecture.dsl dependency rules        | 0 (pass), 1 (violations)                |
-| **module-graph-check** | Orchestrating session, at architecture boundary | Feature touches no new modules or inverted dependencies     | 0 (result on stdout), 2 (input missing) |
-| **Fence Runner**       | After agent activity completion                 | Agent declared outputs exist and pass applicable validators | 0 (pass), 1 (violations)                |
-| **Proposal Validator** | `intent assess`, on-demand                      | Proposal file existence, markdown format, required fields   | 0 (pass), 1 (violations)                |
+| Component                   | Trigger Point                                   | What it validates                                                                         | Exit codes                              |
+| --------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------- |
+| **crap-score**              | Dispatcher, after developer-agent commit        | CRAP score (cyclomatic complexity x coverage) per function                                | 0 (pass), 1 (fail)                      |
+| **dependency-check**        | Dispatcher, after developer-agent commit        | Imports conform to architecture.dsl dependency rules                                      | 0 (pass), 1 (violations)                |
+| **module-graph-check**      | Orchestrating session, at architecture boundary | Feature touches no new modules or inverted dependencies                                   | 0 (result on stdout), 2 (input missing) |
+| **Fence Runner**            | After agent activity completion                 | Agent declared outputs exist and pass applicable validators                               | 0 (pass), 1 (violations)                |
+| **Proposal Validator**      | `intent assess`, on-demand                      | Proposal file existence, markdown format, required fields                                 | 0 (pass), 1 (violations)                |
+| **Ownership Contract Test** | Factory test suite                              | Each core list entry has exactly one producer, and its declaration carries `reviewed_by:` | 0 (pass), 1 (fail)                      |
 
 ### 5.2.1 Project-Owned Test Gates via Charter Declaration
 
@@ -74,7 +79,7 @@ Three additional on-demand validators enforce semantic code quality and architec
 
 - **Precondition evaluation**: The Eligibility Engine's precondition evaluator checks agent `inputs.required` declarations against the filesystem. Agents that require passing tests declare `testing.yaml` as a required input. Blocks when the test configuration is absent or `test_command` is missing.
 - **Agent allowlist** (BR-024): `block-dangerous-git.sh` reads all declared command fields from `testing.yaml` (via format detection) and allowlists them with exact-string matching. Bare test commands remain blocked for agents.
-- **Onboarding**: The `detect-test-regime` skill scans for existing test entrypoints during `init-factory` and populates `testing.yaml`. When multiple entrypoints are detected, it asks for disambiguation.
+- **Onboarding**: The test-strategy agent scans for existing test entrypoints with the `detect-test-regime` skill and populates `testing.yaml`. When multiple entrypoints are detected, it asks for disambiguation. The stakeholder confirms every change to the file. In step 2b of the fitting, the session takes the test-strategy agent's role.
 - **Project hooks**: Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure.
 
 **Referenced Specifications**:
@@ -110,12 +115,12 @@ The falsification-driven research feature validates its JSON artifacts through a
 
 Two deterministic scripts enforce semantic code quality after each developer-agent commit, owned by the implementation-agent dispatcher. They extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks (formatting, phase gating) to code meaning (complexity and dependency direction). See [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) for the execution model decision.
 
-| Component            | What it checks                                                                                                                                   | Inputs                                     | Outputs                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ----------------------------------------------------------------- |
-| **crap-score**       | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP \<= 8 (Bob Martin default, overridable in `house-rules.md`) | Source files, coverage data                | JSON report per function, logged to `.current-work/crap-score/`   |
-| **dependency-check** | Validates that module import directions match declarations in `architecture.dsl`                                                                 | `docs/spec/architecture.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/` |
+| Component            | What it checks                                                                                                                                   | Inputs                                         | Outputs                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ----------------------------------------------------------------- |
+| **crap-score**       | CRAP score per function: `comp(m)^2 x (1 - cov(m)/100)^3 + comp(m)`. Threshold: CRAP \<= 8 (Bob Martin default, overridable in `house-rules.md`) | Source files, coverage data                    | JSON report per function, logged to `.current-work/crap-score/`   |
+| **dependency-check** | Validates that module import directions match the rules in `dependency-rules.dsl`; each result entry carries `owner: architecture-agent`         | `docs/spec/dependency-rules.dsl`, source files | JSON report per rule, logged to `.current-work/dependency-check/` |
 
-Mutation testing is project-owned infrastructure. Factory encourages it: the `mutation-analysis` skill provides setup guidance, and the kit-manager carries it as an open question during charter setup until settled in `testing.yaml`. See [ADR-0012 section Amended](../adr/0012-dispatcher-owned-semantic-gate-loop.md#amended).
+The test-strategy agent owns the test guardrails: `crap-score`, `mutation-testing`, and `test-design-verify`. It chooses them and sets their thresholds in the `gates` section of `docs/testing.yaml`. Mutation testing is a project capability: `gates.mutation_testing.enabled` switches it on, and `gates.mutation_testing.command` holds the project's command. The mutation tool's configuration lives in the project's own files. The implementation agent runs the command as a gate. An enabled mutation gate without a command fails and names the test-strategy agent. `dependency-check` stays with the architecture agent, because that agent owns the rules. See [ADR-0027](../adr/0027-split-the-requirements-agent-by-artifact-family.md).
 
 **Invocation model:**
 
@@ -127,7 +132,7 @@ Mutation testing is project-owned infrastructure. Factory encourages it: the `mu
 
 The developer agent never runs the gates. Each fix iteration starts with a clean context. This separation prevents context contamination and enforces the trust boundary.
 
-**Story-level gate configuration:** The `quality-gates` field in the story template declares which gates apply. Precedence: story field > `house-rules.md` project default > Factory hardcoded default (both gates: `crap-score`, `dependency-check`). Excluding a gate requires justification in the story's `notes:` field.
+**Story-level gate configuration:** `dependency-check` runs after every story. `test-design-verify` runs whenever the story has a Test Design or a Prior Tests section. The story's `quality-gates` field picks `crap-score` and `mutation-testing`. A story without the field takes them from the `gates` section of `docs/testing.yaml`. Without either, the fail-closed default runs `crap-score` and never `mutation-testing`, because only the `gates` section holds the mutation command ([BR-066](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)). In manual mode, the developer agent runs the same gates before it hands a story back.
 
 ### 5.2.4 Module-graph check
 
@@ -191,53 +196,56 @@ All components are stateless functions. The engine receives its inputs and retur
 
 ## 5.4 Level 2: Component View -- Dispatcher
 
-| Component                        | What it does                                                                                                                      | Reads                 | Writes                |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------- |
-| **trigger**                      | Resolves agent/model, spawns CLI session with scoped permits                                                                      | INDEX.yaml            | (none)                |
-| **index-lint**                   | Generates INDEX.yaml from frontmatter with token budget counts; `--check` validates drift                                         | source .md            | INDEX.yaml            |
-| **run-agent** (Pi extension)     | Pi model-callable tool: spawns a separate `pi` session to run one factory agent                                                   | agent .md, model.conf | (none)                |
-| **dispatch-wave** (Pi extension) | Pi model-callable tool: runs a parallel wave of agents, each in its own git worktree, integrating `premerge-check` before merging | agent .md, model.conf | git worktrees, merges |
-| **openrouter-discover**          | Curation tool: queries the OpenRouter catalog to curate/validate `pi.*` tier rows in model.conf, offline of the runtime path      | OpenRouter API        | (none)                |
+| Component                        | What it does                                                                                                                                                                                                | Reads                                    | Writes                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------- |
+| **trigger**                      | Resolves agent/model, spawns CLI session with scoped permits                                                                                                                                                | INDEX.yaml                               | (none)                |
+| **index-lint**                   | Generates INDEX.yaml from frontmatter with token budget counts and carries `reviewed_by:` and `edits:`; `--check` validates drift and fails on a reviewer that is unknown or lacks the artifact as an input | source .md, core list                    | INDEX.yaml            |
+| **dispatch**                     | Records waves in the dispatch ledger; `close-wave` fails while a spec-feedback row of the wave is `open`, or `fixed` on a core or seam artifact                                                             | ledger, spec-feedback reports, core list | dispatch ledger       |
+| **run-agent** (Pi extension)     | Pi model-callable tool: spawns a separate `pi` session to run one factory agent                                                                                                                             | agent .md, model.conf                    | (none)                |
+| **dispatch-wave** (Pi extension) | Pi model-callable tool: runs a parallel wave of agents, each in its own git worktree, integrating `premerge-check` before merging                                                                           | agent .md, model.conf                    | git worktrees, merges |
+| **openrouter-discover**          | Curation tool: queries the OpenRouter catalog to curate/validate `pi.*` tier rows in model.conf, offline of the runtime path                                                                                | OpenRouter API                           | (none)                |
 
 ## 5.5 Interfaces Summary
 
 Every building block's entry point, invoked how, and by whom:
 
-| Script / Component           | Invoked by                             | Entry point                                                                        | Exit codes                                    |
-| ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- |
-| intent                       | Human                                  | `.agent-factory/factory/scripts/intent select\|assess`                             | 0 (result), 1+ (error)                        |
-| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                       | 0 (allow), 2 (deny)                           |
-| trigger                      | Human                                  | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                    |
-| usage-capture                | Native CLI hooks and Pi extensions     | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)             |
-| index-lint                   | Pre-commit hook, CI                    | `.agent-factory/factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale)                          |
-| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                            | (tool result: text + usage, or error)         |
-| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                     | (tool result: per-item status, or error)      |
-| openrouter-discover          | User, CI (`--check`)                   | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                             |
-| schema-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational) |
-| policy-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)           |
-| crap-score                   | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                            |
-| dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                      |
-| concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                |
-| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check [--proposal PATH]`              | 0 (result on stdout), 2 (input missing)       |
-| Fence Runner                 | Post-agent-activity validation         | Python module (`packages/factory/engine/fence.py`)                                 | 0 (pass), 1 (violations)                      |
-| Proposal Validator           | `intent assess`, on-demand             | Python module (`packages/factory/engine/validators/proposal.py`)                   | 0 (pass), 1 (violations)                      |
-| Session Binding Manager      | Session start, workstream binding      | Python module (`packages/factory/engine/session_binding.py`)                       | (internal)                                    |
-| install-agent-factory        | Newcomer                               | `install-agent-factory --from-local\|--from-remote <src> --target <path>`          | 0 (installed), 1+ (error)                     |
-| build-release                | Release Maintainer                     | `factory/scripts/build-release --version <ver>`                                    | 0 (published), 1+ (error)                     |
-| hook-demo                    | Newcomer (via onboarding)              | `factory/scripts/hook-demo`                                                        | 0 (passed), 1+ (error)                        |
-| init-factory                 | install-agent-factory, Human           | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)             |
-| update-factory               | Project Maintainer                     | `factory/scripts/update-factory [--check]`                                         | 0 (updated), 1+ (error)                       |
-| migrate-spec-layout          | init-factory on an update, Human       | `factory/scripts/migrate-spec-layout [--dry-run]`                                  | 0 (moved or no work), non-zero (undone)       |
-| remove-factory               | Human                                  | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                       |
-| usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)              |
-| Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
-| Contract Check               | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
-| Operational Preflight        | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
-| Accounting Registry          | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
-| Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                                   | (internal)                                    |
-| Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
-| Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                    |
-| OpenCode Plugin              | OpenCode V2 plugin lifecycle           | `packages/factory/config/plugins/agent-factory.ts` via `Plugin.define()`           | (plugin hooks)                                |
+| Script / Component           | Invoked by                             | Entry point                                                                        | Exit codes                                     |
+| ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| intent                       | Human                                  | `.agent-factory/factory/scripts/intent select\|assess`                             | 0 (result), 1+ (error)                         |
+| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                       | 0 (allow), 2 (deny)                            |
+| trigger                      | Human                                  | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                     |
+| usage-capture                | Native CLI hooks and Pi extensions     | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)              |
+| index-lint                   | Pre-commit hook, CI                    | `.agent-factory/factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale or reviewer finding)       |
+| dispatch close-wave          | Implementation agent                   | `.agent-factory/factory/scripts/dispatch close-wave <N>`                           | 0 (closed), non-zero (open or unconfirmed row) |
+| Ownership Contract Test      | Factory test suite                     | `tests/factory/test_index_lint.py`                                                 | 0 (pass), 1 (fail)                             |
+| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                            | (tool result: text + usage, or error)          |
+| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                     | (tool result: per-item status, or error)       |
+| openrouter-discover          | User, CI (`--check`)                   | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                              |
+| schema-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational)  |
+| policy-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)            |
+| crap-score                   | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                             |
+| dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                       |
+| concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                 |
+| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check [--proposal PATH]`              | 0 (result on stdout), 2 (input missing)        |
+| Fence Runner                 | Post-agent-activity validation         | Python module (`packages/factory/engine/fence.py`)                                 | 0 (pass), 1 (violations)                       |
+| Proposal Validator           | `intent assess`, on-demand             | Python module (`packages/factory/engine/validators/proposal.py`)                   | 0 (pass), 1 (violations)                       |
+| Session Binding Manager      | Session start, workstream binding      | Python module (`packages/factory/engine/session_binding.py`)                       | (internal)                                     |
+| install-agent-factory        | Newcomer                               | `install-agent-factory --from-local\|--from-remote <src> --target <path>`          | 0 (installed), 1+ (error)                      |
+| build-release                | Release Maintainer                     | `factory/scripts/build-release --version <ver>`                                    | 0 (published), 1+ (error)                      |
+| hook-demo                    | Newcomer (via onboarding)              | `factory/scripts/hook-demo`                                                        | 0 (passed), 1+ (error)                         |
+| init-factory                 | install-agent-factory, Human           | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)              |
+| update-factory               | Project Maintainer                     | `factory/scripts/update-factory [--check]`                                         | 0 (updated), 1+ (error)                        |
+| migrate-spec-layout          | init-factory on an update, Human       | `factory/scripts/migrate-spec-layout [--dry-run]`                                  | 0 (moved or no work), non-zero (undone)        |
+| remove-factory               | Human                                  | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                        |
+| usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)               |
+| Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                     |
+| Contract Check               | usage-query (internal)                 | Python module                                                                      | (internal)                                     |
+| Operational Preflight        | usage-query (internal)                 | Python module                                                                      | (internal)                                     |
+| Accounting Registry          | usage-query (internal)                 | Python module                                                                      | (internal)                                     |
+| Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                                   | (internal)                                     |
+| Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                     |
+| Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                     |
+| OpenCode Plugin              | OpenCode V2 plugin lifecycle           | `packages/factory/config/plugins/agent-factory.ts` via `Plugin.define()`           | (plugin hooks)                                 |
 
 ## 5.6 Level 2: Component View -- Usage Capture
 
@@ -321,6 +329,40 @@ The **OpenCode Plugin** is a V2 plugin adapter that maps Factory safety controls
 | **Health Monitor**       | Tracks plugin health lifecycle (UNLOADED → HEALTHY → UNHEALTHY); fails closed on initialization, manifest, permission, or worktree failures with named recovery actions | (none)                     | (none)      |
 
 The plugin implements a fail-closed trust model: any failure in initialization, manifest loading, permission evaluation, or worktree creation denies the operation and reports the specific failed control with a recovery action. The health lifecycle state machine is documented in [state-machines.md](../spec/state-machines.md).
+
+## 5.10 Level 2: Component View -- Factory Agents
+
+A CLI session runs one agent definition. The definition's frontmatter declares the agent's tier, skills, inputs, and outputs. Each output declaration of a core or seam artifact also names its reviewers in `reviewed_by:`. So the definitions are the place where ownership is declared, and [8.17](08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review) describes the mechanism that checks it.
+
+The view shows the agents that produce, review, or report on core artifacts. Agents outside the ownership mechanism, such as the QA agent, are not part of it.
+
+![Factory Agents components](../assets/images/AgentOwnershipComponents.svg)
+
+The producers own one artifact family each. [ADR-0027](../adr/0027-split-the-requirements-agent-by-artifact-family.md) records the split.
+
+| Component                 | Family                                  | Produces                                                                                                            | Reviewed by                                                          |
+| ------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **requirements-agent**    | Scope and behaviour                     | `scope-map.md`, `features/*.feature`, `areas/*.md`                                                                  | stakeholder (scope map), spec-review agent                           |
+| **domain-modeling-agent** | Domain structure                        | `glossary.md`, `entity-model.md`, `state-machines.md`, `validation-rules.md`, `interface-contracts.md`, `schemas/*` | spec-review agent; the stakeholder also confirms every glossary term |
+| **architecture-agent**    | Architecture                            | `architecture.dsl`, `dependency-rules.dsl`                                                                          | architecture-review agent                                            |
+| **test-strategy-agent**   | Test practice (seam and working output) | `docs/testing.yaml`, `docs/spec/work/*-qa-strategy.md`                                                              | stakeholder (`testing.yaml`)                                         |
+| **virgil**                | Seam                                    | `docs/agent-context.md`                                                                                             | stakeholder                                                          |
+
+The other agents review the core or report drift in it. None of them writes a core file.
+
+| Component                     | Role in the ownership mechanism                                                                                                                                    | Writes                                                      |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| **spec-review-agent**         | Reviews behaviour and domain structure; files a finding for every `proposed` term candidate                                                                        | `SPEC` and `BUG` findings, row statuses                     |
+| **architecture-review-agent** | Reviews `architecture.dsl` and `dependency-rules.dsl`                                                                                                              | `ATAM` and `BUG` findings, row statuses                     |
+| **developer-agent**           | Writes each drift it finds as an `open` row of its story's spec-feedback report                                                                                    | `docs/spec/work/spec-feedback-<story-id>.md`, `QA` findings |
+| **implementation-agent**      | Dispatches each row's owner and then its reviewer after a story merges, and the test-strategy agent for each open `QA` finding it owns; runs `dispatch close-wave` | dispatch ledger                                             |
+| **reconciliation-agent**      | Compares the core with the code and names each drifted artifact's owner                                                                                            | `docs/reviews/reconciliation-<date>.md`                     |
+
+Three rules hold for every agent in the table:
+
+- **Readers raise findings.** An agent that reads an artifact it does not own writes a row or a finding with the owner's name. It does not edit the artifact.
+- **The architecture agent only reads domain structure.** It takes `entity-model.md` and `state-machines.md` as context inputs. On a contradiction it files an `ARCH` finding with the domain-modeling agent as owner.
+- **The lector agent is no producer.** It declares `docs/**/*.md` with `edits: wording`, because it changes wording and never meaning. The contract test skips that declaration.
 
 ## Referenced from
 

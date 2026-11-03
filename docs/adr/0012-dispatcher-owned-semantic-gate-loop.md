@@ -6,6 +6,8 @@ evaluation: pugh-matrix
 
 # Dispatcher-owned semantic gate loop
 
+Amended by [ADR-0027](0027-split-the-requirements-agent-by-artifact-family.md): mutation testing runs as a gate through the project's command in `gates.mutation_testing.command`.
+
 ## Context
 
 The Factory introduces three semantic quality gates — CRAP scoring, mutation analysis, and dependency-rule checking — that run deterministic scripts on committed code. The question is where in the workflow these gates fire and who owns their execution.

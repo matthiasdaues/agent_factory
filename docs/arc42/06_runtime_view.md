@@ -5,7 +5,7 @@
 ## 6.1 Overview
 
 This chapter describes key interaction sequences for Factory gates,
-eligibility evaluation, and local usage analysis. Dynamic views in
+eligibility evaluation, local usage analysis, and core artifact ownership. Dynamic views in
 [`architecture.dsl`](../spec/architecture.dsl) own the canonical step order.
 
 ## 6.2 Agent Selection
@@ -166,7 +166,7 @@ sequenceDiagram
 
 - Each fix iteration spawns a fresh developer agent. No context contamination from prior gate output.
 - Maximum three fix iterations per tier (configurable in `house-rules.md`). After the cap, the story escalates or is marked blocked.
-- The two gates run in sequence: CRAP, dependency. All must pass before `premerge-check`. Mutation testing is project-owned infrastructure that Factory encourages via the `mutation-analysis` skill.
+- The gates run in sequence and all must pass before `premerge-check`. `dependency-check` runs after every story. The story's gate list, or the `gates` section of `docs/testing.yaml`, picks `crap-score` and the project's mutation command. `test-design-verify` runs when the story has a Test Design or a Prior Tests section. The test-strategy agent owns these test guardrails and their thresholds; the implementation agent runs them ([5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)).
 - Gate reports are written to `.current-work/<gate-name>/<story-id>.json` for traceability.
 
 ### 6.4.3 Sequence: Module-Graph Check (Architecture Routing)
@@ -656,7 +656,94 @@ sequenceDiagram
 - `update-factory` restores the factory tree, the install manifest, and the instruction headers. The project keeps its old layout and its old factory version, so its scripts and hooks match its layout.
 - The layout release supports only an installed `update-factory` `v1.1.0-rc` or later, the first release with this rollback. A project on an older release updates to 1.3.x first, as the release notes say ([ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md)).
 
-## 6.11 Other Runtime Scenarios (Summary)
+## 6.11 Specification Handoff Between Producers
+
+Derived from dynamic view `SpecificationHandoff` in [`architecture.dsl`](../spec/architecture.dsl).
+
+The specification has three producers, and each hands off to the next in its handoff text. `run-step` still counts an agent as eligible when the files of its required inputs exist, so the declared inputs set the order. [8.17](08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review) names the owner of each file.
+
+```mermaid
+sequenceDiagram
+    participant RA as requirements-agent
+    participant CA as Core Artifacts
+    participant DMA as domain-modeling-agent
+    participant SH as Stakeholder
+    participant SRA as spec-review-agent
+    participant AA as architecture-agent
+
+    RA->>CA: 1. Writes the scope map and the feature files
+    RA->>DMA: 2. Names the domain-modeling agent as the next producer
+    DMA->>CA: 3. Writes the glossary and the entity model, and the other structure files the domain needs
+    DMA->>SH: 4. Presents proposed term definitions, one domain area at a time
+    SH-->>DMA: Confirms or rejects each definition
+    Note over DMA: Confirmed terms move into the glossary. Other rows stay in docs/spec/work/term-candidates.md
+    DMA->>SRA: 5. Names the spec-review agent as the review
+    opt The entity model or the state machines changed
+        DMA->>AA: 6. Names the architecture agent for its component pass
+    end
+    SRA->>CA: 7. Reviews behaviour and domain structure in a separate session
+```
+
+**Key Points:**
+
+- The domain-modeling agent always writes `glossary.md` and `entity-model.md`, even when the glossary holds no term yet. The spec-review agent requires both, so its review can always run.
+- The architecture agent requires only a feature file or the scope map, so it can build the baseline before the domain structure exists. `run-step` does not start it again when the domain structure changes. The handoff in step 6 does.
+- An unattended run leaves its term definitions at `proposed`. The spec review files a finding for each of them. The [Term Candidate Lifecycle](../spec/state-machines.md#term-candidate-lifecycle) holds the statuses.
+- The test-strategy agent can become eligible while the spec review still runs. The user then chooses the order. A contract that the review changes needs a revised QA strategy.
+
+## 6.12 Spec Feedback and Wave Close
+
+Derived from dynamic view `SpecFeedbackWaveClose` in [`architecture.dsl`](../spec/architecture.dsl).
+
+The developer agent and the implementation agent edit no specification file. A drift that a story reveals goes to the artifact's owner as a row of the story's spec-feedback report, and the wave closes only when the owners and their reviews have handled every row. So the specification lags the code by one wave at most. [ADR-0029](../adr/0029-per-story-drift-reports-block-the-wave-close.md) records the decision.
+
+Take ST-0318. The developer agent finds that the migration script must refuse a repository with uncommitted changes, and `validation-rules.md` has no such rule.
+
+```mermaid
+sequenceDiagram
+    participant IA as implementation-agent
+    participant DA as developer-agent
+    participant WO as Working Output
+    participant DMA as domain-modeling-agent
+    participant CA as Core Artifacts
+    participant SRA as spec-review-agent
+    participant D as dispatch
+    participant CL as Core List
+
+    IA->>DA: 1. Dispatches the story
+    DA->>WO: 2. Writes an open row: artifact, drift, evidence, owner
+    Note over IA: The story passes its gates and merges
+    IA->>DMA: 3. Dispatches the row's owner after the story merges
+    DMA->>CA: 4. Changes the artifact
+    DMA->>WO: 5. Sets the row to fixed
+    IA->>SRA: 6. Dispatches the owner's reviewer
+    SRA->>CA: 7. Reviews the change
+    alt The change matches the code and the accepted requirements
+        SRA->>WO: 8. Sets the row to confirmed
+    else The code breaks an accepted requirement
+        SRA->>WO: 8. Sets the row to rejected and files a BUG finding with the developer agent as owner
+    end
+    IA->>D: 9. Runs dispatch close-wave
+    D->>WO: 10. Reads the spec-feedback reports of the wave's stories
+    D->>CL: 11. Reads the core list
+    alt A row is open, or fixed on a core or seam artifact
+        D-->>IA: Fails and names the report, the artifact, and the status
+    else Every row is confirmed, rejected, or fixed on another artifact
+        D-->>IA: Closes the wave
+    end
+```
+
+**Key Points:**
+
+- Each story has its own report, `docs/spec/work/spec-feedback-<story-id>.md`, because the developer agents of a wave run in parallel. A story without a report counts as a story without rows.
+- A row carries the columns Artifact, Drift, Evidence, Owner, and Status. The [Report Row Lifecycle](../spec/state-machines.md#report-row-lifecycle) holds the four statuses, and [BR-061](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) names who sets each one.
+- A row about an artifact without a declared review, such as a QA strategy or an ADR, closes at `fixed`. `close-wave` reads the core list to tell the two kinds of row apart.
+- When the reviewer is the stakeholder, the agent that ran the session with the stakeholder sets the status.
+- After a story merges, the implementation agent also dispatches the test-strategy agent for each open `QA` finding it owns. `close-wave` does not wait for `QA` findings.
+- In manual mode there are no waves. The human closes a story only when its report passes the same check.
+- The reconciliation agent uses the same row shape and statuses in `docs/reviews/reconciliation-<date>.md`, one report per run. It edits no core file, and each owner fixes its rows on its next run.
+
+## 6.13 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 

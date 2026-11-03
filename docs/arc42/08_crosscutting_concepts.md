@@ -79,7 +79,7 @@ Testing is project-owned infrastructure. Factory does not detect frameworks, con
 
 **Exit-code-only contract** (BR-027): Factory reads only the exit code; structured test output (JSON summaries, coverage reports) is the project's concern, not Factory's.
 
-**Onboarding**: The `detect-test-regime` skill scans for existing test entrypoints during `init-factory` and populates the charter. When multiple entrypoints are detected, it asks for disambiguation.
+**Onboarding**: The test-strategy agent produces `testing.yaml`. Its `detect-test-regime` skill scans for existing test entrypoints and asks for disambiguation when it finds several. The stakeholder confirms every change to the file ([8.17](#817-artifact-ownership-one-producer-one-declared-review)).
 
 ## 8.4 JSON Output Convention
 
@@ -147,7 +147,7 @@ Two distinctions from section 8.2 matter. First, these validators are **on deman
 
 ## 8.7 Semantic Quality Gates
 
-The two semantic gates (`crap-score`, `dependency-check`) extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks to code meaning. They are **on-demand validators owned by the implementation-agent dispatcher**, not hook-triggered. This placement follows [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md). Mutation testing is project-owned infrastructure that Factory encourages: the `mutation-analysis` skill provides setup guidance, and the kit-manager carries it as an open question during charter setup until settled in `testing.yaml`.
+The two semantic gates (`crap-score`, `dependency-check`) extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks to code meaning. They are **on-demand validators owned by the implementation-agent dispatcher**, not hook-triggered. This placement follows [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md). The test-strategy agent owns the test guardrails, `crap-score`, `mutation-testing`, and `test-design-verify`: it chooses them and sets their thresholds in `testing.yaml`. The implementation agent runs them, together with the project's mutation command from `gates.mutation_testing.command` ([ADR-0027](../adr/0027-split-the-requirements-agent-by-artifact-family.md)).
 
 ### Why Dispatcher-Owned, Not Hook-Triggered
 
@@ -363,6 +363,51 @@ A developer who looks for the files that specify a project finds them in one fol
 **Moving an installed project.** The factory update moves an installed project into this layout with `migrate-spec-layout`. [6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-project-into-the-core-artifact-layout) shows the sequence, and [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md) records the decision.
 
 **Current state of this repository.** This repository uses the layout. `migrate-spec-layout` moved its files (ST-0343). Its bounded contexts are domain concerns of `docs/agent-context.md`, and it has no `CONTEXT.md` or `CONTEXT-MAP.md` (ST-0344).
+
+## 8.17 Artifact Ownership: One Producer, One Declared Review
+
+A developer who finds a wrong state machine needs to know which agent fixes it and who confirms the fix. So every core artifact and every seam file has exactly one producer, the agent that writes it, and a review in a session separate from the producer's. A core file without a producer is never created, and a core file without a review is never confirmed. [ADR-0028](../adr/0028-declared-review-and-core-list-check-ownership.md) records the mechanism.
+
+**Families.** Ownership follows the artifact family, not a playbook step, so a file keeps its owner whichever workflow asks for it. [5.10](05_building_block_view.md#510-level-2-component-view----factory-agents) lists the families and their producers.
+
+| Family              | Producer              | Artifacts                                                                                                           |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Scope and behaviour | requirements agent    | `scope-map.md`, `features/*.feature`, `areas/*.md`                                                                  |
+| Domain structure    | domain-modeling agent | `glossary.md`, `entity-model.md`, `state-machines.md`, `validation-rules.md`, `interface-contracts.md`, `schemas/*` |
+| Architecture        | architecture agent    | `architecture.dsl`, `dependency-rules.dsl`                                                                          |
+| Seam                | Virgil                | `docs/agent-context.md`                                                                                             |
+| Seam                | test-strategy agent   | `docs/testing.yaml`                                                                                                 |
+
+**Declared review.** The producer names its reviewers on the output declaration, so producer and review stand in one place:
+
+<!-- yaml-excerpt -->
+
+```yaml
+outputs:
+  declarations:
+    - path_pattern: docs/spec/glossary.md
+      reviewed_by: [spec-review-agent, stakeholder]
+```
+
+`reviewed_by:` holds a list of agent names, `stakeholder`, or both. An agent that only reads an artifact is never its review. A reviewer declares the artifact as a required input, or as a context input when a project may lack the artifact, so the review stays eligible in every project.
+
+**The core list.** `packages/factory/rulebooks/core-artifacts.yaml` lists every core and seam artifact with `path_pattern`, `sample_path`, `family`, and `optional`. Only a list in the Factory can show a missing producer, because an artifact that no agent declares never appears in `INDEX.yaml`. Three checks read the list:
+
+| Check                   | What it does with the list                                                                                                                                |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ownership contract test | Matches each sample path against the output patterns in `INDEX.yaml`. No match fails, more than one match fails, and a match without `reviewed_by:` fails |
+| `index-lint --check`    | Fails on a `reviewed_by:` entry that is no agent and not `stakeholder`, or that names an agent without the artifact as a required or context input        |
+| `dispatch close-wave`   | Tells a drift row on a core or seam artifact, which waits for `confirmed`, from a row on any other artifact, which closes at `fixed`                      |
+
+The two ownership checks match by sample path. So `docs/spec/features/{name}.feature` and `docs/spec/features/*.feature` both match `docs/spec/features/example.feature`. A wide pattern such as `docs/spec/**/*.md` matches too and fails the test until its agent gives it up. A declaration with `edits: wording`, such as the lector agent's `docs/**/*.md`, changes wording and never meaning, so the contract test skips it.
+
+**Readers raise findings.** An agent that reads an artifact it does not own reports the problem to the owner and leaves the artifact alone. A finding carries the owner in its `owner:` field, and the orchestrator routes each open finding to that agent. During implementation the report goes into a spec-feedback row, and after implementation into a reconciliation row ([6.12](06_runtime_view.md#612-spec-feedback-and-wave-close)).
+
+**Working output.** The single-producer rule holds for core and seam files only. Files in `docs/spec/work/`, the reports in `docs/reviews/`, and the findings in `docs/findings/` may have several writers. Each writer declares the path and changes only its part, such as the status of a report row.
+
+**Glossary terms.** Only the domain-modeling agent writes `docs/spec/glossary.md`, and the glossary holds only terms the stakeholder confirmed. Every other agent that meets a term writes a row of `docs/spec/work/term-candidates.md`. The domain-modeling agent proposes definitions there, asks the stakeholder one domain area at a time, and moves each confirmed term into the glossary.
+
+**Specification artifacts.** The spec [core-artifact-ownership.feature](../spec/features/core-artifact-ownership.feature), the [core list contract](../spec/interface-contracts.md#packagesfactoryrulebookscore-artifactsyaml), and [BR-056 to BR-066](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) hold the details.
 
 ## Referenced from
 

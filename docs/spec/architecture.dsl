@@ -11,6 +11,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent = person "CLI-Invoked Agent" "Claude Code, Copilot CLI, Pi, or OpenCode agent session under scoped allowlist; under Pi also the caller of run_agent, under OpenCode controlled by Factory plugin" "Agent"
         newcomer = person "Newcomer" "Person installing and using Agent Factory for the first time"
         releaseMaintainer = person "Release Maintainer" "Person who builds and publishes Factory release assets"
+        stakeholder = person "Stakeholder" "Person who owns the domain; confirms the scope map, every glossary term, docs/agent-context.md, and every change to docs/testing.yaml"
 
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
@@ -42,16 +43,18 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
                 crapScore = component "crap-score" "CRAP scoring gate: cyclomatic complexity weighted against test coverage, diff-scoped per story" "Bash/Python"
-                dependencyCheck = component "dependency-check" "Dependency-rule enforcement gate: validates imports against architecture.dsl dependency declarations" "Bash/Python"
+                dependencyCheck = component "dependency-check" "Dependency-rule enforcement gate: validates imports against docs/spec/dependency-rules.dsl; each result entry names the architecture agent as owner" "Bash/Python"
                 moduleGraphCheck = component "module-graph-check" "Derives module map from architecture.dsl, compares against concept outputs to determine architecture routing" "Bash/Python"
                 fenceRunner = component "Fence Runner" "Deterministic output validation after agent activity; snapshots declared output patterns, compares post-activity filesystem state, and stores fence evidence" "Python"
                 proposalValidator = component "Proposal Validator" "Checks proposal file existence, format, and required fields; returns the shared validator result shape" "Python"
+                ownershipContractTest = component "Ownership Contract Test" "Reads the core list and INDEX.yaml; fails when an entry's sample path matches no producing output pattern or more than one, or when the producer's declaration has no reviewed_by list; skips declarations with edits: wording" "pytest"
             }
 
             # Dispatcher — agent and model resolution, CLI session spawning
             dispatcher = container "Dispatcher" "Resolves agents/models and spawns CLI sessions" "Bash/Python" {
                 trigger = component "trigger" "Dispatches named agent or playbook step to CLI" "Bash"
-                indexLint = component "index-lint" "Generates INDEX.yaml from frontmatter" "Python"
+                indexLint = component "index-lint" "Generates INDEX.yaml from frontmatter and carries reviewed_by and edits of every output declaration; fails on a reviewer that is not an agent or stakeholder, or that lacks the artifact as a required or context input" "Python"
+                dispatchCli = component "dispatch" "Wave ledger CLI; close-wave reads the spec-feedback reports of the wave's stories and the core list, and fails while a row is open, or fixed on a core or seam artifact" "Python"
                 runAgent = component "run-agent (Pi extension)" "Pi model-callable tool: spawns a separate pi session to run one factory agent" "TypeScript/Pi"
                 dispatchWave = component "dispatch-wave (Pi extension)" "Pi model-callable tool: runs a parallel wave of factory agents, each in its own git worktree, integrating premerge-check before merging" "TypeScript/Pi"
                 openrouterDiscover = component "openrouter-discover" "Operator aid: queries OpenRouter catalog to curate/validate pi.* tier rows in model.conf (offline of the runtime path)" "Python"
@@ -81,7 +84,24 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             usageRecordContract = container "Usage Record Contract" "Factory-owned JSON Schema Draft 2020-12 and compatibility manifest; v1 schema includes optional workstream_id and workstream_origin fields" "JSON Schema/YAML" "Storage"
             rawUsageSpool = container "Raw Usage Spool" "Authoritative append-only top-level JSONL records under .agent-factory/usage/" "JSONL files" "Storage"
             installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
-            projectFilesystem = container "Project Filesystem" "Project-controlled source, configuration, documentation, and transient onboarding paths that Factory reads or changes only through defined contracts and consent gates" "Filesystem" "Storage"
+            projectFilesystem = container "Project Filesystem" "Project-controlled source, configuration, documentation, and transient onboarding paths that Factory reads or changes only through defined contracts and consent gates; core artifacts and working output are modeled as their own containers" "Filesystem" "Storage"
+            coreArtifacts = container "Core Artifacts" "The project's core files under docs/spec/ and the seam files docs/agent-context.md and docs/testing.yaml; each has exactly one producer and a declared review" "Markdown/DSL/YAML files" "Storage"
+            workingOutput = container "Working Output" "Files under docs/spec/work/, docs/reviews/, and docs/findings/: gaps reports, QA strategies, term candidates, spec-feedback and reconciliation reports, findings; several declared writers, each changing only its part" "Markdown files" "Storage"
+            coreList = container "Core List" "packages/factory/rulebooks/core-artifacts.yaml: every core and seam artifact with path_pattern, sample_path, family, and optional" "YAML file" "Storage"
+
+            # Factory Agents — agent definitions run by a CLI session; each frontmatter declares tier, skills, inputs, and outputs
+            factoryAgents = container "Factory Agents" "Agent definitions under packages/factory/agents/; a CLI session runs one definition and writes only the outputs it declares" "Markdown with YAML frontmatter" {
+                requirementsAgent = component "requirements-agent" "Produces scope and behaviour: the scope map, the feature files, and the area specs; writes gaps reports and term candidates; hands off to the domain-modeling agent" "Agent definition, strong tier"
+                domainModelingAgent = component "domain-modeling-agent" "Produces domain structure: the glossary, the entity model, state machines, validation rules, interface contracts, and schemas; moves confirmed term candidates into the glossary" "Agent definition, strong tier"
+                architectureAgent = component "architecture-agent" "Produces architecture.dsl and dependency-rules.dsl; reads the entity model and state machines as context and files ARCH findings on a contradiction" "Agent definition, strong tier"
+                testStrategyAgent = component "test-strategy-agent" "Produces docs/testing.yaml and the QA strategies; chooses the test guardrails and their thresholds; resolves QA findings it owns" "Agent definition, strong tier"
+                virgil = component "virgil" "Produces docs/agent-context.md with capture-context during the fitting" "Agent definition"
+                specReviewAgent = component "spec-review-agent" "Reviews the feature files, the glossary, the structure files, the area specs, and the schemas in a session separate from their producers" "Agent definition"
+                architectureReviewAgent = component "architecture-review-agent" "Reviews architecture.dsl and dependency-rules.dsl in a session separate from the architecture agent" "Agent definition"
+                developerAgent = component "developer-agent" "Implements one story; writes each specification drift as an open row of its story's spec-feedback report and edits no specification file" "Agent definition"
+                implementationAgent = component "implementation-agent" "Dispatches stories in waves, runs the gates after each story, dispatches each drift row's owner and then its reviewer, and closes the wave" "Agent definition"
+                reconciliationAgent = component "reconciliation-agent" "Compares the core with the code and writes one reconciliation report per run, one row per drift with the artifact's owner; edits no core file" "Agent definition"
+            }
 
             # OpenCode Plugin — V2 plugin adapter for OpenCode CLI
             opencodePlugin = container "OpenCode Plugin" "V2 plugin adapter mapping Factory safety controls to OpenCode session hooks, tool restrictions, and worktree isolation" "TypeScript/OpenCode V2 Plugin API" {
@@ -132,6 +152,10 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                     containerInstance projectFilesystem
                     containerInstance opencodePlugin
                     containerInstance opencodeCatalog
+                    containerInstance coreArtifacts
+                    containerInstance workingOutput
+                    containerInstance coreList
+                    containerInstance factoryAgents
                     containerInstance usageAnalysisRuntime
                     containerInstance duckdbUi
                     containerInstance installedAnalysis
@@ -303,6 +327,45 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # Relationships — CLI Agent hooks
         # ================================================================
         cliAgent -> blockDangerousGit "Every shell command routed through PreToolUse (or Pi extension)"
+
+        # ================================================================
+        # Relationships — Core artifact ownership
+        # ================================================================
+        cliAgent -> factoryAgents "Runs one agent definition per session"
+        requirementsAgent -> coreArtifacts "Produces the scope map, feature files, and area specs"
+        requirementsAgent -> workingOutput "Writes gaps reports and term candidates"
+        requirementsAgent -> domainModelingAgent "Names as the next producer in its handoff"
+        stakeholder -> requirementsAgent "Confirms the scope map, one domain batch at a time"
+        domainModelingAgent -> coreArtifacts "Produces the glossary and structure files; moves confirmed terms into the glossary"
+        domainModelingAgent -> workingOutput "Proposes term definitions; sets its drift rows to fixed"
+        domainModelingAgent -> stakeholder "Presents proposed term definitions, one domain area at a time"
+        domainModelingAgent -> specReviewAgent "Names as the review in its handoff"
+        domainModelingAgent -> architectureAgent "Names for the component pass when the entity model or state machines changed"
+        architectureAgent -> coreArtifacts "Produces architecture.dsl and dependency-rules.dsl; reads the entity model and state machines"
+        architectureAgent -> workingOutput "Files ARCH findings with the domain-modeling agent as owner"
+        testStrategyAgent -> coreArtifacts "Produces docs/testing.yaml, including the gates section"
+        testStrategyAgent -> workingOutput "Writes QA strategies; resolves QA findings it owns"
+        testStrategyAgent -> stakeholder "Asks for confirmation of every change to docs/testing.yaml"
+        virgil -> coreArtifacts "Produces docs/agent-context.md during the fitting"
+        specReviewAgent -> coreArtifacts "Reviews behaviour and domain structure"
+        specReviewAgent -> workingOutput "Sets fixed rows to confirmed or rejected; files SPEC and BUG findings"
+        architectureReviewAgent -> coreArtifacts "Reviews architecture.dsl and dependency-rules.dsl"
+        architectureReviewAgent -> workingOutput "Sets fixed rows to confirmed or rejected; files ATAM and BUG findings"
+        developerAgent -> workingOutput "Writes drift rows with status open into its story's spec-feedback report"
+        implementationAgent -> developerAgent "Dispatches one story per developer agent"
+        implementationAgent -> domainModelingAgent "Dispatches as the owner of a drift row after the story merges"
+        implementationAgent -> specReviewAgent "Dispatches as the reviewer of a fixed row"
+        implementationAgent -> testStrategyAgent "Dispatches for each open QA finding it owns"
+        implementationAgent -> dispatchCli "Runs dispatch close-wave"
+        reconciliationAgent -> coreArtifacts "Reads the core to compare it with the code"
+        reconciliationAgent -> workingOutput "Writes one reconciliation report per run"
+        dispatchCli -> workingOutput "Reads the spec-feedback reports of the wave's stories"
+        dispatchCli -> coreList "Reads the core list to tell core rows from other rows"
+        indexLint -> coreList "Reads sample paths for the reviewer check"
+        indexLint -> factoryAgents "Reads output declarations with reviewed_by and edits"
+        ownershipContractTest -> coreList "Reads every entry and its sample path"
+        ownershipContractTest -> catalog "Counts the producing output patterns that match each sample path"
+        dependencyCheck -> coreArtifacts "Reads docs/spec/dependency-rules.dsl"
     }
 
     views {
@@ -342,35 +405,35 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         }
 
         dynamic eligibilityEngine "AgentSelection" "Human selects an eligible agent for the current workstream" {
-            humanOperator -> intentCli "1. Invokes intent select"
-            intentCli -> agentLoader "2. Loads agent definitions from agents directory"
-            intentCli -> preconditionEvaluator "3. Evaluates each agent's preconditions against the filesystem"
-            preconditionEvaluator -> readinessEvaluator "4. Passes evaluation evidence for readiness derivation"
-            readinessEvaluator -> recommendationClassifier "5. Classifies agents into eligible and blocked groups"
+            humanOperator -> intentCli "Invokes intent select"
+            intentCli -> agentLoader "Loads agent definitions from agents directory"
+            intentCli -> preconditionEvaluator "Evaluates each agent's preconditions against the filesystem"
+            preconditionEvaluator -> readinessEvaluator "Passes evaluation evidence for readiness derivation"
+            readinessEvaluator -> recommendationClassifier "Classifies agents into eligible and blocked groups"
         }
 
         dynamic validator "SemanticGateLoop" "Dispatcher-owned semantic gate execution after developer commit" {
-            cliAgent -> crapScore "1. Dispatcher runs crap-score on committed artifacts"
-            crapScore -> stateFiles "2. Writes CRAP report (pass/fail per function)"
-            cliAgent -> dependencyCheck "3. Dispatcher runs dependency-check against architecture.dsl"
-            dependencyCheck -> stateFiles "4. Writes dependency report (pass/fail per rule)"
+            cliAgent -> crapScore "Dispatcher runs crap-score on committed artifacts"
+            crapScore -> stateFiles "Writes CRAP report (pass/fail per function)"
+            cliAgent -> dependencyCheck "Dispatcher runs dependency-check against architecture.dsl"
+            dependencyCheck -> stateFiles "Writes dependency report (pass/fail per rule)"
         }
 
         dynamic usageAnalysisRuntime "UsageQuery" "Strict local usage query and optional result projection" {
-            humanOperator -> inputSnapshot "1. Invokes usage-query for a published view"
-            inputSnapshot -> rawUsageSpool "2. Snapshots sorted top-level JSONL evidence"
-            inputSnapshot -> contractCheck "3. Supplies normalized evidence and records"
-            contractCheck -> operationalPreflight "4. Registers valid rows and structured failures"
-            operationalPreflight -> accountingRegistry "5. Supplies a valid rooted run graph"
-            accountingRegistry -> queryModel "6. Applies the registered conservation rule"
-            operationalPreflight -> queryModel "7. Registers valid and failure relations"
-            queryModel -> resultAdapters "8. Projects the selected published view"
+            humanOperator -> inputSnapshot "Invokes usage-query for a published view"
+            inputSnapshot -> rawUsageSpool "Snapshots sorted top-level JSONL evidence"
+            inputSnapshot -> contractCheck "Supplies normalized evidence and records"
+            contractCheck -> operationalPreflight "Registers valid rows and structured failures"
+            operationalPreflight -> accountingRegistry "Supplies a valid rooted run graph"
+            accountingRegistry -> queryModel "Applies the registered conservation rule"
+            operationalPreflight -> queryModel "Registers valid and failure relations"
+            queryModel -> resultAdapters "Projects the selected published view"
         }
 
         dynamic usageAnalysisRuntime "UsageParquetExport" "Verified explicit Parquet replacement" {
-            humanOperator -> parquetExporter "1. Requests a published view as Parquet"
-            queryModel -> parquetExporter "2. Supplies the selected stable view"
-            parquetExporter -> parquetFile "3. Replaces the destination after verification"
+            humanOperator -> parquetExporter "Requests a published view as Parquet"
+            queryModel -> parquetExporter "Supplies the selected stable view"
+            parquetExporter -> parquetFile "Replaces the destination after verification"
         }
 
         component opencodePlugin "OpenCodePluginComponents" "OpenCode V2 plugin internals: permission enforcement, tool restriction, usage capture, worktree isolation, and health monitoring" {
@@ -398,108 +461,144 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         }
 
         dynamic distribution "OnboardingInstallation" "Newcomer installs a verified Factory release through the bootstrap" {
-            newcomer -> installAgentFactory "1. Runs the bootstrap with source selector and target"
-            installAgentFactory -> newcomer "2. Presents installation preview from preflight and planned effects"
-            installAgentFactory -> distributionRemote "3. Downloads and verifies release assets after approval (SHA-256)"
-            installAgentFactory -> initFactory "4. Delegates project-level setup after verification"
-            initFactory -> installManifest "5. Records installed paths and source metadata"
-            installAgentFactory -> installManifest "6. Records source selector and installation metadata"
+            newcomer -> installAgentFactory "Runs the bootstrap with source selector and target"
+            installAgentFactory -> newcomer "Presents installation preview from preflight and planned effects"
+            installAgentFactory -> distributionRemote "Downloads and verifies release assets after approval (SHA-256)"
+            installAgentFactory -> initFactory "Delegates project-level setup after verification"
+            initFactory -> installManifest "Records installed paths and source metadata"
+            installAgentFactory -> installManifest "Records source selector and installation metadata"
         }
 
         dynamic distribution "ReleaseBuild" "Release maintainer produces reproducible installation assets" {
-            releaseMaintainer -> buildRelease "1. Runs build-release for a versioned source tree"
-            buildRelease -> distributionRemote "2. Publishes bootstrap, archive, and checksum manifest"
+            releaseMaintainer -> buildRelease "Runs build-release for a versioned source tree"
+            buildRelease -> distributionRemote "Publishes bootstrap, archive, and checksum manifest"
         }
 
         dynamic distribution "UpdateTransactionCheck" "Check mode reports installed and candidate state without mutation" {
-            humanOperator -> updateFactory "1. Runs update-factory --check"
-            updateFactory -> installManifest "2. Reads source selector and installed version"
-            updateFactory -> distributionRemote "3. Queries candidate version and digest"
-            updateFactory -> humanOperator "4. Reports installed vs. candidate, local modifications, and planned effects"
+            humanOperator -> updateFactory "Runs update-factory --check"
+            updateFactory -> installManifest "Reads source selector and installed version"
+            updateFactory -> distributionRemote "Queries candidate version and digest"
+            updateFactory -> humanOperator "Reports installed vs. candidate, local modifications, and planned effects"
         }
 
         dynamic distribution "UpdateTransaction" "Normal-update transaction: approval, staging with rollback, and receipt" {
-            humanOperator -> updateFactory "1. Runs update-factory"
-            updateFactory -> installManifest "2. Reads source selector and installed version"
-            updateFactory -> humanOperator "3. Presents update preview"
-            humanOperator -> updateFactory "4. Gives affirmative approval"
-            updateFactory -> humanOperator "5. Presents source-change confirmation when source selector changed"
-            humanOperator -> updateFactory "6. Confirms source change"
-            updateFactory -> distributionRemote "7. Downloads and verifies release assets (SHA-256)"
-            updateFactory -> updateFactory "8. Stages verified replacement alongside current installation"
-            updateFactory -> updateFactory "9. Applies staged replacement; restores prior tree on failure"
-            updateFactory -> initFactory "10. Runs the new version's init-factory; restores prior tree when it fails"
-            updateFactory -> installManifest "11. Writes receipt: source, version, digest, changed paths"
+            humanOperator -> updateFactory "Runs update-factory"
+            updateFactory -> installManifest "Reads source selector and installed version"
+            updateFactory -> humanOperator "Presents update preview"
+            humanOperator -> updateFactory "Gives affirmative approval"
+            updateFactory -> humanOperator "Presents source-change confirmation when source selector changed"
+            humanOperator -> updateFactory "Confirms source change"
+            updateFactory -> distributionRemote "Downloads and verifies release assets (SHA-256)"
+            updateFactory -> updateFactory "Stages verified replacement alongside current installation"
+            updateFactory -> updateFactory "Applies staged replacement; restores prior tree on failure"
+            updateFactory -> initFactory "Runs the new version's init-factory; restores prior tree when it fails"
+            updateFactory -> installManifest "Writes receipt: source, version, digest, changed paths"
         }
 
         dynamic distribution "UpdateLayoutMigration" "An update from a version before the layout release moves the project into the core artifact layout" {
-            humanOperator -> updateFactory "1. Approves the update; the approval covers the layout move"
-            updateFactory -> updateFactory "2. Applies the staged replacement"
-            updateFactory -> initFactory "3. Runs the new version's init-factory"
-            initFactory -> installManifest "4. Reads the prior factory_version from install.json"
-            initFactory -> migrateSpecLayout "5. Runs migrate-spec-layout as its last step, because the prior version is older than the layout release"
-            migrateSpecLayout -> git "6. Moves tracked files with git mv and removes clean tracked use-case files with git rm"
-            migrateSpecLayout -> projectFilesystem "7. Moves untracked and ignored files directly, rewrites links, moves glossary terms, sets the factory hook block and the theme line"
-            migrateSpecLayout -> humanOperator "8. Reports unrewritten old paths, duplicate terms, and the follow-up steps"
-            initFactory -> installManifest "9. Writes the new factory_version after the script exits 0"
-            updateFactory -> installManifest "10. Writes receipt: source, version, digest, changed paths"
+            humanOperator -> updateFactory "Approves the update; the approval covers the layout move"
+            updateFactory -> updateFactory "Applies the staged replacement"
+            updateFactory -> initFactory "Runs the new version's init-factory"
+            initFactory -> installManifest "Reads the prior factory_version from install.json"
+            initFactory -> migrateSpecLayout "Runs migrate-spec-layout as its last step, because the prior version is older than the layout release"
+            migrateSpecLayout -> git "Moves tracked files with git mv and removes clean tracked use-case files with git rm"
+            migrateSpecLayout -> projectFilesystem "Moves untracked and ignored files directly, rewrites links, moves glossary terms, sets the factory hook block and the theme line"
+            migrateSpecLayout -> humanOperator "Reports unrewritten old paths, duplicate terms, and the follow-up steps"
+            initFactory -> installManifest "Writes the new factory_version after the script exits 0"
+            updateFactory -> installManifest "Writes receipt: source, version, digest, changed paths"
         }
 
         dynamic distribution "UpdateLayoutMigrationRollback" "A failed layout migration undoes its own changes and the update rolls back" {
-            updateFactory -> initFactory "1. Runs the new version's init-factory"
-            initFactory -> installManifest "2. Reads the prior factory_version and writes no new one yet"
-            initFactory -> migrateSpecLayout "3. Runs migrate-spec-layout as its last step"
-            migrateSpecLayout -> git "4. Moves and removes tracked files"
-            migrateSpecLayout -> projectFilesystem "5. Fails partway, then undoes every move, removal, and rewrite it made"
-            migrateSpecLayout -> initFactory "6. Exits non-zero"
-            initFactory -> humanOperator "7. Reports that the project keeps its old layout and prior factory_version, and names the fix: run the update again"
-            initFactory -> updateFactory "8. Fails with a non-zero exit"
-            updateFactory -> updateFactory "9. Restores the prior factory tree, install manifest, and instruction headers"
-            updateFactory -> humanOperator "10. Reports the failure"
+            updateFactory -> initFactory "Runs the new version's init-factory"
+            initFactory -> installManifest "Reads the prior factory_version and writes no new one yet"
+            initFactory -> migrateSpecLayout "Runs migrate-spec-layout as its last step"
+            migrateSpecLayout -> git "Moves and removes tracked files"
+            migrateSpecLayout -> projectFilesystem "Fails partway, then undoes every move, removal, and rewrite it made"
+            migrateSpecLayout -> initFactory "Exits non-zero"
+            initFactory -> humanOperator "Reports that the project keeps its old layout and prior factory_version, and names the fix: run the update again"
+            initFactory -> updateFactory "Fails with a non-zero exit"
+            updateFactory -> updateFactory "Restores the prior factory tree, install manifest, and instruction headers"
+            updateFactory -> humanOperator "Reports the failure"
         }
 
         dynamic distribution "FirstSessionInsight" "First session delivers project insight before advanced configuration" {
-            newcomer -> cliAgent "1. Opens first Factory session via the receipt command"
-            cliAgent -> installManifest "2. Reads installation state"
-            cliAgent -> projectFilesystem "3. Scans project filesystem (read-only)"
-            cliAgent -> newcomer "4. Reports detected stack, test entry point, and safety signals"
-            cliAgent -> newcomer "5. Recommends one next action; defers advanced configuration"
-            cliAgent -> newcomer "6. Explains context capture scope, output, and validation"
-            newcomer -> cliAgent "7. Gives affirmative consent for context capture"
-            cliAgent -> newcomer "8. Runs capture-context and presents results"
-            cliAgent -> newcomer "9. Offers gate demonstration"
-            newcomer -> cliAgent "10. Gives affirmative consent for gate demonstration"
-            cliAgent -> hookDemo "11. Runs gate demonstration on disposable fixture"
-            hookDemo -> stateFiles "12. Creates and removes disposable fixture"
-            cliAgent -> newcomer "13. Presents hook choices grouped by protected outcome"
+            newcomer -> cliAgent "Opens first Factory session via the receipt command"
+            cliAgent -> installManifest "Reads installation state"
+            cliAgent -> projectFilesystem "Scans project filesystem (read-only)"
+            cliAgent -> newcomer "Reports detected stack, test entry point, and safety signals"
+            cliAgent -> newcomer "Recommends one next action; defers advanced configuration"
+            cliAgent -> newcomer "Explains context capture scope, output, and validation"
+            newcomer -> cliAgent "Gives affirmative consent for context capture"
+            cliAgent -> newcomer "Runs capture-context and presents results"
+            cliAgent -> newcomer "Offers gate demonstration"
+            newcomer -> cliAgent "Gives affirmative consent for gate demonstration"
+            cliAgent -> hookDemo "Runs gate demonstration on disposable fixture"
+            hookDemo -> stateFiles "Creates and removes disposable fixture"
+            cliAgent -> newcomer "Presents hook choices grouped by protected outcome"
         }
 
         dynamic factoryFlowControl "FirstTaskLifecycle" "Newcomer reaches an inspectable result in a detached-worktree sandbox; the first-task state machine owns disposition branching" {
-            cliAgent -> newcomer "1. Presents task preview: goal, duration, artifacts, decisions, cleanup"
-            newcomer -> cliAgent "2. Gives affirmative approval for the first task"
-            cliAgent -> git "3. Creates detached worktree at .current-work/onboarding-spike/"
-            cliAgent -> dispatcher "4. Dispatches poc-spike inside sandbox"
-            cliAgent -> newcomer "5. Shows inspectable result and check evidence"
+            cliAgent -> newcomer "Presents task preview: goal, duration, artifacts, decisions, cleanup"
+            newcomer -> cliAgent "Gives affirmative approval for the first task"
+            cliAgent -> git "Creates detached worktree at .current-work/onboarding-spike/"
+            cliAgent -> dispatcher "Dispatches poc-spike inside sandbox"
+            cliAgent -> newcomer "Shows inspectable result and check evidence"
         }
 
         dynamic factoryFlowControl "FirstTaskLifecycleNoHead" "Newcomer reaches an inspectable result in a plain-directory sandbox; the first-task state machine owns disposition branching" {
-            cliAgent -> newcomer "1. Presents task preview: goal, duration, artifacts, decisions, cleanup"
-            newcomer -> cliAgent "2. Gives affirmative approval for the first task"
-            cliAgent -> projectFilesystem "3. Creates plain sandbox directory at .current-work/onboarding-spike/"
-            cliAgent -> dispatcher "4. Dispatches poc-spike inside sandbox"
-            cliAgent -> newcomer "5. Shows inspectable result and check evidence"
+            cliAgent -> newcomer "Presents task preview: goal, duration, artifacts, decisions, cleanup"
+            newcomer -> cliAgent "Gives affirmative approval for the first task"
+            cliAgent -> projectFilesystem "Creates plain sandbox directory at .current-work/onboarding-spike/"
+            cliAgent -> dispatcher "Dispatches poc-spike inside sandbox"
+            cliAgent -> newcomer "Shows inspectable result and check evidence"
         }
 
         dynamic opencodePlugin "OpenCodePermissionEnforcement" "Plugin enforces permission and step boundaries on tool invocation" {
-            cliAgent -> permissionEnforcer "1. Tool invocation reaches execute.before hook"
-            permissionEnforcer -> stateFiles "2. Reads active step manifest"
-            permissionEnforcer -> cliAgent "3. Denies or allows the invocation"
+            cliAgent -> permissionEnforcer "Tool invocation reaches execute.before hook"
+            permissionEnforcer -> stateFiles "Reads active step manifest"
+            permissionEnforcer -> cliAgent "Denies or allows the invocation"
         }
 
         dynamic opencodePlugin "OpenCodeWorktreeIsolation" "Plugin isolates a dispatched child session in a Factory-managed worktree" {
-            cliAgent -> worktreeStrategyComponent "1. Dispatcher requests child session workspace"
-            worktreeStrategyComponent -> stateFiles "2. Delegates branch and worktree creation to Factory scripts"
-            cliAgent -> permissionEnforcer "3. Primary checkout receives session-scoped write denial"
+            cliAgent -> worktreeStrategyComponent "Dispatcher requests child session workspace"
+            worktreeStrategyComponent -> stateFiles "Delegates branch and worktree creation to Factory scripts"
+            cliAgent -> permissionEnforcer "Primary checkout receives session-scoped write denial"
+        }
+
+        component factoryAgents "AgentOwnershipComponents" "Factory agents and the artifacts each one produces, reviews, or reports on" {
+            include *
+            include stakeholder
+            include coreArtifacts
+            include workingOutput
+            include coreList
+            include dispatchCli
+            exclude cliAgent
+            exclude indexLint
+            autoLayout lr
+        }
+
+        dynamic factoryAgents "SpecificationHandoff" "The requirements agent hands off to the domain-modeling agent, which hands off to its review and to the architecture agent's component pass" {
+            requirementsAgent -> coreArtifacts "Writes the scope map and the feature files"
+            requirementsAgent -> domainModelingAgent "Names the domain-modeling agent as the next producer"
+            domainModelingAgent -> coreArtifacts "Writes the glossary and the entity model, and the other structure files the domain needs"
+            domainModelingAgent -> stakeholder "Presents proposed term definitions, one domain area at a time"
+            domainModelingAgent -> specReviewAgent "Names the spec-review agent as the review"
+            domainModelingAgent -> architectureAgent "Names the architecture agent when the entity model or state machines changed"
+            specReviewAgent -> coreArtifacts "Reviews behaviour and domain structure in a separate session"
+        }
+
+        dynamic factoryAgents "SpecFeedbackWaveClose" "A drift found during implementation reaches its owner and its review before the wave closes" {
+            implementationAgent -> developerAgent "Dispatches the story"
+            developerAgent -> workingOutput "Writes an open row: artifact, drift, evidence, owner"
+            implementationAgent -> domainModelingAgent "Dispatches the row's owner after the story merges"
+            domainModelingAgent -> coreArtifacts "Changes the artifact"
+            domainModelingAgent -> workingOutput "Sets the row to fixed"
+            implementationAgent -> specReviewAgent "Dispatches the owner's reviewer"
+            specReviewAgent -> coreArtifacts "Reviews the change"
+            specReviewAgent -> workingOutput "Sets the row to confirmed or rejected"
+            implementationAgent -> dispatchCli "Runs dispatch close-wave"
+            dispatchCli -> workingOutput "Reads the spec-feedback reports of the wave's stories"
+            dispatchCli -> coreList "Reads the core list"
         }
 
         deployment * "Release 1" "Deployment" "Local, process-bound release-1 deployment" {

@@ -186,25 +186,51 @@ References: [section 6.10.6](06_runtime_view.md#6106-sequence-update-moves-the-p
 
 References: [section 6.10.7](06_runtime_view.md#6107-sequence-failed-layout-migration-rolls-back-the-update), [ADR-0026](../adr/0026-layout-migration-runs-inside-the-factory-update.md)
 
+### QS-16: Every core artifact has a known producer and review
+
+| Field             | Description                                                                                                                                                                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Maintainability (artifact ownership)                                                                                                                                                                                                                                                         |
+| Stimulus          | A factory maintainer changes an agent definition so that a core or seam artifact loses its producer, gains a second producer, loses its `reviewed_by:` list, or names a reviewer that does not read it.                                                                                      |
+| Environment       | The factory's own repository, with `packages/factory/rulebooks/core-artifacts.yaml` and a generated `INDEX.yaml`.                                                                                                                                                                            |
+| Response          | The ownership contract test or `index-lint --check` fails and names the artifact and the broken declaration.                                                                                                                                                                                 |
+| Response measure  | Every entry of the core list has exactly one producing declaration with at least one reviewer, and every named reviewer declares the artifact as a required or context input. A change that breaks this fails before it merges. No person has to read the agent definitions to find the gap. |
+
+References: [8.17](08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review), [ADR-0028](../adr/0028-declared-review-and-core-list-check-ownership.md), [core-artifact-ownership.feature](../spec/features/core-artifact-ownership.feature)
+
+### QS-17: The specification lags the code by one wave at most
+
+| Field             | Description                                                                                                                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Maintainability (specification currency)                                                                                                                                                                                                                     |
+| Stimulus          | A developer agent finds during a story that the code and a core artifact disagree.                                                                                                                                                                           |
+| Environment       | Automated mode; several developer agents run the stories of one wave in parallel.                                                                                                                                                                            |
+| Response          | The developer agent writes an `open` row of its story's spec-feedback report. The implementation agent dispatches the row's owner and then the owner's reviewer. `dispatch close-wave` fails while the row is `open`, or `fixed` on a core or seam artifact. |
+| Response measure  | No wave closes with an unhandled drift row on a core or seam artifact. The next wave starts from a specification that matches the merged code.                                                                                                               |
+
+References: [6.12](06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-0029](../adr/0029-per-story-drift-reports-block-the-wave-close.md)
+
 ## 10.2 Quality Attribute Priority
 
-| Priority | Quality attribute                  | Scenarios |
-| -------- | ---------------------------------- | --------- |
-| 1        | Flexibility (precondition routing) | QS-1      |
-| 1        | Controllability (human authority)  | QS-2      |
-| 1        | Testability (Clean Architecture)   | QS-3      |
-| 1        | Resilience (observable resume)     | QS-5      |
-| 2        | Simplicity (immutable state)       | QS-4      |
-| 2        | Safety (deterministic validation)  | QS-6      |
-| 2        | Safety (fail-closed plugin)        | QS-7      |
-| 2        | Compatibility (CLI coexistence)    | QS-8      |
-| 1        | Safety (read-only preflight)       | QS-9      |
-| 1        | Controllability (consent gate)     | QS-10     |
-| 2        | Safety (integrity verification)    | QS-11     |
-| 2        | Usability (first-session insight)  | QS-12     |
-| 2        | Usability (first-task result)      | QS-13     |
-| 2        | Compatibility (layout update)      | QS-14     |
-| 2        | Operability (retryable migration)  | QS-15     |
+| Priority | Quality attribute                        | Scenarios |
+| -------- | ---------------------------------------- | --------- |
+| 1        | Flexibility (precondition routing)       | QS-1      |
+| 1        | Controllability (human authority)        | QS-2      |
+| 1        | Testability (Clean Architecture)         | QS-3      |
+| 1        | Resilience (observable resume)           | QS-5      |
+| 2        | Simplicity (immutable state)             | QS-4      |
+| 2        | Safety (deterministic validation)        | QS-6      |
+| 2        | Safety (fail-closed plugin)              | QS-7      |
+| 2        | Compatibility (CLI coexistence)          | QS-8      |
+| 1        | Safety (read-only preflight)             | QS-9      |
+| 1        | Controllability (consent gate)           | QS-10     |
+| 2        | Safety (integrity verification)          | QS-11     |
+| 2        | Usability (first-session insight)        | QS-12     |
+| 2        | Usability (first-task result)            | QS-13     |
+| 2        | Compatibility (layout update)            | QS-14     |
+| 2        | Operability (retryable migration)        | QS-15     |
+| 2        | Maintainability (artifact ownership)     | QS-16     |
+| 2        | Maintainability (specification currency) | QS-17     |
 
 ## Referenced from
 
