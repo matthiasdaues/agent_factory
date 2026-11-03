@@ -1,6 +1,6 @@
 ---
 id: 0029
-status: proposed
+status: accepted
 evaluation: none
 ---
 
@@ -54,10 +54,19 @@ which changes the artifact and sets `fixed`. It then dispatches the owner's
 reviewer, which sets `confirmed` or `rejected`. A `rejected` row becomes a
 `BUG` finding against the code, with the developer agent as owner.
 
+The owner and reviewer sessions run one at a time on the invocation branch.
+Each session commits its core-file change and its row status together. The
+next `dispatch merge-story` waits until the sessions of the merged story have
+committed. So no two sessions write one core file at once, and no story merges
+onto a half-changed core file.
+
 `dispatch close-wave` reads the reports of the wave's stories and the core
 list. It fails while a row is `open`, or `fixed` on a core or seam artifact. A
-`fixed` row on any other artifact passes. In manual mode the same rule holds
-per story.
+`fixed` row on any other artifact passes. When the check passes, `close-wave`
+records the closed wave in the dispatch ledger. `dispatch prepare-wave N`
+refuses while the ledger does not record wave N-1 as closed, and its message
+names `close-wave`. In manual mode the row check of `close-wave` holds per
+story.
 
 The reconciliation agent writes the same row shape into one report per run,
 `docs/reviews/reconciliation-<date>.md`, and edits no core file.
@@ -67,8 +76,16 @@ The reconciliation agent writes the same row shape into one report per run,
 - The specification lags the code by one wave at most.
 - A wave takes longer to close, because owner and reviewer sessions run before
   `close-wave` passes.
-- `close-wave` depends on the installed core list and on a fixed table shape in
-  the reports. A report with other column headers cannot be parsed.
+- `close-wave` fails closed on its inputs. A report with other column headers,
+  a row with a status outside `open`, `fixed`, `confirmed`, and `rejected`, or
+  a missing core list each fails `close-wave`, and the message names the file.
+  A missing report still counts as a story without rows.
+- `close-wave` reads the core list at `rulebooks/core-artifacts.yaml` under the
+  Factory root it runs from, as `index-lint` resolves its root. One rule then
+  works in this repository, under `packages/factory/`, and in an installed
+  project, under `.agent-factory/factory/`.
+- Owner and reviewer sessions of a wave run in series, so a wave with many
+  drift rows takes longer before its next merge.
 - `close-wave` does not wait for open `QA` findings. The implementation agent
   dispatches the test-strategy agent for each open `QA` finding it owns after
   the story merges.

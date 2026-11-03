@@ -11,7 +11,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent = person "CLI-Invoked Agent" "Claude Code, Copilot CLI, Pi, or OpenCode agent session under scoped allowlist; under Pi also the caller of run_agent, under OpenCode controlled by Factory plugin" "Agent"
         newcomer = person "Newcomer" "Person installing and using Agent Factory for the first time"
         releaseMaintainer = person "Release Maintainer" "Person who builds and publishes Factory release assets"
-        stakeholder = person "Stakeholder" "Person who owns the domain; confirms the scope map, every glossary term, docs/agent-context.md, and every change to docs/testing.yaml"
+        stakeholder = person "Stakeholder" "Person who owns the domain; confirms the scope map, every glossary term as the second glossary review, docs/agent-context.md, and every change to docs/testing.yaml"
 
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
@@ -54,7 +54,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             dispatcher = container "Dispatcher" "Resolves agents/models and spawns CLI sessions" "Bash/Python" {
                 trigger = component "trigger" "Dispatches named agent or playbook step to CLI" "Bash"
                 indexLint = component "index-lint" "Generates INDEX.yaml from frontmatter and carries reviewed_by and edits of every output declaration; fails on a reviewer that is not an agent or stakeholder, or that lacks the artifact as a required or context input" "Python"
-                dispatchCli = component "dispatch" "Wave ledger CLI; close-wave reads the spec-feedback reports of the wave's stories and the core list, and fails while a row is open, or fixed on a core or seam artifact" "Python"
+                dispatchCli = component "dispatch" "Wave ledger CLI; prepare-wave N refuses while the ledger does not record wave N-1 as closed and names close-wave; close-wave reads the spec-feedback reports of the wave's stories and the core list under its Factory root, fails while a row is open or fixed on a core or seam artifact, fails and names the file on a report with wrong column headers, a row with an unknown status, or a missing core list, and otherwise records the closed wave in the ledger" "Python"
                 runAgent = component "run-agent (Pi extension)" "Pi model-callable tool: spawns a separate pi session to run one factory agent" "TypeScript/Pi"
                 dispatchWave = component "dispatch-wave (Pi extension)" "Pi model-callable tool: runs a parallel wave of factory agents, each in its own git worktree, integrating premerge-check before merging" "TypeScript/Pi"
                 openrouterDiscover = component "openrouter-discover" "Operator aid: queries OpenRouter catalog to curate/validate pi.* tier rows in model.conf (offline of the runtime path)" "Python"
@@ -87,7 +87,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             projectFilesystem = container "Project Filesystem" "Project-controlled source, configuration, documentation, and transient onboarding paths that Factory reads or changes only through defined contracts and consent gates; core artifacts and working output are modeled as their own containers" "Filesystem" "Storage"
             coreArtifacts = container "Core Artifacts" "The project's core files under docs/spec/ and the seam files docs/agent-context.md and docs/testing.yaml; each has exactly one producer and a declared review" "Markdown/DSL/YAML files" "Storage"
             workingOutput = container "Working Output" "Files under docs/spec/work/, docs/reviews/, and docs/findings/: gaps reports, QA strategies, term candidates, spec-feedback and reconciliation reports, findings; several declared writers, each changing only its part" "Markdown files" "Storage"
-            coreList = container "Core List" "packages/factory/rulebooks/core-artifacts.yaml: every core and seam artifact with path_pattern, sample_path, family, and optional" "YAML file" "Storage"
+            coreList = container "Core List" "rulebooks/core-artifacts.yaml under the Factory root, packages/factory/ in this repository and .agent-factory/factory/ in an installed project: every core and seam artifact with path_pattern, sample_path, family, and optional" "YAML file" "Storage"
 
             # Factory Agents — agent definitions run by a CLI session; each frontmatter declares tier, skills, inputs, and outputs
             factoryAgents = container "Factory Agents" "Agent definitions under packages/factory/agents/; a CLI session runs one definition and writes only the outputs it declares" "Markdown with YAML frontmatter" {
@@ -96,10 +96,10 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 architectureAgent = component "architecture-agent" "Produces architecture.dsl and dependency-rules.dsl; reads the entity model and state machines as context and files ARCH findings on a contradiction" "Agent definition, strong tier"
                 testStrategyAgent = component "test-strategy-agent" "Produces docs/testing.yaml and the QA strategies; chooses the test guardrails and their thresholds; resolves QA findings it owns" "Agent definition, strong tier"
                 virgil = component "virgil" "Produces docs/agent-context.md with capture-context during the fitting" "Agent definition"
-                specReviewAgent = component "spec-review-agent" "Reviews the feature files, the glossary, the structure files, the area specs, and the schemas in a session separate from their producers" "Agent definition"
+                specReviewAgent = component "spec-review-agent" "Reviews the feature files, the glossary, the structure files, the area specs, and the schemas in a session separate from their producers; shares the glossary review with the stakeholder" "Agent definition"
                 architectureReviewAgent = component "architecture-review-agent" "Reviews architecture.dsl and dependency-rules.dsl in a session separate from the architecture agent" "Agent definition"
                 developerAgent = component "developer-agent" "Implements one story; writes each specification drift as an open row of its story's spec-feedback report and edits no specification file" "Agent definition"
-                implementationAgent = component "implementation-agent" "Dispatches stories in waves, runs the gates after each story, dispatches each drift row's owner and then its reviewer, and closes the wave" "Agent definition"
+                implementationAgent = component "implementation-agent" "Dispatches stories in waves, runs the gates after each story, dispatches each drift row's owner and then its reviewer one session at a time on the invocation branch, merges the next story only after those sessions committed, and closes the wave" "Agent definition"
                 reconciliationAgent = component "reconciliation-agent" "Compares the core with the code and writes one reconciliation report per run, one row per drift with the artifact's owner; edits no core file" "Agent definition"
             }
 
@@ -353,14 +353,18 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         architectureReviewAgent -> workingOutput "Sets fixed rows to confirmed or rejected; files ATAM and BUG findings"
         developerAgent -> workingOutput "Writes drift rows with status open into its story's spec-feedback report"
         implementationAgent -> developerAgent "Dispatches one story per developer agent"
+        implementationAgent -> requirementsAgent "Dispatches as the owner of a drift row after the story merges"
         implementationAgent -> domainModelingAgent "Dispatches as the owner of a drift row after the story merges"
+        implementationAgent -> architectureAgent "Dispatches as the owner of a drift row after the story merges"
+        implementationAgent -> testStrategyAgent "Dispatches as the owner of a drift row after the story merges, and for each open QA finding it owns"
         implementationAgent -> specReviewAgent "Dispatches as the reviewer of a fixed row"
-        implementationAgent -> testStrategyAgent "Dispatches for each open QA finding it owns"
-        implementationAgent -> dispatchCli "Runs dispatch close-wave"
+        implementationAgent -> architectureReviewAgent "Dispatches as the reviewer of a fixed row"
+        implementationAgent -> dispatchCli "Runs dispatch prepare-wave, merge-story, and close-wave"
         reconciliationAgent -> coreArtifacts "Reads the core to compare it with the code"
         reconciliationAgent -> workingOutput "Writes one reconciliation report per run"
         dispatchCli -> workingOutput "Reads the spec-feedback reports of the wave's stories"
         dispatchCli -> coreList "Reads the core list to tell core rows from other rows"
+        dispatchCli -> stateFiles "Records the closed wave in the dispatch ledger; prepare-wave reads it"
         indexLint -> coreList "Reads sample paths for the reviewer check"
         indexLint -> factoryAgents "Reads output declarations with reviewed_by and edits"
         ownershipContractTest -> coreList "Reads every entry and its sample path"
@@ -415,7 +419,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         dynamic validator "SemanticGateLoop" "Dispatcher-owned semantic gate execution after developer commit" {
             cliAgent -> crapScore "Dispatcher runs crap-score on committed artifacts"
             crapScore -> stateFiles "Writes CRAP report (pass/fail per function)"
-            cliAgent -> dependencyCheck "Dispatcher runs dependency-check against architecture.dsl"
+            cliAgent -> dependencyCheck "Dispatcher runs dependency-check against dependency-rules.dsl"
             dependencyCheck -> stateFiles "Writes dependency report (pass/fail per rule)"
         }
 
@@ -587,18 +591,22 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             specReviewAgent -> coreArtifacts "Reviews behaviour and domain structure in a separate session"
         }
 
-        dynamic factoryAgents "SpecFeedbackWaveClose" "A drift found during implementation reaches its owner and its review before the wave closes" {
+        dynamic factoryAgents "SpecFeedbackWaveClose" "A drift found during implementation reaches its owner and its review before the wave closes, and the next wave waits for the close" {
             implementationAgent -> developerAgent "Dispatches the story"
             developerAgent -> workingOutput "Writes an open row: artifact, drift, evidence, owner"
-            implementationAgent -> domainModelingAgent "Dispatches the row's owner after the story merges"
+            implementationAgent -> dispatchCli "Runs dispatch merge-story for the story"
+            implementationAgent -> domainModelingAgent "Dispatches the row's owner on the invocation branch, one session at a time"
             domainModelingAgent -> coreArtifacts "Changes the artifact"
-            domainModelingAgent -> workingOutput "Sets the row to fixed"
-            implementationAgent -> specReviewAgent "Dispatches the owner's reviewer"
+            domainModelingAgent -> workingOutput "Sets the row to fixed and commits it with the artifact change"
+            implementationAgent -> specReviewAgent "Dispatches the owner's reviewer on the invocation branch"
             specReviewAgent -> coreArtifacts "Reviews the change"
-            specReviewAgent -> workingOutput "Sets the row to confirmed or rejected"
+            specReviewAgent -> workingOutput "Sets the row to confirmed or rejected and commits the status"
             implementationAgent -> dispatchCli "Runs dispatch close-wave"
             dispatchCli -> workingOutput "Reads the spec-feedback reports of the wave's stories"
-            dispatchCli -> coreList "Reads the core list"
+            dispatchCli -> coreList "Reads the core list under its Factory root"
+            dispatchCli -> stateFiles "Records the closed wave in the dispatch ledger"
+            implementationAgent -> dispatchCli "Runs dispatch prepare-wave for the next wave"
+            dispatchCli -> stateFiles "Reads the closed wave from the dispatch ledger"
         }
 
         deployment * "Release 1" "Deployment" "Local, process-bound release-1 deployment" {

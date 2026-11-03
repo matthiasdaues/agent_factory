@@ -130,7 +130,7 @@ sequenceDiagram
     D->>IA: Commit on story branch
     IA->>CS: Run crap-score on committed artifacts
     CS-->>IA: JSON report (all functions PASS)
-    IA->>DC: Run dependency-check against architecture.dsl
+    IA->>DC: Run dependency-check against dependency-rules.dsl
     DC-->>IA: JSON report (zero violations)
     Note over IA: All gates pass
     IA->>PM: Run premerge-check
@@ -695,7 +695,7 @@ sequenceDiagram
 
 Derived from dynamic view `SpecFeedbackWaveClose` in [`architecture.dsl`](../spec/architecture.dsl).
 
-The developer agent and the implementation agent edit no specification file. A drift that a story reveals goes to the artifact's owner as a row of the story's spec-feedback report, and the wave closes only when the owners and their reviews have handled every row. So the specification lags the code by one wave at most. [ADR-0029](../adr/0029-per-story-drift-reports-block-the-wave-close.md) records the decision.
+The developer agent and the implementation agent edit no specification file. A drift that a story reveals goes to the artifact's owner as a row of the story's spec-feedback report. The wave closes only when the owners and their reviews have handled every row, and the next wave starts only after the close. So the specification lags the code by one wave at most. [ADR-0029](../adr/0029-per-story-drift-reports-block-the-wave-close.md) records the decision.
 
 Take ST-0318. The developer agent finds that the migration script must refuse a repository with uncommitted changes, and `validation-rules.md` has no such rule.
 
@@ -709,27 +709,37 @@ sequenceDiagram
     participant SRA as spec-review-agent
     participant D as dispatch
     participant CL as Core List
+    participant SF as State Files
 
     IA->>DA: 1. Dispatches the story
     DA->>WO: 2. Writes an open row: artifact, drift, evidence, owner
-    Note over IA: The story passes its gates and merges
-    IA->>DMA: 3. Dispatches the row's owner after the story merges
-    DMA->>CA: 4. Changes the artifact
-    DMA->>WO: 5. Sets the row to fixed
-    IA->>SRA: 6. Dispatches the owner's reviewer
-    SRA->>CA: 7. Reviews the change
+    Note over IA: The story passes its gates
+    IA->>D: 3. Runs dispatch merge-story for the story
+    IA->>DMA: 4. Dispatches the row's owner on the invocation branch, one session at a time
+    DMA->>CA: 5. Changes the artifact
+    DMA->>WO: 6. Sets the row to fixed and commits it with the artifact change
+    IA->>SRA: 7. Dispatches the owner's reviewer on the invocation branch
+    SRA->>CA: 8. Reviews the change
     alt The change matches the code and the accepted requirements
-        SRA->>WO: 8. Sets the row to confirmed
+        SRA->>WO: 9. Sets the row to confirmed and commits the status
     else The code breaks an accepted requirement
-        SRA->>WO: 8. Sets the row to rejected and files a BUG finding with the developer agent as owner
+        SRA->>WO: 9. Sets the row to rejected, files a BUG finding with the developer agent as owner, and commits the status
     end
-    IA->>D: 9. Runs dispatch close-wave
-    D->>WO: 10. Reads the spec-feedback reports of the wave's stories
-    D->>CL: 11. Reads the core list
-    alt A row is open, or fixed on a core or seam artifact
+    Note over IA: The next merge-story of the wave waits until these sessions have committed
+    IA->>D: 10. Runs dispatch close-wave
+    D->>WO: 11. Reads the spec-feedback reports of the wave's stories
+    D->>CL: 12. Reads the core list under its Factory root
+    alt A report or the core list cannot be read
+        D-->>IA: Fails and names the file
+    else A row is open, or fixed on a core or seam artifact
         D-->>IA: Fails and names the report, the artifact, and the status
     else Every row is confirmed, rejected, or fixed on another artifact
-        D-->>IA: Closes the wave
+        D->>SF: 13. Records the closed wave in the dispatch ledger
+    end
+    IA->>D: 14. Runs dispatch prepare-wave for the next wave
+    D->>SF: 15. Reads the closed wave from the dispatch ledger
+    alt The previous wave is not recorded as closed
+        D-->>IA: Refuses and names close-wave
     end
 ```
 
@@ -738,6 +748,11 @@ sequenceDiagram
 - Each story has its own report, `docs/spec/work/spec-feedback-<story-id>.md`, because the developer agents of a wave run in parallel. A story without a report counts as a story without rows.
 - A row carries the columns Artifact, Drift, Evidence, Owner, and Status. The [Report Row Lifecycle](../spec/state-machines.md#report-row-lifecycle) holds the four statuses, and [BR-061](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) names who sets each one.
 - A row about an artifact without a declared review, such as a QA strategy or an ADR, closes at `fixed`. `close-wave` reads the core list to tell the two kinds of row apart.
+- `close-wave` fails closed. A report with wrong column headers, a row with a status outside `open`, `fixed`, `confirmed`, and `rejected`, or a missing core list each fails, and the message names the file. A missing report still counts as a story without rows.
+- `close-wave` reads `rulebooks/core-artifacts.yaml` under the Factory root it runs from, as `index-lint` resolves its root. That is `packages/factory/` in this repository and `.agent-factory/factory/` in an installed project.
+- Owner and reviewer sessions run one at a time on the invocation branch, because two owners of one wave may change the same core file. Each session commits its core-file change and its row status together. The next `merge-story` waits until the sessions of the merged story have committed, so no story merges onto a half-changed core file.
+- `prepare-wave N` refuses while the ledger does not record wave N-1 as closed, and its message names `close-wave`. So a failed close stops the next wave.
+- A drift row on the glossary has two reviewers, as the core list declares. The stakeholder confirms each term through the term candidates before the domain-modeling agent writes it, and the spec-review agent then sets the row's status.
 - When the reviewer is the stakeholder, the agent that ran the session with the stakeholder sets the status.
 - After a story merges, the implementation agent also dispatches the test-strategy agent for each open `QA` finding it owns. `close-wave` does not wait for `QA` findings.
 - In manual mode there are no waves. The human closes a story only when its report passes the same check.

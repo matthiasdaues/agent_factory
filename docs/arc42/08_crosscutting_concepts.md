@@ -391,13 +391,13 @@ outputs:
 
 `reviewed_by:` holds a list of agent names, `stakeholder`, or both. An agent that only reads an artifact is never its review. A reviewer declares the artifact as a required input, or as a context input when a project may lack the artifact, so the review stays eligible in every project.
 
-**The core list.** `packages/factory/rulebooks/core-artifacts.yaml` lists every core and seam artifact with `path_pattern`, `sample_path`, `family`, and `optional`. Only a list in the Factory can show a missing producer, because an artifact that no agent declares never appears in `INDEX.yaml`. Three checks read the list:
+**The core list.** `rulebooks/core-artifacts.yaml` under the Factory root lists every core and seam artifact with `path_pattern`, `sample_path`, `family`, and `optional`. Only a list in the Factory can show a missing producer, because an artifact that no agent declares never appears in `INDEX.yaml`. The Factory root is `packages/factory/` in this repository and `.agent-factory/factory/` in an installed project. Three checks read the list:
 
-| Check                   | What it does with the list                                                                                                                                |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ownership contract test | Matches each sample path against the output patterns in `INDEX.yaml`. No match fails, more than one match fails, and a match without `reviewed_by:` fails |
-| `index-lint --check`    | Fails on a `reviewed_by:` entry that is no agent and not `stakeholder`, or that names an agent without the artifact as a required or context input        |
-| `dispatch close-wave`   | Tells a drift row on a core or seam artifact, which waits for `confirmed`, from a row on any other artifact, which closes at `fixed`                      |
+| Check                   | What it does with the list                                                                                                                                           |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ownership contract test | Matches each sample path against the output patterns in `INDEX.yaml`. No match fails, more than one match fails, and a match without `reviewed_by:` fails            |
+| `index-lint --check`    | Fails on a `reviewed_by:` entry that is no agent and not `stakeholder`, or that names an agent without the artifact as a required or context input                   |
+| `dispatch close-wave`   | Tells a drift row on a core or seam artifact, which waits for `confirmed`, from a row on any other artifact, which closes at `fixed`; fails when the list is missing |
 
 The two ownership checks match by sample path. So `docs/spec/features/{name}.feature` and `docs/spec/features/*.feature` both match `docs/spec/features/example.feature`. A wide pattern such as `docs/spec/**/*.md` matches too and fails the test until its agent gives it up. A declaration with `edits: wording`, such as the lector agent's `docs/**/*.md`, changes wording and never meaning, so the contract test skips it.
 

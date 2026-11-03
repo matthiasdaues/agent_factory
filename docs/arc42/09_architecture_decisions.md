@@ -34,9 +34,9 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0024 | [DBML as the entity-model language](../adr/0024-dbml-as-entity-model-language.md)                                                                             | accepted               | pugh-matrix |
 | 0025 | [Core artifact layout under `docs/spec/`](../adr/0025-core-artifact-layout-under-docs-spec.md)                                                                | accepted               | none        |
 | 0026 | [Layout migration runs inside the factory update](../adr/0026-layout-migration-runs-inside-the-factory-update.md)                                             | accepted               | none        |
-| 0027 | [Split the requirements agent by artifact family](../adr/0027-split-the-requirements-agent-by-artifact-family.md)                                             | proposed               | none        |
-| 0028 | [Declared review and a core list check ownership](../adr/0028-declared-review-and-core-list-check-ownership.md)                                               | proposed               | none        |
-| 0029 | [Per-story drift reports block the wave close](../adr/0029-per-story-drift-reports-block-the-wave-close.md)                                                   | proposed               | none        |
+| 0027 | [Split the requirements agent by artifact family](../adr/0027-split-the-requirements-agent-by-artifact-family.md)                                             | accepted               | none        |
+| 0028 | [Declared review and a core list check ownership](../adr/0028-declared-review-and-core-list-check-ownership.md)                                               | accepted               | none        |
+| 0029 | [Per-story drift reports block the wave close](../adr/0029-per-story-drift-reports-block-the-wave-close.md)                                                   | accepted               | none        |
 
 ## Key Decisions
 
@@ -253,7 +253,8 @@ See [8.17](08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-d
 
 **ADR-0029** sends specification drift found during implementation to the
 artifact's owner as a row of a per-story spec-feedback report. `dispatch close-wave` fails while a row is `open`, or `fixed` on a core or seam
-artifact, so the specification lags the code by one wave at most. See
+artifact, and `prepare-wave` waits for the recorded close, so the specification
+lags the code by one wave at most. See
 [6.12](06_runtime_view.md#612-spec-feedback-and-wave-close).
 
 ## Superseded Decisions
