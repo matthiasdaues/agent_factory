@@ -25,7 +25,6 @@ FACTORY = REPO_ROOT / "packages" / "factory"
 # removes it. The list is strict: a listed entry that passes fails the test.
 # No story adds an entry.
 EXPECTED_FAILURES = {
-    "docs/spec/dependency-rules.dsl": "ST-0353",
     "docs/spec/scope-map.md": "ST-0363",
     "docs/spec/features/*.feature": "ST-0363",
     "docs/spec/areas/*.md": "ST-0363",
@@ -241,11 +240,10 @@ class TestSt0347WorkingOutput:
 @pytest.mark.spec("CAO-01-LN-01")
 class TestSt0347ExpectedFailureList:
     def test_st_0347_listed_entry_that_passes_is_named(self):
-        error = expectation_error("docs/spec/dependency-rules.dsl", None)
+        listed = next(iter(EXPECTED_FAILURES))
+        error = expectation_error(listed, None)
         assert error is not None
-        assert error.startswith(
-            "docs/spec/dependency-rules.dsl: expected failure that now passes"
-        )
+        assert error.startswith(f"{listed}: expected failure that now passes")
 
     def test_st_0347_unlisted_entry_that_fails_shows_its_finding(self):
         finding = "docs/spec/architecture.dsl: 2 producers: a (x), b (y)"

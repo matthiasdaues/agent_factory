@@ -1,6 +1,6 @@
 ---
 name: maintain-architecture
-description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and state machine pseudocode.
+description: Maintain arc42 architecture docs with architecture.dsl as the single source of truth. Covers DSL-first workflow, image export, Mermaid derivation, and the check of the components against the state machines.
 category: architecture
 ---
 
@@ -91,15 +91,19 @@ Rules:
 | Flowchart (`flowchart TD`)        | Structurizr has no flowchart view     | §6.3 gate outcomes, UC activity diagrams |
 | Short/simple sequences            | Not worth a DSL view                  | §6.5 resume, §6.6 status                 |
 
-## Step 5 — Maintain state machine pseudocode
+## Step 5 — Check the components against the state machines
 
-Canonical pseudocode format, reserved actions, and the pseudocode→Mermaid derivation rules: [state-machine-notation.md](../../rulebooks/conventions/state-machine-notation.md).
+This step reads `docs/spec/state-machines.md` and writes no specification file. The domain-modeling agent owns the state machines. When `docs/spec/state-machines.md` does not exist, skip this step.
 
-```bash
-.agent-factory/factory/scripts/statemachine-lint --spec-dir docs/spec
-```
+1. For each transition in `docs/spec/state-machines.md`, find the component in the component view that performs it. [state-machine-notation.md](../../rulebooks/conventions/state-machine-notation.md) defines the pseudocode.
+2. A transition without a performing component is a contradiction. So is a component that performs a transition the state machines do not allow.
+3. File each contradiction as `docs/findings/ARCH-NNNN.md` with `owner: domain-modeling-agent`, per [finding-format.md](../../rulebooks/conventions/finding-format.md). Name the state machine, the transition, and the component.
 
-**Completion**: `statemachine-lint` reports 0 errors.
+Never write `docs/spec/state-machines.md`. A fix to the state machines belongs to the domain-modeling agent.
+
+Take a case. `state-machines.md` lets a Task move from `WAITING` to `DONE`, and no component performs that move. The check files `ARCH-0001.md` with `owner: domain-modeling-agent`.
+
+**Completion**: every contradiction has an open `ARCH` finding, or the step was skipped because `state-machines.md` does not exist.
 
 ## Commit
 

@@ -358,3 +358,73 @@ class TestSt0357SkillsNameTheirCaller:
             (SKILLS / "qa-strategy-from-spec" / "SKILL.md").read_text(encoding="utf-8")
         )
         assert "The test-strategy agent invokes this skill" in text
+
+
+ARCHITECTURE_AGENT = AGENTS / "architecture-agent.md"
+MAINTAIN_ARCHITECTURE = SKILLS / "maintain-architecture" / "SKILL.md"
+RUN_STEP = SKILLS / "run-step" / "SKILL.md"
+
+DEPENDENCY_RULES = "docs/spec/dependency-rules.dsl"
+ARCH_FINDINGS = "docs/findings/ARCH-*.md"
+STATE_MACHINES = "docs/spec/state-machines.md"
+
+
+@pytest.mark.spec("CAO-07-LN-01")
+class TestSt0353ArchitectureAgentDefinition:
+    """CAO-07-LN-01: outputs, context inputs, and the read check of Step 5."""
+
+    def test_st_0353_declares_dependency_rules_with_its_review(self):
+        decl = _declarations(_frontmatter(ARCHITECTURE_AGENT))[DEPENDENCY_RULES]
+        assert decl["reviewed_by"] == ["architecture-review-agent"]
+        assert decl["required"] is False
+
+    def test_st_0353_declares_arch_findings(self):
+        assert ARCH_FINDINGS in _declarations(_frontmatter(ARCHITECTURE_AGENT))
+
+    def test_st_0353_declares_no_state_machines(self):
+        assert STATE_MACHINES not in _declarations(_frontmatter(ARCHITECTURE_AGENT))
+
+    def test_st_0353_context_inputs_include_the_domain_structure(self):
+        context = _frontmatter(ARCHITECTURE_AGENT)["inputs"]["context"]
+        assert {ENTITY_MODEL, STATE_MACHINES} <= set(context)
+
+    def test_st_0353_workflow_runs_the_read_check_instead_of_writing(self):
+        workflow = _flat(_section(ARCHITECTURE_AGENT.read_text(encoding="utf-8"), "Workflow"))
+        assert "→ state machines per" not in workflow
+        assert "the read check of Step 5" in workflow
+
+
+def _step_5() -> str:
+    text = MAINTAIN_ARCHITECTURE.read_text(encoding="utf-8")
+    match = re.search(r"^## Step 5 — (.*?)(?=^## |\Z)", text, re.M | re.S)
+    assert match, "no Step 5"
+    return _flat(match.group(0))
+
+
+@pytest.mark.spec("CAO-07-LN-01")
+class TestSt0353MaintainArchitectureStep5IsAReadCheck:
+    """CAO-07-LN-01: Step 5 compares, skips, files ARCH, and writes nothing."""
+
+    def test_st_0353_step_5_is_a_read_check(self):
+        assert "Step 5 — Check the components against the state machines" in _step_5()
+
+    def test_st_0353_step_5_skipped_without_state_machines(self):
+        assert "When `docs/spec/state-machines.md` does not exist, skip this step." in _step_5()
+
+    def test_st_0353_contradiction_files_arch_finding_for_domain_modeling(self):
+        step = _step_5()
+        assert "`docs/findings/ARCH-NNNN.md`" in step
+        assert "`owner: domain-modeling-agent`" in step
+
+    def test_st_0353_step_5_never_writes_state_machines(self):
+        assert "Never write `docs/spec/state-machines.md`." in _step_5()
+
+
+@pytest.mark.spec("CAO-07-LN-01")
+class TestSt0353RunStepDoneRule:
+    """CAO-07-LN-01: run-step counts a step as done from its outputs alone."""
+
+    def test_st_0353_changed_input_does_not_restart_a_done_step(self):
+        text = _flat(RUN_STEP.read_text(encoding="utf-8"))
+        assert "A changed input never restarts a step that is done." in text
+        assert "The producer of the changed file starts the next pass in its handoff." in text
