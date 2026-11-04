@@ -9,6 +9,108 @@
   and 10 terminal failure states. The counts come from shape fill colours and
   are approximate, because Miro can draw one shape more than once.
 
+## Overall assessment
+
+The board is a strong current-state map. Its map score measures coverage,
+traceability, and navigation separately from the quality of the mapped process.
+
+| View                        | Score |
+| --------------------------- | ----: |
+| Governance and traceability |  8/10 |
+| Daily Agentic Coding use    |  5/10 |
+| Lead developer control      |  7/10 |
+| Full lifecycle coverage     |  5/10 |
+| Visual overview             |  4/10 |
+
+The overall assessment is 6/10 as a process design and 8/10 as a map of the
+current Factory. The process favours control over short feedback cycles.
+
+## Cargo-cult verdict
+
+The Factory is not pure cargo cult. Its core addresses real failure modes of
+coding agents: false completion claims, inherited assumptions, conflicting
+parallel edits, stale project context, and unbounded retry loops.
+
+The cargo-cult risk begins when an artifact, review, or agent role counts as
+quality without evidence that it prevents a named failure. More ceremony then
+creates coordination work without making the delivered change safer.
+
+The valuable core is verifiable delegation. Agents work inside explicit
+boundaries, scripts check observable results, independent sessions challenge
+the work, and implementation findings return to project truth.
+
+## What the map needs for 10/10
+
+### 1. An explicit boundary
+
+The map states where the Factory begins and ends. It marks delivery, operation,
+and other external work as included or outside its scope.
+
+The map also states whether it represents the current state, the target state,
+or both. Current and target paths use different visual treatments.
+
+### 2. Three zoom levels
+
+The map has three connected views:
+
+1. A one-screen overview shows phases, entry points, human stops, and terminal
+   states.
+2. One map per phase shows clusters, actors, gates, and main artifacts.
+3. Execution maps show transitions, loops, failure paths, and detailed
+   artifacts.
+
+The overview links to the phase maps. A phase map links to each execution map.
+
+### 3. Routes that start with intent
+
+A developer can start with a goal such as fixing a bug, adding a feature,
+resolving a finding, or making an architecture decision.
+
+Each route names its first step, required inputs, human decisions, expected
+artifacts, and terminal state.
+
+### 4. A visible current position
+
+Every step has a stable ID. A running workstream can use that ID to highlight
+its current position.
+
+From that position, a reader can identify the owner, next step, completion
+condition, and failure route within 30 seconds.
+
+### 5. Links to binding sources
+
+Each agent step links to its agent definition. Each flow links to its playbook.
+Each gate links to its script and checked contract.
+
+Artifacts link to their schema or template. Known gaps link to their finding,
+bug, or proposal.
+
+### 6. Mechanically checked currency
+
+The map records the full Git SHA of the state it represents. A documented
+generator or maintenance source owns the map.
+
+A deterministic check detects drift between the map and the Factory's agents,
+playbooks, gates, and artifact declarations.
+
+### 7. Distinct status types
+
+The map distinguishes an existing path, a planned path, a known defect, and an
+intentional boundary. A red gap never leaves the reader guessing which type it
+represents.
+
+### 8. A small visual grammar
+
+The map keeps its current distinction between human steps, agent steps, gates,
+failures, and gaps. It adds only the status and scope markers needed above.
+
+Details such as cost, model tier, and artifact metadata belong in a linked
+detail view when they make the main route harder to read.
+
+The map reaches 10/10 when a new lead developer can understand the boundary,
+choose a route, locate current work, follow every source, and trust its
+currency without asking the author.
+
 ## How entries are sorted
 
 - **Good:** The process does something right, and a change should keep it.
@@ -91,6 +193,28 @@ Raw notes go here first. They are sorted into the sections below later.
   artifacts must never be edited by hand.
 - **Keep by:** New steps get an artifact row and a class tag.
 
+### GOOD-06: Implementation findings flow back into project truth
+
+- **Where:** Implementation › Building › Commit and spec feedback;
+  Reconciliation › Alignment and Backfill and traceability.
+- **Observation:** `spec-feedback` and reconciliation return implementation
+  discoveries to the specification, architecture, scope map, and test links.
+- **Why it matters:** The documents do not stay frozen while the code reveals
+  missing or inaccurate rules.
+- **Keep by:** Every implementation path ends with a check for specification,
+  architecture, and traceability changes.
+
+### GOOD-07: Automated stories use isolated workspaces and exact commits
+
+- **Where:** Implementation › Building › Automated: wave setup and
+  verify-story.
+- **Observation:** Each story receives its own branch and worktree.
+  `verify-story` checks the reported commit SHA before later gates trust it.
+- **Why it matters:** Parallel agents cannot silently overwrite one another,
+  and a completion claim points to an exact change.
+- **Keep by:** Every automated change stays isolated until its commit and gate
+  results have been checked.
+
 ## Bad things
 
 ### BAD-01: No proposal-lint script exists
@@ -113,8 +237,9 @@ Raw notes go here first. They are sorted into the sections below later.
   findings.
 - **Cost:** Human attention is the scarcest resource in the process, and these
   stops use it where a wrong call is cheap to correct later.
-- **Suggestion:** Keep the stops with the most weight: proposal acceptance,
-  story decisions, and the final diff. Batch or sample the rest.
+- **Suggestion:** Keep human stops for product intent, irreversible
+  architecture, accepted residual risk, and the final change. Batch or sample
+  intermediate artifact approvals.
 
 ### BAD-03: Small changes have no fast lane
 
@@ -123,8 +248,9 @@ Raw notes go here first. They are sorted into the sections below later.
   change?" lets a change skip one block, but specification and planning look
   mandatory.
 - **Cost:** A one-file bug fix pays the full ceremony of a feature.
-- **Suggestion:** Show the path a one-file fix takes. If that path does not
-  exist, define it.
+- **Suggestion:** Classify each change before specification work. Use at least
+  three paths: small reversible work, normal feature work, and high-risk work.
+  Show the path a one-file fix takes.
 
 ### BAD-04: Review loops have no cap
 
@@ -147,8 +273,8 @@ Raw notes go here first. They are sorted into the sections below later.
 - **Observation:** The code-review agent runs fagan-review on the diff. Then
   the QA agent runs a Fagan review again.
 - **Cost:** A second review pass whose added value is not known.
-- **Suggestion:** Check whether the second Fagan pass finds anything the first
-  one missed. If it finds nothing new, drop one of them.
+- **Suggestion:** Measure the unique defect classes and findings from each
+  pass. Merge the reviews when the second pass adds no distinct evidence.
 
 ### BAD-06: The board shows no cost
 
@@ -158,6 +284,39 @@ Raw notes go here first. They are sorted into the sections below later.
 - **Cost:** A practitioner cannot see where the tokens and the time go.
 - **Suggestion:** Add the model tier per agent step, and later measured cost
   per phase from usage capture.
+
+### BAD-07: The boundary after the merge into dev is unclear
+
+- **Where:** Reconciliation › Close the feature.
+- **Observation:** The last delivery step merges the feature into `dev`. The
+  board does not say whether build, release, deployment, observation, rollback,
+  and incident feedback are absent or outside the Factory.
+- **Cost:** A lead cannot tell whether the map is incomplete or the Factory's
+  responsibility ends at `dev`.
+- **Suggestion:** Draw and name the Factory boundary. Add a delivery and
+  operation phase only if those responsibilities belong inside it.
+
+### BAD-08: Security arrives after implementation
+
+- **Where:** Reconciliation › QA › Fagan and security review.
+- **Observation:** The explicit security review runs after code and
+  reconciliation. Earlier stages do not show data classification, threat
+  analysis, secret handling, dependency trust, or agent tool permissions.
+- **Cost:** A late review can discover a design-level security problem after
+  specification, architecture, and implementation have finished.
+- **Suggestion:** Add a small security screen during change classification.
+  Keep the late review for code-level findings. Require deeper analysis for
+  high-risk changes.
+
+### BAD-09: Artifact production does not name the later decision
+
+- **Where:** Artifacts column and all authoring clusters.
+- **Observation:** The board names the artifact produced by each step, but it
+  does not consistently name the later decision or gate that consumes it.
+- **Cost:** A document can survive because the process produces it, not because
+  another step needs its information.
+- **Suggestion:** Give every artifact a named consumer and decision. Remove an
+  artifact when no later step would fail or lose information without it.
 
 ## Faulty things
 
@@ -201,3 +360,37 @@ Raw notes go here first. They are sorted into the sections below later.
 - **Evidence:** Board gap shape only. No playbook reference was checked.
 - **Fix direction:** Name an owner for the merge, and state the gate it runs:
   premerge-check and the full test suite.
+
+## Recommended target shape
+
+Keep one short backbone for every change:
+
+1. Set the intent, observable result, and risk class.
+2. Load the relevant project context.
+3. Define a test or another executable acceptance check.
+4. Implement the change in an isolated workspace.
+5. Run the deterministic gates required by the risk class.
+6. Add an independent review when the risk class requires one.
+7. Let a named owner merge, release, and deploy the change.
+8. Observe production and return findings to the specification or backlog.
+
+Proposal work, full specification, ATAM, Pugh matrices, and full reconciliation
+extend this backbone when risk warrants their cost. They are not the default
+for every change.
+
+Apply changes in this order:
+
+1. Give manual mode the same quality outcomes as automated mode.
+2. Define an owner and terminal state for every story and merge path.
+3. Add change classification and a fast lane for reversible work.
+4. Add delivery, operation, rollback, and production feedback.
+5. Split the board into an overview, executable runbooks, and an artifact map.
+
+Use these removal tests whenever the process grows:
+
+- An artifact stays only when a named consumer uses it for a named decision.
+- A review stays only when it owns a distinct defect class or finds unique
+  defects.
+- A gate stays only when it checks an observable contract and can block work.
+- A human stop stays only for intent, irreversibility, or accepted risk.
+- An optional phase runs only when the change's risk class triggers it.
