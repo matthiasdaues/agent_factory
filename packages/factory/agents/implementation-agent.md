@@ -229,14 +229,14 @@ Gate-specific parameters (e.g. `threshold` for `crap_score`) are read from `test
 For each gate in the resolved list, call its CLI script directly from the story's worktree. The dispatcher passes gate-specific parameters from `testing.yaml` to each script:
 
 ```
-.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold>
-.agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id>
-.agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id>
+.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold> --report-dir <invocation-worktree>/.current-work/crap-score
+.agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id> --report-dir <invocation-worktree>/.current-work/dependency-check
+.agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id> --report-dir <invocation-worktree>/.current-work/test-design-verify
 ```
 
 The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 
-Each script writes a JSON report to `.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. The dispatcher reads the exit code and the JSON report to determine the outcome.
+Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome.
 
 #### Fix-iteration loop
 
