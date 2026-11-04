@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 
 import pytest
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, load_script
 
 RULEBOOKS = REPO_ROOT / "packages" / "factory" / "rulebooks"
 FINDING_FORMAT = RULEBOOKS / "conventions" / "finding-format.md"
@@ -428,3 +428,81 @@ class TestSt0353RunStepDoneRule:
         text = _flat(RUN_STEP.read_text(encoding="utf-8"))
         assert "A changed input never restarts a step that is done." in text
         assert "The producer of the changed file starts the next pass in its handoff." in text
+
+
+CORE_LIST = REPO_ROOT / "packages" / "factory" / "rulebooks" / "core-artifacts.yaml"
+STRUCTURE_FILES = [
+    "entity-model.md",
+    "interface-contracts.md",
+    "state-machines.md",
+    "validation-rules.md",
+]
+KEPT_SKILLS = [
+    "capture-vision",
+    "clarify-requirements",
+    "grill-me",
+    "grill-with-docs",
+    "reverse-map",
+    "derive-feature",
+]
+
+
+def _core_outputs(agent: dict) -> set[str]:
+    """Return the core list patterns whose sample path a declaration matches."""
+    import yaml
+
+    il = load_script("index-lint")
+    entries = yaml.safe_load(CORE_LIST.read_text(encoding="utf-8"))["entries"]
+    return {
+        entry["path_pattern"]
+        for entry in entries
+        for pattern in _declarations(agent)
+        if il.pattern_matches(pattern, entry["sample_path"])
+    }
+
+
+@pytest.mark.spec("CAO-03-LN-01")
+class TestSt0349RequirementsAgentKeepsScopeAndBehaviour:
+    """CAO-03-LN-01: core outputs, skill list, area spec step, handoff."""
+
+    def test_st_0349_core_outputs_are_scope_map_features_and_areas(self):
+        assert _core_outputs(_frontmatter(REQUIREMENTS_AGENT)) == {
+            "docs/spec/scope-map.md",
+            "docs/spec/features/*.feature",
+            "docs/spec/areas/*.md",
+        }
+
+    def test_st_0349_area_specs_are_optional_and_reviewed(self):
+        decl = _declarations(_frontmatter(REQUIREMENTS_AGENT))[
+            "docs/spec/areas/{name}.md"
+        ]
+        assert decl["required"] is False
+        assert decl["reviewed_by"] == ["spec-review-agent"]
+
+    def test_st_0349_skill_list_drops_capture_context(self):
+        skills = _frontmatter(REQUIREMENTS_AGENT)["skills"]
+        assert "capture-context" not in skills
+        assert set(KEPT_SKILLS) <= set(skills)
+
+    def test_st_0349_body_names_no_structure_file(self):
+        body = REQUIREMENTS_AGENT.read_text(encoding="utf-8").split("\n---\n", 1)[1]
+        assert "Produce supplementary specs" not in body
+        assert [f for f in STRUCTURE_FILES if f in body] == []
+
+    def test_st_0349_workflow_writes_an_area_spec_on_request(self):
+        workflow = _section(REQUIREMENTS_AGENT.read_text(encoding="utf-8"), "Workflow")
+        step = re.search(r"^\s*\w\. \*\*Write area specs\*\*.*$", workflow, re.M)
+        assert step, "no area spec step"
+        assert "`docs/spec/areas/<area>.md`" in step.group(0)
+        assert "the stakeholder says" in step.group(0)
+
+    def test_st_0349_handoff_names_the_domain_modeling_agent(self):
+        assert _frontmatter(REQUIREMENTS_AGENT)["handoff-to"] == [
+            "domain-modeling-agent"
+        ]
+        handoff = _section(REQUIREMENTS_AGENT.read_text(encoding="utf-8"), "Handoff")
+        assert "domain-modeling-agent" in handoff
+
+    def test_st_0349_spec_review_reads_the_area_specs(self):
+        context = _frontmatter(SPEC_REVIEW_AGENT)["inputs"]["context"]
+        assert "docs/spec/areas/*.md" in context
