@@ -583,8 +583,8 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 777
-    total_tokens: 4639
+    tokens: 862
+    total_tokens: 5380
     inputs:
       required:
         - type: feature
@@ -601,6 +601,7 @@ agents:
         - docs/spec/interface-contracts.md
         - docs/spec/schemas/*
         - docs/spec/areas/*.md
+        - docs/spec/work/term-candidates.md
         - docs/spec/work/todos.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/report-format.md
@@ -708,7 +709,7 @@ skills:
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
     path: skills/inspect-spec/SKILL.md
-    tokens: 719
+    tokens: 1375
   - name: qa-strategy-from-spec
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
@@ -1000,7 +1001,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 56071
+    total_tokens: 56812
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1022,7 +1023,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 46919
+    total_tokens: 47660
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1039,7 +1040,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 101327
+    total_tokens: 102068
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1057,7 +1058,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 100695
+    total_tokens: 101436
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

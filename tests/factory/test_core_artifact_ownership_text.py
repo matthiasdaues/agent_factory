@@ -1062,3 +1062,158 @@ class TestSt0360DriftBecomesAReportRow:
         step = _workflow_step(DEVELOPER_AGENT, 6)
         assert "Update docs if needed" not in step
         assert SPEC_FEEDBACK_REPORT in step
+
+
+# --- ST-0356: the spec review covers each structure file and the glossary --
+
+INSPECT_SPEC = SKILLS / "inspect-spec" / "SKILL.md"
+SPEC_REVIEW_REQUIRED = {
+    "docs/spec/features/*.feature",
+    "docs/spec/scope-map.md",
+    GLOSSARY,
+    ENTITY_MODEL,
+}
+SPEC_REVIEW_CONTEXT = [
+    "docs/spec/state-machines.md",
+    "docs/spec/validation-rules.md",
+    "docs/spec/interface-contracts.md",
+    "docs/spec/areas/*.md",
+    "docs/spec/schemas/*",
+    TERM_CANDIDATES,
+]
+STRUCTURE_CHECKS = [
+    "docs/spec/entity-model.md",
+    "docs/spec/state-machines.md",
+    "docs/spec/validation-rules.md",
+    "docs/spec/interface-contracts.md",
+    "docs/spec/schemas/*",
+    "docs/spec/areas/*.md",
+    GLOSSARY,
+]
+GLOSSARY_DEFECTS = [
+    "Two terms for one concept.",
+    "Term not defined.",
+    "Avoided term in use.",
+]
+DOMAIN_OWNER = "`owner: domain-modeling-agent`"
+
+
+def _inspect_spec_check(heading: str) -> str:
+    return _flat(_subsection(INSPECT_SPEC.read_text(encoding="utf-8"), heading))
+
+
+@pytest.mark.spec("CAO-08-LN-01")
+class TestSt0356SpecReviewInputs:
+    """CAO-08-LN-01: required and context inputs of the spec-review agent."""
+
+    def test_st_0356_required_inputs_are_the_files_that_always_exist(self):
+        required = _frontmatter(SPEC_REVIEW_AGENT)["inputs"]["required"]
+        assert {r["path_pattern"] for r in required} == SPEC_REVIEW_REQUIRED
+
+    def test_st_0356_context_inputs_include_the_optional_files(self):
+        context = _frontmatter(SPEC_REVIEW_AGENT)["inputs"]["context"]
+        assert set(SPEC_REVIEW_CONTEXT) <= set(context)
+
+    def test_st_0356_agent_runs_the_structure_and_glossary_checks(self):
+        step = _workflow_step(SPEC_REVIEW_AGENT, 2)
+        assert "each structure file that exists" in step
+        assert "the glossary" in step
+        assert "A missing optional structure file never stops the review." in step
+
+    def test_st_0356_agent_reads_the_scope_map_only(self):
+        step = _workflow_step(SPEC_REVIEW_AGENT, 1)
+        assert "The scope map is read only" in step
+        assert "The stakeholder reviews the scope map." in step
+
+
+@pytest.mark.spec("CAO-08-LN-01")
+class TestSt0356InspectSpecChecksEachStructureFile:
+    """CAO-08-LN-01: one check per structure file, one report section each."""
+
+    @pytest.mark.parametrize("path", STRUCTURE_CHECKS)
+    def test_st_0356_check_names_the_structure_file(self, path):
+        assert f"**`{path}`**" in _inspect_spec_check("Check each structure file")
+
+    def test_st_0356_missing_file_never_stops_the_review(self):
+        section = _inspect_spec_check("Check each structure file")
+        assert "Skip the check of a file that does not exist." in section
+        assert "A missing optional structure file never stops the review." in section
+
+    def test_st_0356_report_has_one_section_per_checked_file(self):
+        report = _flat(
+            _section(INSPECT_SPEC.read_text(encoding="utf-8"), "Step 3 — Write the review report")
+        )
+        assert "**Structure checks**" in report
+        assert "one section for each file that Step 2 checked" in report
+
+
+@pytest.mark.spec("CAO-08-LN-01")
+class TestSt0356GlossaryCheck:
+    """CAO-08-LN-01: the three glossary defects become domain-modeling findings."""
+
+    @pytest.mark.parametrize("defect", GLOSSARY_DEFECTS)
+    def test_st_0356_glossary_check_names_the_defect(self, defect):
+        assert f"**{defect}**" in _inspect_spec_check("Check the glossary")
+
+    def test_st_0356_glossary_defect_is_a_finding_for_domain_modeling(self):
+        section = _inspect_spec_check("Check the glossary")
+        assert f"File each defect as a Major `SPEC` finding with {DOMAIN_OWNER}." in section
+
+    def test_st_0356_glossary_check_leaves_unused_terms_to_spec_lint(self):
+        section = _inspect_spec_check("Check the glossary")
+        assert "`GLOSS001`" in section
+        assert "Do not report an unused term again." in section
+
+
+@pytest.mark.spec("CAO-08-LN-01")
+class TestSt0356TermCandidateCheck:
+    """CAO-08-LN-01: a `proposed` row waits for the stakeholder and is a finding."""
+
+    def test_st_0356_proposed_row_is_a_finding_for_domain_modeling(self):
+        section = _inspect_spec_check("Check the term candidates")
+        assert f"`{TERM_CANDIDATES}`" in section
+        assert (
+            f"File one Major `SPEC` finding with {DOMAIN_OWNER} for each row with status `proposed`."
+            in section
+        )
+
+    def test_st_0356_glossary_terms_count_as_confirmed(self):
+        section = _inspect_spec_check("Check the term candidates")
+        assert "Terms in the glossary count as confirmed" in section
+        assert "`migrate-spec-layout`" in section
+        assert "no finding that a glossary term lacks the stakeholder's confirmation" in section
+
+    def test_st_0356_scope_map_gets_no_finding_on_its_content(self):
+        section = _inspect_spec_check("Read the scope map only")
+        assert "File no finding on the content of the scope map." in section
+        assert "The stakeholder reviews the scope map." in section
+
+
+@pytest.mark.spec("CAO-08-LN-01")
+class TestSt0356SpecReviewRunsWithoutOptionalFiles:
+    """The spec review runs without schemas/ and without area specs."""
+
+    def test_st_0356_spec_review_is_eligible_without_schemas_or_areas(
+        self, tmp_path, monkeypatch
+    ):
+        import sys
+
+        packages = REPO_ROOT / "packages" / "factory"
+        if str(packages) not in sys.path:
+            sys.path.insert(0, str(packages))
+        from engine.eligibility import evaluate_agent
+
+        for path in [
+            "docs/spec/features/payouts.feature",
+            "docs/spec/scope-map.md",
+            GLOSSARY,
+            ENTITY_MODEL,
+        ]:
+            (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+            (tmp_path / path).write_text("# fixture\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        agent = {"name": "spec-review-agent", **_frontmatter(SPEC_REVIEW_AGENT)}
+        result = evaluate_agent(agent)
+        assert not (tmp_path / "docs" / "spec" / "schemas").exists()
+        assert not (tmp_path / "docs" / "spec" / "areas").exists()
+        assert result["eligible"] is True, result
