@@ -142,7 +142,7 @@ When the story uses a `## Contract` table, name this section `## Evidence`. Stat
 
 ## Verification
 
-Exact shell commands grouped by suite from testing.yaml.
+Exact shell commands grouped by suite from testing.yaml. When the project runs its suite through a pre-commit hook, name the hook (for example `pre-commit run run-tests --all-files`). An agent shell guard may block direct test-runner calls such as `pytest`.
 
 **Unit tests:**
 ```bash
