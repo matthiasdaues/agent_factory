@@ -190,6 +190,52 @@ agents:
         - path_pattern: docs/adr/*.md
           validator: ""
           required: false
+  - name: domain-modeling-agent
+    title: Domain-Modeling Agent
+    tier: strong
+    description: "Write the domain structure family once a feature file exists: the glossary, the entity model, and the state machines, validation rules, interface contracts, and payload schemas the domain needs."
+    path: agents/domain-modeling-agent.md
+    tokens: 1148
+    total_tokens: 3698
+    inputs:
+      required:
+        - type: scope-map
+          path_pattern: docs/spec/scope-map.md
+        - type: feature
+          path_pattern: docs/spec/features/*.feature
+      context:
+        - docs/spec/glossary.md
+        - docs/spec/work/term-candidates.md
+        - src/**/*
+        - docs/agent-context.md
+        - .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
+    outputs:
+      minimum_changed: 1
+      declarations:
+        - path_pattern: docs/spec/glossary.md
+          validator: ""
+          required: true
+          reviewed_by: [spec-review-agent, stakeholder]
+        - path_pattern: docs/spec/entity-model.md
+          validator: ""
+          required: true
+          reviewed_by: [spec-review-agent]
+        - path_pattern: docs/spec/state-machines.md
+          validator: ""
+          required: false
+          reviewed_by: [spec-review-agent]
+        - path_pattern: docs/spec/validation-rules.md
+          validator: ""
+          required: false
+          reviewed_by: [spec-review-agent]
+        - path_pattern: docs/spec/interface-contracts.md
+          validator: ""
+          required: false
+          reviewed_by: [spec-review-agent]
+        - path_pattern: docs/spec/schemas/*
+          validator: ""
+          required: false
+          reviewed_by: [spec-review-agent]
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     tier: standard
@@ -527,16 +573,23 @@ agents:
     tier: strong
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
-    tokens: 705
-    total_tokens: 4567
+    tokens: 767
+    total_tokens: 4629
     inputs:
       required:
         - type: feature
           path_pattern: docs/spec/features/*.feature
         - type: scope-map
           path_pattern: docs/spec/scope-map.md
+        - type: glossary
+          path_pattern: docs/spec/glossary.md
+        - type: entity-model
+          path_pattern: docs/spec/entity-model.md
       context:
-        - docs/spec/glossary.md
+        - docs/spec/state-machines.md
+        - docs/spec/validation-rules.md
+        - docs/spec/interface-contracts.md
+        - docs/spec/schemas/*
         - docs/spec/work/todos.md
         - docs/agent-context.md
         - .agent-factory/factory/rulebooks/conventions/report-format.md
@@ -791,7 +844,7 @@ skills:
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/spec/glossary.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
     path: skills/domain-modeling/SKILL.md
-    tokens: 855
+    tokens: 1128
   - name: explain-concept
     category: utility
     description: Look up a Factory concept and explain it. Knows what exists and what is missing.
@@ -908,7 +961,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 65165
+    total_tokens: 65227
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -930,7 +983,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 45937
+    total_tokens: 45999
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -947,7 +1000,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 109909
+    total_tokens: 109971
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -965,7 +1018,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 109277
+    total_tokens: 109339
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

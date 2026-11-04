@@ -13,8 +13,15 @@ inputs:
       path_pattern: "docs/spec/features/*.feature"
     - type: scope-map
       path_pattern: docs/spec/scope-map.md
+    - type: glossary
+      path_pattern: docs/spec/glossary.md
+    - type: entity-model
+      path_pattern: docs/spec/entity-model.md
   context:
-    - docs/spec/glossary.md
+    - docs/spec/state-machines.md
+    - docs/spec/validation-rules.md
+    - docs/spec/interface-contracts.md
+    - "docs/spec/schemas/*"
     - docs/spec/work/todos.md
     - docs/agent-context.md
     - .agent-factory/factory/rulebooks/conventions/report-format.md
@@ -37,7 +44,7 @@ triggers:
 handoff-to:
   - requirements-agent
   - architecture-agent
-version: 0.4.1
+version: 0.5.0
 ---
 
 # Specification Review Agent
