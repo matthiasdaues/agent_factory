@@ -249,8 +249,8 @@ SPEC_WRITERS = {
         "agents/requirements-agent.md",
         f'path_pattern: "{WORK}/{{name}}-gaps.md"',
     ),
-    "requirements-agent QA strategy": (
-        "agents/requirements-agent.md",
+    "test-strategy-agent QA strategy": (
+        "agents/test-strategy-agent.md",
         f'path_pattern: "{WORK}/{{name}}-qa-strategy.md"',
     ),
     "qa-strategy-from-spec": (

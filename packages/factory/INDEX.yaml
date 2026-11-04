@@ -303,8 +303,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1583
-    total_tokens: 14263
+    tokens: 1597
+    total_tokens: 14277
     inputs:
       required:
         - type: feature
@@ -442,10 +442,10 @@ agents:
   - name: requirements-agent
     title: Requirements Agent
     tier: strong
-    description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, per-feature QA strategy, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
+    description: "Derive a complete specification from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, and supplementary models. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
-    tokens: 1766
-    total_tokens: 21533
+    tokens: 1606
+    total_tokens: 18822
     inputs:
       required:
         - any_of:
@@ -474,9 +474,6 @@ agents:
           required: true
           reviewed_by: [spec-review-agent]
         - path_pattern: docs/spec/work/{name}-gaps.md
-          validator: ""
-          required: true
-        - path_pattern: docs/spec/work/{name}-qa-strategy.md
           validator: ""
           required: true
         - path_pattern: docs/spec/entity-model.md
@@ -604,13 +601,37 @@ agents:
         - path_pattern: docs/findings/SPEC-*.md
           validator: ""
           required: false
+  - name: test-strategy-agent
+    title: Test-Strategy Agent
+    tier: strong
+    description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
+    path: agents/test-strategy-agent.md
+    tokens: 989
+    total_tokens: 11372
+    inputs:
+      context:
+        - docs/spec/features/*.feature
+        - docs/spec/interface-contracts.md
+        - docs/spec/entity-model.md
+        - docs/testing.yaml
+        - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
+    outputs:
+      minimum_changed: 0
+      declarations:
+        - path_pattern: docs/testing.yaml
+          validator: ""
+          required: false
+          reviewed_by: [stakeholder]
+        - path_pattern: docs/spec/work/{name}-qa-strategy.md
+          validator: ""
+          required: false
   - name: virgil
     title: VIRGIL
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 3791
-    total_tokens: 18453
+    tokens: 3818
+    total_tokens: 18480
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -629,9 +650,6 @@ agents:
           validator: ""
           required: false
           reviewed_by: [stakeholder]
-        - path_pattern: docs/testing.yaml
-          validator: ""
-          required: false
         - path_pattern: docs/proposals/{name}.md
           validator: ""
           required: false
@@ -674,7 +692,7 @@ skills:
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
     path: skills/qa-strategy-from-spec/SKILL.md
-    tokens: 2551
+    tokens: 2597
   - name: reverse-map
     category: requirements
     description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
@@ -839,7 +857,7 @@ skills:
     category: utility
     description: Scan project for test suites and record each one in testing.yaml (at docs/testing.yaml). Code is the source of truth; the record is derived.
     path: skills/detect-test-regime/SKILL.md
-    tokens: 3191
+    tokens: 3305
   - name: domain-modeling
     category: utility
     description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/spec/glossary.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
@@ -961,7 +979,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 65227
+    total_tokens: 62516
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1000,7 +1018,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 109971
+    total_tokens: 107274
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1018,7 +1036,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 109339
+    total_tokens: 106642
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

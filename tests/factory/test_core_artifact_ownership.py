@@ -26,7 +26,6 @@ FACTORY = REPO_ROOT / "packages" / "factory"
 # No story adds an entry.
 EXPECTED_FAILURES = {
     "docs/spec/dependency-rules.dsl": "ST-0353",
-    "docs/testing.yaml": "ST-0357",
     "docs/spec/scope-map.md": "ST-0363",
     "docs/spec/features/*.feature": "ST-0363",
     "docs/spec/areas/*.md": "ST-0363",
@@ -287,3 +286,65 @@ class TestSt0347RealCatalog:
         assert set(EXPECTED_FAILURES) <= patterns, sorted(
             set(EXPECTED_FAILURES) - patterns
         )
+
+
+# Configuration files of common mutation tools. The tool and its
+# configuration belong to the project, so no agent declares them (DEC-36).
+MUTATION_TOOL_CONFIG_SAMPLES = [
+    "pyproject.toml",
+    "setup.cfg",
+    "mutmut_config.py",
+    ".cosmic-ray.toml",
+    "stryker.conf.json",
+    "stryker.config.mjs",
+    "pom.xml",
+    "build.gradle",
+    ".cargo-mutants.toml",
+]
+
+
+def _producers(agents: list[dict], sample: str) -> list[str]:
+    return sorted(
+        agent["name"]
+        for agent in agents
+        for decl in (agent.get("outputs") or {}).get("declarations") or []
+        if decl.get("edits") != "wording"
+        and il.pattern_matches(str(decl.get("path_pattern", "")), sample)
+    )
+
+
+@pytest.mark.spec("CAO-10-LN-02")
+class TestSt0357TestPracticeHasOneProducer:
+    @pytest.mark.parametrize(
+        "sample",
+        [
+            "docs/testing.yaml",
+            # The developer and implementation agents still declare
+            # docs/spec/**/*.md. ST-0360 removes that pattern.
+            pytest.param(
+                "docs/spec/work/payments-qa-strategy.md",
+                marks=pytest.mark.xfail(
+                    strict=True, reason="ST-0360 removes docs/spec/**/*.md"
+                ),
+            ),
+        ],
+    )
+    def test_st_0357_only_the_test_strategy_agent_declares(self, sample):
+        assert _producers(_real_agents(), sample) == ["test-strategy-agent"]
+
+    def test_st_0357_no_other_agent_declares_the_qa_strategy_by_name(self):
+        named = sorted(
+            agent["name"]
+            for agent in _real_agents()
+            for decl in (agent.get("outputs") or {}).get("declarations") or []
+            if "qa-strategy" in str(decl.get("path_pattern", ""))
+        )
+        assert named == ["test-strategy-agent"]
+
+    @pytest.mark.parametrize("sample", MUTATION_TOOL_CONFIG_SAMPLES)
+    def test_st_0357_no_declaration_names_a_mutation_tool_config(self, sample):
+        (agent,) = [a for a in _real_agents() if a["name"] == "test-strategy-agent"]
+        patterns = [
+            d["path_pattern"] for d in agent["outputs"]["declarations"]
+        ]
+        assert not [p for p in patterns if il.pattern_matches(p, sample)]

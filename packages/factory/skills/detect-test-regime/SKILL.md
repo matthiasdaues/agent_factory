@@ -41,6 +41,10 @@ Code is the source of truth — the record is derived, not the other way
 around. Never
 invent a command the project cannot actually run.
 
+The test-strategy agent invokes this skill, because it owns
+`docs/testing.yaml`. In step 2b of the fitting, the session takes that
+agent's role and invokes the skill.
+
 ## When to use this skill
 
 - During `init-factory`, to seed the testing charter from an existing
@@ -49,8 +53,8 @@ invent a command the project cannot actually run.
   a project runs its tests before scaffolding gates around it.
 - Whenever `testing.yaml` is missing, empty, or suspected
   stale against the current repository.
-- When the planning agent detects a missing or empty testing.yaml before
-  slicing stories.
+- When the planning agent stops on a missing or empty testing.yaml and
+  names the test-strategy agent.
 
 ## Output schema
 
@@ -284,7 +288,13 @@ frontmatter.
 
 ### 8. Record
 
-Write or update `testing.yaml` (at `docs/testing.yaml`):
+**Pause point:** show the proposal to the stakeholder first: a diff
+against the current `testing.yaml`, or the full file when none exists.
+Write nothing before the stakeholder confirms. When the stakeholder
+declines a change, the file keeps its earlier content.
+
+After the confirmation, write or update `testing.yaml` (at
+`docs/testing.yaml`):
 
 - `testing_strategy` — path to the testing strategy document (step 6).
 - `test_all` — the composite command (step 5).
@@ -318,9 +328,9 @@ script rejects the extension.
 - Detection surface should stay broad — new entrypoint conventions
   (`justfile` lowercase, `mise.toml` tasks, language-specific runners) can
   be added to step 1's table as they are encountered.
-- This skill is invoked during fitting (step 2b) by VIRGIL, and its
-  deterministic core runs in `init-factory` at install time to seed
-  `testing.yaml`. It does not itself gate anything — it only detects and
+- The test-strategy agent invokes this skill. During fitting (step 2b),
+  the session takes that agent's role. The skill's deterministic core
+  runs in `init-factory` at install time to seed `testing.yaml`. It does not itself gate anything — it only detects and
   records. Downstream gates consume `testing.yaml` afterward.
 - The charter is a backup reference for ambiguous cases, not the primary
   source of truth. When code and charter disagree, re-run this skill rather
