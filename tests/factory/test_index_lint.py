@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
-from conftest import load_script
+from conftest import REPO_ROOT, load_script
 
 il = load_script("index-lint")
 
@@ -640,3 +641,210 @@ class TestAnyOfValidation:
                 ]
             }
         ]
+
+
+# ── ST-0346: reviewed_by, edits, and the reviewer check ────────────────────
+
+_CORE_LIST = """\
+entries:
+  - path_pattern: docs/spec/features/*.feature
+    sample_path: docs/spec/features/example.feature
+    family: scope-and-behaviour
+    optional: false
+  - path_pattern: docs/spec/glossary.md
+    sample_path: docs/spec/glossary.md
+    family: domain-structure
+    optional: false
+"""
+
+
+def _agent(name: str, inputs: str = "", outputs: str = "") -> str:
+    return f"---\nname: {name}\ntitle: {name}\n{inputs}{outputs}---\nBody\n"
+
+
+def _producer(reviewed_by: str, pattern: str = '"docs/spec/features/{name}.feature"') -> str:
+    return _agent(
+        "requirements-agent",
+        outputs=(
+            "outputs:\n  minimum_changed: 1\n  declarations:\n"
+            f"    - path_pattern: {pattern}\n"
+            "      validator:\n      required: true\n"
+            f"      reviewed_by: {reviewed_by}\n"
+        ),
+    )
+
+
+_FEATURE_REQUIRED = (
+    "inputs:\n  required:\n    - type: feature\n"
+    '      path_pattern: "docs/spec/features/*.feature"\n'
+)
+_FEATURE_CONTEXT = 'inputs:\n  context:\n    - "docs/spec/features/*.feature"\n'
+_UNRELATED_INPUT = (
+    "inputs:\n  required:\n    - type: story\n      path_pattern: backlog/ST-*.md\n"
+)
+
+
+def _factory(tmp_path: Path, agents: dict[str, str]) -> list[str]:
+    for sub in ("agents", "skills", "playbooks", "rulebooks"):
+        (tmp_path / sub).mkdir()
+    (tmp_path / "rulebooks" / "core-artifacts.yaml").write_text(_CORE_LIST)
+    for name, text in agents.items():
+        (tmp_path / "agents" / f"{name}.md").write_text(text)
+    return [
+        "--agents-dir", str(tmp_path / "agents"),
+        "--skills-dir", str(tmp_path / "skills"),
+        "--playbooks-dir", str(tmp_path / "playbooks"),
+        "--rulebooks-dir", str(tmp_path / "rulebooks"),
+        "--out", str(tmp_path / "INDEX.yaml"),
+    ]
+
+
+def _check(tmp_path: Path, agents: dict[str, str], capsys) -> tuple[int, str]:
+    args = _factory(tmp_path, agents)
+    il.main(args)
+    capsys.readouterr()
+    rc = il.main([*args, "--check"])
+    out = capsys.readouterr()
+    return rc, out.out + out.err
+
+
+class TestReviewedByParsing:
+    def test_st_0346_inline_list_after_first_key_is_a_list(self):
+        fm = il.parse_frontmatter(_producer("[spec-review-agent, stakeholder]"))
+        decl = fm["outputs"]["declarations"][0]
+        assert decl["reviewed_by"] == ["spec-review-agent", "stakeholder"]
+
+    def test_st_0346_empty_inline_list_is_an_empty_list(self):
+        fm = il.parse_frontmatter(_producer("[]"))
+        assert fm["outputs"]["declarations"][0]["reviewed_by"] == []
+
+
+class TestReviewedByCatalog:
+    @pytest.mark.spec("CAO-02-IT-01")
+    def test_st_0346_index_lint_carries_reviewed_by_and_edits(self, tmp_path):
+        glossary = _agent(
+            "domain-modeling-agent",
+            outputs=(
+                "outputs:\n  minimum_changed: 1\n  declarations:\n"
+                "    - path_pattern: docs/spec/glossary.md\n"
+                "      validator:\n      required: true\n"
+                "      reviewed_by: [spec-review-agent, stakeholder]\n"
+            ),
+        )
+        lector = _agent(
+            "lector-agent",
+            outputs=(
+                "outputs:\n  minimum_changed: 1\n  declarations:\n"
+                '    - path_pattern: "docs/**/*.md"\n'
+                "      validator:\n      required: true\n"
+                "      edits: wording\n"
+            ),
+        )
+        reviewer = _agent(
+            "spec-review-agent", inputs="inputs:\n  context:\n    - docs/spec/glossary.md\n"
+        )
+        args = _factory(
+            tmp_path,
+            {
+                "domain-modeling-agent": glossary,
+                "lector-agent": lector,
+                "spec-review-agent": reviewer,
+            },
+        )
+        assert il.main(args) == 0
+        index = yaml.safe_load((tmp_path / "INDEX.yaml").read_text())
+        agents = {a["name"]: a for a in index["agents"]}
+        glossary_decl = agents["domain-modeling-agent"]["outputs"]["declarations"][0]
+        assert glossary_decl["path_pattern"] == "docs/spec/glossary.md"
+        assert glossary_decl["reviewed_by"] == ["spec-review-agent", "stakeholder"]
+        lector_decl = agents["lector-agent"]["outputs"]["declarations"][0]
+        assert lector_decl["edits"] == "wording"
+        assert "reviewed_by" not in lector_decl
+        assert il.main([*args, "--check"]) == 0
+
+
+class TestReviewerCheck:
+    @pytest.mark.spec("CAO-02-CT-01")
+    def test_st_0346_reviewer_unknown_fails(self, tmp_path, capsys):
+        rc, out = _check(tmp_path, {"requirements-agent": _producer("[qa-reviewer]")}, capsys)
+        assert rc == 1
+        assert "qa-reviewer" in out
+        assert "requirements-agent" in out
+
+    @pytest.mark.spec("CAO-02-CT-01")
+    def test_st_0346_reviewer_no_input_fails(self, tmp_path, capsys):
+        rc, out = _check(
+            tmp_path,
+            {
+                "requirements-agent": _producer("[developer-agent]"),
+                "developer-agent": _agent("developer-agent", inputs=_UNRELATED_INPUT),
+            },
+            capsys,
+        )
+        assert rc == 1
+        assert "developer-agent" in out
+        assert "docs/spec/features/example.feature" in out
+
+    @pytest.mark.spec("CAO-02-CT-01")
+    def test_st_0346_reviewer_context_passes(self, tmp_path, capsys):
+        rc, out = _check(
+            tmp_path,
+            {
+                "requirements-agent": _producer("[spec-review-agent]"),
+                "spec-review-agent": _agent("spec-review-agent", inputs=_FEATURE_CONTEXT),
+            },
+            capsys,
+        )
+        assert rc == 0, out
+
+    @pytest.mark.spec("CAO-02-CT-01")
+    def test_st_0346_stakeholder_needs_no_input(self, tmp_path, capsys):
+        rc, out = _check(tmp_path, {"requirements-agent": _producer("[stakeholder]")}, capsys)
+        assert rc == 0, out
+
+    @pytest.mark.spec("CAO-02-CT-02")
+    def test_st_0346_name_placeholder_matches_star_by_sample_path(self, tmp_path, capsys):
+        rc, out = _check(
+            tmp_path,
+            {
+                "requirements-agent": _producer("[spec-review-agent]"),
+                "spec-review-agent": _agent("spec-review-agent", inputs=_FEATURE_REQUIRED),
+            },
+            capsys,
+        )
+        assert rc == 0, out
+
+    def test_st_0346_reviewed_by_on_working_output_fails(self, tmp_path, capsys):
+        rc, out = _check(
+            tmp_path,
+            {
+                "requirements-agent": _producer(
+                    "[stakeholder]", pattern="docs/spec/work/term-candidates.md"
+                )
+            },
+            capsys,
+        )
+        assert rc == 1
+        assert "requirements-agent" in out
+        assert "docs/spec/work/term-candidates.md" in out
+
+    def test_st_0346_plain_run_fails_and_writes_nothing(self, tmp_path):
+        args = _factory(tmp_path, {"requirements-agent": _producer("[qa-reviewer]")})
+        assert il.main(args) == 1
+        assert not (tmp_path / "INDEX.yaml").exists()
+
+
+class TestFactoryCatalog:
+    @pytest.mark.spec("CAO-02-LN-01")
+    def test_st_0346_factory_catalog_passes_check(self, monkeypatch, capsys):
+        monkeypatch.chdir(REPO_ROOT)
+        rc = il.main(["--check"])
+        out = capsys.readouterr()
+        assert rc == 0, out.out + out.err
+
+    def test_st_0346_core_list_holds_thirteen_entries(self):
+        entries = il.load_core_list(REPO_ROOT / "packages" / "factory" / "rulebooks")
+        assert len(entries) == 13
+        for entry in entries:
+            assert set(entry) == {"path_pattern", "sample_path", "family", "optional"}
+            assert il.pattern_matches(entry["path_pattern"], entry["sample_path"])
