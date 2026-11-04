@@ -273,14 +273,15 @@ All stories must have YAML frontmatter with the following fields:
 
 ## `.agent-factory/factory/scripts/dependency-check`
 
-|                 |                                                                                                                         |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Usage           | `dependency-check [--dsl-path PATH] [--source-root DIR] [--story-id ID] [--report-dir DIR]`                             |
-| `--dsl-path`    | The dependency rules. Default `docs/spec/dependency-rules.dsl`                                                          |
-| `--source-root` | The folder whose Python files are scanned. Default `.`                                                                  |
-| Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/`                     |
-| Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise                             |
-| Owner           | Each result entry carries `owner: architecture-agent`, the owner of every violation (field name decided in gap CAO-G07) |
+|                 |                                                                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage           | `dependency-check [--dsl-path PATH] [--source-root DIR] [--story-id ID] [--report-dir DIR]`                                                                               |
+| `--dsl-path`    | The dependency rules. Default `docs/spec/dependency-rules.dsl`                                                                                                            |
+| `--source-root` | The folder whose Python files are scanned. Default `.`                                                                                                                    |
+| Writes          | A JSON report to `<report-dir>/<story-id>.json`, by default under `.current-work/dependency-check/`                                                                       |
+| Stdout          | The same rows as the report file                                                                                                                                          |
+| Exit code       | `1` when a rule fails; `2` when the rules file or the source root is missing; `0` otherwise                                                                               |
+| Owner           | Each failing result entry carries `owner: architecture-agent`, the agent that fixes the violation. A passing entry carries no `owner` (field name decided in gap CAO-G07) |
 
 ## `.agent-factory/factory/scripts/scope-lint`
 

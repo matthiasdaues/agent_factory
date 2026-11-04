@@ -130,7 +130,7 @@ The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendatio
 
 - **Case:** `dependency-check` writes `.current-work/dependency-check/ST-0318.json`, a list of rule results with `rule_name`, `pass_fail`, and `violating_import`.
 - **Options:** A field `owner: architecture-agent` on each result. Or one top-level `owner` for the whole report, which changes the report from a list to an object and breaks its readers.
-- **Recommendation:** The field `owner` on each result entry, the same name as the finding's `owner:` field. The [interface contracts](../interface-contracts.md#agent-factoryfactoryscriptsdependency-check) use it. Accepted on 2026-11-03.
+- **Recommendation:** The field `owner` on each result entry, the same name as the finding's `owner:` field. The [interface contracts](../interface-contracts.md#agent-factoryfactoryscriptsdependency-check) use it. Accepted on 2026-11-03. On 2026-11-04 the stakeholder narrowed it: only failing entries carry `owner`, because `owner` names the agent that acts next (as for findings, CAO-G26); a passing entry carries none.
 - **Settles:** The `dependency-check` contract and CAO-07.
 
 ### CAO-G08: How does a fixed agent definition declare project-specific mutation files?
