@@ -45,6 +45,9 @@ outputs:
     - path_pattern: "docs/adr/*.md"
       validator:
       required: false
+    - path_pattern: "docs/findings/QA-*.md"
+      validator:
+      required: false
 triggers:
   - "implement backlog"
   - "start implementation"
@@ -135,7 +138,13 @@ Resolve before Step 1 and state the effective mode and its source.
 
 5. **Closeout** — Call `.agent-factory/factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal.
 
-6. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
+6. **Route the QA findings** — Run this step after `close-wave`. Read every `docs/findings/QA-*.md` with `status: open`.
+
+   - The dispatcher dispatches the test-strategy agent for each open `QA` finding with `owner: test-strategy-agent`. The agent resolves it as its workflow describes. Wait for every dispatch to return before the next wave.
+   - The dispatcher does not dispatch the test-strategy agent for a finding with `owner: planning-agent`. Such a finding waits for a story that adds the missing test.
+   - When a merged story names an open `QA` finding with `owner: planning-agent`, the dispatcher sets its `status: resolved`. The merged story added the missing test.
+
+7. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
 
 **Prompt template for subagents (automated mode):**
 

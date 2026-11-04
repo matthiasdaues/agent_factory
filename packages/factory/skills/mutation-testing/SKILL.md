@@ -35,6 +35,15 @@ actions:
 A survivor without one of those three actions is `unresolved` and blocks
 merge. Zero unresolved survivors is required for merge.
 
+### Filing a QA finding
+
+For `file-qa-finding`, write one `docs/findings/QA-NNNN.md` per mutant, per
+the [finding format](../../rulebooks/conventions/finding-format.md). Set
+`owner: test-strategy-agent` and `status: open`. The body names the mutant's
+`location` and `operator`, the contract it joined to, if any, and why the
+coding loop could not resolve it. The test-strategy agent resolves the finding
+after the wave.
+
 ## Contract-ownership classification
 
 When a feature's QA strategy defines a contract-owner table (see
