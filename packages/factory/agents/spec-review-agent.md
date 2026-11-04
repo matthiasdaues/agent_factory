@@ -22,6 +22,7 @@ inputs:
     - docs/spec/validation-rules.md
     - docs/spec/interface-contracts.md
     - "docs/spec/schemas/*"
+    - "docs/spec/areas/*.md"
     - docs/spec/work/todos.md
     - docs/agent-context.md
     - .agent-factory/factory/rulebooks/conventions/report-format.md
