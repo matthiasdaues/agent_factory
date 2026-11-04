@@ -247,6 +247,12 @@ The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendatio
 - **Decision (stakeholder, 2026-11-04):** Accept it. `init-factory` may create `docs/testing.yaml` once, only when the file is missing and the command is unambiguous. It is the only writer besides the test-strategy agent. The stakeholder confirms the draft in the fitting step "Test regime".
 - **Settles:** The [`init-factory` contract](../interface-contracts.md#factoryscriptsinit-factory) and the `docs/testing.yaml` entry of the core list.
 
+### CAO-G31: Who closes a `QA` finding, where, and in manual mode?
+
+- **Case:** A `QA` finding records a missing test. A story adds the test ([ST-0358](../../../backlog/ST-0358.md)). The Scenario names no actor for the status change, and manual mode has no wave after which findings are routed.
+- **Decision (stakeholder, 2026-11-04):** The implementation agent sets the finding to `resolved` when it merges the story that adds the test. The status change lands on the feature branch in that merge, so the finding closes with its test; new findings are still filed on `dev`, because only new IDs can collide. In manual mode, the implementation agent routes open `QA` findings at each story's close, as it does after `close-wave` in automated mode. The gate script keeps the name `mutation-testing`, like `crap-score` and `dependency-check`, which also share their skill's name.
+- **Settles:** CAO-12, CAO-17, and the manual-mode steps of `implementation-agent.md` ([ST-0362](../../../backlog/ST-0362.md)).
+
 ## Ambiguous Wording
 
 | ID      | Location                                                       | Text                                                       | Issue                                                                                                         | Disposition                                                                                                |
