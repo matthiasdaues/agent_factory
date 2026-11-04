@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 TIER_RANK = {"economy": 0, "standard": 1, "strong": 2}
 TIER_ORDER = ("economy", "standard", "strong")
@@ -357,8 +357,17 @@ class Ledger:
             StoryState.BLOCKED,
         }
 
-    def close_wave(self, wave: int, branch_head: str) -> tuple[WaveCloseout, bool]:
-        """Record a terminal wave closeout and return (record, created)."""
+    def close_wave(
+        self,
+        wave: int,
+        branch_head: str,
+        drift_check: Callable[[list[str]], list[str]] | None = None,
+    ) -> tuple[WaveCloseout, bool]:
+        """Record a terminal wave closeout and return (record, created).
+
+        *drift_check* takes the ids of the wave's stories and returns one
+        problem per unhandled or unreadable drift row (BR-062). Any problem
+        keeps the wave open."""
         for record in self.waves:
             if record.number == wave:
                 return record, False
@@ -377,6 +386,14 @@ class Ledger:
             raise TransitionError(
                 f"wave {wave} still has non-terminal stories: {', '.join(non_terminal)}"
             )
+
+        if drift_check is not None:
+            problems = drift_check([entry.id for entry in wave_stories])
+            if problems:
+                raise TransitionError(
+                    f"wave {wave} has drift rows that block the close:\n  "
+                    + "\n  ".join(problems)
+                )
 
         record = WaveCloseout(
             number=wave,
@@ -891,6 +908,144 @@ def glob_match(pattern: str, path: str) -> bool:
     if not pattern:
         return not path
     return _glob_match_recursive(pattern, path, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Drift rows of spec-feedback reports (BR-061 to BR-063, ADR-0029)
+# ---------------------------------------------------------------------------
+
+REPORT_COLUMNS = ("Artifact", "Drift", "Evidence", "Owner", "Status")
+ROW_STATUSES = ("open", "fixed", "confirmed", "rejected")
+_CELL_SPLIT = re.compile(r"(?<!\\)\|")
+_PLACEHOLDER = re.compile(r"\{[^}/]*\}")
+
+
+class ReportError(Exception):
+    """A drift report or the core list cannot be read (ATAM-0008)."""
+
+
+def spec_feedback_path(story_id: str) -> str:
+    """Return the repository path of a story's spec-feedback report."""
+    return f"docs/spec/work/spec-feedback-{story_id}.md"
+
+
+def _table_cells(line: str) -> list[str]:
+    inner = line.strip()
+    if inner.startswith("|"):
+        inner = inner[1:]
+    if inner.endswith("|") and not inner.endswith("\\|"):
+        inner = inner[:-1]
+    return [cell.strip() for cell in _CELL_SPLIT.split(inner)]
+
+
+def _plain(cell: str) -> str:
+    return cell.replace("`", "").strip()
+
+
+def parse_report_rows(text: str) -> list[dict[str, str]]:
+    """Return the Artifact and Status of every row of a drift report.
+
+    The rows come from every Markdown table whose header holds the five
+    report columns. Raises ReportError on a report without such a table,
+    a row without an artifact, or a row with an unknown status."""
+    lines = text.splitlines()
+    rows: list[dict[str, str]] = []
+    found_table = False
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if not line.lstrip().startswith("|"):
+            index += 1
+            continue
+        header = [_plain(cell) for cell in _table_cells(line)]
+        index += 1
+        if not set(REPORT_COLUMNS) <= set(header):
+            while index < len(lines) and lines[index].lstrip().startswith("|"):
+                index += 1
+            continue
+        found_table = True
+        artifact_at = header.index("Artifact")
+        status_at = header.index("Status")
+        index += 1  # the separator line
+        while index < len(lines) and lines[index].lstrip().startswith("|"):
+            number = index + 1
+            cells = _table_cells(lines[index])
+            index += 1
+            artifact = _plain(cells[artifact_at]) if artifact_at < len(cells) else ""
+            status = _plain(cells[status_at]) if status_at < len(cells) else ""
+            artifact = artifact.split("#", 1)[0]
+            if not artifact:
+                raise ReportError(f"line {number} has no path in the Artifact column")
+            if status not in ROW_STATUSES:
+                raise ReportError(
+                    f"line {number} has the unknown status '{status}'; "
+                    f"allowed: {', '.join(ROW_STATUSES)}"
+                )
+            rows.append({"artifact": artifact, "status": status})
+    if not found_table:
+        raise ReportError(
+            "has no row table with the columns " + ", ".join(REPORT_COLUMNS)
+        )
+    return rows
+
+
+def load_core_patterns(path: Path) -> list[str]:
+    """Return the path patterns of the core list at *path* (BR-062).
+
+    Raises ReportError when the file is missing, unreadable, or lists no
+    entry with a path pattern."""
+    try:
+        data = _load_yaml(path.read_text(encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001 - every read failure fails closed
+        raise ReportError(f"cannot read the core list {path}: {e}") from e
+    entries = data.get("entries")
+    if not isinstance(entries, list):
+        entries = []
+    patterns = [
+        entry["path_pattern"]
+        for entry in entries
+        if isinstance(entry, dict) and isinstance(entry.get("path_pattern"), str)
+    ]
+    if not patterns:
+        raise ReportError(f"the core list {path} lists no entry with a path_pattern")
+    return patterns
+
+
+def is_core_artifact(path: str, core_patterns: list[str]) -> bool:
+    """Return True when *path* matches an entry of the core list (BR-057)."""
+    return any(
+        glob_match(_PLACEHOLDER.sub("*", pattern), path) for pattern in core_patterns
+    )
+
+
+def drift_row_problems(
+    reports: dict[str, str | None], core_patterns: list[str]
+) -> list[str]:
+    """Return one problem per row that keeps a wave open (BR-062, BR-063).
+
+    *reports* maps a report path to its text, or to None when the story
+    has no report. A missing report counts as a report without rows."""
+    problems: list[str] = []
+    for report, text in reports.items():
+        if text is None:
+            continue
+        try:
+            rows = parse_report_rows(text)
+        except ReportError as e:
+            problems.append(f"{report}: {e}")
+            continue
+        for row in rows:
+            artifact, status = row["artifact"], row["status"]
+            if status == "open":
+                problems.append(
+                    f"{report}: {artifact} is open; its owner has not fixed it"
+                )
+            elif status == "fixed" and is_core_artifact(artifact, core_patterns):
+                problems.append(
+                    f"{report}: {artifact} is fixed on a core artifact; "
+                    "its reviewer has not confirmed or rejected it"
+                )
+    return problems
 
 
 def _glob_match_recursive(pattern: str, path: str, pi: int, si: int) -> bool:

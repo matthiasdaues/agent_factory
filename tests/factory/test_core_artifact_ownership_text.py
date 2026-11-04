@@ -1157,7 +1157,9 @@ class TestSt0356GlossaryCheck:
 
     def test_st_0356_glossary_defect_is_a_finding_for_domain_modeling(self):
         section = _inspect_spec_check("Check the glossary")
-        assert f"File each defect as a Major `SPEC` finding with {DOMAIN_OWNER}." in section
+        # Minor, so the finding reaches its owner without blocking (b63daee5).
+        assert f"File each defect as a Minor `SPEC` finding with {DOMAIN_OWNER}." in section
+        assert "It does not block" in section
 
     def test_st_0356_glossary_check_leaves_unused_terms_to_spec_lint(self):
         section = _inspect_spec_check("Check the glossary")
