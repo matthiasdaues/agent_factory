@@ -33,6 +33,7 @@ outputs:
     - path_pattern: docs/agent-context.md
       validator:
       required: false
+      reviewed_by: [stakeholder]
     - path_pattern: docs/testing.yaml
       validator:
       required: false
