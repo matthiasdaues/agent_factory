@@ -5,7 +5,7 @@ title: Project Agent Flows
 status: draft
 owner: Matthias Daues
 created: 2026-11-03
-updated: 2026-11-03
+updated: 2026-11-04
 supersedes: docs/proposals/factory-orchestration.md
 
 impact:
@@ -24,6 +24,7 @@ impact:
     - docs/proposals/activity-graph-orchestration.md
     - docs/proposals/factory-orchestration.md
     - docs/proposals/external-artifact-sync.md
+    - docs/proposals/counter-ids.md
 
 governance:
   assurance: high
@@ -81,12 +82,10 @@ The draft
 copies markdown stories to GitHub Issues after each commit. It keeps the
 markdown backlog as the source, so it binds the Factory to one platform.
 
-Three needs remain open:
+Two needs remain open:
 
 - **Handover without a human command.** A developer agent finishes ST-0343.
   The code review still waits until a human starts it.
-- **Duplicate story IDs.** Parallel sessions pick the same `ST-NNNN` number,
-  because each session counts the files in `backlog/` on its own.
 - **One process for every project.** Each project needs its own flow. One
   project needs a QA step after the code review, and another does not.
 
@@ -291,9 +290,10 @@ platform machine, next to the platform credentials.
 
 **Identity.** Each item has a Factory ID that never changes, such as
 `ST-0343`. The adapter stores the platform ID beside it, such as GitHub `#812`
-or Jira `FAC-812`. The Factory never uses a platform ID as a key. The adapter
-assigns the Factory ID when it creates the item, so two sessions cannot pick
-the same number (DEC-08).
+or Jira `FAC-812`. The Factory never uses a platform ID as a key. When the adapter
+creates an item, it gets the Factory ID from `next-id`, as the
+[Counter IDs proposal](counter-ids.md#the-script-next-id) defines. So every
+ticket adapter and every CLI session draw from the same counter (DEC-08).
 
 **Hierarchy.** The contract has three levels: epic, story, and subtask. The
 adapter maps the three levels to the platform's item types and links. It
@@ -402,6 +402,9 @@ record. The automation retries a `run-turn` call only when the Factory API did
 not answer. A failed fence is a result, not an error, so the automation never
 retries it.
 
+**Prerequisite.** The Counter IDs proposal ships before this release, because
+both adapters call `next-id`.
+
 **Credentials.** The Factory machine holds the model credentials and one
 platform token per turn, valid for that turn's repository only. The platform
 credentials and the Windmill database never reach it.
@@ -445,8 +448,8 @@ isolation findings A12, A13, and A15 (DEC-07, DEC-09).
 - The same outbox message sent twice creates one ticket item.
 - The fixture runs once with the local-file adapter and once with the GitHub
   adapter, and the flow file stays unchanged between the two runs.
-- Two sessions that create a story at the same time receive two different
-  Factory IDs.
+- The local-file adapter and the GitHub adapter each take the Factory ID of a
+  new item from `next-id`.
 - `update-factory` reports an upstream change to the default
   `feature-addition` flow and leaves the project's pinned copy unchanged.
 - The paper check lists, for Jira and Azure DevOps, how each contract level,
@@ -470,7 +473,7 @@ runs it, and git says what happened.
 | DEC-05 | 2026-11-03 | decision   | Matthias Daues | A job starts from a brief or handoff, or from satisfied required artifacts. The approach is consultative: the system suggests, the human approves.                                            | Overlap with existing proposals |
 | DEC-06 | 2026-11-03 | decision   | Matthias Daues | A project owns full copies of its flows, pinned to the Factory version. `update-factory` reports upstream changes and the human merges them.                                                  | Playbook storage question       |
 | DEC-07 | 2026-11-03 | assumption | Matthias Daues | This proposal supersedes the Factory Orchestration proposal. It keeps its envelope, adapters, and run records, and replaces its controller loop and sandbox launcher.                         | Overlap with existing proposals |
-| DEC-08 | 2026-11-03 | assumption | Matthias Daues | The ticket adapter assigns Factory IDs, which removes duplicate story IDs from parallel sessions.                                                                                             | Backlog index collision         |
+| DEC-08 | 2026-11-04 | decision   | Matthias Daues | Every ticket adapter gets each Factory ID from `next-id`. The Counter IDs proposal stays separate and ships first, as a prerequisite.                                                         | Overlap with `counter-ids.md`   |
 | DEC-09 | 2026-11-03 | assumption | Matthias Daues | This proposal supersedes the External Artifact Sync proposal, because the ticket platform, not the markdown backlog, becomes the home of tickets.                                             | Overlap with existing proposals |
 | DEC-10 | 2026-11-03 | assumption | Matthias Daues | Project flows mark each transition `auto` or `suggest`. Only `auto` starts a turn without a human approval.                                                                                   | Consultative approach (DEC-05)  |
 | DEC-11 | 2026-11-03 | assumption | Matthias Daues | Each turn ends with exactly one commit, and a review verdict is a committed file.                                                                                                             | Artifact container (DEC-03)     |
