@@ -577,3 +577,99 @@ class TestSt0354ArchitectureReviewChecksTheDependencyRules:
             _section(ATAM_REVIEW.read_text(encoding="utf-8"), "Step 4 — Write the review report")
         )
         assert "**Rules check**" in report
+
+
+TERM_CANDIDATES = "docs/spec/work/term-candidates.md"
+WRITE_GLOSSARY = "`--write-glossary`"
+CANDIDATE_HEADER = (
+    "| Term | Domain area | Source | Proposed definition | Status | Note |"
+)
+REVERSE_MAP = SKILLS / "reverse-map" / "SKILL.md"
+GRILLING = SKILLS / "grilling" / "SKILL.md"
+DOMAIN_MODELING = SKILLS / "domain-modeling" / "SKILL.md"
+RECONCILE_SPEC = SKILLS / "reconcile-spec" / "SKILL.md"
+TERM_WRITERS = [REVERSE_MAP, GRILLING, DOMAIN_MODELING, RECONCILE_SPEC]
+WRITE_VERB = re.compile(r"\b(writes?|seeds?|updates?|adds?|creates?)\b", re.I)
+NEGATION = re.compile(r"\b(never|neither|not|no|unchanged)\b", re.I)
+
+
+def _blocks(text: str) -> list[str]:
+    """Split a Markdown body into paragraphs and list items, without headings."""
+    body = text.split("\n---\n", 1)[1]
+    parts = re.split(r"\n\s*\n|\n(?=\s*(?:[-*]|\d+\.) )", body)
+    return [_flat(p) for p in parts if p.strip() and not p.lstrip().startswith("#")]
+
+
+def _glossary_writes(path) -> list[str]:
+    """Return the blocks that name a write to the glossary without the argument."""
+    return [
+        block
+        for block in _blocks(path.read_text(encoding="utf-8"))
+        if "glossary.md" in block
+        and WRITE_VERB.search(block)
+        and WRITE_GLOSSARY not in block
+        and not NEGATION.search(block)
+    ]
+
+
+@pytest.mark.spec("CAO-06-LN-01")
+class TestSt0350TermsBecomeCandidates:
+    """CAO-06-LN-01: term candidates or a report row, and one glossary producer."""
+
+    @pytest.mark.parametrize("path", TERM_WRITERS, ids=lambda p: p.parent.name)
+    def test_st_0350_skill_writes_no_glossary_without_the_argument(self, path):
+        assert _glossary_writes(path) == []
+
+    def test_st_0350_reverse_map_records_found_names_as_candidates(self):
+        text = REVERSE_MAP.read_text(encoding="utf-8")
+        step = _flat(_section(text, "Record term candidates"))
+        assert f"`{TERM_CANDIDATES}`" in step
+        assert CANDIDATE_HEADER in text
+        assert "status `candidate`" in step
+        assert "Source names the code path" in step
+        assert "never writes `docs/spec/glossary.md`" in step
+
+    def test_st_0350_reverse_map_writes_only_scope_map_and_candidates(self):
+        boundaries = _flat(_section(REVERSE_MAP.read_text(encoding="utf-8"), "Boundaries"))
+        assert (
+            f"It writes only `docs/spec/scope-map.md` and `{TERM_CANDIDATES}`."
+            in boundaries
+        )
+
+    def test_st_0350_reverse_map_unattended_mode_records_candidates(self):
+        unattended = _flat(
+            _section(REVERSE_MAP.read_text(encoding="utf-8"), "Unattended mode")
+        )
+        assert "Record term candidates as in the attended mode." in unattended
+        assert "Seed" not in unattended
+
+    def test_st_0350_domain_modeling_routes_a_settled_term(self):
+        route = _flat(
+            _section(DOMAIN_MODELING.read_text(encoding="utf-8"), "Where a settled term goes")
+        )
+        assert f"Only the domain-modeling agent passes {WRITE_GLOSSARY}." in route
+        assert f"`{TERM_CANDIDATES}`" in route
+        assert "status `confirmed`" in route
+        assert "the settled definition" in route
+        assert "`docs/spec/glossary.md` stays unchanged" in route
+
+    def test_st_0350_glossary_update_needs_the_argument(self):
+        text = DOMAIN_MODELING.read_text(encoding="utf-8")
+        update = _flat(_subsection(text, f"Update {GLOSSARY} inline"))
+        assert f"Only with {WRITE_GLOSSARY}" in update
+
+    def test_st_0350_grilling_passes_the_argument_on_only_when_received(self):
+        mode = _flat(_section(GRILLING.read_text(encoding="utf-8"), "Settled terms"))
+        assert f"`{TERM_CANDIDATES}`" in mode
+        assert "status `confirmed`" in mode
+        assert f"Pass {WRITE_GLOSSARY} on only when this run received it." in mode
+
+    def test_st_0350_reconcile_spec_reports_terminology_drift_as_a_row(self):
+        text = _flat(RECONCILE_SPEC.read_text(encoding="utf-8"))
+        assert "Artifact `docs/spec/glossary.md`" in text
+        assert "Owner `domain-modeling-agent`" in text
+        assert "Status `open`" in text
+        assert (
+            f"It changes neither `docs/spec/glossary.md` nor `{TERM_CANDIDATES}`."
+            in text
+        )

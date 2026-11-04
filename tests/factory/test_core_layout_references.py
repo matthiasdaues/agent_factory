@@ -192,20 +192,15 @@ def test_glossary_file_names_no_context_md(path: str) -> None:
 
 
 # --- ST-0337 ---
-# CAL-12-LN-01, reverse-map assertion: the vocabulary step seeds glossary rows.
+# CAL-12-LN-01, reverse-map assertion: the vocabulary step names no CONTEXT.md.
+# ST-0350 sends the vocabulary to term candidates; CAO-06-LN-01 checks that.
 
 REVERSE_MAP = "skills/reverse-map/SKILL.md"
 
 
 @pytest.mark.spec("CAL-12")
-def test_reverse_map_seeds_term_rows_into_the_glossary() -> None:
-    text = read_factory_file(REVERSE_MAP)
-    step = section(text, f"## Seed {GLOSSARY}")
-    assert f"`{GLOSSARY}`" in step
-    assert "Term, Definition, and Avoid" in step
-    assert "one section per context" in step
-    assert "term already in the section is not added twice" in step
-    assert not OLD_ROUTING_FILE.search(text)
+def test_reverse_map_names_no_context_md() -> None:
+    assert not OLD_ROUTING_FILE.search(read_factory_file(REVERSE_MAP))
 
 
 # --- ST-0340 ---

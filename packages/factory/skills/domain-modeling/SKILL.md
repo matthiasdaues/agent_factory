@@ -1,6 +1,6 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/spec/glossary.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
+description: Build and sharpen a project's domain model — challenge terminology, record settled terms and architecture decisions in docs/adr/ inline as decisions crystallise. A settled term goes into docs/spec/glossary.md when the domain-modeling agent runs the skill, and into docs/spec/work/term-candidates.md otherwise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
 category: utility
 source: https://github.com/mattpocock/skills/
 ---
@@ -13,9 +13,18 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 
 ## Domain awareness
 
-During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/conventions/context-format.md) for the glossary format and for the domain concerns in `docs/agent-context.md` that name the bounded contexts. Create `docs/spec/glossary.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed. The domain-modeling agent is the exception: it writes `docs/spec/glossary.md` on every run, even when the file holds no term yet.
+During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/conventions/context-format.md) for the glossary format and for the domain concerns in `docs/agent-context.md` that name the bounded contexts. Create `docs/adr/` lazily, only when the first ADR is needed. With `--write-glossary`, the skill also creates `docs/spec/glossary.md` on every run, even when the file holds no term yet.
 
 Once you identify the repository as multi-context, prompt the user immediately with a single checklist covering all artifact classes the split affects: docs/, backlog/, the domain concerns in `docs/agent-context.md`, the sections of `docs/spec/glossary.md`, README, and `docs/adr/`. Do this in one pass rather than surfacing each artifact class as a separate follow-up round. Refer to [context-format.md](../../rulebooks/conventions/context-format.md) for the file layout structure.
+
+## Where a settled term goes
+
+The glossary has one producer, the domain-modeling agent. Only the domain-modeling agent passes `--write-glossary`. So the argument decides where a term goes once the stakeholder settles it in the session:
+
+- **With `--write-glossary`:** write the term into `docs/spec/glossary.md`, as [Update docs/spec/glossary.md inline](#update-docsspecglossarymd-inline) describes.
+- **Without the argument:** write the term right there as a row of `docs/spec/work/term-candidates.md` with status `confirmed`. Put the settled definition into Proposed definition, the scope-map area into Domain area, and the session into Source, such as `grilling on docs/proposals/payouts.md`. When the term already has a row, update that row. `docs/spec/glossary.md` stays unchanged.
+
+The work file holds one table with the columns Term, Domain area, Source, Proposed definition, Status, and Note. When the file is missing, create it with that table header. The domain-modeling agent later moves each `confirmed` row into the glossary without asking the stakeholder again.
 
 ## During the session
 
@@ -37,7 +46,7 @@ When someone states how something works, check whether the code agrees. If you f
 
 ### Update docs/spec/glossary.md inline
 
-When a term is settled, write it to `docs/spec/glossary.md` right there — don't batch. The term goes in as one table row with the columns Term, Definition, and Avoid, in the section of its context. Use the [glossary template](../../rulebooks/templates/glossary.md).
+Only with `--write-glossary`: when a term is settled, write it to `docs/spec/glossary.md` right there — don't batch. The term goes in as one table row with the columns Term, Definition, and Avoid, in the section of its context. Use the [glossary template](../../rulebooks/templates/glossary.md).
 
 - Find the section named after the term's context. The domain concerns in `docs/agent-context.md` name the contexts; ask if the context is unclear.
 - When the section is missing, the skill creates the section with its table header.
