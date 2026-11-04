@@ -87,3 +87,13 @@ context. If `docs/agent-context.md` exists, follow the `Read:` paths of its
 domain concerns to discover additional vocabulary, specs, and decisions.
 Keep domain vocabulary and qualifying ADRs current while the target artifact
 remains the sole design brief.
+
+## Settled terms
+
+On every target, record each term the stakeholder settles through
+`domain-modeling`, as its
+[Where a settled term goes](../domain-modeling/SKILL.md#where-a-settled-term-goes)
+describes. Only the domain-modeling agent passes `--write-glossary`.
+Pass `--write-glossary` on only when this run received it. Without the
+argument, the term becomes a row of `docs/spec/work/term-candidates.md` with
+status `confirmed`, and `docs/spec/glossary.md` stays unchanged.

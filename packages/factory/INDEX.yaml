@@ -206,7 +206,7 @@ agents:
     description: "Write the domain structure family once a feature file exists: the glossary, the entity model, and the state machines, validation rules, interface contracts, and payload schemas the domain needs."
     path: agents/domain-modeling-agent.md
     tokens: 1148
-    total_tokens: 3698
+    total_tokens: 3973
     inputs:
       required:
         - type: scope-map
@@ -336,7 +336,7 @@ agents:
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
     tokens: 1737
-    total_tokens: 3484
+    total_tokens: 3608
     inputs:
       required:
         - type: proposal
@@ -396,7 +396,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2294
-    total_tokens: 21551
+    total_tokens: 21637
     inputs:
       required:
         - type: scope-map
@@ -455,7 +455,7 @@ agents:
     description: "Derive scope and behaviour from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, and area specs where the stakeholder asks for depth. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1612
-    total_tokens: 11449
+    total_tokens: 11497
     inputs:
       required:
         - any_of:
@@ -634,7 +634,7 @@ agents:
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
     tokens: 3818
-    total_tokens: 18480
+    total_tokens: 18604
     inputs:
       context:
         - .agent-factory/config/project-context.json
@@ -698,9 +698,9 @@ skills:
     tokens: 2597
   - name: reverse-map
     category: requirements
-    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
+    description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and records the domain vocabulary as term candidates in docs/spec/work/term-candidates.md.
     path: skills/reverse-map/SKILL.md
-    tokens: 1771
+    tokens: 1819
   - name: write-prd
     category: requirements
     description: Synthesise a Product Requirements Document from clarified requirements.
@@ -805,7 +805,7 @@ skills:
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
     path: skills/reconcile-spec/SKILL.md
-    tokens: 892
+    tokens: 978
   - name: spec-feedback
     category: implementation
     description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
@@ -863,9 +863,9 @@ skills:
     tokens: 3305
   - name: domain-modeling
     category: utility
-    description: Build and sharpen a project's domain model — challenge terminology, record architecture decisions, update docs/spec/glossary.md and docs/adr/ inline as decisions crystallise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
+    description: Build and sharpen a project's domain model — challenge terminology, record settled terms and architecture decisions in docs/adr/ inline as decisions crystallise. A settled term goes into docs/spec/glossary.md when the domain-modeling agent runs the skill, and into docs/spec/work/term-candidates.md otherwise. Use when pinning down domain vocabulary or a ubiquitous language, recording an architectural decision, or when another skill needs to maintain the domain model.
     path: skills/domain-modeling/SKILL.md
-    tokens: 1128
+    tokens: 1403
   - name: explain-concept
     category: utility
     description: Look up a Factory concept and explain it. Knows what exists and what is missing.
@@ -875,7 +875,7 @@ skills:
     category: utility
     description: Relentless interview to sharpen a plan or design until reaching shared understanding. Use when the user wants to stress-test a plan, get grilled on their design, or mentions "grill me" or "grill with docs".
     path: skills/grilling/SKILL.md
-    tokens: 1071
+    tokens: 1195
   - name: guided-tour
     category: utility
     description: Mid-session reorientation — show where the user is in the current workflow, what they can do next, and what factory concepts are relevant. Outside an active playbook, present the session entrypoint options with explanations.
@@ -982,7 +982,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 55915
+    total_tokens: 56049
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1004,7 +1004,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 46437
+    total_tokens: 46523
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1021,7 +1021,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 100673
+    total_tokens: 100807
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1039,7 +1039,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 100041
+    total_tokens: 100175
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
