@@ -264,3 +264,39 @@ class TestSt0348DomainModelingAgentEligibility:
 
         assert "✓ domain-modeling-agent" in out
         assert "✓ feature: docs/spec/features/payments.feature" in out
+
+
+TEST_STRATEGY_AGENT = (
+    REPO_ROOT / "packages" / "factory" / "agents" / "test-strategy-agent.md"
+)
+
+
+def _build_suite_no_feature(root):
+    """Build `suite-no-feature` (ST-0357 Demo Data)."""
+    (root / "tests").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        '[project]\nname = "example"\n\n[tool.pytest.ini_options]\ntestpaths = ["tests"]\n'
+    )
+    (root / "tests" / "test_example.py").write_text(
+        "def test_example():\n    assert True\n"
+    )
+
+
+@pytest.mark.spec("CAO-10-IT-01")
+class TestSt0357TestStrategyAgentEligibility:
+    def test_st_0357_suite_no_feature_is_eligible(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        project = tmp_path / "suite-no-feature"
+        _build_suite_no_feature(project)
+        assert not (project / "docs" / "spec").exists()
+        agents_dir = tmp_path / "agents"
+        agents_dir.mkdir()
+        shutil.copy(TEST_STRATEGY_AGENT, agents_dir / TEST_STRATEGY_AGENT.name)
+        monkeypatch.chdir(project)
+
+        assert intent.main(["select", "--agents-dir", str(agents_dir)]) == 0
+
+        out = capsys.readouterr().out
+        assert "○ test-strategy-agent" in out
+        assert "(no required inputs — always eligible)" in out

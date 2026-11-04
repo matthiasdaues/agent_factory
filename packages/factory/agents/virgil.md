@@ -34,9 +34,6 @@ outputs:
       validator:
       required: false
       reviewed_by: [stakeholder]
-    - path_pattern: docs/testing.yaml
-      validator:
-      required: false
     - path_pattern: "docs/proposals/{name}.md"
       validator:
       required: false
@@ -243,11 +240,14 @@ the recommended action, not by fitting order alone.
 
 ### 2b. Detect test regime
 
-Invoke the `detect-test-regime` skill. It scans the project for test
-suites and records them in `docs/testing.yaml`. The deterministic scan
-in `init-factory` may have already seeded this file — if so, present what
-it found and ask the user to confirm or correct it. If not, the skill
-runs its full discovery and disambiguation.
+The test-strategy agent owns `docs/testing.yaml`. For this step, the
+session takes the test-strategy agent's role, because Virgil may not write
+a file its definition does not declare. Read
+[test-strategy-agent.md](test-strategy-agent.md) and follow its steps for
+`docs/testing.yaml`. Its `detect-test-regime` skill scans the project for
+test suites and proposes the file. The deterministic scan in
+`init-factory` may have seeded the file already. If so, present what it
+found. Write each change only after the user confirms it.
 
 This must happen after agent context (step 2) so the output directory
 exists, and before hooks (step 3) because hook decisions may depend on

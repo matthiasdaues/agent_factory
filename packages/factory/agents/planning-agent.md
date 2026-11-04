@@ -58,7 +58,7 @@ Break specification and architecture into **tracer bullet** **vertical slices**.
 
 Read `docs/agent-context.md` in full. As a pre-backlog agent, the planning agent reads the entire concern registry by judgment — cross-cutting, technical, and domain concerns are all relevant to decomposition. Follow the `Read:` paths in each concern section to discover project-native knowledge (supplementary specs, ADRs, handbooks, architecture views). Factory-canonical artifacts (`scope-map.md`, `.feature` files, `testing.yaml`) are read by path; everything else is discovered through concerns.
 
-Verify that `testing.yaml` exists (at `docs/testing.yaml`) and contains at least one suite. If missing or empty, invoke `detect-test-regime` to populate it, then continue. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
+Verify that `testing.yaml` exists (at `docs/testing.yaml`) and contains at least one suite. If it is missing or empty, stop the pre-flight and tell the user to run the test-strategy-agent first, because that agent owns `docs/testing.yaml`. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
 
 Read the document at `testing_strategy:` in `testing.yaml` for test budgets, cluster assignments, and how to populate each story's `tests:` field.
 
