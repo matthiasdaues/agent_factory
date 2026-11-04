@@ -38,6 +38,15 @@ outputs:
     - path_pattern: "docs/findings/SPEC-*.md"
       validator:
       required: false
+    - path_pattern: "docs/spec/work/spec-feedback-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/reviews/reconciliation-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/findings/BUG-*.md"
+      validator:
+      required: false
 triggers:
   - "review the spec"
   - "review requirements"

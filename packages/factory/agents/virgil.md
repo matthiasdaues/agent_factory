@@ -43,6 +43,15 @@ outputs:
     - path_pattern: docs/spec/work/term-candidates.md
       validator:
       required: false
+    - path_pattern: "docs/spec/work/spec-feedback-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/reviews/reconciliation-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/findings/BUG-*.md"
+      validator:
+      required: false
 triggers:
   - "show me around"
   - "set up the project"

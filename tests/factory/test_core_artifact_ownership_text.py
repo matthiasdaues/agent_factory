@@ -1217,3 +1217,135 @@ class TestSt0356SpecReviewRunsWithoutOptionalFiles:
         assert not (tmp_path / "docs" / "spec" / "schemas").exists()
         assert not (tmp_path / "docs" / "spec" / "areas").exists()
         assert result["eligible"] is True, result
+
+
+# --- ST-0362: each drift row goes to its owner and then to the reviewer ------
+
+DISPATCH_CONTRACT = RULEBOOKS / "conventions" / "dispatch-contract.md"
+
+
+def _drift_rows_rule() -> str:
+    return _flat(
+        _subsection(
+            DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Drift Rows After A Merge"
+        )
+    )
+
+
+def _manual_mode_rule() -> str:
+    return _flat(
+        _subsection(DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Manual Mode")
+    )
+
+
+def _automated_step_4() -> str:
+    return _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", 4)
+
+
+def _workflow_step_in(path, section: str, number: int) -> str:
+    workflow = _section(path.read_text(encoding="utf-8"), section)
+    match = re.search(
+        rf"^{number}\. \*\*.*?(?=^\d+\. \*\*|^\*\*Prompt template|\Z)",
+        workflow,
+        re.M | re.S,
+    )
+    assert match, f"{path.name}: no step {number} in {section}"
+    return _flat(match.group(0))
+
+
+@pytest.mark.spec("CAO-14-LN-01")
+class TestSt0362PostMergeDispatchOrder:
+    """CAO-14-LN-01: owner first, then the owner's reviewer."""
+
+    def test_st_0362_rule_dispatches_owner_then_reviewer(self):
+        rule = _drift_rows_rule()
+        owner = rule.index("dispatches the owner of each `open` row")
+        reviewer = rule.index("dispatches the owner's reviewer for each `fixed` row")
+        assert owner < reviewer
+        assert "sets the row to `fixed`" in rule
+        assert "sets the row to `confirmed` or `rejected`" in rule
+
+    def test_st_0362_reviewer_is_the_reviewed_by_entry(self):
+        rule = _drift_rows_rule()
+        assert "`reviewed_by:` entry of the owner's declaration" in rule
+        assert "closes at `fixed`" in rule
+
+    def test_st_0362_implementation_agent_runs_the_rule_after_each_merge(self):
+        step = _automated_step_4()
+        owner = step.index("dispatches the owner of each `open` row")
+        reviewer = step.index("dispatches the owner's reviewer for each `fixed` row")
+        assert step.index("merge-story") < owner < reviewer
+        assert "Drift Rows After A Merge" in step
+        assert "before `close-wave`" in step
+
+    def test_st_0362_route_the_qa_findings_stays_step_6(self):
+        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", 6)
+        assert step.startswith("6. **Route the QA findings**")
+
+
+@pytest.mark.spec("CAO-14-LN-01")
+class TestSt0362RejectedRowBecomesABug:
+    """CAO-14-LN-01: the rejecting reviewer, or the session agent, files the BUG."""
+
+    def test_st_0362_reviewer_files_a_bug_for_the_developer(self):
+        rule = _drift_rows_rule()
+        assert (
+            "The reviewer that rejects the row files a `BUG` finding, "
+            "`docs/findings/BUG-NNNN.md`, with `owner: developer-agent`." in rule
+        )
+
+    def test_st_0362_session_agent_records_the_stakeholder_review(self):
+        rule = _drift_rows_rule()
+        assert (
+            "The agent that ran the session sets the row to `confirmed` or "
+            "`rejected` for the stakeholder." in rule
+        )
+        assert (
+            "When the stakeholder rejects, the agent that ran the session "
+            "files the `BUG` finding." in rule
+        )
+
+    def test_st_0362_rejected_row_does_not_block(self):
+        assert "A `rejected` row does not block the wave." in _drift_rows_rule()
+
+
+@pytest.mark.spec("CAO-14-LN-01")
+class TestSt0362ManualModeHoldsPerStory:
+    """CAO-14-LN-01 and CAO-G31: per-story rule and QA routing at story close."""
+
+    def test_st_0362_manual_mode_keeps_the_story_open(self):
+        rule = _manual_mode_rule()
+        assert "the drift-row rule holds per story" in rule
+        assert (
+            "The human does not close a story while its report has an `open` "
+            "row, or a `fixed` row about an artifact on the core list." in rule
+        )
+
+    def test_st_0362_manual_mode_routes_qa_findings_at_story_close(self):
+        rule = _manual_mode_rule()
+        assert "At each story's close, the implementation agent routes the open `QA` findings" in rule
+        assert "CAO-G31" in rule
+
+    def test_st_0362_manual_workflow_closes_the_story_after_its_rows(self):
+        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Manual Mode", 8)
+        assert "Drift Rows After A Merge" in step
+        assert "§ Manual Mode" in step
+        assert "route the open `QA` findings" in step
+
+    def test_st_0362_manual_human_sets_done_only_at_close(self):
+        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Manual Mode", 5)
+        assert "step 8 closes the story" in step
+
+
+@pytest.mark.spec("CAO-14-LN-01")
+class TestSt0362DeveloperWritesNoAdr:
+    """The developer agent declares no ADR; ADR drift becomes a row."""
+
+    def test_st_0362_developer_agent_declares_no_adr(self):
+        assert "docs/adr/*.md" not in _declarations(_frontmatter(DEVELOPER_AGENT))
+
+    def test_st_0362_adr_drift_is_a_row_for_the_architecture_agent(self):
+        step = _workflow_step(DEVELOPER_AGENT, 6)
+        assert "A stale or missing ADR is drift" in step
+        assert "the Owner is `architecture-agent`" in step
+        assert "write-adr" not in step
