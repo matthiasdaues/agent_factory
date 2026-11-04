@@ -339,3 +339,58 @@ class TestSt0357TestPracticeHasOneProducer:
             d["path_pattern"] for d in agent["outputs"]["declarations"]
         ]
         assert not [p for p in patterns if il.pattern_matches(p, sample)]
+
+
+# The writer outline of "Each writer of a shared working-output file declares
+# its path" (CAO-G11). Each pair names an agent and a path it must declare.
+SPEC_FEEDBACK_REPORTS = "docs/spec/work/spec-feedback-*.md"
+RECONCILIATION_REPORTS = "docs/reviews/reconciliation-*.md"
+BUG_FINDINGS = "docs/findings/BUG-*.md"
+REPORT_WRITERS = [
+    "requirements-agent",
+    "domain-modeling-agent",
+    "architecture-agent",
+    "test-strategy-agent",
+    "virgil",
+    "spec-review-agent",
+    "architecture-review-agent",
+]
+BUG_WRITERS = [
+    "spec-review-agent",
+    "architecture-review-agent",
+    "requirements-agent",
+    "domain-modeling-agent",
+    "test-strategy-agent",
+    "virgil",
+]
+WRITER_OUTLINE = (
+    [(a, "docs/spec/work/term-candidates.md") for a in
+     ["requirements-agent", "virgil", "domain-modeling-agent"]]
+    + [("developer-agent", SPEC_FEEDBACK_REPORTS)]
+    + [(a, SPEC_FEEDBACK_REPORTS) for a in REPORT_WRITERS]
+    + [("reconciliation-agent", RECONCILIATION_REPORTS)]
+    + [(a, RECONCILIATION_REPORTS) for a in REPORT_WRITERS]
+    + [(a, BUG_FINDINGS) for a in BUG_WRITERS]
+)
+
+
+def _index_declarations(name: str) -> dict[str, dict]:
+    (agent,) = [a for a in _real_agents() if a["name"] == name]
+    return {
+        d["path_pattern"]: d for d in (agent.get("outputs") or {}).get("declarations") or []
+    }
+
+
+@pytest.mark.spec("CAO-17-LN-01")
+class TestSt0362EveryWriterDeclaresItsPath:
+    @pytest.mark.parametrize(
+        ("agent", "path"), WRITER_OUTLINE, ids=lambda v: str(v)
+    )
+    def test_st_0362_writer_declares_the_working_output(self, agent, path):
+        decl = _index_declarations(agent).get(path)
+        assert decl is not None, f"{agent} does not declare {path} in INDEX.yaml"
+        assert "reviewed_by" not in decl, f"{agent} {path}: working output has no reviewed_by"
+
+    def test_st_0362_developer_agent_declares_no_adr(self):
+        patterns = list(_index_declarations("developer-agent"))
+        assert not [p for p in patterns if il.pattern_matches(p, "docs/adr/0012-x.md")]

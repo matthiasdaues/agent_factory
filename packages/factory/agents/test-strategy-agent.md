@@ -30,6 +30,15 @@ outputs:
     - path_pattern: "docs/findings/QA-*.md"
       validator:
       required: false
+    - path_pattern: "docs/spec/work/spec-feedback-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/reviews/reconciliation-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/findings/BUG-*.md"
+      validator:
+      required: false
 triggers:
   - "detect the test regime"
   - "write the QA strategy"

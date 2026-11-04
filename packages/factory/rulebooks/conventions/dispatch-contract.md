@@ -222,9 +222,24 @@ The story file's `status` field must be updated to `done` in the **same commit**
 
 This ensures the backlog file is always consistent with the repository's actual state: if the commit is present, the status is `done`; if the status is `done`, the commit is present.
 
+### Drift Rows After A Merge
+
+After a story merges, the implementation agent handles each row of the story's spec-feedback report, `docs/spec/work/spec-feedback-<story-id>.md`. It works in two passes:
+
+1. The implementation agent dispatches the owner of each `open` row. The owner is the agent in the row's Owner column. The owner changes the artifact and sets the row to `fixed`.
+2. The implementation agent then dispatches the owner's reviewer for each `fixed` row. The reviewer is the `reviewed_by:` entry of the owner's declaration that matches the row's artifact. The reviewer sets the row to `confirmed` or `rejected`.
+
+A row about an artifact without `reviewed_by:`, such as a QA strategy or an ADR, gets no reviewer and closes at `fixed` (DEC-35).
+
+When the reviewer is the stakeholder, the implementation agent dispatches no reviewer. The owner presents the fix to the stakeholder in a session. The agent that ran the session sets the row to `confirmed` or `rejected` for the stakeholder. Until that session, the row stays `fixed`.
+
+A reviewer sets `rejected` when the code breaks an accepted requirement. The reviewer that rejects the row files a `BUG` finding, `docs/findings/BUG-NNNN.md`, with `owner: developer-agent`. When the stakeholder rejects, the agent that ran the session files the `BUG` finding. A `rejected` row does not block the wave. The implementation agent states this rule in the brief of each owner and each reviewer.
+
 ### Manual Mode
 
 Manual mode (`--manual`) disables all mechanized dispatch infrastructure. No dispatch scripts, no ledger, no automated SHA verification, no wave boundaries. The implementation-agent dispatches stories serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. A code-review-agent reviews each committed story before the next dispatch. When defects are found, the implementation-agent dispatches a fresh developer-agent with the findings for remediation. The human commits fixes.
+
+Manual mode has no waves, so the drift-row rule holds per story. After the human commits a story, the implementation agent handles the story's report as [Drift Rows After A Merge](#drift-rows-after-a-merge) describes. The human does not close a story while its report has an `open` row, or a `fixed` row about an artifact on the core list. The core list is `rulebooks/core-artifacts.yaml`. At each story's close, the implementation agent routes the open `QA` findings, as step 6 of the automated workflow does after `close-wave` (CAO-G31).
 
 The following sections do not apply in manual mode: Dispatch Ledger, Wave Boundary As Hard Gate, Hard Checkpoint Per Story, Wave Closeout Record, Story Status Commit Rule, QA-in-Worktree Divergence.
 

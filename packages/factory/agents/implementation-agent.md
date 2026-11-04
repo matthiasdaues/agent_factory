@@ -133,6 +133,7 @@ Resolve before Step 1 and state the effective mode and its source.
    b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, iteration cap, escalation, and fix-iteration prompt template. Start every fix iteration with `.agent-factory/factory/scripts/dispatch refresh-story <story-id>`, so the story branch contains the moved invocation branch and `verify-base` passes.
    c. **Merge**: when all gates pass, call `.agent-factory/factory/scripts/dispatch merge-story <story-id>` from the invocation branch's worktree. The script refuses to run on any other branch. It owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
    d. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
+   e. **Drift rows**: after the merge, handle the merged story's report, `docs/spec/work/spec-feedback-<story-id>.md`, as [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge) describes. The dispatcher first dispatches the owner of each `open` row, and the owner sets `fixed`. It then dispatches the owner's reviewer for each `fixed` row, and the reviewer sets `confirmed` or `rejected`. A rejecting reviewer files a `BUG` finding with `owner: developer-agent`. Wait for every dispatch to return before `close-wave`. A story without a report needs no dispatch.
 
 5. **Closeout** — Call `.agent-factory/factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal.
 
@@ -169,9 +170,10 @@ Resolve before Step 1 and state the effective mode and its source.
    spec-feedback notes.
 
 5. **Human reviews and commits** — The dispatcher waits. The human reviews the
-   changes in their IDE, sets `status: done` in the story file, and commits
-   with the story ID in the subject per
+   changes in their IDE and commits them with the story ID in the subject per
    [commit-conventions.md](../rulebooks/conventions/commit-conventions.md).
+   When the story has no spec-feedback report, the human sets `status: done`
+   in that commit. Otherwise, step 8 closes the story.
 
 6. **Code review** — Spawn a code-review-agent on the commit diff. The agent
    writes `docs/reviews/code-review-*.md` and files any `IMPL-*` findings.
@@ -183,7 +185,14 @@ Resolve before Step 1 and state the effective mode and its source.
      commits fixes.
    - **If no findings:** proceed to the next story.
 
-8. **Next story** — Repeat from step 3 until all stories are done or blocked.
+8. **Close the story, then the next story** — Handle the rows of the story's
+   report as
+   [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge)
+   describes. The human sets `status: done` only when
+   [§ Manual Mode](../rulebooks/conventions/dispatch-contract.md#manual-mode)
+   lets the story close. At the story's close, route the open `QA` findings
+   as step 6 of the automated workflow does after `close-wave`. Then repeat
+   from step 3 until all stories are done or blocked.
 
 9. **Done** — Report completion and remaining blocked stories. The human pushes
    when ready.

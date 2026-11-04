@@ -53,6 +53,12 @@ outputs:
     - path_pattern: "docs/assets/images/*"
       validator:
       required: false
+    - path_pattern: "docs/spec/work/spec-feedback-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/reviews/reconciliation-*.md"
+      validator:
+      required: false
 triggers:
   - "create architecture"
   - "scaffold arc42"
