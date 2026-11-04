@@ -34,6 +34,7 @@ outputs:
     - path_pattern: docs/spec/architecture.dsl
       validator:
       required: true
+      reviewed_by: [architecture-review-agent]
     - path_pattern: docs/README.md
       validator:
       required: false

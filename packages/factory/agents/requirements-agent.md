@@ -39,9 +39,11 @@ outputs:
     - path_pattern: docs/spec/scope-map.md
       validator:
       required: true
+      reviewed_by: [stakeholder]
     - path_pattern: "docs/spec/features/{name}.feature"
       validator:
       required: true
+      reviewed_by: [spec-review-agent]
     - path_pattern: "docs/spec/work/{name}-gaps.md"
       validator:
       required: true
