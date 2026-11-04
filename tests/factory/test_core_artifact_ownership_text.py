@@ -673,3 +673,112 @@ class TestSt0350TermsBecomeCandidates:
             f"It changes neither `docs/spec/glossary.md` nor `{TERM_CANDIDATES}`."
             in text
         )
+
+
+IMPLEMENTATION_AGENT = AGENTS / "implementation-agent.md"
+MUTATION_TESTING = SKILLS / "mutation-testing" / "SKILL.md"
+QA_FINDINGS = "docs/findings/QA-*.md"
+
+
+def _resolve_qa_step() -> str:
+    workflow = _section(TEST_STRATEGY_AGENT.read_text(encoding="utf-8"), "Workflow")
+    match = re.search(
+        r"^\d+\. \*\*Resolve the QA findings\*\*.*?(?=^\d+\. \*\*|^\*\*Pause point|\Z)",
+        workflow,
+        re.M | re.S,
+    )
+    assert match, "no step 'Resolve the QA findings'"
+    return _flat(match.group(0))
+
+
+def _post_wave_step() -> str:
+    workflow = _section(
+        IMPLEMENTATION_AGENT.read_text(encoding="utf-8"), "Workflow — Automated Mode"
+    )
+    match = re.search(
+        r"^\d+\. \*\*Route the QA findings\*\*.*?(?=^\d+\. \*\*|\Z)",
+        workflow,
+        re.M | re.S,
+    )
+    assert match, "no step 'Route the QA findings'"
+    return _flat(match.group(0))
+
+
+@pytest.mark.spec("CAO-12-LN-01")
+class TestSt0358MutationTestingFilesAQaFinding:
+    """CAO-12-LN-01: an unresolved mutant becomes a QA finding with its owner."""
+
+    def test_st_0358_file_qa_finding_names_path_and_owner(self):
+        text = _flat(MUTATION_TESTING.read_text(encoding="utf-8"))
+        assert "`docs/findings/QA-NNNN.md`" in text
+        assert "`owner: test-strategy-agent`" in text
+        assert "`status: open`" in text
+
+
+@pytest.mark.spec("CAO-12-LN-01")
+class TestSt0358TestStrategyAgentResolvesQaFindings:
+    """CAO-12-LN-01: owned-only rule and the two resolutions."""
+
+    def test_st_0358_declares_qa_findings_as_output_and_context(self):
+        agent = _frontmatter(TEST_STRATEGY_AGENT)
+        assert QA_FINDINGS in _declarations(agent)
+        assert QA_FINDINGS in agent["inputs"]["context"]
+
+    def test_st_0358_works_only_on_open_findings_it_owns(self):
+        step = _resolve_qa_step()
+        assert "only on open `QA` findings with `owner: test-strategy-agent`" in step
+        assert "leaves every other finding unchanged" in step
+
+    def test_st_0358_wrong_layer_changes_the_table_and_resolves(self):
+        step = _resolve_qa_step()
+        assert "changes the contract-owner table of the QA strategy" in step
+        assert "sets `status: resolved`" in step
+
+    def test_st_0358_missing_test_moves_owner_and_stays_open(self):
+        step = _resolve_qa_step()
+        assert "records in the finding which test is missing" in step
+        assert "moves `owner:` to `planning-agent`" in step
+        assert "status stays `open`" in step
+
+
+@pytest.mark.spec("CAO-12-LN-01")
+class TestSt0358ImplementationAgentRoutesQaFindings:
+    """CAO-12-LN-01: dispatch after the wave, resolution on merge."""
+
+    def test_st_0358_dispatches_test_strategy_agent_for_its_findings(self):
+        step = _post_wave_step()
+        assert "after `close-wave`" in step
+        assert (
+            "dispatches the test-strategy agent for each open `QA` finding "
+            "with `owner: test-strategy-agent`" in step
+        )
+
+    def test_st_0358_no_dispatch_for_planning_agent_findings(self):
+        step = _post_wave_step()
+        assert (
+            "does not dispatch the test-strategy agent for a finding "
+            "with `owner: planning-agent`" in step
+        )
+
+    def test_st_0358_merge_of_the_story_resolves_the_finding(self):
+        step = _post_wave_step()
+        assert "a merged story names an open `QA` finding" in step
+        assert "sets its `status: resolved`" in step
+
+    def test_st_0358_declares_qa_findings(self):
+        assert QA_FINDINGS in _declarations(_frontmatter(IMPLEMENTATION_AGENT))
+
+
+@pytest.mark.spec("CAO-12-LN-01")
+class TestSt0358PlanningAgentReadsQaFindings:
+    """CAO-12-LN-01: the planning agent's context input."""
+
+    def test_st_0358_qa_findings_are_a_context_input(self):
+        assert QA_FINDINGS in _frontmatter(PLANNING_AGENT)["inputs"]["context"]
+
+    def test_st_0358_adds_the_missing_test_to_a_story_that_names_the_finding(self):
+        text = _flat(PLANNING_AGENT.read_text(encoding="utf-8"))
+        assert (
+            "reads each open `QA` finding with `owner: planning-agent`" in text
+        )
+        assert "adds the missing test to a story that names the finding" in text

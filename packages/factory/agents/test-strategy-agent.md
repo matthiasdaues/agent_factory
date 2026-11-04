@@ -15,6 +15,7 @@ inputs:
     - docs/spec/interface-contracts.md
     - docs/spec/entity-model.md
     - docs/testing.yaml
+    - "docs/findings/QA-*.md"
     - .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 outputs:
   minimum_changed: 0
@@ -26,11 +27,15 @@ outputs:
     - path_pattern: "docs/spec/work/{name}-qa-strategy.md"
       validator:
       required: false
+    - path_pattern: "docs/findings/QA-*.md"
+      validator:
+      required: false
 triggers:
   - "detect the test regime"
   - "write the QA strategy"
   - "set the test guardrails"
   - "enable mutation testing"
+  - "resolve the QA findings"
 handoff-to:
   - planning-agent
 version: 0.1.0
@@ -62,6 +67,9 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 2. **Set the gates** — Propose the `gates` section of `docs/testing.yaml`: which gates run and their thresholds, such as `gates.crap_score.threshold`. For mutation testing, record only `gates.mutation_testing.enabled` and `gates.mutation_testing.command`. The mutation tool and its configuration belong to the project, so the agent writes no configuration file of the mutation tool. A story sets the tool up in the project's own files, with the `mutation-testing` skill as guidance.
 3. **Confirm with the stakeholder** — Show the proposal as a diff against the current `docs/testing.yaml`, or as the full file when none exists. Write the file only after the stakeholder confirms.
 4. **Write the QA strategies** — For each feature file, invoke `qa-strategy-from-spec` with the feature name. Write `docs/spec/work/<feature-name>-qa-strategy.md` only when the feature file, `docs/spec/interface-contracts.md`, and `docs/spec/entity-model.md` exist. When one of them is missing, the agent writes no QA strategy for that feature and names the missing input.
+5. **Resolve the QA findings** — The implementation agent dispatches this step after a wave. The agent works only on open `QA` findings with `owner: test-strategy-agent` and leaves every other finding unchanged. Each finding names a surviving mutant that the developer agent could not resolve. The agent decides why the mutant survived and resolves the finding in one of two ways:
+   - **The contract has the wrong owning test layer.** The agent changes the contract-owner table of the QA strategy and sets `status: resolved`. `owner:` stays `test-strategy-agent`.
+   - **A test is missing.** The agent records in the finding which test is missing, at which layer, and for which contract. It moves `owner:` to `planning-agent`; the status stays `open`. The finding becomes `resolved` when the story that adds the test merges.
 
 **Pause point:** every change to `docs/testing.yaml` waits for the stakeholder's confirmation, such as a new threshold or an enabled gate. The agent writes nothing before the stakeholder confirms. When the stakeholder declines, `docs/testing.yaml` keeps its earlier content.
 
@@ -72,6 +80,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 - `docs/testing.yaml` holds what the stakeholder confirmed, or stays unchanged
 - `docs/testing.yaml` records for mutation testing only `enabled` and `command`
 - Each QA strategy exists only for a feature whose three inputs exist, with all six sections filled
+- Each open `QA` finding the agent owned is `resolved` or names the missing test with `owner: planning-agent`
 - No gate ran
 
 ## Handoff
