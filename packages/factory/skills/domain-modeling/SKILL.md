@@ -26,6 +26,24 @@ The glossary has one producer, the domain-modeling agent. Only the domain-modeli
 
 The work file holds one table with the columns Term, Domain area, Source, Proposed definition, Status, and Note. When the file is missing, create it with that table header. The domain-modeling agent later moves each `confirmed` row into the glossary without asking the stakeholder again.
 
+## Confirm term candidates
+
+Only the domain-modeling agent runs this section, because only it passes `--write-glossary`. The section works on the rows of `docs/spec/work/term-candidates.md`. The Domain area of a row is the scope-map area that `reverse-map` or the session assigned. Run the steps in this order.
+
+1. **Move the confirmed rows.** Move each row with status `confirmed` into the glossary without asking the stakeholder again. The stakeholder settled the term in another session.
+2. **Propose definitions.** Write a proposed definition for each row with status `candidate`, and set its status to `proposed`.
+3. **Revise rejected rows.** A row with status `rejected` keeps the stakeholder's note. You may write a new definition from the note. The row then returns to `proposed`, and the note stays.
+4. **Ask per domain area.** This step is the pause point. Group the `proposed` rows by Domain area. Present the rows of one domain area together. Present the next domain area only after the stakeholder has answered for the current one.
+5. **Record each answer.** Record it right after the stakeholder gives it.
+   - **Confirmed:** move the term into the glossary as a Term, Definition, and Avoid row, per [the inline glossary update](#update-docsspecglossarymd-inline). Then remove its row from the work file.
+   - **Rejected:** set the status `rejected` and write the stakeholder's reason into Note. The term does not enter the glossary.
+
+A term enters the glossary only in step 1 or on the stakeholder's confirmation in step 5. Terms already in `docs/spec/glossary.md` count as confirmed, among them the terms that `migrate-spec-layout` moved there. The skill never asks about them.
+
+### Unattended run
+
+A run is unattended when a subagent runs the domain-modeling agent from a brief and no stakeholder is present to answer. An unattended run does steps 1 to 3 and skips steps 4 and 5. Each `proposed` row keeps its status, and no proposed term enters the glossary. The rows wait for the next session with the stakeholder.
+
 ## During the session
 
 ### Challenge against the glossary

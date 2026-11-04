@@ -842,3 +842,135 @@ class TestSt0365FourGatesInBothModes:
         assert "Manual mode only (`--no-stage --no-commit`)" in step
         assert "Before you hand the story back" in step
         assert "Run `mutation-testing` in the background" in step
+
+
+# --- ST-0351: the stakeholder confirms term candidates per domain area ----
+
+REQUIREMENTS_AGENT = AGENTS / "requirements-agent.md"
+VIRGIL = AGENTS / "virgil.md"
+TERM_WORK_FILE_WRITERS = [DOMAIN_MODELING_AGENT, REQUIREMENTS_AGENT, VIRGIL]
+
+
+def _confirm_section() -> str:
+    return _flat(
+        _section(DOMAIN_MODELING.read_text(encoding="utf-8"), "Confirm term candidates")
+    )
+
+
+def _workflow_step(path, number: int) -> str:
+    workflow = _section(path.read_text(encoding="utf-8"), "Workflow")
+    match = re.search(
+        rf"^{number}\. \*\*.*?(?=^\d+\. \*\*|^\*\*Pause point|\Z)",
+        workflow,
+        re.M | re.S,
+    )
+    assert match, f"{path.name}: no workflow step {number}"
+    return _flat(match.group(0))
+
+
+def _pause_point(path) -> str:
+    match = re.search(
+        r"^\*\*Pause point:\*\*.*?(?=\n\s*\n|\Z)",
+        path.read_text(encoding="utf-8"),
+        re.M | re.S,
+    )
+    assert match, f"{path.name}: no pause point"
+    return _flat(match.group(0))
+
+
+@pytest.mark.spec("CAO-05-LN-01")
+class TestSt0351TermsAreConfirmedPerArea:
+    """CAO-05-LN-01: pause point, per-area order, move, rejected row, return."""
+
+    def test_st_0351_step_2_passes_the_argument(self):
+        step = _workflow_step(DOMAIN_MODELING_AGENT, 2)
+        assert f"Invoke `domain-modeling` with {WRITE_GLOSSARY}" in step
+        assert "Confirm term candidates" in step
+
+    def test_st_0351_only_step_2_of_the_agent_names_the_argument(self):
+        text = DOMAIN_MODELING_AGENT.read_text(encoding="utf-8")
+        step = _workflow_step(DOMAIN_MODELING_AGENT, 2)
+        assert text.count("--write-glossary") == step.count("--write-glossary") > 0
+
+    def test_st_0351_no_other_agent_names_the_argument(self):
+        others = [
+            p.name
+            for p in AGENTS.glob("*.md")
+            if p != DOMAIN_MODELING_AGENT
+            and "--write-glossary" in p.read_text(encoding="utf-8")
+        ]
+        assert others == []
+
+    @pytest.mark.parametrize("path", TERM_WORK_FILE_WRITERS, ids=lambda p: p.stem)
+    def test_st_0351_agent_declares_the_work_file_without_review(self, path):
+        decl = _declarations(_frontmatter(path))[TERM_CANDIDATES]
+        assert decl["required"] is False
+        assert "reviewed_by" not in decl
+
+    def test_st_0351_agent_pause_point_asks_one_area_at_a_time(self):
+        pause = _pause_point(DOMAIN_MODELING_AGENT)
+        assert "one domain area at a time" in pause
+        assert "An unattended run skips the pause point" in pause
+
+    def test_st_0351_section_runs_only_with_the_argument(self):
+        assert f"only it passes {WRITE_GLOSSARY}" in _confirm_section()
+
+    def test_st_0351_confirmed_rows_move_without_a_question(self):
+        section = _confirm_section()
+        assert "Move each row with status `confirmed` into the glossary" in section
+        assert "without asking the stakeholder again" in section
+
+    def test_st_0351_candidate_gets_a_proposed_definition(self):
+        section = _confirm_section()
+        assert "Write a proposed definition for each row with status `candidate`" in section
+        assert "set its status to `proposed`" in section
+
+    def test_st_0351_rejected_row_returns_to_proposed_with_its_note(self):
+        section = _confirm_section()
+        assert "You may write a new definition from the note." in section
+        assert "The row then returns to `proposed`, and the note stays." in section
+
+    def test_st_0351_pause_point_presents_one_area_at_a_time(self):
+        section = _confirm_section()
+        assert "Group the `proposed` rows by Domain area." in section
+        assert "Present the rows of one domain area together." in section
+        assert (
+            "Present the next domain area only after the stakeholder has answered "
+            "for the current one." in section
+        )
+
+    def test_st_0351_steps_run_in_order(self):
+        section = _confirm_section()
+        marks = [
+            "Move the confirmed rows",
+            "Propose definitions",
+            "Revise rejected rows",
+            "Ask per domain area",
+            "Record each answer",
+        ]
+        positions = [section.index(m) for m in marks]
+        assert positions == sorted(positions)
+
+    def test_st_0351_confirmed_term_moves_and_leaves_the_work_file(self):
+        section = _confirm_section()
+        assert "as a Term, Definition, and Avoid row" in section
+        assert "Then remove its row from the work file." in section
+
+    def test_st_0351_rejected_row_keeps_the_reason(self):
+        section = _confirm_section()
+        assert "set the status `rejected` and write the stakeholder's reason into Note" in section
+        assert "The term does not enter the glossary." in section
+
+    def test_st_0351_migrated_terms_count_as_confirmed(self):
+        section = _confirm_section()
+        assert "count as confirmed" in section
+        assert "`migrate-spec-layout`" in section
+        assert "never asks about them" in section
+
+    def test_st_0351_unattended_run_moves_no_proposal(self):
+        unattended = _flat(
+            _subsection(DOMAIN_MODELING.read_text(encoding="utf-8"), "Unattended run")
+        )
+        assert "no stakeholder is present to answer" in unattended
+        assert "skips steps 4 and 5" in unattended
+        assert "Each `proposed` row keeps its status" in unattended
