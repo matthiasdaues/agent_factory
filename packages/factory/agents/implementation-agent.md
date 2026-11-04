@@ -30,6 +30,7 @@ inputs:
     - .agent-factory/factory/scripts/crap-score
     - .agent-factory/factory/scripts/dependency-check
     - .agent-factory/factory/scripts/test-design-verify
+    - .agent-factory/factory/scripts/mutation-testing
 outputs:
   minimum_changed: 1
   declarations:
@@ -165,9 +166,10 @@ Resolve before Step 1 and state the effective mode and its source.
    and wait for confirmation before dispatching.
 
 4. **Dispatch to developer-agent** — Spawn a developer-agent with
-   `--no-stage --no-commit`. The developer writes code and runs tests, then
-   returns a summary of changed files, passing tests, and any spec-feedback
-   notes.
+   `--no-stage --no-commit`. The developer writes code, runs tests, and runs
+   the gates of the [Gate-Check Loop](#gate-check-loop). It then returns a
+   summary of changed files, passing tests, gate results, and any
+   spec-feedback notes.
 
 5. **Human reviews and commits** — The dispatcher waits. The human reviews the
    changes in their IDE, sets `status: done` in the story file, and commits
@@ -193,9 +195,9 @@ Resolve before Step 1 and state the effective mode and its source.
 
 > You are a developer-agent. You are working in the main checkout on branch `<feature-branch>`. The full local dev environment is available — installed dependencies, test commands, and running services.
 >
-> Implement story `ST-NNNN` following workflow: Analyse → Agree seams → Red-green TDD. Story: `backlog/ST-NNNN.md`
+> Implement story `ST-NNNN` following workflow: Analyse → Agree seams → Red-green TDD → Run the gates. Story: `backlog/ST-NNNN.md`
 >
-> `--no-stage --no-commit` — do not run `git add` or `git commit`. Do not set `status: done`. After all tests are green, return your summary: files changed, tests passing, any spec-feedback notes. The human will review and commit.
+> `--no-stage --no-commit` — do not run `git add` or `git commit`. Do not set `status: done`. After all tests are green and the gates have run, return your summary: files changed, tests passing, gate results, any spec-feedback notes. The human will review and commit.
 
 **Prompt template for fix iteration (manual mode):**
 
@@ -213,7 +215,7 @@ Resolve before Step 1 and state the effective mode and its source.
 
 ### Gate-Check Loop
 
-The gate-check loop applies to **automated mode only**. In manual mode, the code-review-agent replaces the mechanized gate-check loop.
+The gate-check loop applies to **automated mode only**. In manual mode, the developer agent runs the same gates before it hands the story back (developer agent, step 4 "Run the gates"). The code-review-agent then reviews the commit.
 
 After the developer-agent commits and the dispatcher verifies the commit SHA (Step 4a), the dispatcher runs semantic quality gates on the committed artifacts before proceeding to `premerge-check` and merge. The gate-check loop runs once per developer iteration, not per git commit, not on every push, and not only at PR time.
 
@@ -241,7 +243,10 @@ For each gate in the resolved list, call its CLI script directly from the story'
 .agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold> --report-dir <invocation-worktree>/.current-work/crap-score
 .agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id> --report-dir <invocation-worktree>/.current-work/dependency-check
 .agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id> --report-dir <invocation-worktree>/.current-work/test-design-verify
+.agent-factory/factory/scripts/mutation-testing                  --story-id <story-id> --report-dir <invocation-worktree>/.current-work/mutation-testing
 ```
+
+The four gates are `crap-score`, `mutation-testing`, `test-design-verify`, and `dependency-check`. The `mutation-testing` script runs the command in `gates.mutation_testing.command` from the story's worktree. Run it in the background (`run_in_background: true`), because a foreground Bash call ends after 10 minutes. Wait for its exit notice. The script enforces `gates.mutation_testing.timeout_minutes`, 30 when unset: at the limit it stops the command and its process group and writes a failing result. Set no limit of your own. Without a command, the gate fails and names the test-strategy agent.
 
 The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 

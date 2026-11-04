@@ -782,3 +782,63 @@ class TestSt0358PlanningAgentReadsQaFindings:
             "reads each open `QA` finding with `owner: planning-agent`" in text
         )
         assert "adds the missing test to a story that names the finding" in text
+
+
+# --- ST-0365: the four gates in automated and manual mode -----------------
+
+DEVELOPER_AGENT = AGENTS / "developer-agent.md"
+FOUR_GATES = ["crap-score", "mutation-testing", "test-design-verify", "dependency-check"]
+MUTATION_SCRIPT = ".agent-factory/factory/scripts/mutation-testing"
+
+
+def _gate_check_loop() -> str:
+    text = IMPLEMENTATION_AGENT.read_text(encoding="utf-8")
+    match = re.search(r"^### Gate-Check Loop\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    assert match, "section '### Gate-Check Loop' missing"
+    return _flat(match.group(1))
+
+
+def _run_the_gates_step() -> str:
+    workflow = _section(DEVELOPER_AGENT.read_text(encoding="utf-8"), "Workflow")
+    match = re.search(
+        r"^\d+\. \*\*Run the gates\*\*.*?(?=^\d+\. \*\*|^\*\*Pause point|\Z)",
+        workflow,
+        re.M | re.S,
+    )
+    assert match, "no step 'Run the gates'"
+    return _flat(match.group(0))
+
+
+@pytest.mark.spec("CAO-11-LN-01")
+class TestSt0365FourGatesInBothModes:
+    """CAO-11-LN-01: the gate section and the manual-mode step name the four gates."""
+
+    @pytest.mark.parametrize("gate", FOUR_GATES)
+    def test_st_0365_gate_section_names_the_gate(self, gate):
+        assert f"`{gate}`" in _gate_check_loop()
+
+    def test_st_0365_gate_section_runs_the_mutation_script_in_the_background(self):
+        section = _gate_check_loop()
+        assert MUTATION_SCRIPT in section
+        assert "in the background" in section
+        assert "`gates.mutation_testing.timeout_minutes`, 30 when unset" in section
+        assert "Set no limit of your own" in section
+        assert "names the test-strategy agent" in section
+
+    def test_st_0365_gate_section_hands_manual_mode_to_the_developer_agent(self):
+        section = _gate_check_loop()
+        assert "In manual mode, the developer agent runs the same gates" in section
+        assert "replaces the mechanized gate-check loop" not in section
+
+    def test_st_0365_mutation_script_is_a_context_input(self):
+        assert MUTATION_SCRIPT in _frontmatter(IMPLEMENTATION_AGENT)["inputs"]["context"]
+
+    @pytest.mark.parametrize("gate", FOUR_GATES)
+    def test_st_0365_manual_mode_step_names_the_gate(self, gate):
+        assert f"`{gate}`" in _run_the_gates_step()
+
+    def test_st_0365_manual_mode_step_runs_before_the_handback(self):
+        step = _run_the_gates_step()
+        assert "Manual mode only (`--no-stage --no-commit`)" in step
+        assert "Before you hand the story back" in step
+        assert "Run `mutation-testing` in the background" in step

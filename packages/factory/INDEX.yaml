@@ -167,8 +167,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 1975
-    total_tokens: 5057
+    tokens: 2220
+    total_tokens: 5302
     inputs:
       required:
         - type: feature
@@ -251,8 +251,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 4240
-    total_tokens: 13249
+    tokens: 4478
+    total_tokens: 13487
     inputs:
       required:
         - type: story
@@ -273,6 +273,7 @@ agents:
         - .agent-factory/factory/scripts/crap-score
         - .agent-factory/factory/scripts/dependency-check
         - .agent-factory/factory/scripts/test-design-verify
+        - .agent-factory/factory/scripts/mutation-testing
     outputs:
       minimum_changed: 1
       declarations:
@@ -1000,7 +1001,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15571
+    total_tokens: 15816
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1012,7 +1013,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 46700
+    total_tokens: 46938
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1029,7 +1030,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 101086
+    total_tokens: 101324
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1047,7 +1048,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 100454
+    total_tokens: 100692
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1063,7 +1064,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 16074
+    total_tokens: 16319
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
