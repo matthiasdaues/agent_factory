@@ -58,8 +58,8 @@ The layout stories ST-0325 to ST-0345 are all `done`, so the order of [DEC-05](.
 
 Decided by the stakeholder on 2026-11-04. These run after the last wave, before `feature/core-artifact-ownership` merges into `dev`:
 
-1. **Cleanup pass:** each open spec-feedback row in the stories of this backlog goes to its owner, who fixes it; the reviewer sets `confirmed` or `rejected` (BR-061). This includes the stale anchor in `state-machine-notation.md` (ST-0353 row 3).
-2. **Acceptance runs with the stakeholder present:** CAO-04-AC-01, the domain-modeling agent's first run on the factory, and CAO-10-AC-01, the test-strategy agent's first run. One session for both.
+1. **Cleanup pass:** each open spec-feedback row in the stories of this backlog goes to its owner, who fixes it; the reviewer sets `confirmed` or `rejected` (BR-061). This includes the stale anchor in `state-machine-notation.md` (ST-0353 row 3) and the wording of `implement-issue` Step 5, which still says the developer updates the specification. First move the rows that waves 1 to 5 wrote into story files into `docs/spec/work/spec-feedback-<story-id>.md`, where `close-wave` reads them after ST-0361.
+2. **Acceptance runs with the stakeholder present:** CAO-04-AC-01, the domain-modeling agent's first run on the factory, CAO-10-AC-01, the test-strategy agent's first run, and CAO-05-AC-01, the confirmation of one area's terms (ST-0351). One session for all three, together with the skipped demos of ST-0349, ST-0350 and ST-0354.
 
 ## E1: Check every core artifact's producer and review
 
