@@ -25,7 +25,6 @@ FACTORY = REPO_ROOT / "packages" / "factory"
 # removes it. The list is strict: a listed entry that passes fails the test.
 # No story adds an entry.
 EXPECTED_FAILURES = {
-    "docs/spec/schemas/*": "ST-0348",
     "docs/spec/dependency-rules.dsl": "ST-0353",
     "docs/testing.yaml": "ST-0357",
     "docs/spec/scope-map.md": "ST-0363",

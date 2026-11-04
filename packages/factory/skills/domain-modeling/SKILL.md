@@ -13,7 +13,7 @@ Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and ho
 
 ## Domain awareness
 
-During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/conventions/context-format.md) for the glossary format and for the domain concerns in `docs/agent-context.md` that name the bounded contexts. Create `docs/spec/glossary.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed.
+During codebase exploration, also look for existing documentation. See [context-format.md](../../rulebooks/conventions/context-format.md) for the glossary format and for the domain concerns in `docs/agent-context.md` that name the bounded contexts. Create `docs/spec/glossary.md` and `docs/adr/` lazily — only when the first term or ADR is actually needed. The domain-modeling agent is the exception: it writes `docs/spec/glossary.md` on every run, even when the file holds no term yet.
 
 Once you identify the repository as multi-context, prompt the user immediately with a single checklist covering all artifact classes the split affects: docs/, backlog/, the domain concerns in `docs/agent-context.md`, the sections of `docs/spec/glossary.md`, README, and `docs/adr/`. Do this in one pass rather than surfacing each artifact class as a separate follow-up round. Refer to [context-format.md](../../rulebooks/conventions/context-format.md) for the file layout structure.
 
@@ -45,6 +45,22 @@ When a term is settled, write it to `docs/spec/glossary.md` right there — don'
 - Format via `scripts/mdformat --number docs/spec/glossary.md` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 `docs/spec/glossary.md` holds terms only — no implementation details, no spec content, no scratch notes.
+
+### State machine step
+
+The domain-modeling agent runs this step for each entity with a lifecycle. Write the state machine in `docs/spec/state-machines.md` per [state-machine-notation.md](../../rulebooks/conventions/state-machine-notation.md), using the [state machine template](../../rulebooks/templates/state-machine.md).
+
+- Write the pseudocode first. Derive the Mermaid `stateDiagram-v2` diagram from it, one edge per `ChangeState(X)`.
+- Run `.agent-factory/factory/scripts/statemachine-lint docs/spec/state-machines.md`. Fix the pseudocode or the diagram until the check passes.
+- When no entity has a lifecycle, write no `state-machines.md`.
+
+### Schema step
+
+The domain-modeling agent runs this step for each payload column with inner structure in `docs/spec/entity-model.md`, such as a JSON column.
+
+- Write one JSON Schema file per column: `docs/spec/schemas/<entity>-<column>.json`, in lowercase kebab case.
+- Link the schema file from the column's row in the entity model.
+- When no column has inner structure, write no `docs/spec/schemas/` folder.
 
 ### Offer ADRs sparingly
 
