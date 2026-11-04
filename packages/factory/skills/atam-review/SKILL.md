@@ -27,6 +27,21 @@ Read every finding. `error`-severity findings are hard defects — they go into 
 
 **Completion**: linter run, exit code and all findings recorded.
 
+## Step 1b — Check the dependency rules against the component view
+
+`docs/spec/dependency-rules.dsl` holds one rule per line in the form `<source> must_not_depend_on <target>`. The architecture agent derives the rules from the components in `docs/spec/architecture.dsl`, so every rule must fit the component view. `arch-lint` reads the components but not their relationships, so this step reads the view itself.
+
+When `docs/spec/dependency-rules.dsl` does not exist, skip this step and write "Rules check: skipped, no `dependency-rules.dsl`" in the report. A migrated project may lack the file, so its absence is no finding.
+
+1. Read the component view of `docs/spec/architecture.dsl`: every container and component, with its identifier and its name, and every relationship between them.
+2. For each rule, match `<source>` and `<target>` to a container or component by its identifier or its name.
+3. A rule that names a module the component view lacks is a mismatch. So is a rule that forbids a dependency the component view draws as a relationship.
+4. File each mismatch as `docs/findings/ATAM-NNNN.md` with `owner: architecture-agent`, per [finding-format.md](../../rulebooks/conventions/finding-format.md), whatever its severity. Name the rule and the component view.
+
+Take a case. The component view has the components `payments` and `api`. The rules file has the rule `ledger must_not_depend_on payments`. The view has no `ledger`, so the review files `ATAM-0001.md` with `owner: architecture-agent`. The finding names the rule and the component view.
+
+**Completion**: every rule matched or filed as a mismatch, or the step recorded as skipped.
+
 ## Step 2 — Collect quality scenarios
 
 Read `docs/arc42/10_quality_requirements.md`. Extract every quality attribute scenario. If the chapter doesn't exist yet, ask the user to define the top 5 quality goals before proceeding.
@@ -45,10 +60,11 @@ Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/con
 
 1. **Reviewed architecture** — chapters and DSL examined; `arch-lint` summary (error/warning/info counts + exit code).
 2. **Deterministic findings** — Pass-1 table, each row Confirmed or Dismissed.
-3. **Quality scenarios** — the list from step 2.
-4. **Findings** — one subsection per scenario with the four assessments.
-5. **Risk summary** — table of risks with severity and proposed mitigation.
-6. **Tradeoff summary** — table of identified tradeoffs.
+3. **Rules check** — the mismatches from Step 1b with their finding IDs, "no mismatch", or "skipped, no `dependency-rules.dsl`".
+4. **Quality scenarios** — the list from step 2.
+5. **Findings** — one subsection per scenario with the four assessments.
+6. **Risk summary** — table of risks with severity and proposed mitigation.
+7. **Tradeoff summary** — table of identified tradeoffs.
 
 File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `ATAM` for risks rated Medium or higher.
 
@@ -56,4 +72,4 @@ Format both the report and any finding files via `.agent-factory/factory/scripts
 
 ## Step 5 — Verify prior findings (repeat passes only)
 
-Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): resolve or annotate each open `ATAM` finding, **and** re-run Steps 1-3 fresh against the full architecture — not just the prior findings list — to catch new defects.
+Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): resolve or annotate each open `ATAM` finding, **and** re-run Steps 1, 1b, 2, and 3 fresh against the full architecture — not just the prior findings list — to catch new defects.

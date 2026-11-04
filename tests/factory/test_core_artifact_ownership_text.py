@@ -506,3 +506,74 @@ class TestSt0349RequirementsAgentKeepsScopeAndBehaviour:
     def test_st_0349_spec_review_reads_the_area_specs(self):
         context = _frontmatter(SPEC_REVIEW_AGENT)["inputs"]["context"]
         assert "docs/spec/areas/*.md" in context
+
+
+ARCHITECTURE_REVIEW_AGENT = AGENTS / "architecture-review-agent.md"
+ATAM_REVIEW = SKILLS / "atam-review" / "SKILL.md"
+
+
+def _rules_check() -> str:
+    text = ATAM_REVIEW.read_text(encoding="utf-8")
+    match = re.search(
+        r"^## Step 1b — Check the dependency rules against the component view\n"
+        r"(.*?)(?=^## |\Z)",
+        text,
+        re.M | re.S,
+    )
+    assert match, "no Step 1b rules check"
+    return _flat(match.group(1))
+
+
+@pytest.mark.spec("CAO-09-LN-01")
+class TestSt0354ArchitectureReviewChecksTheDependencyRules:
+    """CAO-09-LN-01: context input, the atam-review rules check, optional rules file."""
+
+    def test_st_0354_rules_file_is_a_context_input(self):
+        agent = _frontmatter(ARCHITECTURE_REVIEW_AGENT)
+        assert DEPENDENCY_RULES in agent["inputs"]["context"]
+        required = {r["path_pattern"] for r in agent["inputs"]["required"]}
+        assert DEPENDENCY_RULES not in required
+
+    def test_st_0354_core_list_marks_rules_file_optional(self):
+        import yaml
+
+        entries = yaml.safe_load(CORE_LIST.read_text(encoding="utf-8"))["entries"]
+        (entry,) = [e for e in entries if e["path_pattern"] == DEPENDENCY_RULES]
+        assert entry["optional"] is True
+
+    def test_st_0354_rules_check_reads_the_component_view(self):
+        step = _rules_check()
+        assert "component view of `docs/spec/architecture.dsl`" in step
+        assert "every relationship between them" in step
+
+    def test_st_0354_unknown_component_is_a_mismatch(self):
+        assert (
+            "A rule that names a module the component view lacks is a mismatch."
+            in _rules_check()
+        )
+
+    def test_st_0354_forbidden_relationship_is_a_mismatch(self):
+        assert (
+            "So is a rule that forbids a dependency the component view draws "
+            "as a relationship." in _rules_check()
+        )
+
+    def test_st_0354_mismatch_files_atam_finding_for_the_architecture_agent(self):
+        step = _rules_check()
+        assert "`docs/findings/ATAM-NNNN.md`" in step
+        assert "`owner: architecture-agent`" in step
+        assert "Name the rule and the component view." in step
+
+    def test_st_0354_rules_check_skipped_without_rules_file(self):
+        step = _rules_check()
+        assert (
+            "When `docs/spec/dependency-rules.dsl` does not exist, skip this step"
+            in step
+        )
+        assert "Rules check: skipped" in step
+
+    def test_st_0354_report_carries_the_rules_check(self):
+        report = _flat(
+            _section(ATAM_REVIEW.read_text(encoding="utf-8"), "Step 4 — Write the review report")
+        )
+        assert "**Rules check**" in report
