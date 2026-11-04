@@ -20,6 +20,7 @@ inputs:
   context:
     - docs/agent-context.md
     - docs/testing.yaml
+    - "docs/findings/QA-*.md"
 outputs:
   minimum_changed: 1
   declarations:
@@ -61,6 +62,10 @@ Read `docs/agent-context.md` in full. As a pre-backlog agent, the planning agent
 Verify that `testing.yaml` exists (at `docs/testing.yaml`) and contains at least one suite. If it is missing or empty, stop the pre-flight and tell the user to run the test-strategy-agent first, because that agent owns `docs/testing.yaml`. The planning agent needs suite information to map acceptance criteria to existing tests and to pick the right suite for new ones.
 
 Read the document at `testing_strategy:` in `testing.yaml` for test budgets, cluster assignments, and how to populate each story's `tests:` field.
+
+### QA findings with a missing test
+
+The planning agent reads each open `QA` finding with `owner: planning-agent` in `docs/findings/QA-*.md`. The test-strategy agent recorded in it which test is missing. The planning agent adds the missing test to a story that names the finding, such as a story of the same EPIC. The finding stays `open`; it becomes `resolved` when that story merges.
 
 ### Backlog phases
 
