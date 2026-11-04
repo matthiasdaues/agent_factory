@@ -5,7 +5,7 @@ title: Manual Mode Gates
 status: draft
 owner: agent-factory
 created: 2026-11-03
-updated: 2026-11-03
+updated: 2026-11-04
 supersedes:
 
 impact:
@@ -48,7 +48,7 @@ The primer is written last, by the `write-primer` skill, once the design is sett
 
 ## Summary
 
-In manual mode, the human names a story branch, which is cut from dev, and the developer agent hands it back finished. On that branch the agent implements, gets a code review, fixes the findings, and passes the slow gates. Only then does the human review the branch and merge it into dev. The same quality gates hold as in automated mode, and a mechanism enforces them. The fast gates run as pre-commit hooks on every commit. The slow gates run in a story-close check. A hook refuses the commit that sets a story to `done` until that check has passed and no finding for the story is open. The first release covers `crap-score`, `dependency-check`, `test-design-verify`, and mutation testing.
+In manual mode, the human names a story branch, which is cut from dev, and the developer agent hands it back finished. On that branch the agent implements, gets a code review, fixes the findings, and passes the slow gates. Only then does the human review the branch and merge it into dev. The same quality gates hold as in automated mode, and a mechanism enforces them. The fast gates run as pre-commit hooks on every commit. The slow gates run in a story-close check. A hook runs that check on the commit that sets a story to `done`, and refuses the commit if a gate fails or a finding for the story is open. The first release covers `crap-score`, `dependency-check`, `test-design-verify`, and mutation testing.
 
 ## Motivation
 
@@ -75,8 +75,8 @@ On that branch, the developer agent works through a fixed sequence and commits a
 1. Implement the story with TDD and commit.
 2. Run the code-review agent on the branch diff. Each finding becomes a file under `docs/findings/` with a `story` field.
 3. Fix each open finding, commit, and get a repeat review until no finding for the story is open.
-4. Run `story-gates` for the story, which runs `crap-score`, mutation testing, and `test-design-verify`.
-5. Set the story's `status` to `done` in the last commit, and hand the branch back.
+4. Run `story-gates` for the story, which runs `crap-score`, mutation testing, and `test-design-verify`, and fix what it reports.
+5. Set the story's `status` to `done` in the last commit, and hand the branch back. The `story-done-gate` hook runs `story-gates` again on this commit.
 
 The story is done when step 5 succeeds, not when the developer agent stops writing code. The handback names the branch, its head commit, the findings and their resolution, and the gate results. The human then reviews the branch and merges it into dev.
 
@@ -114,11 +114,13 @@ The hooks run in both modes. In automated mode they also run on the developer ag
 
 ### Slow gates in a story-close check
 
-A new script, `packages/factory/scripts/story-gates`, runs the slow gates for one story: `crap-score`, mutation testing through the project's command in `gates.mutation_testing.command`, and `test-design-verify` against the story file. It also checks that no finding for the story is open. Mutation testing runs for every story, limited to the source files the story branch changes against dev (DEC-11). `story-gates` passes that file list to the mutation command, so the cost grows with the size of the diff. On a pass, it writes the marker `.current-work/story-gates/<story-id>.ok`, with the commit it checked.
+A new script, `packages/factory/scripts/story-gates`, runs the slow gates for one story: `crap-score`, mutation testing through the project's command in `gates.mutation_testing.command`, and `test-design-verify` against the story file. It also checks that no finding for the story is open. Mutation testing runs for every story, limited to the source files the story branch changes against dev (DEC-11). `story-gates` passes that file list to the mutation command, so the cost grows with the size of the diff. It prints each gate's result and exits non-zero when a gate fails. It writes no marker of its own.
 
-A new hook, `story-done-gate`, watches staged story files. When a commit sets a story's `status` to `done`, the hook requires a marker for that story whose commit is the parent of the commit being made. Without such a marker, the hook refuses the commit and names `story-gates`.
+`story-gates` is the one place that runs a story's semantic gates, in both modes (DEC-14). It resolves the gate list as the gate-check loop in [implementation-agent.md § Gate-Check Loop](../../packages/factory/agents/implementation-agent.md#gate-check-loop) does today: the story's `quality-gates` field, then `testing.yaml`, then the Factory default. The gate-check loop calls `story-gates` instead of each gate script, so a new gate is added in one place. The gate scripts keep writing their reports to `.current-work/<gate-name>/<story-id>.json`, which the loop and `premerge-check` read.
 
-In manual mode, the developer agent runs `story-gates` before it sets the story to `done`. In automated mode, `merge-story` sets `status: done` after the gate-check loop has passed, so the dispatcher writes the marker itself.
+A new hook, `story-done-gate`, watches staged story files. When a commit sets a story's `status` to `done`, the hook runs `story-gates` for that story. If `story-gates` fails, the hook refuses the commit and shows its output. So the slow gates run exactly where the story closes, and no earlier result has to be trusted (DEC-13). The cost is one slow commit per story. The developer agent runs `story-gates` once before that commit, so the closing commit rarely fails.
+
+The hook applies only while no dispatch ledger exists, the same check the guardrail uses (DEC-09). In automated mode, `merge-story` sets `status: done` after the dispatcher's gate-check loop has passed, and the hook stays out of the way. How a later step can trust a gate result without rerunning it is the subject of [gate-evidence.md](gate-evidence.md).
 
 ### Relation to the ownership proposal
 
@@ -129,8 +131,8 @@ This proposal replaces DEC-23's "the developer agent runs them before it hands a
 **In the first release:**
 
 - The hooks `dependency-check` and `crap-score`, and the coverage report of `run-tests`.
-- The script `story-gates` and its marker.
-- The hook `story-done-gate`.
+- The script `story-gates`, and the gate-check loop calling it instead of each gate script.
+- The hook `story-done-gate`, which runs `story-gates` in manual mode.
 - The manual-mode story flow in the implementation agent and the developer agent, with commits on the story branch and the handback contents.
 - The manual-mode section of the branching policy: one branch per story from dev, cut by the human or by the implementation agent under the name the human gives.
 - The split of the git guardrail into checks that always apply and dispatch-workflow checks that apply while a dispatch ledger exists.
@@ -142,6 +144,7 @@ This proposal replaces DEC-23's "the developer agent runs them before it hands a
 - **The rule that decides which findings must be fixed.** A separate proposal covers it for every review loop, with quantifiable measures such as a failure case and an expected cost.
 - **The command that closes a whole dispatch.** It is [T-0014](../spec/work/todo.md) and concerns automated mode.
 - **Gates for documents.** YAML and prose gates are a separate concern.
+- **Trusted gate results.** A receipt that lets a later step skip a gate is the subject of [gate-evidence.md](gate-evidence.md). Until it is settled, `story-done-gate` reruns the gates.
 
 ## Design Details
 
@@ -149,16 +152,17 @@ This proposal replaces DEC-23's "the developer agent runs them before it hands a
 
 ## Open Questions
 
-- **Which commit does the marker name?** The parent of the closing commit is strict: any change after `story-gates` forces a rerun. A looser rule would accept changes to the story file alone.
-- **Does `story-gates` replace part of the automated gate-check loop?** The loop could call the same script, so both modes share one implementation.
+None.
 
 ## Completion Criteria
 
 - A commit in manual mode that adds a function above the CRAP threshold fails in the `crap-score` hook.
 - The time that coverage adds to the `run-tests` hook is measured and stated in `testing.yaml` before the `crap-score` hook ships.
 - A commit that breaks a rule of `dependency-rules.dsl` fails in the `dependency-check` hook.
-- A commit that sets a story to `done` without a matching `story-gates` marker fails in the `story-done-gate` hook and names `story-gates`.
-- `story-gates <story-id>` runs `crap-score`, mutation testing, and `test-design-verify`, and writes the marker only when all three pass and no finding for the story is open.
+- With no dispatch ledger, a commit that sets a story to `done` while one of its mutants survives fails in the `story-done-gate` hook and shows the `story-gates` output.
+- With a dispatch ledger, the `story-done-gate` hook does not run `story-gates`.
+- `story-gates <story-id>` runs `crap-score`, mutation testing, and `test-design-verify`, exits zero only when all three pass and no finding for the story is open, and writes no marker of its own.
+- The gate-check loop in `implementation-agent.md` runs the semantic gates through `story-gates` and calls no gate script directly.
 - `story-gates <story-id>` mutates only the source files that the story branch changes against dev.
 - `story-gates <story-id>` fails and names the finding when a finding with `story: <story-id>` has `status: open`.
 - In manual mode, the developer agent hands back a story branch whose last commit sets the story to `done`, and the handback names the branch head, the findings, and the gate results.
@@ -171,20 +175,22 @@ This proposal replaces DEC-23's "the developer agent runs them before it hands a
 
 ## Decisions
 
-| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                     | Raised by                                                              |
-| ------ | ---------- | ---------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| DEC-01 | 2026-11-03 | decision   | stakeholder | Manual mode gets the same quality gates as automated mode: the fast gates as pre-commit hooks, the slow ones in a story-close check.                                         | project truth map, page 4                                              |
-| DEC-02 | 2026-11-03 | decision   | stakeholder | The change gets its own proposal, separate from the accepted core-artifact-ownership proposal.                                                                               | process question                                                       |
-| DEC-03 | 2026-11-03 | assumption | author      | A hook enforces the story-close check by requiring a marker before a story can be set to `done`, as `premerge-check-ok` does for merges.                                     | stakeholder rule: enforcement over prose                               |
-| DEC-04 | 2026-11-03 | decision   | stakeholder | In manual mode, the developer agent commits on the story branch. The story is done after review, fixes, `crap-score`, and mutation testing, not when the agent stops coding. | [review-scrapbook.md](../../poc/workflow/review-scrapbook.md) FAULT-02 |
-| DEC-05 | 2026-11-03 | decision   | stakeholder | The human cuts each story branch directly from dev. Manual mode has no invocation branch and no ledger, so the branching rules of the two modes stay separate.               | [review-scrapbook.md](../../poc/workflow/review-scrapbook.md) FAULT-02 |
-| DEC-06 | 2026-11-03 | decision   | stakeholder | The rule that decides which findings must be fixed gets its own proposal, because it applies to every review loop.                                                           | [review-scrapbook.md](../../poc/workflow/review-scrapbook.md) BAD-04   |
-| DEC-07 | 2026-11-03 | assumption | author      | A gate can find a story's findings only through a `story` field in the finding file.                                                                                         | finding files carry no story reference                                 |
-| DEC-08 | 2026-11-03 | decision   | stakeholder | Refines DEC-05: the implementation agent may cut the story branch when the human names it in the prompt.                                                                     | stakeholder, after DEC-05                                              |
-| DEC-09 | 2026-11-03 | decision   | stakeholder | The guardrail applies its dispatch-workflow checks only while a dispatch ledger exists. It does not check the branch name the human gave.                                    | guardrail has no mode check                                            |
-| DEC-10 | 2026-11-03 | decision   | stakeholder | Indexed artifacts of a story are committed on the story branch. Unique IDs come from the counter of counter-ids.md, not from a dev-only rule.                                | indexed-artifacts question                                             |
-| DEC-11 | 2026-11-03 | decision   | stakeholder | Every story runs mutation testing, limited to the files the story changes. No risk tier decides it.                                                                          | mutation-testing question                                              |
-| DEC-12 | 2026-11-03 | decision   | stakeholder | `crap-score` runs both as a hook and in `story-gates`. The suite already runs per commit in about 86 seconds, so the hook adds only the coverage cost.                       | hook speed question                                                    |
+| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                                                                                 | Raised by                                                              |
+| ------ | ---------- | ---------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| DEC-01 | 2026-11-03 | decision   | stakeholder | Manual mode gets the same quality gates as automated mode: the fast gates as pre-commit hooks, the slow ones in a story-close check.                                                                                                     | project truth map, page 4                                              |
+| DEC-02 | 2026-11-03 | decision   | stakeholder | The change gets its own proposal, separate from the accepted core-artifact-ownership proposal.                                                                                                                                           | process question                                                       |
+| DEC-03 | 2026-11-03 | assumption | author      | A hook enforces the story-close check by requiring a marker before a story can be set to `done`, as `premerge-check-ok` does for merges.                                                                                                 | stakeholder rule: enforcement over prose                               |
+| DEC-04 | 2026-11-03 | decision   | stakeholder | In manual mode, the developer agent commits on the story branch. The story is done after review, fixes, `crap-score`, and mutation testing, not when the agent stops coding.                                                             | [review-scrapbook.md](../../poc/workflow/review-scrapbook.md) FAULT-02 |
+| DEC-05 | 2026-11-03 | decision   | stakeholder | The human cuts each story branch directly from dev. Manual mode has no invocation branch and no ledger, so the branching rules of the two modes stay separate.                                                                           | [review-scrapbook.md](../../poc/workflow/review-scrapbook.md) FAULT-02 |
+| DEC-06 | 2026-11-03 | decision   | stakeholder | The rule that decides which findings must be fixed gets its own proposal, because it applies to every review loop.                                                                                                                       | [review-scrapbook.md](../../poc/workflow/review-scrapbook.md) BAD-04   |
+| DEC-07 | 2026-11-03 | assumption | author      | A gate can find a story's findings only through a `story` field in the finding file.                                                                                                                                                     | finding files carry no story reference                                 |
+| DEC-08 | 2026-11-03 | decision   | stakeholder | Refines DEC-05: the implementation agent may cut the story branch when the human names it in the prompt.                                                                                                                                 | stakeholder, after DEC-05                                              |
+| DEC-09 | 2026-11-03 | decision   | stakeholder | The guardrail applies its dispatch-workflow checks only while a dispatch ledger exists. It does not check the branch name the human gave.                                                                                                | guardrail has no mode check                                            |
+| DEC-10 | 2026-11-03 | decision   | stakeholder | Indexed artifacts of a story are committed on the story branch. Unique IDs come from the counter of counter-ids.md, not from a dev-only rule.                                                                                            | indexed-artifacts question                                             |
+| DEC-11 | 2026-11-03 | decision   | stakeholder | Every story runs mutation testing, limited to the files the story changes. No risk tier decides it.                                                                                                                                      | mutation-testing question                                              |
+| DEC-12 | 2026-11-03 | decision   | stakeholder | `crap-score` runs both as a hook and in `story-gates`. The suite already runs per commit in about 86 seconds, so the hook adds only the coverage cost.                                                                                   | hook speed question                                                    |
+| DEC-13 | 2026-11-04 | decision   | stakeholder | Provisional, replaces DEC-03: `story-done-gate` reruns `story-gates` instead of trusting a marker, because an untracked marker can be forged and reviewers cannot see it. [gate-evidence.md](gate-evidence.md) settles the general rule. | open item on the marker commit                                         |
+| DEC-14 | 2026-11-04 | decision   | stakeholder | The automated gate-check loop calls `story-gates`, so both modes run the semantic gates through one script.                                                                                                                              | open question on the gate-check loop                                   |
 
 ## Review findings
 
