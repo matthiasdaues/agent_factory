@@ -278,8 +278,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 4753
-    total_tokens: 14222
+    tokens: 4733
+    total_tokens: 14202
     inputs:
       required:
         - type: story
@@ -310,9 +310,6 @@ agents:
         - path_pattern: tests/**/*
           validator: ""
           required: true
-        - path_pattern: docs/adr/*.md
-          validator: ""
-          required: false
         - path_pattern: docs/findings/QA-*.md
           validator: ""
           required: false
@@ -614,7 +611,7 @@ agents:
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
     tokens: 931
-    total_tokens: 5449
+    total_tokens: 5481
     inputs:
       required:
         - type: feature
@@ -766,7 +763,7 @@ skills:
     category: requirements
     description: Two-pass specification review — deterministic spec-lint then LLM semantic inspection. Files findings as local markdown files.
     path: skills/inspect-spec/SKILL.md
-    tokens: 1375
+    tokens: 1407
   - name: qa-strategy-from-spec
     category: requirements
     description: Derive a per-feature QA strategy document from a consolidated .feature file, supplementary specs, testing.yaml layer bindings, and repository test infrastructure.
@@ -1058,7 +1055,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 57525
+    total_tokens: 57557
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1080,7 +1077,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 49012
+    total_tokens: 49024
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1097,7 +1094,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 103535
+    total_tokens: 103547
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1115,7 +1112,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 102903
+    total_tokens: 102915
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

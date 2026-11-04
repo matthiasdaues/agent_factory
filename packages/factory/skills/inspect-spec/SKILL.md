@@ -55,7 +55,7 @@ Compare the terms of `docs/spec/glossary.md` with the words the feature files an
 - **Term not defined.** A feature file or a structure file uses a domain term that the glossary does not define.
 - **Avoided term in use.** A feature file or a structure file uses a word that the Avoid column of a glossary term names.
 
-File each defect as a Major `SPEC` finding with `owner: domain-modeling-agent`. The domain-modeling agent is the one producer of the glossary, so it fixes the defect. `spec-lint` rule `GLOSS001` already reports a glossary term that no file uses. Do not report an unused term again.
+File each defect as a Minor `SPEC` finding with `owner: domain-modeling-agent`. File it even though Minor findings usually stay in the review report, so the owner receives it. It does not block: the blocking glossary gate stays deferred. The domain-modeling agent is the one producer of the glossary, so it fixes the defect. `spec-lint` rule `GLOSS001` already reports a glossary term that no file uses. Do not report an unused term again.
 
 ### Check the term candidates
 

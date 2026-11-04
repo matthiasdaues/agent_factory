@@ -40,9 +40,6 @@ outputs:
     - path_pattern: "tests/**/*"
       validator:
       required: true
-    - path_pattern: "docs/adr/*.md"
-      validator:
-      required: false
     - path_pattern: "docs/findings/QA-*.md"
       validator:
       required: false
