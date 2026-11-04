@@ -60,6 +60,8 @@ entries:
     sample_path: docs/agent-context.md
     family: seam
     optional: false
+  # Producer: the test-strategy agent. init-factory may create a first
+  # draft when the file is missing (CAO-G30); it is not an agent output.
   - path_pattern: docs/testing.yaml
     sample_path: docs/testing.yaml
     family: seam

@@ -54,6 +54,13 @@ The layout stories ST-0325 to ST-0345 are all `done`, so the order of [DEC-05](.
 - Tests carry `@pytest.mark.spec("CAO-NN")` and their layer marker. The first story with a test adds `CAO-*` to the `spec` marker description in `pyproject.toml`.
 - Completion criteria are numbered CC-01 to CC-31 in the order of the proposal's [Completion Criteria](../docs/proposals/core-artifact-ownership.md#completion-criteria).
 
+## Before the merge into dev
+
+Decided by the stakeholder on 2026-11-04. These run after the last wave, before `feature/core-artifact-ownership` merges into `dev`:
+
+1. **Cleanup pass:** each open spec-feedback row in the stories of this backlog goes to its owner, who fixes it; the reviewer sets `confirmed` or `rejected` (BR-061). This includes the stale anchor in `state-machine-notation.md` (ST-0353 row 3).
+2. **Acceptance runs with the stakeholder present:** CAO-04-AC-01, the domain-modeling agent's first run on the factory, and CAO-10-AC-01, the test-strategy agent's first run. One session for both.
+
 ## E1: Check every core artifact's producer and review
 
 ### Why this EPIC exists

@@ -240,6 +240,13 @@ The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendatio
 - **Decision (stakeholder, 2026-11-04):** A second run on the same day writes `reconciliation-<date>-2.md`, a third `-3`, and so on. The reports sort by date first, then by suffix. The file without a suffix is run 1.
 - **Settles:** The [report path](../interface-contracts.md#report-rows-spec-feedback-and-reconciliation) and CAO-15.
 
+### CAO-G30: May `init-factory` write `docs/testing.yaml`?
+
+- **Case:** The test-strategy agent owns `docs/testing.yaml`, and every change waits for the stakeholder (DEC-31). `init-factory` creates the file at install when it is missing and the scan finds exactly one test command ([ST-0357](../../../backlog/ST-0357.md)). With several commands it asks; it never overwrites the file.
+- **Options:** Accept the write as a first draft. Or `init-factory` only reports the command and the test-strategy agent writes the file, which needs a story, and `dispatch init` cannot run before the agent has.
+- **Decision (stakeholder, 2026-11-04):** Accept it. `init-factory` may create `docs/testing.yaml` once, only when the file is missing and the command is unambiguous. It is the only writer besides the test-strategy agent. The stakeholder confirms the draft in the fitting step "Test regime".
+- **Settles:** The [`init-factory` contract](../interface-contracts.md#factoryscriptsinit-factory) and the `docs/testing.yaml` entry of the core list.
+
 ## Ambiguous Wording
 
 | ID      | Location                                                       | Text                                                       | Issue                                                                                                         | Disposition                                                                                                |
