@@ -167,8 +167,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 2220
-    total_tokens: 5302
+    tokens: 2309
+    total_tokens: 5715
     inputs:
       required:
         - type: feature
@@ -194,10 +194,13 @@ agents:
         - path_pattern: tests/**/*
           validator: ""
           required: true
-        - path_pattern: docs/spec/**/*.md
+        - path_pattern: docs/spec/work/spec-feedback-*.md
           validator: ""
           required: false
         - path_pattern: docs/adr/*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/findings/QA-*.md
           validator: ""
           required: false
   - name: domain-modeling-agent
@@ -254,8 +257,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 4478
-    total_tokens: 13487
+    tokens: 4459
+    total_tokens: 13468
     inputs:
       required:
         - type: story
@@ -286,9 +289,6 @@ agents:
         - path_pattern: tests/**/*
           validator: ""
           required: true
-        - path_pattern: docs/spec/**/*.md
-          validator: ""
-          required: false
         - path_pattern: docs/adr/*.md
           validator: ""
           required: false
@@ -826,9 +826,9 @@ skills:
     tokens: 978
   - name: spec-feedback
     category: implementation
-    description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
+    description: Check whether specification or architecture drifted after implementation reveals gaps, changed rules, or inaccurate contracts, and write each drift as a row of the story's spec-feedback report. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
     path: skills/spec-feedback/SKILL.md
-    tokens: 456
+    tokens: 780
   - name: test-design
     category: implementation
     description: Design and author integration and edge-case tests from implemented code. Invoked by the developer agent post-GREEN on non-.feature-governed stories. Reads ownership assignments from the testability probe, classifies owned contracts by risk class, identifies untested integration paths, and authors test files.
@@ -1010,7 +1010,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 15816
+    total_tokens: 16229
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1022,7 +1022,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 46938
+    total_tokens: 46919
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1039,7 +1039,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 101346
+    total_tokens: 101327
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1057,7 +1057,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 100714
+    total_tokens: 100695
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1073,7 +1073,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 16319
+    total_tokens: 16732
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration

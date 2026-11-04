@@ -974,3 +974,91 @@ class TestSt0351TermsAreConfirmedPerArea:
         assert "no stakeholder is present to answer" in unattended
         assert "skips steps 4 and 5" in unattended
         assert "Each `proposed` row keeps its status" in unattended
+
+
+DEVELOPER_AGENT = AGENTS / "developer-agent.md"
+SPEC_FEEDBACK = SKILLS / "spec-feedback" / "SKILL.md"
+SPEC_FEEDBACK_REPORTS = "docs/spec/work/spec-feedback-*.md"
+SPEC_FEEDBACK_REPORT = "docs/spec/work/spec-feedback-<story-id>.md"
+WIDE_SPEC_PATTERN = "docs/spec/**/*.md"
+DRIFT_WRITERS = [DEVELOPER_AGENT, IMPLEMENTATION_AGENT]
+
+
+def _index_agent(name: str) -> dict:
+    import yaml
+
+    index = yaml.safe_load(
+        (REPO_ROOT / "packages" / "factory" / "INDEX.yaml").read_text(encoding="utf-8")
+    )
+    (agent,) = [a for a in index["agents"] if a["name"] == name]
+    return agent
+
+
+def _spec_feedback_step_2() -> str:
+    return _flat(
+        _section(SPEC_FEEDBACK.read_text(encoding="utf-8"), "Step 2 — Write a row")
+    )
+
+
+@pytest.mark.spec("CAO-13-LN-01")
+class TestSt0360DriftBecomesAReportRow:
+    """CAO-13-LN-01: no specification output, and a row write in Step 2."""
+
+    @pytest.mark.parametrize("path", DRIFT_WRITERS, ids=lambda p: p.stem)
+    def test_st_0360_agent_declares_no_specification_output(self, path):
+        il = load_script("index-lint")
+        patterns = list(_declarations(_frontmatter(path)))
+        assert WIDE_SPEC_PATTERN not in patterns
+        assert not [
+            p for p in patterns if il.pattern_matches(p, "docs/spec/validation-rules.md")
+        ]
+
+    @pytest.mark.parametrize("pattern", [SPEC_FEEDBACK_REPORTS, QA_FINDINGS])
+    def test_st_0360_developer_agent_declares_the_working_output(self, pattern):
+        decl = _declarations(_frontmatter(DEVELOPER_AGENT))[pattern]
+        assert decl["required"] is False
+        assert "reviewed_by" not in decl
+
+    @pytest.mark.parametrize("pattern", [SPEC_FEEDBACK_REPORTS, QA_FINDINGS])
+    def test_st_0360_index_carries_the_working_output(self, pattern):
+        agent = _index_agent("developer-agent")
+        patterns = [d["path_pattern"] for d in agent["outputs"]["declarations"]]
+        assert pattern in patterns
+        assert WIDE_SPEC_PATTERN not in patterns
+
+    def test_st_0360_implementation_agent_declares_no_report(self):
+        patterns = list(_declarations(_frontmatter(IMPLEMENTATION_AGENT)))
+        assert SPEC_FEEDBACK_REPORTS not in patterns
+
+    def test_st_0360_step_2_writes_a_row_into_the_story_report(self):
+        step = _spec_feedback_step_2()
+        assert f"Write each discrepancy as a row of `{SPEC_FEEDBACK_REPORT}`" in step
+        assert "| Artifact | Drift | Evidence | Owner | Status |" in step
+        assert "Set the status to `open`." in step
+
+    def test_st_0360_step_2_names_the_producer_as_owner(self):
+        step = _spec_feedback_step_2()
+        assert "the producer of the artifact" in step
+        assert "`domain-modeling-agent`" in step
+
+    def test_st_0360_step_2_changes_no_specification_file(self):
+        step = _spec_feedback_step_2()
+        assert "Change no specification file." in step
+        text = SPEC_FEEDBACK.read_text(encoding="utf-8")
+        assert "Update the spec file" not in text
+        assert "write-adr" not in text
+
+    def test_st_0360_each_story_has_its_own_report(self):
+        step = _spec_feedback_step_2()
+        assert "Each story has its own report" in step
+        assert "Write only into the report of your own story." in step
+
+    def test_st_0360_harness_mismatch_becomes_a_test_strategy_row(self):
+        step = _workflow_step(DEVELOPER_AGENT, 6)
+        assert "the Owner is `test-strategy-agent`" in step
+        assert "Update the QA strategy" not in step
+
+    def test_st_0360_developer_spec_feedback_step_writes_rows_only(self):
+        step = _workflow_step(DEVELOPER_AGENT, 6)
+        assert "Update docs if needed" not in step
+        assert SPEC_FEEDBACK_REPORT in step

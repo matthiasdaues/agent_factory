@@ -1,12 +1,12 @@
 ---
 name: spec-feedback
-description: Check whether specification or architecture needs updating after implementation reveals gaps, changed rules, or inaccurate contracts. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
+description: Check whether specification or architecture drifted after implementation reveals gaps, changed rules, or inaccurate contracts, and write each drift as a row of the story's spec-feedback report. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
 category: implementation
 ---
 
 # Spec Feedback
 
-After implementing one or more issues, check whether the specification or architecture documentation has drifted from reality. The spec is not throwaway — it remains the authoritative description of system behaviour.
+After implementing one or more issues, check whether the specification or architecture documentation has drifted from reality. The spec is not throwaway — it remains the authoritative description of system behaviour. This skill changes no specification file. It records each drift for the artifact's owner.
 
 Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
 
@@ -25,20 +25,30 @@ List every discrepancy.
 
 **Completion**: every spec file checked against the implementation, all discrepancies listed.
 
-## Step 2 — Update
+## Step 2 — Write a row
 
-For each discrepancy:
+Write each discrepancy as a row of `docs/spec/work/spec-feedback-<story-id>.md`. `<story-id>` is the ID of the story you implement, such as `ST-0318`. Change no specification file. The owner of the artifact fixes it after the story merges, and the owner's reviewer checks the fix.
 
-- Update the spec file to match the implemented behaviour.
-- If an architecture decision changed, invoke the `write-adr` skill.
-- Check the update itself against **Clean Architecture** and **SOLID** — don't introduce a violation while fixing drift.
+Each story has its own report, because the developer agents of a wave run in parallel. Write only into the report of your own story. Create the report with its first row. A story without drift has no report.
 
-Format every updated file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+The report holds one table with these columns:
 
-**Completion**: spec matches implemented behaviour, no undocumented behaviour exists in the code, architecture documentation reflects the current system structure.
+| Artifact                        | Drift                                                                                        | Evidence                         | Owner                   | Status |
+| ------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------- | ----------------------- | ------ |
+| `docs/spec/validation-rules.md` | The migration script must refuse a repository with uncommitted changes, and no rule says so. | `scripts/migrate-spec-layout:88` | `domain-modeling-agent` | `open` |
+
+- **Artifact:** the path of the artifact that drifted.
+- **Drift:** the mismatch between the artifact and the code, in one sentence.
+- **Evidence:** the code path and line that show the mismatch.
+- **Owner:** the producer of the artifact, read from the output declarations in `INDEX.yaml`. For `docs/spec/validation-rules.md` the owner is `domain-modeling-agent`. For a QA strategy the owner is `test-strategy-agent`.
+- **Status:** Set the status to `open`. The owner sets `fixed` after it changed the artifact. The owner's reviewer sets `confirmed` or `rejected`.
+
+Format the report via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+
+**Completion**: every discrepancy is a row with status `open` in the story's report, and no specification file changed.
 
 ## Step 3 — Report
 
-Summarise what changed and why — one bullet per updated file. This summary becomes a commit message or PR comment.
+Summarise the rows for the caller: one bullet per row, with its Artifact and Owner. The report travels with the story's changes and follows the caller's commit mode.
 
-**Completion**: summary written, changes committed.
+**Completion**: summary written, report saved with the story's changes.
