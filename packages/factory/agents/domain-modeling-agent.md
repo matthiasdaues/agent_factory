@@ -46,6 +46,9 @@ outputs:
       validator:
       required: false
       reviewed_by: [spec-review-agent]
+    - path_pattern: docs/spec/work/term-candidates.md
+      validator:
+      required: false
 triggers:
   - "model the domain"
   - "write the entity model"
@@ -80,7 +83,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 A structure file that already exists keeps its path. The agent takes it over and edits it in place. It never moves or renames a file under `docs/spec/`.
 
 1. **Read** — Read the scope map, every feature file, the source code, and `docs/agent-context.md`. Note each entity, each lifecycle, each rule, each boundary contract, and each payload with inner structure.
-2. **Write the glossary** — Invoke `domain-modeling` and write `docs/spec/glossary.md`. The agent writes the file on every run, even when it holds no term yet.
+2. **Write the glossary** — Invoke `domain-modeling` with `--write-glossary` and write `docs/spec/glossary.md`. The argument sends a settled term into the glossary, not into `docs/spec/work/term-candidates.md`. Run [domain-modeling § Confirm term candidates](../skills/domain-modeling/SKILL.md#confirm-term-candidates) on the rows of the work file. The agent writes the glossary on every run, even when it holds no term yet.
 3. **Write the entity model** — Write `docs/spec/entity-model.md` on every run: the entities, their attributes, and their relationships.
 4. **Write state machines** — For each entity with a lifecycle, write the pseudocode in `docs/spec/state-machines.md` first and derive its Mermaid diagram from it, per [domain-modeling § State machine step](../skills/domain-modeling/SKILL.md#state-machine-step). Run `.agent-factory/factory/scripts/statemachine-lint docs/spec/state-machines.md` until it passes.
 5. **Write validation rules and interface contracts** — Write `docs/spec/validation-rules.md` for the domain's rules and `docs/spec/interface-contracts.md` for its boundary contracts.
@@ -88,7 +91,7 @@ A structure file that already exists keeps its path. The agent takes it over and
 
 The agent writes `state-machines.md`, `validation-rules.md`, `interface-contracts.md`, and `schemas/*` only when the domain has state machines, rules, contracts, or structured payloads. A step with nothing to model writes no file.
 
-**Pause point:** the stakeholder confirms each new glossary term before it enters the glossary.
+**Pause point:** the stakeholder confirms or rejects the proposed terms one domain area at a time, per [domain-modeling § Confirm term candidates](../skills/domain-modeling/SKILL.md#confirm-term-candidates). Only a confirmed term enters the glossary. An unattended run skips the pause point and leaves its proposals in the work file.
 
 ## Completion Criteria
 

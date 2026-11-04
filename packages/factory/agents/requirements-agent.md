@@ -49,6 +49,9 @@ outputs:
       validator:
       required: false
       reviewed_by: [spec-review-agent]
+    - path_pattern: docs/spec/work/term-candidates.md
+      validator:
+      required: false
 triggers:
   - "start requirements"
   - "capture the vision"
