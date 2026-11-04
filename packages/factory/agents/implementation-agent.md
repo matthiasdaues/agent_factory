@@ -210,15 +210,19 @@ After the developer-agent commits and the dispatcher verifies the commit SHA (St
 
 #### Quality-gates resolution
 
-The story's `quality-gates` frontmatter field is the primary source. The planner fills it from the `gates` section of `testing.yaml` (at `docs/testing.yaml`) at planning time. Gate-specific parameters (e.g. `threshold` for `crap_score`) are read from `testing.yaml` at execution time.
+The gate list has three parts (BR-066). `premerge-check` requires a passing result for every gate in it.
 
-**Special case — `test_design_verify`:** Implicitly enabled when the story contains a Failure scenarios or Prior Tests section. Skipped when no test-design output exists. No explicit `enabled` flag needed in `testing.yaml`.
+- **`dependency-check`** runs after every story. No gate list picks it.
+- **`test-design-verify`** runs when the story has a Test Design or Prior Tests section. No gate list picks it.
+- **Test guardrails** `crap-score` and `mutation-testing` come from the first source that declares them.
 
-**Precedence (highest wins):**
+**Precedence for the test guardrails (highest wins):**
 
 1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's Constraints section.
-2. **Project-level `gates` in `testing.yaml`** — fallback when the story field is absent (older stories written before the planner filled this field).
-3. **Factory hardcoded default** — if neither declares gates, apply all three: `crap-score`, `mutation-testing`, `dependency-check` (fail-closed).
+2. **The `gates` section of `testing.yaml`** (at `docs/testing.yaml`) — fallback when the story field is absent (older stories written before the planner filled this field). Each gate with `enabled: true` runs.
+3. **Factory default** — if neither declares gates, run `crap-score` alone (fail-closed). No default runs `mutation-testing`, because its command lives only in the `gates` section.
+
+Gate-specific parameters (e.g. `threshold` for `crap_score`) are read from `testing.yaml` at execution time. `docs/charter/house-rules.md` is no gate source; when it still has `default_quality_gates`, `premerge-check` prints a warning that names the file.
 
 #### Gate execution
 
@@ -230,7 +234,7 @@ For each gate in the resolved list, call its CLI script directly from the story'
 .agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id>
 ```
 
-The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Failure scenarios or Prior Tests section; the dispatcher skips it otherwise.
+The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 
 Each script writes a JSON report to `.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. The dispatcher reads the exit code and the JSON report to determine the outcome.
 
@@ -258,7 +262,7 @@ Effective maximum: **6** developer spawns per story (3 at the current tier + 3 a
 
 #### Interaction with premerge-check
 
-The gate-check loop and `premerge-check` are independent, sequential gates. The gate-check loop must pass before `premerge-check` runs. The `premerge-check` script (invoked by `dispatch merge-story`) performs stale-base, file-count, and scope checks that are orthogonal to the semantic quality gates. A story that passes all quality gates may still fail `premerge-check` — the merge is blocked until both pass.
+The gate-check loop and `premerge-check` are independent, sequential gates. The gate-check loop must pass before `premerge-check` runs. The `premerge-check` script (invoked by `dispatch merge-story`) performs stale-base, file-count, and scope checks, then reads the gate result files and blocks the merge when a gate of the resolved list has no passing result. A story that passes all quality gates may still fail `premerge-check` — the merge is blocked until both pass.
 
 **Fix-iteration prompt template:**
 

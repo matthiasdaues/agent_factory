@@ -12,7 +12,12 @@ from pathlib import Path
 import pytest
 import yaml
 from conftest import SOURCE_SCRIPTS_DIR
-from test_dispatch_merge_safety import STORY, _dispatch, _git
+from test_dispatch_merge_safety import (
+    STORY,
+    _dispatch,
+    _git,
+    write_passing_dependency_results,
+)
 
 DEPENDENT_STORY = STORY.replace("deps: []", "deps: [ST-0001]")
 TOUCHES_ONLY_STORY = STORY.replace('outputs: ["src/{id}.txt"]\n', "")
@@ -55,6 +60,8 @@ def _repo(
     inv = repo / ".current-work" / "feat" / "x" / "inv"
     _git(repo, "worktree", "add", "-q", "-b", "feat/x", str(inv))
     ledger = repo / ".current-work" / "feat" / "x" / "dispatch-ledger.yaml"
+    for root in (repo, inv):
+        write_passing_dependency_results(root, "ST-0001", "ST-0002")
     return {"repo": repo, "inv": inv, "ledger": ledger}
 
 
