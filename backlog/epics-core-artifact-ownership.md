@@ -9,7 +9,24 @@ Specification trace: [core-artifact-ownership.feature](../docs/spec/features/cor
 Architecture trace: [ADR-0027](../docs/adr/0027-split-the-requirements-agent-by-artifact-family.md), [ADR-0028](../docs/adr/0028-declared-review-and-core-list-check-ownership.md), [ADR-0029](../docs/adr/0029-per-story-drift-reports-block-the-wave-close.md), [arc42 § 8.17](../docs/arc42/08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review), [arc42 § 5.10](../docs/arc42/05_building_block_view.md#510-level-2-component-view----factory-agents), [arc42 § 6.11](../docs/arc42/06_runtime_view.md#611-specification-handoff-between-producers), [arc42 § 6.12](../docs/arc42/06_runtime_view.md#612-spec-feedback-and-wave-close)
 QA strategy trace: [core-artifact-ownership-qa-strategy.md](../docs/spec/work/core-artifact-ownership-qa-strategy.md)
 
-Dependency order: E1 and E4 start in parallel. E1 → E2 → E3 → E6. {E1, E4} → E5. {E1, E4} → E7 → E8. {E3, E4, E7} → E9 → E10. {E2, E7, E10} → E11 comes last. E2 and E7 both edit `agents/requirements-agent.md`, so their stories merge one after the other.
+Dependency order: E1 and E4 start in parallel. E1 → E2 → E3 → E6. {E1, E4} → E5. {E1, E4} → E7 → E8. {E3, E4, E7} → E9 → E10. {E2, E7, E10} → E11 comes last. E2 and E7 both edit `agents/requirements-agent.md`, so their stories merge one after the other. Two stories leave their EPIC's order: ST-0359 (E8) has no dependency and runs in wave 1, and ST-0366 (E4) waits for ST-0363 (E10).
+
+## Story waves
+
+Every story regenerates `INDEX.yaml`, so the stories of one wave are developed in parallel and merged one at a time.
+
+| Wave | Stories                                     | Merge order inside the wave                                                       |
+| ---- | ------------------------------------------- | --------------------------------------------------------------------------------- |
+| W1   | ST-0346, ST-0352, ST-0355, ST-0359          | any                                                                               |
+| W2   | ST-0347                                     | —                                                                                 |
+| W3   | ST-0348, ST-0353, ST-0357                   | any                                                                               |
+| W4   | ST-0349, ST-0350, ST-0354, ST-0358, ST-0365 | ST-0358 and ST-0365 share `implementation-agent.md`; ST-0349 merges after ST-0357 |
+| W5   | ST-0351, ST-0360                            | ST-0360 merges after ST-0365, because both edit `developer-agent.md`              |
+| W6   | ST-0356, ST-0362                            | both edit `spec-review-agent.md`, so they merge one after the other               |
+| W7   | ST-0361, ST-0363                            | any                                                                               |
+| W8   | ST-0364, ST-0366                            | any                                                                               |
+
+Every story carries `quality-gates: []` until ST-0359 ships and the factory is reinstalled with `update-factory`. The installed `premerge-check` ignores `testing.yaml`, and without the field it requires a mutation result that no script writes before ST-0365.
 
 The layout stories ST-0325 to ST-0345 are all `done`, so the order of [DEC-05](../docs/proposals/core-artifact-ownership.md#order-after-the-core-artifact-layout) no longer constrains this backlog. The first story ID is `ST-0346`. Phase 4 rescans `backlog/` before it writes the first story, because parallel sessions may take IDs in the meantime.
 
@@ -318,7 +335,7 @@ Today the review loop sends every open finding back to the author of the reviewe
 
 ### Dependencies
 
-None.
+None for ST-0352. ST-0366 depends on ST-0363 (E10).
 
 ### Boundaries
 
@@ -333,13 +350,14 @@ None.
 
 ### Size
 
-1 story.
+2 stories.
 
 ### Building-Block Inventory
 
-| Story   | Capability                                    | Tier     | Size | Goal                                                                            | Basis                                                                                        |
-| ------- | --------------------------------------------- | -------- | ---- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| ST-0352 | Send an open finding to the agent in `owner:` | standard | S    | The orchestrator sends each open finding to the agent its `owner:` field names. | The format has no `owner:` and lists `RECON`. Adds the field, the two tags, and the routing. |
+| Story   | Capability                                    | Tier     | Size | Goal                                                                                                                                          | Basis                                                                                                      |
+| ------- | --------------------------------------------- | -------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| ST-0352 | Send an open finding to the agent in `owner:` | standard | S    | The orchestrator sends each open finding to the agent its `owner:` field names, or to the producer of its artifact when the field is missing. | The format has no `owner:` and lists `RECON`. Adds the field, the two tags, the routing, and the fallback. |
+| ST-0366 | Give every open finding an owner              | standard | S    | Every open finding in `docs/findings/` carries `owner:`.                                                                                      | The 39 open findings have no `owner:`. Adds it after ST-0363, when each core artifact has one producer.    |
 
 ### Testability Assessment
 
@@ -350,6 +368,7 @@ The field, the tag table, and the routing rule are observable in two rulebook fi
 | Contract                                                                                      | .feature Rule                                                                | Owner   | Rationale                  |
 | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------- | -------------------------- |
 | CAO-16-LN-01: `owner:` defined, `ARCH` and `QA` listed, `RECON` dropped, routing to the owner | core-artifact-ownership.feature#Owner receives every finding it acts on next | ST-0352 | introduces the owner field |
+| CAO-16-LN-02: a finding without `owner:` goes to the producer of its artifact                 | core-artifact-ownership.feature#Owner receives every finding it acts on next | ST-0352 | introduces the fallback    |
 
 ## E5: Own and review the dependency rules
 
@@ -612,7 +631,7 @@ The implementation agent runs gates after each story, but the mutation gate has 
 
 ### Dependencies
 
-E7, for the test-strategy agent as the owner the gate names and the `testing.yaml` fields.
+ST-0359 has none. ST-0365 depends on ST-0359 and on E7 (ST-0357), for the test-strategy agent as the owner the gate names.
 
 ### Boundaries
 
@@ -628,13 +647,14 @@ E7, for the test-strategy agent as the owner the gate names and the `testing.yam
 
 ### Size
 
-1 story.
+2 stories.
 
 ### Building-Block Inventory
 
-| Story   | Capability                                       | Tier   | Size | Goal                                                                                                                                          | Basis                                                                                                                                         |
-| ------- | ------------------------------------------------ | ------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| ST-0359 | Block a merge on a failing CRAP or mutation gate | strong | M    | The implementation agent blocks the merge when a picked gate fails or cannot run, and the developer agent runs the same gates in manual mode. | `premerge-check` and the implementation agent read `quality-gates`; no mutation command exists. Adds the order, the command, and fail-closed. |
+| Story   | Capability                                                | Tier     | Size | Goal                                                                                                                                                       | Basis                                                                                                       |
+| ------- | --------------------------------------------------------- | -------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| ST-0359 | Take the gate list from the story, then from testing.yaml | standard | S    | `premerge-check` picks the gates from the story, then from the `gates` section, then from a `crap-score` default, and warns about `default_quality_gates`. | `premerge-check` reads the house rules and defaults to all three gates. Replaces both.                      |
+| ST-0365 | Block a merge on a failing or slow mutation command       | strong   | M    | The implementation agent runs the mutation command through a gate script, and a missing, failing, or slow command blocks the merge.                        | No mutation gate script exists. Adds the script, the time limit, the result file, and the manual-mode step. |
 
 ### Testability Assessment
 
@@ -642,11 +662,13 @@ The gate choice and the blocked merge are observable as exit codes and messages 
 
 ### Ownership Resolution
 
-| Contract                                                                                            | .feature Rule                                                                                   | Owner   | Rationale                       |
-| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------- | ------------------------------- |
-| CAO-11-CT-01: the order of gate sources and the default                                             | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0359 | introduces the gate order       |
-| CAO-11-IT-01: an enabled gate without a command fails and names its owner; a failing command blocks | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0359 | introduces the mutation command |
-| CAO-11-LN-01: the implementation agent's gate section and the developer agent's manual-mode step    | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0359 | introduces both instructions    |
+| Contract                                                                                                   | .feature Rule                                                                                   | Owner   | Rationale                       |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------- | ------------------------------- |
+| CAO-11-CT-01: the order of gate sources and the default                                                    | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0359 | introduces the gate order       |
+| CAO-11-IT-01: an enabled gate without a command fails and names its owner; a failing command blocks        | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0365 | introduces the mutation command |
+| CAO-11-LN-01: the implementation agent's gate section and the developer agent's manual-mode step           | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0365 | introduces both instructions    |
+| CAO-11-IT-02: the gate script stops the command at `timeout_minutes` and writes a failing result           | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0365 | introduces the time limit       |
+| CAO-11-IT-03: `premerge-check` warns about `default_quality_gates` and takes the gates from `testing.yaml` | core-artifact-ownership.feature#Implementation agent blocks a merge on a failing test guardrail | ST-0359 | introduces the new gate source  |
 
 ## E9: Gate the wave close on handled drift rows
 
