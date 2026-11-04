@@ -212,6 +212,34 @@ The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendatio
 - **Answer (stakeholder, 2026-11-03, SPEC-0036):** The field picks only `crap-score` and `mutation-testing`, then the `gates` section picks them, and the default without either stays `crap-score`. `test-design-verify` is never picked: it runs whenever the story has a Test Design or Prior Tests section. `dependency-check` runs after every story and leaves the enum, and a story that omits it needs no note. The mutation gate has one name, `mutation-testing`, as in `backlog-lint` and the skill. The scope-map rows of other features that name the old skill `mutation-analysis` stay as they are.
 - **Settles:** BR-066, the `quality-gates` contract, the term Test Guardrail, CAO-11, and CAO-11-CT-01. The CAO-11 story changes `packages/factory/scripts/backlog-lint`, its enum and its note rule, and `packages/factory/agents/implementation-agent.md`, its default list.
 
+### CAO-G26: Where does a finding without `owner:` go?
+
+- **Case:** SPEC-0041 is open and is about `docs/spec/state-machines.md`. An older review filed it before `owner:` existed, so the field is missing ([ST-0352](../../../backlog/ST-0352.md)).
+- **Options:** If the orchestrator skips the finding, nobody acts on it. If it goes to the producer of the artifact it names, the domain-modeling agent gets it.
+- **Decision (stakeholder, 2026-11-04):** An open finding without `owner:` goes to the producer of the artifact it names, read from the output declarations.
+- **Settles:** The [`owner:` contract](../interface-contracts.md#finding-frontmatter-owner) and CAO-16.
+
+### CAO-G27: How long may the mutation command run?
+
+- **Case:** After ST-0318 the mutation command runs for hours. The implementation agent waits, and the merge neither passes nor fails ([ST-0359](../../../backlog/ST-0359.md)).
+- **Options:** If the agent's session sets the limit, each run may stop at a different time. If the gate script enforces a limit from `testing.yaml`, every run stops at the same time and leaves a result.
+- **Decision (stakeholder, 2026-11-04):** `gates.mutation_testing.timeout_minutes` is an optional integer with the default 30. The gate script enforces the limit and writes a failing result file on timeout. The merge reads that result.
+- **Settles:** BR-066, the [`gates` section schema](../interface-contracts.md#docstestingyaml--gates-section-schema), and CAO-11.
+
+### CAO-G28: What happens to `default_quality_gates` in the house rules?
+
+- **Case:** A project keeps `default_quality_gates` in `docs/charter/house-rules.md` and adds a `gates` section to `docs/testing.yaml`. `premerge-check` reads the house rules today ([ST-0359](../../../backlog/ST-0359.md)).
+- **Options:** If both sources count, the two lists can disagree. If the `gates` section replaces the old field, the project needs to learn that the old line no longer counts.
+- **Decision (stakeholder, 2026-11-04):** The `gates` section replaces `default_quality_gates`. `premerge-check` warns and names the file when it still finds `default_quality_gates`.
+- **Settles:** BR-066 and CAO-11.
+
+### CAO-G29: What does a second reconciliation run on the same day write?
+
+- **Case:** The reconciliation agent runs twice on 2026-11-03. Both runs would write `docs/reviews/reconciliation-2026-11-03.md` ([ST-0363](../../../backlog/ST-0363.md)).
+- **Options:** If the second run overwrites the file, the rows of the first run are lost. If it adds a suffix, each run keeps its own report.
+- **Decision (stakeholder, 2026-11-04):** A second run on the same day writes `reconciliation-<date>-2.md`, a third `-3`, and so on. The reports sort by date first, then by suffix. The file without a suffix is run 1.
+- **Settles:** The [report path](../interface-contracts.md#report-rows-spec-feedback-and-reconciliation) and CAO-15.
+
 ## Ambiguous Wording
 
 | ID      | Location                                                       | Text                                                       | Issue                                                                                                         | Disposition                                                                                                |

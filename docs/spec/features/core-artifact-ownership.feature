@@ -515,6 +515,21 @@ Feature: Core artifact ownership
       Then the mutation gate fails
       And the failure names the test-strategy agent
 
+    Scenario: A mutation command that runs past its time limit blocks the merge
+      Given docs/testing.yaml enables mutation testing with a command and sets gates.mutation_testing.timeout_minutes to 20
+      And after ST-0318 the mutation command runs longer than 20 minutes
+      When the implementation agent runs the gates after ST-0318
+      Then the gate script stops the mutation command after 20 minutes
+      And the gate script writes a failing result file for the mutation gate
+      And the merge of ST-0318 is blocked
+
+    Scenario: premerge-check warns about the old gate list in the house rules
+      Given docs/charter/house-rules.md still has a default_quality_gates line
+      And docs/testing.yaml has a gates section
+      When premerge-check runs on a finished story branch
+      Then it prints a warning that names docs/charter/house-rules.md
+      And the test guardrails come from the gates section of docs/testing.yaml
+
     Scenario Outline: The test guardrails come from the story first, then from testing.yaml, then from the default
       Given a story with <story field> and <test design>
       And docs/testing.yaml <gates section>
@@ -706,6 +721,13 @@ Feature: Core artifact ownership
       When the reconciliation agent runs again
       Then it checks the row's mismatch against the code
 
+    Scenario: A second run on the same day writes a numbered report
+      Given docs/reviews/reconciliation-2026-11-03.md exists
+      When the reconciliation agent runs again on 2026-11-03
+      Then it writes docs/reviews/reconciliation-2026-11-03-2.md
+      And docs/reviews/reconciliation-2026-11-03.md is unchanged
+      And a third run on 2026-11-03 reads reconciliation-2026-11-03-2.md as the previous report
+
   Rule: Owner receives every finding it acts on next
     # actor: Factory maintainer
     # @packages/factory/rulebooks/conventions/finding-format.md
@@ -724,6 +746,12 @@ Feature: Core artifact ownership
       When the orchestrator loops over the open findings
       Then it sends SPEC-0040 to the domain-modeling agent
       And it does not send SPEC-0040 to the author of the reviewed phase
+
+    Scenario: An open finding without an owner goes to the producer of its artifact
+      Given SPEC-0041 is open, is about docs/spec/state-machines.md, and has no owner: field
+      And the output declarations name the domain-modeling agent as the producer of docs/spec/state-machines.md
+      When the orchestrator loops over the open findings
+      Then it sends SPEC-0041 to the domain-modeling agent
 
   Rule: Factory maintainer sees every writer of shared working output declare its path
     # actor: Factory maintainer

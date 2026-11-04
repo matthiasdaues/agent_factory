@@ -348,6 +348,8 @@ The `gates` section centralizes gate configuration that the dispatcher reads at 
 
 The section picks only the test guardrails. `dependency-check` has no entry here, because the implementation agent runs it after every story ([BR-066](validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)).
 
+The section replaces `default_quality_gates` in `docs/charter/house-rules.md`. When `premerge-check` still finds `default_quality_gates`, it prints a warning that names the file (CAO-G28).
+
 ```yaml
 gates:
   crap_score:
@@ -360,13 +362,14 @@ gates:
     # Skipped when no test-design sections are present.
 ```
 
-| Field                            | Type   | Required | Notes                                                                                                                                                                                                                                  |
-| -------------------------------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gates.crap_score.enabled`       | bool   | yes      | Whether the dispatcher runs the crap-score gate                                                                                                                                                                                        |
-| `gates.crap_score.threshold`     | float  | yes      | Per-function CRAP threshold; replaces the dead-code house-rules lookup                                                                                                                                                                 |
-| `gates.mutation_testing.enabled` | bool   | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready                                                                                                                                                       |
-| `gates.mutation_testing.command` | string | no       | The project's mutation command, written by the test-strategy agent. Enabled without a command, the gate fails and names the test-strategy agent (BR-066). The tool's own configuration lives in the project's files, not here (DEC-36) |
-| `gates.test_design_verify`       | —      | no       | Conditional; active when test-design output exists in the story                                                                                                                                                                        |
+| Field                                    | Type    | Required | Notes                                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gates.crap_score.enabled`               | bool    | yes      | Whether the dispatcher runs the crap-score gate                                                                                                                                                                                        |
+| `gates.crap_score.threshold`             | float   | yes      | Per-function CRAP threshold; replaces the dead-code house-rules lookup                                                                                                                                                                 |
+| `gates.mutation_testing.enabled`         | bool    | yes      | Whether the dispatcher runs mutation testing; `false` until infrastructure ready                                                                                                                                                       |
+| `gates.mutation_testing.command`         | string  | no       | The project's mutation command, written by the test-strategy agent. Enabled without a command, the gate fails and names the test-strategy agent (BR-066). The tool's own configuration lives in the project's files, not here (DEC-36) |
+| `gates.mutation_testing.timeout_minutes` | integer | no       | The time limit of the mutation command in minutes; default 30. The gate script stops the command at the limit and writes a failing result file. The merge reads that result (BR-066, CAO-G27)                                          |
+| `gates.test_design_verify`               | —       | no       | Conditional; active when test-design output exists in the story                                                                                                                                                                        |
 
 ## `docs/testing.yaml` — `risk_classes` section schema
 
@@ -999,6 +1002,8 @@ decides the column names.
 | Spec feedback  | `docs/spec/work/spec-feedback-<story-id>.md` | developer agent, through `spec-feedback` |
 | Reconciliation | `docs/reviews/reconciliation-<date>.md`      | reconciliation agent, one per run        |
 
+The first reconciliation run of a day writes `reconciliation-<date>.md`. A second run on the same day writes `reconciliation-<date>-2.md`, a third `reconciliation-<date>-3.md`, and so on. The reports sort by date first, then by suffix, and the file without a suffix is run 1 (CAO-G29).
+
 ### `docs/spec/work/term-candidates.md`
 
 | Column              | Contract                                                                                          |
@@ -1012,8 +1017,8 @@ decides the column names.
 
 ### Finding frontmatter `owner:`
 
-| Property | Contract                                                                                                                                                                                                                                        |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Field    | `owner:` names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10) |
-| Routing  | The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase                                                                                                                                      |
-| Tags     | The tag table adds `ARCH` (the architecture agent's read check) and `QA` (an unresolved mutant) and drops `RECON`                                                                                                                               |
+| Property | Contract                                                                                                                                                                                                                                                                                                                                                                     |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Field    | `owner:` names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). An open finding without `owner:` goes to the producer of the artifact it names, read from the output declarations (CAO-G26) |
+| Routing  | The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase                                                                                                                                                                                                                                                                   |
+| Tags     | The tag table adds `ARCH` (the architecture agent's read check) and `QA` (an unresolved mutant) and drops `RECON`                                                                                                                                                                                                                                                            |
