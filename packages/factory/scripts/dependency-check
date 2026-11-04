@@ -15,9 +15,10 @@ Rule format
 
 Output
   Writes JSON to .current-work/dependency-check/<story-id>.json and to
-  stdout. Exits 1 when any violation is found. A file that cannot be read
-  or parsed fails every rule that governs its module, because its imports
-  cannot be checked.
+  stdout. Each failing row names its owner, architecture-agent; passing
+  rows carry no owner. Exits 1 when any violation is found. A file that
+  cannot be read or parsed fails every rule that governs its module,
+  because its imports cannot be checked.
 """
 
 from __future__ import annotations
@@ -47,6 +48,7 @@ EXCLUDED_DIRS = {
     "__pycache__",
     "node_modules",
 }
+VIOLATION_OWNER = "architecture-agent"
 
 
 @dataclass(frozen=True)
@@ -352,12 +354,23 @@ def detect_story_id(explicit_story_id: str | None) -> str:
     return match.group(1) if match else "adhoc"
 
 
+def serialize_results(results: list[RuleResult]) -> list[dict[str, object]]:
+    """Return the report rows; failing rows name VIOLATION_OWNER as owner."""
+    rows: list[dict[str, object]] = []
+    for result in results:
+        row = asdict(result)
+        if result.pass_fail == "fail":
+            row["owner"] = VIOLATION_OWNER
+        rows.append(row)
+    return rows
+
+
 def write_report(report_dir: Path, story_id: str, results: list[RuleResult]) -> Path:
     """Write the JSON report and return its path."""
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f"{story_id}.json"
     report_path.write_text(
-        json.dumps([asdict(result) for result in results], indent=2) + "\n",
+        json.dumps(serialize_results(results), indent=2) + "\n",
         encoding="utf-8",
     )
     return report_path
@@ -384,7 +397,7 @@ def main(argv: list[str] | None = None) -> int:
     story_id = detect_story_id(args.story_id)
     report_path = write_report(report_dir, story_id, results)
 
-    payload = json.dumps([asdict(result) for result in results], indent=2)
+    payload = json.dumps(serialize_results(results), indent=2)
     print(payload)
     print(f"dependency-check: wrote {report_path}", file=sys.stderr)
 

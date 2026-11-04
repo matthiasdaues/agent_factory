@@ -194,6 +194,47 @@ def test_CAL_09_dependency_check_reads_rules_from_spec(
         assert outcomes == {"pass"}
 
 
+# --- CAO-07-IT-01: the report names the architecture agent as owner ------------
+
+FORBIDDEN_IMPORT = {
+    "docs/spec/dependency-rules.dsl": "payments must_not_depend_on ledger\n",
+    "src/payments/pay.py": "from ledger import post\n",
+}
+
+
+@pytest.mark.parametrize("seeded", [False, True], ids=["clean", "seeded-error"])
+def test_CAO_07_IT_01_dependency_check_names_architecture_agent_as_owner(
+    new_layout_gates: Path, seeded: bool
+) -> None:
+    if seeded:
+        write_files(new_layout_gates, FORBIDDEN_IMPORT)
+    result = run_gate(
+        new_layout_gates,
+        "dependency-check",
+        "--source-root",
+        "src",
+        "--story-id",
+        "ST-0355",
+    )
+    rows = json.loads(
+        (new_layout_gates / ".current-work/dependency-check/ST-0355.json").read_text()
+    )
+    assert json.loads(result.stdout) == rows
+    failures = [row for row in rows if row["pass_fail"] == "fail"]
+    passes = [row for row in rows if row["pass_fail"] == "pass"]
+    assert all("owner" not in row for row in passes), rows
+    if seeded:
+        assert result.returncode == 1, result.stderr
+        assert len(rows) == 1, rows
+        assert failures[0]["rule_name"] == "payments must_not_depend_on ledger"
+        assert failures[0]["violating_import"]["file"] == "payments/pay.py"
+        assert failures[0]["owner"] == "architecture-agent"
+    else:
+        assert result.returncode == 0, result.stderr
+        assert failures == []
+        assert len(passes) == 1, rows
+
+
 # --- ST-0326 -------------------------------------------------------------------
 
 FEATURE_FILE = "docs/spec/features/core-artifact-layout.feature"
