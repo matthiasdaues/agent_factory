@@ -21,15 +21,16 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 - Filename: `<TAG>-<NNNN>.md`, zero-padded, sequential per tag (e.g. `SPEC-0001.md`).
 - Allocate the next `NNNN` by scanning existing files with the same tag.
 
-| Review                         | TAG     |
-| ------------------------------ | ------- |
-| Spec review                    | `SPEC`  |
-| ATAM architecture review       | `ATAM`  |
-| Implementation code review     | `IMPL`  |
-| Fagan code inspection          | `FAGAN` |
-| Security review                | `SEC`   |
-| Spec reconciliation            | `RECON` |
-| Bug hunt / exploratory testing | `BUG`   |
+| Review                          | TAG     |
+| ------------------------------- | ------- |
+| Spec review                     | `SPEC`  |
+| ATAM architecture review        | `ATAM`  |
+| Architecture agent's read check | `ARCH`  |
+| Implementation code review      | `IMPL`  |
+| Fagan code inspection           | `FAGAN` |
+| Security review                 | `SEC`   |
+| Unresolved mutant               | `QA`    |
+| Bug hunt / exploratory testing  | `BUG`   |
 
 ## Format
 
@@ -37,14 +38,18 @@ Frontmatter and body skeleton: [finding.md template](../templates/finding.md).
 
 Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this looks off" without a fix direction.
 
+## Owner
+
+`owner:` in the frontmatter names the agent that acts on the finding next. The filer is not the owner. By default the owner is the producer of the artifact the finding is about. A `BUG` finding names the developer agent. A `QA` finding for a missing test names the planning agent.
+
 ## Status lifecycle
 
-- `open` — the finding stands; the author must address it.
-- `resolved` — on a repeat pass, the reviewer verified the author's fix and set the status. Keep the file as the durable record; do not delete it.
+- `open` — the finding stands; the owner must address it.
+- `resolved` — on a repeat pass, the reviewer verified the owner's fix and set the status. Keep the file as the durable record; do not delete it.
 
 ## How the orchestrator reads findings
 
-The finding files are the contract. When run under the orchestrator, the review loop reads every `docs/findings/*.md` whose `status` is `open` — those are the findings the phase must still address — and loops back to the author until none remain. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
+The finding files are the contract. When run under the orchestrator, the review loop reads every `docs/findings/*.md` whose `status` is `open`. Those are the findings the phase must still address. The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase. It sends an open finding without `owner:` to the producer of the artifact it names, read from the output declarations (`outputs:` in the agent definitions). The loop repeats until no open finding remains. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
 
 ## Pause point
 

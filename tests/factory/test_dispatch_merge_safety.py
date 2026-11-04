@@ -47,6 +47,14 @@ def _git(cwd: Path, *args: str) -> str:
     ).stdout.strip()
 
 
+def write_passing_dependency_results(root: Path, *story_ids: str) -> None:
+    """premerge-check requires a dependency-check result for every story (BR-066)."""
+    report_dir = root / ".current-work" / "dependency-check"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    for story_id in story_ids:
+        (report_dir / f"{story_id}.json").write_text("[]\n")
+
+
 def _dispatch(cwd: Path, ledger: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [str(DISPATCH), "--ledger", str(ledger), *args],
@@ -71,6 +79,8 @@ def dispatched(tmp_path: Path) -> dict[str, Path]:
     inv = repo / ".current-work" / "feat" / "x" / "inv"
     _git(repo, "worktree", "add", "-q", "-b", "feat/x", str(inv))
     ledger = repo / ".current-work" / "feat" / "x" / "dispatch-ledger.yaml"
+    for root in (repo, inv):
+        write_passing_dependency_results(root, "ST-0001")
     base = _git(repo, "rev-parse", "HEAD")
     for args in (
         ("init", "--base", base, "--stories", "ST-0001", "--feature-branch", "feat/x", "--yes"),

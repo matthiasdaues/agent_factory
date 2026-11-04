@@ -17,6 +17,7 @@ severity: major              # critical | major | minor  (or the review's own sc
 category: defect             # defect | suggestion | question
 artifact: docs/spec/work/prd.md#NFR-01   # file#anchor or path:line the finding is about
 status: open                 # open | resolved
+owner: domain-modeling-agent # the agent that acts on the finding next (default: producer of the artifact)
 traces: [NFR-01]             # requirement / use-case / ADR IDs the finding relates to (optional)
 ---
 ```

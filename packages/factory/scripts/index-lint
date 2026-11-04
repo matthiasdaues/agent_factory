@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["tiktoken"]
+# dependencies = ["tiktoken", "pyyaml"]
 # ///
 """index-lint - Generate/verify the factory's INDEX.yaml from the agents/, skills/,
 playbooks/, and rulebooks/ frontmatter under the factory root. The root is
@@ -40,6 +40,11 @@ mode if it was stale, and 1 in any mode if an agent uses the rejected flat
 format, declares a malformed `any_of` required input, or two agents or two
 skills share a name. A file without a `name`
 is left out of the index with a warning.
+
+Reviewer check (BR-059): every output declaration with `reviewed_by:` must
+match an entry of rulebooks/core-artifacts.yaml by that entry's sample path.
+Each reviewer is `stakeholder` or an agent that declares the sample path as
+a required or context input. A finding exits 1 in any mode.
 """
 
 from __future__ import annotations
@@ -178,6 +183,8 @@ def _parse_entry(lines: list[str], i: int) -> tuple[dict, int]:
             obj[key], i = _parse_conditions(lines, i, col)
         elif first:
             obj[key] = _strip_quotes(rest)
+        elif rest.startswith("[") and rest.endswith("]"):
+            obj[key] = [_strip_quotes(v) for v in rest[1:-1].split(",") if v.strip()]
         else:
             obj[key] = _parse_scalar(rest)
         first = False
@@ -615,6 +622,11 @@ def _render_structured_field(prefix: str, key: str, value: dict) -> list[str]:
                 lines.append(f"{indent}  - path_pattern: {_yaml_scalar(d.get('path_pattern', ''))}")
                 lines.append(f"{indent}    validator: {_yaml_scalar(d.get('validator'))}")
                 lines.append(f"{indent}    required: {_yaml_scalar(d.get('required', False))}")
+                if "reviewed_by" in d:
+                    names = ", ".join(_yaml_scalar(n) for n in d["reviewed_by"])
+                    lines.append(f"{indent}    reviewed_by: [{names}]")
+                if "edits" in d:
+                    lines.append(f"{indent}    edits: {_yaml_scalar(d['edits'])}")
 
     return lines
 
@@ -734,6 +746,93 @@ def build_agents_data(
         entries.append(entry)
 
     return entries, warnings
+
+
+CORE_LIST_FILE = "core-artifacts.yaml"
+STAKEHOLDER = "stakeholder"
+_PLACEHOLDER = re.compile(r"\{[^}/]*\}")
+
+
+def load_core_list(rulebooks_dir: Path) -> list[dict]:
+    """Return the entries of the core list, or [] when the file is missing.
+
+    PyYAML is imported here, so `trigger` can import this module without it."""
+    path = rulebooks_dir / CORE_LIST_FILE
+    if not path.is_file():
+        return []
+    import yaml
+
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return list(data.get("entries") or [])
+
+
+def pattern_matches(pattern: str, path: str) -> bool:
+    """Match a sample path against a path pattern (BR-057).
+
+    A placeholder such as `{name}` matches like `*`."""
+    from dispatch_lib import glob_match
+
+    return glob_match(_PLACEHOLDER.sub("*", pattern), path)
+
+
+def _input_patterns(agent: dict) -> list[str]:
+    """Return every required, `any_of`, and context input pattern of an agent."""
+    inputs = agent.get("inputs")
+    if not isinstance(inputs, dict):
+        return []
+    patterns: list[str] = []
+    for entry in inputs.get("required") or []:
+        if not isinstance(entry, dict):
+            continue
+        alternatives = entry.get("any_of")
+        for alt in alternatives if isinstance(alternatives, list) else [entry]:
+            if isinstance(alt, dict) and isinstance(alt.get("path_pattern"), str):
+                patterns.append(alt["path_pattern"])
+    patterns += [c for c in inputs.get("context") or [] if isinstance(c, str)]
+    return patterns
+
+
+def reviewer_findings(agents: list[dict], core_list: list[dict]) -> list[str]:
+    """Return one finding per broken `reviewed_by:` entry (BR-059)."""
+    by_name = {a["name"]: a for a in agents}
+    findings: list[str] = []
+    for agent in sorted(agents, key=lambda a: a["name"]):
+        outputs = agent.get("outputs")
+        if not isinstance(outputs, dict):
+            continue
+        for decl in outputs.get("declarations") or []:
+            if "reviewed_by" not in decl:
+                continue
+            pattern = str(decl.get("path_pattern", ""))
+            where = f"reviewed_by: {agent['name']} ({agent['_path']}) output {pattern}"
+            reviewers = decl["reviewed_by"]
+            if not isinstance(reviewers, list):
+                findings.append(f"{where}: reviewed_by must be a list of agent names or stakeholder")
+                continue
+            samples = [
+                e["sample_path"]
+                for e in core_list
+                if isinstance(e, dict) and pattern_matches(pattern, str(e.get("sample_path", "")))
+            ]
+            if not samples:
+                findings.append(
+                    f"{where}: matches no entry of {CORE_LIST_FILE}; working output carries no reviewed_by"
+                )
+                continue
+            for reviewer in reviewers:
+                if reviewer == STAKEHOLDER:
+                    continue
+                if reviewer not in by_name:
+                    findings.append(f"{where}: reviewer {reviewer} is no agent")
+                    continue
+                patterns = _input_patterns(by_name[reviewer])
+                for sample in samples:
+                    if not any(pattern_matches(p, sample) for p in patterns):
+                        findings.append(
+                            f"{where}: reviewer {reviewer} declares the sample path {sample} "
+                            "neither as a required nor as a context input"
+                        )
+    return findings
 
 
 def build_skills_data(skills: list[dict]) -> tuple[list[dict], list[str]]:
@@ -868,7 +967,8 @@ def render_index(
     rulebook_entries, rw = build_rulebooks_data(rulebooks)
 
     duplicates = _duplicate_names("agent", agents) + _duplicate_names("skill", skills)
-    all_warnings = load_warnings + duplicates + aw + sw + pw + rw
+    reviewers = reviewer_findings(agents, load_core_list(rulebooks_dir))
+    all_warnings = load_warnings + duplicates + aw + sw + pw + rw + reviewers
 
     if _TOKEN_FALLBACK:
         all_warnings.append(
@@ -992,6 +1092,7 @@ def main(argv: list[str] | None = None) -> int:
     flat_format_errors = [w for w in warnings if "rejected flat" in w]
     duplicate_errors = [w for w in warnings if w.startswith("duplicate ")]
     any_of_errors = [w for w in warnings if ": inputs.required entry " in w]
+    reviewer_errors = [w for w in warnings if w.startswith("reviewed_by: ")]
 
     for w in warnings:
         print(f"[WARNING] {w}", file=sys.stderr)
@@ -1011,7 +1112,12 @@ def main(argv: list[str] | None = None) -> int:
             f"index-lint: {len(any_of_errors)} malformed any_of required input(s)",
             file=sys.stderr,
         )
-    if flat_format_errors or duplicate_errors or any_of_errors:
+    if reviewer_errors:
+        print(
+            f"index-lint: {len(reviewer_errors)} reviewer finding(s)",
+            file=sys.stderr,
+        )
+    if flat_format_errors or duplicate_errors or any_of_errors or reviewer_errors:
         return 1
 
     current = args.out.read_text(encoding="utf-8") if args.out.exists() else None
