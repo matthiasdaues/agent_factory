@@ -72,3 +72,18 @@ class TestSt0352FindingWithoutOwnerGoesToProducer:
         assert "without `owner:`" in routing
         assert "producer of the artifact" in routing
         assert "output declarations" in routing
+
+
+@pytest.mark.spec
+class TestSt0346IndexLintHookWatchesCoreList:
+    """A commit that changes only the core list still runs index-lint (BR-059)."""
+
+    def test_st_0346_index_lint_hook_matches_core_list(self):
+        import yaml
+
+        config = yaml.safe_load(
+            (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+        )
+        hooks = [h for repo in config["repos"] for h in repo.get("hooks", [])]
+        (hook,) = [h for h in hooks if h["id"] == "index-lint"]
+        assert re.search(hook["files"], "packages/factory/rulebooks/core-artifacts.yaml")
