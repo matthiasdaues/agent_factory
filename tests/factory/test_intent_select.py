@@ -300,3 +300,81 @@ class TestSt0357TestStrategyAgentEligibility:
         out = capsys.readouterr().out
         assert "○ test-strategy-agent" in out
         assert "(no required inputs — always eligible)" in out
+
+
+ARCHITECTURE_AGENT = (
+    REPO_ROOT / "packages" / "factory" / "agents" / "architecture-agent.md"
+)
+
+
+def _required_outputs(agent_file):
+    """Return a sample file path for each required output of the agent."""
+    import re
+
+    import yaml
+
+    text = agent_file.read_text(encoding="utf-8")
+    front = yaml.safe_load(re.match(r"^---\n(.*?)\n---\n", text, re.S).group(1))
+    return [
+        d["path_pattern"].replace("*", "example")
+        for d in front["outputs"]["declarations"]
+        if d.get("required")
+    ]
+
+
+def _build_architecture_fixture(root, entities_changed):
+    """Build `feature-no-entities` or `entities-changed` (ST-0353 Demo Data)."""
+    spec = root / "docs" / "spec"
+    (spec / "features").mkdir(parents=True)
+    (spec / "scope-map.md").write_text("# Scope Map\n")
+    (spec / "features" / "payments.feature").write_text("Feature: Payments\n")
+    if not entities_changed:
+        return
+    for output in _required_outputs(ARCHITECTURE_AGENT):
+        path = root / output
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# architecture output\n")
+    entity_model = spec / "entity-model.md"
+    entity_model.write_text("# Entity Model\n")
+    newer = max(p.stat().st_mtime for p in root.rglob("*") if p.is_file()) + 60
+    os.utime(entity_model, (newer, newer))
+
+
+def _select_architecture_agent(tmp_path, project, monkeypatch, capsys):
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir(exist_ok=True)
+    shutil.copy(ARCHITECTURE_AGENT, agents_dir / ARCHITECTURE_AGENT.name)
+    monkeypatch.chdir(project)
+    assert intent.main(["select", "--agents-dir", str(agents_dir)]) == 0
+    return capsys.readouterr().out
+
+
+@pytest.mark.spec("CAO-07-IT-02")
+class TestSt0353ArchitectureAgentEligibility:
+    def test_st_0353_feature_no_entities_is_eligible(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        project = tmp_path / "feature-no-entities"
+        _build_architecture_fixture(project, entities_changed=False)
+        assert not (project / "docs" / "spec" / "entity-model.md").exists()
+
+        out = _select_architecture_agent(tmp_path, project, monkeypatch, capsys)
+
+        assert "✓ architecture-agent" in out
+
+    def test_st_0353_entities_changed_leaves_the_step_done(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        baseline = tmp_path / "feature-no-entities"
+        _build_architecture_fixture(baseline, entities_changed=False)
+        before = _select_architecture_agent(tmp_path, baseline, monkeypatch, capsys)
+        project = tmp_path / "entities-changed"
+        _build_architecture_fixture(project, entities_changed=True)
+
+        after = _select_architecture_agent(tmp_path, project, monkeypatch, capsys)
+
+        outputs = _required_outputs(ARCHITECTURE_AGENT)
+        assert outputs, "the architecture agent declares no required output"
+        assert all((project / o).exists() for o in outputs)
+        assert after == before
+        assert "entity-model.md" not in after
