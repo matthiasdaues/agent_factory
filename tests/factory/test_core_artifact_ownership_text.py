@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 
 import pytest
-from conftest import REPO_ROOT
+from conftest import REPO_ROOT, load_script
 
 RULEBOOKS = REPO_ROOT / "packages" / "factory" / "rulebooks"
 FINDING_FORMAT = RULEBOOKS / "conventions" / "finding-format.md"
@@ -428,3 +428,152 @@ class TestSt0353RunStepDoneRule:
         text = _flat(RUN_STEP.read_text(encoding="utf-8"))
         assert "A changed input never restarts a step that is done." in text
         assert "The producer of the changed file starts the next pass in its handoff." in text
+
+
+CORE_LIST = REPO_ROOT / "packages" / "factory" / "rulebooks" / "core-artifacts.yaml"
+STRUCTURE_FILES = [
+    "entity-model.md",
+    "interface-contracts.md",
+    "state-machines.md",
+    "validation-rules.md",
+]
+KEPT_SKILLS = [
+    "capture-vision",
+    "clarify-requirements",
+    "grill-me",
+    "grill-with-docs",
+    "reverse-map",
+    "derive-feature",
+]
+
+
+def _core_outputs(agent: dict) -> set[str]:
+    """Return the core list patterns whose sample path a declaration matches."""
+    import yaml
+
+    il = load_script("index-lint")
+    entries = yaml.safe_load(CORE_LIST.read_text(encoding="utf-8"))["entries"]
+    return {
+        entry["path_pattern"]
+        for entry in entries
+        for pattern in _declarations(agent)
+        if il.pattern_matches(pattern, entry["sample_path"])
+    }
+
+
+@pytest.mark.spec("CAO-03-LN-01")
+class TestSt0349RequirementsAgentKeepsScopeAndBehaviour:
+    """CAO-03-LN-01: core outputs, skill list, area spec step, handoff."""
+
+    def test_st_0349_core_outputs_are_scope_map_features_and_areas(self):
+        assert _core_outputs(_frontmatter(REQUIREMENTS_AGENT)) == {
+            "docs/spec/scope-map.md",
+            "docs/spec/features/*.feature",
+            "docs/spec/areas/*.md",
+        }
+
+    def test_st_0349_area_specs_are_optional_and_reviewed(self):
+        decl = _declarations(_frontmatter(REQUIREMENTS_AGENT))[
+            "docs/spec/areas/{name}.md"
+        ]
+        assert decl["required"] is False
+        assert decl["reviewed_by"] == ["spec-review-agent"]
+
+    def test_st_0349_skill_list_drops_capture_context(self):
+        skills = _frontmatter(REQUIREMENTS_AGENT)["skills"]
+        assert "capture-context" not in skills
+        assert set(KEPT_SKILLS) <= set(skills)
+
+    def test_st_0349_body_names_no_structure_file(self):
+        body = REQUIREMENTS_AGENT.read_text(encoding="utf-8").split("\n---\n", 1)[1]
+        assert "Produce supplementary specs" not in body
+        assert [f for f in STRUCTURE_FILES if f in body] == []
+
+    def test_st_0349_workflow_writes_an_area_spec_on_request(self):
+        workflow = _section(REQUIREMENTS_AGENT.read_text(encoding="utf-8"), "Workflow")
+        step = re.search(r"^\s*\w\. \*\*Write area specs\*\*.*$", workflow, re.M)
+        assert step, "no area spec step"
+        assert "`docs/spec/areas/<area>.md`" in step.group(0)
+        assert "the stakeholder says" in step.group(0)
+
+    def test_st_0349_handoff_names_the_domain_modeling_agent(self):
+        assert _frontmatter(REQUIREMENTS_AGENT)["handoff-to"] == [
+            "domain-modeling-agent"
+        ]
+        handoff = _section(REQUIREMENTS_AGENT.read_text(encoding="utf-8"), "Handoff")
+        assert "domain-modeling-agent" in handoff
+
+    def test_st_0349_spec_review_reads_the_area_specs(self):
+        context = _frontmatter(SPEC_REVIEW_AGENT)["inputs"]["context"]
+        assert "docs/spec/areas/*.md" in context
+
+
+ARCHITECTURE_REVIEW_AGENT = AGENTS / "architecture-review-agent.md"
+ATAM_REVIEW = SKILLS / "atam-review" / "SKILL.md"
+
+
+def _rules_check() -> str:
+    text = ATAM_REVIEW.read_text(encoding="utf-8")
+    match = re.search(
+        r"^## Step 1b — Check the dependency rules against the component view\n"
+        r"(.*?)(?=^## |\Z)",
+        text,
+        re.M | re.S,
+    )
+    assert match, "no Step 1b rules check"
+    return _flat(match.group(1))
+
+
+@pytest.mark.spec("CAO-09-LN-01")
+class TestSt0354ArchitectureReviewChecksTheDependencyRules:
+    """CAO-09-LN-01: context input, the atam-review rules check, optional rules file."""
+
+    def test_st_0354_rules_file_is_a_context_input(self):
+        agent = _frontmatter(ARCHITECTURE_REVIEW_AGENT)
+        assert DEPENDENCY_RULES in agent["inputs"]["context"]
+        required = {r["path_pattern"] for r in agent["inputs"]["required"]}
+        assert DEPENDENCY_RULES not in required
+
+    def test_st_0354_core_list_marks_rules_file_optional(self):
+        import yaml
+
+        entries = yaml.safe_load(CORE_LIST.read_text(encoding="utf-8"))["entries"]
+        (entry,) = [e for e in entries if e["path_pattern"] == DEPENDENCY_RULES]
+        assert entry["optional"] is True
+
+    def test_st_0354_rules_check_reads_the_component_view(self):
+        step = _rules_check()
+        assert "component view of `docs/spec/architecture.dsl`" in step
+        assert "every relationship between them" in step
+
+    def test_st_0354_unknown_component_is_a_mismatch(self):
+        assert (
+            "A rule that names a module the component view lacks is a mismatch."
+            in _rules_check()
+        )
+
+    def test_st_0354_forbidden_relationship_is_a_mismatch(self):
+        assert (
+            "So is a rule that forbids a dependency the component view draws "
+            "as a relationship." in _rules_check()
+        )
+
+    def test_st_0354_mismatch_files_atam_finding_for_the_architecture_agent(self):
+        step = _rules_check()
+        assert "`docs/findings/ATAM-NNNN.md`" in step
+        assert "`owner: architecture-agent`" in step
+        assert "Name the rule and the component view." in step
+
+    def test_st_0354_rules_check_skipped_without_rules_file(self):
+        step = _rules_check()
+        assert (
+            "When `docs/spec/dependency-rules.dsl` does not exist, skip this step"
+            in step
+        )
+        assert "Rules check: skipped" in step
+
+    def test_st_0354_report_carries_the_rules_check(self):
+        report = _flat(
+            _section(ATAM_REVIEW.read_text(encoding="utf-8"), "Step 4 — Write the review report")
+        )
+        assert "**Rules check**" in report
