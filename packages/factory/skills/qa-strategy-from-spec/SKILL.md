@@ -19,6 +19,11 @@ generic policy and provides shared vocabulary and the overlap-deletion
 protocol. This skill produces a feature-specific plan grounded in the
 project's agent context for `docs/spec/work/<feature-name>-qa-strategy.md`.
 
+The test-strategy agent invokes this skill, because it owns the QA
+strategies. It invokes the skill only when the feature file,
+`docs/spec/interface-contracts.md`, and `docs/spec/entity-model.md`
+exist.
+
 ## Inputs
 
 Read these source artifacts:
