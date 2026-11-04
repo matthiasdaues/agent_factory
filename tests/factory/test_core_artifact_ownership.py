@@ -317,14 +317,7 @@ class TestSt0357TestPracticeHasOneProducer:
         "sample",
         [
             "docs/testing.yaml",
-            # The developer and implementation agents still declare
-            # docs/spec/**/*.md. ST-0360 removes that pattern.
-            pytest.param(
-                "docs/spec/work/payments-qa-strategy.md",
-                marks=pytest.mark.xfail(
-                    strict=True, reason="ST-0360 removes docs/spec/**/*.md"
-                ),
-            ),
+            "docs/spec/work/payments-qa-strategy.md",
         ],
     )
     def test_st_0357_only_the_test_strategy_agent_declares(self, sample):
