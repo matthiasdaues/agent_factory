@@ -16,7 +16,7 @@ epic: Domain Entities             # the EPIC this story belongs to (references a
 title: Define domain entity dataclasses
 tier: economy                     # economy | standard | strong — the model tier this story's work needs
 status: pending                   # pending | in-progress | review | blocked | done
-risk_level: low                   # optional; must match a key in testing.yaml risk_classes (defaults: low | medium | high)
+risk_level: low                   # optional; low | medium | high (planning risk, not a testing.yaml risk class)
 deps: [ST-0002]                   # story ids that block this one (optional)
 traces: [scope-map#rule-name, ADR-0003]  # scope-map Rule / ADR / component ids this story implements (optional)
 touches: [src/orchestrator/, tests/unit/orchestrator/]

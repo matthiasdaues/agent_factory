@@ -282,8 +282,8 @@ defaults:
 | `standard`   | `scenario`  | `equivalence` |
 | `structural` | `linter`    | —             |
 
-`risk_classes` is always populated, never null. The `backlog-lint` script
-reads these keys at scan time to validate `risk_level` values in story
+`risk_classes` is always populated, never null. The `test-design` skill
+reads these classes. They are separate from the `risk_level` field in story
 frontmatter.
 
 ### 8. Record

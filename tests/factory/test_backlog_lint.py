@@ -10,15 +10,8 @@ bl = load_script("backlog-lint")
 
 
 def _check_story(path, frontmatter, body, all_ids, project_root):
-    """Exercise one story with the Factory's fallback risk-level contract."""
-    return bl.check_story(
-        path,
-        frontmatter,
-        body,
-        all_ids,
-        project_root,
-        bl.DEFAULT_RISK_LEVELS,
-    )
+    """Exercise one story through backlog-lint's story check."""
+    return bl.check_story(path, frontmatter, body, all_ids, project_root)
 
 
 def _write_story(backlog: Path, story_id: str, **fm_fields):
@@ -239,6 +232,21 @@ class TestCheckBacklog:
         assert count == 2
         errors = [f for f in findings if f.severity == "error"]
         assert errors == []
+
+    def test_risk_level_ignores_testing_yaml_risk_classes(self, tmp_path):
+        """Story risk_level and test risk classes are separate scales."""
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "testing.yaml").write_text(
+            "risk_classes:\n  critical:\n    format: forbidden\n"
+            "  standard:\n    format: scenario\n"
+        )
+        backlog = tmp_path / "backlog"
+        backlog.mkdir()
+        _write_story(backlog, "ST-0001", risk_level="high")
+        _write_story(backlog, "ST-0002", risk_level="critical")
+        findings, _ = bl.check_backlog(backlog)
+        enum_files = {f.artifact for f in findings if f.code == "BL-ENUM"}
+        assert enum_files == {"ST-0002.md"}
 
     def test_duplicate_ids_detected(self, tmp_path):
         backlog = tmp_path / "backlog"

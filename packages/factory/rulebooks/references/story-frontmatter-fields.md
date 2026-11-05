@@ -6,7 +6,7 @@ in `backlog/ST-NNNN.md` files. See the
 
 ## risk_level (optional)
 
-Must match a key in `docs/testing.yaml` → `risk_classes`. The detect-test-regime skill populates that section from the project's testing strategy document during fitting; projects that define their own risk classes (e.g. `cluster-a`, `cluster-b`) override the factory defaults. When `risk_classes` is absent from testing.yaml, `backlog-lint` falls back to `low | medium | high`. When the field itself is absent from a story, the story is treated as risk-unclassified. Does not affect implementation gates; used for organizational and historical tracking.
+One of `low | medium | high`. `backlog-lint` checks the value. The field states the planning risk of the whole story. It is not a test risk class: `test-design` takes the classes in `docs/testing.yaml` → `risk_classes` and applies them per contract. When the field is absent from a story, the story is treated as risk-unclassified. Does not affect implementation gates; used for organizational and historical tracking.
 
 ## touches (required)
 

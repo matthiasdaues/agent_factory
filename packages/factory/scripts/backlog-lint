@@ -48,7 +48,8 @@ SEVERITY_ORDER = {"error": 3, "warning": 2, "info": 1}
 
 VALID_TIERS = {"economy", "standard", "strong"}
 VALID_STATUSES = {"pending", "in-progress", "review", "blocked", "done", "implemented", "closed", "rejected"}
-DEFAULT_RISK_LEVELS = {"low", "medium", "high"}
+#: Planning risk of a story. Separate from the test risk classes in testing.yaml.
+RISK_LEVELS = {"low", "medium", "high"}
 VALID_QUALITY_GATES = {"crap-score", "mutation-testing", "dependency-check"}
 RE_STORY_ID = re.compile(r"^ST-\d{4,}[A-Z]?$")
 REQUIRED_FIELDS = {"id", "epic", "title", "tier", "status", "touches"}
@@ -257,51 +258,6 @@ def _string_set(values: Any) -> Optional[Set[str]]:
     return result
 
 
-# --- Project risk levels ------------------------------------------------------
-
-
-def _load_risk_levels(project_root: Path) -> Set[str]:
-    """Read risk_classes keys from docs/testing.yaml, fall back to defaults."""
-    testing_yaml = project_root / "docs" / "testing.yaml"
-    if not testing_yaml.is_file():
-        return DEFAULT_RISK_LEVELS
-    try:
-        text = testing_yaml.read_text(encoding="utf-8")
-    except OSError:
-        return DEFAULT_RISK_LEVELS
-
-    lines = text.split("\n")
-    in_section = False
-    child_indent = -1
-    keys: Set[str] = set()
-
-    for line in lines:
-        stripped = line.lstrip()
-        if not stripped or stripped.startswith("#"):
-            if in_section:
-                continue
-            continue
-        indent = len(line) - len(stripped)
-
-        if not in_section:
-            if indent == 0 and re.match(r"^risk_classes\s*:", stripped):
-                in_section = True
-            continue
-
-        if indent == 0:
-            break
-
-        if child_indent < 0:
-            child_indent = indent
-
-        if indent == child_indent:
-            m = re.match(r"^([A-Za-z_][A-Za-z0-9_-]*)\s*:", stripped)
-            if m:
-                keys.add(m.group(1).replace("_", "-"))
-
-    return keys if keys else DEFAULT_RISK_LEVELS
-
-
 # --- Checks -------------------------------------------------------------------
 
 
@@ -311,7 +267,6 @@ def check_story(
     body: str,
     all_ids: Set[str],
     project_root: Path,
-    valid_risk_levels: Set[str],
 ) -> List[Finding]:
     """Validate one story's frontmatter and body."""
     rel = path.name
@@ -382,14 +337,14 @@ def check_story(
         )
 
     risk_level = fm.get("risk_level")
-    if risk_level is not None and risk_level not in valid_risk_levels:
+    if risk_level is not None and risk_level not in RISK_LEVELS:
         out.append(
             Finding(
                 "BL-ENUM",
                 "error",
                 rel,
                 f"risk_level '{risk_level}' not in "
-                f"{{{', '.join(sorted(valid_risk_levels))}}}",
+                f"{{{', '.join(sorted(RISK_LEVELS))}}}",
             )
         )
 
@@ -543,7 +498,6 @@ def check_backlog(
     all_ids: Set[str] = set()
     parsed: List[Tuple[Path, Optional[Dict[str, Any]], str]] = []
     project_root = _project_root(backlog_dir)
-    valid_risk_levels = _load_risk_levels(project_root)
     for sf in story_files:
         text = sf.read_text(encoding="utf-8")
         fm, body = parse_frontmatter(text)
@@ -575,7 +529,7 @@ def check_backlog(
                 )
             )
             continue
-        findings += check_story(sf, fm, body, all_ids, project_root, valid_risk_levels)
+        findings += check_story(sf, fm, body, all_ids, project_root)
 
     # Cross-story: duplicate ids.
     id_counts: Dict[str, int] = {}
