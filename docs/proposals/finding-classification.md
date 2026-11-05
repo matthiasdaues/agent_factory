@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: Finding Classification
-status: draft
+status: open
 owner: agent-factory
 created: 2026-11-04
-updated: 2026-11-04
+updated: 2026-11-05
 supersedes:
 
 impact:
@@ -25,15 +25,23 @@ impact:
     - packages/factory/skills/atam-review/SKILL.md
     - packages/factory/skills/bug-hunt/SKILL.md
     - packages/factory/skills/reconcile-spec/SKILL.md
-    - packages/factory/skills/adversarial-review/SKILL.md
     - packages/factory/skills/validate/SKILL.md
     - packages/factory/agents/code-review-agent.md
     - packages/factory/agents/proposal-review-agent.md
+    - packages/factory/rulebooks/templates/proposal.md
     - packages/factory/agents/qa-agent.md
+    - packages/factory/agents/spec-review-agent.md
+    - packages/factory/agents/architecture-review-agent.md
+    - packages/factory/agents/reconciliation-agent.md
+    - packages/factory/config/pre-commit-config.yaml
+    - packages/factory/config/hook-metadata.yaml
     - packages/factory/scripts
     - docs/spec/interface-contracts.md
     - packages/factory/playbooks
     - packages/factory/skills/run-step/SKILL.md
+    - packages/factory/skills/explain-review-finding/SKILL.md
+    - packages/factory/rulebooks/schemas
+    - packages/factory/config/hooks
 
 governance:
   assurance: elevated
@@ -42,18 +50,18 @@ governance:
     - security
 
 estimate:
-  as_of: 2026-11-04
+  as_of: 2026-11-05
   basis: judgment
   confidence: low
   human_review_hours:
-    min: 4.0
-    max: 7.0
+    min: 5.0
+    max: 9.0
   normalized_tokens:
-    min: 25000
-    max: 50000
+    min: 55000
+    max: 95000
   estimated_consumption:
-    min: 500000
-    max: 1000000
+    min: 1100000
+    max: 1900000
     overhead_multiplier: 20
     playbook: feature-addition
 ---
@@ -62,61 +70,65 @@ estimate:
 
 ## Primer
 
-Agents review the work of other agents. Each problem a review
-finds becomes a finding, a short record that says what is wrong and how to
-fix it. Each finding's severity decides what happens next. The orchestrator is
-the agent that starts each step of the work. It sends serious findings back to their author and waits for the fix.
+In Agent Factory, agents review the work of other agents. Each problem that a
+review finds becomes a finding, a short record that says what is wrong and how
+to fix it. The orchestrator, the agent that starts each step of the work,
+sends serious findings back to their author and waits for the fix.
 
 The same review, run twice on the same work, rates its findings differently.
-The levels are defined by adjectives such as "significant", and the reviews
-use six different scales. So a borderline finding is sent back on one run and
-dropped on the next, and the fix loop runs longer or shorter by chance.
+The levels are defined by adjectives such as "significant", and the reviews use
+six different scales. So a borderline finding goes back on one run and is
+dropped on the next, and the fix loop changes length by chance.
 
-The proposal gives each finding separate values. The category says what kind
-of finding it is: a defect, a risk, a suggestion, or a question. The type says
-which part of the work fails. The severity says how bad it is, on one shared
-scale: critical, major, minor, or note. A review class, such as document,
-code, or security, names the rule that sets the severity. The class follows
-from the material, not from the review that found the problem.
+The proposal puts every finding on one scale: critical, major, minor, or note.
+A review class names the rule that sets the severity. The five classes are
+document, code, security, architecture, and runtime. The material decides the
+class, not the review that found the problem.
 
 The reviewer records facts, and a fixed rule computes the severity. For
 documents, code, and runtime behavior, the reviewer answers three yes-or-no
-questions in order. Does the problem cause harm, such as a wrong result or data
-loss, and is the work already in use? Work is in use when something outside the current run
-depends on it. Does the work fail its own purpose? Does it only make later
-reading, change, or testing harder? The first "yes" gives critical, major, or
-minor, and three "no" answers give a note. Each "yes" carries one sentence of
-evidence. Take an architecture review that finds a decision record
-silent on what happens to an untracked file. The gap is in a document, so the
-document class applies. No code is built from the record yet, so it is not in
-use. But a developer cannot act on it without asking the author, so the
-finding is major. A checking script recomputes the severity and rejects any
-mismatch.
+questions in order. Does the problem cause harm in work that is already in use?
+Does the work fail its own purpose? Does it only make later work harder? The
+first "yes" gives critical, major, or minor, and three "no" answers give a
+note. Work is in use when something outside the current run depends on it, for
+example when it is installed.
 
-An obvious alternative is a numeric score, as common security rating systems
-use. Such scores ask for many fine judgments, and a study found that users
-disagree on them. So security review uses a lookup table instead.
+Take a defect in the script that checks a finished story. An empty story
+passes, and a failing test suite then resets earlier merges. If the
+defective lines exist only on the run's own branch, the finding is
+major and goes back to the developer. If the same lines exist in the installed
+copy, real runs may already have lost merges, so the finding is critical. A
+checking script settles this from git and rejects a wrong answer.
 
-A major finding goes back to its author. A critical finding stops the run
-until the human confirms, because the harm may already exist outside the
-reviewed work. A minor finding never blocks. It becomes a row in the register,
-the one table of every unfixed minor finding. A finding
-rated too low escapes later review, so the human sees each new minor finding
-with the reason the work still serves its purpose. Only the human
-may lift the block from a finding, and the computed severity stays recorded.
+Security review uses a lookup table, because a study found that users of
+numeric scores disagree on their many fine judgments.
 
-Every filed finding keeps its answers, so a later reader can check them.
+A critical finding stops the run, because the harm may already exist outside
+the reviewed work. The reviewer lists what may be damaged, such as the lost
+merges, with a check for each item. No new work is dispatched or
+merged until the human runs the checks and confirms. Then the finding goes back
+like a major one.
+
+A minor finding never blocks. It becomes one line in the register of its
+class. A finding rated too low escapes later review, so the human sees each new
+minor finding with the reason the work still serves its purpose.
+
+Only the human may lift a block or confirm a stop. A guard on the agents' tool
+calls refuses any agent edit that names these fields. An agent that hides the
+field name gets past the guard, and that case is left for later.
+
+Every finding keeps its answers, so a later reader can check its severity. The
+proposal has no open questions.
 
 ## Summary
 
-The feature adds the rulebook `finding-classification.md` with one shared
-severity scale and six review classes: document, code, security, architecture,
-runtime, and claim. The new gate `finding-lint` recomputes each severity from
-the recorded answers, so a reader can check why a finding has its severity.
-Findings of severity `minor` go to the register `docs/findings/register.md`, and
-a `critical` finding stops the run. The first release migrates the 39 open
-findings and leaves the 208 resolved findings and an agreement-check script for
-later.
+The feature adds the rulebook `finding-classification.md`, which computes each
+finding's severity from recorded answers. The gate `finding-lint` recomputes
+it, so a reader can check why a finding has its severity. The first release
+also adds one register per review class for `minor` findings, the `critical`
+stop in `dispatch` and `premerge-check`, and the hook `guard-human-fields`. It
+migrates the 39 open findings and defers the other 208 files and a script for
+the agreement check.
 
 ## Motivation
 
@@ -140,7 +152,8 @@ The finding files show the result. `docs/findings/` holds 247 files. They
 carry seven different severity spellings: `major` (153), `minor` (53),
 `critical` (15), `medium` (7), `Major` (3), `high` (2), and `Minor` (1).
 Thirteen files carry no severity. Fifty-three files are `minor`, although
-`finding-format.md` says that Minor findings stay in the report.
+`finding-format.md` says that Minor findings stay in the report unless the
+user asks to track them.
 
 The filing threshold makes the variance expensive. A finding between Major and
 Minor is filed on one run and dropped on the next. The orchestrator loops on
@@ -152,16 +165,14 @@ filed findings, so the loop length depends on the run, not on the artifact.
   finding it is. The severity says how bad it is. The blocking rule says what
   happens. No value stands in for another.[^odc][^ieee1044][^cc]
 - **The reviewer records facts, and a rule computes the severity.** A fact is a
-  yes/no answer or a choice from a fixed list. Each "yes" carries one sentence
-  of evidence, and a `minor` finding also carries one for its "no" to
-  `fails_purpose`.
-  The rule is fixed per review class. So variance can come only from the
-  answers, and a reader can check each answer.
+  yes/no answer or a choice from a fixed list. The rule is fixed per review
+  class. So variance can come only from the answers, and a reader can check
+  each answer.
 - **One shared scale for action, a class-specific basis for judgment.** Every
   class maps onto the same four severities, so blocking and counting work the
   same everywhere. Each class keeps the questions that fit its material.
 - **Agents classify, scripts verify.** `finding-lint` recomputes the severity
-  from the recorded basis. The
+  from the recorded [basis](#the-values-of-a-finding). The
   [foundational principles](../../packages/factory/rulebooks/conventions/foundational-principles.md)
   require that agents create artifacts and scripts validate them.
 
@@ -176,6 +187,10 @@ filed findings, so the loop length depends on the run, not on the artifact.
 | Severity | How bad is it?                | `critical`, `major`, `minor`, `note`             | Computed from the basis                                          |
 | Blocking | Does it stop the review?      | `true` or `false`                                | Computed from category and severity; only the human overrides it |
 
+The basis is the set of answers that the reviewer records. The rule of the
+review class computes the severity from it, so the shape of the basis depends
+on the class.
+
 The four categories mean this:
 
 - A **defect** means the artifact is wrong as it stands.
@@ -184,16 +199,43 @@ The four categories mean this:
 - A **suggestion** means the artifact works, but a change would improve it. A
   suggestion is at most `minor`.
 - A **question** means the reviewer needs the author's intent before
-  classifying the finding. A question goes to `docs/spec/work/todo.md` and
-  carries no severity.
+  classifying the finding. A question becomes an entry in
+  `docs/spec/work/todo.md` only. It gets no finding file and no register line,
+  and it carries no severity.
+
+### Review classes
 
 The review class of a finding names the rule that classifies it, not the review
 that found it (DEC-17). The class follows from the reviewed material. Take
 ATAM-0004: ATAM review found that ADR-0026 does not define what happens to an
 untracked file in the path table. The gap is in a document, so the finding
 belongs to the document class, with type `incomplete`. It carries
-`source: atam-review` and `review_class: document` together. Each class section
-below names the reviews that usually produce its findings.
+`source: atam-review` and `review_class: document` together.
+
+The table maps each class to its material, the reviews that usually produce its
+findings, its rule, and the fields of its basis.
+
+| Class        | Material                                                     | Reviews that usually produce it                                                                    | Rule                                                                                                | Basis fields                                                 |
+| ------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| document     | Specifications, proposals, ADRs, and arc42 chapters          | `inspect-spec`, `proposal-review-agent`, `reconcile-spec`, and the document defects of ATAM review | [Consequence tree](#the-consequence-tree); proposal rows use [two questions](#proposal-review-rows) | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost` |
+| code         | Code, and the text that agents execute                       | `fagan-review` and `code-review-agent`                                                             | [Consequence tree](#the-consequence-tree)                                                           | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost` |
+| security     | Code and configuration lines                                 | `security-review` and the security step of `qa-agent`                                              | [Bug bar](#class-security)                                                                          | `effect`, the four preconditions, `confidence`, `in_use`     |
+| architecture | Architectural decisions, measured against a quality scenario | `atam-review`                                                                                      | [Matrix of importance and exposure](#class-architecture), raised by `in_use`                        | `importance`, `exposure`, `in_use`                           |
+| runtime      | Observed behavior                                            | `bug-hunt` and the exploratory testing of `qa-agent`                                               | [Consequence tree](#the-consequence-tree)                                                           | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost` |
+
+The rule holds for every source, not only for reviews (DEC-37). A finding from
+`diagnosis`, `bug-report`, `grilling`, `onboarding`, or a dispatch run takes the
+class of the material it names. Text that agents execute is code: playbooks,
+skills, agent definitions, rulebooks, and hook configuration. Take a diagnosis
+that finds `playbooks/feature-addition.md:37` telling the orchestrator to merge
+before the premerge check. The playbook runs in every session from the
+installed copy. So the finding belongs to the code class,
+[the git check](#the-git-check-for-in-use) applies, and the finding is
+`critical`.
+
+A finding names an artifact. An observation without one, such as RETRO-0002, is
+not a finding. It becomes an action item of its retrospective or an entry in
+`docs/spec/work/todo.md`.
 
 ### Shared severity scale and blocking rule
 
@@ -211,58 +253,24 @@ class-native rating, such as OWASP Medium, stays in the `rating` field. "Medium
 or higher" in security and ATAM review becomes `major` or higher through the
 mappings below.
 
-A `minor` finding is recorded as one row in the register,
-`docs/findings/register.md`, and never blocks (DEC-12). The register is one
-table for the whole project, so a reader finds every recorded, unfixed finding
-in one place. Each row holds the review report, the review class, the
-category, the type, the artifact, the story, the finding, and the
-`**Why this severity:**` sentence. A `note` stays in the review report only.
-The register has no frontmatter, so `finding-lint` and the orchestrator loop
-skip it.
+Inspection practice knows a tier above major defects, defined by a larger cost
+downstream.[^gilb] This design borrows the idea of a tier but defines it by
+`in_use`, not by the size of the cost. A `critical` finding is one whose harm
+may already exist outside the run.
 
-### What a blocking finding does
-
-A `critical` finding stops the playbook run, and a `major` finding loops back to
-its author (DEC-14). Take BUG-0037: an empty story passes `verify-story`, and a
-red suite then resets earlier merges away. The merges are lost before the bug
-hunt finds the cause, and no author agent can bring them back. So the
-orchestrator dispatches nothing more and merges nothing more. It tells the
-human which finding stopped the run and which artifacts outside the reviewed
-one may already be damaged. The run continues after the human confirms.
-
-A `major` finding such as ATAM-0004 loops back to its author without a stop.
-The loop runs until no blocking finding is open.
-
-The split between `critical` and `major` follows inspection practice. A major
-defect causes larger costs downstream. Gilb describes a further tier above it,
-whose downstream effect is an order of magnitude larger.[^gilb] Of the 247
-existing findings, 15 are `critical`, so the stop is rare.
-
-### Human override
-
-Only the human may override the computed blocking value (DEC-13). Take a
-`major` finding on wave-0 handling that the human decides not to fix. The human
-sets `blocking_override: false` in the finding file, with `override_by` and
-`override_reason`. The finding keeps its computed severity, so the severity
-stays checkable, and the loop stops waiting for it. The override only lowers a
-blocking finding. A `minor` finding never blocks, and no override raises it
-(DEC-25).
-
-`finding-lint` checks that an override carries both companion fields. It
-cannot check who wrote them, because an agent with a shell can write any
-field. Gate receipts have the same fault, as
-[gate-evidence.md](gate-evidence.md) describes. The override follows whatever
-rule that proposal settles.
+A `minor` finding goes to the [register](#register-of-minor-findings) of its
+review class and never blocks (DEC-12, DEC-33). A `note` stays in the review
+report only.
 
 ### In use
 
-Some severities depend on whether the defective artifact is already in use.
-An artifact is in use when something outside the current playbook run depends
-on it. That holds when the artifact is merged into `dev` or `main`, installed,
-or released. It also holds when an artifact that the current run did not
-produce reads it. The feature branch of the run does not count. It is the run's
-own workspace, and fixing a defect there is the normal review loop (DEC-16).
-Every finding records the answer in the field `in_use` (DEC-21).
+Some severities depend on whether the defective artifact is already in use. An
+artifact is in use when something outside the current playbook run depends on
+it. That holds when the artifact is merged into `dev` or `main`, installed, or
+released. It also holds when an artifact that the current run did not produce
+reads it. The feature branch of the run does not count. It is the run's own
+workspace, and fixing a defect there is the normal review loop (DEC-16). Every
+finding records the answer in the field `in_use` (DEC-21).
 
 A document is in use only when stories or code outside the run encode its
 statement. Being merged on `dev` is not enough, because a document does harm
@@ -271,18 +279,18 @@ accepted and on `dev`, but no migration code is built from it yet. So the gap
 is not in use, and the finding is `major`.
 
 The reviewer checks "in use" as a fact, for example in the git state, and does
-not predict which later gate might catch the defect (DEC-15). Take the
-`verify-story` defect behind BUG-0037 again. Suppose a story introduced the
-defect, and code review finds it after the story was merged into
-`feature/core-artifact-ownership`. `dev` does not carry the defect, and only
-this run uses that branch. So the finding is `major` and loops back to the
-developer. The same defect in the installed copy in
+not predict which later gate might catch the defect (DEC-15). Take BUG-0037: an
+empty story passes `verify-story`, and a red suite then resets earlier merges
+away. Suppose a story introduced the defect, and code review finds it after the
+story was merged into `feature/core-artifact-ownership`. `dev` does not carry
+the defect, and only this run uses that branch. So the finding is `major` and
+loops back to the developer. The same defect in the installed copy in
 `.agent-factory/factory/scripts/` is `critical` and stops the run, because a
 real dispatch may already have reset merges.
 
 ### The consequence tree
 
-Document, code, and runtime reviews share one decision tree. The reviewer
+The document, code, and runtime classes share one decision tree. The reviewer
 answers three questions in order. The severity is the level of the first "yes".
 Three "no" answers give `note`. Each question asks what happens if the finding
 is left uncorrected, as inspection practice defines major and minor
@@ -305,8 +313,10 @@ the full set, and a reader sees the complete reasoning.
 Each "yes" carries one sentence of evidence that names the concrete
 consequence. A `minor` finding also carries one sentence for its "no" to
 `fails_purpose`, because the pause point shows that sentence (DEC-22, DEC-27).
-Each class section below defines what the three questions mean for its
-material.
+A "yes" without a sentence of evidence fails review, not the lint. The lint
+checks structure and `in_use`, and the next review pass checks whether the
+other evidence holds. Each class section below defines what the three
+questions mean for its material.
 
 ### Type from the fix
 
@@ -318,17 +328,19 @@ has no finished fix yet, so the demanded fix takes its place (DEC-09).
 
 ### Class: document
 
-The document class covers findings in specifications, proposals, ADRs, and arc42
-chapters. They come from spec review (`inspect-spec`), proposal review
+The document class covers findings in specifications, proposals, ADRs, and
+arc42 chapters: the text that people and agents read but do not execute. Its
+findings come from spec review (`inspect-spec`), proposal review
 (`proposal-review-agent`), spec reconciliation (`reconcile-spec`), and the
 document defects of ATAM review (DEC-17).
 
-The types follow the quality characteristics of requirements from
-ISO/IEC/IEEE 29148:[^iso29148] `incorrect`, `ambiguous`, `incomplete`,
+The types are the factory's own list: `incorrect`, `ambiguous`, `incomplete`,
 `inconsistent`, `unverifiable`, `infeasible`, `untraced`, `unnecessary`, and
-`compound`. A `compound` statement bundles two requirements in one, so neither
-can be checked or traced alone (DEC-11). Reconciliation adds its four existing
-kinds: `code-defect`, `spec-stale`, `undocumented`, and `speculative`.
+`compound`. The list draws on the quality characteristics of requirements that
+ISO/IEC/IEEE 29148 names, but it was not checked against the standard's
+text.[^iso29148] A `compound` statement bundles two requirements in one, so
+neither can be checked or traced alone (DEC-11). Reconciliation adds its four
+existing kinds: `code-defect`, `spec-stale`, `undocumented`, and `speculative`.
 
 | Question           | What "yes" means for a document                                                                                                                                                                                 |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -336,19 +348,51 @@ kinds: `code-defect`, `spec-stale`, `undocumented`, and `speculative`.
 | `fails_purpose`    | A planner or implementer cannot act on the statement without asking the author. Two statements in the reviewed artifact contradict each other. A requirement has no check.                                      |
 | `raises_cost`      | The reader can act, but only after a second reading. Examples are an unclear sentence, a missing cross-link, or two terms for one concept.                                                                      |
 
+#### Proposal review rows
+
+Proposal review records its findings as rows in the proposal's Appendix, and
+the rows stay there (DEC-38). Their `PROP-NN` numbers count within the
+proposal, as DEC-09 of the [counter-ids](counter-ids.md) proposal states. A
+proposal under review has no stories built from it, so it is never in use. So
+a row is `major`, `minor`, or `note`, never `critical`.
+
+The purpose of a proposal is that a planning agent cuts stories from it without
+asking back. So the reviewer asks two questions for each row, in order:
+
+1. **`fails_purpose`**: Would a planning agent have to ask the author, or cut a
+   wrong story? A "yes" gives `major`.
+2. **`raises_cost`**: Can the planner act, while a reader pays later through a
+   second reading, a wrong number, or a source that does not hold? A "yes"
+   gives `minor`.
+
+Two "no" answers give `note`. The Finding cell ends with one sentence that
+names the deciding answer, for example "Severity: the planner can act, because
+the migration counts its own files, but the wrong number misleads a reader."
+The repeat pass checks that sentence as it checks the resolution. Checks 01,
+02, 03, and 06 of the proposal review test whether a planner can act, so their
+failures lean toward `major`. Checks 04, 05, 07, and 08 test accuracy and lean
+toward `minor`. The reviewer still answers the questions for each row.
+
+A `major` row blocks the transition to `accepted`. `minor` and `note` rows do
+not block, and they stay in the table, not in a register, because the next
+review pass tracks them. Only the stakeholder may set a `major` row to the
+status `waived`, with the reason in its Resolution cell. `finding-lint` does
+not read proposals.
+
 The proposal review keeps its consultative pass. That pass writes only `note`
 rows, because a draft is not yet expected to be complete.
 
 ### Class: code
 
 The code class covers Fagan inspection (`fagan-review`) and implementation code
-review (`code-review-agent`).
+review (`code-review-agent`). Its material includes the text that agents
+execute, as [Review classes](#review-classes) describes.
 
 The types follow Orthogonal Defect Classification (ODC):[^odc] `function`,
 `interface`, `checking`, `assignment`, `timing`, `algorithm`, `build`, and
 `documentation`. Two types cover findings that ODC does not name. `structure`
-covers a dependency rule, layering, or a SOLID violation with a concrete
-cost. `test` covers a missing or weak test for an owned contract.
+covers a dependency rule, layering, or a SOLID violation with a concrete cost.
+`test` covers a missing or weak test for an owned contract.
 
 | Question           | What "yes" means for code                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -370,13 +414,14 @@ identifier can be added when one fits.
 The class uses a bug bar, not a score (DEC-20). A bug bar is a lookup table:
 the effect of an attack sets a starting level, and each precondition of the
 attack lowers it by one step. Microsoft's SDL bug bar and Chromium's severity
-guidelines work this way.[^sdl][^chromium] Numeric scoring asks the reviewer
-for many fine judgments, and those judgments disagree. In a study of 196 CVSS
-users, no case was scored consistently. Nine months later, 68 % of the 59
-participants who scored again changed their own severity.[^wunder] The least
-agreement was on abstract metrics such as Scope and Attack Vector. The
-authors recommend central guidance with examples for hard cases. A bug bar is
-that guidance in the form of a table.
+guidelines work this way.[^sdl][^chromium]
+
+Numeric scoring asks the reviewer for many fine judgments, and those judgments
+disagree. In a study of 196 CVSS users, no case was scored consistently. Nine
+months later, 68 % of the 59 participants who scored again changed their own
+severity.[^wunder] The least agreement was on abstract metrics such as Scope
+and Attack Vector. The authors recommend central guidance with examples for
+hard cases. A bug bar is that guidance in the form of a table.
 
 **Step 1: effect.** The reviewer picks the effect class that describes what the
 attacker gains. The effect sets the starting level.
@@ -450,23 +495,25 @@ The architecture class covers what only ATAM review produces: findings measured
 against a quality scenario. ATAM sorts architectural decisions by kind, and the
 types are those kinds: `risk`, `non-risk`, `sensitivity-point`, and
 `tradeoff-point`.[^atam] A defect that ATAM review finds in an architecture
-document, such as ATAM-0004, belongs to the
-[document class](#class-document). An `arch-lint` error also enters
-the review as a document defect, usually of type `inconsistent`.
+document, such as ATAM-0004, belongs to the [document class](#class-document).
+An `arch-lint` error also enters the review as a document defect, usually of
+type `inconsistent`.
 
 A `risk` gets its severity from two facts. The first fact is the importance of
 the quality scenario it threatens. ATAM rates each scenario in the utility tree
 on two dimensions: its importance to the success of the system, and the
 perceived risk of achieving it. Both ratings are `high`, `medium`, or `low`,
 because "stakeholders cannot reliably and repeatably make finer distinctions
-than High, Medium, and Low".[^atam] The factory does not keep a utility tree.
-Chapter 10, § 10.2 "Quality Attribute Priority", gives each scenario a priority
-of 1 or 2, set by the stakeholder. The severity maps that priority: priority 1
-becomes `high`, and priority 2 becomes `medium` (DEC-10, DEC-19). The row `low`
-stays in the matrix for projects that rank scenarios on three levels. If a
-risk against a priority-2 scenario should block, the stakeholder raises the
-scenario to priority 1. The second fact is the exposure, which is the
-reviewer's own analysis:
+than High, Medium, and Low".[^atam]
+
+The factory does not keep a utility tree. Chapter 10, § 10.2 "Quality Attribute
+Priority", gives each scenario a priority of 1 or 2, set by the stakeholder.
+The severity maps that priority: priority 1 becomes `high`, and priority 2
+becomes `medium` (DEC-10, DEC-19). The row `low` stays in the matrix for
+projects that rank scenarios on three levels. If a risk against a priority-2
+scenario should block, the stakeholder raises the scenario to priority 1.
+
+The second fact is the exposure, which is the reviewer's own analysis:
 
 - `fails` means the analysis shows the decision cannot meet the scenario's
   response measure.
@@ -481,11 +528,11 @@ reviewer's own analysis:
 
 The matrix gives at most `major`. A third fact, `in_use`, raises a `major` risk
 to `critical`. It holds when something built from the decision is in use, as
-DEC-16 defines (DEC-18). Take a risk against QS-9, "Read-only preflight before
-installation". While the design exists only in an ADR, the risk is `major` and
-loops back to the architecture author. Once an installer built from that
-design is released, the same risk is `critical` and stops the run, because
-installed copies may already act on the flawed design.
+[In use](#in-use) defines (DEC-18). Take a risk against QS-9, "Read-only
+preflight before installation". While the design exists only in an ADR, the
+risk is `major` and loops back to the architecture author. Once an installer
+built from that design is released, the same risk is `critical` and stops the
+run, because installed copies may already act on the flawed design.
 
 Non-risks, sensitivity points, and tradeoff points are recorded in the report
 with severity `note`. They support the analysis and do not demand a change. A
@@ -513,44 +560,165 @@ means that testing stops until a fix or workaround exists. Blocking describes
 the state of testing, not the size of the harm, so this design records it in
 the blocking flag and not in the severity.
 
-The QA strategy keeps its per-feature triage table and aligns its three actions
-with the scale. `blocking` means `critical`, which stops the run.
-`fix-in-same-story` means `major`, which blocks and loops back to the author.
-`defer` means `minor`. The table supplies the feature-specific examples for
-the three questions. The reviewer records severity, not priority, as
-[Design Details](#design-details) explains.
+The QA strategy keeps its per-feature triage table, but the table states the
+consequence, not the severity (DEC-34). Its `Severity` column becomes
+`Consequence`, with the values "harm if in use", "fails purpose", and "raises
+cost". The table gives the feature-specific examples for the three questions,
+and the tree and `in_use` compute the severity. The action follows the
+severity: `critical` stops the run, `major` loops back to the author, and
+`minor` goes to the register.
 
-### Class: claim
+Take a bug hunt that finds a new migration step deleting the story files of a
+test project. The table lists data loss under "harm if in use". The code
+exists only on the feature branch, so it cannot harm anything outside the run
+yet. The finding is `major`, and the automated loop fixes it before the
+merge. The same defect on `dev` is `critical` and stops the run. The reviewer
+records severity, not priority, as [Design Details](#design-details) explains.
 
-The claim class covers `adversarial-review` and keeps its defined scale. For
-counting and envelopes, BLOCKER becomes `critical`, MAJOR becomes `major`,
-MINOR becomes `minor`, and NOTE becomes `note`. The survival rule of
-`adversarial-review` stays unchanged, because its votes decide on a claim, not
-on a review pass.
+### Claim review stays outside
+
+Claim review is not a review class (DEC-36). `adversarial-review` decides
+whether a research claim survives, not how bad a defect in an artifact is. A
+claim that fails review harms nothing, because nothing outside the research
+run depends on it yet. Its refutation is a success, because the research has
+eliminated a bad argument. So `adversarial-review` keeps its BLOCKER, MAJOR,
+MINOR, and NOTE, its schemas, and its survival rule.
+
+Only its envelope follows the shared scale, because every child-result
+envelope carries the four keys. A BLOCKER counts under `major`, because it
+blocks the claim as a `major` finding blocks a review. MAJOR, MINOR, and NOTE
+count under their namesakes. No BLOCKER counts under `critical`, because no
+claim review finds harm that already exists elsewhere.
+
+### What a blocking finding does
+
+A `critical` finding stops the playbook run, and a `major` finding loops back to
+its author (DEC-14). The loop runs until no blocking finding is open. Take
+BUG-0037 again. The merges are lost before the bug hunt finds the cause, and no
+author agent can bring them back. So the run must dispatch and merge nothing
+more.
+
+Two scripts hold the stop (DEC-28). `dispatch` and `premerge-check` refuse to
+run while a finding file has `severity: critical`, `status: open`, and no
+`stop_confirmed_by`. `block-dangerous-git` lets `git merge` through only with
+the marker that `premerge-check` writes, so no merge passes the stop either.
+
+Both scripts print the same stop notice and exit `1`. The notice names the
+finding ID and title, the artifact, the evidence for `in_use`, each item of the
+finding's [possible damage](#finding-file) with its check, and the
+confirmation step (DEC-29). In an interactive session, the orchestrator then
+explains each stopping finding with `explain-review-finding`, which leads with
+cause and effect. A headless run does not wait. It ends and carries the notice
+in its final summary.
+
+The human runs the checks and then writes `stop_confirmed_by` and
+`stop_confirmed_reason` into the finding file. The reason says what the human
+checked and what they found. The scripts then run again, and the finding loops
+back to its author like a `major` one. It keeps its severity. Only the human
+writes the two fields, as
+[Fields only the human writes](#fields-only-the-human-writes) describes.
+
+### Human override
+
+Only the human may override the computed blocking value (DEC-13). Take a
+`major` finding on wave-0 handling that the human decides not to fix. The human
+sets `blocking_override: false` in the finding file, with `override_by` and
+`override_reason`. The finding keeps its computed severity, so the severity
+stays checkable, and the loop stops waiting for it. The override only lowers a
+blocking finding. A `minor` finding never blocks, and no override raises it
+(DEC-25).
+
+### Fields only the human writes
+
+`finding-lint` checks that an override carries both companion fields, but it
+cannot check who wrote them. So a guard hook keeps agents from writing them
+(DEC-42). The `PreToolUse` hook `guard-human-fields` refuses every `Edit`,
+`Write`, or `Bash` call of an agent whose content sets `blocking_override`,
+`override_by`, `override_reason`, `stop_confirmed_by`, `stop_confirmed_reason`,
+or the proposal row status `waived`. The human writes these fields in an editor
+or with a `!` command in the session, which runs outside the tool hooks.
+
+Take a headless run that a `critical` finding stops. The orchestrator tries to
+write `stop_confirmed_by: human` into the finding file to finish the run. The
+hook refuses the edit, and the run ends with the stop notice.
+
+The hook checks the text of each call, as `block-dangerous-git.sh` does. An
+agent that hides the field name, for example by building it from pieces in a
+script, gets past it. No local check can tell a human from an agent with a
+shell, the fault that [gate-evidence.md](gate-evidence.md) describes for gate
+receipts. The design for that path is deferred.
+
+### Register of minor findings
+
+A `minor` finding is recorded as one line in the register of its review class.
+The registers live in `docs/findings/register/`, one JSON Lines file per class,
+such as `security.jsonl`. So a reader finds every recorded, unfixed finding in
+one folder. A blocking finding stays a file, because its `Fix`, its possible
+damage, and its status changes on each repeat pass do not fit in one line.
+
+Each line is one JSON object with the ID, the `source`, the category, the type,
+the artifact, the story, the finding, the `basis`, the `**Why this severity:**`
+sentence, and the reviewed commit. The `basis` has the shape of the class, so
+each register has its own JSON Schema in `packages/factory/rulebooks/schemas/`,
+such as `finding-register-security.schema.json`. `schema-validate` checks each
+line against it, and `finding-lint` recomputes its severity.
+
+JSON Lines suits the register for three reasons. A new finding adds one line at
+the end, so two parallel reviews merge without touching each other's lines. A
+padded Markdown table rewrites every line when one cell grows. The `basis`
+nests in JSON, where CSV would flatten it into columns. And the factory already
+validates JSON against schemas with the standard library only. The orchestrator
+loop greps finding files for `status: open`, so it skips the registers.
+
+A finding classified too high blocks, so someone looks at it. A finding
+classified too low becomes a register line, and nothing questions its answers
+again. The lint checks only that the severity matches the answers, and a
+wrong "no" matches as well as a right one. The repeat pass reads only blocking
+findings. So the pause point in `finding-format.md` shows each new `minor`
+finding with its "no" sentence for `fails_purpose` (DEC-22). The pause point
+and the orchestrator's final summary render the register lines as text for the
+human. Take an ATAM review that records "an implementer can pick the obvious
+behavior" for the gap in ADR-0026. The user reads the sentence and can raise
+the finding to `major` by changing the answer. In a headless run, the
+orchestrator's final summary lists the new register lines with the same
+sentence. That summary comes only after the loop ends, so a headless run can
+still carry a wrong downgrade into implementation.
+
+### Finding IDs
+
+Every finding gets its ID from `next-id`, whether it becomes a file or a
+register line (DEC-32). The [counter-ids](counter-ids.md) proposal defines that
+script. Until it ships, the reviewer takes the next plausible number of the
+tag. The reviewer looks at the finding files, the IDs in the registers, and the
+branches of open runs, and checks by hand that no other finding holds that
+number.
 
 ### Finding file
 
-The finding template gains seven fields and one body line. The new fields are
+The finding template gains nine fields and one body line. The new fields are
 `review_class`, `type`, `basis`, `rating`, `blocking_override`, `override_by`,
-and `override_reason`:
+`override_reason`, `stop_confirmed_by`, and `stop_confirmed_reason`. A
+`critical` finding also carries the body section `## Possible damage`:
 
 ```markdown
 ---
 id: FAGAN-0042
 source: fagan-review
-review_class: code            # document | code | security | architecture | runtime | claim
+review_class: code            # document | code | security | architecture | runtime
 category: defect              # defect | risk | suggestion | question
 type: checking                # vocabulary of the review class
 severity: major               # critical | major | minor | note — computed from basis
 basis:                        # shape depends on review_class
-  in_use: false               # every class; checked against git
+  in_use: false               # every class; git-checked for code, runtime, security
   harms_downstream: false
   fails_purpose: true
   raises_cost: true
-rating: null                  # security: bug-bar level; claim: BLOCKER|MAJOR|MINOR|NOTE
+rating: null                  # security: bug-bar level
 blocking_override: null       # false only — set only by the human
 override_by: null             # required when blocking_override is set
 override_reason: null         # required when blocking_override is set
+stop_confirmed_by: null       # critical only — set only by the human
+stop_confirmed_reason: null   # required when stop_confirmed_by is set
 artifact: packages/factory/scripts/premerge-check:120
 status: open
 traces: [ST-0351]
@@ -563,11 +731,21 @@ traces: [ST-0351]
 **Why this severity:** <one sentence per "yes" answer, per precondition, or for the effect class>
 
 **Fix:** <the concrete remediation>
+
+## Possible damage              <!-- critical only -->
+
+- <what outside the artifact depends on it> — check: <command or step>
 ```
 
-A security finding records `basis` as `effect`, the four preconditions,
-`confidence`, and `in_use`. An architecture finding records `basis` as
-`importance`, `exposure`, and `in_use`.
+The reviewer fills `## Possible damage` when filing a `critical` finding, and
+only then (DEC-29). Each item names one thing outside the reviewed artifact
+that depends on it, as a fact from git or the file tree, and one check the
+human can run. For BUG-0037, one item reads "merges on `dev` from dispatch runs
+since the installed copy was last updated — check: compare
+`git log --merges dev` with the merges the dispatch log records".
+
+The example shows the basis of the code class. Each class records the basis
+fields that [Review classes](#review-classes) lists.
 
 The child-result envelope keys `finding_counts` by the shared scale:
 `critical`, `major`, `minor`, and `note`. Every key is always present.
@@ -575,74 +753,160 @@ The child-result envelope keys `finding_counts` by the shared scale:
 ### `finding-lint`
 
 `finding-lint` is a new deterministic gate in `packages/factory/scripts/`. It
-reads every `docs/findings/*.md` that carries `review_class`. After the
-migration below, only resolved findings lack the field. The lint checks these
-rules:
+reads every `docs/findings/*.md` that carries `review_class`, and every
+register line. After the migration, only files that are not `open` lack the
+field, as [Migration of open findings](#migration-of-open-findings) lists. The
+lint skips them. The lint checks these rules:
 
 - `review_class`, `category`, and `type` hold values from the vocabulary of
   their class.
 - `basis` has the shape its class requires.
 - The severity computed from `basis` equals the recorded `severity`.
-- A `suggestion` is at most `minor`, and a `question` carries no severity.
+- A `suggestion` is at most `minor`. No finding file and no register line has
+  the category `question`.
 - The body holds a `**Why this severity:**` line.
 - A set `blocking_override` comes with a non-empty `override_by` and
   `override_reason`.
+- A `critical` finding holds `## Possible damage` with at least one item and
+  its check. No other severity holds the section.
+- A set `stop_confirmed_by` comes with a non-empty `stop_confirmed_reason`,
+  and only on a `critical` finding.
 - `artifact` resolves to a line range (`path:line` or `path:start-end`) or to a
   Markdown heading (`path#anchor`).
-- For a finding of the code or runtime class, `in_use` agrees with git
-  (DEC-21). The lint reads the lines that `artifact` names. It compares them
-  with `dev`, with `main`, with every release tag, and with the installed copy.
-  In this repository, the installed copy of `packages/factory/` is
-  `.agent-factory/factory/`. If the text exists unchanged in any of these
-  places, `in_use` must be `true`. The lint then exits `1` with a message such
-  as "artifact lines exist unchanged on dev".
+- For a finding of the code, runtime, or security class, `in_use` agrees with
+  git, as [The git check for in use](#the-git-check-for-in-use) defines
+  (DEC-21, DEC-31).
 - In the document, code, and runtime classes, `harms_downstream` is `true` only
   when `in_use` is `true`.
 - A `minor` finding holds one sentence for its "no" answer to `fails_purpose`
-  in its `**Why this severity:**` line (DEC-27).
+  in its `**Why this severity:**` sentence (DEC-27). The lint checks this on
+  each register line.
 
-For code and runtime findings, `in_use` is the one answer that git settles
-without judgment, and it is the answer that stops the run. So the lint checks
-it (DEC-21).
+The script exits `1` on any violation and names the file and the rule. The
+`validate` skill and the pre-commit configuration run it.
 
-The git check does not apply to documents. A document is in use only through
-the stories or code built from it (DEC-26), and git cannot tell whether code
-encodes a statement. So the reviewer answers `in_use` for a document and names
-the encoding story or code in the `**Why this severity:**` line.
+#### The git check for in use
+
+For code, runtime, and security findings, `in_use` is the one answer that git
+settles without judgment, and it is the answer that stops the run. A security
+finding points at code or configuration lines like a code finding, and a missed
+security stop does the most harm. So the lint checks it (DEC-21, DEC-31).
+
+Take BUG-0037 from [In use](#in-use), but suppose the story did not touch the
+defective lines. Then `dev` carries the same lines. A Fagan review on
+`feature/core-artifact-ownership` answers `in_use: false`, because the review
+runs on the feature branch. The lint finds the lines unchanged on `dev` and
+rejects the finding. After the correction, the finding is `critical`, and the
+run stops.
+
+The rule is this: if every line of the `artifact` range exists unchanged on
+`dev`, on `main`, at a release tag, or in the installed copy, `in_use` must be
+`true`. Otherwise the lint exits `1` with a message such as "artifact lines
+exist unchanged on dev". [Line identity](#line-identity) defines when a line is
+unchanged.
 
 The git check sets a lower bound only. When git finds no match, the reviewer
 may still answer `in_use: true`, for example when another project already
 reads the artifact. The `**Why this severity:**` line then names who reads it.
 
-Take the `verify-story` defect behind BUG-0037 from [In use](#in-use), but
-suppose the story did not touch the defective lines. Then `dev` carries the
-same lines. A Fagan review on `feature/core-artifact-ownership` answers
-`in_use: false`, because the review runs on the feature branch. The lint finds
-the lines unchanged on `dev` and rejects the finding. After the correction, the
-finding is `critical`, and the run stops.
+The lint checks `in_use` only when the commit adds the finding or changes its
+`basis` or its `artifact`, and `validate --changed` does the same (DEC-43). A
+change to the override or confirmation fields, the status, or the text does
+not trigger the check. `in_use` records a fact at the time of the review.
+Otherwise a `major` finding that the human overrides after its branch merged
+into `dev` would fail the lint, although its answer was correct when the
+reviewer gave it.
 
-The script exits `1` on any violation and names the file and the rule. The
-`validate` skill and the pre-commit configuration run it.
+The git check does not apply to document and architecture findings. Both are in
+use only through what is built from them: a document through the stories or
+code that encode it (DEC-26), and a decision through what is built from it
+(DEC-18). Git cannot tell whether code encodes a statement. So the reviewer
+answers `in_use` for a document and names the encoding story or code in the
+`**Why this severity:**` line.
+
+#### Line identity
+
+The lint compares line identities from git, not text (DEC-30).
+`git blame -M -C --porcelain` gives each line the commit that introduced it and
+its line number in that commit.[^blame] Two lines are the same line when both
+values match. `-M` and `-C` follow a line that moved within a file or between
+files.
+
+1. The lint blames the `artifact` range on the reviewed branch and collects one
+   identity per line. For a `path#anchor` artifact, the range is the section
+   under the heading.
+2. It blames the same path on `dev`, on `main`, and at each release tag.
+3. It blames the installed copy with `--contents`, which annotates a file
+   outside git against the history of the tracked path. In this repository,
+   the installed copy of `packages/factory/` is `.agent-factory/factory/`. A
+   consumer project has no `packages/factory/` and skips this step.
+4. If every identity of the range shows up in one of these places, the lines
+   exist there unchanged.
+
+Take the BUG-0037 case above with a story that inserted 20 lines above the
+defect. The defective lines sit at 120–134 on the feature branch and at
+100–114 on `dev`. Their identities match, so the lint finds them on `dev`. A
+range that holds a single `}` has its own identity too, so it cannot match
+every other brace in the file.
 
 ### Migration of open findings
 
 The 39 findings that are `open` today are migrated once (DEC-24). They are 20
 `major`, 1 `high`, and 18 `minor` findings. By tag they are 25 BUG, 5 PROP,
 4 RECON, 4 RETRO, and 1 SEC. The orchestrator loops on every `open` file. So
-without the migration, the 18 `minor` findings would keep blocking, against
-DEC-12.
+without the migration, the 18 `minor` findings would keep blocking, against the
+rule that a `minor` finding never blocks (DEC-12).
 
 An agent classifies each open finding with the new rulebook. It writes
-`review_class`, `basis`, and the `**Why this severity:**` line. Then:
+`review_class`, `basis`, and the `**Why this severity:**` line. It rewrites
+`artifact` to a line range or a heading, at the place the fix goes (DEC-40).
+BUG-0016 names `docs/`, BUG-0086 names a whole script, and both get the range
+of their fix. For each finding that comes out `critical`, the migration agent
+fills `## Possible damage`, as a reviewer does.
 
-- A finding that comes out `minor` becomes a register row that keeps its ID,
-  for example BUG-0067. The file is removed, and git history keeps its text.
+The user reviews all 39 results at one pause point before any file changes. For
+each `critical` finding, the human runs the checks and sets
+`stop_confirmed_by` and `stop_confirmed_reason` (DEC-35). The finding then
+blocks like a `major` one, and its fix goes into the backlog. So the migration
+commit holds no unconfirmed `critical` finding, and no later run stops on a
+finding it did not produce. The migration review report records how many open
+findings the new rule makes `critical` (DEC-35).
+
+After the pause point, the agent changes the files:
+
+- A finding that comes out `minor` becomes a line in the register of its
+  class and keeps its ID, for example BUG-0067. The file is removed, and git
+  history keeps its text. This is the one exception to the rule in
+  `finding-format.md` that a finding file is never deleted (DEC-33).
 - Any other finding stays a file and is checked by the lint from then on, for
   example BUG-0105.
-- The user reviews all 39 results at one pause point before any file changes.
+- A finding that names no artifact, such as RETRO-0002, is not a finding
+  (DEC-37, DEC-40). The agent moves it into `docs/spec/work/todo.md`, and the
+  file gets `status: deferred` with the todo ID in its body.
 
-The 208 resolved findings stay as they are. They carry no future action, so
-their old format costs nothing.
+The other 208 files stay as they are: 195 resolved findings, IMPL-0003 with
+`status: deferred`, and 12 files without frontmatter. Three of the twelve are
+not findings at all: `BUG-HUNT.md`, `qa-handoff-envelope.md`, and
+`qa-review-summary.md`. None of them carries a future action, so their old
+format costs nothing.
+
+### Agreement check
+
+The agreement check measures how often two runs give a finding the same
+severity (DEC-23, DEC-39). It re-classifies a fixed set of 20 closed findings
+from `docs/findings/`, none of them migrated. They are picked by the class of
+their material, not by tag: 6 document, 5 code, 4 runtime, 2 architecture, and
+3 security. The security picks are FAGAN-0021, SEC-0005, and SEC-0006. Each
+finding keeps only the text that says what is wrong and how it was fixed. No
+finding in the set is a calibration example of the rulebook or a worked
+example of this proposal.
+
+Each run of the check is a fresh subagent session. It receives only the rules
+under test and the 20 texts, with no conversation and no other file. All four
+runs use the model that the review agents use. Two runs classify the set with
+the new rulebook, and two classify it with the rules in `report-format.md` as
+they stand before this change. A `question` counts as disagreement, because the
+run did not classify the finding.
 
 ## Scope
 
@@ -655,31 +919,47 @@ their old format costs nothing.
 - `report-format.md` § Category rules and § Severity, `finding-format.md`
   § When to file, and `owasp-top-10.md` link to the new rulebook instead of
   defining severity themselves.
-- The finding template and the review-report template carry the new fields.
 - Each review skill and agent in the boundaries names its review class and
   links to its class section.
-- The QA strategy template aligns its triage actions with the scale.
+- The finding template and the review-report template carry the new fields.
+  The finding file carries `blocking_override`, `override_by`,
+  `override_reason`, `stop_confirmed_by`, `stop_confirmed_reason`, and, on a
+  `critical` finding, the section `## Possible damage`.
+- The registers in `docs/findings/register/`, one JSON Lines file per review
+  class, with one schema per class in `packages/factory/rulebooks/schemas/`.
+  The review skills write each `minor` finding into the register of its class.
+- `finding-format.md` allows the migration to remove the file of a migrated
+  `minor` finding, as the one exception to "never delete".
 - `finding-lint` checks the rules in [`finding-lint`](#finding-lint).
   `validate` and pre-commit run it.
-- The register `docs/findings/register.md` exists, and the review skills write
-  each `minor` finding into it.
-- The finding file carries the fields `blocking_override`, `override_by`, and
-  `override_reason`.
+- `dispatch` and `premerge-check` hold the stop for an open, unconfirmed
+  `critical` finding and print the stop notice. The orchestrator explains each
+  stopping finding with `explain-review-finding`, and a headless run ends with
+  the notice in its final summary.
+- The hook `guard-human-fields` in `packages/factory/config/hooks/`, registered
+  for `Edit`, `Write`, and `Bash`.
 - The pause point in `finding-format.md` and the final summary of each playbook
   with a review loop show every new `minor` finding with its `fails_purpose`
   sentence.
-- The orchestrator and every playbook with a review loop apply the stop rule
-  for `critical` findings.
+- The triage table of the QA strategy template states the consequence in a
+  `Consequence` column, and its actions follow the computed severity.
+- `proposal-review-agent.md` and the proposal template rate each review row
+  with the two questions, end its Finding cell with the severity sentence, and
+  know the status `waived`.
 - `docs/spec/interface-contracts.md` keys `finding_counts` by the shared scale.
 - The one-time migration of the 39 open findings, as
   [Migration of open findings](#migration-of-open-findings) describes.
-- An agreement check on a fixed set of existing findings, as the Completion
-  Criteria describe. The set and its results live in a review report in
-  `docs/reviews/`.
+- The [agreement check](#agreement-check) on a fixed set of existing findings.
+  The set and its results live in a review report in `docs/reviews/`.
 
 **Explicitly deferred (do NOT plan stories for these):**
 
-- Migration of the 208 resolved findings (DEC-24).
+- Protection against an agent that hides an override or confirmation field from
+  `guard-human-fields`. No local check tells a human from an agent with a
+  shell, so the design waits for [gate-evidence.md](gate-evidence.md) (DEC-42).
+- A review class for claim review. `adversarial-review` decides whether a
+  claim survives, not how bad a defect is, and keeps its own scale (DEC-36).
+- Migration of the 208 files that are not `open` (DEC-24).
 - A script that runs the agreement check. The first release runs it once by
   hand. A script is worth building when the rulebook changes often enough that
   each change needs a new measurement.
@@ -699,21 +979,6 @@ their old format costs nothing.
   judgments cause the variance this proposal removes (DEC-05, DEC-20).
 
 ## Design Details
-
-**Evidence over labels.** A "yes" answer without a sentence of evidence fails
-review, not the lint. The lint checks structure and `in_use`. The next review
-pass checks whether the other evidence holds.
-
-**Downgrades are shown to a person.** A finding classified too high blocks, so
-someone looks at it. A finding classified too low becomes a register row that
-no lint and no repeat pass reads again. So the pause point in
-`finding-format.md` shows each `minor` finding with its "no" sentence for
-`fails_purpose` (DEC-22). Take an ATAM review that records "an implementer can
-pick the obvious behavior" for the gap in ADR-0026. The user reads the sentence
-and can raise the finding to `major` by changing the answer. In a headless run,
-the orchestrator's final summary lists the new register rows with the same
-sentence. That summary comes only after the loop ends, so a headless run can
-still carry a wrong downgrade into implementation.
 
 **Calibration examples.** Each class section in the rulebook lists two or three
 real findings per level, with their basis. A reviewer reads them before the
@@ -758,6 +1023,9 @@ describe it.
 | CERT SSVC[^ssvc]                        | A decision tree for priority. Checked and not adopted (DEC-05)                                                                                | yes                    |
 | Kazman, Klein, Clements: ATAM[^atam]    | Risks, non-risks, sensitivity points, tradeoff points, and the utility tree ratings                                                           | yes                    |
 | Bass, Clements, Kazman[^bass]           | Risk themes                                                                                                                                   | yes                    |
+| `git blame`[^blame]                     | Line identity as commit plus original line number, followed across moves with `-M` and `-C`                                                   | yes                    |
+| SARIF fingerprints[^sarif]              | `primaryLocationLineHash` as a rolling hash over a line. Checked and not adopted, because it removes duplicates and does not prove presence   | yes                    |
+| Web Annotation text anchors[^anchor]    | Text plus prefix and suffix, found again by fuzzy matching. Checked and not adopted, because `in_use` asks for unchanged text                 | yes                    |
 | IEEE 1028                               | Nothing yet. The design does not depend on it                                                                                                 | no                     |
 
 ## Open Questions
@@ -766,43 +1034,68 @@ None.
 
 ## Completion Criteria
 
-- `finding-classification.md` exists and defines the values of a finding, the shared
-  scale, the consequence tree, and the six class sections, each with at least
-  two examples per severity level.
+- `finding-classification.md` exists and defines the values of a finding, the
+  shared scale, the consequence tree, and the five class sections, each with
+  two or three examples per severity level. The examples are real findings. A
+  level with no real finding yet has one invented example that names real
+  project files.
 - No other rulebook, skill, or agent in the boundaries defines a severity
   level. Each one links to the new rulebook.
+- Each review skill and agent in the boundaries names its review class and
+  links to its class section in `finding-classification.md`.
 - `finding-lint` exits `1` on a finding whose `severity` does not match its
   `basis`, and the exit is covered by a test for each review class.
-- `finding-lint` exits `1` on a finding that records `in_use: false` while the
-  lines its `artifact` names exist unchanged on `dev`. A test covers a line
-  range on `dev` and a line range in the installed copy.
+- `finding-lint` exits `1` on a code or security finding that records
+  `in_use: false` while the lines its `artifact` names exist unchanged on
+  `dev`. Tests cover a security finding, a range on `dev`, a range in the
+  installed copy, a range whose lines shifted, a range that moved to another
+  file, and a range in the installed copy whose lines git has no record of,
+  which does not count as unchanged.
+- `finding-lint` checks `in_use` only when a commit adds a finding or changes
+  its `basis` or `artifact`. A test merges the branch of a `major` finding
+  into `dev`, then sets `blocking_override` on it, and the lint still exits
+  `0`.
+- `finding-lint` exits `1` on a finding with `blocking_override` set and an
+  empty `override_by` or `override_reason`.
+- `finding-lint` exits `1` on a `critical` finding without
+  `## Possible damage`, and on a `stop_confirmed_by` without
+  `stop_confirmed_reason`.
+- A review that produces a `minor` finding adds one line to the register of
+  its class and files no finding file for it. `schema-validate` accepts the
+  line, and `finding-lint` exits `1` on a line whose `severity` does not match
+  its `basis`.
+- While an open `critical` finding has no `stop_confirmed_by`, `dispatch` and
+  `premerge-check` exit `1` and print the stop notice with the finding's
+  possible damage. A test covers each script, and a test shows that both run
+  again once `stop_confirmed_by` and `stop_confirmed_reason` are set.
+- `guard-human-fields` refuses an agent `Edit` that sets `stop_confirmed_by`
+  in a finding file, and an agent `Bash` call that sets `blocking_override`.
+  A test covers both and shows that an edit without these fields passes.
+- At the pause point, the user sees every new `minor` finding with its
+  `fails_purpose` sentence before any file is written.
+- The final summary of a headless run lists each new `minor` register line
+  with its `fails_purpose` sentence.
+- The triage table in `rulebooks/templates/qa-strategy.md` has a
+  `Consequence` column with the three values "harm if in use", "fails
+  purpose", and "raises cost", and no severity column.
+- Every row that the proposal-review agent writes in adversarial mode ends its
+  Finding cell with a `Severity:` sentence, and the proposal template lists the
+  status `waived` as set only by the stakeholder.
+- A child-result envelope from any review carries the four keys `critical`,
+  `major`, `minor`, and `note`.
 - `finding-lint` exits `0` on `docs/findings/` after the migration. Every open
   finding carries `review_class`, and every resolved finding without it is
   skipped.
 - None of the 39 migrated findings is `open` with severity `minor`. Each
-  migrated `minor` finding is a row in `docs/findings/register.md` under its
+  migrated `minor` finding is a line in the register of its class under its
   old ID.
-- A review that produces a `minor` finding adds one row to
-  `docs/findings/register.md` and files no finding file for it.
-- `finding-lint` exits `1` on a finding with `blocking_override` set and an
-  empty `override_by` or `override_reason`.
-- When a review files an open `critical` finding, the orchestrator dispatches
-  and merges nothing until the human confirms. It names the finding and the
-  artifacts that may be damaged.
-- At the pause point, the user sees every new `minor` finding with its
-  `fails_purpose` sentence before any file is written.
-- A child-result envelope from any review carries the four keys `critical`,
-  `major`, `minor`, and `note`.
-- An agreement check on a fixed set passes (DEC-23). The set holds 20 resolved
-  findings from `docs/findings/`, none of them migrated, spread across the six
-  review classes. Each finding keeps only its "What is wrong" and "Fix" text.
-  No finding in the set is a calibration example of the rulebook or a worked
-  example of this proposal. Two fresh runs classify the set with the new
-  rulebook. Two more fresh runs classify it with the rules in
-  `report-format.md` as they stand before this change. The check passes when
-  the two new runs agree on the severity of at least 16 of the 20 findings
-  (DEC-08) and agree on more findings than the two old runs do. A review report
-  in `docs/reviews/` records the set and both counts.
+- After the migration commit, no open `critical` finding lacks
+  `stop_confirmed_by`, and the migration review report states how many
+  migrated findings are `critical`.
+- The [agreement check](#agreement-check) passes when the two new runs agree on
+  the severity of at least 16 of the 20 findings (DEC-08) and agree on more
+  findings than the two old runs do. A review report in `docs/reviews/` records
+  the quotas, the picks, the model, and both counts.
 
 ## Guiding Rule
 
@@ -812,45 +1105,80 @@ The reviewer states the facts, and the rule states the severity.
 
 ## Decisions
 
-| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                                                                  | Raised by                                                          |
-| ------ | ---------- | ---------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| DEC-01 | 2026-11-04 | decision   | stakeholder | Each review class gets its own classification criteria.                                                                                                                                                                   | Chat discussion                                                    |
-| DEC-02 | 2026-11-04 | decision   | stakeholder | Sources are named. The design does not copy standards that are not accessible and may draw on general domain knowledge instead.                                                                                           | Chat discussion                                                    |
-| DEC-03 | 2026-11-04 | decision   | stakeholder | All classes record severity on one four-level scale (`critical`, `major`, `minor`, `note`) with one blocking threshold at `major`. Native ratings stay in `rating`.                                                       | Grilling Q1                                                        |
-| DEC-04 | 2026-11-04 | assumption | author      | The reviewer records a basis, a rule computes the severity, and `finding-lint` recomputes it.                                                                                                                             | Motivation                                                         |
-| DEC-05 | 2026-11-04 | decision   | stakeholder | Security review does not use CVSS, SSVC, CWSS, or OWASP factor scoring. CVSS and SSVC need deployment and threat data, and factor judgments vary between runs. Superseded in its method by DEC-20.                        | Grilling Q7b                                                       |
-| DEC-06 | 2026-11-04 | decision   | stakeholder | Security impact uses the maximum of the four factors. OWASP allows an estimate instead of the mean, and IEEE 1044 and CVSS v3.1 treat impact as the worst case.                                                           | Source research. Superseded by DEC-20, which has no impact factors |
-| DEC-07 | 2026-11-04 | assumption | author      | `finding-lint` skips findings without `review_class`, and migration of old findings is deferred. Superseded by DEC-24.                                                                                                    | Design                                                             |
-| DEC-08 | 2026-11-04 | assumption | author      | The agreement target is 80 %, that is 16 of 20 findings in the fixed set. It stays an assumption; the baseline condition in DEC-23 tests the proposal. Answers OQ-01.                                                     | Grilling Q11                                                       |
-| DEC-09 | 2026-11-04 | decision   | stakeholder | In the document and code classes, the type follows from the fix that the finding demands, as ODC chooses it from the fix made.                                                                                            | Source research                                                    |
-| DEC-10 | 2026-11-04 | decision   | stakeholder | Architecture severity uses the importance of the threatened scenario (source: DEC-19). Each non-risk names its assumptions.                                                                                               | Source research                                                    |
-| DEC-11 | 2026-11-04 | decision   | stakeholder | The document class gains the type `compound` for a statement that bundles two requirements.                                                                                                                               | Source research                                                    |
-| DEC-12 | 2026-11-04 | decision   | stakeholder | A `minor` finding becomes one row in the project register `docs/findings/register.md` and never blocks. Answers OQ-03.                                                                                                    | T-0016 grilling                                                    |
-| DEC-13 | 2026-11-04 | decision   | stakeholder | Only the human overrides the computed blocking value, through `blocking_override`, `override_by`, and `override_reason`. The severity stays computed.                                                                     | T-0016 grilling                                                    |
-| DEC-14 | 2026-11-04 | decision   | stakeholder | A `critical` finding stops the playbook run until the human confirms. A `major` finding loops back to its author.                                                                                                         | Grilling Q2                                                        |
-| DEC-15 | 2026-11-04 | decision   | stakeholder | `harms_downstream` asks whether the defective artifact is already in use (see DEC-16). The reviewer checks this fact and does not predict later gates.                                                                    | Grilling Q3                                                        |
-| DEC-16 | 2026-11-04 | decision   | stakeholder | An artifact is in use when something outside the current run depends on it: `dev`, `main`, the installed copy, a release, or an artifact the run did not produce. The feature branch of the run does not count.           | Grilling Q3b                                                       |
-| DEC-17 | 2026-11-04 | decision   | stakeholder | `review_class` names the rule, not the review. A defect that ATAM review finds in an ADR or arc42 chapter belongs to the document class. The architecture class covers only findings measured against a quality scenario. | Grilling Q4                                                        |
-| DEC-18 | 2026-11-04 | decision   | stakeholder | The architecture matrix gives at most `major`. A risk becomes `critical` only when something built from the decision is in use (DEC-16).                                                                                  | Grilling Q5                                                        |
-| DEC-19 | 2026-11-04 | decision   | stakeholder | Scenario importance comes from the priority in arc42 § 10.2: priority 1 is `high`, priority 2 is `medium`. A utility tree with H/M/L ratings is deferred.                                                                 | Grilling Q6                                                        |
-| DEC-20 | 2026-11-04 | decision   | stakeholder | Security severity comes from a bug bar: the effect class sets the level, each of four preconditions lowers it one step, and `critical` needs `in_use` and `proven` confidence.                                            | Grilling Q7b                                                       |
-| DEC-21 | 2026-11-04 | decision   | stakeholder | `finding-lint` checks `in_use` against `dev`, `main`, release tags, and the installed copy. Every class records `in_use`, and `artifact` must resolve to a line range or a heading.                                       | Grilling Q9                                                        |
-| DEC-22 | 2026-11-04 | decision   | stakeholder | The pause point shows each new `minor` finding with its `fails_purpose` sentence, so the user can raise a wrong downgrade. A headless run lists the rows in its final summary.                                            | Grilling Q10                                                       |
-| DEC-23 | 2026-11-04 | decision   | stakeholder | Agreement is measured by re-classifying a fixed set of 20 existing findings, twice with the new rulebook and twice with the old rules. The new rules must reach the target and beat the old ones.                         | Grilling Q11                                                       |
-| DEC-24 | 2026-11-04 | decision   | stakeholder | The 39 open findings are migrated once with the new rulebook; migrated `minor` findings become register rows under their old ID. The 208 resolved findings stay untouched. Answers OQ-02.                                 | Grilling Q12                                                       |
-| DEC-25 | 2026-11-04 | decision   | stakeholder | The override only sets a blocking finding to `false`. A `minor` finding never blocks, and no override raises it.                                                                                                          | review-loop-cap lector pass                                        |
-| DEC-26 | 2026-11-04 | decision   | stakeholder | A document is in use only when stories or code outside the run encode its statement. The git check for `in_use` applies to code and runtime findings only.                                                                | Lector pass C2                                                     |
-| DEC-27 | 2026-11-04 | decision   | stakeholder | A `minor` finding carries one sentence for its "no" to `fails_purpose`, and `finding-lint` checks that the sentence exists.                                                                                               | Lector pass C4                                                     |
+| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                                                                                                                                                    | Raised by                                                          |
+| ------ | ---------- | ---------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| DEC-01 | 2026-11-04 | decision   | stakeholder | Each review class gets its own classification criteria.                                                                                                                                                                                                                                                     | Chat discussion                                                    |
+| DEC-02 | 2026-11-04 | decision   | stakeholder | Sources are named. The design does not copy standards that are not accessible and may draw on general domain knowledge instead.                                                                                                                                                                             | Chat discussion                                                    |
+| DEC-03 | 2026-11-04 | decision   | stakeholder | All classes record severity on one four-level scale (`critical`, `major`, `minor`, `note`) with one blocking threshold at `major`. Native ratings stay in `rating`.                                                                                                                                         | Grilling Q1                                                        |
+| DEC-04 | 2026-11-04 | assumption | author      | The reviewer records a basis, a rule computes the severity, and `finding-lint` recomputes it.                                                                                                                                                                                                               | Motivation                                                         |
+| DEC-05 | 2026-11-04 | decision   | stakeholder | Security review does not use CVSS, SSVC, CWSS, or OWASP factor scoring. CVSS and SSVC need deployment and threat data, and factor judgments vary between runs. Superseded in its method by DEC-20.                                                                                                          | Grilling Q7b                                                       |
+| DEC-06 | 2026-11-04 | decision   | stakeholder | Security impact uses the maximum of the four factors. OWASP allows an estimate instead of the mean, and IEEE 1044 and CVSS v3.1 treat impact as the worst case.                                                                                                                                             | Source research. Superseded by DEC-20, which has no impact factors |
+| DEC-07 | 2026-11-04 | assumption | author      | `finding-lint` skips findings without `review_class`, and migration of old findings is deferred. Superseded by DEC-24.                                                                                                                                                                                      | Design                                                             |
+| DEC-08 | 2026-11-04 | assumption | author      | The agreement target is 80 %, that is 16 of 20 findings in the fixed set. It stays an assumption; the baseline condition in DEC-23 tests the proposal. Answers OQ-01.                                                                                                                                       | Grilling Q11                                                       |
+| DEC-09 | 2026-11-04 | decision   | stakeholder | In the document and code classes, the type follows from the fix that the finding demands, as ODC chooses it from the fix made.                                                                                                                                                                              | Source research                                                    |
+| DEC-10 | 2026-11-04 | decision   | stakeholder | Architecture severity uses the importance of the threatened scenario (source: DEC-19). Each non-risk names its assumptions.                                                                                                                                                                                 | Source research                                                    |
+| DEC-11 | 2026-11-04 | decision   | stakeholder | The document class gains the type `compound` for a statement that bundles two requirements.                                                                                                                                                                                                                 | Source research                                                    |
+| DEC-12 | 2026-11-04 | decision   | stakeholder | A `minor` finding becomes one row in the project register `docs/findings/register.md` and never blocks. Answers OQ-03. Storage changed by DEC-33.                                                                                                                                                           | T-0016 grilling                                                    |
+| DEC-13 | 2026-11-04 | decision   | stakeholder | Only the human overrides the computed blocking value, through `blocking_override`, `override_by`, and `override_reason`. The severity stays computed.                                                                                                                                                       | T-0016 grilling                                                    |
+| DEC-14 | 2026-11-04 | decision   | stakeholder | A `critical` finding stops the playbook run until the human confirms. A `major` finding loops back to its author.                                                                                                                                                                                           | Grilling Q2                                                        |
+| DEC-15 | 2026-11-04 | decision   | stakeholder | `harms_downstream` asks whether the defective artifact is already in use (see DEC-16). The reviewer checks this fact and does not predict later gates.                                                                                                                                                      | Grilling Q3                                                        |
+| DEC-16 | 2026-11-04 | decision   | stakeholder | An artifact is in use when something outside the current run depends on it: `dev`, `main`, the installed copy, a release, or an artifact the run did not produce. The feature branch of the run does not count.                                                                                             | Grilling Q3b                                                       |
+| DEC-17 | 2026-11-04 | decision   | stakeholder | `review_class` names the rule, not the review. A defect that ATAM review finds in an ADR or arc42 chapter belongs to the document class. The architecture class covers only findings measured against a quality scenario.                                                                                   | Grilling Q4                                                        |
+| DEC-18 | 2026-11-04 | decision   | stakeholder | The architecture matrix gives at most `major`. A risk becomes `critical` only when something built from the decision is in use (DEC-16).                                                                                                                                                                    | Grilling Q5                                                        |
+| DEC-19 | 2026-11-04 | decision   | stakeholder | Scenario importance comes from the priority in arc42 § 10.2: priority 1 is `high`, priority 2 is `medium`. A utility tree with H/M/L ratings is deferred.                                                                                                                                                   | Grilling Q6                                                        |
+| DEC-20 | 2026-11-04 | decision   | stakeholder | Security severity comes from a bug bar: the effect class sets the level, each of four preconditions lowers it one step, and `critical` needs `in_use` and `proven` confidence.                                                                                                                              | Grilling Q7b                                                       |
+| DEC-21 | 2026-11-04 | decision   | stakeholder | `finding-lint` checks `in_use` against `dev`, `main`, release tags, and the installed copy. Every class records `in_use`, and `artifact` must resolve to a line range or a heading.                                                                                                                         | Grilling Q9                                                        |
+| DEC-22 | 2026-11-04 | decision   | stakeholder | The pause point shows each new `minor` finding with its `fails_purpose` sentence, so the user can raise a wrong downgrade. A headless run lists the rows in its final summary.                                                                                                                              | Grilling Q10                                                       |
+| DEC-23 | 2026-11-04 | decision   | stakeholder | Agreement is measured by re-classifying a fixed set of 20 existing findings, twice with the new rulebook and twice with the old rules. The new rules must reach the target and beat the old ones.                                                                                                           | Grilling Q11                                                       |
+| DEC-24 | 2026-11-04 | decision   | stakeholder | The 39 open findings are migrated once with the new rulebook; migrated `minor` findings become register rows under their old ID. The 208 resolved findings stay untouched. Corrected count: 208 files that are not `open`, 195 of them resolved (PROP-12). Answers OQ-02.                                   | Grilling Q12                                                       |
+| DEC-25 | 2026-11-04 | decision   | stakeholder | The override only sets a blocking finding to `false`. A `minor` finding never blocks, and no override raises it.                                                                                                                                                                                            | review-loop-cap lector pass                                        |
+| DEC-26 | 2026-11-04 | decision   | stakeholder | A document is in use only when stories or code outside the run encode its statement. The git check for `in_use` applies to code and runtime findings only. Extended to security by DEC-31.                                                                                                                  | Lector pass C2                                                     |
+| DEC-27 | 2026-11-04 | decision   | stakeholder | A `minor` finding carries one sentence for its "no" to `fails_purpose`, and `finding-lint` checks that the sentence exists.                                                                                                                                                                                 | Lector pass C4                                                     |
+| DEC-28 | 2026-11-05 | decision   | stakeholder | `dispatch` and `premerge-check` hold the `critical` stop. The human confirms through `stop_confirmed_by` and `stop_confirmed_reason`; the finding then loops like a `major` one. A headless run ends with the stop notice.                                                                                  | Review PROP-01, grilling Q1                                        |
+| DEC-29 | 2026-11-05 | decision   | stakeholder | Only a `critical` finding carries `## Possible damage`, filled by the reviewer from git and the file tree, one check per item. The scripts print it in the stop notice, and the orchestrator explains the finding with `explain-review-finding`.                                                            | Review PROP-01, grilling Q1b                                       |
+| DEC-30 | 2026-11-05 | decision   | stakeholder | `finding-lint` compares line identities from `git blame -M -C --porcelain`, using `--contents` for the installed copy, and checks `in_use` only on finding files new or changed in the commit. Text matching and SARIF fingerprints are not used.                                                           | Review PROP-02, grilling Q2                                        |
+| DEC-31 | 2026-11-05 | decision   | stakeholder | The git check for `in_use` covers the security class as well as code and runtime. Document and architecture findings stay outside it.                                                                                                                                                                       | Review PROP-03, grilling Q3                                        |
+| DEC-32 | 2026-11-05 | decision   | stakeholder | Every finding, file or register line, gets its ID from `next-id` of the counter-ids proposal. Until it ships, the reviewer takes the next plausible number and avoids clashes by hand.                                                                                                                      | Review PROP-16, grilling Q4                                        |
+| DEC-33 | 2026-11-05 | decision   | stakeholder | `minor` findings go to one JSON Lines register per review class in `docs/findings/register/`, each with a JSON Schema. Blocking findings stay files. Removing a migrated `minor` file is the one exception to "never delete".                                                                               | Review PROP-16, grilling Q4c and Q4d                               |
+| DEC-34 | 2026-11-05 | decision   | stakeholder | The QA triage table states the consequence, not the severity. A defect that is not in use cannot harm production yet, so it is `major` and the automated loop fixes it; in use, it is `critical`.                                                                                                           | Review PROP-04, grilling Q5                                        |
+| DEC-35 | 2026-11-05 | decision   | stakeholder | Migrated `critical` findings get `## Possible damage` from the migration agent and are confirmed by the human at the migration pause point, so no later run stops on them. The rarity claim based on old labels is replaced by the count in the migration report.                                           | Review PROP-09, grilling Q6                                        |
+| DEC-36 | 2026-11-05 | decision   | stakeholder | Claim review is not a review class. A refuted claim is a success, eliminating a bad argument, and harms nothing. `adversarial-review` keeps its scale; its envelope counts BLOCKER under `major`.                                                                                                           | Review PROP-05, grilling Q7                                        |
+| DEC-37 | 2026-11-05 | decision   | stakeholder | The class follows the material for every source, not only reviews. Text that agents execute (playbooks, skills, agent definitions, rulebooks, hook configuration) is code. An observation without an artifact is not a finding; it becomes a retro action item or a todo entry.                             | Review PROP-06, grilling Q8                                        |
+| DEC-38 | 2026-11-05 | decision   | stakeholder | Proposal review rows stay in the Appendix. Severity comes from two questions, whether a planner must ask back (`major`) and whether a reader pays later (`minor`), with one severity sentence per row. A `major` row blocks acceptance; only the stakeholder sets `waived`. `finding-lint` skips proposals. | Review PROP-07, grilling Q9                                        |
+| DEC-39 | 2026-11-05 | decision   | stakeholder | The agreement set is picked by class of material with fixed quotas (6 document, 5 code, 4 runtime, 2 architecture, 3 security). A `question` counts as disagreement. Each run is a fresh subagent with only the rules and the texts, on the review agents' model.                                           | Review PROP-10, grilling Q10                                       |
+| DEC-40 | 2026-11-05 | assumption | author      | The migration rewrites each `artifact` to the range of its fix. An open finding without an artifact moves into `todo.md`, and its file gets `status: deferred` with the todo ID.                                                                                                                            | Review PROP-08                                                     |
+| DEC-41 | 2026-11-05 | assumption | author      | A `question` is only a `todo.md` entry; no finding file and no register line carries the category.                                                                                                                                                                                                          | Review PROP-17                                                     |
+| DEC-42 | 2026-11-05 | decision   | stakeholder | The hook `guard-human-fields` refuses agent tool calls that set override or stop-confirmation fields or the row status `waived`. The design against an agent that hides the field name is deferred to gate-evidence.                                                                                        | Review PROP-15, grilling Q11                                       |
+| DEC-43 | 2026-11-05 | decision   | stakeholder | `finding-lint` checks `in_use` only when a commit adds the finding or changes its `basis` or `artifact`. Override, confirmation, status, and text changes do not trigger it.                                                                                                                                | Lector pass C4                                                     |
 
 ## Review findings
 
-| ID  | Pass | Severity | Check | Status | Finding | Resolution |
-| --- | ---- | -------- | ----- | ------ | ------- | ---------- |
+| ID      | Pass | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Resolution                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------- | ---- | -------- | ----- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | 1    | major    | 03    | fixed  | § What a blocking finding does (L223-234) and Completion Criteria (L789-791): the stop for a `critical` finding has no mechanism. The review loops in the playbooks run only `grep -l "status: open"` (for example `playbooks/feature-addition.md:354`) and never read the severity. The proposal does not say which component reads the severity, where the human's confirmation is recorded, what a headless run does while it waits, or whether a confirmed `critical` finding then loops back like a `major` one. Name the component (playbook text or `scripts/dispatch`), the confirmation record, and the headless behavior.                                                                                                                                          | § What a blocking finding does now names the mechanism: `dispatch` and `premerge-check` refuse to run on an open, unconfirmed `critical` finding (DEC-28). The confirmation record is `stop_confirmed_by` and `stop_confirmed_reason`. A headless run ends with the stop notice, and a confirmed finding loops like a `major` one. The notice and `## Possible damage` are defined in DEC-29. Completion Criteria and Scope carry both.         |
+| PROP-02 | 1    | major    | 03    | fixed  | § `finding-lint` (L592-598, L617-622): the `in_use` check does not define its comparison. It does not say whether "unchanged" means the same path at the same line numbers or the same text anywhere in the file, how a common line such as `}` counts, how a `path#anchor` artifact is compared, or what "the installed copy" means in a consumer project. The result also changes with git state. Once the feature branch merges into `dev`, an open `major` code finding with `blocking_override: false` fails the lint on every later commit. Define the comparison, and say whether the lint checks `in_use` only when the finding is written or on every run.                                                                                                          | § `finding-lint` now defines the comparison in "Line identity": `git blame -M -C --porcelain` identities on `dev`, `main`, release tags, and the installed copy through `--contents`, which handles shifted lines, moved lines, and common lines. The lint checks only new or changed finding files, so a merge does not turn a correct answer false. A consumer project skips the installed copy (DEC-30). Completion Criteria name the tests. |
+| PROP-03 | 1    | major    | 03    | fixed  | § Class: security, step 4 (L418-420) and § `finding-lint` (L592, L604-606): a security Critical becomes `critical` only when `in_use` is `true`, but the git check covers only the code and runtime classes. So a security reviewer on a feature branch can record `in_use: false` for vulnerable lines that are already on `dev`, and the stop never fires. This is the same failure that the BUG-0037 example at L617-622 uses to justify the check. Extend the git check to the security class, or state why security is exempt.                                                                                                                                                                                                                                          | § `finding-lint` now runs the git check for code, runtime, and security findings, and explains why architecture stays out (DEC-31). Completion Criteria add a test for a security finding on lines that exist on `dev`.                                                                                                                                                                                                                         |
+| PROP-04 | 1    | major    | 03    | fixed  | § Class: runtime (L516-521): the QA strategy maps `blocking` to `critical`, and the triage table in `rulebooks/templates/qa-strategy.md:87` puts data loss under `blocking`. The consequence tree at L291-295 gives data loss on the feature branch `major`, because the code is not in use. A reviewer who follows the triage table records `critical`, and the lint rejects it. Say which rule wins, for example that `blocking` means `critical` when the code is in use and `major` otherwise.                                                                                                                                                                                                                                                                           | § Class: runtime now has the triage table state the consequence in a `Consequence` column, and the tree with `in_use` computes the severity (DEC-34). Data loss on the feature branch is `major`, on `dev` `critical`. Scope and Completion Criteria name the template change.                                                                                                                                                                  |
+| PROP-05 | 1    | major    | 03    | fixed  | § Class: claim (L523-529): the claim class has no `basis` shape, no meaning for `in_use`, and no finding files, because `adversarial-review` writes research-review records checked by `rulebooks/schemas/research-review.schema.json`. So the lint rule "`basis` has the shape its class requires" (L584) and the criterion "a test for each review class" (L775) cannot be met for this class. "BLOCKER becomes `critical`" conflicts with the meaning of `critical` at L202, and `adversarial-review` keeps its own scale against the criterion at L772. Define the claim basis, files, and stop behavior, or limit the class to the envelope mapping and exempt it in the lint and the criteria. The research-review template and schema are not in `impact.boundaries`. | The claim class is removed (DEC-36). § Claim review stays outside explains why and maps only the envelope counts, with BLOCKER under `major`. `adversarial-review` left the boundaries, the class list has five entries, and Deferred names the reason.                                                                                                                                                                                         |
+| PROP-06 | 1    | major    | 02    | fixed  | `impact.boundaries` (L14-36) and Scope (L659-661): several files that set filing thresholds lie outside the boundaries, so a planner cannot tell whether their stories are in. `agents/spec-review-agent.md:63` files "Major+ findings", `agents/architecture-review-agent.md:67` files "Medium+ risks", and `agents/reconciliation-agent.md` files `RECON` findings. The pre-commit hook is defined in `packages/factory/config/pre-commit-config.yaml` and `config/hook-metadata.yaml`, not in `scripts/`. Open findings also come from sources that no class names: `grilling`, `diagnosis`, `retro`, `onboarding`, and `dispatch-run`. Add these files to the boundaries or to the deferred list, and say which rule applies to findings from those sources.             | `impact.boundaries` now list spec-review-agent, architecture-review-agent, reconciliation-agent, `config/pre-commit-config.yaml`, and `config/hook-metadata.yaml`. § The values of a finding states that the class follows the material for every source, that agent-executed text is code, and that an observation without an artifact is not a finding (DEC-37).                                                                              |
+| PROP-07 | 1    | major    | 03    | fixed  | § Class: document (L321-340): proposal review writes its findings as rows in the proposal's Appendix, and `agents/proposal-review-agent.md` forbids finding files. The proposal does not say where such a row keeps its `basis` and its "Why this severity" sentence, whether a `minor` proposal finding goes to the register or stays in the table, or whether `finding-lint` and the override apply to it. The `Severity` column of `rulebooks/templates/proposal.md` is not in the boundaries. State how the document class applies to Appendix rows.                                                                                                                                                                                                                     | § Class: document now has "Proposal review rows": rows stay in the Appendix, severity from `fails_purpose` and `raises_cost` with a `Severity:` sentence per row, `minor` rows stay in the table, the stakeholder alone sets `waived`, and `finding-lint` skips proposals (DEC-38). The proposal template joined the boundaries; Scope and Completion Criteria carry the change.                                                                |
+| PROP-08 | 1    | major    | 03    | fixed  | § Migration of open findings (L635-642) and Completion Criteria (L779-781): the migration writes `review_class`, `basis`, and the "Why this severity" line, but not `artifact`. Many open findings name a whole file or folder, which the lint rule at L590 rejects. BUG-0016 names `docs/`, BUG-0086 names `packages/factory/scripts/dispatch`, RECON-cycle-retirement names `docs/ and packages/factory/`, and RETRO-0002 has no artifact. So "`finding-lint` exits `0` on `docs/findings/` after the migration" fails as written. Add the rewrite of `artifact` to the migration steps, or exempt migrated findings from that rule.                                                                                                                                       | § Migration now rewrites `artifact` to the range of the fix and moves a finding without an artifact into `todo.md`, with its file set to `deferred` (DEC-37, DEC-40). So the lint can exit `0` after the migration.                                                                                                                                                                                                                             |
+| PROP-09 | 1    | major    | 03    | fixed  | § What a blocking finding does (L236-239): "Of the 247 existing findings, 15 are `critical`, so the stop is rare" counts the old labels, but the new `critical` means harm plus `in_use`. Most open code findings point at code that is already on `dev`, for example BUG-0086, BUG-0105, and BUG-0114, and BUG-0105 describes a wrong result. Under the new rule such findings are likely `critical`, so the migration itself may produce several stops. The proposal does not say which run a migrated `critical` finding stops. Replace the claim with a count from a trial classification of the 39 open findings, and state what a migrated `critical` finding stops.                                                                                                   | The rarity claim is gone; the migration review report records the count. § Migration now has the migration agent fill `## Possible damage` for each migrated `critical` finding and the human confirm it at the pause point, so the migration commit holds no unconfirmed stop (DEC-35). A Completion Criterion checks this.                                                                                                                    |
+| PROP-10 | 1    | major    | 01    | fixed  | Completion Criteria, agreement check (L796-805): the fixed set cannot be built as written. `docs/findings/` holds no claim-class findings. The only resolved security finding with frontmatter is SEC-0003, which is a worked example of this proposal and so excluded, and SEC-0005 and SEC-0006 have no frontmatter. The criterion also does not say how a `question` result, which has no severity, counts toward agreement, or which agent and model make a "fresh run". Say how classes without eligible findings are handled, and define both points.                                                                                                                                                                                                                  | The claim class is gone (DEC-36). The set is now picked by class of material with fixed quotas; security draws on FAGAN-0021, SEC-0005, and SEC-0006, whose text suffices without frontmatter. A `question` counts as disagreement, and a fresh run is defined as a new subagent with only the rules and the texts, on the review agents' model (DEC-39).                                                                                       |
+| PROP-11 | 1    | minor    | 01    | fixed  | Completion Criteria (L769-806): three Scope items have no criterion: the headless final summary (L668-670), the QA strategy alignment (L661), and the class link in each review skill (L659-660). The criterion "at least two examples per severity level" (L771) also conflicts with Design Details (L721-722), which allows one invented example where no real one exists, and with Scope (L653), which says two or three. Add the three criteria and pick one example rule.                                                                                                                                                                                                                                                                                               | Completion Criteria now cover the class link in each review skill and agent, the headless final summary, and the QA triage table (DEC-34). The example rule reads the same in Scope, Design Details, and Completion Criteria: two or three per level, real where one exists, else one invented.                                                                                                                                                 |
+| PROP-12 | 1    | minor    | 02    | fixed  | Summary (L117-119), Migration (L644-645), and § `finding-lint` (L578-579): at HEAD, `docs/findings/` holds 195 `resolved` files, not 208. The other 13 are IMPL-0003 with `status: deferred` and 12 files without frontmatter. Of these, `BUG-HUNT.md`, `qa-handoff-envelope.md`, and `qa-review-summary.md` are not findings, and FAGAN-0029 says "Improvement opportunity". So "only resolved findings lack the field" is false. Motivation (L142-143) also leaves out the exception in `finding-format.md:16`: Minor findings are filed when the user asks. The other counts (247 files, 39 open, the severity spellings, and the tag breakdown) match. Correct the counts, and say how the lint and the migration treat deferred and frontmatter-less files.             | Summary, § `finding-lint`, § Migration, and Deferred now give 195 resolved, 1 deferred, and 12 files without frontmatter, three of them not findings. The lint skips every file without `review_class`. Motivation names the "unless the user asks" exception.                                                                                                                                                                                  |
+| PROP-13 | 1    | minor    | 03    | fixed  | § Class: document (L326-331): the design states that the nine document types "follow the quality characteristics of requirements from ISO/IEC/IEEE 29148" and cites § 5.2.5 and § 5.2.6. The Sources table (L744) and the footnote say that only the table of contents was read and that the list is unchecked. So the attribution goes beyond what was read. Present the types as the factory's own list, or read the two sections and check the list.                                                                                                                                                                                                                                                                                                                      | § Class: document now presents the types as the factory's own list that draws on ISO/IEC/IEEE 29148 and says the list was not checked against the standard's text.                                                                                                                                                                                                                                                                              |
+| PROP-14 | 1    | minor    | 03    | fixed  | § What a blocking finding does (L236-238): "Gilb describes a further tier above it, whose downstream effect is an order of magnitude larger" attributes a quantity to Gilb and Graham. The Sources table (L741) and the footnote say that only a search excerpt of a different Gilb paper was read. The design also defines `critical` by `in_use`, not by the size of the downstream cost, so the citation does not support the split as designed. Drop the quantity, or name the excerpt as the only source and say what it supports.                                                                                                                                                                                                                                      | § What a blocking finding does drops the quantity. It names a tier above major from inspection practice and states that this design defines the tier by `in_use`, not by cost.                                                                                                                                                                                                                                                                  |
+| PROP-15 | 1    | minor    | 06    | fixed  | Open Questions (L765) and § Human override (L251-255): "None" hides one genuine open question. Nothing checks that only the human sets an override, and the design defers to `gate-evidence.md`, which is a `draft` stub that decides nothing. Record this as an open question or an explicit deferral, and say what the first release does until that proposal settles.                                                                                                                                                                                                                                                                                                                                                                                                     | § Human override now names the hook `guard-human-fields`, which refuses agent writes of the override and confirmation fields (DEC-42). The hidden-field path is an explicit deferral that points to gate-evidence, not a silent "None". Scope, boundaries, and Completion Criteria carry the hook.                                                                                                                                              |
+| PROP-16 | 1    | major    | 03    | fixed  | § Shared severity scale and blocking rule (L214-221) and Migration (L638-639): a new `minor` register row has no ID scheme; only migrated rows keep their old ID. `finding-format.md:22` allocates the next ID by scanning finding files, so removing a migrated file lets a later finding reuse its ID. `finding-format.md:43` also says a finding file is never deleted, and the Scope does not change that rule. Define the ID of a register row, make ID allocation read the register, and add both rule changes to the Scope.                                                                                                                                                                                                                                           | Every finding gets its ID from `next-id`; until it ships, the reviewer takes the next plausible number and checks by hand (DEC-32), so a removed file cannot free an ID. `minor` findings go to one JSON Lines register per class with a schema each (DEC-33). Scope now carries the registers and the one exception to "never delete" for migrated `minor` files.                                                                              |
+| PROP-17 | 1    | minor    | 03    | fixed  | § The values of a finding (L186-188) and § `finding-lint` (L586): a `question` "goes to `docs/spec/work/todo.md`", but the lint rule "a `question` carries no severity" implies that question finding files exist. Say whether a question is a finding file, a todo entry, or both.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | § The values of a finding makes a `question` a `todo.md` entry only, and the lint rule now says no file or register line carries the category (DEC-41).                                                                                                                                                                                                                                                                                         |
+| PROP-18 | 1    | minor    | 08    | fixed  | Frontmatter estimate (L51-57): `normalized_tokens` of 25,000 to 50,000 is below a rough count of the edits. The rulebook with six class sections and about 60 calibration examples is about 13,000 tokens. `finding-lint` with the git comparison and its tests is about 10,000 to 15,000, the migration of 39 findings about 12,000, and the edits to some 25 files about 8,000. That gives about 45,000 to 80,000. Raise the range or set it to `unknown`. The multiplier of 20 fits the playbook.                                                                                                                                                                                                                                                                         | The estimate is now 55,000 to 95,000 normalized tokens, 1.1 to 1.9 million consumed, and 5 to 9 review hours, as of 2026-11-05. The range includes the grilling additions: the stop in two scripts, five register schemas, and the proposal-review rows.                                                                                                                                                                                        |
 
 ## Review passes
 
-| Pass | Date | Reviewed commit | Disposition | Failed checks | Summary |
-| ---- | ---- | --------------- | ----------- | ------------- | ------- |
+| Pass | Date       | Reviewed commit                          | Disposition | Failed checks      | Summary                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---- | ---------- | ---------------------------------------- | ----------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | 2026-11-05 | db41f06e2dab91ac95e34ecbd09c00e597c7f2e9 | findings    | 01, 02, 03, 06, 08 | Checks 04, 05, and 07 pass: the impact flags fit the design, every boundary path resolves, and the motivation names a concrete cost. The design leaves the `critical` stop, the `in_use` comparison, the claim class, proposal-review rows, and register IDs undefined, so a planner would have to ask back (11 major, 7 minor). The reviewed text is HEAD plus an uncommitted change to `status` and `updated` only. |
 
 ______________________________________________________________________
 
@@ -886,6 +1214,8 @@ ______________________________________________________________________
 
 [^bass]: Len Bass, Paul Clements, Rick Kazman, *Software Architecture in Practice*, chapter on ATAM, <https://people.ece.ubc.ca/matei/EECE417/BASS/ch11lev1sec2.html>.
 
+[^blame]: Git documentation, `git blame`, options `--porcelain`, `-M`, `-C`, and `--contents`, <https://git.github.io/htmldocs/git-blame.html>. Tried on `packages/factory/scripts/dispatch:120-122` against `dev` and the installed copy on 2026-11-05: both gave the same identities.
+
 [^cvss4]: FIRST, *CVSS v4.0 Specification Document*, Table 22 (qualitative severity rating scale), <https://www.first.org/cvss/v4.0/specification-document>.
 
 [^ssvc]: CERT/CC, *SSVC: Stakeholder-Specific Vulnerability Categorization*, supplier decision tree, <https://certcc.github.io/SSVC/howto/supplier_tree/>.
@@ -897,3 +1227,7 @@ ______________________________________________________________________
 [^cvss31]: FIRST, *CVSS v3.1 Specification Document*, § 7.1 Base Metrics Equations, <https://www.first.org/cvss/v3.1/specification-document>.
 
 [^seicvss]: Software Engineering Institute, Carnegie Mellon University, *Towards Improving CVSS*, <https://www.sei.cmu.edu/library/towards-improving-cvss/>.
+
+[^sarif]: GitHub, `codeql-action`, `fingerprints.ts`, <https://github.com/github/codeql/discussions/5982> links the implementation. The collision count of 115 in 1,783 fingerprints comes from csdiff issue 98, <https://github.com/csutils/csdiff/issues/98>.
+
+[^anchor]: W3C, *Web Annotation Extensions for Web Publications*, Text Quote Selector, <https://www.w3.org/TR/wpub-ann/>; Hypothesis, *Fuzzy Anchoring*, <https://web.hypothes.is/blog/fuzzy-anchoring/>.
