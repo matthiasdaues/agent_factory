@@ -51,7 +51,7 @@ reconciliation report, not only the new one.
 
 The step dispatches the owner of each `open` row, one session at a time. The
 dispatch names the row and the report and no skill. The owner takes the skill
-for the artifact from its own agent definition, changes the artifact, and sets
+or workflow step for the artifact from its own agent definition, changes the artifact, and sets
 the row to `fixed` in the same commit.
 
 The step then dispatches the reviewer of each `fixed` row on an artifact of the
@@ -67,8 +67,9 @@ The owner and the reviewer commit on the branch that holds the reconciliation
 report, normally the feature branch before its merge into `dev`.
 
 A row stays in the report that first wrote it, and only its status changes. A
-later run writes a new row only when the drift of a `confirmed` row appears
-again.
+later run writes a new row only when the drift of a closed row appears again: a
+`confirmed` row, or a `fixed` row outside the core list. A row that still waits
+needs no record.
 
 The playbook is done only when no row of any reconciliation report is `open`,
 or `fixed` on an artifact of the core list. No script reads the reconciliation
