@@ -20,6 +20,24 @@ suites:
     pattern: "test_*.py"
     markers: [spec, container]
     prerequisites: null
+  - name: usage
+    framework: pytest
+    run_all: null
+    run_file: null
+    run_match: null
+    root: packages/usage/tests
+    pattern: "test_*.py"
+    markers: []
+    prerequisites: null
+  - name: factory-package
+    framework: pytest
+    run_all: null
+    run_file: null
+    run_match: null
+    root: packages/factory/tests
+    pattern: "test_*.py"
+    markers: []
+    prerequisites: null
 
 layers:
   deterministic_linter:
@@ -47,3 +65,13 @@ gates:
     threshold: 8
   mutation_testing:
     enabled: false
+
+risk_classes:
+  critical:
+    format: forbidden
+    budget: unbounded
+  standard:
+    format: scenario
+    budget: equivalence
+  structural:
+    format: linter

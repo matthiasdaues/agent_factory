@@ -18,6 +18,7 @@ inputs:
       path_pattern: docs/spec/architecture.dsl
   context:
     - docs/spec/glossary.md
+    - docs/spec/dependency-rules.dsl
     - docs/spec/work/prd.md
     - docs/*.md
     - docs/assets/images/*
@@ -32,6 +33,15 @@ outputs:
       validator:
       required: true
     - path_pattern: "docs/findings/ATAM-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/spec/work/spec-feedback-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/reviews/reconciliation-*.md"
+      validator:
+      required: false
+    - path_pattern: "docs/findings/BUG-*.md"
       validator:
       required: false
 triggers:

@@ -21,8 +21,9 @@ Feature: Core artifact ownership
   Rule: Factory maintainer finds exactly one producer for every core and seam artifact
     # actor: Factory maintainer
     # rules: BR-056, BR-057, BR-058, BR-060
-    # @packages/factory/scripts/index-lint::build_agents_data
-    # @tests/factory/test_index_lint.py
+    # @tests/factory/test_core_artifact_ownership.py::producer_finding
+    # @tests/factory/test_core_artifact_ownership.py::expectation_error
+    # @packages/factory/scripts/index-lint::pattern_matches
 
     Scenario: The contract test passes when each listed artifact has one producer with a review
       Given core-artifacts.yaml lists docs/spec/entity-model.md in the family domain structure
@@ -181,7 +182,7 @@ Feature: Core artifact ownership
       When the factory maintainer reads its frontmatter
       Then the tier is strong
       And the required inputs are docs/spec/scope-map.md and docs/spec/features/*.feature
-      And the context inputs are docs/spec/glossary.md, docs/spec/work/term-candidates.md, src/**/*, and docs/agent-context.md
+      And the context inputs are docs/spec/glossary.md, docs/spec/work/term-candidates.md, src/**/*, docs/agent-context.md, and .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
       And its outputs include the core outputs glossary.md, entity-model.md, state-machines.md, validation-rules.md, interface-contracts.md, and schemas/* under docs/spec/
       And its outputs include docs/spec/work/term-candidates.md, the spec-feedback reports, the reconciliation reports, and docs/findings/BUG-*.md
       And glossary.md and entity-model.md are declared with required: true
@@ -236,6 +237,7 @@ Feature: Core artifact ownership
     # actor: Stakeholder
     # rules: BR-065
     # @packages/factory/skills/domain-modeling/SKILL.md
+    # @packages/factory/agents/domain-modeling-agent.md
 
     Scenario: The domain-modeling agent proposes a definition for each candidate
       Given docs/spec/work/term-candidates.md has the row Task, domain area Scheduling, status candidate
@@ -386,6 +388,8 @@ Feature: Core artifact ownership
         | docs/spec/state-machines.md      |
         | docs/spec/validation-rules.md    |
         | docs/spec/interface-contracts.md |
+        | docs/spec/schemas/example.json   |
+        | docs/spec/areas/example.md       |
         | docs/spec/glossary.md            |
 
     Scenario Outline: The glossary check finds the three kinds of term defect
@@ -416,8 +420,8 @@ Feature: Core artifact ownership
     # @packages/factory/skills/atam-review/SKILL.md
 
     Scenario: The architecture-review agent checks the rules against the component view
-      Given docs/spec/dependency-rules.dsl allows imports from cli to engine
-      And the component view of docs/spec/architecture.dsl has no relationship from cli to engine
+      Given docs/spec/dependency-rules.dsl forbids imports from cli to engine
+      And the component view of docs/spec/architecture.dsl has a relationship from cli to engine
       When the architecture-review agent runs
       Then its review files a finding that names the rule and the component view
 
@@ -567,8 +571,9 @@ Feature: Core artifact ownership
 
     Scenario: The implementation agent dispatches the test-strategy agent for each open QA finding
       Given ST-0318 has merged and QA-0003 is open with owner: test-strategy-agent
-      When the implementation agent handles the merged story
+      When the implementation agent closes the wave
       Then it dispatches the test-strategy agent for QA-0003
+      # @packages/factory/agents/implementation-agent.md
 
     Scenario: The test-strategy agent skips an open QA finding whose owner is the planning agent
       Given QA-0003 is open with owner: planning-agent
@@ -598,7 +603,8 @@ Feature: Core artifact ownership
       Given QA-0003 is open with owner: planning-agent
       And story ST-0352 names QA-0003 and adds the contract test for plan_moves
       When ST-0352 merges
-      Then QA-0003 has status resolved
+      Then the implementation agent sets QA-0003 to status resolved
+      # @packages/factory/agents/implementation-agent.md
 
   Rule: Developer agent reports specification drift without editing the specification
     # actor: Developer agent
@@ -661,6 +667,23 @@ Feature: Core artifact ownership
         | docs/adr/0012-dispatcher-owned-gate-loop.md | fixed     | passes                  |
         | docs/spec/validation-rules.md               | rejected  | passes                  |
 
+    Scenario Outline: close-wave fails and names the file when it cannot read an input
+      Given wave 2 holds ST-0318
+      And <input>
+      When the implementation agent runs dispatch close-wave 2
+      Then close-wave fails and names <file>
+      And wave 2 stays open
+      # @tests/factory/test_dispatch_close_wave_reports.py::test_st_0361_an_unreadable_report_fails_and_names_the_file
+      # @tests/factory/test_dispatch_close_wave_reports.py::test_st_0361_a_missing_core_list_fails_and_names_the_path
+
+      Examples:
+        | input                                                                                  | file                                                 |
+        | spec-feedback-ST-0318.md has a row for docs/spec/validation-rules.md with status done  | spec-feedback-ST-0318.md                             |
+        | spec-feedback-ST-0318.md has a table whose header reads Mismatch in place of Drift     | spec-feedback-ST-0318.md                             |
+        | spec-feedback-ST-0318.md has a row with an empty Artifact cell                         | spec-feedback-ST-0318.md                             |
+        | spec-feedback-ST-0318.md has no table                                                  | spec-feedback-ST-0318.md                             |
+        | .agent-factory/factory/rulebooks/core-artifacts.yaml is missing                        | .agent-factory/factory/rulebooks/core-artifacts.yaml |
+
     Scenario: close-wave reads the core list to tell core rows from other rows
       Given core-artifacts.yaml lists docs/spec/validation-rules.md and does not list QA strategies
       When dispatch close-wave reads a fixed row
@@ -678,11 +701,16 @@ Feature: Core artifact ownership
       Then the requirements agent sets the row to rejected
       And the requirements agent files the BUG finding
 
-    Scenario: In manual mode the human closes a story only after its rows are handled
+    Scenario Outline: In manual mode the human closes a story only after its rows are handled
       Given the implementation agent runs in manual mode
-      And spec-feedback-ST-0318.md has a fixed row for docs/spec/validation-rules.md
+      And spec-feedback-ST-0318.md has a fixed row for <artifact>
       When the human checks whether ST-0318 may close
-      Then the dispatch contract's manual-mode section says the story stays open
+      Then the dispatch contract's manual-mode section says the story <result>
+
+      Examples:
+        | artifact                               | result     |
+        | docs/spec/validation-rules.md          | stays open |
+        | docs/spec/work/payments-qa-strategy.md | may close  |
 
   Rule: Reconciliation agent reports drift to each artifact's owner
     # actor: Reconciliation agent
@@ -720,6 +748,7 @@ Feature: Core artifact ownership
       Given the previous report has a fixed row for docs/spec/state-machines.md
       When the reconciliation agent runs again
       Then it checks the row's mismatch against the code
+      And its own report has no row for that mismatch
 
     Scenario: A second run on the same day writes a numbered report
       Given docs/reviews/reconciliation-2026-11-03.md exists
@@ -727,6 +756,98 @@ Feature: Core artifact ownership
       Then it writes docs/reviews/reconciliation-2026-11-03-2.md
       And docs/reviews/reconciliation-2026-11-03.md is unchanged
       And a third run on 2026-11-03 reads reconciliation-2026-11-03-2.md as the previous report
+
+  Rule: Orchestrator brings every reconciliation row back to its owner and the owner's reviewer
+    # actor: Orchestrator of the documentation-update playbook
+    # rules: BR-061, BR-067
+    # @packages/factory/playbooks/documentation-update.md
+    # @packages/factory/agents/reconciliation-agent.md
+
+    Scenario: After a reconciliation run the orchestrator dispatches each row's owner and then the reviewer
+      Given docs/reviews/reconciliation-2026-11-03.md has an open row for docs/spec/state-machines.md owned by the domain-modeling agent
+      When the orchestrator runs the backfeed step of the documentation-update playbook
+      Then it dispatches the domain-modeling agent for the row
+      And the domain-modeling agent changes docs/spec/state-machines.md with domain-modeling and sets the row to fixed in the same commit
+      And after the row is fixed the orchestrator dispatches the spec-review agent for the row
+
+    Scenario: The architecture agent fixes a row on the architecture model with model-structurizr-slice
+      Given the reconciliation report has an open row for docs/spec/architecture.dsl owned by the architecture agent
+      And the row says that the code adds a component that the slice view of architecture.dsl does not show
+      When the orchestrator dispatches the architecture agent for the row
+      Then the architecture agent changes docs/spec/architecture.dsl with model-structurizr-slice
+      And the architecture agent sets the row to fixed
+      And the orchestrator dispatches the architecture-review agent, which sets the row to confirmed or rejected
+      # @packages/factory/agents/architecture-agent.md
+      # @packages/factory/skills/model-structurizr-slice/SKILL.md
+
+    Scenario: The owner takes the skill for a row from its own agent definition
+      Given the architecture agent definition lists maintain-architecture and model-structurizr-slice
+      When the orchestrator dispatches the architecture agent for a row on docs/spec/architecture.dsl
+      Then the dispatch names the row and the report and no skill
+      And core-artifacts.yaml holds no skill for the entry docs/spec/architecture.dsl
+
+    Scenario: The orchestrator records the stakeholder's review of a fixed agent-context row
+      Given docs/reviews/reconciliation-2026-11-03.md has a fixed row for docs/agent-context.md owned by Virgil
+      And the declaration of docs/agent-context.md has reviewed_by: [stakeholder]
+      When the orchestrator runs the backfeed step
+      Then it dispatches no reviewer agent for the row
+      And it presents Virgil's fix to the stakeholder in its own session
+      And it sets the row to confirmed or rejected as the stakeholder decides
+
+    Scenario: An agent reviewer acts before the stakeholder
+      Given the declaration of an artifact names an agent and stakeholder in reviewed_by:
+      And the report has a fixed row for that artifact
+      When the orchestrator runs the backfeed step
+      Then it dispatches the agent reviewer first
+      And it presents the fix to the stakeholder only after the agent reviewer confirmed it
+
+    Scenario: The backfeed picks up a fixed row left by an earlier report
+      Given docs/reviews/reconciliation-2026-11-03.md has a fixed row for docs/spec/state-machines.md
+      And the session stopped before the spec-review agent ran
+      And docs/reviews/reconciliation-2026-11-10.md has no row for that mismatch
+      When the orchestrator runs the backfeed step after the run of 2026-11-10
+      Then it dispatches the spec-review agent for the row of 2026-11-03
+      And the spec-review agent sets the status in reconciliation-2026-11-03.md
+
+    Scenario: A confirmed drift that appears again gets a new row
+      Given the row for docs/spec/state-machines.md in reconciliation-2026-11-03.md is confirmed
+      And the code later renames WAITING back to PENDING
+      When the reconciliation agent runs on 2026-11-10
+      Then reconciliation-2026-11-10.md has a new open row for docs/spec/state-machines.md
+      And the confirmed row of 2026-11-03 is unchanged
+
+    Scenario: A row on an artifact without a declared review closes at fixed
+      Given the reconciliation report has an open row for docs/adr/0012-dispatcher-owned-gate-loop.md owned by the architecture agent
+      When the architecture agent sets the row to fixed
+      Then the orchestrator dispatches no reviewer for the row
+      And the row counts as handled
+
+    Scenario: A rejected reconciliation row becomes a BUG finding against the code
+      Given the domain-modeling agent set the row for docs/spec/state-machines.md to fixed
+      And the spec-review agent finds that the status WAITING breaks an accepted requirement
+      When the spec-review agent rejects the row
+      Then the row has the status rejected
+      And the spec-review agent files a BUG finding with owner: developer-agent
+
+    Scenario Outline: The playbook is done only after every reconciliation row is handled
+      Given docs/reviews/reconciliation-2026-11-03.md has one row for <artifact> with status <status>
+      When the orchestrator checks the DONE list of the documentation-update playbook
+      Then the playbook <result>
+
+      Examples:
+        | artifact                                    | status    | result                       |
+        | docs/spec/state-machines.md                 | open      | stays open and names the row |
+        | docs/spec/state-machines.md                 | fixed     | stays open and names the row |
+        | docs/spec/state-machines.md                 | confirmed | is done                      |
+        | docs/spec/state-machines.md                 | rejected  | is done                      |
+        | docs/adr/0012-dispatcher-owned-gate-loop.md | fixed     | is done                      |
+
+    Scenario: An unhandled reconciliation row blocks no merge and no run
+      Given docs/reviews/reconciliation-2026-11-03.md has an open row for docs/spec/state-machines.md
+      When the implementation agent merges a feature branch into dev
+      Then neither premerge-check nor dispatch close-wave reads a reconciliation report
+      And the merge goes ahead
+      And the next reconciliation run starts as usual
 
   Rule: Owner receives every finding it acts on next
     # actor: Factory maintainer
@@ -774,6 +895,9 @@ Feature: Core artifact ownership
         | virgil                    | docs/spec/work/spec-feedback-*.md |
         | spec-review-agent         | docs/spec/work/spec-feedback-*.md |
         | architecture-review-agent | docs/spec/work/spec-feedback-*.md |
+        | developer-agent           | docs/findings/QA-*.md             |
+        | implementation-agent      | docs/findings/QA-*.md             |
+        | test-strategy-agent       | docs/findings/QA-*.md             |
         | reconciliation-agent      | docs/reviews/reconciliation-*.md  |
         | requirements-agent        | docs/reviews/reconciliation-*.md  |
         | domain-modeling-agent     | docs/reviews/reconciliation-*.md  |

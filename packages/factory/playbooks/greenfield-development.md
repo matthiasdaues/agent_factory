@@ -54,7 +54,12 @@ the answers already known from the vision conversation filled in
 ```
 
 **Agent**: `requirements-agent`
-**Expected outputs**: `docs/spec/work/prd.md`, `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`, `docs/spec/work/<feature-name>-qa-strategy.md`, and the supplementary specs at the top of `docs/spec/`
+**Expected outputs**: `docs/spec/work/prd.md`, `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`
+
+After the feature file exists, two more agents write their own files, each in a new session:
+
+- **Structure files** (`docs/spec/glossary.md`, `docs/spec/entity-model.md`, and the supplementary specs at the top of `docs/spec/`): `domain-modeling-agent`
+- **QA strategy** (`docs/spec/work/<feature-name>-qa-strategy.md`): `test-strategy-agent`
 
 As requirements decisions settle a project fact — a data store, a
 licensing constraint, an integration requirement — the requirements agent
@@ -245,26 +250,26 @@ Return to Step 4.2 (run code-review-agent again)
 ```
 
 **Agent**: `reconciliation-agent`
-**Expected outputs**: `docs/reviews/reconciliation-*.md`, `docs/findings/RECON-*.md`, updated specs
+**Expected outputs**: `docs/reviews/reconciliation-*.md` (one row per drift, each naming its owner), `docs/findings/BUG-*.md` (code defects, if found)
 
 ### Decision Point 4.6
 
-Check: `docs/findings/RECON-*.md` files with `status: open`
+Check: `docs/findings/*.md` files with `status: open`
 
 ```bash
-grep -l "status: open" docs/findings/RECON-*.md
+grep -l "status: open" docs/findings/*.md
 ```
 
-**If code defects exist** → Go to Step 4.7
-**If no defects** → The qa-agent's preconditions are satisfied.
+**If open findings exist** → Go to Step 4.7
+**If no open findings** → The qa-agent's preconditions are satisfied.
 
-### Step 4.7 — Loop: Fix Reconciliation Defects
+### Step 4.7 — Loop: Address Open Findings
 
 ```bash
 # Start NEW session, activate implementation-agent
 ```
 
-**Instructions**: Implementation agent reads open `RECON-*` findings and fixes code
+**Instructions**: Send each open finding to the agent in its `owner:` field. A `BUG` finding names the developer agent. Each owner fixes its artifact, and reconciliation rows in `docs/reviews/` go to the owner named in each row.
 
 Return to Step 4.5 (run reconciliation-agent again)
 

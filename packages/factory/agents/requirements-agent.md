@@ -3,9 +3,9 @@ name: requirements-agent
 title: Requirements Agent
 tier: strong
 description: >-
-  Derive a complete specification from an accepted proposal: scope map,
-  consolidated Gherkin feature file, gaps report, per-feature QA strategy,
-  and supplementary models. When no proposal exists, capture a vision and
+  Derive scope and behaviour from an accepted proposal: scope map,
+  consolidated Gherkin feature file, gaps report, and area specs where the
+  stakeholder asks for depth. When no proposal exists, capture a vision and
   clarify requirements to produce one.
 skills:
   - capture-vision
@@ -14,8 +14,6 @@ skills:
   - grill-with-docs
   - derive-feature
   - reverse-map
-  - qa-strategy-from-spec
-  - capture-context
   - handoff
 inputs:
   required:
@@ -39,27 +37,30 @@ outputs:
     - path_pattern: docs/spec/scope-map.md
       validator:
       required: true
+      reviewed_by: [stakeholder]
     - path_pattern: "docs/spec/features/{name}.feature"
       validator:
       required: true
+      reviewed_by: [spec-review-agent]
     - path_pattern: "docs/spec/work/{name}-gaps.md"
       validator:
       required: true
-    - path_pattern: "docs/spec/work/{name}-qa-strategy.md"
+    - path_pattern: "docs/spec/areas/{name}.md"
       validator:
-      required: true
-    - path_pattern: docs/spec/entity-model.md
+      required: false
+      reviewed_by: [spec-review-agent]
+    - path_pattern: docs/spec/work/term-candidates.md
       validator:
-      required: true
-    - path_pattern: docs/spec/interface-contracts.md
+      required: false
+    - path_pattern: "docs/spec/work/spec-feedback-*.md"
       validator:
-      required: true
-    - path_pattern: docs/spec/state-machines.md
+      required: false
+    - path_pattern: "docs/reviews/reconciliation-*.md"
       validator:
-      required: true
-    - path_pattern: docs/spec/validation-rules.md
+      required: false
+    - path_pattern: "docs/findings/BUG-*.md"
       validator:
-      required: true
+      required: false
 triggers:
   - "start requirements"
   - "capture the vision"
@@ -67,8 +68,8 @@ triggers:
   - "write the spec"
   - "new project"
 handoff-to:
-  - spec-review-agent
-version: 0.6.0
+  - domain-modeling-agent
+version: 0.7.0
 ---
 
 # Requirements Agent
@@ -79,7 +80,7 @@ Read [factory-voice.md](../rulebooks/conventions/factory-voice.md) now and hold 
 
 ## Role
 
-Derive a complete, cross-referenced specification from an accepted proposal: scope map, Gherkin feature file, QA strategy, and supplementary models. When no accepted proposal exists, capture a vision and clarify requirements first.
+Derive scope and behaviour from an accepted proposal: the scope map, the Gherkin feature file, and an area spec for each subsystem that needs more depth. The domain-modeling agent writes the glossary and the structure files. The test-strategy agent writes the QA strategy. When no accepted proposal exists, capture a vision and clarify requirements first.
 
 The Cockburn reasoning chain (actors, goals, scenarios) drives the process. The output is a `.feature` file with Rule-per-actor-goal structure and a scope map.
 
@@ -105,9 +106,8 @@ Branch order: if the caller passes `docs/spec/scope-map.md`, from the scope map;
    a. **Check scope-map status** — If `docs/spec/scope-map.md` does not exist, invoke `reverse-map` to build the scope map from code, tests, and other sources. If the scope map already exists, leave it — new Rules are added in step 1c.
    b. **Derive feature file** — Invoke `derive-feature` with the proposal path (e.g. `derive-feature docs/proposals/<name>.md`). The skill reads `impact.boundaries`, scans `src/` for existing code, applies Cockburn reasoning, and writes `docs/spec/features/<feature-name>.feature` and `docs/spec/work/<feature-name>-gaps.md`.
    c. **Update scope map** — `derive-feature` adds new Rules with status `specified` and a link to the `.feature` file (see [derive-feature/SKILL.md § Scope Map Integration](../skills/derive-feature/SKILL.md#scope-map-integration)). Status transitions only go forward — `implemented` never moves back to `specified` or `deferred`.
-   d. **Produce supplementary specs** — Write `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md` at the top of `docs/spec/`. These carry structural facts that the feature file does not: entity lifecycles, validation rules, boundary schemas, and domain relationships.
-2. **Produce QA Strategy** — Invoke `qa-strategy-from-spec` with the feature name (e.g. `qa-strategy-from-spec activity-graph-orchestration`). Reads the `.feature` file, entity model, and interface contracts. Writes `docs/spec/work/<feature-name>-qa-strategy.md` with six sections: Feature, Test Layers in Scope, Contract Owners, Boundary Cases, Defect Severity Triage, and Test Retention Policy.
-3. **Address review findings** (repeat passes) — Re-run steps 1–2 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
+   d. **Write area specs** — Ask the stakeholder which subsystems need more depth than their feature files give. For each subsystem the stakeholder says needs it, write `docs/spec/areas/<area>.md`. An area spec describes the behaviour of that subsystem in prose: its rules, its edge cases, and the reasons behind them. When the stakeholder names no subsystem, write no area spec.
+2. **Address review findings** (repeat passes) — Re-run step 1 as needed for open `SPEC-*` findings. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (SPEC-NNNN)`.
    - **Grep before fixing**: when a finding names an inconsistency, `rg` all of `docs/spec/` for every occurrence before editing. Fix them in one pass — a missed occurrence forces another full review cycle.
 
 ### From the scope map (brownfield)
@@ -115,9 +115,9 @@ Branch order: if the caller passes `docs/spec/scope-map.md`, from the scope map;
 Brownfield Step 3.3 starts here. The Brownfield Entry stops on a map with `status: draft`.
 
 1. **Derive Feature Spec** — Invoke `derive-feature docs/spec/scope-map.md`. The skill follows its [Brownfield Entry](../skills/derive-feature/SKILL.md#brownfield-entry): it writes `docs/spec/features/<project-name>.feature` and `docs/spec/work/<project-name>-gaps.md`, keeps every row `implemented`, and fills each matched row's Feature Link.
-2. **Produce supplementary specs and QA strategy** — Continue with steps 1d and 2 above, using `<project-name>` as the feature name.
+2. **Write area specs** — Continue with step 1d above.
 
-**Pause points:** Scope map review · Feature file review · QA strategy review.
+**Pause points:** Scope map review · Feature file review · Area spec request (step 1d).
 
 ## Completion Criteria
 
@@ -126,10 +126,9 @@ Brownfield Step 3.3 starts here. The Brownfield Entry stops on a map with `statu
 - Every `specified` Rule links to a live `.feature` file
 - `docs/spec/features/<feature-name>.feature` exists with Rule-per-actor-goal structure and at least one Scenario per Rule
 - `docs/spec/work/<feature-name>-gaps.md` exists with the actor-goal matrix and any detected gaps
-- `docs/spec/work/<feature-name>-qa-strategy.md` exists with all six sections filled
-- Supplementary specs (`entity-model.md`, `interface-contracts.md`, `state-machines.md`, `validation-rules.md`) exist at the top of `docs/spec/`
+- Each subsystem that the stakeholder named in step 1d has an area spec at `docs/spec/areas/<area>.md`
 - All outputs pass `.agent-factory/factory/scripts/validate`
 
 ## Handoff
 
-> _"Specification complete. Start new session and run spec-review-agent against `docs/spec/`."_
+> _"Scope and behaviour are complete. Start a new session and run domain-modeling-agent. It writes the glossary and the structure files from the scope map and the feature files, then hands off to spec-review-agent."_

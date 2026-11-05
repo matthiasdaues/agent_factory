@@ -59,7 +59,8 @@ Format via `scripts/mdformat --number <path>` per [markdown-formatting.md](../..
 From the Stop/Continue/Start sections, extract concrete action items. Present them to the user for confirmation. Confirmed items should be:
 
 - Filed as todos in `docs/spec/work/todo.md` or the project's issue tracker
-- Or captured as updates to agent definitions, skills, or `docs/spec/glossary.md` (vocabulary) or `docs/agent-context.md` (process)
+- Or captured as updates to agent definitions, skills, or `docs/agent-context.md` (process)
+- Or, for vocabulary, written as a row of `docs/spec/work/term-candidates.md` with status `candidate`; only the domain-modeling agent moves a term into `docs/spec/glossary.md`
 - Or filed as a backlog story (`backlog/ST-NNNN.md`, this repo's INVEST/MoSCoW schema) and handed off to `implementation-agent` for dispatch
 
 Do not file action items without user confirmation.

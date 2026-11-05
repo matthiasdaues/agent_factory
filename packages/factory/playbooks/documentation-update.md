@@ -39,10 +39,10 @@ Run this playbook when:
 
 **Expected outputs**:
 
-- `docs/reviews/reconciliation-*.md` (discrepancy report)
-- Updated core files in `docs/spec/` (if spec was stale)
-- Updated `docs/spec/glossary.md` (if terminology drifted)
-- `docs/findings/RECON-*.md` (code defects, if found)
+- `docs/reviews/reconciliation-*.md` (discrepancy report, one row per drift, each naming the owner of the artifact)
+- `docs/findings/BUG-*.md` (code defects, if found)
+
+This agent changes no core file. The owner named in each row fixes its stale core file, for example the domain-modeling agent for `docs/spec/glossary.md`.
 
 ### Step 1.2 — Review Discrepancy Report
 
@@ -60,14 +60,14 @@ Look for:
 
 ## Decision Point 1.3
 
-Check for code defects found during reconciliation:
+Check for open findings found during reconciliation:
 
 ```bash
-grep -l "status: open" docs/findings/RECON-*.md
+grep -l "status: open" docs/findings/*.md
 ```
 
-**If code defects** → Go to Step 1.4 (fix code first)
-**If only doc drift** → Go to Step 2
+**If open findings** → Go to Step 1.4 (fix code first)
+**If only doc drift** → Go to Step 1.5
 
 ### Step 1.4 — Fix Code Defects (If Found)
 
@@ -78,9 +78,31 @@ Code defects = implementation doesn't match spec **intent**
 ```
 
 **Agent**: `implementation-agent`
-**Task**: Fix open `RECON-*` findings
+**Task**: Send each open finding to the agent in its `owner:` field. A `BUG` finding names the developer agent.
 
 Return to Step 1.1 (re-run reconciliation)
+
+### Step 1.5 — Bring Each Row Back To Its Owner
+
+**Agent**: the orchestrator, the session that runs this playbook
+**Task**: Bring each reconciliation row back to its owner and then to the owner's reviewer.
+
+Read every `docs/reviews/reconciliation-*.md`, not only the new report. A stopped session leaves rows in an earlier report, and this step picks them up. Read `rulebooks/core-artifacts.yaml` under the Factory root. A row is on the core list when its artifact matches an entry there.
+
+Work one session at a time, in two passes:
+
+1. First dispatch the owner of each `open` row, the agent in its Owner column. The brief names the row and the report and no skill. The owner changes the artifact with the skill or workflow step its own definition names for it. It sets the row to `fixed` in the same commit as the change.
+2. Then dispatch the reviewer of each `fixed` row on the core list. The reviewer is the `reviewed_by:` entry of the owner's declaration that matches the row's artifact. It sets the row to `confirmed` or `rejected`.
+
+When `reviewed_by:` is `[stakeholder]`, dispatch no reviewer agent. Present the owner's fix to the stakeholder in this session, and set `confirmed` or `rejected` as the stakeholder decides. When `reviewed_by:` names an agent and `stakeholder`, dispatch the agent first; the stakeholder sees the fix only after the agent set `confirmed`.
+
+A `rejected` row becomes a `BUG` finding with `owner: developer-agent`. The reviewer agent files it, or the orchestrator files it for the stakeholder.
+
+A `fixed` row on an artifact outside the core list closes at `fixed`, because the artifact has no declared review (DEC-35). An ADR is such an artifact.
+
+The owner and the reviewer commit on the branch that holds the report, normally the feature branch before its merge into `dev`. A row stays in the report that first wrote it, and only its Status changes. No script reads the reports, so an unhandled row blocks no merge and no reconciliation run.
+
+Go to Step 2.
 
 ## Step 2 — Validate Updated Documentation
 
@@ -151,7 +173,8 @@ Final checks:
 
 - [ ] `spec-lint` passes
 - [ ] `arch-lint` passes
-- [ ] All `RECON-*` findings resolved
+- [ ] No open finding remains in `docs/findings/`
+- [ ] No row of any `docs/reviews/reconciliation-*.md` is `open`, or `fixed` on an artifact of the core list. While one is, the playbook stays open and names the report, the artifact, and the status of each such row.
 - [ ] Terminology consistent between code and `docs/spec/glossary.md`
 - [ ] Supplementary specs match implementation
 - [ ] State machines match code behavior

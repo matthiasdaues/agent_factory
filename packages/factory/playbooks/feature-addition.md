@@ -47,6 +47,7 @@ steps:
   - name: spec-review
     inputs:
       - 'docs/spec/glossary.md'
+      - 'docs/spec/work/term-candidates.md'
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
@@ -158,7 +159,7 @@ steps:
     max_input_tokens: 100000
   - name: decision-point-4-5
     inputs:
-      - 'docs/findings/RECON-*.md'
+      - 'docs/findings/*.md'
     outputs: []
     max_input_tokens: 20000
   - name: qa
@@ -190,12 +191,12 @@ Operational procedure for **adding features to existing system**.
 
 - [ ] `docs/spec/architecture.dsl` exists
 - [ ] `docs/spec/scope-map.md` exists
-- [ ] `docs/spec/glossary.md` exists
+- [ ] `docs/spec/glossary.md` or `docs/spec/work/term-candidates.md` exists
 - [ ] `docs/agent-context.md` exists
 - [ ] A proposal at `docs/proposals/<name>.md`, written to the [proposal template](../rulebooks/templates/proposal.md)
 
 The four anchor files (`docs/spec/architecture.dsl`, `docs/spec/scope-map.md`,
-`docs/spec/glossary.md`, `docs/agent-context.md`) are the minimum baseline. Full specification artifacts (PRD, use cases,
+the vocabulary file, `docs/agent-context.md`) are the minimum baseline. The vocabulary file is `docs/spec/glossary.md` or, on a fresh brownfield baseline, `docs/spec/work/term-candidates.md`. Full specification artifacts (PRD, use cases,
 supplementary specs) add detail to the requirements and architecture activities when present but are not required. If
 any anchor file is missing, the check names each missing file and the playbook
 stops. Then suggest running `brownfield-onboarding` to establish the baseline.
@@ -206,7 +207,7 @@ parallel feature request, interview record, or design brief.
 Each feature-addition run updates the anchor files: the
 requirements-agent adds a Rule to `scope-map.md` with status "specified," the
 architecture-agent updates `architecture.dsl` when the structural shape changes,
-and the grilling and domain-modeling skills add new terms to `docs/spec/glossary.md`.
+the grilling skill adds settled terms to `docs/spec/work/term-candidates.md`, and the domain-modeling agent writes confirmed terms to `docs/spec/glossary.md`.
 
 ## Session Boundaries
 
@@ -334,9 +335,14 @@ reads only the findings and the affected files, cutting the fix-cycle cost by
 ```
 
 **Agent**: `requirements-agent`
-**Task**: Derive feature spec, update scope map, produce QA strategy
+**Task**: Derive feature spec, update scope map, write the gaps report
 
-**Expected outputs**: `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`, `docs/spec/work/<feature-name>-qa-strategy.md`, updated core files in `docs/spec/`
+**Expected outputs**: `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`
+
+After the feature file exists, two more agents write their own files, each in a new session:
+
+- **Structure files** (`docs/spec/glossary.md`, `docs/spec/entity-model.md`, and the other domain files the feature needs): `domain-modeling-agent`
+- **QA strategy** (`docs/spec/work/<feature-name>-qa-strategy.md`): `test-strategy-agent`
 
 ### Step 1.2 — Spec Review
 
@@ -527,14 +533,16 @@ re-run the code-review-agent.
 
 ### Decision Point 4.5
 
-Check for reconciliation defects:
+Check for open findings:
 
 ```bash
-grep -l "status: open" docs/findings/RECON-*.md
+grep -l "status: open" docs/findings/*.md
 ```
 
-**If defects** → Return to the implementation-agent to address findings, then
-re-run the reconciliation-agent.
+**If open findings** → Send each open finding to the agent in its `owner:`
+field. A `BUG` finding names the developer agent. Then re-run the
+reconciliation-agent. Reconciliation rows in `docs/reviews/` go to the owner
+named in each row.
 **If clean** → The qa-agent's preconditions are satisfied.
 
 ## Quality

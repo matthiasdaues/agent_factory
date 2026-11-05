@@ -7,26 +7,27 @@ The first pass ran unattended and put every point that needed a decision as a qu
 
 ## Actor-Goal Matrix
 
-| ID     | Actor                     | Goal                                                                | Rule                                                                                           | Status    |
-| ------ | ------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------- |
-| CAO-01 | Factory maintainer        | Find exactly one producer for every core and seam artifact          | Rule: Factory maintainer finds exactly one producer for every core and seam artifact           | specified |
-| CAO-02 | Factory maintainer        | See every declared review checked against the reviewer's inputs     | Rule: Factory maintainer sees every declared review checked against the reviewer's inputs      | specified |
-| CAO-03 | Requirements agent        | Keep scope and behaviour only                                       | Rule: Requirements agent keeps scope and behaviour only                                        | specified |
-| CAO-04 | Domain-modeling agent     | Produce the domain structure family                                 | Rule: Domain-modeling agent produces the domain structure family                               | specified |
-| CAO-05 | Stakeholder               | Confirm every glossary term before it enters the glossary           | Rule: Stakeholder confirms every glossary term before it enters the glossary                   | specified |
-| CAO-06 | CLI-Invoked Agent         | Record terms as candidates when it is not the domain-modeling agent | Rule: Agents other than the domain-modeling agent record terms as candidates                   | specified |
-| CAO-07 | Architecture agent        | Own the components and their dependency rules                       | Rule: Architecture agent owns the components and their dependency rules                        | specified |
-| CAO-08 | Spec-review agent         | Review behaviour and domain structure                               | Rule: Spec-review agent reviews behaviour and domain structure                                 | specified |
-| CAO-09 | Architecture-review agent | Review the dependency rules                                         | Rule: Architecture-review agent reviews the dependency rules                                   | specified |
-| CAO-10 | Test-strategy agent       | Own the test practice family                                        | Rule: Test-strategy agent owns the test practice family                                        | specified |
-| CAO-11 | Implementation agent      | Block a merge on a failing test guardrail                           | Rule: Implementation agent blocks a merge on a failing test guardrail                          | specified |
-| CAO-12 | Test-strategy agent       | Resolve the surviving mutants that a developer agent cannot resolve | Rule: Test-strategy agent resolves the surviving mutants that a developer agent cannot resolve | specified |
-| CAO-13 | Developer agent           | Report specification drift without editing the specification        | Rule: Developer agent reports specification drift without editing the specification            | specified |
-| CAO-14 | Implementation agent      | Close a wave only after the owners have handled every drift row     | Rule: Implementation agent closes a wave only after the owners have handled every drift row    | specified |
-| CAO-15 | Reconciliation agent      | Report drift to each artifact's owner                               | Rule: Reconciliation agent reports drift to each artifact's owner                              | specified |
-| CAO-16 | Factory maintainer        | Have every finding reach the agent that acts on it next             | Rule: Owner receives every finding it acts on next                                             | specified |
-| CAO-17 | Factory maintainer        | See every writer of shared working output declare its path          | Rule: Factory maintainer sees every writer of shared working output declare its path           | specified |
-| CAO-18 | Human operator            | Reach the new owners through the playbooks and the routing          | Rule: Human operator reaches the new owners through the playbooks and the routing              | specified |
+| ID     | Actor                                             | Goal                                                                      | Rule                                                                                           | Status    |
+| ------ | ------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------- |
+| CAO-01 | Factory maintainer                                | Find exactly one producer for every core and seam artifact                | Rule: Factory maintainer finds exactly one producer for every core and seam artifact           | specified |
+| CAO-02 | Factory maintainer                                | See every declared review checked against the reviewer's inputs           | Rule: Factory maintainer sees every declared review checked against the reviewer's inputs      | specified |
+| CAO-03 | Requirements agent                                | Keep scope and behaviour only                                             | Rule: Requirements agent keeps scope and behaviour only                                        | specified |
+| CAO-04 | Domain-modeling agent                             | Produce the domain structure family                                       | Rule: Domain-modeling agent produces the domain structure family                               | specified |
+| CAO-05 | Stakeholder                                       | Confirm every glossary term before it enters the glossary                 | Rule: Stakeholder confirms every glossary term before it enters the glossary                   | specified |
+| CAO-06 | CLI-Invoked Agent                                 | Record terms as candidates when it is not the domain-modeling agent       | Rule: Agents other than the domain-modeling agent record terms as candidates                   | specified |
+| CAO-07 | Architecture agent                                | Own the components and their dependency rules                             | Rule: Architecture agent owns the components and their dependency rules                        | specified |
+| CAO-08 | Spec-review agent                                 | Review behaviour and domain structure                                     | Rule: Spec-review agent reviews behaviour and domain structure                                 | specified |
+| CAO-09 | Architecture-review agent                         | Review the dependency rules                                               | Rule: Architecture-review agent reviews the dependency rules                                   | specified |
+| CAO-10 | Test-strategy agent                               | Own the test practice family                                              | Rule: Test-strategy agent owns the test practice family                                        | specified |
+| CAO-11 | Implementation agent                              | Block a merge on a failing test guardrail                                 | Rule: Implementation agent blocks a merge on a failing test guardrail                          | specified |
+| CAO-12 | Test-strategy agent                               | Resolve the surviving mutants that a developer agent cannot resolve       | Rule: Test-strategy agent resolves the surviving mutants that a developer agent cannot resolve | specified |
+| CAO-13 | Developer agent                                   | Report specification drift without editing the specification              | Rule: Developer agent reports specification drift without editing the specification            | specified |
+| CAO-14 | Implementation agent                              | Close a wave only after the owners have handled every drift row           | Rule: Implementation agent closes a wave only after the owners have handled every drift row    | specified |
+| CAO-15 | Reconciliation agent                              | Report drift to each artifact's owner                                     | Rule: Reconciliation agent reports drift to each artifact's owner                              | specified |
+| CAO-16 | Factory maintainer                                | Have every finding reach the agent that acts on it next                   | Rule: Owner receives every finding it acts on next                                             | specified |
+| CAO-17 | Factory maintainer                                | See every writer of shared working output declare its path                | Rule: Factory maintainer sees every writer of shared working output declare its path           | specified |
+| CAO-18 | Human operator                                    | Reach the new owners through the playbooks and the routing                | Rule: Human operator reaches the new owners through the playbooks and the routing              | specified |
+| CAO-19 | Orchestrator of the documentation-update playbook | Bring every reconciliation row back to its owner and the owner's reviewer | Rule: Orchestrator brings every reconciliation row back to its owner and the owner's reviewer  | specified |
 
 The factory maintainer works on the factory's own repository. The stakeholder is the person who owns the domain. The other actors are factory agents. Each agent acts for the goal its Rule names, and the factory maintainer checks the agent's declarations.
 
@@ -130,7 +131,7 @@ The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendatio
 
 - **Case:** `dependency-check` writes `.current-work/dependency-check/ST-0318.json`, a list of rule results with `rule_name`, `pass_fail`, and `violating_import`.
 - **Options:** A field `owner: architecture-agent` on each result. Or one top-level `owner` for the whole report, which changes the report from a list to an object and breaks its readers.
-- **Recommendation:** The field `owner` on each result entry, the same name as the finding's `owner:` field. The [interface contracts](../interface-contracts.md#agent-factoryfactoryscriptsdependency-check) use it. Accepted on 2026-11-03.
+- **Recommendation:** The field `owner` on each result entry, the same name as the finding's `owner:` field. The [interface contracts](../interface-contracts.md#agent-factoryfactoryscriptsdependency-check) use it. Accepted on 2026-11-03. On 2026-11-04 the stakeholder narrowed it: only failing entries carry `owner`, because `owner` names the agent that acts next (as for findings, CAO-G26); a passing entry carries none.
 - **Settles:** The `dependency-check` contract and CAO-07.
 
 ### CAO-G08: How does a fixed agent definition declare project-specific mutation files?
@@ -239,6 +240,34 @@ The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendatio
 - **Options:** If the second run overwrites the file, the rows of the first run are lost. If it adds a suffix, each run keeps its own report.
 - **Decision (stakeholder, 2026-11-04):** A second run on the same day writes `reconciliation-<date>-2.md`, a third `-3`, and so on. The reports sort by date first, then by suffix. The file without a suffix is run 1.
 - **Settles:** The [report path](../interface-contracts.md#report-rows-spec-feedback-and-reconciliation) and CAO-15.
+
+### CAO-G30: May `init-factory` write `docs/testing.yaml`?
+
+- **Case:** The test-strategy agent owns `docs/testing.yaml`, and every change waits for the stakeholder (DEC-31). `init-factory` creates the file at install when it is missing and the scan finds exactly one test command ([ST-0357](../../../backlog/ST-0357.md)). With several commands it asks; it never overwrites the file.
+- **Options:** Accept the write as a first draft. Or `init-factory` only reports the command and the test-strategy agent writes the file, which needs a story, and `dispatch init` cannot run before the agent has.
+- **Decision (stakeholder, 2026-11-04):** Accept it. `init-factory` may create `docs/testing.yaml` once, only when the file is missing and the command is unambiguous. It is the only writer besides the test-strategy agent. The stakeholder confirms the draft in the fitting step "Test regime".
+- **Settles:** The [`init-factory` contract](../interface-contracts.md#factoryscriptsinit-factory) and the `docs/testing.yaml` entry of the core list.
+
+### CAO-G31: Who closes a `QA` finding, where, and in manual mode?
+
+- **Case:** A `QA` finding records a missing test. A story adds the test ([ST-0358](../../../backlog/ST-0358.md)). The Scenario names no actor for the status change, and manual mode has no wave after which findings are routed.
+- **Decision (stakeholder, 2026-11-04):** The implementation agent sets the finding to `resolved` when it merges the story that adds the test. The status change lands on the feature branch in that merge, so the finding closes with its test; new findings are still filed on `dev`, because only new IDs can collide. In manual mode, the implementation agent routes open `QA` findings at each story's close, as it does after `close-wave` in automated mode. The gate script keeps the name `mutation-testing`, like `crap-score` and `dependency-check`, which also share their skill's name.
+- **Settles:** CAO-12, CAO-17, and the manual-mode steps of `implementation-agent.md` ([ST-0362](../../../backlog/ST-0362.md)).
+
+### CAO-G32: Who carries a reconciliation row back into its artifact, and what waits for it?
+
+- **Status:** Decided by the stakeholder on 2026-11-05: all three readings below are accepted.
+- **Case:** The reconciliation run of 2026-11-03 writes an `open` row for `docs/spec/architecture.dsl` with the architecture agent as owner. The proposal says only that the owner fixes its rows "on its next run" (DEC-17). No agent starts that run, so the row can stay `open` and nobody notices. The stakeholder asked on 2026-11-05 for a path back, modelled on the spec-feedback loop of CAO-14. This Rule, CAO-19, has no completion criterion in the proposal yet.
+- **Question 1, who dispatches the owner and the reviewer:**
+  - *Reading:* The orchestrator of the `documentation-update` playbook, the session that runs the playbook. The reconciliation agent runs in that playbook, and CAO-18 already names "the owner in each report row" as its fixer. So the architecture agent runs right after the report, then the architecture-review agent.
+  - *Alternative:* The implementation agent. It already dispatches owners for spec-feedback rows, but a reconciliation run belongs to no wave, so it would need a new trigger. Virgil through `run-step` is a second alternative: the row then waits until a human starts a session, and `run-step` needs a precondition on report rows.
+- **Question 2, does an unhandled row block anything:**
+  - *Reading:* Only the playbook's DONE list waits. The row for `architecture.dsl` keeps the playbook open, but the merge of the feature branch into `dev` goes ahead, and the next reconciliation run starts as usual. The proposal names no gate on reconciliation rows, and a merge gate would stop feature work on a documentation drift.
+  - *Alternative:* `premerge-check` refuses the merge of a feature branch into `dev` while a reconciliation row is `open`, or `fixed` on a core artifact. That needs a new parser for `docs/reviews/` and a story for `premerge-check`.
+- **Question 3, where the mapping from artifact to skill lives:**
+  - *Reading:* In the owner's agent definition. The architecture agent already lists `maintain-architecture` and `model-structurizr-slice` and chooses between them. The dispatch names only the row. The core list keeps its four fields (CAO-G05).
+  - *Alternative:* A `skill:` field on each entry of `core-artifacts.yaml`. Then the dispatch names the skill, but the core list changes shape, and one entry cannot name two skills for one artifact.
+- **Settles:** BR-067, CAO-19, the [report-row contract](../interface-contracts.md#report-rows-spec-feedback-and-reconciliation), and the backfeed step and DONE list of `packages/factory/playbooks/documentation-update.md`.
 
 ## Ambiguous Wording
 

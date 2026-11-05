@@ -38,7 +38,7 @@ In manual mode, the implementation-agent works in the primary checkout without d
 
 ### Indexed Artifacts On Dev
 
-All indexed artifacts — backlog stories (`ST-NNNN`), findings (`PROP-NN`, `RECON-NNNN`), proposals, and any other file with a sequential ID — are always committed to `dev`. The `dev` branch is the single canonical index so that parallel sessions never collide on IDs. Implementation work never touches `dev` directly; it lands on a feature branch and merges back after gates pass.
+All indexed artifacts — backlog stories (`ST-NNNN`), findings (`PROP-NN`, `BUG-NNNN`), proposals, and any other file with a sequential ID — are always committed to `dev`. The `dev` branch is the single canonical index so that parallel sessions never collide on IDs. Implementation work never touches `dev` directly; it lands on a feature branch and merges back after gates pass.
 
 The sequence is:
 

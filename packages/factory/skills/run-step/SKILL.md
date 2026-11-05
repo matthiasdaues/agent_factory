@@ -20,6 +20,8 @@ Read the session binding (`.agent-factory/workstreams/sessions/<session-id>.yaml
 
 Read `.claude/INDEX.yaml`. Filter agents whose `inputs.required` preconditions are satisfied by the current repository state.
 
+The declared inputs set the order of the producers. An agent is eligible once its required inputs exist, so a producer runs before the agents that read its output. When two agents are eligible, the operator chooses between them.
+
 | Eligible agents | Action                                                                                          |
 | --------------- | ----------------------------------------------------------------------------------------------- |
 | None            | Tell the user no agents are eligible given current preconditions. Offer to run `intent select`. |
@@ -36,6 +38,8 @@ Check the agent's declared outputs against what is on disk, then run the applica
 | Outputs exist, gate passes clean, no open findings | Step is done — offer `intent select` to see what agents are eligible next. |
 | Outputs exist, gate reports open findings          | Resume — run the same agent again; its own workflow reads open findings.   |
 | Outputs exist but the gate errors                  | Stop. Escalate to the user.                                                |
+
+A step is done once its outputs exist, the gate passes, and no finding is open. A changed input never restarts a step that is done. The producer of the changed file starts the next pass in its handoff. For example, the domain-modeling agent changes `docs/spec/entity-model.md`, and its handoff starts the architecture agent's component pass.
 
 ## Step 4 — Dispatch
 

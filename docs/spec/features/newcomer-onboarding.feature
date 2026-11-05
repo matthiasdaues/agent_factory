@@ -100,7 +100,7 @@ Feature: Newcomer onboarding and incremental brownfield
       When Stage 1 completes
       Then docs/spec/architecture.dsl exists with system context and container views
       And docs/spec/scope-map.md exists with Rules marked implemented
-      And docs/spec/glossary.md exists seeded with domain vocabulary
+      And docs/spec/glossary.md or docs/spec/work/term-candidates.md exists
       And docs/agent-context.md exists
       And Structurizr validation passes on the DSL
 
@@ -163,14 +163,13 @@ Feature: Newcomer onboarding and incremental brownfield
       And rows from docs alone have confidence "claimed"
       And the skill summarises the inventory count
 
-    Scenario: Reverse-map seeds docs/spec/glossary.md with domain vocabulary
+    Scenario: Reverse-map records domain vocabulary as term candidates
       Given the reverse-map skill is scanning the codebase
       When it encounters type names, class names, and module names
-      Then it extracts domain vocabulary into docs/spec/glossary.md
-      And each term is a row of a table with the columns Term, Definition, and Avoid
-      And no term appears twice in one section
+      Then it writes each name as a row of docs/spec/work/term-candidates.md with status candidate
+      And no term gets a second row
+      And it writes no docs/spec/glossary.md
       And it writes no docs/CONTEXT.md
-      And the vocabulary forms the seed for arc42 chapter 12 (Glossary)
 
   Rule: Feature-addition deepens anchor files incrementally
     # actor: Feature Developer
@@ -195,7 +194,7 @@ Feature: Newcomer onboarding and incremental brownfield
       And the vocabulary accumulates toward arc42 chapter 12
 
     Scenario: Feature-addition works without full specification artifacts
-      Given only docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/agent-context.md exist
+      Given only docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/work/term-candidates.md, and docs/agent-context.md exist
       And no full specification artifacts (PRD, UC files, supplementary specs) are present
       When a feature-addition starts
       Then the playbook proceeds with the available baseline
@@ -208,11 +207,13 @@ Feature: Newcomer onboarding and incremental brownfield
     Scenario: Feature-addition detects brownfield-lite readiness from anchor files
       Given the user starts a feature-addition
       When the playbook checks prerequisites
-      Then it checks for the existence of docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/agent-context.md
+      Then it checks for the existence of docs/spec/architecture.dsl, docs/spec/scope-map.md, and docs/agent-context.md
+      And it checks that docs/spec/glossary.md or docs/spec/work/term-candidates.md exists
       And does not look for a Stage 1 completion marker file
 
     Scenario: Feature-addition proceeds when all four anchor files exist
-      Given docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/agent-context.md all exist
+      Given docs/spec/architecture.dsl, docs/spec/scope-map.md, and docs/agent-context.md exist
+      And docs/spec/glossary.md or docs/spec/work/term-candidates.md exists
       When the playbook evaluates prerequisites
       Then the prerequisites pass
       And the feature-addition proceeds normally

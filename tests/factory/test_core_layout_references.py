@@ -55,9 +55,11 @@ def section(text: str, heading: str) -> str:
 ANCHOR_FILE_SET = (
     "docs/spec/architecture.dsl",
     "docs/spec/scope-map.md",
-    "docs/spec/glossary.md",
     "docs/agent-context.md",
 )
+
+# The vocabulary anchor passes when either file exists (stakeholder, 2026-11-05).
+VOCABULARY_ANCHOR = ("docs/spec/glossary.md", "docs/spec/work/term-candidates.md")
 
 ANCHOR_CHECKS = {
     "feature-addition": ("playbooks/feature-addition.md", "## Prerequisites"),
@@ -78,6 +80,16 @@ def _anchor_check(name: str) -> str:
 @pytest.mark.parametrize("anchor_file", ANCHOR_FILE_SET)
 def test_anchor_check_names_each_anchor_file(check: str, anchor_file: str) -> None:
     assert f"`{anchor_file}`" in _anchor_check(check)
+
+
+@pytest.mark.spec("CAL-15")
+@pytest.mark.parametrize("check", ANCHOR_CHECKS)
+def test_anchor_check_accepts_glossary_or_term_candidates(check: str) -> None:
+    glossary, candidates = VOCABULARY_ANCHOR
+    lines = _anchor_check(check).splitlines()
+    assert any(
+        f"`{glossary}` or `{candidates}`" in line and "exists" in line for line in lines
+    )
 
 
 @pytest.mark.spec("CAL-15")
@@ -192,20 +204,15 @@ def test_glossary_file_names_no_context_md(path: str) -> None:
 
 
 # --- ST-0337 ---
-# CAL-12-LN-01, reverse-map assertion: the vocabulary step seeds glossary rows.
+# CAL-12-LN-01, reverse-map assertion: the vocabulary step names no CONTEXT.md.
+# ST-0350 sends the vocabulary to term candidates; CAO-06-LN-01 checks that.
 
 REVERSE_MAP = "skills/reverse-map/SKILL.md"
 
 
 @pytest.mark.spec("CAL-12")
-def test_reverse_map_seeds_term_rows_into_the_glossary() -> None:
-    text = read_factory_file(REVERSE_MAP)
-    step = section(text, f"## Seed {GLOSSARY}")
-    assert f"`{GLOSSARY}`" in step
-    assert "Term, Definition, and Avoid" in step
-    assert "one section per context" in step
-    assert "term already in the section is not added twice" in step
-    assert not OLD_ROUTING_FILE.search(text)
+def test_reverse_map_names_no_context_md() -> None:
+    assert not OLD_ROUTING_FILE.search(read_factory_file(REVERSE_MAP))
 
 
 # --- ST-0340 ---
@@ -249,8 +256,8 @@ SPEC_WRITERS = {
         "agents/requirements-agent.md",
         f'path_pattern: "{WORK}/{{name}}-gaps.md"',
     ),
-    "requirements-agent QA strategy": (
-        "agents/requirements-agent.md",
+    "test-strategy-agent QA strategy": (
+        "agents/test-strategy-agent.md",
         f'path_pattern: "{WORK}/{{name}}-qa-strategy.md"',
     ),
     "qa-strategy-from-spec": (

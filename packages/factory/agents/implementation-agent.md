@@ -30,6 +30,7 @@ inputs:
     - .agent-factory/factory/scripts/crap-score
     - .agent-factory/factory/scripts/dependency-check
     - .agent-factory/factory/scripts/test-design-verify
+    - .agent-factory/factory/scripts/mutation-testing
 outputs:
   minimum_changed: 1
   declarations:
@@ -39,10 +40,7 @@ outputs:
     - path_pattern: "tests/**/*"
       validator:
       required: true
-    - path_pattern: "docs/spec/**/*.md"
-      validator:
-      required: false
-    - path_pattern: "docs/adr/*.md"
+    - path_pattern: "docs/findings/QA-*.md"
       validator:
       required: false
 triggers:
@@ -132,10 +130,17 @@ Resolve before Step 1 and state the effective mode and its source.
    b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, iteration cap, escalation, and fix-iteration prompt template. Start every fix iteration with `.agent-factory/factory/scripts/dispatch refresh-story <story-id>`, so the story branch contains the moved invocation branch and `verify-base` passes.
    c. **Merge**: when all gates pass, call `.agent-factory/factory/scripts/dispatch merge-story <story-id>` from the invocation branch's worktree. The script refuses to run on any other branch. It owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
    d. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
+   e. **Drift rows**: after the merge, handle the merged story's report, `docs/spec/work/spec-feedback-<story-id>.md`, as [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge) describes. The dispatcher first dispatches the owner of each `open` row, and the owner sets `fixed`. It then dispatches the owner's reviewer for each `fixed` row, and the reviewer sets `confirmed` or `rejected`. A rejecting reviewer files a `BUG` finding with `owner: developer-agent`. Wait for every dispatch to return before `close-wave`. A story without a report needs no dispatch.
 
 5. **Closeout** — Call `.agent-factory/factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal.
 
-6. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
+6. **Route the QA findings** — Run this step after `close-wave`. Read every `docs/findings/QA-*.md` with `status: open`.
+
+   - The dispatcher dispatches the test-strategy agent for each open `QA` finding with `owner: test-strategy-agent`. The agent resolves it as its workflow describes. Wait for every dispatch to return before the next wave.
+   - The dispatcher does not dispatch the test-strategy agent for a finding with `owner: planning-agent`. Such a finding waits for a story that adds the missing test.
+   - When a merged story names an open `QA` finding with `owner: planning-agent`, the dispatcher sets its `status: resolved`. The merged story added the missing test.
+
+7. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
 
 **Prompt template for subagents (automated mode):**
 
@@ -156,14 +161,16 @@ Resolve before Step 1 and state the effective mode and its source.
    and wait for confirmation before dispatching.
 
 4. **Dispatch to developer-agent** — Spawn a developer-agent with
-   `--no-stage --no-commit`. The developer writes code and runs tests, then
-   returns a summary of changed files, passing tests, and any spec-feedback
-   notes.
+   `--no-stage --no-commit`. The developer writes code, runs tests, and runs
+   the gates of the [Gate-Check Loop](#gate-check-loop). It then returns a
+   summary of changed files, passing tests, gate results, and any
+   spec-feedback notes.
 
 5. **Human reviews and commits** — The dispatcher waits. The human reviews the
-   changes in their IDE, sets `status: done` in the story file, and commits
-   with the story ID in the subject per
+   changes in their IDE and commits them with the story ID in the subject per
    [commit-conventions.md](../rulebooks/conventions/commit-conventions.md).
+   When the story has no spec-feedback report, the human sets `status: done`
+   in that commit. Otherwise, step 8 closes the story.
 
 6. **Code review** — Spawn a code-review-agent on the commit diff. The agent
    writes `docs/reviews/code-review-*.md` and files any `IMPL-*` findings.
@@ -175,7 +182,14 @@ Resolve before Step 1 and state the effective mode and its source.
      commits fixes.
    - **If no findings:** proceed to the next story.
 
-8. **Next story** — Repeat from step 3 until all stories are done or blocked.
+8. **Close the story, then the next story** — Handle the rows of the story's
+   report as
+   [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge)
+   describes. The human sets `status: done` only when
+   [§ Manual Mode](../rulebooks/conventions/dispatch-contract.md#manual-mode)
+   lets the story close. At the story's close, route the open `QA` findings
+   as step 6 of the automated workflow does after `close-wave`. Then repeat
+   from step 3 until all stories are done or blocked.
 
 9. **Done** — Report completion and remaining blocked stories. The human pushes
    when ready.
@@ -184,9 +198,9 @@ Resolve before Step 1 and state the effective mode and its source.
 
 > You are a developer-agent. You are working in the main checkout on branch `<feature-branch>`. The full local dev environment is available — installed dependencies, test commands, and running services.
 >
-> Implement story `ST-NNNN` following workflow: Analyse → Agree seams → Red-green TDD. Story: `backlog/ST-NNNN.md`
+> Implement story `ST-NNNN` following workflow: Analyse → Agree seams → Red-green TDD → Run the gates. Story: `backlog/ST-NNNN.md`
 >
-> `--no-stage --no-commit` — do not run `git add` or `git commit`. Do not set `status: done`. After all tests are green, return your summary: files changed, tests passing, any spec-feedback notes. The human will review and commit.
+> `--no-stage --no-commit` — do not run `git add` or `git commit`. Do not set `status: done`. After all tests are green and the gates have run, return your summary: files changed, tests passing, gate results, any spec-feedback notes. The human will review and commit.
 
 **Prompt template for fix iteration (manual mode):**
 
@@ -204,35 +218,42 @@ Resolve before Step 1 and state the effective mode and its source.
 
 ### Gate-Check Loop
 
-The gate-check loop applies to **automated mode only**. In manual mode, the code-review-agent replaces the mechanized gate-check loop.
+The gate-check loop applies to **automated mode only**. In manual mode, the developer agent runs the same gates before it hands the story back (developer agent, step 4 "Run the gates"). The code-review-agent then reviews the commit.
 
 After the developer-agent commits and the dispatcher verifies the commit SHA (Step 4a), the dispatcher runs semantic quality gates on the committed artifacts before proceeding to `premerge-check` and merge. The gate-check loop runs once per developer iteration, not per git commit, not on every push, and not only at PR time.
 
 #### Quality-gates resolution
 
-The story's `quality-gates` frontmatter field is the primary source. The planner fills it from the `gates` section of `testing.yaml` (at `docs/testing.yaml`) at planning time. Gate-specific parameters (e.g. `threshold` for `crap_score`) are read from `testing.yaml` at execution time.
+The gate list has three parts (BR-066). `premerge-check` requires a passing result for every gate in it.
 
-**Special case — `test_design_verify`:** Implicitly enabled when the story contains a Failure scenarios or Prior Tests section. Skipped when no test-design output exists. No explicit `enabled` flag needed in `testing.yaml`.
+- **`dependency-check`** runs after every story. No gate list picks it.
+- **`test-design-verify`** runs when the story has a Test Design or Prior Tests section. No gate list picks it.
+- **Test guardrails** `crap-score` and `mutation-testing` come from the first source that declares them.
 
-**Precedence (highest wins):**
+**Precedence for the test guardrails (highest wins):**
 
-1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's Constraints section.
-2. **Project-level `gates` in `testing.yaml`** — fallback when the story field is absent (older stories written before the planner filled this field).
-3. **Factory hardcoded default** — if neither declares gates, apply all three: `crap-score`, `mutation-testing`, `dependency-check` (fail-closed).
+1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's `notes` field.
+2. **The `gates` section of `testing.yaml`** (at `docs/testing.yaml`) — fallback when the story field is absent (older stories written before the planner filled this field). Each gate with `enabled: true` runs.
+3. **Factory default** — if neither declares gates, run `crap-score` alone (fail-closed). No default runs `mutation-testing`, because its command lives only in the `gates` section.
+
+Gate-specific parameters (e.g. `threshold` for `crap_score`) are read from `testing.yaml` at execution time. `docs/charter/house-rules.md` is no gate source; when it still has `default_quality_gates`, `premerge-check` prints a warning that names the file.
 
 #### Gate execution
 
 For each gate in the resolved list, call its CLI script directly from the story's worktree. The dispatcher passes gate-specific parameters from `testing.yaml` to each script:
 
 ```
-.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold>
-.agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id>
-.agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id>
+.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold> --report-dir <invocation-worktree>/.current-work/crap-score
+.agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id> --report-dir <invocation-worktree>/.current-work/dependency-check
+.agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id> --report-dir <invocation-worktree>/.current-work/test-design-verify
+.agent-factory/factory/scripts/mutation-testing                  --story-id <story-id> --report-dir <invocation-worktree>/.current-work/mutation-testing
 ```
 
-The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Failure scenarios or Prior Tests section; the dispatcher skips it otherwise.
+The four gates are `crap-score`, `mutation-testing`, `test-design-verify`, and `dependency-check`. The `mutation-testing` script runs the command in `gates.mutation_testing.command` from the story's worktree. Run it in the background (`run_in_background: true`), because a foreground Bash call ends after 10 minutes. Wait for its exit notice. The script enforces `gates.mutation_testing.timeout_minutes`, 30 when unset: at the limit it stops the command and its process group and writes a failing result. Set no limit of your own. Without a command, the gate fails and names the test-strategy agent.
 
-Each script writes a JSON report to `.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. The dispatcher reads the exit code and the JSON report to determine the outcome.
+The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
+
+Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome.
 
 #### Fix-iteration loop
 
@@ -258,7 +279,7 @@ Effective maximum: **6** developer spawns per story (3 at the current tier + 3 a
 
 #### Interaction with premerge-check
 
-The gate-check loop and `premerge-check` are independent, sequential gates. The gate-check loop must pass before `premerge-check` runs. The `premerge-check` script (invoked by `dispatch merge-story`) performs stale-base, file-count, and scope checks that are orthogonal to the semantic quality gates. A story that passes all quality gates may still fail `premerge-check` — the merge is blocked until both pass.
+The gate-check loop and `premerge-check` are independent, sequential gates. The gate-check loop must pass before `premerge-check` runs. The `premerge-check` script (invoked by `dispatch merge-story`) performs stale-base, file-count, and scope checks, then reads the gate result files and blocks the merge when a gate of the resolved list has no passing result. A story that passes all quality gates may still fail `premerge-check` — the merge is blocked until both pass.
 
 **Fix-iteration prompt template:**
 

@@ -245,7 +245,7 @@ repos:
         entry: packages/factory/scripts/index-lint
         language: system
         pass_filenames: false
-        files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md)$
+        files: ^(packages/factory/agents/.*\.md|packages/factory/skills/.*/SKILL\.md|packages/factory/playbooks/.*\.md|packages/factory/rulebooks/(?!templates/).*\.md|packages/factory/rulebooks/core-artifacts\.yaml)$
         stages: [pre-commit, pre-merge-commit]
 
       # Check that every agent and every prose-producing skill carries

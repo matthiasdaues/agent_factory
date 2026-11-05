@@ -439,13 +439,14 @@ A skill is a how-to — a reusable procedure an agent (or you, directly) invokes
 
 Notable skills by concern:
 
-| Concern         | Skills                                                                                                                                                                       |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Idea-to-feature | `draft-proposal` (crystallize an idea into a proposal), `capture-vision` (six-facet vision capture), `grilling` / `grill-me` / `grill-with-docs` (pressure-test a design)    |
-| Specification   | `derive-feature` (Gherkin `.feature` files with Rule-per-actor-goal), `qa-strategy-from-spec` (per-feature QA strategy), `reverse-map` (build scope map from code and tests) |
-| Onboarding      | `reverse-map` (build a scope map from code, tests, and other sources), `guided-tour` (mid-session reorientation for newcomers and active playbook runs)                      |
-| Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (dependency vulnerability scan)                                          |
-| Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                            |
+| Concern         | Skills                                                                                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idea-to-feature | `draft-proposal` (crystallize an idea into a proposal), `capture-vision` (six-facet vision capture), `grilling` / `grill-me` / `grill-with-docs` (pressure-test a design) |
+| Specification   | `derive-feature` (Gherkin `.feature` files with Rule-per-actor-goal), `reverse-map` (build scope map from code and tests)                                                 |
+| Test practice   | `detect-test-regime` (record the test suites in `docs/testing.yaml`), `qa-strategy-from-spec` (per-feature QA strategy); the test-strategy agent runs both                |
+| Onboarding      | `reverse-map` (build a scope map from code, tests, and other sources), `guided-tour` (mid-session reorientation for newcomers and active playbook runs)                   |
+| Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (module import directions against `dependency-rules.dsl`)             |
+| Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                         |
 
 The full list is also in [`.agent-factory/factory/INDEX.yaml`](../INDEX.yaml), with token counts per skill.
 
@@ -481,11 +482,11 @@ After either playbook completes (or after brownfield Stage 1), all feature work 
 
 Once a project has been onboarded, these playbooks describe reference paths for feature delivery and other structured work. The typical dependency chain runs requirements → architecture → planning → implementation → quality, but the sequence emerges from each agent's declared preconditions, not from a prescribed order:
 
-| Playbook                                                        | For                                                                                                                                                                                                   |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`feature-addition.md`](../playbooks/feature-addition.md)       | Adding a feature to a managed project from an accepted proposal. Declared impact routes the required specification and architecture work. Owns the gate-check loop and mechanical architecture check. |
-| [`refactoring.md`](../playbooks/refactoring.md)                 | Restructuring code without changing behaviour, with a measured baseline and a safety net.                                                                                                             |
-| [`architecture-review.md`](../playbooks/architecture-review.md) | Reviewing existing architecture documentation against quality attributes.                                                                                                                             |
+| Playbook                                                        | For                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`feature-addition.md`](../playbooks/feature-addition.md)       | Adding a feature to a managed project from an accepted proposal. Declared impact routes the required specification and architecture work. Runs the mechanical architecture check; the implementation agent runs the gate-check loop. |
+| [`refactoring.md`](../playbooks/refactoring.md)                 | Restructuring code without changing behaviour, with a measured baseline and a safety net.                                                                                                                                            |
+| [`architecture-review.md`](../playbooks/architecture-review.md) | Reviewing existing architecture documentation against quality attributes.                                                                                                                                                            |
 
 ### The research workflow
 
@@ -579,14 +580,16 @@ An artifact must pass stage 1, then stage 2, then stage 3 before the next playbo
 
 ### Semantic quality gates
 
-Two semantic gates fire between a developer's commit and merge, enforced by the gate-check loop in `feature-addition`:
+Four semantic gates fire between a developer's commit and merge. The implementation agent's gate-check loop runs them, and `premerge-check` blocks the merge of a story branch without a passing result for each gate that applies (BR-066):
 
-| Gate             | Script                                            | What it checks                                                                                                                                     |
-| ---------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CRAP score       | `.agent-factory/factory/scripts/crap-score`       | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
-| Dependency check | `.agent-factory/factory/scripts/dependency-check` | Validates that module import directions match declarations in `architecture.dsl`.                                                                  |
+| Gate               | Script                                              | When it runs                                            | What it checks                                                                                                                                     |
+| ------------------ | --------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dependency check   | `.agent-factory/factory/scripts/dependency-check`   | After every story                                       | Validates that module import directions match declarations in `architecture.dsl`.                                                                  |
+| Test design verify | `.agent-factory/factory/scripts/test-design-verify` | When the story has a Test Design or Prior Tests section | Validates that the story's test design is complete: its listed test modules exist, or each reachable Scenario has a test entry.                    |
+| CRAP score         | `.agent-factory/factory/scripts/crap-score`         | When picked as a test guardrail                         | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
+| Mutation testing   | `.agent-factory/factory/scripts/mutation-testing`   | When picked as a test guardrail                         | Runs the mutation command from the `gates` section of `docs/testing.yaml` within its time limit.                                                   |
 
-The planning agent fills each story's `quality-gates` field from the `gates` section of `docs/testing.yaml` — only gates marked `enabled: true` are included. A project can further override at the story, house-rules, or factory-default level (resolved in that priority order). The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
+The test guardrails `crap-score` and `mutation-testing` come from the first source that declares them: the story's `quality-gates` field, then the enabled entries of the `gates` section of `docs/testing.yaml`, then `crap-score` alone. No default picks `mutation-testing`. The planning agent fills each story's `quality-gates` field from the enabled entries of that section. `docs/charter/house-rules.md` is no gate source. The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
 
 ### Step isolation
 

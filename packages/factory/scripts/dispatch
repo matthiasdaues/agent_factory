@@ -38,6 +38,7 @@ from dispatch_lib import (
     TIER_RANK,
     Ledger,
     ManifestExistsError,
+    ReportError,
     ShaFormatError,
     StoryEntry,
     StoryState,
@@ -47,8 +48,10 @@ from dispatch_lib import (
     attempts_for_session,
     clear_manifest_force,
     compute_wave_plan,
+    drift_row_problems,
     glob_match,
     implementation_session_tier,
+    load_core_patterns,
     load_project_config,
     load_stories,
     next_tier,
@@ -56,6 +59,7 @@ from dispatch_lib import (
     re_dispatch_disposition,
     remove_manifest,
     render_handoff_contract,
+    spec_feedback_path,
     suggest_tier,
     write_handoff_contract,
     write_manifest,
@@ -1835,6 +1839,8 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         # (status: done) in the implementation commit — always in scope. The
         # index-lint hook rewrites INDEX.yaml during commits — also in scope.
         premerge_cmd += ["--scope-glob", f"backlog/{entry.id}.md"]
+        # The story's own drift report is part of its work (ADR-0029).
+        premerge_cmd += ["--scope-glob", spec_feedback_path(entry.id)]
         premerge_cmd += ["--scope-glob", HOOK_REWRITTEN_INDEX]
         premerge_cmd += ["--max-files", str(_scaled_max_files(len(outputs)))]
 
@@ -1983,6 +1989,38 @@ def cmd_suggest_merge_args(args: argparse.Namespace) -> int:
     return 0
 
 
+# The core list beside the running scripts: packages/factory/rulebooks/ in
+# the factory repository, .agent-factory/factory/rulebooks/ when installed.
+CORE_LIST_PATH = SCRIPT_DIR.parent / "rulebooks" / "core-artifacts.yaml"
+
+
+def _drift_check(branch_head: str):
+    """Return the close-wave check of the reports at *branch_head* (BR-062).
+
+    Owner and reviewer sessions commit each row status on the invocation
+    branch (ADR-0029), so the check reads the committed reports."""
+
+    def check(story_ids: list[str]) -> list[str]:
+        try:
+            core_patterns = load_core_patterns(CORE_LIST_PATH)
+        except ReportError as e:
+            return [str(e)]
+        reports: dict[str, str | None] = {}
+        for story_id in story_ids:
+            path = spec_feedback_path(story_id)
+            exists, _, _ = _git("cat-file", "-e", f"{branch_head}:{path}")
+            if exists != 0:
+                reports[path] = None
+                continue
+            code, text, err = _git("show", f"{branch_head}:{path}")
+            if code != 0:
+                return [f"{path}: cannot read the report: {err}"]
+            reports[path] = text
+        return drift_row_problems(reports, core_patterns)
+
+    return check
+
+
 def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger_path = Path(args.ledger)
     ledger = _load_automated_ledger(ledger_path)
@@ -2004,7 +2042,9 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
 
     wave = args.wave
     try:
-        _record, created = ledger.close_wave(wave, branch_head)
+        _record, created = ledger.close_wave(
+            wave, branch_head, drift_check=_drift_check(branch_head)
+        )
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

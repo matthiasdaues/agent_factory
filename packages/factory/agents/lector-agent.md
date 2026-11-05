@@ -19,6 +19,7 @@ outputs:
     - path_pattern: "docs/**/*.md"
       validator:
       required: true
+      edits: wording
 triggers:
   - "lector pass"
   - "run the lector"

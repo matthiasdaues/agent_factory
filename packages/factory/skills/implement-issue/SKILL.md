@@ -76,6 +76,6 @@ If invoked with `--no-stage --no-commit`: leave all changes unstaged, skip the c
 
 Ask: _"Did implementation reveal any spec gaps, changed Business Rules, or inaccurate interface contracts?"_
 
-If yes, invoke the `spec-feedback` skill. If no, move to the next issue.
+If yes, invoke the `spec-feedback` skill. It writes each drift as a row of `docs/spec/work/spec-feedback-<story-id>.md` and changes no specification file. If no, write no report and move to the next issue.
 
-**Completion**: spec is either confirmed accurate or updated.
+**Completion**: every drift is a row of the story's spec-feedback report, and no specification file changed.

@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""mutation-testing — gate that runs the project's mutation command.
+
+What: Runs `gates.mutation_testing.command` from `docs/testing.yaml` with a
+      time limit and writes a pass or fail result file (BR-066).
+When: After a developer commit, as one gate of the gate-check loop, and in
+      manual mode before the developer agent hands a story back.
+By:   implementation-agent dispatcher, developer agent in manual mode, or a
+      human/operator session.
+
+A gate that cannot run fails:
+  - `docs/testing.yaml` missing or unreadable;
+  - `gates.mutation_testing.command` missing; the message names the
+    test-strategy agent, which writes the command;
+  - `gates.mutation_testing.timeout_minutes` not a positive integer.
+
+Time limit
+  `gates.mutation_testing.timeout_minutes`, default 30 (CAO-G27). The script
+  enforces the limit itself. It runs the command in its own process group
+  and, at the limit, sends SIGTERM to the whole group, waits 10 seconds,
+  then sends SIGKILL. A child that starts its own session leaves the group
+  and is not stopped.
+
+The command runs through the shell from the current directory. The mutation
+tool's own configuration stays in the project's files (DEC-36).
+
+Usage
+  mutation-testing --story-id ST-NNNN [--testing-yaml PATH] [--report-dir DIR]
+
+Output
+  Writes `{"passed": ..., ...}` to `<report-dir>/<story-id>.json`, by default
+  `.current-work/mutation-testing/<story-id>.json`, the file premerge-check
+  reads. Prints the result to stdout.
+
+Exit codes
+  0: the command exited 0 within the limit
+  1: the gate failed or could not run
+  2: usage error
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import signal
+import subprocess
+import sys
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
+
+from dispatch_lib import _load_yaml
+
+DEFAULT_TESTING_YAML = "docs/testing.yaml"
+DEFAULT_REPORT_DIR = ".current-work/mutation-testing"
+DEFAULT_TIMEOUT_MINUTES = 30
+KILL_GRACE_SECONDS = 10
+OWNER_HINT = (
+    "gates.mutation_testing.command is missing in {path}; "
+    "the test-strategy agent writes the project's mutation command"
+)
+
+
+def timeout_seconds(section: dict) -> int:
+    """Return the limit in seconds from `timeout_minutes`, default 30 minutes."""
+    value = section.get("timeout_minutes")
+    if value is None:
+        return DEFAULT_TIMEOUT_MINUTES * 60
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise ValueError(
+            f"gates.mutation_testing.timeout_minutes must be a positive integer, got {value!r}"
+        )
+    return value * 60
+
+
+def read_section(testing_yaml: Path) -> dict:
+    """Return the `gates.mutation_testing` mapping; raise ValueError when absent."""
+    try:
+        data = _load_yaml(testing_yaml.read_text())
+    except OSError as exc:
+        raise ValueError(f"cannot read {testing_yaml}: {exc}") from exc
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"cannot parse {testing_yaml}: {exc}") from exc
+    gates = data.get("gates")
+    section = gates.get("mutation_testing") if isinstance(gates, dict) else None
+    if not isinstance(section, dict):
+        return {}
+    return section
+
+
+def _stop_group(proc: subprocess.Popen) -> None:
+    """Stop the command and every process in its group.
+
+    SIGTERM first, then SIGKILL after the grace period. SIGKILL goes to the
+    group even when the leader has exited, because its children may not have.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=KILL_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    proc.wait()
+
+
+def run_command(command: str, cwd: Path, limit_seconds: float) -> dict:
+    """Run the command in its own process group; stop the group at the limit."""
+    proc = subprocess.Popen(
+        command,
+        shell=True,
+        cwd=cwd,
+        start_new_session=True,
+    )
+    try:
+        exit_code = proc.wait(timeout=limit_seconds)
+    except subprocess.TimeoutExpired:
+        _stop_group(proc)
+        return {
+            "passed": False,
+            "exit_code": None,
+            "timed_out": True,
+            "message": f"stopped after {limit_seconds:g} seconds, the limit of the mutation command",
+        }
+    return {
+        "passed": exit_code == 0,
+        "exit_code": exit_code,
+        "timed_out": False,
+        "message": "passed" if exit_code == 0 else f"the mutation command exited {exit_code}",
+    }
+
+
+def evaluate(testing_yaml: Path, cwd: Path, limit_seconds: float | None) -> dict:
+    """Return the result of the gate; a gate that cannot run fails."""
+    base = {"command": None, "timeout_seconds": None, "exit_code": None, "timed_out": False}
+    try:
+        section = read_section(testing_yaml)
+        command = section.get("command")
+        if not isinstance(command, str) or not command.strip():
+            return {**base, "passed": False, "message": OWNER_HINT.format(path=testing_yaml)}
+        limit = limit_seconds if limit_seconds is not None else timeout_seconds(section)
+    except ValueError as exc:
+        return {**base, "passed": False, "message": str(exc)}
+    result = run_command(command, cwd, limit)
+    return {**base, "command": command, "timeout_seconds": limit, **result}
+
+
+def run_gate(
+    story_id: str,
+    testing_yaml: Path,
+    report_dir: Path,
+    cwd: Path,
+    limit_seconds: float | None = None,
+) -> int:
+    """Run the gate, write the result file, and return the exit code."""
+    result = {"story_id": story_id, **evaluate(testing_yaml, cwd, limit_seconds)}
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / f"{story_id}.json").write_text(json.dumps(result, indent=2) + "\n")
+    print(json.dumps(result, indent=2))
+    if not result["passed"]:
+        print(f"mutation-testing: FAIL {result['message']}", file=sys.stderr)
+    return 0 if result["passed"] else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--story-id", required=True, help="story ID, e.g. ST-0318")
+    ap.add_argument("--testing-yaml", default=DEFAULT_TESTING_YAML, help="path to testing.yaml")
+    ap.add_argument("--report-dir", default=DEFAULT_REPORT_DIR, help="directory for the result file")
+    args = ap.parse_args(argv)
+    cwd = Path.cwd()
+    return run_gate(
+        story_id=args.story_id,
+        testing_yaml=cwd / args.testing_yaml,
+        report_dir=cwd / args.report_dir,
+        cwd=cwd,
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

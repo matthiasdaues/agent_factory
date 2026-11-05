@@ -1,6 +1,6 @@
 ---
 name: reverse-map
-description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and seeds the domain vocabulary into docs/spec/glossary.md.
+description: Build the scope map from code, tests, and other sources. Sweeps tests first as primary evidence, then code entry points, then accepts additional sources. Presents results in batches by domain area for stakeholder confirmation, or, run unattended from a brief, writes the map as a draft for later confirmation. Writes docs/spec/scope-map.md and records the domain vocabulary as term candidates in docs/spec/work/term-candidates.md.
 category: requirements
 ---
 
@@ -86,15 +86,21 @@ The stakeholder says "that's enough." Write `docs/spec/scope-map.md` in the 5-co
 
 Summarise the inventory count at the end.
 
-## Seed docs/spec/glossary.md
+## Record term candidates
 
-During the code sweep (Steps 1-3), extract domain vocabulary from type names, class names, and module names. Write the terms into `docs/spec/glossary.md`, in the table form of the [glossary template](../../rulebooks/templates/glossary.md): one section per context, one table per section with the columns Term, Definition, and Avoid.
+During the code sweep (Steps 1-3), collect the domain vocabulary from type names, class names, and module names. Write each name as a row of `docs/spec/work/term-candidates.md` with status `candidate`. Only the domain-modeling agent writes the glossary, so `reverse-map` never writes `docs/spec/glossary.md`.
 
-- When the glossary is missing, create it from the template with one section per context. A context is one of the domain areas of Step 3.
-- When the glossary exists, add the rows to the section of their context, and create the section when it is missing. A term already in the section is not added twice.
-- Leave Avoid empty unless the code shows a competing word for the same term.
+The work file holds one table:
 
-This seed is the early form of arc42 chapter 12 (Glossary).
+| Term | Domain area | Source | Proposed definition | Status | Note |
+| ---- | ----------- | ------ | ------------------- | ------ | ---- |
+
+- Term is the name as the code spells it, such as `PaymentBatch`.
+- Domain area is the area of Step 3 that holds the code.
+- Source names the code path of the name, such as `src/payments/batch.py`.
+- Proposed definition and Note stay empty. The domain-modeling agent proposes the definition later.
+- When the work file is missing, create it with the table header. When it exists, add the rows to its table.
+- A term that already has a row in the work file or an entry in the glossary is not added again.
 
 ## Evidence hierarchy
 
@@ -114,7 +120,7 @@ The confidence level for each scope-map row follows this hierarchy:
 
 ## Boundaries
 
-- The skill reads code and presents information to the stakeholder. It writes only `docs/spec/scope-map.md` and `docs/spec/glossary.md`.
+- The skill reads code and presents information to the stakeholder. It writes only `docs/spec/scope-map.md` and `docs/spec/work/term-candidates.md`.
 - Discrepancies are surfaced as questions to the stakeholder, not filed as findings.
 - The stakeholder controls depth — "that's enough" is always valid.
 - The skill does not modify code, tests, or any implementation artifact.
@@ -136,7 +142,7 @@ status: draft
 ---
 ```
 
-- Seed `docs/spec/glossary.md` as in the attended mode.
+- Record term candidates as in the attended mode.
 - Report to the caller: the inventory count, the open questions, and that the map awaits confirmation.
 
 A stakeholder confirms the draft by walking the domain grouping and the open questions, then removing the `status` field or setting it to `status: confirmed`. Until then `spec-lint` reports the map as `SCOPE001`, and the brownfield Stage 1 exit check fails on that code. The check also fails when `spec-lint` crashes, so a broken install never passes a draft. The `scope` field stays in either case, because `scope-lint` requires it.

@@ -18,6 +18,9 @@ outputs:
     - path_pattern: "docs/reviews/retro-*.md"
       validator:
       required: true
+    - path_pattern: docs/spec/work/term-candidates.md
+      validator:
+      required: false
 triggers:
   - "retrospective"
   - "retro"
@@ -43,7 +46,7 @@ Facilitate retrospectives, extract actionable improvements, track whether past a
 
 1. **Check prior retros** — Read `docs/reviews/retro-*.md`. Identify open action items and recurring patterns. Summarize adoption status.
 2. **Run retrospective** — Five categories: Went Well, Caused Friction, Stop Doing, Continue Doing, Start Doing. Mine session history for evidence. Save `docs/reviews/retro-YYYY-MM-DD.md`.
-3. **Track action items** — Present confirmed items. Ask the user where each is tracked: `docs/spec/work/todos.md` (T-NNN), issue tracker, agent/skill update, `docs/spec/glossary.md` (vocabulary) or `docs/agent-context.md` (process), or backlog story dispatched to `implementation-agent`.
+3. **Track action items** — Present confirmed items. Ask the user where each is tracked: `docs/spec/work/todos.md` (T-NNN), issue tracker, agent/skill update, a term candidate in `docs/spec/work/term-candidates.md` (vocabulary) or `docs/agent-context.md` (process), or backlog story dispatched to `implementation-agent`.
 
 ## Completion Criteria
 

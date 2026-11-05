@@ -22,7 +22,7 @@ Operational procedure for **documenting an existing undocumented system** (rever
 
 Unlike greenfield (Spec → Architecture → Code), brownfield starts with existing code and works backwards. The playbook is split into two stages with an explicit exit point between them:
 
-- **Stage 1 — Enough to work**: produces the four anchor files (`docs/spec/scope-map.md`, `docs/spec/glossary.md`, `docs/spec/architecture.dsl`, `docs/agent-context.md`). The user can start feature work from here.
+- **Stage 1 — Enough to work**: produces the four anchor files (`docs/spec/scope-map.md`, `docs/spec/work/term-candidates.md`, `docs/spec/architecture.dsl`, `docs/agent-context.md`). Stage 1 writes term candidates, not glossary rows. The user can start feature work from here.
 - **Stage 2 — Full reverse engineering** (opt-in): specification extraction, component resolution, ATAM review, and reconciliation. Available when the user or the change warrants it.
 
 ## Stage 1 — Enough to Work
@@ -79,7 +79,7 @@ Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then
 **Expected outputs**:
 
 - `docs/spec/scope-map.md` (5-column format: Rule, Status, Confidence, Sources, Feature Link)
-- `docs/spec/glossary.md` (domain vocabulary seeded from type names, class names, module names)
+- `docs/spec/work/term-candidates.md` (domain vocabulary from type names, class names, module names, as term candidates for the domain-modeling agent)
 
 The scope map meets the architecture agent's required input, so `run-step` can offer that agent without a `.feature` file. Proceed to Step 2.2.
 
@@ -132,7 +132,7 @@ The workspace property `"arc42.projected"` defaults to `"false"` and is set to `
 Verify the four anchor files exist and are valid. The check names each missing file on its own:
 
 - [ ] `docs/spec/scope-map.md` exists with Rules marked `implemented`
-- [ ] `docs/spec/glossary.md` exists seeded with domain vocabulary
+- [ ] `docs/spec/glossary.md` or `docs/spec/work/term-candidates.md` exists
 - [ ] `docs/spec/architecture.dsl` exists with system context and container views
 - [ ] `docs/agent-context.md` exists
 - [ ] Structurizr validation passes on the DSL
@@ -158,11 +158,15 @@ Stage 2 deepens the baseline with full specification extraction, component-level
 
 ### Step 3.1 — Extract Domain Vocabulary
 
-Scan code for domain terms — type names, class names, module names. Build `docs/spec/glossary.md` with ubiquitous language.
+**Agent**: `domain-modeling-agent`
+
+Confirm the term candidates that `reverse-map` wrote to `docs/spec/work/term-candidates.md`. The agent runs the `domain-modeling` skill with `--write-glossary` and writes each confirmed term as a row of `docs/spec/glossary.md`.
 
 **Output**: `docs/spec/glossary.md`
 
 ### Step 3.2 — Extract Entity Model
+
+**Agent**: `domain-modeling-agent`
 
 Analyze domain entities in code — relationships, attributes, constraints.
 
@@ -184,6 +188,8 @@ Document non-functional requirements found in code: performance characteristics 
 **Output**: `docs/spec/validation-rules.md`, `docs/spec/interface-contracts.md`
 
 ### Step 3.7 — Document State Machines
+
+**Agent**: `domain-modeling-agent`
 
 For stateful components found in code, extract state machines per [`state-machine-notation.md`](../rulebooks/conventions/state-machine-notation.md).
 

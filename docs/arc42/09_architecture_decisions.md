@@ -37,6 +37,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0027 | [Split the requirements agent by artifact family](../adr/0027-split-the-requirements-agent-by-artifact-family.md)                                             | accepted               | none        |
 | 0028 | [Declared review and a core list check ownership](../adr/0028-declared-review-and-core-list-check-ownership.md)                                               | accepted               | none        |
 | 0029 | [Per-story drift reports block the wave close](../adr/0029-per-story-drift-reports-block-the-wave-close.md)                                                   | accepted               | none        |
+| 0030 | [Reconciliation rows return through the documentation-update playbook](../adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md)   | accepted               | none        |
 
 ## Key Decisions
 
@@ -256,6 +257,12 @@ artifact's owner as a row of a per-story spec-feedback report. `dispatch close-w
 artifact, and `prepare-wave` waits for the recorded close, so the specification
 lags the code by one wave at most. See
 [6.12](06_runtime_view.md#612-spec-feedback-and-wave-close).
+
+**ADR-0030** sends drift found by a reconciliation run back the same way. The
+orchestrator of the `documentation-update` playbook dispatches each row's owner
+and then the owner's reviewer. Only the playbook's DONE list waits for the
+rows, and no script reads them. See
+[6.13](06_runtime_view.md#613-reconciliation-backfeed).
 
 ## Superseded Decisions
 

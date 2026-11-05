@@ -1,0 +1,68 @@
+---
+# The core list: every core and seam artifact of a project, with one sample
+# path per entry. The producer and review contract test, the reviewer check
+# of scripts/index-lint, and `dispatch close-wave` read this file. The fields
+# are defined in docs/spec/interface-contracts.md, section
+# "packages/factory/rulebooks/core-artifacts.yaml".
+#
+# path_pattern: the artifact as agents declare it.
+# sample_path:  one concrete path that the pattern matches. A producer's
+#               output and a reviewer's input match through it.
+# family:       scope-and-behaviour, domain-structure, architecture, or seam.
+# optional:     true when a project may lack the artifact. Its reviewer then
+#               declares it as a context input.
+entries:
+  - path_pattern: docs/spec/scope-map.md
+    sample_path: docs/spec/scope-map.md
+    family: scope-and-behaviour
+    optional: false
+  - path_pattern: docs/spec/features/*.feature
+    sample_path: docs/spec/features/example.feature
+    family: scope-and-behaviour
+    optional: false
+  - path_pattern: docs/spec/areas/*.md
+    sample_path: docs/spec/areas/example.md
+    family: scope-and-behaviour
+    optional: true
+  - path_pattern: docs/spec/glossary.md
+    sample_path: docs/spec/glossary.md
+    family: domain-structure
+    optional: false
+  - path_pattern: docs/spec/entity-model.md
+    sample_path: docs/spec/entity-model.md
+    family: domain-structure
+    optional: false
+  - path_pattern: docs/spec/state-machines.md
+    sample_path: docs/spec/state-machines.md
+    family: domain-structure
+    optional: true
+  - path_pattern: docs/spec/validation-rules.md
+    sample_path: docs/spec/validation-rules.md
+    family: domain-structure
+    optional: true
+  - path_pattern: docs/spec/interface-contracts.md
+    sample_path: docs/spec/interface-contracts.md
+    family: domain-structure
+    optional: true
+  - path_pattern: docs/spec/schemas/*
+    sample_path: docs/spec/schemas/example.json
+    family: domain-structure
+    optional: true
+  - path_pattern: docs/spec/architecture.dsl
+    sample_path: docs/spec/architecture.dsl
+    family: architecture
+    optional: false
+  - path_pattern: docs/spec/dependency-rules.dsl
+    sample_path: docs/spec/dependency-rules.dsl
+    family: architecture
+    optional: true
+  - path_pattern: docs/agent-context.md
+    sample_path: docs/agent-context.md
+    family: seam
+    optional: false
+  # Producer: the test-strategy agent. init-factory may create a first
+  # draft when the file is missing (CAO-G30); it is not an agent output.
+  - path_pattern: docs/testing.yaml
+    sample_path: docs/testing.yaml
+    family: seam
+    optional: true

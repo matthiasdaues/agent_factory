@@ -113,7 +113,7 @@ erDiagram
     ANCHOR_FILE_SET {
         string architecture_dsl "docs/spec/architecture.dsl"
         string scope_map "docs/spec/scope-map.md"
-        string glossary "docs/spec/glossary.md"
+        string vocabulary "docs/spec/glossary.md or docs/spec/work/term-candidates.md — either one passes"
         string agent_context "docs/agent-context.md"
     }
 ```
@@ -127,7 +127,7 @@ erDiagram
 - **DISPATCH_LEDGER** is the script-owned dispatch record at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Each story entry tracks lifecycle fields including `tier`, `attempts`, and the pre-spawn `prepared` state, and each `WaveCloseout` entry records a wave summary (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`).
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
 - **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding. Rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified. The `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](features/newcomer-onboarding.feature).
-- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding, and the brownfield Stage 1 exit checks the same set. The four files are checked by file existence, not by a gate marker. The glossary and the agent context file both count: one holds the domain vocabulary, the other routes agents to it (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). Their presence signals readiness for feature work. The absence of any one suggests running `brownfield-onboarding` first. See [validation-rules.md § Anchor-file prerequisite](validation-rules.md#anchor-file-prerequisite-feature-addition).
+- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding, and the brownfield Stage 1 exit checks the same set. The four files are checked by file existence, not by a gate marker. The vocabulary anchor passes when `docs/spec/glossary.md` or `docs/spec/work/term-candidates.md` exists, because `reverse-map` writes term candidates, not glossary rows (stakeholder, 2026-11-05). The agent context file routes agents to the vocabulary (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). Their presence signals readiness for feature work. The absence of any one suggests running `brownfield-onboarding` first. See [validation-rules.md § Anchor-file prerequisite](validation-rules.md#anchor-file-prerequisite-feature-addition).
 
 ## Test-Design Entities
 
@@ -233,7 +233,7 @@ erDiagram
     TESTING_YAML {
         string path "docs/testing.yaml"
         string role "machine-consumed test configuration"
-        string writer "detect-test-regime (sole owner)"
+        string producer "test-strategy-agent, from the detect-test-regime scan"
     }
     TEST_SUITE {
         string name
@@ -252,12 +252,11 @@ erDiagram
 - **CONCERN_ENTRY** has a description and at least one `Read:` path. `Boundary:` paths are optional. Cross-cutting entries always apply. Story frontmatter selects technical and domain entries.
 - **CONCERN_ENTRY.folded** marks a domain concern that `capture-context --fold-context-map` wrote from a bounded context of a context map or a routing-only `CONTEXT.md`. A folded concern need not match a scope-map area, and `capture-context --update --scan` keeps it. The mark is the line `Folded: yes` directly after the concern's description line, and `concern-lint` accepts it only under `## Domain concerns` (CAL-G03 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)).
 - **STORY.concerns** is advisory and uses only confirmed registry headings. A missing vocabulary entry is proposed and confirmed before use.
-- **TESTING_YAML** is not routing content. Factory consumers resolve only `docs/testing.yaml`. There is no legacy-path fallback.
+- **TESTING_YAML** is a seam file. The test-strategy agent produces it and writes each change after the stakeholder confirms it. `init-factory` may create a first draft once, when the file is missing and the scan finds one test command (CAO-G30). The file is not routing content. Factory consumers resolve only `docs/testing.yaml`. There is no legacy-path fallback.
 - **CTX_FINDING** is produced by `concern-lint`. Legacy YAML context or `docs/charter/` beside the registry is an error.
 
 ## Referenced from
 
-- `actor-goal-list.md`
 - [test-design.feature](features/test-design.feature)
 - [agent-context.feature](features/agent-context.feature)
 
@@ -298,7 +297,7 @@ erDiagram
 - **GLOSSARY_SECTION.heading** comes from its source during the migration. A chapter 12 section keeps its heading. A table directly under the chapter 12 title becomes the section "Terms". The terms of a `CONTEXT.md` become a section named after that file's title. The terms of a per-context `CONTEXT.md` become that context's section.
 - **GLOSSARY_ROW.avoid** is empty for every row the migration takes from a two-column table. A row converted from the list form of `CONTEXT.md` takes its `_Avoid_:` entry.
 - **GLOSSARY_ROW.term** may appear in more than one section after the migration. The script lists each such term, and the developer removes the duplicates in a follow-up step (DEC-18). Inside one section a term appears at most once: `domain-modeling` updates the existing row instead of adding a second one (CAL-G13 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). `migrate-spec-layout` copies the rows of each source as they are and lists only terms in more than one section.
-- `domain-modeling` writes a new term as a row of the section for its context. `spec-lint` `GLOSS001` reads the terms from the Term column. It reports, as `info`, a term that no other core file uses, and it counts neither `glossary.md` nor the files in `docs/spec/work/` as uses.
+- The domain-modeling agent writes a confirmed term as a row of the section for its context (BR-065). `spec-lint` `GLOSS001` reads the terms from the Term column. It reports, as `info`, a term that no other core file uses, and it counts neither `glossary.md` nor the files in `docs/spec/work/` as uses.
 - **GLOSSARY_CHAPTER_STUB** keeps every chapter 12 section that holds no table, below the link line. `publish-docs` renders `docs/spec/glossary.md` wherever a manifest selects `arc42/12_glossary.md` (DEC-16).
 
 ## Local Usage Analysis Entities
@@ -808,4 +807,4 @@ erDiagram
 - **OUTPUT_DECLARATION.reviewed_by** names at least one **REVIEWER** on a core or seam artifact (BR-058). Each named agent declares the artifact as a required or a context input (BR-059).
 - **REPORT_ROW** follows the [Report Row Lifecycle](state-machines.md#report-row-lifecycle). Gap CAO-G04 decides its column names. Each story has its own spec-feedback report, so parallel developer agents never write the same file (DEC-27).
 - **TERM_CANDIDATE_ROW** follows the [Term Candidate Lifecycle](state-machines.md#term-candidate-lifecycle). **GLOSSARY_TERM** is the row of the glossary table that [§ Glossary Entities](#glossary-entities) describes.
-- **FINDING.owner** names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). The orchestrator routes each open finding to that agent. The tags `ARCH` and `QA` join the tag table, and `RECON` leaves it.
+- **FINDING.owner** names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). A finding about a proposal, a finding without an artifact, and a finding whose artifact spans several producers name `virgil`. The orchestrator routes each open finding to that agent. The tags `ARCH` and `QA` join the tag table, and `RECON` leaves it.
