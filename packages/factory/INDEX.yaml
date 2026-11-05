@@ -1031,16 +1031,16 @@ playbooks:
     path: playbooks/brownfield-onboarding.md
     agents:
       - architecture-agent
-      - domain-modeling-agent
-      - domain-modeling-agent
       - requirements-agent
+      - domain-modeling-agent
+      - domain-modeling-agent
       - domain-modeling-agent
       - spec-review-agent
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3460
-    total_tokens: 54324
+    tokens: 3477
+    total_tokens: 54341
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1096,8 +1096,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2844
-    total_tokens: 95235
+    tokens: 2849
+    total_tokens: 95240
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

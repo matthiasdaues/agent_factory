@@ -156,23 +156,7 @@ Stage 2 deepens the baseline with full specification extraction, component-level
 
 ## Specification Extraction
 
-### Step 3.1 — Extract Domain Vocabulary
-
-**Agent**: `domain-modeling-agent`
-
-Confirm the term candidates that `reverse-map` wrote to `docs/spec/work/term-candidates.md`. The agent runs the `domain-modeling` skill with `--write-glossary` and writes each confirmed term as a row of `docs/spec/glossary.md`.
-
-**Output**: `docs/spec/glossary.md`
-
-### Step 3.2 — Extract Entity Model
-
-**Agent**: `domain-modeling-agent`
-
-Analyze domain entities in code — relationships, attributes, constraints.
-
-**Output**: `docs/spec/entity-model.md`
-
-### Step 3.3 — Derive Feature Spec
+### Step 3.1 — Derive Feature Spec
 
 **Agent**: `requirements-agent`
 **Skill**: `derive-feature docs/spec/scope-map.md` (the skill's Brownfield Entry)
@@ -180,6 +164,22 @@ Analyze domain entities in code — relationships, attributes, constraints.
 Derive a consolidated Gherkin feature file from test names, API endpoints, and user flows in code. Use Cockburn actor-goal reasoning as internal process; output Rule-per-actor-goal `.feature` structure with `@`-references to existing code. Update the scope map with all Rules marked `implemented`.
 
 **Output**: `docs/spec/features/<project-name>.feature`, `docs/spec/scope-map.md` (updated), `docs/spec/work/<project-name>-gaps.md`
+
+### Step 3.2 — Extract Domain Vocabulary
+
+**Agent**: `domain-modeling-agent`
+
+The agent needs the feature file from Step 3.1. Confirm the term candidates that `reverse-map` wrote to `docs/spec/work/term-candidates.md`. The agent runs the `domain-modeling` skill with `--write-glossary` and writes each confirmed term as a row of `docs/spec/glossary.md`.
+
+**Output**: `docs/spec/glossary.md`
+
+### Step 3.3 — Extract Entity Model
+
+**Agent**: `domain-modeling-agent`
+
+Analyze domain entities in code — relationships, attributes, constraints.
+
+**Output**: `docs/spec/entity-model.md`
 
 ### Step 3.6 — Extract Supplementary Specs
 
@@ -204,7 +204,7 @@ Review the extracted specification for consistency, completeness, and traceabili
 
 **Output**: `docs/reviews/spec-review-*.md`, findings in `docs/findings/SPEC-*.md`
 
-**If open `SPEC-*` findings exist** → The `requirements-agent` addresses them in a new session. Return to Step 3.8.
+**If open `SPEC-*` findings exist** → The agent in each finding's `owner:` addresses it in a new session. Return to Step 3.8.
 **If no open findings** → Proceed to Step 4.1.
 
 ## Component-Resolution Pass

@@ -89,10 +89,10 @@ preconditions are satisfied.
 ### Step 1.4 — Loop: Address Findings
 
 ```bash
-# Start NEW session, activate requirements-agent
+# Start NEW session for each finding's owner
 ```
 
-**Instructions**: Requirements agent reads open `SPEC-*` findings and addresses them
+**Instructions**: The agent in each open `SPEC-*` finding's `owner:` addresses it
 
 Return to Step 1.2 (run spec-review-agent again)
 

@@ -7,7 +7,7 @@ Owned contracts:
   - INDEX.yaml carries the requirements agent's any_of input (standard risk)
   - derive-feature documents a brownfield entry that takes the scope map
     (standard risk)
-  - Brownfield Step 3.3 names the agent and the skill (standard risk)
+  - Brownfield Step 3.1 names the agent and the skill (standard risk)
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ class TestRequirementsAgentWorkflow:
 
 class TestPlaybookStep33:
     def test_step_names_agent_and_skill(self):
-        step = _section(PLAYBOOK.read_text(encoding="utf-8"), "### Step 3.3")
+        step = _section(PLAYBOOK.read_text(encoding="utf-8"), "### Step 3.1")
         assert "**Agent**: `requirements-agent`" in step
         assert "**Skill**: `derive-feature docs/spec/scope-map.md`" in step
 

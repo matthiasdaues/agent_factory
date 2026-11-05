@@ -112,7 +112,7 @@ Branch order: if the caller passes `docs/spec/scope-map.md`, from the scope map;
 
 ### From the scope map (brownfield)
 
-Brownfield Step 3.3 starts here. The Brownfield Entry stops on a map with `status: draft`.
+Brownfield Step 3.1 starts here. The Brownfield Entry stops on a map with `status: draft`.
 
 1. **Derive Feature Spec** — Invoke `derive-feature docs/spec/scope-map.md`. The skill follows its [Brownfield Entry](../skills/derive-feature/SKILL.md#brownfield-entry): it writes `docs/spec/features/<project-name>.feature` and `docs/spec/work/<project-name>-gaps.md`, keeps every row `implemented`, and fills each matched row's Feature Link.
 2. **Write area specs** — Continue with step 1d above.

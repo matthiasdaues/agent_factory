@@ -29,7 +29,7 @@ proposal. Follow the [Brownfield Entry](#brownfield-entry).
 
 ## Brownfield Entry
 
-Brownfield Step 3.3 invokes `derive-feature docs/spec/scope-map.md`.
+Brownfield Step 3.1 invokes `derive-feature docs/spec/scope-map.md`.
 
 First, read the scope map's frontmatter. If it carries `status: draft`,
 stop and derive nothing; send the user to brownfield playbook Step 2.6 to

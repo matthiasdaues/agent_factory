@@ -1455,7 +1455,7 @@ class TestSt0364StructureAndQaOwnersAreNamed:
         text = path.read_text(encoding="utf-8")
         assert re.search(r"QA strategy.*`test-strategy-agent`", text)
 
-    @pytest.mark.parametrize("heading", ["Step 3.1", "Step 3.2", "Step 3.7"])
+    @pytest.mark.parametrize("heading", ["Step 3.2", "Step 3.3", "Step 3.7"])
     def test_st_0364_brownfield_domain_steps_name_the_domain_modeling_agent(
         self, heading
     ):
