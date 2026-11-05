@@ -233,3 +233,20 @@ which finding blocks: a computed severity, a register for `minor` findings, and
 a human override. [review-loop-cap.md](../../proposals/review-loop-cap.md)
 applies that rule to every review loop and stops each loop after three passes.
 Set this item to `resolved` when both proposals are `accepted`.
+
+## T-0017 — The guardrail hook misses a push with git options before the subcommand
+
+- status: open
+- source: [counter-ids.md](../../proposals/counter-ids.md) PROP-09 and DEC-22 (2026-11-05)
+- traces: `packages/factory/config/hooks/block-dangerous-git.sh`
+
+`block-dangerous-git.sh` matches the literal text `git push`. A command with a
+git option between `git` and the subcommand passes it: fed
+`git -C . push origin abc123:refs/ids/counters`, the hook exits `0`, and fed
+the same command without `-C .`, it exits `2`. `git --work-tree=. push` passes
+too. The other blocked commands are caught with options in front: the hook
+exits `2` for `reset --hard` after `-c x=y` and for `clean -fd` after
+`--git-dir=.git`. So an agent can push although the hook is meant to stop it.
+
+**Action:** let the hook skip git's global options before it checks for
+`push`, and add a test per option.

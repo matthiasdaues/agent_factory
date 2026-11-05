@@ -5,7 +5,7 @@ title: Project Agent Flows
 status: draft
 owner: Matthias Daues
 created: 2026-11-03
-updated: 2026-11-04
+updated: 2026-11-05
 supersedes: docs/proposals/factory-orchestration.md
 
 impact:
@@ -25,6 +25,8 @@ impact:
     - docs/proposals/factory-orchestration.md
     - docs/proposals/external-artifact-sync.md
     - docs/proposals/counter-ids.md
+    - docs/proposals/finding-classification.md
+    - docs/proposals/review-loop-cap.md
 
 governance:
   assurance: high
@@ -58,8 +60,10 @@ reads the project flow and decides which activity runs next. It starts an
 activity when a brief or a handoff arrives, or when the activity's required
 artifacts exist and the flow allows the step. The Factory runs each activity as
 one turn behind a versioned API, on a machine of its own, with the agent inside
-Herdr. Tickets carry the briefs and handoffs through a platform-neutral port.
-Git carries every artifact.
+Herdr. Tickets carry the work through a platform-neutral port: briefs,
+handoffs, stories, findings, and the record of each review and proposal. Git
+carries the product: code, specification, architecture, and the design text of
+each proposal.
 
 The first release answers one question the Factory cannot answer today: how
 does one activity hand its work to the next without a human typing the next
@@ -128,8 +132,10 @@ This proposal adopts that split (DEC-12).
 - **The machine is the wall.** Agents run on a machine that holds no platform
   secret. Windmill, its database, and the secrets run on another (DEC-12).
 - **One turn runs one activity.** A turn cannot select or start its successor.
-- **Git holds every artifact.** A ticket holds text and links only. The links
-  point at commits by their full 40-character SHA (DEC-03).
+- **Git holds the product, the ticket layer holds the work.** Code,
+  specification, architecture, and proposal design text live in git. Stories,
+  findings, reviews, action items, and each proposal's record live in tickets.
+  A ticket points at git by the full 40-character commit SHA (DEC-15).
 - **The ticket platform is replaceable.** The Factory speaks only the ticket
   port contract. Each platform has an adapter (DEC-02).
 - **The project owns its flows.** A project flow is a copy of a Factory
@@ -144,8 +150,8 @@ This proposal adopts that split (DEC-12).
 | Automation       | Windmill, on the platform machine   | Triggers, routing by the project flow, retries, and approvals |
 | Execution        | Factory service, on its own machine | Request check, workspace, eligibility, fence, and run records |
 | Runtime and view | Herdr, on the Factory machine       | The agent's terminal, its state, and the human's takeover     |
-| Communication    | Ticket port with platform adapters  | Briefs, handoffs, state changes, and approvals                |
-| Artifacts        | Git                                 | Every output of every activity, as a commit                   |
+| Work             | Ticket port with platform adapters  | Briefs, handoffs, stories, findings, reviews, and approvals   |
+| Product          | Git                                 | Code, specification, architecture, and proposal design text   |
 
 ### Two machines
 
@@ -184,8 +190,10 @@ A `run-turn` call runs these steps:
    inputs.
 4. Start the agent in a Herdr pane through the runtime adapter. The harness
    adapter turns the envelope into the harness's own invocation.
-5. Run the output fence against the files the agent created or changed.
-6. Commit the result as one commit on the story branch, and push it.
+5. Run the output fence against the files the agent created or changed and
+   the ticket writes it queued, as [Turn output](#turn-output) describes.
+6. If files changed, commit them as one commit on the story branch, and push
+   it. Hand the queued ticket writes to the outbox.
 7. Write the run record and return the result.
 
 The envelope, the harness adapters, the runtime configuration files, and the
@@ -293,17 +301,37 @@ platform machine, next to the platform credentials.
 or Jira `FAC-812`. The Factory never uses a platform ID as a key. When the adapter
 creates an item, it gets the Factory ID from `next-id`, as the
 [Counter IDs proposal](counter-ids.md#the-script-next-id) defines. So every
-ticket adapter and every CLI session draw from the same counter (DEC-08).
+ticket adapter and every CLI session draw from the same counter (DEC-08). The platform
+machine has no clone, so the adapter passes the project's remote with
+`next-id --remote <url>`.
 
-**Hierarchy.** The contract has three levels: epic, story, and subtask. The
-adapter maps the three levels to the platform's item types and links. It
-rejects an item that does not fit them.
+**Hierarchy.** Each item has a kind: `epic`, `story`, `subtask`, `proposal`,
+`review`, `finding`, or `action`. The kind decides the allowed parent:
+
+| Kind       | Allowed parent        |
+| ---------- | --------------------- |
+| `epic`     | none                  |
+| `story`    | `epic`                |
+| `subtask`  | `story`               |
+| `proposal` | none                  |
+| `review`   | `story` or `proposal` |
+| `finding`  | `review`              |
+| `action`   | `review` or none      |
+
+So no chain is deeper than three levels. The adapter maps each kind to a
+platform item type or label, for example a GitHub label or a Jira issue type.
+It rejects an item whose parent the table does not allow (DEC-19).
+
+Take the code review of ST-0350. It is a `review` item under the story, and
+its finding IMPL-0004 is a `finding` item under the review. The review item
+holds the passes table and the verdict. A retrospective is a `review` item
+with no story, and each of its action items is an `action` item.
 
 **Outbox.** The automation sends five kinds of message:
 
 | Message        | Carries                                                   |
 | -------------- | --------------------------------------------------------- |
-| `create-item`  | Level, parent, title, body                                |
+| `create-item`  | Kind, parent, title, body                                 |
 | `post-brief`   | Activity, workstream, base commit SHA, brief text         |
 | `post-handoff` | From activity, to activity, head commit SHA, handoff text |
 | `change-state` | Flow state                                                |
@@ -323,30 +351,61 @@ platform state, for example `review` to the Jira state `Code Review` or to the
 GitHub label `in-review`. If the project moves to another platform, only the
 mapping file changes.
 
-**Content.** A ticket body holds text and links. Code, specifications,
-findings, and review verdicts live in git. The ticket links to them by commit
-SHA and path.
+**Content.** The ticket layer holds the work (DEC-15):
+
+- **A story** is one ticket with its whole body and fields, including the
+  fields that `story-gates` and the step manifests read. A contract decision
+  that must outlive the story goes into the specification during
+  make-concrete.
+- **A proposal** keeps its design text in git. Its status, Decisions table,
+  review findings, and review passes are items of the proposal's ticket. When
+  the proposal is accepted, the ticket records the commit SHA of the design
+  text.
+- **A finding** is a `finding` item with the fields of
+  [finding-classification.md](finding-classification.md). The register of
+  `minor` findings is a list of `finding` items (DEC-16).
+- **A review** is a `review` item that holds the passes table of
+  [review-loop-cap.md](review-loop-cap.md) and the verdict. Quality scenarios
+  and risk themes from an ATAM review describe the product, so they go into
+  arc42 chapters 10 and 11 in git (DEC-17).
+
+A ticket links to git by the full commit SHA and the path.
+
+**Read.** The port also answers two queries: `get-item` returns one item by
+its Factory ID, and `list-items` returns the children of an item, filtered by
+kind. `story-gates`, `finding-lint`, and `review-pass-check` read through these
+queries, so they work the same under every adapter (DEC-20).
 
 **Adapters.** The first release ships two adapters:
 
-- The local-file adapter keeps items as markdown files under `backlog/`. It
-  serves manual mode, projects without a ticket platform, and the tests.
+- The local-file adapter keeps items as markdown files in git: stories under
+  `backlog/`, findings under `docs/findings/`, review documents under
+  `docs/reviews/`, and a proposal's record in the Appendix of the proposal
+  file. These are the places that finding-classification.md and
+  review-loop-cap.md name. The adapter serves manual mode, projects without a
+  ticket platform, and the tests.
 - The GitHub adapter uses GitHub Issues, sub-issues, and labels.
 
 Jira and Azure DevOps adapters follow the same contract. The first release
 checks the contract against their item models on paper, without building the
 adapters.
 
-### Artifacts in git
+### Turn output
 
-Each turn ends with exactly one commit on the story branch. The commit diff is
-the container for the activity's artifacts. The fence compares the diff with
-the agent's declared outputs. A path outside the declared outputs fails the
-fence.
+A turn writes to two places. File changes go into one commit on the story
+branch. Ticket writes go out as outbox messages. A turn that changes no file
+makes no commit (DEC-18).
 
-Results that are not files today become files in the diff. A review verdict is
-a file next to its findings in `docs/findings/`. The run record stays on the
-Factory machine under `.current-work/invocations/` and is not committed.
+The agent declares both kinds of output. The fence checks the commit diff
+against the declared paths and the outbox messages against the declared ticket
+writes. A path or a ticket write outside the declaration fails the fence. Take
+the code review of ST-0350 under the GitHub adapter. It changes no file and
+sends one `create-item` for IMPL-0004, so the fence checks that message against
+the declaration.
+
+The run record lists the commit SHA and every outbox message of the turn. It
+stays on the Factory machine under `.current-work/invocations/` and is not
+committed.
 
 ### Merges
 
@@ -369,11 +428,13 @@ reads the result and merges on the platform.
   `suggest` transitions, and `takeover`.
 - The project flow format, one default flow (`feature-addition`), and the
   `update-factory` report of upstream changes for pinned flows.
-- The ticket port contract: identity, hierarchy, outbox, inbox, state mapping,
-  and idempotency keys.
+- The ticket port contract: identity, item kinds and their parents, outbox,
+  inbox, the `get-item` and `list-items` queries, state mapping, and
+  idempotency keys.
 - The local-file adapter and the GitHub adapter.
 - A paper check of the contract against the Jira and Azure DevOps item models.
-- The fence check of the commit diff against declared outputs.
+- The fence check of the commit diff and the outbox messages against the
+  declared outputs.
 - A fixture that runs developer-agent and code-review-agent on one story
   through the whole loop, on two machines.
 
@@ -410,7 +471,9 @@ platform token per turn, valid for that turn's repository only. The platform
 credentials and the Windmill database never reach it.
 
 **Manual mode.** In manual mode, neither machine is needed. The human runs
-activities in the CLI as today, and the local-file adapter keeps the tickets.
+activities in the CLI as today, and the local-file adapter keeps the tickets
+as files in git. So manual mode keeps today's files for stories, findings, and
+review documents.
 
 **Superseded proposals.** This proposal supersedes the Factory Orchestration
 proposal and the External Artifact Sync proposal. It carries forward the
@@ -440,7 +503,15 @@ isolation findings A12, A13, and A15 (DEC-07, DEC-09).
 - A `takeover` event stops the automation from routing the story until the
   human hands it back.
 - A turn whose commit diff contains a path outside the agent's declared outputs
-  fails its fence, and no successor starts.
+  fails its fence, and no successor starts. A turn that sends a ticket write
+  outside its declared outputs fails the same way.
+- A review turn that changes no file makes no commit. Its finding is a
+  `finding` item under the review's ticket on GitHub, and a file under
+  `docs/findings/` with the local-file adapter.
+- The adapter rejects an item whose kind does not allow its parent, for
+  example a `finding` directly under a `story`.
+- `finding-lint` reads the same finding through `get-item` under both
+  adapters and computes the same severity.
 - An agent process on the Factory machine has no network route to the Windmill
   database and no file that holds a platform credential.
 - A Factory API version mismatch stops the automation with an error that names
@@ -458,28 +529,34 @@ isolation findings A12, A13, and A15 (DEC-07, DEC-09).
 ## Guiding Rule
 
 The graph says what can run, the project flow says what runs next, the Factory
-runs it, and git says what happened.
+runs it, git holds the product, and the ticket holds the work.
 
 # Appendix
 
 ## Decisions
 
-| ID     | Date       | Kind       | Decided by     | Decision                                                                                                                                                                                      | Raised by                       |
-| ------ | ---------- | ---------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| DEC-01 | 2026-11-03 | decision   | Matthias Daues | Herdr is the presentation and interaction layer. Windmill is the automation layer. Where Windmill runs the agents is replaced by DEC-12.                                                      | Open Stage conversation         |
-| DEC-02 | 2026-11-03 | decision   | Matthias Daues | The ticket platform sits behind a port with stable outbox and inbox contracts. GitHub, Jira, and Azure DevOps each get an adapter. The markdown backlog stays as the local-file adapter.      | Open Stage conversation         |
-| DEC-03 | 2026-11-03 | decision   | Matthias Daues | Tickets hold text and links only. Every artifact lives in git, referenced by its full commit SHA. The commit diff is the container of an activity's artifacts.                                | Open Stage conversation         |
-| DEC-04 | 2026-11-03 | decision   | Matthias Daues | The accepted activity graph is the basis. Project flows combine agents on top of it and do not replace it with a fixed sequence.                                                              | Overlap with existing proposals |
-| DEC-05 | 2026-11-03 | decision   | Matthias Daues | A job starts from a brief or handoff, or from satisfied required artifacts. The approach is consultative: the system suggests, the human approves.                                            | Overlap with existing proposals |
-| DEC-06 | 2026-11-03 | decision   | Matthias Daues | A project owns full copies of its flows, pinned to the Factory version. `update-factory` reports upstream changes and the human merges them.                                                  | Playbook storage question       |
-| DEC-07 | 2026-11-03 | assumption | Matthias Daues | This proposal supersedes the Factory Orchestration proposal. It keeps its envelope, adapters, and run records, and replaces its controller loop and sandbox launcher.                         | Overlap with existing proposals |
-| DEC-08 | 2026-11-04 | decision   | Matthias Daues | Every ticket adapter gets each Factory ID from `next-id`. The Counter IDs proposal stays separate and ships first, as a prerequisite.                                                         | Overlap with `counter-ids.md`   |
-| DEC-09 | 2026-11-03 | assumption | Matthias Daues | This proposal supersedes the External Artifact Sync proposal, because the ticket platform, not the markdown backlog, becomes the home of tickets.                                             | Overlap with existing proposals |
-| DEC-10 | 2026-11-03 | assumption | Matthias Daues | Project flows mark each transition `auto` or `suggest`. Only `auto` starts a turn without a human approval.                                                                                   | Consultative approach (DEC-05)  |
-| DEC-11 | 2026-11-03 | assumption | Matthias Daues | Each turn ends with exactly one commit, and a review verdict is a committed file.                                                                                                             | Artifact container (DEC-03)     |
-| DEC-12 | 2026-11-03 | decision   | Matthias Daues | The setup follows PatrickPT/context decision 0011: Windmill decides and calls, a thin Factory service runs each turn on its own machine with the agent in Herdr, and the machine is the wall. | Review of `../context`          |
-| DEC-13 | 2026-11-03 | assumption | Matthias Daues | Only the human merges. The last activity of a flow runs `premerge-check` and links the result to the ticket.                                                                                  | Open question on merges         |
-| DEC-14 | 2026-11-03 | assumption | Matthias Daues | The ticket adapters poll the platform, because the platform machine has no public port.                                                                                                       | Review of `../context`          |
+| ID     | Date       | Kind       | Decided by     | Decision                                                                                                                                                                                                                                                  | Raised by                              |
+| ------ | ---------- | ---------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| DEC-01 | 2026-11-03 | decision   | Matthias Daues | Herdr is the presentation and interaction layer. Windmill is the automation layer. Where Windmill runs the agents is replaced by DEC-12.                                                                                                                  | Open Stage conversation                |
+| DEC-02 | 2026-11-03 | decision   | Matthias Daues | The ticket platform sits behind a port with stable outbox and inbox contracts. GitHub, Jira, and Azure DevOps each get an adapter. The markdown backlog stays as the local-file adapter.                                                                  | Open Stage conversation                |
+| DEC-03 | 2026-11-03 | decision   | Matthias Daues | Tickets hold text and links only. Every artifact lives in git, referenced by its full commit SHA. The commit diff is the container of an activity's artifacts. Replaced by DEC-15.                                                                        | Open Stage conversation                |
+| DEC-04 | 2026-11-03 | decision   | Matthias Daues | The accepted activity graph is the basis. Project flows combine agents on top of it and do not replace it with a fixed sequence.                                                                                                                          | Overlap with existing proposals        |
+| DEC-05 | 2026-11-03 | decision   | Matthias Daues | A job starts from a brief or handoff, or from satisfied required artifacts. The approach is consultative: the system suggests, the human approves.                                                                                                        | Overlap with existing proposals        |
+| DEC-06 | 2026-11-03 | decision   | Matthias Daues | A project owns full copies of its flows, pinned to the Factory version. `update-factory` reports upstream changes and the human merges them.                                                                                                              | Playbook storage question              |
+| DEC-07 | 2026-11-03 | assumption | Matthias Daues | This proposal supersedes the Factory Orchestration proposal. It keeps its envelope, adapters, and run records, and replaces its controller loop and sandbox launcher.                                                                                     | Overlap with existing proposals        |
+| DEC-08 | 2026-11-04 | decision   | Matthias Daues | Every ticket adapter gets each Factory ID from `next-id`. The Counter IDs proposal stays separate and ships first, as a prerequisite.                                                                                                                     | Overlap with `counter-ids.md`          |
+| DEC-09 | 2026-11-03 | assumption | Matthias Daues | This proposal supersedes the External Artifact Sync proposal, because the ticket platform, not the markdown backlog, becomes the home of tickets.                                                                                                         | Overlap with existing proposals        |
+| DEC-10 | 2026-11-03 | assumption | Matthias Daues | Project flows mark each transition `auto` or `suggest`. Only `auto` starts a turn without a human approval.                                                                                                                                               | Consultative approach (DEC-05)         |
+| DEC-11 | 2026-11-03 | assumption | Matthias Daues | Each turn ends with exactly one commit, and a review verdict is a committed file. Replaced by DEC-18.                                                                                                                                                     | Artifact container (DEC-03)            |
+| DEC-12 | 2026-11-03 | decision   | Matthias Daues | The setup follows PatrickPT/context decision 0011: Windmill decides and calls, a thin Factory service runs each turn on its own machine with the agent in Herdr, and the machine is the wall.                                                             | Review of `../context`                 |
+| DEC-13 | 2026-11-03 | assumption | Matthias Daues | Only the human merges. The last activity of a flow runs `premerge-check` and links the result to the ticket.                                                                                                                                              | Open question on merges                |
+| DEC-14 | 2026-11-03 | assumption | Matthias Daues | The ticket adapters poll the platform, because the platform machine has no public port.                                                                                                                                                                   | Review of `../context`                 |
+| DEC-15 | 2026-11-05 | decision   | Matthias Daues | Git holds the product: code, specification, architecture, and proposal design text. The ticket layer holds the work: whole stories and each proposal's record of status, decisions, review findings, and passes. Replaces DEC-03.                         | Manual-mode-gates grilling, 2026-11-03 |
+| DEC-16 | 2026-11-05 | decision   | Matthias Daues | A review finding is a ticket item, and the register of `minor` findings is a list of items. The local-file adapter keeps both as today's files.                                                                                                           | Manual-mode-gates grilling, 2026-11-03 |
+| DEC-17 | 2026-11-05 | decision   | Matthias Daues | Review documents split by content. The passes table, the verdict, and the findings go to the review's ticket; a retrospective goes to the ticket layer with one item per action. ATAM quality scenarios and risk themes go into arc42 chapters 10 and 11. | Manual-mode-gates grilling, 2026-11-03 |
+| DEC-18 | 2026-11-05 | decision   | Matthias Daues | A turn commits only when it changed files. Its ticket writes go out as outbox messages, and the fence checks both against the declared outputs. Replaces DEC-11.                                                                                          | Turn output after DEC-15               |
+| DEC-19 | 2026-11-05 | decision   | Matthias Daues | Each ticket item carries a kind: epic, story, subtask, proposal, review, finding, or action. The kind decides the allowed parent, and no chain is deeper than three levels.                                                                               | Hierarchy after DEC-16                 |
+| DEC-20 | 2026-11-05 | assumption | Matthias Daues | The port answers the queries `get-item` and `list-items`, so `story-gates`, `finding-lint`, and `review-pass-check` read the same way under every adapter.                                                                                                | Readers of findings after DEC-16       |
 
 ## Review findings
 
