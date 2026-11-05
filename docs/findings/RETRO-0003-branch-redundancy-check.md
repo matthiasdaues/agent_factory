@@ -7,6 +7,7 @@ category: process
 date: 2026-07-13
 found_by: session-retrospective
 tags: [retro, merge, branch-hygiene]
+owner: virgil
 ---
 
 # RETRO-0003: No branch redundancy check before merge/rebase

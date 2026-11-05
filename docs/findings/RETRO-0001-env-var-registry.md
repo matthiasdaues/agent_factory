@@ -7,6 +7,7 @@ category: configuration
 date: 2026-07-13
 found_by: session-retrospective
 tags: [retro, env-var, session-logging]
+owner: virgil
 ---
 
 # RETRO-0001: No env var registry — AF_SESSION_LOG provisioned ad-hoc

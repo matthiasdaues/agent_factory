@@ -6,6 +6,7 @@ category: suggestion
 artifact: docs/spec/scope-map.md
 status: open
 traces: [UC-09]
+owner: requirements-agent
 ---
 
 # Scope-map reconciliation needed post-merge

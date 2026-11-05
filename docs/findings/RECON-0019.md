@@ -6,6 +6,7 @@ category: defect
 artifact: .agent-factory/factory/playbooks/greenfield-development.fsm.yml
 status: open
 traces: [ST-0083]
+owner: developer-agent
 ---
 
 # Greenfield FSM missing charter states
