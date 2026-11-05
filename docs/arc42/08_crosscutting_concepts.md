@@ -401,13 +401,22 @@ outputs:
 
 The two ownership checks match by sample path. So `docs/spec/features/{name}.feature` and `docs/spec/features/*.feature` both match `docs/spec/features/example.feature`. A wide pattern such as `docs/spec/**/*.md` matches too and fails the test until its agent gives it up. A declaration with `edits: wording`, such as the lector agent's `docs/**/*.md`, changes wording and never meaning, so the contract test skips it.
 
-**Readers raise findings.** An agent that reads an artifact it does not own reports the problem to the owner and leaves the artifact alone. A finding carries the owner in its `owner:` field, and the orchestrator routes each open finding to that agent. During implementation the report goes into a spec-feedback row, and after implementation into a reconciliation row ([6.12](06_runtime_view.md#612-spec-feedback-and-wave-close)).
+**Readers raise findings.** An agent that reads an artifact it does not own reports the problem to the owner and leaves the artifact alone. A finding carries the owner in its `owner:` field, and the orchestrator routes each open finding to that agent.
+
+**Drift goes back to the owner.** Drift is a mismatch between the code and a core artifact. Two loops carry it back, and both use the same report row and statuses. In each loop the owner fixes the artifact, and then the owner's reviewer sets the status:
+
+| Loop           | When                       | Report                                       | Dispatcher of owner and reviewer                    | What waits for the rows                                    |
+| -------------- | -------------------------- | -------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------- |
+| Spec feedback  | After each story merges    | `docs/spec/work/spec-feedback-<story-id>.md` | implementation agent                                | `dispatch close-wave`, so the next wave                    |
+| Reconciliation | After a reconciliation run | `docs/reviews/reconciliation-<date>.md`      | orchestrator of the `documentation-update` playbook | the playbook's DONE list only; no script reads the reports |
+
+[6.12](06_runtime_view.md#612-spec-feedback-and-wave-close) shows the spec-feedback loop, and [6.13](06_runtime_view.md#613-reconciliation-backfeed) shows the reconciliation backfeed.
 
 **Working output.** The single-producer rule holds for core and seam files only. Files in `docs/spec/work/`, the reports in `docs/reviews/`, and the findings in `docs/findings/` may have several writers. Each writer declares the path and changes only its part, such as the status of a report row.
 
 **Glossary terms.** Only the domain-modeling agent writes `docs/spec/glossary.md`, and the glossary holds only terms the stakeholder confirmed. Every other agent that meets a term writes a row of `docs/spec/work/term-candidates.md`. The domain-modeling agent proposes definitions there, asks the stakeholder one domain area at a time, and moves each confirmed term into the glossary.
 
-**Specification artifacts.** The spec [core-artifact-ownership.feature](../spec/features/core-artifact-ownership.feature), the [core list contract](../spec/interface-contracts.md#packagesfactoryrulebookscore-artifactsyaml), and [BR-056 to BR-066](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) hold the details.
+**Specification artifacts.** The spec [core-artifact-ownership.feature](../spec/features/core-artifact-ownership.feature), the [core list contract](../spec/interface-contracts.md#packagesfactoryrulebookscore-artifactsyaml), and [BR-056 to BR-067](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) hold the details.
 
 ## Referenced from
 

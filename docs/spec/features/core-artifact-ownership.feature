@@ -720,6 +720,7 @@ Feature: Core artifact ownership
       Given the previous report has a fixed row for docs/spec/state-machines.md
       When the reconciliation agent runs again
       Then it checks the row's mismatch against the code
+      And its own report has no row for that mismatch
 
     Scenario: A second run on the same day writes a numbered report
       Given docs/reviews/reconciliation-2026-11-03.md exists
@@ -727,6 +728,98 @@ Feature: Core artifact ownership
       Then it writes docs/reviews/reconciliation-2026-11-03-2.md
       And docs/reviews/reconciliation-2026-11-03.md is unchanged
       And a third run on 2026-11-03 reads reconciliation-2026-11-03-2.md as the previous report
+
+  Rule: Orchestrator brings every reconciliation row back to its owner and the owner's reviewer
+    # actor: Orchestrator of the documentation-update playbook
+    # rules: BR-061, BR-067
+    # @packages/factory/playbooks/documentation-update.md
+    # @packages/factory/agents/reconciliation-agent.md
+
+    Scenario: After a reconciliation run the orchestrator dispatches each row's owner and then the reviewer
+      Given docs/reviews/reconciliation-2026-11-03.md has an open row for docs/spec/state-machines.md owned by the domain-modeling agent
+      When the orchestrator runs the backfeed step of the documentation-update playbook
+      Then it dispatches the domain-modeling agent for the row
+      And the domain-modeling agent changes docs/spec/state-machines.md with domain-modeling and sets the row to fixed in the same commit
+      And after the row is fixed the orchestrator dispatches the spec-review agent for the row
+
+    Scenario: The architecture agent fixes a row on the architecture model with model-structurizr-slice
+      Given the reconciliation report has an open row for docs/spec/architecture.dsl owned by the architecture agent
+      And the row says that the code adds a component that the slice view of architecture.dsl does not show
+      When the orchestrator dispatches the architecture agent for the row
+      Then the architecture agent changes docs/spec/architecture.dsl with model-structurizr-slice
+      And the architecture agent sets the row to fixed
+      And the orchestrator dispatches the architecture-review agent, which sets the row to confirmed or rejected
+      # @packages/factory/agents/architecture-agent.md
+      # @packages/factory/skills/model-structurizr-slice/SKILL.md
+
+    Scenario: The owner takes the skill for a row from its own agent definition
+      Given the architecture agent definition lists maintain-architecture and model-structurizr-slice
+      When the orchestrator dispatches the architecture agent for a row on docs/spec/architecture.dsl
+      Then the dispatch names the row and the report and no skill
+      And core-artifacts.yaml holds no skill for the entry docs/spec/architecture.dsl
+
+    Scenario: The orchestrator records the stakeholder's review of a fixed agent-context row
+      Given docs/reviews/reconciliation-2026-11-03.md has a fixed row for docs/agent-context.md owned by Virgil
+      And the declaration of docs/agent-context.md has reviewed_by: [stakeholder]
+      When the orchestrator runs the backfeed step
+      Then it dispatches no reviewer agent for the row
+      And it presents Virgil's fix to the stakeholder in its own session
+      And it sets the row to confirmed or rejected as the stakeholder decides
+
+    Scenario: An agent reviewer acts before the stakeholder
+      Given the declaration of an artifact names an agent and stakeholder in reviewed_by:
+      And the report has a fixed row for that artifact
+      When the orchestrator runs the backfeed step
+      Then it dispatches the agent reviewer first
+      And it presents the fix to the stakeholder only after the agent reviewer confirmed it
+
+    Scenario: The backfeed picks up a fixed row left by an earlier report
+      Given docs/reviews/reconciliation-2026-11-03.md has a fixed row for docs/spec/state-machines.md
+      And the session stopped before the spec-review agent ran
+      And docs/reviews/reconciliation-2026-11-10.md has no row for that mismatch
+      When the orchestrator runs the backfeed step after the run of 2026-11-10
+      Then it dispatches the spec-review agent for the row of 2026-11-03
+      And the spec-review agent sets the status in reconciliation-2026-11-03.md
+
+    Scenario: A confirmed drift that appears again gets a new row
+      Given the row for docs/spec/state-machines.md in reconciliation-2026-11-03.md is confirmed
+      And the code later renames WAITING back to PENDING
+      When the reconciliation agent runs on 2026-11-10
+      Then reconciliation-2026-11-10.md has a new open row for docs/spec/state-machines.md
+      And the confirmed row of 2026-11-03 is unchanged
+
+    Scenario: A row on an artifact without a declared review closes at fixed
+      Given the reconciliation report has an open row for docs/adr/0012-dispatcher-owned-gate-loop.md owned by the architecture agent
+      When the architecture agent sets the row to fixed
+      Then the orchestrator dispatches no reviewer for the row
+      And the row counts as handled
+
+    Scenario: A rejected reconciliation row becomes a BUG finding against the code
+      Given the domain-modeling agent set the row for docs/spec/state-machines.md to fixed
+      And the spec-review agent finds that the status WAITING breaks an accepted requirement
+      When the spec-review agent rejects the row
+      Then the row has the status rejected
+      And the spec-review agent files a BUG finding with owner: developer-agent
+
+    Scenario Outline: The playbook is done only after every reconciliation row is handled
+      Given docs/reviews/reconciliation-2026-11-03.md has one row for <artifact> with status <status>
+      When the orchestrator checks the DONE list of the documentation-update playbook
+      Then the playbook <result>
+
+      Examples:
+        | artifact                                    | status    | result                       |
+        | docs/spec/state-machines.md                 | open      | stays open and names the row |
+        | docs/spec/state-machines.md                 | fixed     | stays open and names the row |
+        | docs/spec/state-machines.md                 | confirmed | is done                      |
+        | docs/spec/state-machines.md                 | rejected  | is done                      |
+        | docs/adr/0012-dispatcher-owned-gate-loop.md | fixed     | is done                      |
+
+    Scenario: An unhandled reconciliation row blocks no merge and no run
+      Given docs/reviews/reconciliation-2026-11-03.md has an open row for docs/spec/state-machines.md
+      When the implementation agent merges a feature branch into dev
+      Then neither premerge-check nor dispatch close-wave reads a reconciliation report
+      And the merge goes ahead
+      And the next reconciliation run starts as usual
 
   Rule: Owner receives every finding it acts on next
     # actor: Factory maintainer

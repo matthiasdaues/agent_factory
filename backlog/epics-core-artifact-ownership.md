@@ -6,10 +6,10 @@ scope: global
 
 Proposal trace: [core-artifact-ownership.md](../docs/proposals/core-artifact-ownership.md)
 Specification trace: [core-artifact-ownership.feature](../docs/spec/features/core-artifact-ownership.feature), [gaps report](../docs/spec/work/core-artifact-ownership-gaps.md), [interface-contracts.md § Core Artifact Ownership Contracts](../docs/spec/interface-contracts.md#core-artifact-ownership-contracts), [validation-rules.md § Ownership and drift reports](../docs/spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)
-Architecture trace: [ADR-0027](../docs/adr/0027-split-the-requirements-agent-by-artifact-family.md), [ADR-0028](../docs/adr/0028-declared-review-and-core-list-check-ownership.md), [ADR-0029](../docs/adr/0029-per-story-drift-reports-block-the-wave-close.md), [arc42 § 8.17](../docs/arc42/08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review), [arc42 § 5.10](../docs/arc42/05_building_block_view.md#510-level-2-component-view----factory-agents), [arc42 § 6.11](../docs/arc42/06_runtime_view.md#611-specification-handoff-between-producers), [arc42 § 6.12](../docs/arc42/06_runtime_view.md#612-spec-feedback-and-wave-close)
+Architecture trace: [ADR-0027](../docs/adr/0027-split-the-requirements-agent-by-artifact-family.md), [ADR-0028](../docs/adr/0028-declared-review-and-core-list-check-ownership.md), [ADR-0029](../docs/adr/0029-per-story-drift-reports-block-the-wave-close.md), [arc42 § 8.17](../docs/arc42/08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review), [arc42 § 5.10](../docs/arc42/05_building_block_view.md#510-level-2-component-view----factory-agents), [arc42 § 6.11](../docs/arc42/06_runtime_view.md#611-specification-handoff-between-producers), [arc42 § 6.12](../docs/arc42/06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-0030](../docs/adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md), [arc42 § 6.13](../docs/arc42/06_runtime_view.md#613-reconciliation-backfeed)
 QA strategy trace: [core-artifact-ownership-qa-strategy.md](../docs/spec/work/core-artifact-ownership-qa-strategy.md)
 
-Dependency order: E1 and E4 start in parallel. E1 → E2 → E3 → E6. {E1, E4} → E5. {E1, E4} → E7 → E8. {E3, E4, E7} → E9 → E10. {E2, E7, E10} → E11 comes last. E2 and E7 both edit `agents/requirements-agent.md`, so their stories merge one after the other. Two stories leave their EPIC's order: ST-0359 (E8) has no dependency and runs in wave 1, and ST-0366 (E4) waits for ST-0363 (E10).
+Dependency order: E1 and E4 start in parallel. E1 → E2 → E3 → E6. {E1, E4} → E5. {E1, E4} → E7 → E8. {E3, E4, E7} → E9 → E10. {E2, E7, E10} → E11. {E9, E10, E11} → E12 comes last. E2 and E7 both edit `agents/requirements-agent.md`, so their stories merge one after the other. Two stories leave their EPIC's order: ST-0359 (E8) has no dependency and runs in wave 1, and ST-0366 (E4) waits for ST-0363 (E10).
 
 ## Story waves
 
@@ -25,6 +25,7 @@ Every story regenerates `INDEX.yaml`, so the stories of one wave are developed i
 | W6   | ST-0356, ST-0362                            | both edit `spec-review-agent.md`, so they merge one after the other               |
 | W7   | ST-0361, ST-0363                            | any                                                                               |
 | W8   | ST-0364, ST-0366                            | any                                                                               |
+| W9   | ST-0367                                     | —                                                                                 |
 
 Every story carries `quality-gates: []` until ST-0359 ships and the factory is reinstalled with `update-factory`. The installed `premerge-check` ignores `testing.yaml`, and without the field it requires a mutation result that no script writes before ST-0365.
 
@@ -889,3 +890,75 @@ The playbook steps and the `run-step` order are observable text, and `intent sel
 | Contract                                                                                              | .feature Rule                                                                                               | Owner   | Rationale                     |
 | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------- | ----------------------------- |
 | CAO-18-LN-01: the four playbooks name the new owners; `intent select` lists the domain-modeling agent | core-artifact-ownership.feature#Human operator reaches the new owners through the playbooks and the routing | ST-0364 | introduces the playbook edits |
+
+## E12: Bring each reconciliation row back to its owner
+
+### Why this EPIC exists
+
+After E10, a reconciliation run writes an `open` row for each drift, with the artifact's owner. A reconciliation run belongs to no wave, so no implementation agent dispatches that owner, and `close-wave` never reads the report. The row stays `open`, and nobody notices. This EPIC makes the `documentation-update` playbook carry each row to its owner and its reviewer, and keep the playbook open until every row is handled.
+
+### Actor Goals
+
+- Orchestrator brings every reconciliation row back to its owner and the owner's reviewer.
+
+### Demo
+
+1. A fixture project has `docs/reviews/reconciliation-2026-11-03.md` with `open` rows on `state-machines.md`, `architecture.dsl`, and an ADR. Run the backfeed step of `documentation-update`.
+2. The DONE list names each `open` row, so the playbook stays open.
+3. The orchestrator (the session that runs the playbook) dispatches each owner, one session at a time. Each owner fixes its artifact and sets the row to `fixed` in the same commit.
+4. The orchestrator dispatches the spec-review agent and the architecture-review agent for the two core rows. They set `confirmed`. The ADR row closes at `fixed`.
+5. The DONE list names no row, and the playbook is done.
+
+### Scope
+
+**In:**
+
+- A backfeed step in `documentation-update` after the reconciliation run. It reads every reconciliation report, dispatches the owner of each `open` row, then the reviewer of each `fixed` row on the core list. A `stakeholder` reviewer sees the fix in the orchestrator's session, after any agent reviewer. A `rejected` row becomes a `BUG` finding.
+- The DONE list waits for every row of every reconciliation report.
+- `reconcile-spec` keeps each row in the report that first wrote it. A later run writes a new row only when the drift of a `confirmed` row appears again.
+- The architecture agent names the skill for a row on each artifact it owns.
+
+**Out:**
+
+- A script gate on reconciliation rows. No script reads them, so a row blocks no merge (CAO-G32).
+- A skill field on the core list.
+
+### Dependencies
+
+E9, for the spec-feedback dispatch that this step follows and the core list lookup of `close-wave`. E10, for the report and its rows. E11, for the owner names of `documentation-update`.
+
+### Boundaries
+
+- Playbook: `packages/factory/playbooks/documentation-update.md`
+- Agents: `reconciliation-agent.md`, `architecture-agent.md`
+- Skill: `packages/factory/skills/reconcile-spec/SKILL.md`
+- Decision: [ADR-0030](../docs/adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md)
+- Runtime view: [arc42 § 6.13](../docs/arc42/06_runtime_view.md#613-reconciliation-backfeed)
+
+### Domain Rules
+
+- A row stays in the report that first wrote it, and only its status changes.
+- Only the playbook's DONE list waits for a row.
+- A `fixed` row outside the core list closes at `fixed` (DEC-35).
+
+### Size
+
+1 story.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                   | Tier     | Size | Goal                                                                                                                                  | Basis                                                                                                                           |
+| ------- | ------------------------------------------------------------ | -------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| ST-0367 | Bring each reconciliation row back to its owner and reviewer | standard | M    | The operator of `documentation-update` sees every row reach its owner and reviewer, and the playbook names each row that still waits. | The playbook has no backfeed step, and `reconcile-spec` repeats checked rows in the new report. Adds the step and the row rule. |
+
+### Testability Assessment
+
+The backfeed step, the DONE list, and the row rule are text in a playbook, a skill, and an agent definition, so the tests check the instruction, as in E10. The absence of a script gate is observable: `premerge-check` and `dispatch` name no reconciliation path. The core list's missing skill field is observable in `core-artifacts.yaml`. That red flag is the same as in E7 and E10 and is accepted.
+
+### Ownership Resolution
+
+| Contract                                                                                                     | .feature Rule                                                                                                           | Owner   | Rationale                         |
+| ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------- | --------------------------------- |
+| CAO-19-LN-01: the backfeed step, its order, the stakeholder case, the `BUG` rule; no repeated row            | core-artifact-ownership.feature#Orchestrator brings every reconciliation row back to its owner and the owner's reviewer | ST-0367 | introduces the backfeed step      |
+| CAO-19-LN-02: the DONE list waits for every row; `premerge-check` and `dispatch` name no reconciliation path | core-artifact-ownership.feature#Orchestrator brings every reconciliation row back to its owner and the owner's reviewer | ST-0367 | introduces the DONE list rule     |
+| CAO-19-LN-03: the architecture agent lists both skills; no skill field on the core list                      | core-artifact-ownership.feature#Orchestrator brings every reconciliation row back to its owner and the owner's reviewer | ST-0367 | introduces the skill-per-row step |
