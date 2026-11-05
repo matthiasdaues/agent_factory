@@ -756,9 +756,72 @@ sequenceDiagram
 - When the reviewer is the stakeholder, the agent that ran the session with the stakeholder sets the status.
 - After a story merges, the implementation agent also dispatches the test-strategy agent for each open `QA` finding it owns. `close-wave` does not wait for `QA` findings.
 - In manual mode there are no waves. The human closes a story only when its report passes the same check.
-- The reconciliation agent uses the same row shape and statuses in `docs/reviews/reconciliation-<date>.md`, one report per run. It edits no core file, and each owner fixes its rows on its next run.
+- The reconciliation agent uses the same row shape and statuses in `docs/reviews/reconciliation-<date>.md`, one report per run. It edits no core file. The orchestrator of the `documentation-update` playbook brings its rows back to the owners ([6.13](#613-reconciliation-backfeed)).
 
-## 6.13 Other Runtime Scenarios (Summary)
+## 6.13 Reconciliation Backfeed
+
+Derived from dynamic view `ReconciliationBackfeed` in [`architecture.dsl`](../spec/architecture.dsl).
+
+A reconciliation run finds drift after implementation, outside any wave. So no implementation agent picks up its rows. The orchestrator of the `documentation-update` playbook does instead. The orchestrator is the session that runs the playbook. After the run, its backfeed step brings each row back to the artifact's owner and then to the owner's reviewer. [ADR-0030](../adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md) records the decision.
+
+Take the run of 2026-11-03. The code adds a component that the slice view of `docs/spec/architecture.dsl` does not show. The report `docs/reviews/reconciliation-2026-11-03.md` gets an `open` row with the architecture agent as owner.
+
+```mermaid
+sequenceDiagram
+    participant O as CLI-Invoked Agent (orchestrator)
+    participant RA as reconciliation-agent
+    participant CA as Core Artifacts
+    participant CL as Core List
+    participant WO as Working Output
+    participant AA as architecture-agent
+    participant ARA as architecture-review-agent
+    participant SH as Stakeholder
+
+    O->>RA: 1. Dispatches the reconciliation run
+    RA->>CA: 2. Reads the core to compare it with the code
+    RA->>WO: 3. Writes the run's report, one open row per new drift with the artifact's owner
+    O->>WO: 4. Reads every reconciliation report, not only the new one
+    O->>CL: 5. Reads the core list to tell rows on core artifacts from the others
+    loop Each open row, one session at a time
+        O->>AA: 6. Dispatches the owner of an open row, naming the row and the report and no skill
+        AA->>CA: 7. Changes architecture.dsl with the skill its own definition names for it
+        AA->>WO: 8. Sets the row to fixed in the same commit as the change
+    end
+    loop Each fixed row on an artifact of the core list
+        opt reviewed_by names an agent
+            O->>ARA: 9. Dispatches the reviewer that reviewed_by names, one session at a time
+            ARA->>CA: 10. Reviews the change
+            alt The change matches the code and the accepted requirements
+                ARA->>WO: 11. Sets the row to confirmed
+            else The code breaks an accepted requirement
+                ARA->>WO: 11. Sets the row to rejected and files a BUG finding with the developer agent as owner
+            end
+        end
+        opt reviewed_by names the stakeholder
+            O->>SH: 12. Presents the fix, after any agent reviewer confirmed it
+            O->>WO: 13. Sets the row to confirmed or rejected as the stakeholder decides
+        end
+    end
+    O->>WO: 14. Checks the DONE list: no row of any report is open, or fixed on a core artifact
+    alt A row is open, or fixed on a core artifact
+        WO-->>O: The playbook stays open and names the row
+    else Every row is handled
+        WO-->>O: The playbook is done
+    end
+```
+
+**Key Points:**
+
+- The owner, the skill, and the reviewer each come from one place. The row names the owner. The owner's agent definition names the skill for the artifact, so the dispatch names only the row and the report. The architecture agent, for example, chooses between `maintain-architecture` and `model-structurizr-slice`. The owner's output declaration names the reviewer in `reviewed_by:`. The core list keeps its four fields.
+- The backfeed step reads every reconciliation report, not only the new one. So a session that stopped after the owner's fix leaves a `fixed` row, and the next backfeed step dispatches its reviewer.
+- A row stays in the report that first wrote it, and only its status changes. A later run checks the row against the code but writes no row for the same drift. It writes a new row only when the drift of a `confirmed` row appears again.
+- When `reviewed_by:` names an agent and `stakeholder`, the agent reviews first. The stakeholder sees the fix only after the agent confirmed it. For the stakeholder, the orchestrator sets the status itself, as for a fixed row on `docs/agent-context.md` with Virgil as owner.
+- The orchestrator reads the core list, as `dispatch close-wave` does, to tell a row on a core artifact from the others. A `fixed` row on an artifact outside the core list, such as an ADR, closes at `fixed`, because the artifact has no declared review (DEC-35).
+- The owner and the reviewer commit on the branch that holds the reconciliation report, normally the feature branch before its merge into `dev`. So the fixes reach `dev` with the code they describe.
+- Only the playbook's DONE list waits for the rows. No script reads the reconciliation reports. So an unhandled row blocks neither `premerge-check`, nor `dispatch close-wave`, nor the next reconciliation run.
+- [BR-067](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) holds the rule, and the [Report Row Lifecycle](../spec/state-machines.md#report-row-lifecycle) holds the statuses.
+
+## 6.14 Other Runtime Scenarios (Summary)
 
 Full sequences for these flows are in their respective use cases:
 
