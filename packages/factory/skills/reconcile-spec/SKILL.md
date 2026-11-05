@@ -68,6 +68,8 @@ The report holds:
 2. **Discrepancy table** — one row per drift, with the five columns above.
 3. **Code defects filed** — `BUG` findings handed to the developer agent.
 
-## Step 4 — Check the previous report (repeat passes only)
+## Step 4 — Check the earlier reports (repeat passes only)
 
-Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): read the previous report and check each row marked `fixed` against the artifact — **and** re-run Step 1's full truth-map diff fresh, not just the prior rows, to catch drift the fix itself introduced. Write the result as rows of the new report.
+Read the rows of every earlier report and check each against the code. Write no row for a drift that has a row in an earlier report, unless that row is closed: `confirmed`, or `fixed` on an artifact outside the core list. For a row still `open`, or `fixed` on an artifact of the core list, record nothing, because the backfeed step of `documentation-update` still waits on it. When the drift of a closed row appears again, write a new `open` row; the closed row stays unchanged. The core list is `rulebooks/core-artifacts.yaml` under the Factory root.
+
+Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md), also re-run Step 1's full truth-map diff fresh, to catch drift the fixes introduced.

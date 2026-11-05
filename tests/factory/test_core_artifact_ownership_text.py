@@ -1474,3 +1474,121 @@ class TestSt0364RunStepStatesOrderAndChoice:
     def test_st_0364_operator_chooses_between_two_eligible_agents(self):
         text = RUN_STEP.read_text(encoding="utf-8")
         assert "When two agents are eligible, the operator chooses" in text
+
+
+# --- ST-0367: each reconciliation row returns to its owner and reviewer ------
+
+SCRIPTS = REPO_ROOT / "packages" / "factory" / "scripts"
+
+
+def _backfeed_step() -> str:
+    return _flat(_step_body(DOCUMENTATION_UPDATE.read_text(encoding="utf-8"), "Step 1.5"))
+
+
+def _done_list() -> str:
+    return _flat(_section(DOCUMENTATION_UPDATE.read_text(encoding="utf-8"), "DONE"))
+
+
+def _reconcile_step_4() -> str:
+    text = RECONCILE_SPEC.read_text(encoding="utf-8")
+    match = re.search(r"^## Step 4 — .*?(?=^## |\Z)", text, re.M | re.S)
+    assert match, "reconcile-spec: no Step 4"
+    return _flat(match.group(0))
+
+
+@pytest.mark.spec("CAO-19-LN-01")
+class TestSt0367BackfeedStep:
+    """CAO-19-LN-01: the backfeed step of documentation-update."""
+
+    def test_st_0367_backfeed_reads_every_report(self):
+        step = _backfeed_step()
+        assert "Read every `docs/reviews/reconciliation-*.md`, not only the new report." in step
+        assert "`rulebooks/core-artifacts.yaml` under the Factory root" in step
+
+    def test_st_0367_owners_of_open_rows_go_before_reviewers(self):
+        step = _backfeed_step()
+        owner = step.index("dispatch the owner of each `open` row")
+        reviewer = step.index("dispatch the reviewer of each `fixed` row on the core list")
+        assert owner < reviewer
+        assert "one session at a time" in step
+        assert "names the row and the report and no skill" in step
+        assert "sets the row to `fixed` in the same commit" in step
+
+    def test_st_0367_stakeholder_reviews_after_any_agent_reviewer(self):
+        step = _backfeed_step()
+        assert "When `reviewed_by:` is `[stakeholder]`, dispatch no reviewer agent." in step
+        assert "the stakeholder sees the fix only after the agent set `confirmed`" in step
+
+    def test_st_0367_rejected_row_becomes_a_bug(self):
+        step = _backfeed_step()
+        assert "A `rejected` row becomes a `BUG` finding with `owner: developer-agent`" in step
+
+    def test_st_0367_row_outside_the_core_list_closes_at_fixed(self):
+        step = _backfeed_step()
+        assert "A `fixed` row on an artifact outside the core list closes at `fixed`" in step
+
+    def test_st_0367_doc_drift_goes_through_the_backfeed(self):
+        text = DOCUMENTATION_UPDATE.read_text(encoding="utf-8")
+        assert "**If only doc drift** → Go to Step 1.5" in text
+
+    def test_st_0367_later_run_repeats_no_waiting_row(self):
+        step = _reconcile_step_4()
+        assert "Read the rows of every earlier report" in step
+        assert (
+            "Write no row for a drift that has a row in an earlier report, "
+            "unless that row is closed: `confirmed`, or `fixed` on an artifact "
+            "outside the core list." in step
+        )
+        assert (
+            "For a row still `open`, or `fixed` on an artifact of the core list, "
+            "record nothing" in step
+        )
+
+    def test_st_0367_reconciliation_agent_hands_rows_to_the_backfeed(self):
+        step = _workflow_step(RECONCILIATION_AGENT, 5)
+        assert "every earlier report" in step
+        handoff = _flat(_section(RECONCILIATION_AGENT.read_text(encoding="utf-8"), "Handoff"))
+        assert "backfeed step of `documentation-update`" in handoff
+
+
+@pytest.mark.spec("CAO-19-LN-02")
+class TestSt0367DoneListWaitsForEveryRow:
+    """CAO-19-LN-02: the DONE list waits; no script reads a reconciliation report."""
+
+    def test_st_0367_done_list_waits_for_every_row(self):
+        done = _done_list()
+        assert (
+            "No row of any `docs/reviews/reconciliation-*.md` is `open`, "
+            "or `fixed` on an artifact of the core list" in done
+        )
+        assert "names the report, the artifact, and the status of each such row" in done
+
+    @pytest.mark.parametrize(
+        "name", ["premerge-check", "dispatch", "dispatch_lib.py"]
+    )
+    def test_st_0367_no_script_reads_a_reconciliation_report(self, name):
+        text = (SCRIPTS / name).read_text(encoding="utf-8")
+        assert "docs/reviews/reconciliation-" not in text
+
+
+@pytest.mark.spec("CAO-19-LN-03")
+class TestSt0367OwnerNamesItsOwnSkill:
+    """CAO-19-LN-03: the skill comes from the owner's definition, not the core list."""
+
+    def test_st_0367_architecture_agent_lists_both_skills(self):
+        skills = _frontmatter(ARCHITECTURE_AGENT)["skills"]
+        assert {"maintain-architecture", "model-structurizr-slice"} <= set(skills)
+
+    def test_st_0367_row_step_names_the_skill_per_artifact(self):
+        step = _workflow_step(ARCHITECTURE_AGENT, 5)
+        assert step.startswith("5. **Fix a drift row**")
+        assert "`model-structurizr-slice`" in step
+        assert "`maintain-architecture`" in step
+        assert "sets the row to `fixed` in the same commit" in step
+
+    def test_st_0367_core_list_entries_have_no_skill_field(self):
+        import yaml
+
+        entries = yaml.safe_load(CORE_LIST.read_text(encoding="utf-8"))["entries"]
+        for entry in entries:
+            assert set(entry) == {"path_pattern", "sample_path", "family", "optional"}
