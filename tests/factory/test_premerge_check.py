@@ -181,6 +181,7 @@ def _run(repo: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+@pytest.mark.spec("CAO-11-IT-03")
 class TestSt0359DemoFixtures:
     """CAO-11-IT-03: premerge-check on the four Demo fixtures of ST-0359."""
 
@@ -256,6 +257,7 @@ TEST_DESIGN_BODY = "\n## Test Design\n\n#### Failure scenarios\n\n- one\n"
 PRIOR_TESTS_BODY = "\n## Inputs\n\n#### Prior Tests\n\n- tests/test_x.py\n"
 
 
+@pytest.mark.spec("CAO-11-CT-01")
 class TestSt0359ResolveGates:
     """CAO-11-CT-01: which results premerge-check requires for a story."""
 
@@ -311,6 +313,7 @@ class TestSt0359ResolveGates:
         assert "docs/charter/house-rules.md" in warnings[0]
 
 
+@pytest.mark.spec("CAO-11-CT-01")
 class TestSt0359ReadGateResult:
     """CAO-11-CT-01: the reader accepts the list and the object result shapes."""
 

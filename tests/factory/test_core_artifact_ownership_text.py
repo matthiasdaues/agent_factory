@@ -31,7 +31,7 @@ def _tag_table_tags(text: str) -> set[str]:
     return set(re.findall(r"^\|[^|\n]+\|\s*`([A-Z]+)`\s*\|$", section, re.M))
 
 
-@pytest.mark.spec
+@pytest.mark.spec("CAO-16-LN-01")
 class TestSt0352FindingFormatDefinesOwner:
     """CAO-16-LN-01: owner field, its definition, tags, routing."""
 
@@ -62,7 +62,7 @@ class TestSt0352FindingFormatDefinesOwner:
         assert "not to the author of the reviewed phase" in routing
 
 
-@pytest.mark.spec
+@pytest.mark.spec("CAO-16-LN-02")
 class TestSt0352FindingWithoutOwnerGoesToProducer:
     """CAO-16-LN-02: fallback to the producer from the output declarations."""
 
@@ -1339,7 +1339,7 @@ class TestSt0362ManualModeHoldsPerStory:
         assert "step 8 closes the story" in step
 
 
-@pytest.mark.spec("CAO-14-LN-01")
+@pytest.mark.spec("CAO-13-LN-01")
 class TestSt0362DeveloperWritesNoAdr:
     """The developer agent declares no ADR; ADR drift becomes a row."""
 

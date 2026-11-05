@@ -55,9 +55,11 @@ def section(text: str, heading: str) -> str:
 ANCHOR_FILE_SET = (
     "docs/spec/architecture.dsl",
     "docs/spec/scope-map.md",
-    "docs/spec/glossary.md",
     "docs/agent-context.md",
 )
+
+# The vocabulary anchor passes when either file exists (stakeholder, 2026-11-05).
+VOCABULARY_ANCHOR = ("docs/spec/glossary.md", "docs/spec/work/term-candidates.md")
 
 ANCHOR_CHECKS = {
     "feature-addition": ("playbooks/feature-addition.md", "## Prerequisites"),
@@ -78,6 +80,16 @@ def _anchor_check(name: str) -> str:
 @pytest.mark.parametrize("anchor_file", ANCHOR_FILE_SET)
 def test_anchor_check_names_each_anchor_file(check: str, anchor_file: str) -> None:
     assert f"`{anchor_file}`" in _anchor_check(check)
+
+
+@pytest.mark.spec("CAL-15")
+@pytest.mark.parametrize("check", ANCHOR_CHECKS)
+def test_anchor_check_accepts_glossary_or_term_candidates(check: str) -> None:
+    glossary, candidates = VOCABULARY_ANCHOR
+    lines = _anchor_check(check).splitlines()
+    assert any(
+        f"`{glossary}` or `{candidates}`" in line and "exists" in line for line in lines
+    )
 
 
 @pytest.mark.spec("CAL-15")

@@ -445,7 +445,7 @@ Notable skills by concern:
 | Specification   | `derive-feature` (Gherkin `.feature` files with Rule-per-actor-goal), `reverse-map` (build scope map from code and tests)                                                 |
 | Test practice   | `detect-test-regime` (record the test suites in `docs/testing.yaml`), `qa-strategy-from-spec` (per-feature QA strategy); the test-strategy agent runs both                |
 | Onboarding      | `reverse-map` (build a scope map from code, tests, and other sources), `guided-tour` (mid-session reorientation for newcomers and active playbook runs)                   |
-| Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (dependency vulnerability scan)                                       |
+| Quality gates   | `crap-score` (composite structural risk), `mutation-testing` (mutation testing), `dependency-check` (module import directions against `dependency-rules.dsl`)             |
 | Implementation  | `run-step` (execute a single step manifest within step isolation)                                                                                                         |
 
 The full list is also in [`.agent-factory/factory/INDEX.yaml`](../INDEX.yaml), with token counts per skill.
@@ -482,11 +482,11 @@ After either playbook completes (or after brownfield Stage 1), all feature work 
 
 Once a project has been onboarded, these playbooks describe reference paths for feature delivery and other structured work. The typical dependency chain runs requirements → architecture → planning → implementation → quality, but the sequence emerges from each agent's declared preconditions, not from a prescribed order:
 
-| Playbook                                                        | For                                                                                                                                                                                                   |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`feature-addition.md`](../playbooks/feature-addition.md)       | Adding a feature to a managed project from an accepted proposal. Declared impact routes the required specification and architecture work. Owns the gate-check loop and mechanical architecture check. |
-| [`refactoring.md`](../playbooks/refactoring.md)                 | Restructuring code without changing behaviour, with a measured baseline and a safety net.                                                                                                             |
-| [`architecture-review.md`](../playbooks/architecture-review.md) | Reviewing existing architecture documentation against quality attributes.                                                                                                                             |
+| Playbook                                                        | For                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`feature-addition.md`](../playbooks/feature-addition.md)       | Adding a feature to a managed project from an accepted proposal. Declared impact routes the required specification and architecture work. Runs the mechanical architecture check; the implementation agent runs the gate-check loop. |
+| [`refactoring.md`](../playbooks/refactoring.md)                 | Restructuring code without changing behaviour, with a measured baseline and a safety net.                                                                                                                                            |
+| [`architecture-review.md`](../playbooks/architecture-review.md) | Reviewing existing architecture documentation against quality attributes.                                                                                                                                                            |
 
 ### The research workflow
 

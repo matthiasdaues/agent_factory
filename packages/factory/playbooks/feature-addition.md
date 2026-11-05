@@ -47,6 +47,7 @@ steps:
   - name: spec-review
     inputs:
       - 'docs/spec/glossary.md'
+      - 'docs/spec/work/term-candidates.md'
       - 'docs/proposals/**/*.md'
       - 'docs/spec/**/*.md'
       - 'docs/spec/**/*.feature'
@@ -190,12 +191,12 @@ Operational procedure for **adding features to existing system**.
 
 - [ ] `docs/spec/architecture.dsl` exists
 - [ ] `docs/spec/scope-map.md` exists
-- [ ] `docs/spec/glossary.md` exists
+- [ ] `docs/spec/glossary.md` or `docs/spec/work/term-candidates.md` exists
 - [ ] `docs/agent-context.md` exists
 - [ ] A proposal at `docs/proposals/<name>.md`, written to the [proposal template](../rulebooks/templates/proposal.md)
 
 The four anchor files (`docs/spec/architecture.dsl`, `docs/spec/scope-map.md`,
-`docs/spec/glossary.md`, `docs/agent-context.md`) are the minimum baseline. Full specification artifacts (PRD, use cases,
+the vocabulary file, `docs/agent-context.md`) are the minimum baseline. The vocabulary file is `docs/spec/glossary.md` or, on a fresh brownfield baseline, `docs/spec/work/term-candidates.md`. Full specification artifacts (PRD, use cases,
 supplementary specs) add detail to the requirements and architecture activities when present but are not required. If
 any anchor file is missing, the check names each missing file and the playbook
 stops. Then suggest running `brownfield-onboarding` to establish the baseline.
@@ -206,7 +207,7 @@ parallel feature request, interview record, or design brief.
 Each feature-addition run updates the anchor files: the
 requirements-agent adds a Rule to `scope-map.md` with status "specified," the
 architecture-agent updates `architecture.dsl` when the structural shape changes,
-and the grilling and domain-modeling skills add new terms to `docs/spec/glossary.md`.
+the grilling skill adds settled terms to `docs/spec/work/term-candidates.md`, and the domain-modeling agent writes confirmed terms to `docs/spec/glossary.md`.
 
 ## Session Boundaries
 

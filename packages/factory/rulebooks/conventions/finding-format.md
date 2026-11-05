@@ -42,6 +42,8 @@ Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this l
 
 `owner:` in the frontmatter names the agent that acts on the finding next. The filer is not the owner. By default the owner is the producer of the artifact the finding is about. A `BUG` finding names the developer agent. A `QA` finding for a missing test names the planning agent.
 
+A finding about a proposal under `docs/proposals/` names `virgil`, who revises the proposal with `draft-proposal`. A finding without an artifact, such as a `RETRO` finding, names `virgil`. So does a finding whose artifact spans several producers, such as `RECON-cycle-retirement`. Virgil shapes or splits such a finding into work with the stakeholder.
+
 ## Status lifecycle
 
 - `open` — the finding stands; the owner must address it.
@@ -65,7 +67,7 @@ Present the findings to the user before writing any files. The user decides whic
 - [code-review-agent.md § Workflow](../../agents/code-review-agent.md#workflow)
 - [qa-agent.md § Workflow](../../agents/qa-agent.md#workflow)
 - [security-review § Report](../../skills/security-review/SKILL.md#report)
-- [reconcile-spec § Step 2 — Update](../../skills/reconcile-spec/SKILL.md#step-2--update)
+- [reconcile-spec § Step 2 — Write the rows](../../skills/reconcile-spec/SKILL.md#step-2--write-the-rows)
 - [bug-hunt § Phase: Hunt](../../skills/bug-hunt/SKILL.md#phase-hunt)
 - [inspect-spec § Step 3 — Write the review report](../../skills/inspect-spec/SKILL.md#step-3--write-the-review-report)
 - [atam-review § Step 4 — Write the review report](../../skills/atam-review/SKILL.md#step-4--write-the-review-report)
