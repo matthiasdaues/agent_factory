@@ -1058,3 +1058,93 @@ The first reconciliation run of a day writes `reconciliation-<date>.md`. A secon
 | Field    | `owner:` names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). A finding about a proposal under `docs/proposals/` names `virgil`, who revises the proposal with `draft-proposal`. A finding without an artifact, such as a `RETRO` finding, names `virgil`. So does a finding whose artifact spans several producers, such as `RECON-cycle-retirement`. Virgil shapes or splits such a finding into work with the stakeholder (stakeholder, 2026-11-05). An open finding without `owner:` goes to the producer of the artifact it names, read from the output declarations (CAO-G26) |
 | Routing  | The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Tags     | The tag table adds `ARCH` (the architecture agent's read check) and `QA` (an unresolved mutant) and drops `RECON`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+## Counter IDs Contracts
+
+The contracts of [counter-ids.feature](features/counter-ids.feature). The
+rules behind them are BR-068 to BR-075 in
+[validation-rules.md](validation-rules.md#counter-ids-next-id-br-068br-075).
+A value that the proposal leaves open carries the identifier of its gap in
+[counter-ids-gaps.md](work/counter-ids-gaps.md).
+
+### `packages/factory/scripts/next-id`
+
+| Property     | Contract                                                                                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claim usage  | `next-id <PREFIX> [--remote <url>]`                                                                                                                                     |
+| Seed usage   | `next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]`                                                                                                             |
+| Remote       | The `--remote` URL, else the URL of `origin` (BR-074). Tests pass a local bare repository with `--remote`                                                               |
+| Clone        | Optional. With `--remote`, `next-id` runs outside any git repository                                                                                                    |
+| Writes       | Only `refs/ids/counters` on the remote. A claim leaves the clone unchanged (BR-075). CID-G06 asks whether `--seed` also runs in a throwaway repository                  |
+| Claim output | On success, the ID alone on standard output, such as `ST-1013`, and exit `0`. An agent reads the ID from the output, because a shell variable does not survive (DEC-08) |
+| Seed output  | On success, the seed lines on standard output, and exit `0`. Whether the token line is one of them is open (CID-G03)                                                    |
+| Failure      | Exit non-zero, nothing on standard output, and the message on standard error. The proposal names no exit code other than `0`                                            |
+| Credentials  | From the user's global git config, a credential helper, or an SSH key. A credential helper in the clone's own `.git/config` does not reach the claim                    |
+
+A claim fails in these cases. `next-id` checks the prefix before it looks for
+the remote.
+
+| Case                               | Message names                              |
+| ---------------------------------- | ------------------------------------------ |
+| prefix not in the list             | the prefix and the list of prefixes        |
+| no `--remote` and no `origin`      | `origin`, `--remote`, and `next-id --seed` |
+| remote unreachable                 | the remote and git's error message         |
+| `refs/ids/counters` missing        | the remote and `next-id --seed`            |
+| ten stale leases in a row (BR-072) | the prefix and the last number tried       |
+| push refused for another reason    | the remote and git's error message         |
+
+A seed fails and changes nothing in these cases. `next-id` checks the
+arguments before it looks for the remote.
+
+| Case                                               | Message names                       |
+| -------------------------------------------------- | ----------------------------------- |
+| a number that is not a whole number from 0 to 9999 | the argument                        |
+| a prefix not in the list                           | the prefix and the list of prefixes |
+| no `--remote` and no `origin`                      | `origin` and `--remote`             |
+| remote unreachable                                 | the remote and git's error message  |
+| `refs/ids/counters` exists                         | the remote and `refs/ids/counters`  |
+
+git reports a stale lease as `stale info` when the client notices, and as
+`cannot lock ref … is at <sha> but expected <sha>` when the remote notices.
+`next-id` retries only on these two messages (DEC-23).
+
+### Claim commit message
+
+The claim commit at `refs/ids/counters` is a commit with no parent on the
+empty tree, made with `git commit-tree`. Its message holds one `key=value`
+line per entry:
+
+```text
+start=1000
+ST=1012
+FAGAN=1003
+token=9f3a61c0d2e4b871
+```
+
+| Line              | Contract                                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| `start=<number>`  | The seed number, four digits (BR-070). Exactly one per claim commit                            |
+| `<PREFIX>=<NNNN>` | The highest number claimed so far for the prefix, four digits. At most one per prefix (BR-071) |
+| `token=<value>`   | A random value that differs in every claim commit, so no two claim commits share a SHA         |
+
+### `init-factory` counter check
+
+`init-factory` asks `origin` whether `refs/ids/counters` exists. It never
+seeds (DEC-17).
+
+| Case                        | Output                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| `refs/ids/counters` missing | "run `next-id --seed <number>` with a number above your highest ID"                         |
+| no `origin`                 | "add the remote `origin`, then run `next-id --seed <number>`"                               |
+| `origin` unreachable        | A warning that names the remote. `init-factory` finishes the install and exits `0` (DEC-23) |
+
+The proposal names no exit code for the first two cases and no output when
+the counter exists (CID-G02).
+
+### Guardrail hook and `next-id`
+
+`block-dangerous-git.sh` stays unchanged. It matches the literal text of a
+push command, so the command `next-id ST` passes with exit `0`. A push written
+with `git -C .` before the subcommand also passes, so the hook does not force a
+claim through `next-id`. The lease of BR-072 still refuses every stale claim
+(DEC-22).

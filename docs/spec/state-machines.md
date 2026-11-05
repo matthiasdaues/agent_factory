@@ -706,3 +706,79 @@ stateDiagram-v2
 - **IN_GLOSSARY** is not a value of the Status column. It names the moment the domain-modeling agent writes the glossary row and removes the work-file row.
 - **REJECTED** waits for a new definition. The domain-modeling agent writes it from the stakeholder's note, the row returns to **PROPOSED**, and the stakeholder sees it at the next pause point (CAO-G09).
 - An unattended run of the domain-modeling agent leaves its rows at **PROPOSED**. The spec review files a finding for each of them.
+
+## Counter IDs State Machines
+
+One claim of `next-id` in
+[counter-ids.feature](features/counter-ids.feature) loops until the remote
+accepts its push or the claim fails. Written per
+[state-machine-notation.md § Canonical Format](../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format):
+pseudocode is authoritative, Mermaid is derived. A seed has no loop, so it
+has no state machine.
+
+### Claim Lifecycle
+
+One call of `next-id <PREFIX>`, after the prefix check and the remote lookup
+passed. BR-071 and BR-072 hold the rules.
+
+#### Pseudocode
+
+```text
+State: READING
+  # initial — next-id fetches refs/ids/counters into its throwaway repository
+On CounterRead:
+  ChangeState(PUSHING)
+On CounterMissing:
+  ChangeState(FAILED)
+On RemoteUnreachable:
+  ChangeState(FAILED)
+
+State: PUSHING
+  # next-id pushes the new claim commit with the lease on the old SHA
+On PushAccepted:
+  ChangeState(CLAIMED)
+On LeaseStale:
+  if fewer than ten stale leases in a row
+    ChangeState(WAITING)
+  else
+    ChangeState(FAILED)
+On PushRefused:
+  ChangeState(FAILED)
+On RemoteUnreachable:
+  ChangeState(FAILED)
+
+State: WAITING
+  # a random wait of 0.1 to 1 second
+On WaitEnds:
+  ChangeState(READING)
+
+State: CLAIMED
+  # terminal — next-id prints the ID and exits 0
+
+State: FAILED
+  # terminal — next-id prints no ID and exits non-zero
+```
+
+#### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> READING
+    READING --> PUSHING : CounterRead
+    READING --> FAILED : CounterMissing
+    READING --> FAILED : RemoteUnreachable
+    PUSHING --> CLAIMED : PushAccepted
+    PUSHING --> WAITING : LeaseStale (fewer than ten in a row)
+    PUSHING --> FAILED : LeaseStale (tenth in a row)
+    PUSHING --> FAILED : PushRefused
+    PUSHING --> FAILED : RemoteUnreachable
+    WAITING --> READING : WaitEnds
+    CLAIMED --> [*]
+    FAILED --> [*]
+```
+
+#### Notes
+
+- **READING** reads the claim commit again on every loop, so the next claim sees the number that the other caller took.
+- **LeaseStale** is the event for the git messages `stale info` and `cannot lock ref … is at <sha> but expected <sha>`. Every other refusal is **PushRefused** and ends the claim after one push (DEC-23).
+- **FAILED** names the reason as the claim error table in [interface-contracts.md](interface-contracts.md#packagesfactoryscriptsnext-id) lists it. In every terminal state, `next-id` deletes its throwaway repository (BR-075).

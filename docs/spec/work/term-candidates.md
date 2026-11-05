@@ -2,5 +2,13 @@
 
 Each row is a term that waits for the stakeholder's confirmation. The domain-modeling agent moves a confirmed row into `docs/spec/glossary.md` and removes it here (BR-065).
 
-| Term | Domain area | Source | Proposed definition | Status | Note |
-| ---- | ----------- | ------ | ------------------- | ------ | ---- |
+| Term             | Domain area | Source                                   | Proposed definition                                                                                                                                                                       | Status   | Note |
+| ---------------- | ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---- |
+| Counter          | counter-ids | `docs/spec/features/counter-ids.feature` | The ref `refs/ids/counters` on the project's remote. It points at the claim commit that holds every ID sequence of the project.                                                           | proposed |      |
+| Claim Commit     | counter-ids | `docs/spec/features/counter-ids.feature` | A commit with no parent on the empty tree that the counter points at. Its message holds the `start` line, one line per prefix with the highest number claimed so far, and a random token. | proposed |      |
+| ID Claim         | counter-ids | `docs/spec/features/counter-ids.feature` | One call of `next-id <PREFIX>`: it raises the prefix's number in a new claim commit and pushes it with a lease on the old one. Not the research **Claim**.                                | proposed |      |
+| ID Prefix        | counter-ids | `docs/spec/features/counter-ids.feature` | The letters before the number of an ID, such as `ST` in `ST-1013`. Each prefix in the list of `next-id` has its own sequence.                                                             | proposed |      |
+| Indexed Artifact | counter-ids | `docs/spec/features/counter-ids.feature` | A story, finding, todo entry, or ADR whose name carries an ID that `next-id` claimed.                                                                                                     | proposed |      |
+| Seed             | counter-ids | `docs/spec/features/counter-ids.feature` | The one-time creation of the counter with `next-id --seed <number>`. Every prefix continues above the number, unless a `<PREFIX>=<n>` pair gives it its own start.                        | proposed |      |
+| Stale Lease      | counter-ids | `docs/spec/features/counter-ids.feature` | The rejection of a claim push because another caller replaced the claim commit first. Only a stale lease leads to a retry.                                                                | proposed |      |
+| Factory Producer | counter-ids | `docs/spec/features/counter-ids.feature` | A skill, agent, convention, or playbook that tells its reader how to number a new indexed artifact, such as `write-adr`.                                                                  | proposed |      |

@@ -808,3 +808,69 @@ erDiagram
 - **REPORT_ROW** follows the [Report Row Lifecycle](state-machines.md#report-row-lifecycle). Gap CAO-G04 decides its column names. Each story has its own spec-feedback report, so parallel developer agents never write the same file (DEC-27).
 - **TERM_CANDIDATE_ROW** follows the [Term Candidate Lifecycle](state-machines.md#term-candidate-lifecycle). **GLOSSARY_TERM** is the row of the glossary table that [§ Glossary Entities](#glossary-entities) describes.
 - **FINDING.owner** names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). A finding about a proposal, a finding without an artifact, and a finding whose artifact spans several producers name `virgil`. The orchestrator routes each open finding to that agent. The tags `ARCH` and `QA` join the tag table, and `RECON` leaves it.
+
+## Counter IDs Entities
+
+The entities that `next-id` reads and writes in
+[counter-ids.feature](features/counter-ids.feature). A caller runs `next-id`
+for an ID prefix. `next-id` reads the claim commit that the counter ref on the
+remote points at, raises the line of that prefix, and pushes a new claim
+commit. The ID it prints names a new indexed artifact.
+
+```mermaid
+erDiagram
+    REMOTE ||--o| COUNTER_REF : holds
+    COUNTER_REF ||--|| CLAIM_COMMIT : "points at"
+    CLAIM_COMMIT ||--o{ PREFIX_LINE : holds
+    PREFIX_LIST ||--|{ ID_PREFIX : lists
+    PREFIX_LINE }o--|| ID_PREFIX : "counts for"
+    ID }o--|| ID_PREFIX : carries
+    INDEXED_ARTIFACT ||--|| ID : "named by"
+    THROWAWAY_REPOSITORY }o--|| REMOTE : "claims on"
+
+    REMOTE {
+        string url "the --remote URL, or what git remote get-url origin prints"
+    }
+    COUNTER_REF {
+        string name "refs/ids/counters"
+    }
+    CLAIM_COMMIT {
+        string sha
+        string tree "the empty tree"
+        string parent "none"
+        string identity "next-id <next-id@agent-factory.invalid>, as author and committer"
+        int    start "the seed number, 0 to 9999, line start=<number>"
+        string token "random, line token=<value>, different in every claim commit"
+    }
+    PREFIX_LINE {
+        string prefix "an ID_PREFIX, line <PREFIX>=<NNNN>"
+        int    highest "the highest number claimed so far, four digits"
+    }
+    PREFIX_LIST {
+        string home "the list inside packages/factory/scripts/next-id"
+    }
+    ID_PREFIX {
+        string value "ST | BUG | SPEC | FAGAN | SEC | RECON | ATAM | IMPL | T | ADR"
+    }
+    ID {
+        string prefix
+        int    number "1 to 9999"
+        string text "<PREFIX>-<NNNN>, such as ST-1013"
+    }
+    INDEXED_ARTIFACT {
+        string path "such as backlog/ST-1013.md, docs/findings/IMPL-1004.md, or docs/adr/0007-short-title.md"
+    }
+    THROWAWAY_REPOSITORY {
+        string path "a bare repository in a new temporary directory, one per call"
+    }
+```
+
+### Notes
+
+- **COUNTER_REF** is one ref per remote. It holds every sequence of the project (DEC-14). Only `seed` creates it, and nothing in the Factory deletes it.
+- **CLAIM_COMMIT** is replaced on every claim. The token makes each claim commit unique, so no two claims share a SHA (DEC-13). [Claim commit message](interface-contracts.md#claim-commit-message) defines the lines.
+- **PREFIX_LINE** is missing for a prefix that has claimed nothing yet. The first claim of that prefix returns `start` plus one (DEC-17). `seed` pads every number to four digits. The proposal states the padding for `seed` only. This model takes four digits for the line a claim writes too, because that is the form of the printed ID.
+- **ID_PREFIX** values are fixed by the Factory, not by the project (DEC-18). `PROP` and `RETRO` are no prefixes (DEC-09).
+- **ID** of the prefix `ADR` names its file as `docs/adr/<NNNN>-<short-title>.md`, without the prefix. A `T` ID names an entry in `docs/spec/work/todo.md`, not a file.
+- **THROWAWAY_REPOSITORY** exists only while one claim runs. `next-id` deletes it at exit, so the clone gains no ref and no object (DEC-19). Gap CID-G06 in [counter-ids-gaps.md](work/counter-ids-gaps.md) asks whether `--seed` uses one too.
+- Split-story IDs such as `ST-0327A` take their letter from a scan, not from the counter.
