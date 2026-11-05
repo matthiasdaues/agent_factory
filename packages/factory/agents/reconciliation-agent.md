@@ -88,7 +88,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    - **Drift** — a `specified` Rule no longer in the `.feature` file means a scenario was dropped or merged. Write a row for the requirements agent — do not silently remove the row.
    - Write a row for the requirements agent for every `specified` Rule still present, to move it to `implemented`, and for each link to a `.feature` file that moved under `docs/~archive/`.
    - **PR body**: list every newly discovered Rule so the reviewer sees the scope change. If the merge is script-owned with no PR, record the list in the reconciliation report instead (one row per Rule).
-5. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): read each row of the previous report (the highest suffix of the latest date) and check it again, **and** re-reconcile fresh (Steps 2–4) to catch new drift.
+5. **Check earlier rows** (repeat passes) — Per `reconcile-spec` Step 4: check each row of every earlier report against the code, and repeat none that is still `open`, or `fixed` on a core artifact. Re-reconcile fresh (Steps 2–4) to catch new drift.
 6. **Reconcile agent context** — Run a concern-registry health check against `docs/agent-context.md`. Validate that every concern section has valid `Read:` paths (each path resolves to an existing file or directory in the project) and that section headings correspond to actual project concerns. Write one row per missing path or orphaned section, with Owner `virgil`. Edit no file.
 7. **Audit test traceability** — For each story file in the backlog:
    - Read the `tests:` field and verify that every listed test file exists on disk. When a listed file is missing (renamed, moved, or deleted), locate the correct path and write a row for the planning agent with the correct path.
@@ -104,7 +104,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 - No file changed but the report and the findings
 - Every Rule in the slice's `.feature` file has at least one `@`-ref, or a row exists for each one that doesn't
 - Scope map reflects the `.feature` file's Rules: discoveries and drift written as rows, migration rows skipped
-- Rows of the previous report checked again
+- Rows of every earlier report checked again, and no waiting row repeated
 - Agent-context concern sections validated; each failure is a row
 - Every story's `tests:` field lists test files that exist on disk (or a row exists for each correction)
 - Every contract with an ownership assignment has corresponding test coverage (or a `QA` finding exists for each gap)
@@ -113,6 +113,6 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 **Code defects** → Implementation Agent: _"Reconciliation found [N] code defects. Fix and re-submit."_
 
-**Open rows** → the owner named in each row: _"Reconciliation wrote [N] rows for you. Fix the artifacts and set each row to `fixed`."_
+**Open rows** → the backfeed step of `documentation-update`: _"Reconciliation wrote [N] rows. Run the backfeed step."_
 
 **No discrepancies** → QA Agent: _"Spec reconciled. Run QA agent."_

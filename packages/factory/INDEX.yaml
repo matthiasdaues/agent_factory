@@ -9,8 +9,8 @@ agents:
     tier: strong
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
-    tokens: 1409
-    total_tokens: 8696
+    tokens: 1555
+    total_tokens: 8842
     inputs:
       required:
         - any_of:
@@ -421,8 +421,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2183
-    total_tokens: 13678
+    tokens: 2179
+    total_tokens: 13767
     inputs:
       required:
         - type: scope-map
@@ -857,7 +857,7 @@ skills:
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
     path: skills/reconcile-spec/SKILL.md
-    tokens: 1165
+    tokens: 1258
   - name: spec-feedback
     category: implementation
     description: Check whether specification or architecture drifted after implementation reveals gaps, changed rules, or inaccurate contracts, and write each drift as a row of the story's spec-feedback report. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
@@ -1020,7 +1020,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 16090
+    total_tokens: 16236
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -1037,7 +1037,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3400
-    total_tokens: 53757
+    total_tokens: 53992
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1058,8 +1058,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 984
-    total_tokens: 40633
+    tokens: 1502
+    total_tokens: 41240
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1076,7 +1076,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4756
-    total_tokens: 95117
+    total_tokens: 95352
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1094,7 +1094,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2844
-    total_tokens: 94495
+    total_tokens: 94730
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
