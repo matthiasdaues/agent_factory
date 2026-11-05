@@ -52,11 +52,9 @@ In manual mode, the human names a story branch, which is cut from dev, and the d
 
 ## Motivation
 
-In manual mode, the human commits each story, and no quality gate runs. [implementation-agent.md](../../packages/factory/agents/implementation-agent.md) says: "The gate-check loop applies to automated mode only. In manual mode, the code-review-agent replaces the mechanized gate-check loop." Only the pre-commit hooks run, with the test suite and the Factory linters.
+In manual mode, the human commits each story, and only the pre-commit hooks enforce a gate, with the test suite and the Factory linters. For the slow gates, [implementation-agent.md](../../packages/factory/agents/implementation-agent.md) gives an instruction: "In manual mode, the developer agent runs the same gates before it hands the story back." The accepted proposal [core-artifact-ownership.md](core-artifact-ownership.md) added that instruction (DEC-23 there).
 
-So a function with a CRAP score of 42 against a threshold of 30 merges in manual mode, and the same function blocks the merge in automated mode. The two modes measure the code differently, although they work against the same `testing.yaml`.
-
-The accepted proposal [core-artifact-ownership.md](core-artifact-ownership.md) closes this with an instruction: the developer agent runs the gates before it hands a story back (DEC-23 there). An instruction is not enforcement. If the agent skips it, nothing notices.
+An instruction is not enforcement. If the agent skips the gates, nothing notices. So a function with a CRAP score of 42 against a threshold of 30 can merge in manual mode, and the same function blocks the merge in automated mode. The two modes measure the code differently, although they work against the same `testing.yaml`.
 
 ## Core Principles
 
