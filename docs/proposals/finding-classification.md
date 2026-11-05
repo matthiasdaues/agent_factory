@@ -1,5 +1,6 @@
 ---
 schema_version: 2
+scope: global
 title: Finding Classification
 status: accepted
 owner: agent-factory
