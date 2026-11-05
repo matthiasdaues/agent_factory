@@ -6,6 +6,7 @@ category: defect
 artifact: .agent-factory/factory/config/pre-commit-config.yaml
 status: open
 traces: [UC-09, ADR-0003]
+owner: developer-agent
 ---
 
 # Canonical config omits the changed-only pre-commit test hook

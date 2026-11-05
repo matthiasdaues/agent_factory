@@ -7,6 +7,7 @@ category: consistency
 date: 2026-07-13
 found_by: session-retrospective
 tags: [retro, pre-commit, subproject]
+owner: virgil
 ---
 
 # RETRO-0004: Subproject hooks diverged from factory pattern

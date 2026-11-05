@@ -7,6 +7,7 @@ category: reliability
 date: 2026-07-13
 found_by: session-retrospective
 tags: [retro, safety-hook, conflict, git]
+owner: virgil
 ---
 
 # RETRO-0002: Safety hook traps user when it contains conflict markers
