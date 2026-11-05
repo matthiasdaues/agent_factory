@@ -158,7 +158,7 @@ steps:
     max_input_tokens: 100000
   - name: decision-point-4-5
     inputs:
-      - 'docs/findings/RECON-*.md'
+      - 'docs/findings/*.md'
     outputs: []
     max_input_tokens: 20000
   - name: qa
@@ -334,9 +334,14 @@ reads only the findings and the affected files, cutting the fix-cycle cost by
 ```
 
 **Agent**: `requirements-agent`
-**Task**: Derive feature spec, update scope map, produce QA strategy
+**Task**: Derive feature spec, update scope map, write the gaps report
 
-**Expected outputs**: `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`, `docs/spec/work/<feature-name>-qa-strategy.md`, updated core files in `docs/spec/`
+**Expected outputs**: `docs/spec/features/<feature-name>.feature`, `docs/spec/scope-map.md`, `docs/spec/work/<feature-name>-gaps.md`
+
+After the feature file exists, two more agents write their own files, each in a new session:
+
+- **Structure files** (`docs/spec/glossary.md`, `docs/spec/entity-model.md`, and the other domain files the feature needs): `domain-modeling-agent`
+- **QA strategy** (`docs/spec/work/<feature-name>-qa-strategy.md`): `test-strategy-agent`
 
 ### Step 1.2 — Spec Review
 
@@ -527,14 +532,16 @@ re-run the code-review-agent.
 
 ### Decision Point 4.5
 
-Check for reconciliation defects:
+Check for open findings:
 
 ```bash
-grep -l "status: open" docs/findings/RECON-*.md
+grep -l "status: open" docs/findings/*.md
 ```
 
-**If defects** → Return to the implementation-agent to address findings, then
-re-run the reconciliation-agent.
+**If open findings** → Send each open finding to the agent in its `owner:`
+field. A `BUG` finding names the developer agent. Then re-run the
+reconciliation-agent. Reconciliation rows in `docs/reviews/` go to the owner
+named in each row.
 **If clean** → The qa-agent's preconditions are satisfied.
 
 ## Quality

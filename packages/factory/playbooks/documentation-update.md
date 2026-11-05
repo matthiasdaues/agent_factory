@@ -39,10 +39,10 @@ Run this playbook when:
 
 **Expected outputs**:
 
-- `docs/reviews/reconciliation-*.md` (discrepancy report)
-- Updated core files in `docs/spec/` (if spec was stale)
-- Updated `docs/spec/glossary.md` (if terminology drifted)
-- `docs/findings/RECON-*.md` (code defects, if found)
+- `docs/reviews/reconciliation-*.md` (discrepancy report, one row per drift, each naming the owner of the artifact)
+- `docs/findings/BUG-*.md` (code defects, if found)
+
+This agent changes no core file. The owner named in each row fixes its stale core file, for example the domain-modeling agent for `docs/spec/glossary.md`.
 
 ### Step 1.2 — Review Discrepancy Report
 
@@ -60,13 +60,13 @@ Look for:
 
 ## Decision Point 1.3
 
-Check for code defects found during reconciliation:
+Check for open findings found during reconciliation:
 
 ```bash
-grep -l "status: open" docs/findings/RECON-*.md
+grep -l "status: open" docs/findings/*.md
 ```
 
-**If code defects** → Go to Step 1.4 (fix code first)
+**If open findings** → Go to Step 1.4 (fix code first)
 **If only doc drift** → Go to Step 2
 
 ### Step 1.4 — Fix Code Defects (If Found)
@@ -78,7 +78,7 @@ Code defects = implementation doesn't match spec **intent**
 ```
 
 **Agent**: `implementation-agent`
-**Task**: Fix open `RECON-*` findings
+**Task**: Send each open finding to the agent in its `owner:` field. A `BUG` finding names the developer agent.
 
 Return to Step 1.1 (re-run reconciliation)
 
@@ -151,7 +151,7 @@ Final checks:
 
 - [ ] `spec-lint` passes
 - [ ] `arch-lint` passes
-- [ ] All `RECON-*` findings resolved
+- [ ] No open finding remains in `docs/findings/`
 - [ ] Terminology consistent between code and `docs/spec/glossary.md`
 - [ ] Supplementary specs match implementation
 - [ ] State machines match code behavior

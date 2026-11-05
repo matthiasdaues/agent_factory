@@ -1395,3 +1395,82 @@ class TestSt0363ReconciliationWritesOnlyItsReport:
     )
     def test_st_0363_no_recon_tag_remains(self, path):
         assert "RECON" not in path.read_text(encoding="utf-8")
+
+
+PLAYBOOKS = REPO_ROOT / "packages" / "factory" / "playbooks"
+FEATURE_ADDITION = PLAYBOOKS / "feature-addition.md"
+GREENFIELD = PLAYBOOKS / "greenfield-development.md"
+BROWNFIELD = PLAYBOOKS / "brownfield-onboarding.md"
+DOCUMENTATION_UPDATE = PLAYBOOKS / "documentation-update.md"
+REVIEW_LOOP_PLAYBOOKS = [FEATURE_ADDITION, GREENFIELD, DOCUMENTATION_UPDATE]
+
+
+def _step_body(text: str, heading: str) -> str:
+    """Return the body of the `### <heading>` step, up to the next `### ` or `## `."""
+    match = re.search(
+        rf"^### {re.escape(heading)}[^\n]*\n(.*?)(?=^##|\Z)", text, re.M | re.S
+    )
+    assert match, f"step '### {heading}' missing"
+    return match.group(1)
+
+
+@pytest.mark.spec("CAO-18-LN-01")
+class TestSt0364ReviewLoopsSendFindingsToOwners:
+    """Review loops read all open findings and send each to its owner."""
+
+    @pytest.mark.parametrize("path", REVIEW_LOOP_PLAYBOOKS, ids=lambda p: p.name)
+    def test_st_0364_no_playbook_searches_recon_findings(self, path):
+        assert "RECON" not in path.read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize("path", REVIEW_LOOP_PLAYBOOKS, ids=lambda p: p.name)
+    def test_st_0364_loop_reads_all_open_findings(self, path):
+        assert 'grep -l "status: open" docs/findings/*.md' in path.read_text(
+            encoding="utf-8"
+        )
+
+    @pytest.mark.parametrize("path", REVIEW_LOOP_PLAYBOOKS, ids=lambda p: p.name)
+    def test_st_0364_loop_sends_each_finding_to_its_owner(self, path):
+        text = path.read_text(encoding="utf-8")
+        assert "owner:" in text
+        assert re.search(
+            r"[Ss]end each open finding to the agent in its `owner:`", text
+        )
+
+
+@pytest.mark.spec("CAO-18-LN-01")
+class TestSt0364StructureAndQaOwnersAreNamed:
+    """Each playbook step that produces a moved artifact names its new owner."""
+
+    @pytest.mark.parametrize(
+        "path", [FEATURE_ADDITION, GREENFIELD], ids=lambda p: p.name
+    )
+    def test_st_0364_structure_files_name_the_domain_modeling_agent(self, path):
+        text = path.read_text(encoding="utf-8")
+        assert re.search(r"Structure files.*`domain-modeling-agent`", text)
+
+    @pytest.mark.parametrize(
+        "path", [FEATURE_ADDITION, GREENFIELD], ids=lambda p: p.name
+    )
+    def test_st_0364_qa_strategy_names_the_test_strategy_agent(self, path):
+        text = path.read_text(encoding="utf-8")
+        assert re.search(r"QA strategy.*`test-strategy-agent`", text)
+
+    @pytest.mark.parametrize("heading", ["Step 3.1", "Step 3.2", "Step 3.7"])
+    def test_st_0364_brownfield_domain_steps_name_the_domain_modeling_agent(
+        self, heading
+    ):
+        body = _step_body(BROWNFIELD.read_text(encoding="utf-8"), heading)
+        assert "**Agent**: `domain-modeling-agent`" in body
+
+
+@pytest.mark.spec("CAO-18-LN-01")
+class TestSt0364RunStepStatesOrderAndChoice:
+    """run-step: declared inputs set the order; the operator chooses on a tie."""
+
+    def test_st_0364_declared_inputs_set_the_order(self):
+        text = RUN_STEP.read_text(encoding="utf-8")
+        assert "The declared inputs set the order of the producers" in text
+
+    def test_st_0364_operator_chooses_between_two_eligible_agents(self):
+        text = RUN_STEP.read_text(encoding="utf-8")
+        assert "When two agents are eligible, the operator chooses" in text

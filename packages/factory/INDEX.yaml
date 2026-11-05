@@ -957,7 +957,7 @@ skills:
     category: utility
     description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
     path: skills/run-step/SKILL.md
-    tokens: 688
+    tokens: 732
   - name: scratchpad
     category: utility
     description: Append a quick note to session-scratchpad.md, sectioned by date. Use when the user says "note this down:", "make a note of this:", or invokes "/scratchpad" or "/scratch".
@@ -1028,13 +1028,16 @@ playbooks:
     path: playbooks/brownfield-onboarding.md
     agents:
       - architecture-agent
+      - domain-modeling-agent
+      - domain-modeling-agent
       - requirements-agent
+      - domain-modeling-agent
       - spec-review-agent
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3373
-    total_tokens: 49072
+    tokens: 3400
+    total_tokens: 53757
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1055,8 +1058,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 955
-    total_tokens: 40604
+    tokens: 984
+    total_tokens: 40633
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1072,8 +1075,8 @@ playbooks:
       - code-review-agent
       - reconciliation-agent
       - qa-agent
-    tokens: 4667
-    total_tokens: 95028
+    tokens: 4756
+    total_tokens: 95117
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1090,8 +1093,8 @@ playbooks:
       - reconciliation-agent
       - qa-agent
       - coaching-agent
-    tokens: 2745
-    total_tokens: 94396
+    tokens: 2844
+    total_tokens: 94495
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

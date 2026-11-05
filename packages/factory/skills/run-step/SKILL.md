@@ -20,6 +20,8 @@ Read the session binding (`.agent-factory/workstreams/sessions/<session-id>.yaml
 
 Read `.claude/INDEX.yaml`. Filter agents whose `inputs.required` preconditions are satisfied by the current repository state.
 
+The declared inputs set the order of the producers. An agent is eligible once its required inputs exist, so a producer runs before the agents that read its output. When two agents are eligible, the operator chooses between them.
+
 | Eligible agents | Action                                                                                          |
 | --------------- | ----------------------------------------------------------------------------------------------- |
 | None            | Tell the user no agents are eligible given current preconditions. Offer to run `intent select`. |

@@ -158,11 +158,15 @@ Stage 2 deepens the baseline with full specification extraction, component-level
 
 ### Step 3.1 — Extract Domain Vocabulary
 
+**Agent**: `domain-modeling-agent`
+
 Scan code for domain terms — type names, class names, module names. Build `docs/spec/glossary.md` with ubiquitous language.
 
 **Output**: `docs/spec/glossary.md`
 
 ### Step 3.2 — Extract Entity Model
+
+**Agent**: `domain-modeling-agent`
 
 Analyze domain entities in code — relationships, attributes, constraints.
 
@@ -184,6 +188,8 @@ Document non-functional requirements found in code: performance characteristics 
 **Output**: `docs/spec/validation-rules.md`, `docs/spec/interface-contracts.md`
 
 ### Step 3.7 — Document State Machines
+
+**Agent**: `domain-modeling-agent`
 
 For stateful components found in code, extract state machines per [`state-machine-notation.md`](../rulebooks/conventions/state-machine-notation.md).
 
