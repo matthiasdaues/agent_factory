@@ -182,7 +182,7 @@ Feature: Core artifact ownership
       When the factory maintainer reads its frontmatter
       Then the tier is strong
       And the required inputs are docs/spec/scope-map.md and docs/spec/features/*.feature
-      And the context inputs are docs/spec/glossary.md, docs/spec/work/term-candidates.md, src/**/*, and docs/agent-context.md
+      And the context inputs are docs/spec/glossary.md, docs/spec/work/term-candidates.md, src/**/*, docs/agent-context.md, and .agent-factory/factory/rulebooks/conventions/state-machine-notation.md
       And its outputs include the core outputs glossary.md, entity-model.md, state-machines.md, validation-rules.md, interface-contracts.md, and schemas/* under docs/spec/
       And its outputs include docs/spec/work/term-candidates.md, the spec-feedback reports, the reconciliation reports, and docs/findings/BUG-*.md
       And glossary.md and entity-model.md are declared with required: true
@@ -573,6 +573,7 @@ Feature: Core artifact ownership
       Given ST-0318 has merged and QA-0003 is open with owner: test-strategy-agent
       When the implementation agent closes the wave
       Then it dispatches the test-strategy agent for QA-0003
+      # @packages/factory/agents/implementation-agent.md
 
     Scenario: The test-strategy agent skips an open QA finding whose owner is the planning agent
       Given QA-0003 is open with owner: planning-agent
@@ -603,6 +604,7 @@ Feature: Core artifact ownership
       And story ST-0352 names QA-0003 and adds the contract test for plan_moves
       When ST-0352 merges
       Then the implementation agent sets QA-0003 to status resolved
+      # @packages/factory/agents/implementation-agent.md
 
   Rule: Developer agent reports specification drift without editing the specification
     # actor: Developer agent

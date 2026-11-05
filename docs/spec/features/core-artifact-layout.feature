@@ -504,10 +504,21 @@ Feature: Core artifact layout
     # actor: Project maintainer
     # @packages/factory/playbooks/feature-addition.md
     # @packages/factory/playbooks/brownfield-onboarding.md
+    # The anchor files are docs/spec/architecture.dsl, docs/spec/scope-map.md,
+    # docs/agent-context.md, and the vocabulary file. The vocabulary file is
+    # docs/spec/glossary.md or docs/spec/work/term-candidates.md. Brownfield
+    # Stage 1 and feature-addition check the same rule.
 
     Scenario: A migrated project with the four anchor files passes the check
       Given a migrated project with docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/glossary.md, and docs/agent-context.md
       And the project has no docs/CONTEXT.md
+      When the project maintainer starts feature-addition
+      Then the anchor-file check passes
+      And feature-addition proceeds
+
+    Scenario: Term candidates without a glossary pass the check
+      Given a project with docs/spec/architecture.dsl, docs/spec/scope-map.md, docs/spec/work/term-candidates.md, and docs/agent-context.md
+      And the project has no docs/spec/glossary.md
       When the project maintainer starts feature-addition
       Then the anchor-file check passes
       And feature-addition proceeds
@@ -522,11 +533,17 @@ Feature: Core artifact layout
         | missing file               |
         | docs/spec/architecture.dsl |
         | docs/spec/scope-map.md     |
-        | docs/spec/glossary.md      |
         | docs/agent-context.md      |
 
+    Scenario: A project without a vocabulary file stops feature-addition
+      Given a migrated project with docs/spec/architecture.dsl, docs/spec/scope-map.md, and docs/agent-context.md
+      And the project has neither docs/spec/glossary.md nor docs/spec/work/term-candidates.md
+      When the project maintainer starts feature-addition
+      Then feature-addition reports that docs/spec/glossary.md or docs/spec/work/term-candidates.md must exist
+      And feature-addition suggests running brownfield-onboarding
+
     Scenario: The brownfield Stage 1 exit checks the same four anchor files
-      Given a project in brownfield onboarding with docs/spec/architecture.dsl, docs/spec/scope-map.md, and docs/spec/glossary.md
+      Given a project in brownfield onboarding with docs/spec/architecture.dsl, docs/spec/scope-map.md, and docs/spec/work/term-candidates.md
       And the project has no docs/agent-context.md
       When the Stage 1 exit check of brownfield-onboarding runs
       Then the check reports docs/agent-context.md as missing
@@ -540,10 +557,11 @@ Feature: Core artifact layout
       Then the "Billing" section of docs/spec/glossary.md has a row for "Payout" with Term, Definition, and Avoid
       # @packages/factory/skills/domain-modeling/SKILL.md
 
-    Scenario: reverse-map seeds the domain vocabulary into the glossary
+    Scenario: reverse-map records the domain vocabulary as term candidates
       Given a project in the new layout in brownfield onboarding
       When reverse-map extracts the domain vocabulary from the code
-      Then docs/spec/glossary.md holds the extracted terms in tables with the columns Term, Definition, and Avoid
+      Then docs/spec/work/term-candidates.md has one row with status candidate for each extracted term
+      And reverse-map writes no docs/spec/glossary.md
       And reverse-map writes no docs/CONTEXT.md
       # @packages/factory/skills/reverse-map/SKILL.md
 
