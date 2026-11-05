@@ -10,7 +10,7 @@ agents:
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
     tokens: 1409
-    total_tokens: 8729
+    total_tokens: 8696
     inputs:
       required:
         - any_of:
@@ -183,7 +183,7 @@ agents:
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
     tokens: 2333
-    total_tokens: 5739
+    total_tokens: 5706
     inputs:
       required:
         - type: feature
@@ -279,7 +279,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 4733
-    total_tokens: 14202
+    total_tokens: 14201
     inputs:
       required:
         - type: story
@@ -382,7 +382,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1286
-    total_tokens: 9833
+    total_tokens: 9800
     inputs:
       required:
         - type: feature
@@ -421,8 +421,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2294
-    total_tokens: 22097
+    tokens: 2183
+    total_tokens: 13678
     inputs:
       required:
         - type: scope-map
@@ -451,28 +451,7 @@ agents:
         - path_pattern: docs/reviews/reconciliation-*.md
           validator: ""
           required: true
-        - path_pattern: docs/spec/*.md
-          validator: ""
-          required: false
-        - path_pattern: docs/spec/areas/*.md
-          validator: ""
-          required: false
-        - path_pattern: docs/spec/features/*.feature
-          validator: ""
-          required: false
-        - path_pattern: docs/spec/scope-map.md
-          validator: ""
-          required: false
-        - path_pattern: docs/*.md
-          validator: ""
-          required: false
-        - path_pattern: docs/adr/*.md
-          validator: ""
-          required: false
-        - path_pattern: docs/spec/glossary.md
-          validator: ""
-          required: false
-        - path_pattern: docs/findings/RECON-*.md
+        - path_pattern: docs/findings/BUG-*.md
           validator: ""
           required: false
   - name: requirements-agent
@@ -481,7 +460,7 @@ agents:
     description: "Derive scope and behaviour from an accepted proposal: scope map, consolidated Gherkin feature file, gaps report, and area specs where the stakeholder asks for depth. When no proposal exists, capture a vision and clarify requirements to produce one."
     path: agents/requirements-agent.md
     tokens: 1703
-    total_tokens: 11588
+    total_tokens: 11555
     inputs:
       required:
         - any_of:
@@ -878,7 +857,7 @@ skills:
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
     path: skills/reconcile-spec/SKILL.md
-    tokens: 978
+    tokens: 1165
   - name: spec-feedback
     category: implementation
     description: Check whether specification or architecture drifted after implementation reveals gaps, changed rules, or inaccurate contracts, and write each drift as a row of the story's spec-feedback report. Use when the user mentions spec drift, docs are stale, or implementation contradicts the spec.
@@ -1041,7 +1020,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 16123
+    total_tokens: 16090
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -1055,7 +1034,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3373
-    total_tokens: 57557
+    total_tokens: 49072
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1065,7 +1044,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 16253
+    total_tokens: 16187
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1077,7 +1056,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 955
-    total_tokens: 49024
+    total_tokens: 40604
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1094,7 +1073,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4667
-    total_tokens: 103547
+    total_tokens: 95028
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1112,7 +1091,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2745
-    total_tokens: 102915
+    total_tokens: 94396
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1128,7 +1107,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 16756
+    total_tokens: 16690
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1185,7 +1164,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3008
+    tokens: 3007
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -1193,7 +1172,7 @@ rulebooks:
   - name: commit-conventions
     category: conventions
     path: rulebooks/conventions/commit-conventions.md
-    tokens: 844
+    tokens: 811
   - name: context-format
     category: conventions
     path: rulebooks/conventions/context-format.md

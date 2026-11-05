@@ -21,20 +21,10 @@ il = load_script("index-lint")
 
 FACTORY = REPO_ROOT / "packages" / "factory"
 
-# Today's gaps. Each entry fails the producer check until the named story
-# removes it. The list is strict: a listed entry that passes fails the test.
-# No story adds an entry.
-EXPECTED_FAILURES = {
-    "docs/spec/scope-map.md": "ST-0363",
-    "docs/spec/features/*.feature": "ST-0363",
-    "docs/spec/areas/*.md": "ST-0363",
-    "docs/spec/glossary.md": "ST-0363",
-    "docs/spec/entity-model.md": "ST-0363",
-    "docs/spec/state-machines.md": "ST-0363",
-    "docs/spec/validation-rules.md": "ST-0363",
-    "docs/spec/interface-contracts.md": "ST-0363",
-    "docs/agent-context.md": "ST-0363",
-}
+# Gaps that a named story still has to close. The list is strict: a listed
+# entry that passes fails the test. No story adds an entry. It is empty now:
+# every core list entry has one reviewed producer.
+EXPECTED_FAILURES: dict[str, str] = {}
 
 
 def producer_finding(agents: list[dict], entry: dict) -> str | None:
@@ -239,8 +229,9 @@ class TestSt0347WorkingOutput:
 
 @pytest.mark.spec("CAO-01-LN-01")
 class TestSt0347ExpectedFailureList:
-    def test_st_0347_listed_entry_that_passes_is_named(self):
-        listed = next(iter(EXPECTED_FAILURES))
+    def test_st_0347_listed_entry_that_passes_is_named(self, monkeypatch):
+        monkeypatch.setitem(EXPECTED_FAILURES, "docs/spec/glossary.md", "ST-0000")
+        listed = "docs/spec/glossary.md"
         error = expectation_error(listed, None)
         assert error is not None
         assert error.startswith(f"{listed}: expected failure that now passes")
@@ -249,7 +240,10 @@ class TestSt0347ExpectedFailureList:
         finding = "docs/spec/architecture.dsl: 2 producers: a (x), b (y)"
         assert expectation_error("docs/spec/architecture.dsl", finding) == finding
 
-    def test_st_0347_listed_failure_and_unlisted_pass_give_no_error(self):
+    def test_st_0347_listed_failure_and_unlisted_pass_give_no_error(
+        self, monkeypatch
+    ):
+        monkeypatch.setitem(EXPECTED_FAILURES, "docs/spec/glossary.md", "ST-0000")
         assert (
             expectation_error(
                 "docs/spec/glossary.md", "docs/spec/glossary.md: no review"
@@ -278,6 +272,9 @@ class TestSt0347RealCatalog:
             entry["path_pattern"], producer_finding(_real_agents(), entry)
         )
         assert error is None, error
+
+    def test_st_0363_expected_failure_list_is_empty(self):
+        assert EXPECTED_FAILURES == {}
 
     def test_st_0347_every_expected_failure_is_on_the_core_list(self):
         patterns = {e["path_pattern"] for e in _real_core_list()}

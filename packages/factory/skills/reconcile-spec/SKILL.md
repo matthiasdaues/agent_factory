@@ -36,26 +36,38 @@ Classify each discrepancy:
 
 Order by severity: code defects → spec-stale (most-referenced first) → undocumented → speculative.
 
-## Step 2 — Update
+## Step 2 — Write the rows
 
-For **spec stale** and **undocumented** items: update the affected spec or architecture file. For new ADRs, invoke `write-adr`. Run `spec-lint` and `arch-lint` after updates.
+This skill changes no specification, architecture, ADR, or agent-context file. It writes one row per drift, for the owner of the artifact. Never edit the artifact.
 
-For **terminology drift**: write one row in the discrepancy table of the reconciliation report, with the columns Artifact, Drift, Evidence, Owner, and Status. The row has Artifact `docs/spec/glossary.md`, Drift naming both terms, Evidence naming the code path and line, Owner `domain-modeling-agent`, and Status `open`. It changes neither `docs/spec/glossary.md` nor `docs/spec/work/term-candidates.md`. Only the domain-modeling agent writes the glossary, and it acts on the row first.
+Each row has the columns Artifact, Drift, Evidence, Owner, and Status, as [interface-contracts.md § Report rows](../../../../docs/spec/interface-contracts.md#report-rows-spec-feedback-and-reconciliation) defines them. Status is `open`. Owner is the producer of the artifact:
 
-For **code defects**: do not fix — file per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `RECON`.
+| Artifact                                                                           | Owner                   |
+| ---------------------------------------------------------------------------------- | ----------------------- |
+| Scope map, `.feature` files, `docs/spec/areas/*.md`                                | `requirements-agent`    |
+| `glossary.md`, entity model, state machines, validation rules, interface contracts | `domain-modeling-agent` |
+| `docs/*.md`, `docs/adr/*.md`, `architecture.dsl`                                   | `architecture-agent`    |
+| `docs/agent-context.md`                                                            | `virgil`                |
+| `backlog/ST-NNNN.md` (`tests:` field)                                              | `planning-agent`        |
 
-Format every updated spec/architecture file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+For **terminology drift**: the row has Artifact `docs/spec/glossary.md`, Drift naming both terms, Evidence naming the code path and line, Owner `domain-modeling-agent`, and Status `open`. It changes neither `docs/spec/glossary.md` nor `docs/spec/work/term-candidates.md`. Only the domain-modeling agent writes the glossary, and it acts on the row first.
+
+For **code defects**: do not fix and do not write a row. File per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `BUG`.
 
 ## Step 3 — Write the reconciliation report
 
-Save as `docs/reviews/reconciliation-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md), adding:
+The report is the only output besides `BUG` findings. Save it per [report-format.md](../../rulebooks/conventions/report-format.md) under these names:
+
+- The first run of a day writes `docs/reviews/reconciliation-YYYY-MM-DD.md`.
+- A second run on the same day writes `reconciliation-YYYY-MM-DD-2.md`, a third `-3`, and so on. Never change an earlier report.
+- Reports sort by date, then by suffix. The file without a suffix is run 1 of its day, and the highest suffix of the latest date is the previous report.
+
+The report holds:
 
 1. **Scope** — code paths and spec files compared.
-2. **Discrepancy table** — one row per finding with classification and action taken.
-3. **Spec files updated** — list with one-line summary per change.
-4. **Code defects filed** — findings handed to the implementation agent.
-5. **Linter results** — `spec-lint` and `arch-lint` exit codes after updates.
+2. **Discrepancy table** — one row per drift, with the five columns above.
+3. **Code defects filed** — `BUG` findings handed to the developer agent.
 
-## Step 4 — Verify prior findings (repeat passes only)
+## Step 4 — Check the previous report (repeat passes only)
 
-Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): for each open `RECON` finding, verify the fix and set `resolved` or annotate what's still missing — **and** re-run Step 1's full truth-map diff fresh, not just the prior findings list, to catch drift the fix itself introduced.
+Per [review-loop-discipline.md](../../rulebooks/conventions/review-loop-discipline.md): read the previous report and check each row marked `fixed` against the artifact — **and** re-run Step 1's full truth-map diff fresh, not just the prior rows, to catch drift the fix itself introduced. Write the result as rows of the new report.

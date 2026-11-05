@@ -8,8 +8,6 @@ description: >-
   where the docs drifted from reality and brings them back into alignment.
 skills:
   - reconcile-spec
-  - model-structurizr-slice
-  - capture-context
   - handoff
 inputs:
   required:
@@ -39,28 +37,7 @@ outputs:
     - path_pattern: "docs/reviews/reconciliation-*.md"
       validator:
       required: true
-    - path_pattern: "docs/spec/*.md"
-      validator:
-      required: false
-    - path_pattern: "docs/spec/areas/*.md"
-      validator:
-      required: false
-    - path_pattern: "docs/spec/features/*.feature"
-      validator:
-      required: false
-    - path_pattern: docs/spec/scope-map.md
-      validator:
-      required: false
-    - path_pattern: "docs/*.md"
-      validator:
-      required: false
-    - path_pattern: "docs/adr/*.md"
-      validator:
-      required: false
-    - path_pattern: docs/spec/glossary.md
-      validator:
-      required: false
-    - path_pattern: "docs/findings/RECON-*.md"
+    - path_pattern: "docs/findings/BUG-*.md"
       validator:
       required: false
 triggers:
@@ -73,7 +50,7 @@ handoff-to:
   - qa-agent
   - implementation-agent
   - spec-review-agent
-version: 0.5.1
+version: 0.6.0
 ---
 
 # Reconciliation Agent
@@ -86,7 +63,7 @@ If this agent spawns sub-agents, follow [dispatch-contract.md § Sub-Agent Addre
 
 ## Role
 
-Ask the inverse of spec-review: **"Does the spec still match the code?"** Make the specification truthful again.
+Ask the inverse of spec-review: **"Does the spec still match the code?"** Report every drift as one row for the owner of the drifted artifact. This agent changes no file but its report and its `BUG` findings.
 
 ## Lifecycle
 
@@ -99,43 +76,43 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 **Timing:** One reconciliation pass per feature branch, at Phase 5, pre-merge to dev. Do not run per story merge — that surfaces partial-Rule noise before the slice's `.feature` file is complete.
 
 1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/scope-map.md`, `docs/spec/features/*.feature`, `docs/spec/architecture.dsl` (the canonical triad); the models in `docs/spec/` and `docs/spec/areas/`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/spec/glossary.md`; the current slice's `docs/spec/features/<feature-name>.feature`, when one governs the slice. A story's behaviour lives in its scope-map row and the feature file that row names.
-2. **Reconcile** — Build truth maps from code and spec, diff them, classify discrepancies, update stale docs, file code defects per [finding-format.md](../rulebooks/conventions/finding-format.md). Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description> (RECON-NNNN)`. Report per [report-format.md](../rulebooks/conventions/report-format.md).
+2. **Reconcile** — Build truth maps from code and spec, diff them, and classify discrepancies. Write each drift as a row of the run's report, with the owner of the artifact. Change no other file. File code defects as `BUG` findings per [finding-format.md](../rulebooks/conventions/finding-format.md). Write the report to `docs/reviews/reconciliation-<date>.md` per [interface-contracts.md § Report rows](../../../docs/spec/interface-contracts.md#report-rows-spec-feedback-and-reconciliation). A second run on the same day writes `-2`, a third `-3`; earlier reports stay unchanged. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description>`.
 3. **Backfill `@`-references** (when a `.feature` file governs the slice) — Per [cross-reference-format.md § `@`-references in `.feature` files](../rulebooks/conventions/cross-reference-format.md#-references-in-feature-files):
-   - For each Scenario without an `@`-ref, inspect the step definitions and code, then add `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`).
-   - After backfill, every Rule MUST have at least one `@`-ref (its own or from a Scenario). A Rule with none is filed as a `RECON` finding.
-   - A Scenario still without an `@`-ref means no implementing code was found — file as a separate `RECON` finding.
+   - For each Scenario without an `@`-ref, inspect the step definitions and code, then write a row for the requirements agent with the proposed `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`) as the drift. Edit no `.feature` file.
+   - After backfill, every Rule MUST have at least one `@`-ref (its own or from a Scenario). A Rule with none is a row for the requirements agent.
+   - A Scenario still without an `@`-ref means no implementing code was found — write a separate row for the requirements agent.
 4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
    - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
    - **Skip rows without a `.feature` link**: they have no feature file to compare against.
-   - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Add it as `implemented` with its `.feature` link, and file a `RECON` finding.
-   - **Drift** — a `specified` Rule no longer in the `.feature` file means a scenario was dropped or merged. File a `RECON` finding — do not silently remove the row.
-   - Move every `specified` Rule still present to `implemented`. Update links if a `.feature` file moved under `docs/~archive/`.
-   - **PR body**: list every newly discovered Rule so the reviewer sees the scope change. If the merge is script-owned with no PR, record the list in the reconciliation report instead.
-5. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `RECON` finding, **and** re-reconcile fresh (Steps 2–4) to catch new drift.
-6. **Reconcile agent context** — Run a concern-registry health check against `docs/agent-context.md`. Validate that every concern section has valid `Read:` paths (each path resolves to an existing file or directory in the project). Verify that the concern vocabulary matches the project's documentation structure — section headings should correspond to actual project concerns, not stale or orphaned topics. Report missing paths as warnings and orphaned sections as suggestions for removal or update. The user confirms each suggestion — edits are applied directly to `docs/agent-context.md` (or via `capture-context` for structural changes) — or dismisses it. Dismissed suggestions are not re-surfaced in the same reconciliation pass.
+   - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Write a row for the requirements agent, who adds it as `implemented` with its `.feature` link.
+   - **Drift** — a `specified` Rule no longer in the `.feature` file means a scenario was dropped or merged. Write a row for the requirements agent — do not silently remove the row.
+   - Write a row for the requirements agent for every `specified` Rule still present, to move it to `implemented`, and for each link to a `.feature` file that moved under `docs/~archive/`.
+   - **PR body**: list every newly discovered Rule so the reviewer sees the scope change. If the merge is script-owned with no PR, record the list in the reconciliation report instead (one row per Rule).
+5. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): read each row of the previous report (the highest suffix of the latest date) and check it again, **and** re-reconcile fresh (Steps 2–4) to catch new drift.
+6. **Reconcile agent context** — Run a concern-registry health check against `docs/agent-context.md`. Validate that every concern section has valid `Read:` paths (each path resolves to an existing file or directory in the project) and that section headings correspond to actual project concerns. Write one row per missing path or orphaned section, with Owner `virgil`. Edit no file.
 7. **Audit test traceability** — For each story file in the backlog:
-   - Read the `tests:` field and verify that every listed test file exists on disk. When a listed file is missing (renamed, moved, or deleted), locate the correct path and backfill the `tests:` field. File a `RECON-TEST-PATH` finding noting the correction.
-   - When a story has no `tests:` field but test files matching the story's `touches:` scope exist in the test suite, backfill the `tests:` field with the discovered paths. File a `RECON-TEST-PATH` finding noting the addition.
-   - Read the `### Ownership Resolution` table in `backlog/epics.md` for each EPIC. For each contract with an ownership assignment, verify that the owning story's `tests:` field includes at least one test covering that contract. When ownership exists but no corresponding test coverage is found, file a `RECON-TEST-COVERAGE` finding.
+   - Read the `tests:` field and verify that every listed test file exists on disk. When a listed file is missing (renamed, moved, or deleted), locate the correct path and write a row for the planning agent with the correct path.
+   - When a story has no `tests:` field but test files matching the story's `touches:` scope exist in the test suite, write a row for the planning agent with the discovered paths.
+   - Read the `### Ownership Resolution` table in `backlog/epics.md` for each EPIC. For each contract with an ownership assignment, verify that the owning story's `tests:` field includes at least one test covering that contract. When ownership exists but no corresponding test coverage is found, file a `QA` finding with `owner: planning-agent`.
    - Test references stay in story files (`backlog/ST-NNNN.md`), not in `.feature` files — consistent with [cross-reference-format.md](../rulebooks/conventions/cross-reference-format.md).
 
-**Pause point:** Present the discrepancy table before committing updates. Human decides: update spec or change code? For each descriptive claim that names something the code lacks, apply the [Breakage Test](../rulebooks/conventions/working-discipline.md#when-a-document-and-reality-disagree): recommend removing the claim unless the table names what breaks without the missing thing.
+**Pause point:** Present the discrepancy table before committing the report. The human decides whether the owner fixes the artifact or the code changes. For each descriptive claim that names something the code lacks, apply the [Breakage Test](../rulebooks/conventions/working-discipline.md#when-a-document-and-reality-disagree): recommend removing the claim unless the table names what breaks without the missing thing.
 
 ## Completion Criteria
 
-- Every discrepancy classified, docs updated (after approval), code defects filed
-- `spec-lint` and `arch-lint` pass
-- Every Rule in the slice's `.feature` file has at least one `@`-ref, or a `RECON` finding is filed for the ones that don't
-- Scope map reflects the `.feature` file's Rules: discoveries filed, drift filed, migration rows skipped
-- Prior findings resolved or annotated
-- Agent-context concern sections validated: `Read:` paths resolve, vocabulary matches project structure
-- Every story's `tests:` field lists test files that exist on disk (or corrections filed as `RECON-TEST-PATH`)
-- Every contract with an ownership assignment has corresponding test coverage (or gaps filed as `RECON-TEST-COVERAGE`)
+- Every discrepancy classified and written as a row with its owner; code defects filed as `BUG` findings
+- No file changed but the report and the findings
+- Every Rule in the slice's `.feature` file has at least one `@`-ref, or a row exists for each one that doesn't
+- Scope map reflects the `.feature` file's Rules: discoveries and drift written as rows, migration rows skipped
+- Rows of the previous report checked again
+- Agent-context concern sections validated; each failure is a row
+- Every story's `tests:` field lists test files that exist on disk (or a row exists for each correction)
+- Every contract with an ownership assignment has corresponding test coverage (or a `QA` finding exists for each gap)
 
 ## Handoff
 
 **Code defects** → Implementation Agent: _"Reconciliation found [N] code defects. Fix and re-submit."_
 
-**Major spec changes** → Spec Review Agent: _"Reconciliation updated [N] spec files. Run spec-review, then QA."_
+**Open rows** → the owner named in each row: _"Reconciliation wrote [N] rows for you. Fix the artifacts and set each row to `fixed`."_
 
-**Docs updated, lints pass / no discrepancies** → QA Agent: _"Spec reconciled. Run QA agent."_
+**No discrepancies** → QA Agent: _"Spec reconciled. Run QA agent."_
