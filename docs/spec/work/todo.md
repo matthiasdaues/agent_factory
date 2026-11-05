@@ -227,8 +227,9 @@ loop has a threshold below which a finding is recorded and left unfixed. So
 late passes spend tokens on edge cases that an earlier fix created, and
 `story-gates` in manual mode blocks on every open finding.
 
-**Action:** write a separate proposal for a threshold that applies to every
-review loop. A finding blocks only when quantifiable measures put it above
-the threshold: a named failure case, a risk assessment, and an expected cost,
-that is, the probability times the cost of the failure. The proposal also
-decides which of these measures can be quantified reliably.
+**Action:** two proposals answer this item.
+[finding-classification.md](../../proposals/finding-classification.md) defines
+which finding blocks: a computed severity, a register for `minor` findings, and
+a human override. [review-loop-cap.md](../../proposals/review-loop-cap.md)
+applies that rule to every review loop and stops each loop after three passes.
+Set this item to `resolved` when both proposals are `accepted`.
