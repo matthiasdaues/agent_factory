@@ -113,7 +113,7 @@ erDiagram
     ANCHOR_FILE_SET {
         string architecture_dsl "docs/spec/architecture.dsl"
         string scope_map "docs/spec/scope-map.md"
-        string glossary "docs/spec/glossary.md"
+        string vocabulary "docs/spec/glossary.md or docs/spec/work/term-candidates.md — either one passes"
         string agent_context "docs/agent-context.md"
     }
 ```
@@ -127,7 +127,7 @@ erDiagram
 - **DISPATCH_LEDGER** is the script-owned dispatch record at `.current-work/<feature-branch>/dispatch-ledger.yaml`. Each story entry tracks lifecycle fields including `tier`, `attempts`, and the pre-spawn `prepared` state, and each `WaveCloseout` entry records a wave summary (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`).
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
 - **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding. Rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified. The `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](features/newcomer-onboarding.feature).
-- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding, and the brownfield Stage 1 exit checks the same set. The four files are checked by file existence, not by a gate marker. The glossary and the agent context file both count: one holds the domain vocabulary, the other routes agents to it (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). Their presence signals readiness for feature work. The absence of any one suggests running `brownfield-onboarding` first. See [validation-rules.md § Anchor-file prerequisite](validation-rules.md#anchor-file-prerequisite-feature-addition).
+- **ANCHOR_FILE_SET** is the minimum prerequisite for `feature-addition` after brownfield-lite onboarding, and the brownfield Stage 1 exit checks the same set. The four files are checked by file existence, not by a gate marker. The vocabulary anchor passes when `docs/spec/glossary.md` or `docs/spec/work/term-candidates.md` exists, because `reverse-map` writes term candidates, not glossary rows (stakeholder, 2026-11-05). The agent context file routes agents to the vocabulary (gap CAL-G01 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). Their presence signals readiness for feature work. The absence of any one suggests running `brownfield-onboarding` first. See [validation-rules.md § Anchor-file prerequisite](validation-rules.md#anchor-file-prerequisite-feature-addition).
 
 ## Test-Design Entities
 

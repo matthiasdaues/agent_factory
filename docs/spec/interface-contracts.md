@@ -377,12 +377,12 @@ gates:
 
 Each gate writes one result file to `.current-work/<gate>/<story-id>.json`. `premerge-check` reads it before a story merge and accepts two shapes (`read_gate_result`). A missing file fails as `result not found`. A file that is not valid JSON, or holds neither shape, fails as `invalid result`.
 
-| Gate                 | Writer                                        | Shape                                                   | Passes when                                             |
-| -------------------- | --------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------- |
-| `crap-score`         | `packages/factory/scripts/crap-score`         | A list of rows, one per function, each with `pass_fail` | Every row has `pass_fail: "pass"`; an empty list passes |
-| `dependency-check`   | `packages/factory/scripts/dependency-check`   | A list of rows, one per rule, each with `pass_fail`     | Every row has `pass_fail: "pass"`; an empty list passes |
-| `test-design-verify` | `packages/factory/scripts/test-design-verify` | An object with `passed`                                 | `passed` is `true`                                      |
-| `mutation-testing`   | `packages/factory/scripts/mutation-testing`   | An object with `passed`                                 | `passed` is `true`                                      |
+| Gate                 | Writer                                        | Shape                                                                                                                               | Passes when                                             |
+| -------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `crap-score`         | `packages/factory/scripts/crap-score`         | A list of rows, one per function, each with `pass_fail`                                                                             | Every row has `pass_fail: "pass"`; an empty list passes |
+| `dependency-check`   | `packages/factory/scripts/dependency-check`   | A list of rows, each with `pass_fail`: one `fail` row per violating import and per unparsable file, one `pass` row per passing rule | Every row has `pass_fail: "pass"`; an empty list passes |
+| `test-design-verify` | `packages/factory/scripts/test-design-verify` | An object with `passed`                                                                                                             | `passed` is `true`                                      |
+| `mutation-testing`   | `packages/factory/scripts/mutation-testing`   | An object with `passed`                                                                                                             | `passed` is `true`                                      |
 
 The gate script `packages/factory/scripts/mutation-testing` runs as `mutation-testing --story-id ST-NNNN [--testing-yaml PATH] [--report-dir DIR]`. It runs `gates.mutation_testing.command` within the time limit and writes `<report-dir>/<story-id>.json`, by default under `.current-work/mutation-testing/`. It prints the result to stdout. It exits `0` when the command exited `0` within the limit, `1` when the gate failed or could not run, and `2` on a usage error (BR-066).
 
