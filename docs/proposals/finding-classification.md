@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Finding Classification
-status: open
+status: accepted
 owner: agent-factory
 created: 2026-11-04
 updated: 2026-11-05
