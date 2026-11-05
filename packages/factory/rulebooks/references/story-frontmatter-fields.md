@@ -24,7 +24,7 @@ The template defaults to `[]`; the planner fills it from the `gates` section of 
 When the field is absent from an older story, `premerge-check` takes the enabled gates from the `gates` section of `docs/testing.yaml`.
 Without that section, it falls back to `crap-score` alone; no default runs `mutation-testing`.
 `docs/charter/house-rules.md` is no gate source; a leftover `default_quality_gates` line there only prints a warning.
-If the story excludes a gate that is enabled in `testing.yaml`, justify the exclusion in the body's Constraints section.
+If the story excludes a gate that is enabled in `testing.yaml`, justify the exclusion in the frontmatter's `notes` field.
 
 ## tests (optional, written at implementation time)
 

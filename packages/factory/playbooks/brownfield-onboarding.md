@@ -79,7 +79,7 @@ Invoke the `reverse-map` skill. It sweeps tests first (highest confidence), then
 **Expected outputs**:
 
 - `docs/spec/scope-map.md` (5-column format: Rule, Status, Confidence, Sources, Feature Link)
-- `docs/spec/glossary.md` (domain vocabulary seeded from type names, class names, module names)
+- `docs/spec/work/term-candidates.md` (domain vocabulary from type names, class names, module names, as term candidates for the domain-modeling agent)
 
 The scope map meets the architecture agent's required input, so `run-step` can offer that agent without a `.feature` file. Proceed to Step 2.2.
 

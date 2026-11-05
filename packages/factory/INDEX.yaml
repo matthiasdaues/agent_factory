@@ -10,7 +10,7 @@ agents:
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
     tokens: 1555
-    total_tokens: 8842
+    total_tokens: 8846
     inputs:
       required:
         - any_of:
@@ -130,8 +130,8 @@ agents:
     tier: standard
     description: Run retrospectives, extract action items, and track process improvements across sessions.
     path: agents/coaching-agent.md
-    tokens: 504
-    total_tokens: 1290
+    tokens: 532
+    total_tokens: 1349
     inputs:
       context:
         - docs/spec/glossary.md
@@ -144,6 +144,9 @@ agents:
         - path_pattern: docs/reviews/retro-*.md
           validator: ""
           required: true
+        - path_pattern: docs/spec/work/term-candidates.md
+          validator: ""
+          required: false
   - name: code-review-agent
     title: Code Review Agent
     tier: strong
@@ -183,7 +186,7 @@ agents:
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
     tokens: 2333
-    total_tokens: 5706
+    total_tokens: 5748
     inputs:
       required:
         - type: feature
@@ -221,7 +224,7 @@ agents:
     description: "Write the domain structure family once a feature file exists: the glossary, the entity model, and the state machines, validation rules, interface contracts, and payload schemas the domain needs."
     path: agents/domain-modeling-agent.md
     tokens: 1355
-    total_tokens: 4658
+    total_tokens: 4662
     inputs:
       required:
         - type: scope-map
@@ -278,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 4733
-    total_tokens: 14201
+    tokens: 4735
+    total_tokens: 14203
     inputs:
       required:
         - type: story
@@ -852,7 +855,7 @@ skills:
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
     path: skills/implement-issue/SKILL.md
-    tokens: 883
+    tokens: 925
   - name: reconcile-spec
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
@@ -952,7 +955,7 @@ skills:
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
     path: skills/retrospective/SKILL.md
-    tokens: 786
+    tokens: 817
   - name: run-step
     category: utility
     description: Resolve the next agent from agent eligibility preconditions, then dispatch it. Re-derives state from disk on every invocation.
@@ -1020,7 +1023,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 16236
+    total_tokens: 16240
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -1036,8 +1039,8 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
       - reconciliation-agent
-    tokens: 3400
-    total_tokens: 53992
+    tokens: 3411
+    total_tokens: 54011
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1047,7 +1050,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 681
-    total_tokens: 16187
+    total_tokens: 16229
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1059,7 +1062,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1502
-    total_tokens: 41240
+    total_tokens: 41242
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1076,7 +1079,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4756
-    total_tokens: 95352
+    total_tokens: 95358
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1094,7 +1097,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2844
-    total_tokens: 94730
+    total_tokens: 94795
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1110,7 +1113,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 16690
+    total_tokens: 16732
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1251,7 +1254,7 @@ rulebooks:
   - name: state-machine-notation
     category: conventions
     path: rulebooks/conventions/state-machine-notation.md
-    tokens: 746
+    tokens: 750
   - name: testing-strategy
     category: conventions
     path: rulebooks/conventions/testing-strategy.md
@@ -1259,7 +1262,7 @@ rulebooks:
   - name: testing-yaml-prerequisite
     category: conventions
     path: rulebooks/conventions/testing-yaml-prerequisite.md
-    tokens: 131
+    tokens: 161
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
@@ -1307,7 +1310,7 @@ rulebooks:
   - name: story-frontmatter-fields
     category: references
     path: rulebooks/references/story-frontmatter-fields.md
-    tokens: 808
+    tokens: 811
   - name: structurizr-behavior-checklist
     category: references
     path: rulebooks/references/structurizr-behavior-checklist.md

@@ -232,7 +232,7 @@ The gate list has three parts (BR-066). `premerge-check` requires a passing resu
 
 **Precedence for the test guardrails (highest wins):**
 
-1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's Constraints section.
+1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's `notes` field.
 2. **The `gates` section of `testing.yaml`** (at `docs/testing.yaml`) — fallback when the story field is absent (older stories written before the planner filled this field). Each gate with `enabled: true` runs.
 3. **Factory default** — if neither declares gates, run `crap-score` alone (fail-closed). No default runs `mutation-testing`, because its command lives only in the `gates` section.
 
