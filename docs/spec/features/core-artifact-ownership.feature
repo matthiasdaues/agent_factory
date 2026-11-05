@@ -720,6 +720,7 @@ Feature: Core artifact ownership
       Given the previous report has a fixed row for docs/spec/state-machines.md
       When the reconciliation agent runs again
       Then it checks the row's mismatch against the code
+      And its own report has no row for that mismatch
 
     Scenario: A second run on the same day writes a numbered report
       Given docs/reviews/reconciliation-2026-11-03.md exists
@@ -756,6 +757,36 @@ Feature: Core artifact ownership
       When the orchestrator dispatches the architecture agent for a row on docs/spec/architecture.dsl
       Then the dispatch names the row and the report and no skill
       And core-artifacts.yaml holds no skill for the entry docs/spec/architecture.dsl
+
+    Scenario: The orchestrator records the stakeholder's review of a fixed agent-context row
+      Given docs/reviews/reconciliation-2026-11-03.md has a fixed row for docs/agent-context.md owned by Virgil
+      And the declaration of docs/agent-context.md has reviewed_by: [stakeholder]
+      When the orchestrator runs the backfeed step
+      Then it dispatches no reviewer agent for the row
+      And it presents Virgil's fix to the stakeholder in its own session
+      And it sets the row to confirmed or rejected as the stakeholder decides
+
+    Scenario: An agent reviewer acts before the stakeholder
+      Given the declaration of an artifact names an agent and stakeholder in reviewed_by:
+      And the report has a fixed row for that artifact
+      When the orchestrator runs the backfeed step
+      Then it dispatches the agent reviewer first
+      And it presents the fix to the stakeholder only after the agent reviewer confirmed it
+
+    Scenario: The backfeed picks up a fixed row left by an earlier report
+      Given docs/reviews/reconciliation-2026-11-03.md has a fixed row for docs/spec/state-machines.md
+      And the session stopped before the spec-review agent ran
+      And docs/reviews/reconciliation-2026-11-10.md has no row for that mismatch
+      When the orchestrator runs the backfeed step after the run of 2026-11-10
+      Then it dispatches the spec-review agent for the row of 2026-11-03
+      And the spec-review agent sets the status in reconciliation-2026-11-03.md
+
+    Scenario: A confirmed drift that appears again gets a new row
+      Given the row for docs/spec/state-machines.md in reconciliation-2026-11-03.md is confirmed
+      And the code later renames WAITING back to PENDING
+      When the reconciliation agent runs on 2026-11-10
+      Then reconciliation-2026-11-10.md has a new open row for docs/spec/state-machines.md
+      And the confirmed row of 2026-11-03 is unchanged
 
     Scenario: A row on an artifact without a declared review closes at fixed
       Given the reconciliation report has an open row for docs/adr/0012-dispatcher-owned-gate-loop.md owned by the architecture agent
