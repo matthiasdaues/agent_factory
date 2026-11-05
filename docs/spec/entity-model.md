@@ -233,7 +233,7 @@ erDiagram
     TESTING_YAML {
         string path "docs/testing.yaml"
         string role "machine-consumed test configuration"
-        string writer "detect-test-regime (sole owner)"
+        string producer "test-strategy-agent, from the detect-test-regime scan"
     }
     TEST_SUITE {
         string name
@@ -252,12 +252,11 @@ erDiagram
 - **CONCERN_ENTRY** has a description and at least one `Read:` path. `Boundary:` paths are optional. Cross-cutting entries always apply. Story frontmatter selects technical and domain entries.
 - **CONCERN_ENTRY.folded** marks a domain concern that `capture-context --fold-context-map` wrote from a bounded context of a context map or a routing-only `CONTEXT.md`. A folded concern need not match a scope-map area, and `capture-context --update --scan` keeps it. The mark is the line `Folded: yes` directly after the concern's description line, and `concern-lint` accepts it only under `## Domain concerns` (CAL-G03 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)).
 - **STORY.concerns** is advisory and uses only confirmed registry headings. A missing vocabulary entry is proposed and confirmed before use.
-- **TESTING_YAML** is not routing content. Factory consumers resolve only `docs/testing.yaml`. There is no legacy-path fallback.
+- **TESTING_YAML** is a seam file. The test-strategy agent produces it and writes each change after the stakeholder confirms it. `init-factory` may create a first draft once, when the file is missing and the scan finds one test command (CAO-G30). The file is not routing content. Factory consumers resolve only `docs/testing.yaml`. There is no legacy-path fallback.
 - **CTX_FINDING** is produced by `concern-lint`. Legacy YAML context or `docs/charter/` beside the registry is an error.
 
 ## Referenced from
 
-- `actor-goal-list.md`
 - [test-design.feature](features/test-design.feature)
 - [agent-context.feature](features/agent-context.feature)
 
@@ -298,7 +297,7 @@ erDiagram
 - **GLOSSARY_SECTION.heading** comes from its source during the migration. A chapter 12 section keeps its heading. A table directly under the chapter 12 title becomes the section "Terms". The terms of a `CONTEXT.md` become a section named after that file's title. The terms of a per-context `CONTEXT.md` become that context's section.
 - **GLOSSARY_ROW.avoid** is empty for every row the migration takes from a two-column table. A row converted from the list form of `CONTEXT.md` takes its `_Avoid_:` entry.
 - **GLOSSARY_ROW.term** may appear in more than one section after the migration. The script lists each such term, and the developer removes the duplicates in a follow-up step (DEC-18). Inside one section a term appears at most once: `domain-modeling` updates the existing row instead of adding a second one (CAL-G13 in [core-artifact-layout-gaps.md](work/core-artifact-layout-gaps.md)). `migrate-spec-layout` copies the rows of each source as they are and lists only terms in more than one section.
-- `domain-modeling` writes a new term as a row of the section for its context. `spec-lint` `GLOSS001` reads the terms from the Term column. It reports, as `info`, a term that no other core file uses, and it counts neither `glossary.md` nor the files in `docs/spec/work/` as uses.
+- The domain-modeling agent writes a confirmed term as a row of the section for its context (BR-065). `spec-lint` `GLOSS001` reads the terms from the Term column. It reports, as `info`, a term that no other core file uses, and it counts neither `glossary.md` nor the files in `docs/spec/work/` as uses.
 - **GLOSSARY_CHAPTER_STUB** keeps every chapter 12 section that holds no table, below the link line. `publish-docs` renders `docs/spec/glossary.md` wherever a manifest selects `arc42/12_glossary.md` (DEC-16).
 
 ## Local Usage Analysis Entities
@@ -808,4 +807,4 @@ erDiagram
 - **OUTPUT_DECLARATION.reviewed_by** names at least one **REVIEWER** on a core or seam artifact (BR-058). Each named agent declares the artifact as a required or a context input (BR-059).
 - **REPORT_ROW** follows the [Report Row Lifecycle](state-machines.md#report-row-lifecycle). Gap CAO-G04 decides its column names. Each story has its own spec-feedback report, so parallel developer agents never write the same file (DEC-27).
 - **TERM_CANDIDATE_ROW** follows the [Term Candidate Lifecycle](state-machines.md#term-candidate-lifecycle). **GLOSSARY_TERM** is the row of the glossary table that [§ Glossary Entities](#glossary-entities) describes.
-- **FINDING.owner** names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). The orchestrator routes each open finding to that agent. The tags `ARCH` and `QA` join the tag table, and `RECON` leaves it.
+- **FINDING.owner** names the agent that acts on the finding next. By default it is the producer of the artifact the finding is about. A `BUG` finding names the developer agent, and a `QA` finding for a missing test names the planning agent (CAO-G10). A finding about a proposal, a finding without an artifact, and a finding whose artifact spans several producers name `virgil`. The orchestrator routes each open finding to that agent. The tags `ARCH` and `QA` join the tag table, and `RECON` leaves it.
