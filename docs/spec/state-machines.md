@@ -730,6 +730,9 @@ On CounterRead:
   ChangeState(PUSHING)
 On CounterMissing:
   ChangeState(FAILED)
+On FetchRefused:
+  # the remote answers but refuses the fetch, such as for missing credentials
+  ChangeState(FAILED)
 On RemoteUnreachable:
   ChangeState(FAILED)
 
@@ -766,6 +769,7 @@ stateDiagram-v2
     [*] --> READING
     READING --> PUSHING : CounterRead
     READING --> FAILED : CounterMissing
+    READING --> FAILED : FetchRefused
     READING --> FAILED : RemoteUnreachable
     PUSHING --> CLAIMED : PushAccepted
     PUSHING --> WAITING : LeaseStale (fewer than ten in a row)
@@ -780,5 +784,5 @@ stateDiagram-v2
 #### Notes
 
 - **READING** reads the claim commit again on every loop, so the next claim sees the number that the other caller took.
-- **LeaseStale** is the event for the git messages `stale info` and `cannot lock ref … is at <sha> but expected <sha>`. Every other refusal is **PushRefused** and ends the claim after one push (DEC-23).
+- **LeaseStale** is the event for the git messages `stale info` and `cannot lock ref … is at <sha> but expected <sha>`, which git prints in English because `next-id` runs it with `LC_ALL=C`. Every other refusal is **PushRefused** and ends the claim after one push (DEC-23).
 - **FAILED** names the reason as the claim error table in [interface-contracts.md](interface-contracts.md#packagesfactoryscriptsnext-id) lists it. In every terminal state, `next-id` deletes its throwaway repository (BR-075).

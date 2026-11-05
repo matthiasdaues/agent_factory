@@ -1090,6 +1090,7 @@ the remote.
 | no `--remote` and no `origin`      | `origin`, `--remote`, and `next-id --seed` |
 | remote unreachable                 | the remote and git's error message         |
 | `refs/ids/counters` missing        | the remote and `next-id --seed`            |
+| fetch refused by the remote        | the remote and git's error message         |
 | ten stale leases in a row (BR-072) | the prefix and the last number tried       |
 | push refused for another reason    | the remote and git's error message         |
 
@@ -1098,15 +1099,20 @@ arguments before it looks for the remote.
 
 | Case                                               | Message names                       |
 | -------------------------------------------------- | ----------------------------------- |
-| a number that is not a whole number from 0 to 9999 | the argument                        |
+| a number that is not a whole number from 0 to 9998 | the argument                        |
+| two pairs for one prefix                           | the prefix                          |
 | a prefix not in the list                           | the prefix and the list of prefixes |
 | no `--remote` and no `origin`                      | `origin` and `--remote`             |
 | remote unreachable                                 | the remote and git's error message  |
+| access refused by the remote                       | the remote and git's error message  |
 | `refs/ids/counters` exists                         | the remote and `refs/ids/counters`  |
 
 git reports a stale lease as `stale info` when the client notices, and as
 `cannot lock ref … is at <sha> but expected <sha>` when the remote notices.
-`next-id` retries only on these two messages (DEC-23).
+`next-id` retries only on these two messages (DEC-23). It runs every git
+command with `LC_ALL=C`, so git prints its own messages in English. A message
+that the remote server writes keeps the server's language. This specification
+does not check which language a hosted remote such as GitHub uses.
 
 ### Claim commit message
 

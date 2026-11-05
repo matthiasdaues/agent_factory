@@ -250,3 +250,19 @@ exits `2` for `reset --hard` after `-c x=y` and for `clean -fd` after
 
 **Action:** let the hook skip git's global options before it checks for
 `push`, and add a test per option.
+
+## T-0018 — Three feature files do not parse as Gherkin
+
+- status: open
+- source: [spec-review-2026-11-05-counter-ids.md](../../reviews/spec-review-2026-11-05-counter-ids.md) and SPEC-0039 (2026-11-05)
+
+`mdformat` treats a `.feature` file as Markdown. It wraps Rules in code
+fences and escapes each `#` as `\#`, and then a Gherkin parser no longer sees
+the Rules. These files have code fences today:
+
+- `docs/spec/features/agent-context.feature`
+- `docs/spec/features/opencode-cli-integration.feature`
+- `docs/spec/features/local-usage-processing-and-analysis.feature`
+
+**Action:** restore valid Gherkin in the three files. Make `derive-feature`
+and every skill that formats its outputs name only `.md` files for `mdformat`.

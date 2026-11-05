@@ -112,6 +112,19 @@ Terms for the falsification-driven research feature (phase-6 agents and the `res
 | **Three-Stage Validation** | The fixed **schema, policy, semantic** order every research artifact must pass before the next playbook step begins. Progression blocks on the first failing stage. Split by whether a machine can decide the check.                                                                                             |       |
 | **Vote**                   | A reviewer's disposition on a claim (e.g., SURVIVE or REFUTE), tied to a `review_id`, the reviewer, and the claim's content hash. A quorum of decisive votes governs whether a claim survives.                                                                                                                   |       |
 
+## Counter IDs Vocabulary
+
+| Term                 | Definition                                                                                                                                                                                | Avoid                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **Counter**          | The ref `refs/ids/counters` on the project's remote. It points at the claim commit that holds every ID sequence of the project.                                                           | counter file                 |
+| **Claim Commit**     | A commit with no parent on the empty tree that the counter points at. Its message holds the `start` line, one line per prefix with the highest number claimed so far, and a random token. |                              |
+| **ID Claim**         | One call of `next-id <PREFIX>`: it raises the prefix's number in a new claim commit and pushes it with a lease on the old one. Not the research **Claim**.                                | Claim, without the qualifier |
+| **ID Prefix**        | The letters before the number of an ID, such as `ST` in `ST-1013`. Each prefix in the list of `next-id` has its own sequence.                                                             | tag                          |
+| **Indexed Artifact** | A story, finding, todo entry, or ADR whose name carries an ID that `next-id` claimed.                                                                                                     |                              |
+| **Seed**             | The one-time creation of the counter with `next-id --seed <number>`. Every prefix continues above the number, unless a `<PREFIX>=<n>` pair gives it its own start.                        |                              |
+| **Stale Lease**      | The rejection of a claim push because another caller replaced the claim commit first. Only a stale lease leads to a retry.                                                                |                              |
+| **ID Producer**      | A skill, agent, convention, or playbook that tells its reader how to number a new indexed artifact, such as `write-adr`.                                                                  | Factory producer, Producer   |
+
 ## Acronyms and Abbreviations
 
 | Term   | Definition                                                                              | Avoid |

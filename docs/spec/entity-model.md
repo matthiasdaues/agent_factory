@@ -839,7 +839,7 @@ erDiagram
         string tree "the empty tree"
         string parent "none"
         string identity "next-id <next-id@agent-factory.invalid>, as author and committer"
-        int    start "the seed number, 0 to 9999, line start=<number>"
+        int    start "the seed number, 0 to 9998, line start=<number>"
         string token "random, line token=<value>, different in every claim commit"
     }
     PREFIX_LINE {
