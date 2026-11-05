@@ -51,6 +51,7 @@ models/
 /.codex/agents/coaching-agent.toml
 /.codex/agents/code-review-agent.toml
 /.codex/agents/developer-agent.toml
+/.codex/agents/domain-modeling-agent.toml
 /.codex/agents/implementation-agent.toml
 /.codex/agents/lector-agent.toml
 /.codex/agents/planning-agent.toml
@@ -62,6 +63,7 @@ models/
 /.codex/agents/research-report-writer.toml
 /.codex/agents/researcher.toml
 /.codex/agents/spec-review-agent.toml
+/.codex/agents/test-strategy-agent.toml
 /.codex/agents/virgil.toml
 /.codex/hooks.json
 /.codex/hooks/block-dangerous-git.sh
