@@ -21,8 +21,9 @@ Feature: Core artifact ownership
   Rule: Factory maintainer finds exactly one producer for every core and seam artifact
     # actor: Factory maintainer
     # rules: BR-056, BR-057, BR-058, BR-060
-    # @packages/factory/scripts/index-lint::build_agents_data
-    # @tests/factory/test_index_lint.py
+    # @tests/factory/test_core_artifact_ownership.py::producer_finding
+    # @tests/factory/test_core_artifact_ownership.py::expectation_error
+    # @packages/factory/scripts/index-lint::pattern_matches
 
     Scenario: The contract test passes when each listed artifact has one producer with a review
       Given core-artifacts.yaml lists docs/spec/entity-model.md in the family domain structure
@@ -236,6 +237,7 @@ Feature: Core artifact ownership
     # actor: Stakeholder
     # rules: BR-065
     # @packages/factory/skills/domain-modeling/SKILL.md
+    # @packages/factory/agents/domain-modeling-agent.md
 
     Scenario: The domain-modeling agent proposes a definition for each candidate
       Given docs/spec/work/term-candidates.md has the row Task, domain area Scheduling, status candidate
@@ -386,6 +388,8 @@ Feature: Core artifact ownership
         | docs/spec/state-machines.md      |
         | docs/spec/validation-rules.md    |
         | docs/spec/interface-contracts.md |
+        | docs/spec/schemas/example.json   |
+        | docs/spec/areas/example.md       |
         | docs/spec/glossary.md            |
 
     Scenario Outline: The glossary check finds the three kinds of term defect
@@ -416,8 +420,8 @@ Feature: Core artifact ownership
     # @packages/factory/skills/atam-review/SKILL.md
 
     Scenario: The architecture-review agent checks the rules against the component view
-      Given docs/spec/dependency-rules.dsl allows imports from cli to engine
-      And the component view of docs/spec/architecture.dsl has no relationship from cli to engine
+      Given docs/spec/dependency-rules.dsl forbids imports from cli to engine
+      And the component view of docs/spec/architecture.dsl has a relationship from cli to engine
       When the architecture-review agent runs
       Then its review files a finding that names the rule and the component view
 
@@ -567,7 +571,7 @@ Feature: Core artifact ownership
 
     Scenario: The implementation agent dispatches the test-strategy agent for each open QA finding
       Given ST-0318 has merged and QA-0003 is open with owner: test-strategy-agent
-      When the implementation agent handles the merged story
+      When the implementation agent closes the wave
       Then it dispatches the test-strategy agent for QA-0003
 
     Scenario: The test-strategy agent skips an open QA finding whose owner is the planning agent
@@ -598,7 +602,7 @@ Feature: Core artifact ownership
       Given QA-0003 is open with owner: planning-agent
       And story ST-0352 names QA-0003 and adds the contract test for plan_moves
       When ST-0352 merges
-      Then QA-0003 has status resolved
+      Then the implementation agent sets QA-0003 to status resolved
 
   Rule: Developer agent reports specification drift without editing the specification
     # actor: Developer agent
@@ -661,6 +665,23 @@ Feature: Core artifact ownership
         | docs/adr/0012-dispatcher-owned-gate-loop.md | fixed     | passes                  |
         | docs/spec/validation-rules.md               | rejected  | passes                  |
 
+    Scenario Outline: close-wave fails and names the file when it cannot read an input
+      Given wave 2 holds ST-0318
+      And <input>
+      When the implementation agent runs dispatch close-wave 2
+      Then close-wave fails and names <file>
+      And wave 2 stays open
+      # @tests/factory/test_dispatch_close_wave_reports.py::test_st_0361_an_unreadable_report_fails_and_names_the_file
+      # @tests/factory/test_dispatch_close_wave_reports.py::test_st_0361_a_missing_core_list_fails_and_names_the_path
+
+      Examples:
+        | input                                                                                  | file                                                 |
+        | spec-feedback-ST-0318.md has a row for docs/spec/validation-rules.md with status done  | spec-feedback-ST-0318.md                             |
+        | spec-feedback-ST-0318.md has a table whose header reads Mismatch in place of Drift     | spec-feedback-ST-0318.md                             |
+        | spec-feedback-ST-0318.md has a row with an empty Artifact cell                         | spec-feedback-ST-0318.md                             |
+        | spec-feedback-ST-0318.md has no table                                                  | spec-feedback-ST-0318.md                             |
+        | .agent-factory/factory/rulebooks/core-artifacts.yaml is missing                        | .agent-factory/factory/rulebooks/core-artifacts.yaml |
+
     Scenario: close-wave reads the core list to tell core rows from other rows
       Given core-artifacts.yaml lists docs/spec/validation-rules.md and does not list QA strategies
       When dispatch close-wave reads a fixed row
@@ -678,11 +699,16 @@ Feature: Core artifact ownership
       Then the requirements agent sets the row to rejected
       And the requirements agent files the BUG finding
 
-    Scenario: In manual mode the human closes a story only after its rows are handled
+    Scenario Outline: In manual mode the human closes a story only after its rows are handled
       Given the implementation agent runs in manual mode
-      And spec-feedback-ST-0318.md has a fixed row for docs/spec/validation-rules.md
+      And spec-feedback-ST-0318.md has a fixed row for <artifact>
       When the human checks whether ST-0318 may close
-      Then the dispatch contract's manual-mode section says the story stays open
+      Then the dispatch contract's manual-mode section says the story <result>
+
+      Examples:
+        | artifact                               | result     |
+        | docs/spec/validation-rules.md          | stays open |
+        | docs/spec/work/payments-qa-strategy.md | may close  |
 
   Rule: Reconciliation agent reports drift to each artifact's owner
     # actor: Reconciliation agent
@@ -867,6 +893,9 @@ Feature: Core artifact ownership
         | virgil                    | docs/spec/work/spec-feedback-*.md |
         | spec-review-agent         | docs/spec/work/spec-feedback-*.md |
         | architecture-review-agent | docs/spec/work/spec-feedback-*.md |
+        | developer-agent           | docs/findings/QA-*.md             |
+        | implementation-agent      | docs/findings/QA-*.md             |
+        | test-strategy-agent       | docs/findings/QA-*.md             |
         | reconciliation-agent      | docs/reviews/reconciliation-*.md  |
         | requirements-agent        | docs/reviews/reconciliation-*.md  |
         | domain-modeling-agent     | docs/reviews/reconciliation-*.md  |
