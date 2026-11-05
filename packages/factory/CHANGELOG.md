@@ -1,5 +1,98 @@
 # Changelog
 
+## 1.5.0 — 2026-11-05
+
+This release gives every core artifact one producer and one declared
+review (ST-0346 to ST-0367). Run `update-factory` to receive it. The new
+gate selection in `premerge-check` takes effect only after the update.
+
+### Features
+
+- **Every output declares its review.** Each output declaration in
+  `INDEX.yaml` carries `reviewed_by:` and `edits:`. `index-lint --check`
+  fails when a declared reviewer is no agent or does not read the
+  artifact. The new core list `rulebooks/core-artifacts.yaml` names the
+  core artifacts. A contract test fails on each entry that lacks exactly
+  one reviewed producer (ST-0346, ST-0347).
+- **The new domain-modeling agent owns the domain structure.** It starts
+  once a feature file exists. It writes the glossary, the entity model,
+  and the state machines, validation rules, interface contracts, and
+  payload schemas the domain needs. The requirements agent keeps the
+  scope map, the feature files, and the area specs, and its handoff names
+  the domain-modeling agent (ST-0348, ST-0349).
+- **Terms wait as candidates.** `reverse-map`, `grilling`,
+  `domain-modeling`, and `reconcile-spec` record a term in
+  `docs/spec/work/term-candidates.md` when they run outside the
+  domain-modeling agent's session. The stakeholder confirms or rejects
+  each proposed definition one domain area at a time. Only confirmed
+  terms reach `docs/spec/glossary.md` (ST-0350, ST-0351).
+- **The new test-strategy agent owns the test practice.** It owns
+  `docs/testing.yaml`, the QA strategies, and the test guardrails. It is
+  reachable through `intent select` and step 2b of the fitting. Every
+  change to `testing.yaml` waits for the stakeholder. A surviving mutant
+  that a developer agent cannot resolve becomes a `QA` finding for this
+  agent (ST-0357, ST-0358).
+- **A finding goes to its owner.** The finding format adds the field
+  `owner:` and the tags `ARCH` and `QA`. The orchestrator sends an open
+  finding to the agent in `owner:`. A finding without `owner:` goes to the
+  producer of the artifact it names. Every open finding in the factory
+  repository carries an owner (ST-0352, ST-0366).
+- **The architecture agent owns the dependency rules.** It declares
+  `docs/spec/dependency-rules.dsl` and writes no `state-machines.md`. A
+  contradiction with the state machines becomes an `ARCH` finding for the
+  domain-modeling agent. The architecture-review agent checks the rules
+  against the component view. Every violation in the report of
+  `dependency-check` names the architecture agent as owner (ST-0353 to
+  ST-0355).
+- **The spec review covers the domain structure.** The spec-review agent
+  reports on each structure file that exists and on the glossary. It
+  files a finding for every term that waits for confirmation (ST-0356).
+- **`premerge-check` picks the gates per story.** It takes the test
+  guardrails from the story's `quality-gates` field, then from the
+  `gates` section of `docs/testing.yaml`, then runs `crap-score` alone.
+  A picked gate that fails blocks the merge. The command warns when the
+  house rules still carry the old gate list (ST-0359).
+- **The mutation command is a gate.** The new script `mutation-testing`
+  runs the project's mutation command from `docs/testing.yaml`. A merge
+  is blocked when the command fails, is missing, or exceeds its time
+  limit. The developer agent runs the same gates in manual mode before it
+  hands a story back (ST-0365).
+- **Drift goes to the artifact's owner.** The developer agent writes
+  each drift into its story's spec-feedback report and changes no
+  specification file. After a merge, the implementation agent dispatches
+  the owner of each drift row and then the owner's reviewer. A rejected
+  row becomes a `BUG` finding against the code. `dispatch close-wave`
+  fails while a drift row is unhandled (ST-0360 to ST-0362).
+- **Reconciliation reports rows for owners.** The reconciliation agent
+  writes one report per run and changes no other file. Each row names the
+  artifact's owner. The `documentation-update` playbook brings each row
+  to its owner and then its reviewer, and names every row that still
+  waits (ST-0363, ST-0367).
+- **Playbooks name the new owners.** Every playbook step that produces a
+  moved artifact names its new owner. `run-step` lets the declared inputs
+  set the order of the producers. The operator chooses when two agents
+  are eligible (ST-0364).
+- **`mdformat` keeps footnotes.** The wrapper loads the
+  `mdformat-footnote` plugin.
+
+### Changes
+
+- **The finding format drops the `RECON` tag.** Reconciliation drift is a
+  row of the reconciliation report, owned by the artifact's owner
+  (ST-0352, ST-0363).
+- **`draft-proposal` writes the primer before the prose pass.** The
+  lector's structural pass then reads the primer next to the Summary.
+
+### Fixes
+
+- **Brownfield onboarding derives the feature file first.** Stage 2 runs
+  Derive Feature Spec as Step 3.1, then the vocabulary and the entity
+  model as Steps 3.2 and 3.3. The domain-modeling agent needs a feature
+  file to start.
+- **Onboarding playbooks route `SPEC` findings by owner.** The brownfield
+  and greenfield playbooks send each open `SPEC` finding to the agent in
+  its `owner:` field.
+
 ## 1.4.0 — 2026-11-03
 
 This release reorganises the core artifacts of a project (ST-0318 to
