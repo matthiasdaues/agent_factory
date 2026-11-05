@@ -999,10 +999,10 @@ decides the column names.
 | Owner    | The producer of the artifact, which acts on the row first, such as `domain-modeling-agent`                                                                 |
 | Status   | `open`, `fixed`, `confirmed`, or `rejected`, set as [BR-061](validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) defines |
 
-| Report         | Path                                         | Writer of `open` rows                    |
-| -------------- | -------------------------------------------- | ---------------------------------------- |
-| Spec feedback  | `docs/spec/work/spec-feedback-<story-id>.md` | developer agent, through `spec-feedback` |
-| Reconciliation | `docs/reviews/reconciliation-<date>.md`      | reconciliation agent, one per run        |
+| Report         | Path                                         | Writer of `open` rows                    | Dispatcher of owner and reviewer                                 | Check that waits for the rows                     |
+| -------------- | -------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------- |
+| Spec feedback  | `docs/spec/work/spec-feedback-<story-id>.md` | developer agent, through `spec-feedback` | implementation agent, after each merge                           | `dispatch close-wave` (BR-062)                    |
+| Reconciliation | `docs/reviews/reconciliation-<date>.md`      | reconciliation agent, one per run        | orchestrator of the `documentation-update` playbook, after a run | the playbook's DONE list; no script gate (BR-067) |
 
 The first reconciliation run of a day writes `reconciliation-<date>.md`. A second run on the same day writes `reconciliation-<date>-2.md`, a third `reconciliation-<date>-3.md`, and so on. The reports sort by date first, then by suffix, and the file without a suffix is run 1 (CAO-G29).
 
