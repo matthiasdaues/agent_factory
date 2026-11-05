@@ -6,6 +6,7 @@ category: defect
 artifact: docs/ and packages/factory/
 status: open
 traces: [ST-0276, ST-0277, ST-0262, ST-0263, ST-0278]
+owner: virgil
 ---
 
 # Stale Cycle-Orchestration References — Complete Inventory
