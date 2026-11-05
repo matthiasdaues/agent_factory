@@ -11,8 +11,9 @@ Board: [agent factory sdlc flow](https://miro.com/app/board/uXjVESrJp_A=/), buil
 | First version | x 6236 to 7800, next to the user's four hand-drawn cluster shapes | Cluster, phase and step columns, condensed from page 3 of the truth map. Kept for comparison.                       |
 | Detailed flow | Frame 2, x 8190 to 13649                                          | 150 steps, gates and decisions; failure lanes; group shapes in three columns; the artifact column with class chips. |
 | Lying 8       | x 14500 to 20000                                                  | The ten change phases as a figure eight, Initiation as a lead-in, each phase linked to its section in Frame 2.      |
+| Current flow  | Frame "Process as of 2026-11-05", x 20600 to 24785                | The detailed flow as it stands on dev on 2026-11-05, with colours, chips, and a column of proposal notes.           |
 
-The source of every step is the current Factory definition in `packages/factory/`: agents, skills, playbooks and scripts. The Planning and Building rows follow page 4 of [project-truth-map.drawio](project-truth-map.drawio). The changes from the accepted core-artifact-ownership proposal are not drawn yet.
+The source of every step is the current Factory definition in `packages/factory/`: agents, skills, playbooks and scripts. The Planning and Building rows follow page 4 of [project-truth-map.drawio](project-truth-map.drawio). Frame 2 shows the Factory at dev commit `a94ed69a`, the state that [review-scrapbook.md](review-scrapbook.md) reviews. Its model is `detail.py` at commit `02554419`. The frame "Process as of 2026-11-05" adds the core-artifact-ownership changes: the domain-modeling and test-strategy agents, the drift rows of the spec-feedback reports, and the backfeed to each artifact's owner.
 
 ## Principles
 
@@ -21,7 +22,7 @@ The source of every step is the current Factory definition in `packages/factory/
 - **One direction of reading.** The main path runs straight down one spine. Failure paths branch to the right; loops back are dashed and run on the left.
 - **Gates are shapes.** Every check is a diamond or a yellow gate box with its outcomes labelled, so a loop is visible as a loop.
 - **Gaps are marked, not hidden.** Where the definitions leave a path undefined, a dashed red box names the gap: no proposal-lint script, the premerge-check failure (BUG-0114), no quality gates in manual mode, and no owner for merging a feature branch into `dev`.
-- **The board shows the Factory as it is.** Planned changes go in only after they are implemented.
+- **The board shows the Factory as it is.** Planned changes go in only after they are implemented. A proposal that would change a step appears only as a yellow note on that step's row, with its status.
 
 ## Layout Rules
 
@@ -121,15 +122,16 @@ The 8 shows one gap against the DevOps original: the Deliver loop ends at "merge
 
 ## Generator and Pipeline
 
-| File                                        | Does                                                                                                                                 |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [overview.py](miro-generator/overview.py)   | First version: three columns, fixed to the user's cluster heights.                                                                   |
-| [detail.py](miro-generator/detail.py)       | The flow data: clusters, phases, sub-phases, steps with kind and lane, and edges. Writes `detail.json`.                              |
-| [layout.py](miro-generator/layout.py)       | Places the flow, derives the group boxes from right to left, renders shapes and connectors. Writes `detail.svg` and `clusters.json`. |
-| [split.py](miro-generator/split.py)         | Splits `detail.svg` into one chunk per cluster plus the cross-cluster connectors.                                                    |
-| [artifacts.py](miro-generator/artifacts.py) | Artifact boxes on the rows of their producing steps.                                                                                 |
-| [colors.py](miro-generator/colors.py)       | Colour update for the cluster, phase and sub-phase shapes.                                                                           |
-| [eight.py](miro-generator/eight.py)         | The lying 8.                                                                                                                         |
+| File                                            | Does                                                                                                                                 |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [overview.py](miro-generator/overview.py)       | First version: three columns, fixed to the user's cluster heights.                                                                   |
+| [detail.py](miro-generator/detail.py)           | The flow data: clusters, phases, sub-phases, steps with kind and lane, and edges. Writes `detail.json`.                              |
+| [layout.py](miro-generator/layout.py)           | Places the flow, derives the group boxes from right to left, renders shapes and connectors. Writes `detail.svg` and `clusters.json`. |
+| [split.py](miro-generator/split.py)             | Splits `detail.svg` into one chunk per cluster plus the cross-cluster connectors.                                                    |
+| [artifacts.py](miro-generator/artifacts.py)     | Artifact boxes on the rows of their producing steps.                                                                                 |
+| [colors.py](miro-generator/colors.py)           | Colour update for the cluster, phase and sub-phase shapes.                                                                           |
+| [eight.py](miro-generator/eight.py)             | The lying 8.                                                                                                                         |
+| [build_frame.py](miro-generator/build_frame.py) | One complete frame with colours, chips, and proposal notes. Writes one chunk per cluster and the cross-cluster connectors.           |
 
 Run order: `python3 detail.py`, then `layout.py`, then `split.py`. Upload each chunk with the Miro connector's `canvas_create_from_svg`. Then add the cross-cluster connectors with `canvas_update_from_svg`, using stub elements that carry the widget ids returned by the create calls. The class chips and the shape colours were applied as updates on the live board; `colors.py` reproduces the colour step, while the chip mapping is recorded in the table above.
 
@@ -148,5 +150,4 @@ Run order: `python3 detail.py`, then `layout.py`, then `split.py`. Upload each c
 
 - The cluster label "Implementation" wraps at 64 pt in the 469 px column. Use 48 pt or a wider column.
 - Some long-jump connectors route far right, between the flow and the artifacts, instead of along the left gap. Fix their sides or give them a lane of their own.
-- The core-artifact-ownership changes (domain-modeling and test-strategy agents, spec-feedback report rows) are not drawn yet.
 - The widget ids in `colors.py` and the cross-connector stubs tie the scripts to this board. A rebuild on another board needs fresh ids.

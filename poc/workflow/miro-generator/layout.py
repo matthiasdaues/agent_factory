@@ -62,7 +62,8 @@ for i, p in pos.items():
     out.append(f'<rect id="{i}"{shape} x="{p["x"]:.0f}" y="{p["y"]:.0f}" width="{p["w"]:.0f}" height="{p["h"]:.0f}" fill="{f}" stroke="{s}" stroke-width="2"{dash} data-content="{esc(body)}" data-text-color="{t}" data-font-family="noto_sans" data-font-size="{fs}" />')
 KIND = {'down': ('bottom', 'top', 0), 'side': ('right', 'left', 0), 'sidedash': ('right', 'left', 1),
         'loop': ('left', 'left', 1), 'lfwd': ('left', 'left', 0), 'ret': ('top', 'right', 1),
-        'down2': ('bottom', 'right', 0), 'rloopL': ('left', 'left', 1)}
+        'down2': ('bottom', 'right', 0), 'rloopL': ('left', 'left', 1),
+        'fwdlane': ('bottom', 'right', 0)}
 def pt(P, s):
     return {'bottom': (P['x'] + P['w'] / 2, P['y'] + P['h']), 'top': (P['x'] + P['w'] / 2, P['y']),
             'left': (P['x'], P['y'] + P['h'] / 2), 'right': (P['x'] + P['w'], P['y'] + P['h'] / 2)}[s]
@@ -83,7 +84,7 @@ pre = [f'<text x="{XC}" y="{ly-40}" font-family="noto_sans" font-size="67" font-
 for k, (kind, lab) in enumerate(leg):
     f, s, t = STY[kind]; dash = ' stroke-dasharray="5,5"' if kind == 'gap' else ''
     pre.append(f'<rect x="{XC + k*280}" y="{ly+10}" width="250" height="60" rx="12" fill="{f}" stroke="{s}" stroke-width="2"{dash} data-content="{lab}" data-text-color="{t}" data-font-family="noto_sans" data-font-size="16" />')
-pre.append(f'<textArea x="{XC + 5*280}" y="{ly+10}" width="760" font-family="noto_sans" font-size="16" fill="#595959">Solid arrows run forward. Dashed arrows loop back. Decisions branch to the right. Source: the Factory agent definitions, playbooks and scripts as of 2026-11-03.</textArea>')
+pre.append(f'<textArea x="{XC + 5*280}" y="{ly+10}" width="760" font-family="noto_sans" font-size="16" fill="#595959">Solid arrows run forward. Dashed arrows loop back. Decisions branch to the right. Source: the Factory agent definitions, playbooks and scripts as of 2026-11-05.</textArea>')
 svg = '<svg xmlns="http://www.w3.org/2000/svg">\n' + '\n'.join(pre + out) + '\n</svg>\n'
 open('detail.svg', 'w').write(svg)
 json.dump(clusters, open('clusters.json', 'w'))

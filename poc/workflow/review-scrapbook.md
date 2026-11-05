@@ -183,6 +183,9 @@ Raw notes go here first. They are sorted into the sections below later.
 - **Why it matters:** The loop has a known worst-case cost and cannot run
   forever.
 - **Keep by:** The cap and the escalation stay in place when the loop changes.
+  The loop now runs the gates through `story-gates`, the script that manual mode
+  uses too
+  ([manual-mode-gates.md](../../docs/proposals/manual-mode-gates.md) DEC-14).
 
 ### GOOD-05: Every step names its artifact and owner class
 
@@ -261,10 +264,14 @@ Raw notes go here first. They are sorted into the sections below later.
 - **Cost:** Tokens and time, mostly in late passes whose findings are edge
   cases that an earlier fix created.
 - **Suggestion:** Give each review loop a cap and an escalation, as the
-  gate-check loop has. A separate proposal sets the threshold a finding must
-  pass to block. It uses quantifiable measures: a named failure case, a risk
-  assessment, and an expected cost, that is, the probability times the cost of
-  the failure. The proposal is not written yet.
+  gate-check loop has.
+- **Proposals:** [finding-classification.md](../../docs/proposals/finding-classification.md)
+  (accepted) decides which finding blocks. A rule computes each finding's
+  severity, only a `critical` or `major` defect or risk blocks, a `minor`
+  finding becomes a register row, and only the human overrides a blocking
+  finding. [review-loop-cap.md](../../docs/proposals/review-loop-cap.md) (open)
+  stops every review loop after three passes. If a blocking finding is still
+  open, the human chooses: fix it, override it, or grant more passes.
 
 ### BAD-05: The same diff gets two Fagan reviews
 
@@ -346,9 +353,14 @@ Raw notes go here first. They are sorted into the sections below later.
 - **Evidence:** [manual-mode-gates.md](../../docs/proposals/manual-mode-gates.md).
 - **Fix direction:** The human cuts the story branch from dev. The developer
   agent implements, gets a review, fixes the findings, and passes crap-score and
-  mutation testing on that branch. Then it hands the branch back as done. A gate
-  refuses `done` while a finding for the story is open. The proposal records
-  this as DEC-04 to DEC-07.
+  mutation testing on that branch. Then it hands the branch back as done. The
+  `story-done-gate` hook reruns `story-gates` on the closing commit and refuses
+  `done` while a gate fails or a blocking finding for the story is open. The
+  automated gate-check loop calls the same `story-gates` script. The proposal
+  records this as DEC-04 to DEC-07, DEC-13, and DEC-14. The hook reruns the
+  gates because an untracked pass marker can be forged.
+  [gate-evidence.md](../../docs/proposals/gate-evidence.md) (draft) takes up
+  that fault for every gate receipt.
 
 ### FAULT-03: Nobody owns the merge into dev
 
