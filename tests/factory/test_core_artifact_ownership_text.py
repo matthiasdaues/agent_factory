@@ -1351,3 +1351,47 @@ class TestSt0362DeveloperWritesNoAdr:
         assert "A stale or missing ADR is drift" in step
         assert "the Owner is `architecture-agent`" in step
         assert "write-adr" not in step
+
+
+RECONCILIATION_AGENT = AGENTS / "reconciliation-agent.md"
+RECONCILE_SPEC = SKILLS / "reconcile-spec" / "SKILL.md"
+COMMIT_CONVENTIONS = RULEBOOKS / "conventions" / "commit-conventions.md"
+BRANCHING_POLICY = RULEBOOKS / "conventions" / "branching-policy.md"
+
+
+@pytest.mark.spec("CAO-15-LN-01")
+class TestSt0363ReconciliationWritesOnlyItsReport:
+    """The reconciliation agent reports drift as rows and changes no other file."""
+
+    def test_st_0363_agent_declares_its_report_and_bug_findings_only(self):
+        decls = _declarations(_frontmatter(RECONCILIATION_AGENT))
+        assert set(decls) == {
+            "docs/reviews/reconciliation-*.md",
+            "docs/findings/BUG-*.md",
+        }
+
+    def test_st_0363_agent_has_no_capture_context_skill(self):
+        skills = _frontmatter(RECONCILIATION_AGENT)["skills"]
+        assert "capture-context" not in skills
+        assert "reconcile-spec" in skills
+
+    def test_st_0363_skill_names_owner_and_status_columns(self):
+        text = RECONCILE_SPEC.read_text(encoding="utf-8")
+        assert "Artifact, Drift, Evidence, Owner, and Status" in text
+        assert "Status is `open`" in text
+        assert "Never edit the artifact" in text
+
+    def test_st_0363_skill_states_suffix_rule_and_sort_order(self):
+        text = RECONCILE_SPEC.read_text(encoding="utf-8")
+        assert "`reconciliation-YYYY-MM-DD-2.md`" in text
+        assert "Never change an earlier report" in text
+        assert "sort by date, then by suffix" in text
+        assert "The file without a suffix is run 1 of its day" in text
+
+    @pytest.mark.parametrize(
+        "path",
+        [RECONCILIATION_AGENT, RECONCILE_SPEC, COMMIT_CONVENTIONS, BRANCHING_POLICY],
+        ids=lambda p: p.name,
+    )
+    def test_st_0363_no_recon_tag_remains(self, path):
+        assert "RECON" not in path.read_text(encoding="utf-8")

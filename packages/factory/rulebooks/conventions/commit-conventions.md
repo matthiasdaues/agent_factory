@@ -19,15 +19,14 @@ Skeleton: [commit-message.md template](../templates/commit-message.md).
 
 ### ID Formats
 
-| Context             | ID Format    | Example                                          |
-| ------------------- | ------------ | ------------------------------------------------ |
-| User Story          | `ST-NNNN`    | `feat: add JWT refresh (ST-0042)`                |
-| Bug Fix             | `BUG-NNNN`   | `fix: prevent null pointer (BUG-0003)`           |
-| Spec Update         | `SPEC-NNNN`  | `docs: clarify feature scenario (SPEC-012)`      |
-| Architecture Issue  | `ATAM-NNNN`  | `refactor: split service layer (ATAM-07)`        |
-| Fagan Finding       | `FAGAN-NNN`  | `refactor: reduce cyclomatic (FAGAN-023)`        |
-| Security Finding    | `SEC-NNNN`   | `fix: sanitize SQL input (SEC-0008)`             |
-| Spec Reconciliation | `RECON-NNNN` | `docs: sync entity model with code (RECON-0004)` |
+| Context            | ID Format   | Example                                     |
+| ------------------ | ----------- | ------------------------------------------- |
+| User Story         | `ST-NNNN`   | `feat: add JWT refresh (ST-0042)`           |
+| Bug Fix            | `BUG-NNNN`  | `fix: prevent null pointer (BUG-0003)`      |
+| Spec Update        | `SPEC-NNNN` | `docs: clarify feature scenario (SPEC-012)` |
+| Architecture Issue | `ATAM-NNNN` | `refactor: split service layer (ATAM-07)`   |
+| Fagan Finding      | `FAGAN-NNN` | `refactor: reduce cyclomatic (FAGAN-023)`   |
+| Security Finding   | `SEC-NNNN`  | `fix: sanitize SQL input (SEC-0008)`        |
 
 ### Commit Types
 
