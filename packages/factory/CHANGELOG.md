@@ -1,37 +1,92 @@
 # Changelog
 
-## 1.4.0 — 2026-11-02
+## 1.4.0 — 2026-11-03
 
-This is the layout release. An update from an earlier version moves the
-files of a project in the old layout into the new one.
+This release reorganises the core artifacts of a project (ST-0318 to
+ST-0345). It ships with the merge of `feature/core-artifact-layout` into
+dev, commit `e62ac0b077a6d90635b028bdd0e624e1809cde1a`. An update from an
+earlier version moves a project's files from the old layout into the new
+one.
 
 ### Features
 
-- **One specification layout.** The core files stay at the top of
-  `docs/spec/`. Feature files move to `docs/spec/features/`, working output
-  such as gap reports and QA strategies to `docs/spec/work/`, and the terms
-  to `docs/spec/glossary.md`. A first install in the old layout moves no
-  file and lists the old paths.
-- **Routing files fold into the agent context.** `docs/CONTEXT.md` and
-  `docs/arc42/CONTEXT-MAP.md` no longer route agents. The new mode
-  `capture-context --fold-context-map` folds them into
-  `docs/agent-context.md`, and the developer deletes the old files.
+- **One specification layout.** The single-file core artifacts stay at the
+  top of `docs/spec/`: the scope map, the glossary, and the Structurizr
+  model `architecture.dsl`. Feature files move to `docs/spec/features/`.
+  Working output such as gap reports, QA strategies, `prd.md`, and the
+  todo lists moves to `docs/spec/work/`. Every agent, skill, playbook,
+  and gate reads and writes the new paths (ST-0325, ST-0326, ST-0338 to
+  ST-0342).
+- **The new script `migrate-spec-layout` moves a project.** It moves each
+  file to its new path, and git records each tracked file as a rename.
+  It rewrites every Markdown link to a moved file, so `link-check` passes
+  afterwards. It lists every old path outside a Markdown link with its
+  file and line and leaves those files unchanged. It updates the factory
+  hook block to the new hook template. `--dry-run` prints the planned
+  moves and link rewrites without changing a file (ST-0318, ST-0320 to
+  ST-0322).
+- **The migration removes use-case files.** It removes
+  `actor-goal-list.md` and every `use_cases/` folder under `docs/` with
+  `git rm`, the archive included. Agents find a story's behaviour in the
+  scope map and the feature files. `spec-lint` checks business rules
+  without use-case files (ST-0319, ST-0327, ST-0340).
+- **One glossary.** `docs/spec/glossary.md` holds every term in tables with
+  the columns Term, Definition, and Avoid. The migration turns the tables
+  of chapter 12 into glossary sections and leaves a link line in
+  `docs/arc42/12_glossary.md`. It moves the `## Language` terms of every
+  `CONTEXT.md` into the glossary and lists each term that appears twice.
+  `domain-modeling` and `reverse-map` write terms there, and the review
+  and interview skills look them up there. `publish-docs` prints the
+  glossary as chapter 12 without a change to the manifest (ST-0323,
+  ST-0324, ST-0334, ST-0336, ST-0337).
+- **Routing files fold into the agent context.** The new mode
+  `capture-context --fold-context-map` writes one domain concern per
+  context into `docs/agent-context.md` and points every link at that file.
+  Agents then route through that file instead of `docs/CONTEXT.md` and
+  `docs/arc42/CONTEXT-MAP.md`. The developer deletes the old files. A
+  rescan with `capture-context --update --scan` keeps every folded concern
+  (ST-0328, ST-0329, ST-0344).
+- **The update migrates, and a first install does not.** An approved
+  update from a version before 1.4.0 runs the migration without a further
+  question and records the new version in `.agent-factory/install.json`.
+  A failed migration rolls back the project files, the hook block, the
+  factory tree, and the version. A first install on a project in the old
+  layout moves no file, lists the old paths, and names
+  `migrate-spec-layout` (ST-0330 to ST-0333).
+- **Feature work checks four anchor files.** `feature-addition` and the
+  Stage 1 exit of `brownfield-onboarding` check `docs/spec/architecture.dsl`,
+  `docs/spec/scope-map.md`, `docs/spec/glossary.md`, and
+  `docs/agent-context.md`. When a file is missing, the playbook names it
+  (ST-0335).
+- **The factory's own repository uses the new layout.** A test in the
+  default suite fails when an old path returns to `packages/factory/`
+  (ST-0343, ST-0345).
+
+### Fixes
+
+- **A migration never replaces a file.** Two old QA strategy files can map
+  to one new path. The second one moves to
+  `docs/spec/work/<name>-area-qa-strategy.md`, and the script lists the
+  pair. A taken destination stops the script with exit 2 before the first
+  change (IMPL-0001).
+- **The migration reads old `CONTEXT.md` forms.** It converts `###`
+  subheadings and bullet terms under `## Language`, which the old format
+  rules allowed. Such a file no longer stops the migration (IMPL-0002).
 
 ## 1.3.3 — 2026-10-27
 
 ### Fixes
 
-- **Briefs stay in the main checkout.** The dispatch contract puts every
-  brief in `.current-work/<branch>/briefs/<task>.md` and every scratch
-  file in `.current-work/<branch>/scratch/<agent-or-story>/` in the main
-  checkout, on every CLI. The prompt names the brief by absolute path.
-  Before, briefs sat in a scratchpad under `/tmp`, which the system can
-  empty.
+- **Briefs stay in the main checkout.** On every CLI, the dispatch
+  contract puts briefs and scratch files in the main checkout. A brief
+  goes to `.current-work/<branch>/briefs/<task>.md`, and a scratch file to
+  `.current-work/<branch>/scratch/<agent-or-story>/`. The prompt names the
+  brief by absolute path. Briefs no longer sit under `/tmp`, which the
+  system can empty.
 - **Briefs name factory files in the main checkout.** A linked worktree
-  holds no `.agent-factory/`, so a brief names each factory input by
-  absolute path under `<main checkout>/.agent-factory/factory/`. Before,
-  dispatched agents in a worktree stopped because they found no factory
-  tooling (BUG-0092).
+  holds no `.agent-factory/`. So a brief names each factory input by
+  absolute path under `<main checkout>/.agent-factory/factory/`
+  (BUG-0092).
 - **Pi worktrees follow the rulebook.** Pi's `dispatch-wave` cuts
   worktrees under `.current-work/<target>/`, and its git guard accepts any
   path under `.current-work/`, as `rules.md` and the Claude guard do
@@ -48,16 +103,16 @@ files of a project in the old layout into the new one.
   only the keys the factory's template uses on its hooks: `id`, `name`,
   `entry`, `language`, `pass_filenames`, `files`, `exclude`, `types`, and
   `stages`. It keeps every other key a project set on a factory hook,
-  such as `args:`. Before, the 1.3.1 refresh dropped the `args:` that
-  passes `--exclude` to `backlog-lint`, and commits touching `backlog/`
-  failed. Add such a line once more after this update; later refreshes
-  keep it (BUG-0112).
+  such as `args:`. The 1.3.1 refresh dropped such keys. If commits that
+  touch `backlog/` fail since 1.3.1, add the `args:` line that passes
+  `--exclude` to `backlog-lint` once more. Later refreshes keep it
+  (BUG-0112).
 - **Factory hook lines fit in 80 columns.** Each hook `entry` is a folded
   YAML scalar broken at spaces, so the command stays the same. Three hook
   names are shorter, and two long `files:` regexes sit on their own line.
   A fresh or refreshed `.pre-commit-config.yaml` passes yamllint with its
-  default rules. A per-file yamllint ignore for that file can go after
-  the refresh (BUG-0113).
+  default rules. After the refresh, you can remove a per-file yamllint
+  ignore for that file (BUG-0113).
 
 ## 1.3.1 — 2026-10-27
 
@@ -65,13 +120,13 @@ files of a project in the old layout into the new one.
 
 - **The test hook runs in parallel.** The `run-tests` hook runs pytest
   with `-n auto` and skips the tests marked `container`. The 15
-  `publish-docs` tests that render a PDF in a container now run on demand
+  `publish-docs` tests that render a PDF in a container run on demand
   with `pre-commit run run-container-tests --all-files --hook-stage manual`.
   `docs/testing.yaml` uses the same command, so dispatch verifies stories
   the same way.
 - **Test dependencies are declared.** `pyproject.toml` lists pytest,
   pytest-xdist, PyYAML, Radon, and tiktoken in uv's `dev` group, which
-  `uv run` installs. Before, the hook used whatever pytest was on the
+  `uv run` installs. The hook no longer depends on the pytest on the
   developer's PATH.
 
 ## 1.3.0 — 2026-10-27
@@ -81,23 +136,21 @@ files of a project in the old layout into the new one.
 - **Factory hooks tell a colleague from a broken install.** `init-factory`
   sets `agent-factory.installed` in the clone's local git config, and
   `remove-factory` unsets it. When `.agent-factory/` is missing, a hook
-  in a clone without the key passes in silence, so a colleague without
-  the factory commits untouched. A hook in a clone with the key fails and
-  names `update-factory` and `SKIP`. Before, every hook passed in silence,
-  and a broken install looked like a clean commit. Existing installs get
-  the key on their next `update-factory` (BUG-0111).
+  in a clone without the key passes in silence. So a colleague without
+  the factory commits as before. A hook in a clone with the key fails and
+  names `update-factory` and `SKIP`. Existing installs get the key on
+  their next `update-factory` (BUG-0111).
 
 - **update-factory refreshes the project's hooks.** After the update,
   `update-factory` compares the project's `agent_factory_hook-*` block
   with the new template. When they differ, it shows the diff and writes
   only on an explicit yes. `merge-precommit-config --update` replaces the
-  block where it stands and keeps the comments around it. Before, a
-  project kept its first hook block through every update (BUG-0110).
+  block where it stands and keeps the comments around it (BUG-0110).
 
-- **backlog-lint can skip files.** New option `--exclude GLOB` (repeatable)
-  skips files in `backlog/` whose name matches the glob. Before, a file
-  like `ST-0003B-details.md` was linted as a story and failed the hook.
-  The pre-commit hook now passes `args:` on to `backlog-lint` (`"$@"`).
+- **backlog-lint can skip files.** The new option `--exclude GLOB`
+  (repeatable) skips files in `backlog/` whose name matches the glob. So
+  a file such as `ST-0003B-details.md` is not linted as a story. The
+  pre-commit hook passes `args:` on to `backlog-lint` (`"$@"`).
   `update-factory` offers the new hook entry. Without `--exclude`, nothing
   changes (GB-5494).
 
@@ -115,9 +168,9 @@ files of a project in the old layout into the new one.
   The manifest `docs/publish-docs.yaml` lists the documents. The script
   validates and exports the Structurizr model, assembles a Quarkdown
   build, and renders it in a container with Quarkdown 2.6.4 and Chromium.
-  Render checks remove the PDF when a check fails. The layout uses 10 pt
-  type and dotted table rules. Each appendix document, such as an ADR,
-  starts on a new page (ST-0309 to ST-0312).
+  When a render check fails, the script removes the PDF. The layout uses
+  10 pt type and dotted table rules. Each appendix document, such as an
+  ADR, starts on a new page (ST-0309 to ST-0312).
 
 - **A primer for every proposal.** The new skill `write-primer` writes a
   plain-language introduction of 400 to 500 words for a reader who knows
@@ -148,56 +201,54 @@ files of a project in the old layout into the new one.
 
 - **Brownfield checks hold.** `scope-lint` reads workstream IDs from the
   main checkout when it runs in a linked worktree. A `.dsl` file declares
-  its scope with `# scope:` on line 1; `// scope:` still passes. Agent
-  definitions accept an `any_of` form for required inputs, and
-  `index-lint` rejects a malformed one. The architecture agent no longer
-  archives the new scope map (BUG-0093 to BUG-0096).
+  its scope with `# scope:` on line 1, and `// scope:` still passes.
+  Agent definitions accept an `any_of` form for required inputs, and
+  `index-lint` rejects a malformed one. The architecture agent does not
+  archive the new scope map (BUG-0093 to BUG-0096).
 - **urllib3 2.8.0.** The usage runtime requirements pin urllib3 2.8.0,
   which resolves one vulnerability finding.
-
-The bug-hunt fix run (ST-0295 to ST-0308) resolves 31 findings. BUG-0076
-and BUG-0079 are partly fixed and stay open.
-
-- **Gates fail closed.** A gate whose input directory is missing now exits
-  2 instead of passing. Gates in a story worktree find the installed
-  factory (BUG-0039 to BUG-0041, BUG-0054).
-- **Lint scripts read their input correctly.** `arch-lint`, `backlog-lint`,
-  `concern-lint`, `conjecture-lint`, `context-lint`, `dependency-check`,
-  `handoff-lint`, `index-lint`, `link-check`, `mermaid-lint`,
-  `module-graph-check`, `schema-validate`, `spec-lint`,
-  `statemachine-lint`, and `test-design-verify` each fix a parsing or
-  exit-code defect (BUG-0049 to BUG-0063, BUG-0071, BUG-0090, BUG-0091).
-- **crap-score finds the right coverage.** It resolves coverage keys
-  against one base where every key exists. It reads PEP 263 coding lines
-  and fails on a file it cannot parse (BUG-0072).
-- **commit-safe commits only staged work.** The second pass re-stages only
-  the paths staged before the first pass. Unstaged lines of a staged file
-  stay out of the commit (BUG-0080).
-- **dispatch runs a wave end to end.** `merge-story` is safe against
-  interrupted merges and scopes by `touches` when `outputs` is absent. The
-  new `refresh-story` command refreshes a story branch before merge
-  (BUG-0036 to BUG-0038, BUG-0082 to BUG-0085, BUG-0087,
-  BUG-0089).
-- **Install, update, and removal keep project files.** `init-factory` and
-  `remove-factory` keep a `.claude/hooks` or `.codex` directory that
-  existed before the install. `update-factory` keeps the install record
-  and restores only factory-owned wiring on rollback. Claude include paths
-  are relative to each instruction file. A stale removal owner file is
-  taken over atomically. `merge-precommit-config` detects an earlier merge
-  by any factory hook id (BUG-0048, BUG-0074 to BUG-0079, BUG-0081).
-- **build-release builds from HEAD.** It reads the version from HEAD,
-  keeps earlier assets when a rebuild fails, and warns about uncommitted
-  changes in `packages/factory/` (BUG-0073).
-- **Usage capture works in installed projects.** Claude Code usage counts
-  once per message id. A cut-off character in a transcript skips one line.
-  Usage capture reports itself as broken, idle, or healthy (BUG-0033 to
-  BUG-0035, BUG-0064, BUG-0066, BUG-0068 to BUG-0070).
-- **Retired charter gates removed.** Epic 0 and the gates that depended on
-  the charter are gone. The new planning gate passes on a fresh project
-  (BUG-0047).
-- **Instructions name commands that exist.** Update instructions point to
-  `update-factory`, which the developer runs. The guide states that the
-  step guard does not enforce step manifests yet (BUG-0042 to BUG-0046).
+- **Bug-hunt fix run.** The bug-hunt fix run (ST-0295 to ST-0308) resolves
+  31 findings. BUG-0076 and BUG-0079 are partly fixed and stay open.
+  - **Gates fail closed.** A gate whose input directory is missing exits 2
+    instead of passing. Gates in a story worktree find the installed
+    factory (BUG-0039 to BUG-0041, BUG-0054).
+  - **Lint scripts read their input correctly.** `arch-lint`, `backlog-lint`,
+    `concern-lint`, `conjecture-lint`, `context-lint`, `dependency-check`,
+    `handoff-lint`, `index-lint`, `link-check`, `mermaid-lint`,
+    `module-graph-check`, `schema-validate`, `spec-lint`,
+    `statemachine-lint`, and `test-design-verify` each fix a parsing or
+    exit-code defect (BUG-0049 to BUG-0063, BUG-0071, BUG-0090, BUG-0091).
+  - **crap-score finds the right coverage.** It resolves coverage keys
+    against one base where every key exists. It reads PEP 263 coding lines
+    and fails on a file it cannot parse (BUG-0072).
+  - **commit-safe commits only staged work.** The second pass re-stages only
+    the paths staged before the first pass. Unstaged lines of a staged file
+    stay out of the commit (BUG-0080).
+  - **dispatch runs a wave end to end.** `merge-story` is safe against
+    interrupted merges and scopes by `touches` when `outputs` is absent. The
+    new `refresh-story` command refreshes a story branch before merge
+    (BUG-0036 to BUG-0038, BUG-0082 to BUG-0085, BUG-0087,
+    BUG-0089).
+  - **Install, update, and removal keep project files.** `init-factory` and
+    `remove-factory` keep a `.claude/hooks` or `.codex` directory that
+    existed before the install. `update-factory` keeps the install record
+    and restores only factory-owned wiring on rollback. Claude include paths
+    are relative to each instruction file. A stale removal owner file is
+    taken over atomically. `merge-precommit-config` detects an earlier merge
+    by any factory hook id (BUG-0048, BUG-0074 to BUG-0079, BUG-0081).
+  - **build-release builds from HEAD.** It reads the version from HEAD,
+    keeps earlier assets when a rebuild fails, and warns about uncommitted
+    changes in `packages/factory/` (BUG-0073).
+  - **Usage capture works in installed projects.** Claude Code usage counts
+    once per message id. A cut-off character in a transcript skips one line.
+    Usage capture reports itself as broken, idle, or healthy (BUG-0033 to
+    BUG-0035, BUG-0064, BUG-0066, BUG-0068 to BUG-0070).
+  - **The charter gates are retired.** Epic 0 and the gates that depended on
+    the charter are removed. The new planning gate passes on a fresh project
+    (BUG-0047).
+  - **Instructions name commands that exist.** Update instructions point to
+    `update-factory`, which the developer runs. The guide states that the
+    step guard does not enforce step manifests yet (BUG-0042 to BUG-0046).
 
 ## 1.2.0-rc — 2026-10-01
 
@@ -213,14 +264,14 @@ and BUG-0079 are partly fixed and stay open.
   start with one fixed sentence that loads `factory-voice.md`. The new
   `voice-anchor-lint` script checks that sentence in pre-commit and as
   gate 13 in `validate`. It runs only in the factory source repository.
-  Seven skills with mechanical or exempt output are listed in the script.
+  The script lists seven skills whose output is mechanical or exempt.
 - **Review findings explained for newcomers.** The new skill
   `explain-review-finding` explains a finding, bug report, or failing
   test. It checks the finding against the code first. It then states the
   consequence, shows a short chain of cause and effect, and names the
   smallest fix. It never edits code. `code-review-agent` offers it while
   the user decides which findings to file.
-- **Defects state the consequence first.** `fagan-review` now writes each
+- **Defects state the consequence first.** `fagan-review` writes each
   Defect in a fixed order: the consequence and who receives it, the first
   layer where the problem starts, and whether the behavior looks
   intended, wrong, or undocumented.
@@ -229,972 +280,896 @@ and BUG-0079 are partly fixed and stay open.
 
 - **Voice declaration cleaned up.** A stray `\<` at the start of
   `factory-voice.md` is removed. Two lines in `proposal-review-agent` and
-  `newcomer-tour` asked for a different tone and now match the voice.
-- **VERSION without prefix.** `VERSION` no longer starts with `v`, so
+  `newcomer-tour` that asked for a different tone now match the voice.
+- **VERSION without prefix.** `VERSION` does not start with `v`, so
   `build-release` accepts it.
 
 ## 1.1.1 — 2026-09-29
 
 ### Fixes
 
-- **crap-score lists each method once.** Radon's `cc_visit` already
-  returns every class method as its own block; `flatten_blocks()` added
-  them a second time. Scores were correct, but each method appeared
-  twice in the report. Class blocks are now dropped, and each function
-  appears once.
+- **crap-score lists each method once.** Radon's `cc_visit` returns every
+  class method as its own block, and `flatten_blocks()` added each one a
+  second time. Class blocks are now dropped, so each method appears once
+  in the report. The scores were correct before the fix.
 
 ## 1.1.0 — 2026-09-29
 
 ### Features
 
 - **Structurizr default theme vendored locally.** The `default` theme
-  from `structurizr/structurizr` is copied into
+  from `structurizr/structurizr` sits in
   `packages/factory/themes/structurizr/default/` and ships with every
   factory install. `architecture.dsl` uses a local relative path
-  (`theme themes/default/theme.json`) instead of `theme default`, which
-  resolved to `static.structurizr.com` — a host decommissioned on
-  30 September 2026. `scaffold-arc42` copies the theme into new projects
-  during scaffolding. Additional themes (AWS, Azure, GCP) can be added
-  the same way from the upstream GitHub repository.
+  (`theme themes/default/theme.json`) instead of `theme default`. The
+  remote theme resolved to `static.structurizr.com`, a host decommissioned
+  on 30 September 2026. `scaffold-arc42` copies the theme into new
+  projects. Other themes (AWS, Azure, GCP) can be added the same way from
+  the upstream GitHub repository.
 
 ### Fixes
 
-- **init-factory fresh install always starts 0/5 unfitted.** A fresh
-  install no longer derives fitting keys from leftover artifacts of a
-  previous installation.
+- **A fresh init-factory install starts at 0/5, unfitted.** A fresh
+  install does not derive fitting keys from leftover artifacts of an
+  earlier installation.
 
 ## 1.1.0-rc — 2026-09-28
 
-Value-first onboarding journey: full implementation of all fifteen
-stories (ST-0280 through ST-0294), delivering a standalone installer,
-remote installation with digest verification, progressive fitting with
-project insight, outcome-grouped hook configuration, first-task sandbox,
-and a moderated usability protocol. GitHub Actions CI for automated
-release builds. Preserve-dirs guard protects usage data across
-reinstalls.
+This release implements the fifteen stories of the value-first onboarding
+journey (ST-0280 through ST-0294). It also adds GitHub Actions CI for
+release builds and the preserve-dirs guard.
 
 ### Features
 
-- **Value-first onboarding — implementation complete.** All fifteen
-  stories implemented end to end:
-  - **Build-release script (ST-0280).** Packages the factory into a
-    versioned tarball with SHA-256 checksums under `releases/<version>/`.
-  - **Standalone installer (ST-0281).** `install-agent-factory` script
-    installs the factory from a local source directory into any target
-    project. Runs prerequisite checks, CLI auto-detection, consent-gated
-    preview, and prints an installation receipt with next steps.
-  - **Remote installation with digest verification (ST-0282).**
-    `install-agent-factory --source <url>` downloads a release tarball,
-    verifies its SHA-256 digest against `SHA256SUMS`, and installs.
-  - **Consent-gated prerequisite fix loop (ST-0283).** Missing
-    prerequisites (uv, git) are detected and reported with fix guidance.
-    The installer loops until prerequisites are met or the user aborts.
-  - **Extended update-factory --check (ST-0284).** Dry-run mode reports
-    installed vs. candidate version, changed files, and CLI list without
-    modifying anything.
-  - **Verified staged updates with rollback (ST-0285).** `update-factory`
-    applies updates with automatic rollback on failure. User-changed
-    files are backed up to `.agent-factory/user-changes/`.
-  - **Source-boundary consent (ST-0286).** `update-factory` detects when
-    the update source type changes (local to remote or vice versa) and
-    requires explicit consent before proceeding.
-  - **First-session project insight (ST-0287).** Virgil's greenfield
-    first session leads with a key-value scan (Stack, Test entry, Safety
-    signal, Recommended action) before presenting the session menu.
-  - **Context capture with explanation and consent (ST-0288).** Context
-    capture is offered as a recommended action after the project insight,
-    not run automatically. The explanation describes what data is
-    collected and why.
-  - **Gate demonstration before hooks (ST-0289).** A live gate
-    demonstration shows what gates protect and how they fire before the
-    user decides on hook configuration.
-  - **Hooks grouped by protected outcome (ST-0290).** Hook configuration
-    presents hooks grouped by the outcome they protect, not by individual
-    hook name. Source-only triggers are filtered out in target projects.
-  - **Isolated first-task sandbox (ST-0291).** Repositories with commits
-    get normal session behavior. The sandbox lifecycle activates only for
-    truly empty repositories.
-  - **Plain sandbox for headless repos (ST-0292).** `init-factory`
-    creates a plain sandbox when the target repository has no HEAD,
-    avoiding errors on `git log` and `git diff` in empty repos.
-  - **Automated end-to-end journey test (ST-0293).** Test harness
-    exercising the greenfield-to-insight-to-menu-to-first-task path.
-  - **Moderated usability protocol (ST-0294).** Template for moderated
-    usability testing of the onboarding flow with comprehension
-    checkpoints.
-- **Preserve-dirs guard.** `init-factory` backs up non-empty `usage/`
-  and `user-changes/` directories before reinstalling. After the
-  install, compares subdirectory structure against the new install and
-  offers restore (interactive) or restores automatically
-  (non-interactive). Prints the backup path when structure does not
-  match.
-- **GitHub Actions CI.** `build-release.yml` workflow triggers on tag
-  push (`v*`) and dev branch push. Creates GitHub releases with
-  `install-agent-factory`, `agent-factory.tar.gz`, and `SHA256SUMS`.
+- **Value-first onboarding.** All fifteen stories are implemented:
+  - The build-release script packages the factory into a versioned tarball
+    with SHA-256 checksums under `releases/<version>/` (ST-0280).
+  - The standalone `install-agent-factory` script installs the factory from
+    a local source directory into any target project. It checks
+    prerequisites, detects the CLIs, shows a preview that needs consent,
+    and prints an installation receipt with next steps (ST-0281).
+  - `install-agent-factory --source <url>` downloads a release tarball,
+    checks its SHA-256 digest against `SHA256SUMS`, and installs it
+    (ST-0282).
+  - The installer detects missing prerequisites (uv, git) and says how to
+    fix them. It loops until the prerequisites are met or the user aborts
+    (ST-0283).
+  - `update-factory --check` runs as a dry run. It reports the installed
+    and the candidate version, the changed files, and the CLI list, and it
+    modifies nothing (ST-0284).
+  - `update-factory` verifies staged updates and rolls back automatically
+    when an update fails. It backs up user-changed files to
+    `.agent-factory/user-changes/` (ST-0285).
+  - When the update source type changes, from local to remote or back,
+    `update-factory` asks for explicit consent before it continues
+    (ST-0286).
+  - Virgil's first greenfield session leads with a key-value project
+    insight (Stack, Test entry, Safety signal, Recommended action) and
+    then presents the session menu (ST-0287).
+  - After the project insight, context capture is offered as a recommended
+    action and does not run by itself. The explanation says what data it
+    collects and why (ST-0288).
+  - Before the user decides on the hook configuration, a live gate
+    demonstration shows what the gates protect and how they fire
+    (ST-0289).
+  - Hook configuration groups hooks by the outcome they protect, not by
+    hook name. Target projects do not see triggers that apply only to the
+    factory source (ST-0290).
+  - The isolated first-task sandbox starts only in an empty repository. A
+    repository with commits gets the normal session behavior (ST-0291).
+  - `init-factory` creates a plain sandbox when the target repository has
+    no HEAD, so `git log` and `git diff` do not fail (ST-0292).
+  - An automated test harness runs the journey from greenfield to insight
+    to menu to first task (ST-0293).
+  - A template guides moderated usability tests of the onboarding flow,
+    with comprehension checkpoints (ST-0294).
+- **Preserve-dirs guard.** Before a reinstall, `init-factory` backs up
+  non-empty `usage/` and `user-changes/` directories. After the install,
+  it compares their subdirectory structure with the new install. It
+  offers a restore in an interactive run and restores automatically in a
+  non-interactive run. It prints the backup path when the structure does
+  not match.
+- **GitHub Actions CI.** The `build-release.yml` workflow runs on a tag
+  push (`v*`) and on a push to the dev branch. It creates GitHub releases
+  with `install-agent-factory`, `agent-factory.tar.gz`, and `SHA256SUMS`.
 
 ### Fixes
 
-- **build-release branch constraint.** Relaxed to allow `-rc` suffix
-  builds on non-main, non-dev branches (feature branches).
-- **Greenfield routing in orientation files.** `AGENTS.*.md` orientation
-  files now correctly route `fitting.status = "greenfield"` to the
+- **build-release branch constraint.** The constraint allows `-rc` builds
+  on branches other than main and dev, such as feature branches.
+- **Greenfield routing in orientation files.** The `AGENTS.*.md`
+  orientation files route `fitting.status = "greenfield"` to the
   first-session insight procedure instead of the session menu.
-- **update-factory TypeError.** Fixed crash when `manifest.get("cli")`
-  returns a list instead of a string.
-- **Install receipt text.** Improved clarity of the "Next" section in
-  the installation receipt.
-- **.gitignore trailing-slash semantics.** `.agent-factory/` pattern
-  (with trailing slash) matches directories only. Symlinks created by
+- **update-factory TypeError.** `update-factory` does not crash when
+  `manifest.get("cli")` returns a list instead of a string.
+- **Install receipt text.** The "Next" section of the installation receipt
+  is clearer.
+- **.gitignore trailing-slash semantics.** The `.agent-factory/` pattern
+  with a trailing slash matches directories only. Symlinks created by
   ST-0294 no longer slip through.
-- **Bare .github in .gitignore.** Removed the bare `.github` line that
-  blocked all `.github/` content from being tracked.
+- **Bare .github in .gitignore.** The bare `.github` line is removed. It
+  kept all `.github/` content from being tracked.
 
 ### Documentation
 
-- **UAT script.** 18-step acceptance test script at
-  `docs/reviews/uat-2026-09-25-value-first-onboarding.md` covering all
-  fifteen stories plus the preserve-dirs guard. Each step has shell
-  commands, expected outcomes, and failure signals.
-- **Usage data recovery proposal.** Draft proposal at
-  `docs/proposals/usage-data-recovery.md` documenting raw transcript
-  inventory across four CLIs (518 sessions), capture pipeline, two
-  recovery options, metadata quality matrix, and prevention.
+- **Usage data recovery proposal.** The draft proposal at
+  `docs/proposals/usage-data-recovery.md` documents the raw transcript
+  inventory across four CLIs (518 sessions), the capture pipeline, two
+  recovery options, a metadata quality matrix, and prevention.
 
 ### Tests
 
-- **Preserve-dirs guard tests.** Nine tests in
-  `test_init_factory.py`: five for `backup_preserved_dirs` (skip
-  conditions, non-empty backup, symlink handling) and four for
-  `offer_restore_preserved_dirs` (structure match, mismatch, missing
-  directory, non-interactive restore).
+- **Preserve-dirs guard tests.** Nine tests in `test_init_factory.py`
+  cover the guard. Five test `backup_preserved_dirs`: skip conditions,
+  non-empty backup, and symlink handling. Four test
+  `offer_restore_preserved_dirs`: structure match, mismatch, missing
+  directory, and non-interactive restore.
 
 ## 1.0.0 — 2026-09-21
 
-Activity graph orchestration: full implementation of all seventeen
-stories (ST-0262 through ST-0278), delivering precondition evaluation,
-fence-based validation, intent routing, workstream management, and a
-restructured session menu. Factory layout consolidated under
-`.agent-factory/`. Local usage processing and analysis: full
-implementation of all twelve stories (ST-0240 through ST-0251),
-delivering the `packages/usage` Python package from contract to
-interactive explorer. Agent and skill inventory consolidated after
-audit. Cycle-based orchestration proposal superseded by the activity
-graph. Post-implementation reconciliation resolved 52 findings across
-architecture, specification, and factory documentation. Agent Zero
-research survey completed. OpenCode CLI integration proposed.
+This release implements activity graph orchestration (ST-0262 through
+ST-0278) and local usage processing and analysis (ST-0240 through ST-0251).
+The activity graph supersedes the cycle-based orchestration proposal, and a
+reconciliation after implementation resolves 52 findings.
 
 ### Features
 
-- **Activity graph orchestration — implementation complete.** All
-  seventeen stories implemented end to end:
-  - **Structured agent/skill declarations (ST-0262).** Flat
-    inputs/outputs lists replaced with typed precondition objects
-    (`inputs.required`, `inputs.context`, `outputs.declarations`)
-    across all 17 agent definitions. Index-lint rewritten for the new
-    format.
-  - **Precondition evaluator (ST-0263).** Eligibility rewritten as a
-    precondition evaluator that checks typed conditions against project
-    state.
-  - **Intent select command (ST-0264).** Presents all agents with
-    their precondition evidence for developer selection in the Project
-    Work lane.
-  - **Behavioral verification tests (ST-0265).** Test suite validating
-    activity-graph model behavior.
-  - **Fence runner (ST-0266).** Output validation with evidence
-    storage for activity-graph assertions.
-  - **Intent assess subcommand (ST-0267).** Artifact validation
-    through the intent command.
-  - **Session menu restructured (ST-0268).** From 5-option (A–E) to
-    4-lane layout (H, K, P, O).
-  - **Workstream state v2 and session binding (ST-0269).** Workstream
-    lifecycle and session-to-workstream binding modules.
-  - **Project Work lane (ST-0270).** Workstream creation and
-    continuation wired into the session menu.
-  - **Housekeeping about section (ST-0271).** Factory state display
-    with re-fit and update actions.
-  - **Capture-context update and scan mode (ST-0272).** Extends
-    `capture-context` with `--update --scan` for refreshing an
-    existing `docs/agent-context.md`.
-  - **Scope-lint script (ST-0273).** Deterministic scope validation
-    for governed artifacts.
-  - **Scope declarations (ST-0274).** Scope frontmatter added to
-    governed artifacts with scope filtering in lint and dispatch.
-  - **Factory layout consolidation (ST-0275).** `factory/` moved
-    under `.agent-factory/factory/`, all internal references updated.
-  - **Orchestrator retired (ST-0276).** `packages/orchestrator`
-    removed; needed tests migrated to `packages/factory`.
-  - **Cycle proposal superseded (ST-0277).** Cycle-based orchestration
-    proposal superseded with characterization tests added.
-  - **Structured JSONL retained (ST-0278).** Structured JSONL
-    preserved alongside text rendering.
-- **Local usage processing and analysis — implementation complete.** All
-  twelve stories implemented end to end:
-  - **Usage-record contract and package scaffold (ST-0240).** Canonical
-    usage-record schema definition and `packages/usage` package
-    structure.
-  - **Usage-contract-check gate (ST-0241).** Schema and cross-field
-    validation gate ensuring usage-record contract compliance.
-  - **Input snapshot and usage-query CLI (ST-0242).** CLI entry point
-    for querying usage data with input snapshot capture.
-  - **Operational preflight (ST-0243).** Six ancestry failure codes for
-    validating run lineage before query execution.
-  - **capture_health view (ST-0244).** Diagnostic view with
-    stable-view refusal detecting capture health issues across sessions.
-  - **Four-CLI conservation rules (ST-0245).** Consistent usage
-    accounting across all four CLI entry points with
-    canonical_session_usage view.
-  - **Six-view query surface (ST-0246).** Four remaining views
-    completing the full six-view query surface.
-  - **Result format adapters (ST-0247).** Table, JSON, relation, and
-    Arrow output formats.
-  - **Atomic Parquet export (ST-0248).** Provenance-tracked Parquet
-    export with a dependency gate.
-  - **Component lifecycle in init-factory (ST-0249).** Registers
-    usage-analysis as a factory component with install and update
-    lifecycle hooks.
-  - **Dependency boundary rules (ST-0250).** Capture-independence test
-    enforcing that the usage package does not depend on capture
-    internals.
-  - **DuckDB UI exploration (ST-0251).** Interactive DuckDB explorer
-    with persist mode, HTTP server, and smoke gate.
+- **Activity graph orchestration.** All seventeen stories are
+  implemented:
+  - Typed precondition objects (`inputs.required`, `inputs.context`,
+    `outputs.declarations`) replace the flat inputs/outputs lists in all
+    17 agent definitions. `index-lint` is rewritten for the new format
+    (ST-0262).
+  - A precondition evaluator decides eligibility. It checks typed
+    conditions against project state (ST-0263).
+  - The intent select command shows every agent with its precondition
+    evidence, so the developer can select one in the Project Work lane
+    (ST-0264).
+  - Behavioral verification tests check the activity-graph model
+    (ST-0265).
+  - The fence runner validates output against activity-graph assertions
+    and stores the evidence (ST-0266).
+  - The intent assess subcommand validates artifacts (ST-0267).
+  - The session menu changes from 5 options (A–E) to 4 lanes (H, K, P, O)
+    (ST-0268).
+  - Workstream state v2 adds modules for the workstream lifecycle and
+    binds a session to a workstream (ST-0269).
+  - The Project Work lane of the session menu creates and continues
+    workstreams (ST-0270).
+  - The housekeeping about section shows the factory state and offers
+    re-fit and update actions (ST-0271).
+  - `capture-context` gains `--update --scan`, which refreshes an existing
+    `docs/agent-context.md` (ST-0272).
+  - The scope-lint script validates the scope of governed artifacts
+    deterministically (ST-0273).
+  - Governed artifacts declare their scope in frontmatter, and lint and
+    dispatch filter by it (ST-0274).
+  - `factory/` moves under `.agent-factory/factory/`, and every internal
+    reference follows (ST-0275).
+  - `packages/orchestrator` is retired. The tests that are still needed
+    move to `packages/factory` (ST-0276).
+  - The cycle-based orchestration proposal is superseded, and
+    characterization tests are added (ST-0277).
+  - Structured JSONL stays alongside the text rendering (ST-0278).
+- **Local usage processing and analysis.** All twelve stories are
+  implemented:
+  - The canonical usage-record schema is defined, and the `packages/usage`
+    package is scaffolded (ST-0240).
+  - The usage-contract-check gate checks the schema and the cross-field
+    rules of the usage-record contract (ST-0241).
+  - The usage-query CLI queries usage data and captures a snapshot of its
+    input (ST-0242).
+  - An operational preflight checks run lineage with six ancestry failure
+    codes before a query runs (ST-0243).
+  - The capture_health view, a diagnostic view with stable-view refusal,
+    detects capture health issues across sessions (ST-0244).
+  - Four-CLI conservation rules keep usage accounting consistent across
+    all four CLI entry points, with the canonical_session_usage view
+    (ST-0245).
+  - Four more views complete the six-view query surface (ST-0246).
+  - Result format adapters return table, JSON, relation, or Arrow output
+    (ST-0247).
+  - The atomic Parquet export tracks provenance and has a dependency gate
+    (ST-0248).
+  - `init-factory` registers usage-analysis as a factory component with
+    install and update lifecycle hooks (ST-0249).
+  - A capture-independence test checks the dependency boundary: the usage
+    package does not depend on capture internals (ST-0250).
+  - An interactive DuckDB UI explorer has a persist mode, an HTTP server,
+    and a smoke gate (ST-0251).
 - **Usage explorer live-watch mode.** `usage-explore` gains a
-  file-watching mode that auto-refreshes the DuckDB view when JSONL
-  source files change.
-- **Agent and skill inventory cleanup.** Shared conventions extracted
-  into reusable reference files. Overlapping agents and skills
-  consolidated. Native-knowledge overlap trimmed with flipped-default
-  principle references. Skill authoring guideline codified. Deprecated
-  skills removed with updated references.
-- **EPIC slicing gate strengthened.** Grilling and concreteness pass now
-  enforced more strictly before stories enter the backlog.
-- **Research directory layout convention.** New convention at
-  `rulebooks/conventions/research-directory-layout.md` standardizing
-  research output structure across survey and falsification playbooks.
-- **Research playbooks updated.** `research-survey` and `research-topic`
-  playbooks extended with directory layout references and improved
-  source-record handling.
-- **DuckDB dependency bumped to >=1.3.0.** Required for UI extension
-  support in the usage explorer.
+  file-watching mode. It refreshes the DuckDB view when a JSONL source
+  file changes.
+- **Agent and skill inventory cleanup.** Shared conventions move into
+  reusable reference files. Overlapping agents and skills are merged.
+  References to the flipped-default principle trim the overlap with
+  native knowledge. A guideline defines how to write a skill. Deprecated
+  skills are removed, and their references are updated.
+- **EPIC slicing gate strengthened.** Grilling and the concreteness pass
+  are enforced more strictly before stories enter the backlog.
+- **Research directory layout convention.** The new convention
+  `rulebooks/conventions/research-directory-layout.md` sets one output
+  structure for the survey and falsification playbooks.
+- **Research playbooks updated.** The `research-survey` and
+  `research-topic` playbooks reference the directory layout and handle
+  source records better.
+- **DuckDB dependency bumped to >=1.3.0.** The usage explorer needs this
+  version for the UI extension.
 
 ### Fixes
 
-- **Broken links after layout migration.** All `factory/` references
-  updated to `.agent-factory/factory/` across rulebooks, templates, poc,
-  and findings.
-- **arch-lint SVG diagrams.** Regenerated after link migration.
-- **arch-lint conditional export.** Exports only when DSL is newer than
-  the youngest SVG, avoiding unnecessary regeneration.
-- **File-modifying hooks restricted to commit stage.** Hooks that
-  rewrite files no longer fire on non-commit tool calls.
-- **Invalid YAML frontmatter.** Fixed malformed frontmatter in governed
-  artifacts.
-- **ROOT_COUNT per connected component.** Conservation check now
-  validates ROOT_COUNT within each connected component rather than
+- **Broken links after layout migration.** All `factory/` references in
+  rulebooks, templates, poc, and findings point to
+  `.agent-factory/factory/`.
+- **arch-lint SVG diagrams.** The diagrams are regenerated after the link
+  migration.
+- **arch-lint conditional export.** arch-lint exports only when the DSL
+  is newer than the youngest SVG, so it skips needless regeneration.
+- **File-modifying hooks restricted to commit stage.** Hooks that rewrite
+  files fire only at the commit stage, not on other tool calls.
+- **Invalid YAML frontmatter.** Malformed frontmatter in governed
+  artifacts is fixed.
+- **ROOT_COUNT per connected component.** The conservation check
+  validates ROOT_COUNT within each connected component instead of
   globally per CLI.
-- **source_root detection.** Walks up to the monorepo root instead of
-  stopping at the nearest package.
-- **File path resolution.** Resolves paths to absolute before uv changes
-  the working directory.
-- **Explorer HTTP server.** Sets `allow_reuse_address` to prevent
-  "address already in use" errors on restart.
-- **Usage package installation.** Installs the full runnable package
-  with ergonomic wrapper scripts.
-- **Scope check fallback.** Falls back to `touches` when story
-  `outputs` frontmatter is absent.
-- **Pi-specific errors.** AGENTS.md orientation simplified for Pi,
-  TypeScript extension imports corrected (`dispatch-wave.ts`,
-  `run-agent.ts`, `pi-usage.ts`, `step-guard.ts`), and init-factory
-  CLI detection logic hardened.
-- **Stale agent-context entries.** Removed obsolete `Factory source_root and packaging` section from `docs/agent-context.md`.
+- **source_root detection.** The detection walks up to the monorepo root
+  instead of stopping at the nearest package.
+- **File path resolution.** Paths resolve to absolute paths before uv
+  changes the working directory.
+- **Explorer HTTP server.** The server sets `allow_reuse_address`, so a
+  restart does not fail with "address already in use".
+- **Usage package installation.** The full runnable package installs with
+  convenience wrapper scripts.
+- **Scope check fallback.** The check falls back to `touches` when a
+  story has no `outputs` frontmatter.
+- **Pi-specific errors.** The AGENTS.md orientation for Pi is simpler.
+  The TypeScript extension imports in `dispatch-wave.ts`, `run-agent.ts`,
+  `pi-usage.ts`, and `step-guard.ts` are corrected. The init-factory CLI
+  detection is more reliable.
+- **Stale agent-context entries.** The obsolete
+  `Factory source_root and packaging` section is removed from
+  `docs/agent-context.md`.
 
 ### Refactoring
 
-- **Usage submodule rename.** `canonical_` prefix removed from module
-  names. CRAP scores reduced across usage submodules. Unit test coverage
+- **Usage submodule rename.** Module names drop the `canonical_` prefix.
+  CRAP scores in the usage submodules are lower, and unit tests are
   added.
-- **Root convenience scripts removed.** `usage-query` and
-  `usage-explore` wrappers removed from the project root.
-- **FSM phase harness removed.** `phase` script (631 lines),
-  `transition-lint` script (393 lines), `cycle` script (406 lines), and
-  FSM definition files (`*.fsm.yml`) deleted — dead code after the
-  activity graph replaced the cycle engine. ~30 live docs rewritten to
-  describe the precondition-based eligibility model. Cycle-based spec
-  files archived under `docs/~archive/`.
-- **`run-playbook` script removed.** Orphaned after the activity graph
-  replaced playbook-based flow control.
-- **Cycle-engine diagrams replaced.** `CycleEngineComponents` renamed to
-  `AgentSelection`, `CycleTransition` renamed to
-  `EligibilityEngineComponents`. New `AgentDependencyGraph` diagram
+- **Root convenience scripts removed.** The `usage-query` and
+  `usage-explore` wrappers are removed from the project root.
+- **FSM phase harness removed.** The `phase` script (631 lines), the
+  `transition-lint` script (393 lines), the `cycle` script (406 lines),
+  and the FSM definition files (`*.fsm.yml`) are deleted. The activity
+  graph replaced the cycle engine, so this code was dead. About 30 live
+  docs now describe the precondition-based eligibility model. Cycle-based
+  spec files are archived under `docs/~archive/`.
+- **`run-playbook` script removed.** The activity graph replaced
+  playbook-based flow control, so the script had no callers.
+- **Cycle-engine diagrams replaced.** `CycleEngineComponents` is renamed
+  to `AgentSelection`, and `CycleTransition` to
+  `EligibilityEngineComponents`. A new `AgentDependencyGraph` diagram is
   added.
 
 ### Documentation
 
-- **Activity graph orchestration — full lifecycle.** Proposal accepted,
-  specification derived, architecture extended, backlog planned (7
-  EPICs, 17 stories), all stories implemented and merged.
-- **Cycle-based orchestration — superseded.** Proposal accepted,
-  specification derived, architecture added, ATAM findings resolved
-  (ATAM-0003 through ATAM-0009), four spec-review findings resolved
-  (SPEC-0023 through SPEC-0026). Stories rejected; proposal superseded
-  by the activity graph.
-- **OpenCode CLI integration proposal.** Full proposal at
-  `docs/proposals/opencode-cli-integration.md` (status: open) with
-  research survey (12 sources) moved to
+- **Activity graph orchestration — full lifecycle.** The proposal is
+  accepted, the specification derived, the architecture extended, and
+  the backlog planned (7 EPICs, 17 stories). All stories are implemented
+  and merged.
+- **Cycle-based orchestration — superseded.** The proposal was accepted,
+  its specification derived, and its architecture added. The ATAM
+  findings ATAM-0003 through ATAM-0009 and four spec-review findings
+  (SPEC-0023 through SPEC-0026) are resolved. The stories are rejected,
+  and the activity graph supersedes the proposal.
+- **OpenCode CLI integration proposal.** The full proposal is at
+  `docs/proposals/opencode-cli-integration.md` (status: open). Its
+  research survey (12 sources) moves to
   `docs/research/opencode-cli-integration/`.
-- **Agent Zero research survey.** Survey at
-  `docs/research/agent-zero/` with 7 source records and a survey
-  report evaluating Agent Zero's architecture, extension points, and
-  potential integration with the factory.
+- **Agent Zero research survey.** The survey at
+  `docs/research/agent-zero/` has 7 source records and a report. The
+  report evaluates Agent Zero's architecture, extension points, and
+  possible integration with the factory.
 - **Architecture reconciled.** Chapters 5 (building block view),
   6 (runtime view), 7 (deployment view), 8 (crosscutting concepts),
-  and 9 (architecture decisions) updated to reflect the activity graph
-  replacing the cycle engine. Structurizr DSL workspace updated.
-  Glossary and context map corrected.
-- **Reconciliation review filed.** 52 findings across 4 domains at
-  `docs/reviews/reconciliation-2026-09-20.md`. Three systemic patterns
-  identified: `.agent-factory/` migration not propagated (23 findings),
-  HKPO menu not propagated (7 findings), engine rewrite not reflected
-  in architecture (13 findings).
-- **Factory guide rewritten.** Updated for `.agent-factory/` paths and
-  HKPO session menu layout.
-- **Newcomer onboarding specification updated.** Four scenarios
+  and 9 (architecture decisions) describe the activity graph in place of
+  the cycle engine. The Structurizr DSL workspace is updated. The
+  glossary and the context map are corrected.
+- **Factory guide rewritten.** The guide covers the `.agent-factory/`
+  paths and the HKPO session menu layout.
+- **Newcomer onboarding specification updated.** Four scenarios are
   rewritten for the HKPO session menu.
-- **Scope map reconciled.** Updated after layout migration and
-  activity-graph implementation.
-- **PRD updated.** Path references corrected for `.agent-factory/`
-  layout.
-- **Hermes Host Adapter proposal.** Draft proposal at
+- **Scope map reconciled.** The scope map is updated after the layout
+  migration and the activity-graph implementation.
+- **PRD updated.** Path references are corrected for the
+  `.agent-factory/` layout.
+- **Hermes Host Adapter proposal.** A draft proposal is at
   `docs/proposals/hermes-host-adapter.md`.
-- **Concept-Stage Knowledge Inventory proposal.** Draft proposal at
+- **Concept-Stage Knowledge Inventory proposal.** A draft proposal is at
   `docs/proposals/concept-stage-knowledge-inventory.md`.
-- **Browser exploration guide.** DuckDB UI and Web-UI exploration paths
-  documented.
-- **Cycle-retirement reconciliation.** Finding filed at
-  `docs/findings/RECON-cycle-retirement.md` with handoff documenting
-  the removal of the FSM phase harness.
-- Specification reconciled after ST-0241 implementation.
-- QA strategy updated: LU-03-CT-01 state moved to available.
-- ST-0243, ST-0244, ST-0245 marked done.
+- **Browser exploration guide.** The guide documents the DuckDB UI and
+  Web-UI exploration paths.
 
 ### Tests
 
-- **Activity-graph behavioral tests.** Test suites for precondition
-  evaluation, eligibility, fence runner, intent commands, housekeeping,
-  and recommendations validating activity-graph model behavior.
-- **Capture-independence integration test.** Enforces that the usage
-  package does not depend on capture internals.
-- **Scope-lint tests.** Validation of scope declarations in governed
+- **Activity-graph behavioral tests.** Test suites check the behavior of
+  the activity-graph model: precondition evaluation, eligibility, fence
+  runner, intent commands, housekeeping, and recommendations.
+- **Capture-independence integration test.** The test checks that the
+  usage package does not depend on capture internals.
+- **Scope-lint tests.** The tests validate scope declarations in governed
   artifacts.
-- **Workstream and session-binding tests.** Lifecycle and binding
-  module coverage for workstream state v2.
+- **Workstream and session-binding tests.** The tests cover the lifecycle
+  and binding modules of workstream state v2.
 
 ## 0.12.0 — 2026-09-14
 
-Local usage processing and analysis: full specification-to-backlog pass.
-Cycle-based orchestration proposal. A fourth writing quality gate ("No
-Pretense") and a stronger skill preamble across all 37 prose-producing
-skills. arch-lint fixes for extended building-block views and diagram
-key-file filtering.
+This release runs the full pass from specification to backlog for local
+usage processing and analysis. It adds the cycle-based orchestration
+proposal. It adds a fourth writing quality gate ("No Pretense") and a
+stronger skill preamble in all 37 skills that produce prose. arch-lint
+handles extended building-block views and filters diagram key files.
 
 ### Features
 
-- **No Pretense writing gate.** Fourth gate added to
-  `writing-quality-gates.md`. Every verb in a Goal must name something
-  observable from outside; internal mechanism belongs in Scope. Constraints
-  go in the Constraints section, not presented as accomplishments. Plain
-  verbs for ordinary operations. No dramatizing simple operations. Eight
-  concrete checks.
-- **Skill preamble hardened.** All 37 prose-producing skills updated from
-  "Apply the writing quality gates" to "Read writing-quality-gates.md now
-  and hold every rule as a writing constraint. No prose reaches terminal
-  output or a file until it passes all four gates."
+- **No Pretense writing gate.** `writing-quality-gates.md` gains a fourth
+  gate. Every verb in a Goal names something observable from outside, and
+  internal mechanism belongs in Scope. Constraints go in the Constraints
+  section and are not presented as accomplishments. Ordinary operations
+  get plain verbs, and simple operations are not dramatized. The gate has
+  eight concrete checks.
+- **Skill preamble hardened.** All 37 prose-producing skills change their
+  preamble from "Apply the writing quality gates" to "Read
+  writing-quality-gates.md now and hold every rule as a writing
+  constraint. No prose reaches terminal output or a file until it passes
+  all four gates."
 
 ### Fixes
 
-- **arch-lint component scan range.** `ch5_core_components` now scans all
-  §5.x sections up to "Referenced from" instead of stopping at §5.5,
-  so components defined in §5.5 and later are included in the consistency
-  check.
-- **arch-lint SVG key-file filtering.** Image enumeration now excludes
-  `*-key.svg` legend files and only considers SVGs that have a
-  corresponding key file, preventing false positives from standalone
-  legend images.
-- **Stale cross-reference in SPEC-0015.** Removed a dead link to a
-  superseded agent-context feature.
+- **arch-lint component scan range.** `ch5_core_components` scans all
+  §5.x sections up to "Referenced from" instead of stopping at §5.5. So
+  the consistency check includes components defined in §5.5 and later.
+- **arch-lint SVG key-file filtering.** Image enumeration excludes
+  `*-key.svg` legend files and considers only SVGs that have a matching
+  key file. Standalone legend images no longer cause false positives.
+- **Stale cross-reference in SPEC-0015.** A dead link to a superseded
+  agent-context feature is removed.
 
 ### Documentation
 
-- **Local Usage Processing and Analysis — specification complete.** Full
-  requirements pass: consolidated Gherkin feature file (14 rules, 48
-  scenarios), supplementary specs (entity model, interface contracts,
-  state machines, validation rules), QA strategy, and gaps report. Four
-  specification review rounds with eight findings (SPEC-0015 through
-  SPEC-0022) filed and resolved.
-- **Local Usage Processing and Analysis — architecture complete.**
+- **Local Usage Processing and Analysis — specification complete.** The
+  full requirements pass produces a consolidated Gherkin feature file (14
+  rules, 48 scenarios), supplementary specs (entity model, interface
+  contracts, state machines, validation rules), a QA strategy, and a gaps
+  report. Four specification review rounds filed and resolved eight
+  findings (SPEC-0015 through SPEC-0022).
+- **Local Usage Processing and Analysis — architecture complete.** The
   arc42 chapters 5 (building block view with §5.5 interfaces), 6
   (runtime view), 7 (deployment view), 8 (crosscutting concepts), and
-  9 (architecture decisions) extended. ADR-0015 accepted: query
-  authoritative JSONL with ephemeral DuckDB views. Structurizr DSL
-  workspace extended with usage-analysis containers, components, and
-  four new views. Six new SVG diagram exports.
+  9 (architecture decisions) are extended. ADR-0015 is accepted: query
+  authoritative JSONL with ephemeral DuckDB views. The Structurizr DSL
+  workspace gains usage-analysis containers, components, and four new
+  views. Six new SVG diagrams are exported.
 - **Local Usage Processing and Analysis — backlog complete.** Twelve
-  stories (ST-0240 through ST-0251) across three EPICs with testability
-  probes, MoSCoW priorities, and dependency ordering. ST-0240 and
-  ST-0241 grilled and made concrete.
-- **Cycle-based orchestration proposal.** New proposal at
-  `docs/proposals/cycle-based-orchestration.md` (status: open). First
-  adversarial review pass completed.
-- **Four specification reviews filed.** Reviews at
-  `docs/reviews/spec-review-2026-09-13*.md` covering four rounds of the
-  local usage processing and analysis specification.
-- **Three specification findings filed and resolved.** SPEC-0020 (run
-  ancestry does not determine roots and descendants), SPEC-0021 (logical
-  run to latest snapshot cardinality), SPEC-0022 (parent-conflict
-  preflight fixture coverage).
-- **Scope map updated.** `docs/spec/scope-map.md` revised with local
-  usage processing and analysis scope entries.
-- **Epics file renamed.** `backlog/epics.md` renamed to
-  `backlog/epics-test-design-redistribution.md` for feature specificity;
-  new `backlog/epics-local-usage-analysis.md` added.
+  stories (ST-0240 through ST-0251) across three EPICs carry testability
+  probes, MoSCoW priorities, and a dependency order. ST-0240 and ST-0241
+  are grilled and made concrete.
+- **Cycle-based orchestration proposal.** The new proposal at
+  `docs/proposals/cycle-based-orchestration.md` (status: open) has passed
+  its first adversarial review.
+- **Scope map updated.** `docs/spec/scope-map.md` gains scope entries for
+  local usage processing and analysis.
+- **Epics file renamed.** `backlog/epics.md` is renamed to
+  `backlog/epics-test-design-redistribution.md`, so its name states its
+  feature. The new `backlog/epics-local-usage-analysis.md` is added.
 
 ## 0.11.0 — 2026-09-12
 
-Playbook hardening, backlog concreteness, and five manifest defect
-resolutions. The code-review agent and review-mode dispatch add a human
-inspection loop to the implementation phase. Backlog creation gains two
-new skills that force stories to be short and concrete before they enter
-the backlog. Five bug reports exposed manifest gaps that blocked
-deterministic phase handoffs; all five are resolved with regression tests.
+This release hardens the playbooks, makes backlog stories concrete, and
+resolves five manifest defects. The code-review agent and review-mode
+dispatch add a human inspection loop to the implementation phase. Two new
+backlog skills keep stories short and concrete before they enter the
+backlog. Five bug reports showed manifest gaps that blocked deterministic
+phase handoffs. All five are resolved, with regression tests.
 
 ### Features
 
-- **Code review agent.** New `code-review-agent` (phase 4, tier strong)
-  runs a bounded Fagan inspection on the implementation diff before the
-  reconciliation run. Scoped to changed files only — no security review,
-  no bug hunt. Files findings as `IMPL-*`. Every finding must pass three
-  quality gates before filing: international-English clarity,
-  junior-developer fix direction, and senior-engineer brevity. Both
-  `feature-addition` and `greenfield-development` playbooks updated with
-  Step 4.2 (code review) and Decision Point 4.3 (IMPL-\* check) between
-  implementation and reconciliation. FSM gains `PHASE_4_CODE_REVIEW` and
-  `PHASE_4_IMPL_FIX` states. Implementation agent now hands off to
-  code-review-agent instead of reconciliation-agent.
-- **Ledger-backed implementation review mode.** Adds a serial workflow
-  on one `feature/<name>` branch in the primary checkout so a human can
-  inspect, stage, and commit each story with the full local development
-  environment. New `dispatch init-review`, `review-dispatch`,
-  `review-accept`, and `review-close` commands enforce clean boundaries,
-  exact commit ancestry, story IDs, atomic `status: done`, declared
-  output scope, passing tests, and terminal closure. Direct standalone
-  branch creation remains blocked, and autonomous dispatch commands
+- **Code review agent.** The new `code-review-agent` (phase 4, tier
+  strong) runs a bounded Fagan inspection on the implementation diff
+  before the reconciliation run. It reviews changed files only, with no
+  security review and no bug hunt. It files findings as `IMPL-*`. Every
+  finding passes three quality gates before filing: international-English
+  clarity, a fix direction for a junior developer, and brevity for a
+  senior engineer. The `feature-addition` and `greenfield-development`
+  playbooks gain Step 4.2 (code review) and Decision Point 4.3 (IMPL-\*
+  check) between implementation and reconciliation. The FSM gains the
+  states `PHASE_4_CODE_REVIEW` and `PHASE_4_IMPL_FIX`. The implementation
+  agent hands off to code-review-agent instead of reconciliation-agent.
+- **Ledger-backed implementation review mode.** A serial workflow runs on
+  one `feature/<name>` branch in the primary checkout. A human inspects,
+  stages, and commits each story with the full local development
+  environment. The new commands `dispatch init-review`, `review-dispatch`,
+  `review-accept`, and `review-close` enforce clean boundaries, exact
+  commit ancestry, story IDs, atomic `status: done`, declared output
+  scope, passing tests, and terminal closure. Direct creation of
+  standalone branches stays blocked, and autonomous dispatch commands
   reject review-mode ledgers.
-- **Split story IDs.** Story template and `backlog-lint` now accept
-  split-story IDs (`ST-NNNNA`, `ST-NNNNB`) for stories decomposed after
-  initial numbering.
+- **Split story IDs.** The story template and `backlog-lint` accept
+  split-story IDs (`ST-NNNNA`, `ST-NNNNB`) for stories split after their
+  first numbering.
 - **Risk-class extraction in detect-test-regime.** The
-  `detect-test-regime` skill now extracts `risk_classes` from the
-  project's testing configuration, enabling risk-aware test design during
-  implementation.
-- **Concreteness and slicing skills.** Two new backlog skills added to
-  the create-backlog sequence: `create-backlog-make-concrete` forces
-  every story through a concreteness checklist before acceptance, and
-  `create-backlog-slice-story` decomposes stories that exceed a single
-  implementation pass into independently deliverable slices. The grilling
-  skill gains additional concreteness probes.
+  `detect-test-regime` skill extracts `risk_classes` from the project's
+  testing configuration. Test design during implementation can then take
+  risk into account.
+- **Concreteness and slicing skills.** The create-backlog sequence gains
+  two backlog skills. `create-backlog-make-concrete` runs every story
+  through a concreteness checklist before acceptance.
+  `create-backlog-slice-story` splits a story that needs more than one
+  implementation pass into slices that ship independently. The grilling
+  skill gains more concreteness probes.
 - **Short, actionable stories.** `create-backlog-stories` and the parent
-  `create-backlog` skill updated to enforce shorter story bodies with
-  concrete behavioral language. Story template gains tighter section
-  guidance.
-- **Draft-proposal skill enhancement.** `draft-proposal` skill extended
-  with improved structuring, estimation scaffolding, and agent-context
-  routing for cross-cutting concerns.
-- **Review-workspace-check script.** New `review-workspace-check` script
-  validates workspace state before review-mode operations begin.
-- **`review-workspace-check` tests.** Regression tests for the new
-  workspace-check script.
-- **Reconciliation agent update.** Reconciliation agent definition
-  streamlined for clearer handoff from code-review-agent.
+  `create-backlog` skill require shorter story bodies in concrete
+  behavioral language. The story template gives tighter guidance per
+  section.
+- **Draft-proposal skill enhancement.** The `draft-proposal` skill
+  structures proposals better, scaffolds estimates, and routes
+  cross-cutting concerns through the agent context.
+- **Review-workspace-check script.** The new `review-workspace-check`
+  script validates the workspace state before a review-mode operation
+  begins.
+- **Reconciliation agent update.** The reconciliation agent definition is
+  shorter, so the handoff from code-review-agent is clearer.
 
 ### Fixes
 
-- **Proposal-to-requirements handoff boundary (BUG-0024).** The
-  `handoff-lint` boundary registry did not contain `proposal intake -> requirements`, blocking the feature workflow from entering
-  Requirements after proposal acceptance. Added the boundary to
-  `handoff-format.md` and `handoff-lint`. Regression tests added for
-  both valid and invalid boundaries.
+- **Proposal-to-requirements handoff boundary (BUG-0024).** The feature
+  workflow can enter Requirements after a proposal is accepted.
+  `handoff-format.md` and `handoff-lint` add the missing boundary
+  `proposal intake -> requirements` to the boundary registry. Regression
+  tests cover valid and invalid boundaries.
 - **Backlog-lint test contract (BUG-0025).** The `valid_risk_levels`
-  argument added in 0.10.0 broke 23 existing `test_backlog_lint.py`
-  tests that used the old `check_story` signature. All direct unit-test
-  callers updated to pass the default risk-level set.
-- **Story quality-gate enum (BUG-0026).** `ST-0217` and `ST-0221`
-  declared `mutation-analysis` instead of the canonical
-  `mutation-testing`. Both corrected to pass `BL-ENUM` validation.
+  argument from 0.10.0 broke 23 tests in `test_backlog_lint.py` that used
+  the old `check_story` signature. All direct unit-test callers pass the
+  default set of risk levels.
+- **Story quality-gate enum (BUG-0026).** `ST-0217` and `ST-0221` declare
+  the canonical `mutation-testing` instead of `mutation-analysis`, so
+  they pass `BL-ENUM` validation.
 - **Specification-review manifest (BUG-0027).** The `feature-addition`
-  spec-review step did not admit `docs/CONTEXT.md` as input or
-  `docs/reviews/spec-review-*.md` as output, blocking the
-  `inspect-spec` workflow from reading terminology context and writing
-  its review report. Both paths added. Manifest-contract test added.
+  spec-review step admits `docs/CONTEXT.md` as input and
+  `docs/reviews/spec-review-*.md` as output. So the `inspect-spec`
+  workflow can read terminology context and write its review report. A
+  manifest-contract test is added.
 - **Requirements remediation manifest (BUG-0028).** The
-  `feature-addition` update-specification step did not admit
-  `docs/findings/SPEC-*.md` as input or `docs/proposals/**/*.md` as
-  output, preventing a Requirements Agent from reading specification
-  defects or correcting an accepted proposal after a failed review. Both
-  paths added. Manifest-contract test extended.
+  `feature-addition` update-specification step admits
+  `docs/findings/SPEC-*.md` as input and `docs/proposals/**/*.md` as
+  output. So a Requirements Agent can read specification defects and
+  correct an accepted proposal after a failed review. The
+  manifest-contract test covers both paths.
 
 ### Documentation
 
-- **Deterministic Factory Engine proposal.** Draft proposal at
-  `docs/proposals/deterministic-factory-engine.md` for extracting
-  flow-control logic into a first-class engine package. Consultative
-  review completed with four grilling findings (PROP-0021 through
-  PROP-0024).
+- **Deterministic Factory Engine proposal.** The draft proposal at
+  `docs/proposals/deterministic-factory-engine.md` moves flow-control
+  logic into an engine package of its own. A consultative review produced
+  four grilling findings (PROP-0021 through PROP-0024).
 - **Local Usage Processing and Analysis proposal accepted.**
-  `docs/proposals/usage-processing-and-storage.md` expanded from draft
-  to accepted status with full design, entity model, query interface,
-  and dependency contracts. Specification review filed five findings
+  `docs/proposals/usage-processing-and-storage.md` grows from draft to
+  accepted, with the full design, entity model, query interface, and
+  dependency contracts. The specification review filed five findings
   (SPEC-0015 through SPEC-0019).
-- **UX review.** New-user journey UX review at
-  `docs/reviews/ux-review-2026-09-09-new-user-journey.md` evaluating
-  the distance between installation and first proof of value.
-- **Proposal review.** Consultative review of the Deterministic Factory
-  Engine proposal at
-  `docs/reviews/proposal-review-2026-09-11-deterministic-factory-engine.md`.
-- **Five bug reports filed and resolved.** BUG-0024 (proposal handoff
-  boundary), BUG-0025 (backlog-lint test contract), BUG-0026 (story
-  quality-gate enum), BUG-0027 (spec-review manifest), BUG-0028
-  (requirements remediation manifest).
-- **Five specification findings filed.** SPEC-0015 (superseded
-  agent-context feature), SPEC-0016 (canonical run selection identity),
-  SPEC-0017 (query schema contract), SPEC-0018 (DuckDB UI contract
-  owner), SPEC-0019 (PyArrow dependency conflict).
-- **Factory guide expanded.** Review-mode dispatch documented in the
-  factory guide.
+- **Factory guide expanded.** The factory guide documents review-mode
+  dispatch.
 
 ### Tests
 
-- **Dispatch review-mode tests.** 365-line test suite for the
-  review-mode dispatch workflow (`test_dispatch_review_mode.py`).
-- **Feature-addition contract tests.** New
-  `test_feature_addition_contract.py` validates that playbook step
-  manifests admit all required input and output paths.
-- **Handoff-lint tests.** New `test_handoff_lint.py` with boundary
-  regression coverage.
-- **Review-workspace-check tests.** New
-  `test_review_workspace_check.py`.
-- **Backlog-lint risk-level alignment.** Existing tests updated for the
+- **Dispatch review-mode tests.** A 365-line test suite
+  (`test_dispatch_review_mode.py`) covers the review-mode dispatch
+  workflow.
+- **Feature-addition contract tests.** The new
+  `test_feature_addition_contract.py` checks that the playbook step
+  manifests admit every required input and output path.
+- **Handoff-lint tests.** The new `test_handoff_lint.py` covers boundary
+  regressions.
+- **Review-workspace-check tests.** The new
+  `test_review_workspace_check.py` tests the workspace check.
+- **Backlog-lint risk-level alignment.** Existing tests follow the
   `valid_risk_levels` contract.
 
 ## 0.10.0 — 2026-09-09
 
-Agent-ready story format and test-design layer redistribution. Stories
-produced by the planning agent are now directly implementable by a
-developer-agent in a single pass — no post-hoc rewrite step. Test design
-moves from planning time to implementation time, and the developer-agent
-owns test authoring through a two-pass TDD model.
+This release brings the agent-ready story format and moves test design to
+a different layer. A developer-agent implements a story from the planning
+agent in a single pass, with no rewrite step afterwards. Test design moves
+from planning time to implementation time. The developer-agent owns test
+authoring through a two-pass TDD model.
 
 ### Features
 
-- **13-section story template.** Replaces the 7-section body (Demo,
-  Acceptance Criteria, Scope, Terminology, Notes for the Implementer)
-  with 13 sections: Goal, Domain Rule, Demo Scenario, Affected Paths,
+- **13-section story template.** 13 sections replace the 7-section
+  body (Demo, Acceptance Criteria, Scope, Terminology, Notes for the
+  Implementer): Goal, Domain Rule, Demo Scenario, Affected Paths,
   Inputs, Outputs, Required Behavior (conditional), Constraints,
   Suggested Agent Plan, Acceptance Criteria, Verification, Out of Scope,
   Agent Stop Conditions. Each section is defined so a developer-agent can
   implement the story without rereading the planning context.
-- **`risk_level` frontmatter field.** Optional enum (`low | medium | high`) in the story template and backlog-lint. Validated with `BL-ENUM`
-  error code. Three tests added.
-- **`touches` hygiene rule.** Documented in the story template under
-  Affected Paths. Rules: most specific existing directories only, no
-  parent+child overlap, no speculative paths for directories that do not
-  exist yet, every entry must resolve to an existing directory or one
-  created by a story in `deps`.
-- **Composition rules updated.** Rule 1 becomes "Goal First, then Demo"
-  — write the Goal statement before the Demo Scenario. Rule 4 added:
-  "Constraints Are Boundaries" — every must-not from ADRs, conventions,
-  testing regime, and scope exclusions goes in Constraints.
-- **Agent-answerability quality gate.** Eight concrete checks mapping
-  each agent question to the story section that must answer it (Goal,
+- **`risk_level` frontmatter field.** The story template and backlog-lint
+  accept the optional enum `low | medium | high`. backlog-lint validates
+  it with the error code `BL-ENUM`. Three tests are added.
+- **`touches` hygiene rule.** The story template documents the rule under
+  Affected Paths. List only the most specific existing directories, and
+  never a parent together with its child. List no speculative path for a
+  directory that does not exist yet. Every entry resolves to an existing
+  directory or to one that a story in `deps` creates.
+- **Composition rules updated.** Rule 1 becomes "Goal First, then Demo":
+  write the Goal statement before the Demo Scenario. The new Rule 4,
+  "Constraints Are Boundaries", puts every must-not from ADRs,
+  conventions, testing regime, and scope exclusions in Constraints.
+- **Agent-answerability quality gate.** Eight concrete checks map each
+  agent question to the story section that must answer it: Goal,
   Affected Paths, Domain Rule, Inputs, Acceptance Criteria, Verification,
-  Out of Scope, Agent Stop Conditions).
-- **International readability gate.** Six sentence-level checks: no
-  idioms, no ambiguous pronouns, short sentences, active voice,
-  consistent domain terms, abbreviations spelled out.
-- **Goal column in write-epics.** Building-block inventory includes a
-  Goal column (one sentence of concrete behavior per anticipated story).
-  Domain Rules subsection per EPIC lists invariants that seed each
-  story's Domain Rule section.
-- **Goal column in story-slices.** Slice table expanded from 4 to 5
-  columns with a Goal column between Capability and Boundaries crossed.
-- **11 section-filling instructions.** Phase 4 story-writing skill
-  (`create-backlog-stories`) rewritten with explicit instructions for
-  each new section: Goal derivation, Domain Rule extraction, Demo as
-  numbered steps, Affected Paths from codebase survey, Inputs as reading
+  Out of Scope, and Agent Stop Conditions.
+- **International readability gate.** Six checks apply to each sentence:
+  no idioms, no ambiguous pronouns, short sentences, active voice,
+  consistent domain terms, and abbreviations spelled out.
+- **Goal column in write-epics.** The building-block inventory has a Goal
+  column with one sentence of concrete behavior per expected story. Each
+  EPIC has a Domain Rules subsection. It lists the invariants that seed
+  each story's Domain Rule section.
+- **Goal column in story-slices.** The slice table grows from 4 to 5
+  columns, with a Goal column between Capability and Boundaries crossed.
+- **11 section-filling instructions.** The Phase 4 story-writing skill
+  (`create-backlog-stories`) gives an explicit instruction for each new
+  section: Goal derivation, Domain Rule extraction, Demo as numbered
+  steps, Affected Paths from a codebase survey, Inputs as a reading
   manifest, Outputs with behavioral detail, Required Behavior
   (conditional), Constraints from ADRs, Suggested Agent Plan,
-  Verification from `testing.yaml`, Agent Stop Conditions from risk and
-  ambiguity.
-- **Plain-language pass.** Added to `create-backlog-stories` after the
-  quality gate: reread Goal, Domain Rule, and Demo Scenario for
-  understandability before presenting the backlog.
-- **Developer-agent cue migration.** Step 1 completeness check uses Goal
-  instead of Demo/Scope. Step 2 pre-existing test lookup reads from
-  Inputs instead of Notes for the Implementer. Backward compatibility
-  preserved: `#### Failure scenarios` and `#### Prior Tests` paths
-  unchanged.
-- **Testability probe.** New mandatory step 2.5 in the create-backlog
-  sequence, between write-epics and story-slices. Writes a testability
-  paragraph and ownership table per EPIC into `backlog/epics.md`.
-  Replaces the former test-design skill's planning-time output.
-- **Two-pass TDD model.** Developer-agent owns test authoring through
-  two passes: pass 1 writes acceptance-criteria tests (Red-Green), pass 2
-  invokes the `test-design` skill post-GREEN for integration and
-  edge-case tests. `tests:` and `test-design-pass:` frontmatter fields
-  populated by the developer-agent at commit time.
-- **test-design skill rewrite.** Operates at implementation time, not
-  planning time. Reads ownership assignments from the testability probe,
-  classifies owned contracts by risk class, identifies untested
-  integration paths, and authors test files.
-- **test-design-verify gate.** Validates that stories with test-design
-  output have consistent `tests:` and `test-design-pass:` fields.
-  Implicitly enabled when the story contains Failure scenarios or Prior
-  Tests sections.
-- **Vue Best Practices skill.** New skill for Vue.js frontend
-  implementation guidance, loaded by the developer-agent when a story's
+  Verification from `testing.yaml`, and Agent Stop Conditions from risk
+  and ambiguity.
+- **Plain-language pass.** After the quality gate,
+  `create-backlog-stories` rereads Goal, Domain Rule, and Demo Scenario
+  for understandability before it presents the backlog.
+- **Developer-agent cue migration.** The completeness check in Step 1
+  uses Goal instead of Demo/Scope. The pre-existing test lookup in Step 2
+  reads Inputs instead of Notes for the Implementer. For backward
+  compatibility, the `#### Failure scenarios` and `#### Prior Tests`
+  paths stay unchanged.
+- **Testability probe.** A new mandatory step 2.5 in the create-backlog
+  sequence runs between write-epics and story-slices. It writes a
+  testability paragraph and an ownership table per EPIC into
+  `backlog/epics.md`. It replaces the planning-time output of the former
+  test-design skill.
+- **Two-pass TDD model.** The developer-agent owns test authoring in two
+  passes. Pass 1 writes acceptance-criteria tests (Red-Green). Pass 2
+  invokes the `test-design` skill after GREEN for integration and
+  edge-case tests. The developer-agent fills the `tests:` and
+  `test-design-pass:` frontmatter fields at commit time.
+- **test-design skill rewrite.** The skill runs at implementation time,
+  not planning time. It reads ownership assignments from the testability
+  probe, classifies owned contracts by risk class, identifies untested
+  integration paths, and writes test files.
+- **test-design-verify gate.** The gate checks that stories with
+  test-design output have consistent `tests:` and `test-design-pass:`
+  fields. It is enabled implicitly when a story contains Failure
+  scenarios or Prior Tests sections.
+- **Vue Best Practices skill.** A new skill gives guidance for Vue.js
+  frontend implementation. The developer-agent loads it when a story's
   outputs touch `packages/server` (Vue frontend).
 
 ### Fixes
 
-- **Stale Notes for the Implementer references.** Removed from story
-  template, all four create-backlog skills, and developer-agent.
-  Replaced with appropriate new sections (Inputs, Constraints,
-  Verification).
-- **Quality gate count.** Parent skill correctly states "Two quality
-  gates" (Agent-Answerability and International Readability), not three.
-- **Story template stray fences.** Removed trailing empty code fences
+- **Stale Notes for the Implementer references.** The references are
+  removed from the story template, all four create-backlog skills, and
+  the developer-agent. Inputs, Constraints, or Verification take their
+  place, as fits.
+- **Quality gate count.** The parent skill states "Two quality gates"
+  (Agent-Answerability and International Readability), not three.
+- **Story template stray fences.** Trailing empty code fences are removed
   from the template body.
-- **Dispatch script scope.** Reverted out-of-scope modifications to the
-  dispatch script made during implementation dispatch.
-- **User-prompt questions restored.** MoSCoW priorities, missing stories,
-  and dependency reordering prompts restored in `create-backlog-stories`
-  after accidental removal during skill rewrite.
-- **Hook search string.** Fixed wrong search string in
-  `block-dangerous-git.sh`.
-- **Reconciliation test traceability.** Added `tests:` field audit and
-  contract ownership coverage check to the reconciliation agent.
-- **Testing strategy documentation.** Two-pass test authoring model
-  documented in `testing-strategy.md`.
+- **Dispatch script scope.** Out-of-scope changes to the dispatch script,
+  made during implementation dispatch, are reverted.
+- **User-prompt questions restored.** The prompts for MoSCoW priorities,
+  missing stories, and dependency reordering are back in
+  `create-backlog-stories`. The skill rewrite had removed them by
+  accident.
+- **Hook search string.** `block-dangerous-git.sh` uses the correct
+  search string.
+- **Reconciliation test traceability.** The reconciliation agent audits
+  the `tests:` field and checks contract ownership coverage.
+- **Testing strategy documentation.** `testing-strategy.md` documents the
+  two-pass test authoring model.
 
 ### Documentation
 
-- **Agent-ready story format proposal.** Full proposal at
-  `docs/proposals/implemented/agent-ready-story-format.md` with two
-  review rounds and all findings resolved.
-- **Test-design layer redistribution proposal.** Full proposal at
+- **Agent-ready story format proposal.** The full proposal at
+  `docs/proposals/implemented/agent-ready-story-format.md` went through
+  two review rounds, and all findings are resolved.
+- **Test-design layer redistribution proposal.** The full proposal is at
   `docs/proposals/implemented/test-design-layer-redistribution.md`.
-- **migrate-proposal script.** New script to move accepted proposals
-  from `docs/proposals/` to `docs/proposals/implemented/`.
-- **Campaign retrospective.** Filed at
-  `docs/reviews/retro-2026-09-09-agent-ready-story-format.md`.
+- **migrate-proposal script.** A new script moves accepted proposals from
+  `docs/proposals/` to `docs/proposals/implemented/`.
 
 ## 0.9.0 — 2026-09-09
 
-Concern-oriented agent context and code-first planning. Agents discover
-what to read by concern name, not by file path. Planning starts from the
-codebase as ground truth and derives stories as deltas from existing code
-to specified capabilities.
+This release brings concern-oriented agent context and code-first
+planning. Agents find what to read by concern name, not by file path.
+Planning starts from the codebase as ground truth and derives stories as
+deltas from existing code to specified capabilities.
 
 ### Features
 
-- **Concern-oriented agent context.** Replaces the four YAML agent-context
-  files (`stack.yaml`, `workflow.yaml`, `governance.yaml`,
-  `reading-guides.yaml`) with a single CLI-agnostic markdown file:
-  `docs/agent-context.md`. Agents discover project-native knowledge
+- **Concern-oriented agent context.** A single CLI-agnostic markdown file,
+  `docs/agent-context.md`, replaces the four YAML agent-context files
+  (`stack.yaml`, `workflow.yaml`, `governance.yaml`,
+  `reading-guides.yaml`). Agents find project-native knowledge
   (supplementary specs, ADRs, handbooks, architecture views) through
-  concern sections carrying `Read:` paths. Three concern categories:
-  cross-cutting (always active), technical (per story), domain (per
-  story). Factory-canonical artifacts (`scope-map.md`, `.feature` files,
-  `testing.yaml`) remain as concrete paths.
-- **concern-lint.** New deterministic linter replacing `context-lint`.
-  Four checks: CTX-SECTIONS (category headings and Read paths),
-  CTX-PATHS (file resolution), CTX-REFS (story concern vocabulary
-  matches registry), CTX-LEGACY (flags residual YAML files).
-- **Concern declarations in story frontmatter.** Planning agent writes
-  `concerns: {domain: [...], technical: [...]}` into each story.
-  Developer and implementation agents follow matching sections in
+  concern sections with `Read:` paths. Concerns fall into three
+  categories: cross-cutting (always active), technical (per story), and
+  domain (per story). Factory-canonical artifacts (`scope-map.md`,
+  `.feature` files, `testing.yaml`) keep concrete paths.
+- **concern-lint.** The new deterministic linter replaces `context-lint`.
+  It runs four checks: CTX-SECTIONS (category headings and Read paths),
+  CTX-PATHS (file resolution), CTX-REFS (the story concern vocabulary
+  matches the registry), and CTX-LEGACY (flags residual YAML files).
+- **Concern declarations in story frontmatter.** The planning agent writes
+  `concerns: {domain: [...], technical: [...]}` into each story. The
+  developer and implementation agents follow the matching sections in
   `agent-context.md`.
-- **capture-context rewrite.** Greenfield (`--init`) and brownfield
-  (`--init --scan`) modes produce concern sections instead of YAML files.
-  Auto-detects old YAML format and offers interactive migration.
-- **update-context retired.** Skill body replaced with a deprecation
-  notice pointing to direct `agent-context.md` editing.
-- **testing.yaml relocated.** Moved from `docs/agent-context/testing.yaml`
-  to `docs/testing.yaml`. Resolution chain updated in `concern-lint`,
-  `detect-test-regime`, `crap-score`, and all agent definitions.
-- **YAML migration path.** `capture-context` auto-detects old YAML
-  agent-context format and offers interactive migration to the concern
-  model.
-- **Code-first planning.** Planning agent and all five backlog skills
-  reworked. New principle "Code Is Ground Truth" — planning starts from
-  the codebase as it stands, not from an aspirational architecture. EPIC
-  decomposition is the delta between existing code and specified
-  capabilities. Step 0 (codebase survey) elevated to foundation;
-  Step 1 reframed as gap analysis.
-- **Concern-routed inputs.** Planning agent and skills discover project-
-  native knowledge through `docs/agent-context.md` concern sections
-  instead of hardcoded file paths. Technical concerns route to source
-  directories, architecture views, and conventions. Domain concerns route
-  to supplementary specs and domain vocabulary.
-- **Agent definitions updated.** Project-native file lists replaced with
-  concern references across requirements-agent, architecture-agent,
-  architecture-review-agent, qa-agent, spec-review-agent, developer-
-  agent, implementation-agent, virgil, and reconciliation-agent.
+- **capture-context rewrite.** The greenfield (`--init`) and brownfield
+  (`--init --scan`) modes write concern sections instead of YAML files.
+  The skill detects the old YAML format and offers an interactive
+  migration.
+- **update-context retired.** The skill body is a deprecation notice. It
+  points to editing `agent-context.md` directly.
+- **testing.yaml relocated.** The file moves from
+  `docs/agent-context/testing.yaml` to `docs/testing.yaml`. The
+  resolution chain in `concern-lint`, `detect-test-regime`, `crap-score`,
+  and all agent definitions follows the move.
+- **Code-first planning.** The planning agent and all five backlog skills
+  are reworked. The new principle "Code Is Ground Truth" starts planning
+  from the codebase as it stands, not from an aspirational architecture.
+  EPIC decomposition is the delta between existing code and specified
+  capabilities. Step 0 (codebase survey) becomes the foundation, and
+  Step 1 becomes a gap analysis.
+- **Concern-routed inputs.** The planning agent and skills find
+  project-native knowledge through the concern sections of
+  `docs/agent-context.md` instead of hardcoded file paths. Technical
+  concerns route to source directories, architecture views, and
+  conventions. Domain concerns route to supplementary specs and domain
+  vocabulary.
+- **Agent definitions updated.** Concern references replace the lists of
+  project-native files in requirements-agent, architecture-agent,
+  architecture-review-agent, qa-agent, spec-review-agent,
+  developer-agent, implementation-agent, virgil, and reconciliation-agent.
 
 ### Fixes
 
-- **spec-lint required artifacts.** Removed `prd.md` and
-  `supplementary_specs/validation-rules.md` from `REQUIRED_ARTIFACTS` —
-  neither is produced by the current requirements workflow. Tests updated.
-- **dispatch-ledger path.** Corrected path reference in `rules.md`.
-- **Reconciliation findings.** Resolved 16 RECON findings from the
-  concern-oriented context implementation.
-- **QA findings.** Fixed hook `testing.yaml` resolution and `concern-lint`
-  exit code.
+- **spec-lint required artifacts.** `prd.md` and
+  `supplementary_specs/validation-rules.md` leave `REQUIRED_ARTIFACTS`,
+  because the current requirements workflow produces neither. The tests
+  are updated.
+- **dispatch-ledger path.** The path reference in `rules.md` is corrected.
+- **Reconciliation findings.** The release resolves 16 RECON findings
+  from the concern-oriented context implementation.
+- **QA findings.** The hook resolves `testing.yaml` correctly, and
+  `concern-lint` returns the correct exit code.
 
 ### Documentation
 
-- **Writing rules.** Added "international team English" to writing
-  conventions.
-- **Concern-oriented context proposal.** Full proposal at
-  `docs/proposals/factory-concern-oriented-agent-context.md` with two
-  review rounds and all findings resolved.
+- **Writing rules.** The writing conventions add "international team
+  English".
+- **Concern-oriented context proposal.** The full proposal at
+  `docs/proposals/factory-concern-oriented-agent-context.md` went through
+  two review rounds, and all findings are resolved.
 
 ## 0.8.0 — 2026-09-08
 
-Progressive fitting and session continuity. Reduces the fitting interview
-from 19 questions to 6 for the minimum-viable pass, surfaces navigation
-aids in the session menu, resolves the VIRGIL/playbook persona conflict,
-and derives fitting state from tracked artifacts so collaborators who
-clone a fitted repo inherit the team's fitting decisions.
+This release brings progressive fitting and session continuity. The
+minimum-viable fitting interview drops from 19 questions to 6. The session
+menu shows navigation aids. The conflict between the VIRGIL persona and
+the playbooks is resolved. Fitting state is derived from tracked
+artifacts, so a collaborator who clones a fitted repo inherits the team's
+fitting decisions.
 
 ### Features
 
 - **Minimal fitting pass.** `capture-context --init --scan --minimal`
-  limits the interview to 6 questions (languages, frontend/backend
-  frameworks, testing, running locally, branching model). Remaining
-  fields are set to `deferred: "full context pass pending"` and
-  completed in an optional full pass. `--init --minimal` (without
+  limits the interview to 6 questions: languages, frontend/backend
+  frameworks, testing, running locally, and branching model. The
+  remaining fields get `deferred: "full context pass pending"`, and an
+  optional full pass completes them. `--init --minimal` (without
   `--scan`) covers greenfield projects.
-- **Artifact-derived fitting state.** `init-factory` re-derives four of
-  five fitting keys (`fingerprint_confirmed`, `agent_context_populated`,
-  `test_regime_detected`, `hooks_decided`) from tracked artifacts
-  (`docs/agent-context/`, `.pre-commit-config.yaml`,
-  `config/project-context.json`) on every run. A collaborator who clones
-  a fitted repo and runs `init-factory` inherits the team's fitting
-  decisions instead of seeing everything reset to false.
-  `model_matrix_configured` is cache-only — `config/model.conf` is
-  gitignored and user-specific.
+- **Artifact-derived fitting state.** On every run, `init-factory`
+  re-derives four of the five fitting keys (`fingerprint_confirmed`,
+  `agent_context_populated`, `test_regime_detected`, `hooks_decided`)
+  from tracked artifacts (`docs/agent-context/`,
+  `.pre-commit-config.yaml`, `config/project-context.json`). A
+  collaborator who clones a fitted repo and runs `init-factory` inherits
+  the team's fitting decisions instead of seeing every key reset to false.
+  `model_matrix_configured` lives only in the cache, because
+  `config/model.conf` is gitignored and user-specific.
 - **Fitting progress display.** When `fitting.status` is `"fitting"`,
-  the AGENTS.md orientation file counts completed vs. remaining steps
-  and offers to resume or skip. A note clarifies that the summary
-  trusts the cached values and suggests `init-factory --update .` after
-  pulls to reconcile.
-- **Session menu descriptions.** Each B-menu playbook entry now shows a
-  one-line description drawn from the playbook's opening paragraph.
-  `explain-concept` is surfaced as a footer hint. The `?` option
-  launches a guided-tour reorientation skill.
+  the AGENTS.md orientation file counts completed and remaining steps and
+  offers to resume or skip. A note says that the summary trusts the
+  cached values. It suggests `init-factory --update .` after pulls to
+  reconcile.
+- **Session menu descriptions.** Each B-menu playbook entry shows a
+  one-line description from the playbook's opening paragraph. A footer
+  hint names `explain-concept`. The `?` option launches a guided-tour
+  skill for reorientation.
 
 ### Fixes
 
-- **VIRGIL persona transition.** VIRGIL's boundaries section now
-  includes an exception clause: when a playbook is selected, the model
-  drops the VIRGIL persona and follows the playbook's operational
-  procedure. Resolves the conflict where VIRGIL's "MUST NOT write code"
-  boundary blocked playbook execution.
-- **`_fitting_status` missing-key safety.** Uses `.get(k, False)`
-  instead of direct key access, preventing `KeyError` on hand-edited
-  `project-context.json` with missing fitting keys.
-- **`_reconcile_project_context` conditional write.** Only writes
-  `project-context.json` when derived keys actually changed, avoiding
-  unnecessary file touches.
-- **Minimal interview defer removed.** The 6 minimal fields no longer
-  offer "defer" as an action — all 6 must be answered per the design
-  intent.
-- **Session menu qa-agent format.** Reformatted to the `name: description` style matching all other B-menu entries.
-- **`dispatch_lib` YAML document marker.** `_stdlib_load` now skips
-  `---` lines instead of treating them as key-value pairs.
+- **VIRGIL persona transition.** VIRGIL's boundaries section has an
+  exception clause. When a playbook is selected, the model drops the
+  VIRGIL persona and follows the playbook's operational procedure. So
+  VIRGIL's "MUST NOT write code" boundary no longer blocks playbook
+  execution.
+- **`_fitting_status` missing-key safety.** The function uses
+  `.get(k, False)` instead of direct key access. A hand-edited
+  `project-context.json` with missing fitting keys then raises no
+  `KeyError`.
+- **`_reconcile_project_context` conditional write.** The function writes
+  `project-context.json` only when a derived key changed, so it does not
+  touch the file without need.
+- **Minimal interview defer removed.** The 6 minimal fields do not offer
+  "defer" as an action. All 6 must be answered, as the design intends.
+- **Session menu qa-agent format.** The entry uses the
+  `name: description` style of all other B-menu entries.
+- **`dispatch_lib` YAML document marker.** `_stdlib_load` skips `---`
+  lines instead of reading them as key-value pairs.
 
 ### Documentation
 
-- **`_parse_simple_yaml_mapping` docstring.** Documents the known
-  limitation that comment stripping via `split('#')` does not respect
+- **`_parse_simple_yaml_mapping` docstring.** The docstring documents a
+  known limitation: comment stripping via `split('#')` does not respect
   quoted strings.
-- **virgil.md line-break fix.** Corrected a mid-sentence line break in
-  the minimal fitting step description.
+- **virgil.md line-break fix.** A mid-sentence line break in the minimal
+  fitting step description is corrected.
 
 ## 0.7.0 — 2026-09-07
 
-Hardens the update path and closes the documentation gap between script
-mechanism and user-facing reference.
+This release hardens the update path. The user-facing reference now
+documents what the scripts do.
 
 ### Features
 
-- **Update-factory modification detection.** `update-factory` now
-  compares the installed `factory/` against per-file SHA-256 checksums
-  recorded at install time (`.agent-factory/factory-checksums.json`).
-  Modified, added, and removed files are reported individually. The
-  update stops (exit 2) when user changes are detected. `--force`
-  preserves changed files under
-  `.agent-factory/factory-user-changes/<timestamp>/` and proceeds;
-  `--check` reports without touching anything. Rollback on failure
+- **Update-factory modification detection.** `update-factory` compares
+  the installed `factory/` against per-file SHA-256 checksums recorded at
+  install time (`.agent-factory/factory-checksums.json`). It reports each
+  modified, added, and removed file. The update stops with exit 2 when it
+  detects user changes. `--force` keeps changed files under
+  `.agent-factory/factory-user-changes/<timestamp>/` and continues.
+  `--check` reports without touching anything. On failure, a rollback
   restores the previous `factory/` automatically.
-- **`--add` / `--remove` CLI management.** Incrementally add or remove
-  CLI wiring after install — dot-directories, symlinks, guardrails,
-  step guards, usage capture, freshness hooks, and generated agents —
-  without re-running the full installer. The root `init-factory` wrapper
-  now forwards `--add` and `--remove` to the underlying script.
-- **Factory fitting completed.** Agent-context YAML files populated
-  (`stack.yaml`, `workflow.yaml`, `governance.yaml`,
-  `reading-guides.yaml`) and `config/model.conf` configured with
-  concrete model IDs for the Agent Factory project itself.
+- **`--add` / `--remove` CLI management.** These flags add or remove CLI
+  wiring after install, without a full reinstall. The wiring covers
+  dot-directories, symlinks, guardrails, step guards, usage capture,
+  freshness hooks, and generated agents. The root `init-factory` wrapper
+  forwards `--add` and `--remove` to the underlying script.
 
 ### Fixes
 
-- **step-guard bail-early.** Guard-existence and jq-availability checks
-  now run before stdin/event parsing, so missing infrastructure exits 0
-  instead of crashing the session with "hook errored".
+- **step-guard bail-early.** The guard checks that it exists and that jq
+  is available before it parses stdin and the event. Missing
+  infrastructure then exits 0 instead of crashing the session with "hook
+  errored".
 
 ### Documentation
 
-- **README reference tables expanded.** CLI flag tables for both scripts;
-  "What init-factory creates" table extended from 8 to 16 rows covering
-  step guard hooks, freshness check, usage capture hooks, generated
-  agents, hook config, project-context.json, test regime, usage runtime,
-  usage lifecycle, and install checksums.
-- **Factory guide expanded.** "What init-factory put on your disk"
-  section adds `config/project-context.json` and
-  `docs/agent-context/testing.yaml`. "Updating it again" section now
+- **README reference tables expanded.** Both scripts get CLI flag tables.
+  The "What init-factory creates" table grows from 8 to 16 rows. The new
+  rows cover step guard hooks, freshness check, usage capture hooks,
+  generated agents, hook config, project-context.json, test regime, usage
+  runtime, usage lifecycle, and install checksums.
+- **Factory guide expanded.** The section "What init-factory put on your
+  disk" adds `config/project-context.json` and
+  `docs/agent-context/testing.yaml`. The section "Updating it again"
   documents `--check`, `--force`, and `--add`/`--remove` with code
-  examples. New troubleshooting entry for dangling `origin/HEAD` repair.
-- **Install section rewritten.** Explains wrapper delegation, update
-  workflow, and CLI add/remove in dedicated subsections.
+  examples. A new troubleshooting entry repairs a dangling `origin/HEAD`.
+- **Install section rewritten.** Separate subsections explain wrapper
+  delegation, the update workflow, and adding or removing a CLI.
 
 ## 0.6.0 — 2026-09-07
 
-Documentation release. Closes the gap between running `init-factory` and
-starting your first playbook, and hardens the hooks and rulebook for
-day-to-day use.
-
-### Documentation
-
-- **Onboarding bridge.** Getting Started now explains what `init-factory`
-  put on disk — `project-context.json`, `model.conf`, `agent-context/` —
-  so newcomers are not surprised when a playbook references them. Context
-  added as a fifth vocabulary entry; INDEX.yaml positioned as a human
-  reference, not just a machine lookup.
-- **Newcomer tour expanded.** Tour steps now cover config artifacts and
-  the fitting session, with greenfield model-matrix awareness in VIRGIL.
-- **READMEs refreshed.** Root and `packages/factory/` READMEs updated
-  for current structure.
-- **Nine broken doc links repaired.** `orchestrator/` →
-  `packages/orchestrator/`, `tests/orchestrator/` → `tests/factory/`,
-  `spec/use_cases/` → `~archive/spec/use_cases/`, and one dead README
-  anchor removed.
+This documentation release covers the step from running `init-factory` to
+starting the first playbook. It also hardens the hooks and the rulebook
+for daily use.
 
 ### Features
 
-- **Factory-freshness check.** A new hook warns (never blocks) on the
-  first tool call of each session when the installed `factory/` is out of
-  sync with `packages/factory/`. Implemented for all CLIs: bash hook
-  (Claude/Copilot/Codex), TypeScript extension (Pi), and Copilot hook
-  config. `init-factory` stamps and `update-factory` refreshes the tree
-  hash.
+- **Factory-freshness check.** A new hook warns on the first tool call of
+  each session when the installed `factory/` is out of sync with
+  `packages/factory/`. It never blocks. It exists for all CLIs: a bash
+  hook (Claude/Copilot/Codex), a TypeScript extension (Pi), and a Copilot
+  hook config. `init-factory` stamps the tree hash, and `update-factory`
+  refreshes it.
 
 ### Fixes
 
-- **step-guard: no manifest, no restriction.** The empty-path rejection
-  fired before checking whether a step manifest was loaded, blocking
-  sessions without `.current-work/current-step.yml`. Reordered: no
-  manifest means no restrictions. Adds a debug dump for path-extraction
-  misses.
-- **Codex skill resolution path.** The rulebook's INDEX.yaml resolution
-  example said `.codex/skills/` but init-factory installs skills to
-  `.agents/skills/`.
-
-## 0.5.0 — 2026-09-07
-
-First versioned release. Factory version is tracked in `factory/VERSION`
-and recorded in the install manifest (`.agent-factory/factory-install.json`
-→ `factory_version`).
-
-### Fitting lifecycle
-
-The factory now learns your project before it starts working. When
-init-factory runs against an existing codebase, it scans for languages,
-frameworks, package managers, CI, linters, test runners, and docs
-structure. The results go into `config/project-context.json` with a
-fitting state that tracks what has been confirmed.
-
-- **Brownfield projects** get `fitting.status = "unfitted"`. The first
-  session offers a guided fitting — a short walk-through to confirm the
-  scan, populate agent context, configure the model matrix, and decide on
-  hooks.
-- **Greenfield projects** (no signals detected) get
-  `fitting.status = "greenfield"` and skip the fitting entirely.
-- Fitting progress persists across sessions. Stop any time; the next
-  session picks up where you left off.
-
-### Selective CLI wiring
-
-`init-factory` now asks which CLIs you use and wires up only those. Pass
-`--cli claude copilot` or choose interactively. Add a CLI later with
-`init-factory --add copilot`; remove one with `init-factory --remove pi`.
-
-### One-hop orientation
-
-The CLI orientation file (`AGENTS.md` / `CLAUDE.md` /
-`copilot-instructions.md`) is self-contained for the model's first turn.
-It checks fitting state and presents the session menu without chaining to
-a second file. Weak models that read only the orientation file still do
-the right thing.
-
-VIRGIL is demoted from mandatory session persona to optional enrichment.
-Strong models that chain to `virgil.md` get richer guidance; weak models
-skip it and still work.
-
-### Model matrix
-
-`config/model.conf` is now generated with only the installed CLIs'
-stanzas, using `CONFIGURE-ME` placeholders instead of real model IDs. The
-file includes a howto header with per-CLI model ID examples and validation
-instructions. VIRGIL's fitting step 0 walks through configuration.
-
-### Orientation non-interference
-
-init-factory never overwrites an existing instruction file. Four cases:
-no file → symlink; our symlink → skip; foreign symlink → leave it;
-existing file → prepend a marker-fenced block. `remove-factory` reverses
-all of them.
-
-### Hooks
-
-- `step-guard.sh` exits 0 gracefully when `factory/scripts/step-guard` is
-  absent (fresh clone, partial install).
-- Brownfield projects with an existing `.pre-commit-config.yaml` get no
-  automatic hook merge — deferred to the fitting session.
+- **step-guard: no manifest, no restriction.** The guard checks for a
+  loaded step manifest before it rejects an empty path. Without a
+  manifest, it imposes no restrictions. So sessions without
+  `.current-work/current-step.yml` are not blocked. A debug dump records
+  path-extraction misses.
+- **Codex skill resolution path.** The INDEX.yaml resolution example in
+  the rulebook names `.agents/skills/`, where init-factory installs
+  skills, instead of `.codex/skills/`.
 
 ### Documentation
 
-- README rewritten: before/after value contrast, reversibility as
-  first-class promise, fitting mention for brownfield.
-- All eight newcomer-path doc gaps closed (model matrix, tiers, stale ruff
-  refs, project.json, directory layout, factory README, agent context).
-- Pre-commit hook comments rewritten for clarity.
-- "Operator" → "user" across 127 files.
-- Editorial pass over all 58 skills.
-- Orientation architecture documented in the init-factory proposal.
+- **Onboarding bridge.** Getting Started explains what `init-factory` put
+  on disk: `project-context.json`, `model.conf`, and `agent-context/`. A
+  newcomer then knows these files when a playbook references them.
+  Context becomes the fifth vocabulary entry. INDEX.yaml is presented as
+  a human reference as well as a machine lookup.
+- **Newcomer tour expanded.** The tour covers the config artifacts and the
+  fitting session. VIRGIL knows about the model matrix in greenfield
+  projects.
+- **READMEs refreshed.** The root and `packages/factory/` READMEs describe
+  the current structure.
+- **Nine broken doc links repaired.** `orchestrator/` becomes
+  `packages/orchestrator/`, `tests/orchestrator/` becomes
+  `tests/factory/`, and `spec/use_cases/` becomes
+  `~archive/spec/use_cases/`. One dead README anchor is removed.
 
-### Monorepo
+## 0.5.0 — 2026-09-07
 
-Product source lives under `packages/factory/`. The root `factory/` is
-the installed copy (git-ignored), synced by `update-factory`. Root
-`init-factory` is a thin wrapper.
+This is the first versioned release. `factory/VERSION` holds the factory
+version, and the install manifest records it in the `factory_version`
+field of `.agent-factory/factory-install.json`.
+
+### Features
+
+- **Fitting lifecycle.** When init-factory runs against an existing
+  codebase, it scans for languages, frameworks, package managers, CI,
+  linters, test runners, and docs structure. The results go into
+  `config/project-context.json`, with a fitting state that tracks what is
+  confirmed.
+  - **Brownfield projects** get `fitting.status = "unfitted"`. The first
+    session offers a guided fitting. It confirms the scan, fills the agent
+    context, configures the model matrix, and decides on hooks.
+  - **Greenfield projects** (no signals detected) get
+    `fitting.status = "greenfield"` and skip the fitting.
+  - Fitting progress persists across sessions. The next session resumes
+    where the last one stopped.
+- **Selective CLI wiring.** `init-factory` asks which CLIs you use and
+  wires only those. Pass `--cli claude copilot` or choose interactively.
+  Add a CLI later with `init-factory --add copilot`, and remove one with
+  `init-factory --remove pi`.
+- **One-hop orientation.** The CLI orientation file (`AGENTS.md` /
+  `CLAUDE.md` / `copilot-instructions.md`) holds everything the model needs
+  for its first turn. It checks the fitting state and presents the session
+  menu without pointing to a second file. A weak model that reads only the
+  orientation file still behaves correctly. VIRGIL becomes optional
+  enrichment instead of the mandatory session persona. A strong model that
+  follows the link to `virgil.md` gets richer guidance. A weak model skips
+  it and still works.
+- **Model matrix.** `config/model.conf` holds stanzas for the installed
+  CLIs only, with `CONFIGURE-ME` placeholders instead of real model IDs.
+  Its howto header gives model ID examples per CLI and explains how to
+  validate them. Step 0 of VIRGIL's fitting walks through the
+  configuration.
+- **Orientation non-interference.** init-factory never overwrites an
+  existing instruction file. It handles four cases. Where no file exists,
+  it creates a symlink. It skips its own symlink and leaves a foreign
+  symlink alone. Into an existing file, it prepends a marker-fenced block.
+  `remove-factory` reverses all four cases.
+- **Hooks.** `step-guard.sh` exits 0 when `factory/scripts/step-guard` is
+  absent, as in a fresh clone or a partial install. In a brownfield
+  project with an existing `.pre-commit-config.yaml`, the hooks are not
+  merged automatically. The fitting session handles the merge.
+- **Monorepo.** The product source lives under `packages/factory/`. The
+  root `factory/` is the installed copy, which git ignores and
+  `update-factory` syncs. The root `init-factory` is a thin wrapper.
+
+### Documentation
+
+- The README is rewritten. It contrasts the project before and after
+  installation, states reversibility as a promise, and mentions fitting
+  for brownfield projects.
+- All eight doc gaps on the newcomer path are closed: model matrix,
+  tiers, stale ruff refs, project.json, directory layout, factory README,
+  and agent context.
+- The pre-commit hook comments are rewritten for clarity.
+- "Operator" becomes "user" across 127 files.
+- An editorial pass covers all 58 skills.
+- The init-factory proposal documents the orientation architecture.
