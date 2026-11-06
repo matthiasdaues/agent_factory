@@ -5,7 +5,7 @@ title: Finding Classification
 status: accepted
 owner: agent-factory
 created: 2026-11-04
-updated: 2026-11-05
+updated: 2026-11-06
 supersedes:
 
 impact:
@@ -872,6 +872,11 @@ files.
 2. It blames, on `dev`, on `main`, and at each release tag, the original
    file that the porcelain output names for each line. So a range that moved
    to another file on the reviewed branch is still found in its old file.
+   Each project defines which tags count as release tags, as the list
+   `release_tag_patterns` in the tracked file `docs/factory-settings.yaml`
+   (DEC-48). Git carries the setting, so every clone uses the same one. The
+   Factory sets no default, and `init-factory` does not write the file.
+   Without the file or the key, `finding-lint` exits `1` and names both.
 3. It blames the installed copy with `--contents`, which annotates a file
    outside git against the history of the tracked path. In this repository,
    the installed copy of `packages/factory/` is `.agent-factory/factory/`. A
@@ -1088,6 +1093,9 @@ None.
   installed copy, a range whose lines shifted, a range that moved to another
   file, and a range in the installed copy whose lines git has no record of,
   which does not count as unchanged.
+- `finding-lint` exits `1` and names the missing setting when the project
+  defines no release-tag pattern, and checks only the tags that match it once
+  it is set.
 - `finding-lint` checks `in_use` only on a finding that is new against `HEAD`
   or whose `basis` or `artifact` differs from `HEAD`. A test merges the branch
   of a `major` finding into `dev`, then sets `status: waived` on it, and the
@@ -1169,7 +1177,7 @@ The reviewer states the facts, and the rule states the severity.
 | DEC-18 | 2026-11-04 | decision   | stakeholder | The architecture matrix gives at most `major`. A risk becomes `critical` only when something built from the decision is in use (DEC-16).                                                                                                                                                                    | Grilling Q5                                                        |
 | DEC-19 | 2026-11-04 | decision   | stakeholder | Scenario importance comes from the priority in arc42 § 10.2: priority 1 is `high`, priority 2 is `medium`. A utility tree with H/M/L ratings is deferred.                                                                                                                                                   | Grilling Q6                                                        |
 | DEC-20 | 2026-11-04 | decision   | stakeholder | Security severity comes from a bug bar: the effect class sets the level, each of four preconditions lowers it one step, and `critical` needs `in_use` and `proven` confidence.                                                                                                                              | Grilling Q7b                                                       |
-| DEC-21 | 2026-11-04 | decision   | stakeholder | `finding-lint` checks `in_use` against `dev`, `main`, release tags, and the installed copy. Every class records `in_use`, and `artifact` must resolve to a line range or a heading.                                                                                                                         | Grilling Q9                                                        |
+| DEC-21 | 2026-11-04 | decision   | stakeholder | `finding-lint` checks `in_use` against `dev`, `main`, release tags, and the installed copy. Release tags refined by DEC-48. Every class records `in_use`, and `artifact` must resolve to a line range or a heading.                                                                                         | Grilling Q9                                                        |
 | DEC-22 | 2026-11-04 | decision   | stakeholder | The pause point shows each new `minor` finding with its `fails_purpose` sentence, so the user can raise a wrong downgrade. A headless run lists the rows in its final summary.                                                                                                                              | Grilling Q10                                                       |
 | DEC-23 | 2026-11-04 | decision   | stakeholder | Agreement is measured by re-classifying a fixed set of 20 existing findings, twice with the new rulebook and twice with the old rules. The new rules must reach the target and beat the old ones.                                                                                                           | Grilling Q11                                                       |
 | DEC-24 | 2026-11-04 | decision   | stakeholder | The 39 open findings are migrated once with the new rulebook; migrated `minor` findings become register rows under their old ID. The 208 resolved findings stay untouched. Corrected count: 208 files that are not `open`, 195 of them resolved (PROP-12). Answers OQ-02.                                   | Grilling Q12                                                       |
@@ -1196,6 +1204,7 @@ The reviewer states the facts, and the rule states the severity.
 | DEC-45 | 2026-11-05 | decision   | stakeholder | `guard-human-fields` checks only finding files and proposal Appendix tables, and refuses only a value that was not there before: a non-null human field or the status `waived`. `Edit` and `Write` compare old and new; `Bash` checks the command text.                                                     | Review PROP-20, grilling Q13                                       |
 | DEC-46 | 2026-11-05 | decision   | stakeholder | `finding-lint` decides "new or changed" by comparing each finding file with its `HEAD` version: staged in pre-commit, working tree in `validate`. `validate --changed` is dropped.                                                                                                                          | Review PROP-21, grilling Q14                                       |
 | DEC-47 | 2026-11-05 | decision   | stakeholder | A `critical` finding can be waived only after its stop is confirmed with `stop_confirmed_by` and `stop_confirmed_reason`, so the damage checks run even when the finding stays unfixed. `finding-lint` checks this.                                                                                         | Review pass 3, raised by the author                                |
+| DEC-48 | 2026-11-06 | decision   | stakeholder | Each project defines which git tags count as release tags for the `in_use` check, as `release_tag_patterns` in the tracked file `docs/factory-settings.yaml`. No Factory default; without the file or the key, `finding-lint` exits `1` and names both. Refines DEC-21.                                     | Requirements gaps FC-G07 and FC-C11                                |
 
 ## Review findings
 
