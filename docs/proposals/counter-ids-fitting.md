@@ -119,13 +119,18 @@ Factory makes. It flips a sixth key, `fitting.counter_seeded`, in
 
 In the step, VIRGIL:
 
-1. runs `next-id --plan-seed`, which prints the seed command, or a message why
+1. checks for `origin`. Without it, VIRGIL first sets
+   `agent-factory.counterRemote` to the absolute path of the project's main
+   repository, the parent of `git rev-parse --git-common-dir`, so the seed
+   goes to the local counter below;
+2. runs `next-id --plan-seed`, which prints the seed command, or a message why
    no seed is needed or possible;
-2. shows the command to the human and says what it does: it creates
-   `refs/ids/counters` on `origin` once, and every later ID continues from it;
-3. runs the command when the human confirms, and sets the key. ADR-0032
+3. shows the command to the human and says what it does: it creates
+   `refs/ids/counters` on the counter's remote once, and every later ID
+   continues from it;
+4. runs the command when the human confirms, and sets the key. ADR-0032
    already lets an agent push the claim ref through `next-id` (DEC-03);
-4. stops the step without setting the key when the human declines, or when
+5. stops the step without setting the key when the human declines, or when
    `origin` is unreachable. VIRGIL names the reason, and the session start
    lists the step as open until it is done.
 
@@ -147,10 +152,13 @@ mode changes nothing. It:
 1. checks the remote as a claim does. When `refs/ids/counters` exists, it
    prints "the counter is in use on <remote>" and exits `0`. When the remote is
    missing or unreachable, it fails with the same messages as a claim;
-2. collects the IDs in use for each prefix of its list from the file names and
-   the text of `backlog/`, `docs/findings/` with its registers, `docs/adr/`,
-   and `docs/spec/work/todo.md`, on every local branch and every
-   remote-tracking branch;
+2. collects the IDs in use on every local branch and every remote-tracking
+   branch, from the artifacts themselves and never from body text, because
+   text holds examples such as `ST-9999`:
+   - file names: `backlog/ST-NNNN.md`, `docs/findings/<PREFIX>-NNNN.md`, and
+     `docs/adr/NNNN-*.md` for `ADR`;
+   - the `id` field of each line in `docs/findings/register/*.jsonl`;
+   - the headings `## T-NNNN` in `docs/spec/work/todo.md`;
 3. prints one command:
    `next-id --seed <start> <PREFIX>=<highest> …`, with one pair for each
    prefix that has an ID in use. `<start>` is `0`, so a prefix without IDs
@@ -190,7 +198,10 @@ and `origin` exists. When both hold, it offers the move and runs
 1. reads the claim commit of the local counter;
 2. pushes it to `refs/ids/counters` on `origin` with the create-only lease
    `--force-with-lease=refs/ids/counters:`;
-3. removes `agent-factory.counterRemote` when the push succeeds.
+3. when the push succeeds, deletes the local `refs/ids/counters` and removes
+   `agent-factory.counterRemote`. A local clone whose `origin` is the project's
+   path then fails with "counter missing" instead of claiming from a counter
+   that no longer counts.
 
 When `origin` already holds a counter, the push is refused. `next-id` then
 names both counters and changes nothing, and VIRGIL reports the collision, so
@@ -201,9 +212,13 @@ is a push of the claim ref through `next-id`, so it is allowed; a plain
 ### Fitting keys and orientation files
 
 `init-factory` derives the fitting keys from the project's state on every run.
-It derives `counter_seeded` from `git ls-remote origin refs/ids/counters`, the
-check that ST-0375 runs. An unreachable `origin` leaves the key as it is, so a
-run without network never resets a seeded project.
+It derives `counter_seeded` from the counter's remote, resolved in the order
+`next-id` uses: `agent-factory.counterRemote`, then `origin`. The key is `true`
+when that remote holds `refs/ids/counters`, checked with `git ls-remote`, and
+`false` when it does not or when neither remote exists. So a local counter and
+a greenfield project follow the same rule, and the key never flips between
+the two remotes. An unreachable remote leaves the key as it is, so a run
+without network never resets a seeded project.
 
 The orientation files `AGENTS.claude.md`, `AGENTS.codex.md`,
 `AGENTS.copilot.md`, and `AGENTS.pi.md` list the fitting keys in a table and
@@ -220,6 +235,8 @@ names one prefix at each of the two steps (DEC-10). These are the requestors:
 | File                                                                 | Prefix                               |
 | -------------------------------------------------------------------- | ------------------------------------ |
 | `skills/create-backlog/SKILL.md`                                     | `ST`                                 |
+| `skills/create-backlog-stories/SKILL.md`                             | `ST`                                 |
+| `skills/retrospective/SKILL.md`                                      | `T`, and `ST` for a backlog story    |
 | `skills/write-adr/SKILL.md`                                          | `ADR`                                |
 | `rulebooks/conventions/todo-format.md`                               | `T`                                  |
 | `playbooks/bug-fix.md`                                               | `BUG`                                |
@@ -235,7 +252,11 @@ names one prefix at each of the two steps (DEC-10). These are the requestors:
 
 The new convention `rulebooks/conventions/id-prefixes.md` holds one table of
 all twelve prefixes: the prefix, the kind of artifact, and the requestor files
-(DEC-11). `rules.md`, `branching-policy.md`, and `finding-format.md` point to
+(DEC-11). Every file that tells an agent to add an entry to
+`docs/spec/work/todo.md`, such as a review that records an open question, is a
+requestor of `T` and names `next-id T` at that step. The text test finds these
+files by their reference to `todo.md`, so a requestor missing from the table
+fails the test. `rules.md`, `branching-policy.md`, and `finding-format.md` point to
 it, and `finding-format.md` keeps only the review that files each tag, with the
 row for `RECON` added. A thirteenth prefix means two changes: the list in
 `next-id` and this table. A text test guards both.
@@ -288,9 +309,18 @@ row for `RECON` added. A thirteenth prefix means two changes: the list in
 - `next-id --move-to-origin` copies the local counter to an `origin` without a
   counter and removes `agent-factory.counterRemote`; against an `origin` that
   holds a counter, it changes nothing and names both counters.
-- `init-factory` sets `counter_seeded` to `true` when `origin` holds
-  `refs/ids/counters`, to `false` when it does not, and leaves it unchanged
-  when `origin` is unreachable.
+- `init-factory` sets `counter_seeded` from the remote that `next-id` would
+  use, `agent-factory.counterRemote` before `origin`: `true` when it holds
+  `refs/ids/counters`, `false` when it does not or when no remote exists, and
+  unchanged when it is unreachable.
+- `next-id --plan-seed` in a clone whose story `ST-0214.md` quotes `ST-9999` as
+  an example, with `ST-0375.md` the highest story file, prints `ST=375`.
+- After `next-id --move-to-origin`, the local repository holds no
+  `refs/ids/counters`, and `next-id ST` in a local clone whose `origin` is the
+  project's path fails with "counter missing".
+- `create-backlog-stories` names `next-id ST`, `retrospective` names
+  `next-id T`, and the text test fails for a file that adds a `todo.md` entry
+  without naming `next-id T`.
 - Each requestor in the table of § Each requestor names its prefix contains
   `next-id <PREFIX>` with its prefix, and none contains `next-id <TAG>`.
 - `rulebooks/conventions/id-prefixes.md` lists all twelve prefixes of
@@ -324,10 +354,20 @@ prefix it claims.
 
 ## Review findings
 
-| ID  | Pass | Severity | Check | Status | Finding | Resolution |
-| --- | ---- | -------- | ----- | ------ | ------- | ---------- |
+| ID      | Pass | Severity | Check | Status | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Resolution                                                                                                                                                                                                            |
+| ------- | ---- | -------- | ----- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PROP-01 | 1    | major    | 03    | fixed  | § The fitting step (L135-139), § `next-id --plan-seed` step 1 (L147-149), and § The local counter without `origin` (L174-176): two statements contradict each other. A greenfield project without `origin` is said to get `next-id --seed 0` from `--plan-seed`. But step 1 of `--plan-seed` fails with the claim's "no remote" message when no remote resolves, and `agent-factory.counterRemote` is not yet set at that point. The numbered steps of the fitting do not say when VIRGIL sets the setting, with which command, or which path it holds: the main worktree, the current worktree, or the common `.git` directory. Add the setting as a step before `--plan-seed`, name the command and the value, and say what happens to the setting when the human declines the seed. Class document, defect, type `inconsistent`. Severity: `fails_purpose` is yes, because the VIRGIL story and the `next-id` story must agree on the order and the value, and a planner has to ask.                                                                                                                                                                                                              | Fixed: § The fitting step, item 1 sets `agent-factory.counterRemote` to the main repository's path before `--plan-seed` when there is no `origin`.                                                                    |
+| PROP-02 | 1    | major    | 03    | fixed  | § `next-id --plan-seed` step 2 (L150-153, L159-161) and Completion Criteria (L275-277): the rule "the file names and the text" does not define what counts as an ID in use. At the reviewed commit, the text holds invented examples: `backlog/ST-0214.md:22` names `ST-9999`, and `docs/adr/0032-agents-push-the-claim-ref-through-next-id.md:11` names `FAGAN-1004`. So `--plan-seed` would print `ST=9999` and `FAGAN=1004`. That is a jump for `FAGAN`, and `next-id` refuses `ST=9999` because `MAX_SEED` is 9998 (`next-id:60`). ADR files carry no prefix in their names (`0032-*.md`, `id: 0032`), so a project whose newest ADR nobody cites seeds one too low and hands out that ADR number twice. `SPEC-001` to `SPEC-011` have three digits. Define the match per prefix: which file name patterns count, whether text counts and where, the digit count, and how an ADR file maps to `ADR`. Add a criterion with an invented example in the text. Class document, defect, type `incorrect`. Severity: `fails_purpose` is yes, because a story built from the rule as written seeds this project with a jump and a refused command.                                                      | Fixed: § `next-id --plan-seed`, item 2 counts only file names, register `id` fields, and `## T-NNNN` headings, never body text; `docs/adr/NNNN-*.md` counts for `ADR`. A criterion checks the `ST-9999` example.      |
+| PROP-03 | 1    | major    | 03    | fixed  | § Moving a local counter to `origin` (L185-199) and § The local counter without `origin` (L168-172): the move copies the counter but leaves `refs/ids/counters` in the project's `.git` live. A local clone has the project's path as its `origin` and no `agent-factory.counterRemote`, so after the move it still claims from the old local counter. Take a local counter at `ST=0012` that moves to a new `origin`. The project then claims `ST-0013` from `origin`, and the local clone also claims `ST-0013` from the project's `.git`. A claim from a worktree that runs between the push and the removal of the setting lands in the local counter too, and `origin` never sees it. Say what happens to the local ref after the move, how a local clone switches to the new counter, and add a criterion for a claim from a local clone after the move. Class document, defect, type `incomplete`. Severity: `fails_purpose` is yes, because the design hands out the same number twice, which is the failure the counter exists to prevent.                                                                                                                                                  | Fixed: § Moving a local counter, item 3 deletes the local `refs/ids/counters` after the push; a criterion checks that a local clone then fails with "counter missing".                                                |
+| PROP-04 | 1    | major    | 03    | fixed  | § Fitting keys and orientation files (L203-206) and Completion Criteria (L291-293): the derivation of `counter_seeded` uses `git ls-remote origin`, but `next-id` resolves `--remote`, then `agent-factory.counterRemote`, then `origin` (L178-179). Take a project with a local counter that has just added `origin`. `init-factory` sets the key to `false`, because `origin` holds no counter. The fitting step then runs `--plan-seed`, which resolves the local counter, reports it in use, and sets the key to `true`. The next `init-factory` run sets it back. Greenfield is undefined as well: `_reconcile_project_context` skips a greenfield cache (`init-factory:2831-2833`), the greenfield dict sets every other key (L2801-2808), and a greenfield session start never lists open steps, so "the session start lists the step as open" (L129-130) does not hold there. Derive the key with the same remote order as `next-id`, and state the greenfield value, its derivation, and where the open step shows. Class document, defect, type `inconsistent`. Severity: `fails_purpose` is yes, because the criterion encodes the flip, and the planner must ask how greenfield behaves. | Fixed: § Fitting keys derives `counter_seeded` from the remote `next-id` would use, setting before `origin`, which also covers greenfield; the criterion follows.                                                     |
+| PROP-05 | 1    | major    | 02    | fixed  | § Each requestor names its prefix (L212-234) and Completion Criteria (L294-295): the table misses files that create indexed artifacts. `skills/create-backlog-stories/SKILL.md:20` tells an agent to create `backlog/ST-NNNN.md` and does not name `next-id`. `skills/retrospective/SKILL.md:61` files action items as todos in `docs/spec/work/todo.md`, which take `T`. Under the accepted finding-classification proposal, a `question` from any review becomes a `todo.md` entry, so every review skill in the table also creates `T` entries, and DEC-10 asks for a prefix at each such step. The text test checks only the files in the table, so it does not catch a missing requestor. Add the missing files, or say how the list was built and what the test checks beyond it. Class document, defect, type `incomplete`. Severity: `fails_purpose` is yes, because a planner cuts the requestor stories from the table and leaves these files asking for a number without a prefix.                                                                                                                                                                                                        | Fixed: the table gains `create-backlog-stories` (`ST`) and `retrospective` (`T`, `ST`); every file that adds a `todo.md` entry names `next-id T`, and the text test finds such files by their reference to `todo.md`. |
+| PROP-06 | 1    | minor    | 05    | open   | `impact.boundaries` (L14-24): every path resolves except `rulebooks/conventions/id-prefixes.md`, which the design creates. The list leaves out files the design changes: `rulebooks/rules.md` and `rulebooks/conventions/branching-policy.md` (L238), the seventeen requestor files of the table, and `docs/spec/architecture.dsl`. Two more files become wrong and appear nowhere: `config/session-menu.md:42` shows the fitting as "X/5" and `:50` reruns "all five fitting steps", and `scripts/init-factory:3109` and `:3133` print "add the remote `origin`, then run `next-id --seed <number>`" and "with a number above your highest ID". Those hints contradict the local counter and the per-prefix seed. Add the files to the boundaries and the Scope. Class document, defect, type `incomplete`. Severity: the planner can act, because the Design names most of these files, but the stale hints and menu text stay unless a reader notices them.                                                                                                                                                                                                                                       |                                                                                                                                                                                                                       |
+| PROP-07 | 1    | minor    | 04    | open   | Frontmatter `impact.architecture_change: false` (L12) and `supersedes:` (L8): the design changes rules that accepted records state. `docs/spec/architecture.dsl:26` places the counter on the "Project Git Remote", and `:120-121` says next-id "finds the remote from --remote or origin" and "leaves no ref and no object in the clone". A local counter puts the ref into the project's own `.git`. `docs/spec/interface-contracts.md` states the same in BR-074 (L1076) and BR-075 (L1078). counter-ids DEC-17 says "The script does no scan", which `--plan-seed` replaces, but the proposal names only DEC-20. Set `architecture_change` to `true` or say why the model stays, name the BR changes in Scope, and record DEC-17 as replaced. Class document, defect, type `inconsistent`. Severity: the planner can act, because the mechanical check in `playbooks/feature-addition.md` Step 1.4 corrects the flag, but the routing and the record read wrong until then.                                                                                                                                                                                                                      |                                                                                                                                                                                                                       |
+| PROP-08 | 1    | minor    | 02    | open   | § Moving a local counter to `origin` (L195-197): when `origin` already holds a counter, the move changes nothing and VIRGIL reports the collision. The proposal then stops. The setting stays, VIRGIL offers the same move at every session start, and the project claims from its local counter while colleagues claim from `origin`. Neither In nor Deferred names how a human resolves the collision. Add it to Deferred with the manual steps, or to Scope. Class document, defect, type `incomplete`. Severity: the planner can act, because the refusal itself is defined, but a reader who meets the collision finds no next step.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |                                                                                                                                                                                                                       |
+| PROP-09 | 1    | minor    | 03    | open   | § Moving a local counter to `origin` (L185-188) and Scope (L247): "at the session start, VIRGIL checks" has no home. The session start lives in `AGENTS.*.md` § Session start and `config/session-menu.md`, and the AGENTS files read `virgil.md` only for "richer session behaviour", which is "not a prerequisite for turn 1". Scope lists only the key rows for the orientation files. Name the file that holds the check and add it to Scope. Class document, defect, type `incomplete`. Severity: the planner can act, because the move mode is defined, but the implementer must pick where the offer runs.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |                                                                                                                                                                                                                       |
 
 ## Review passes
 
-| Pass | Date | Reviewed commit | Disposition | Failed checks | Summary |
-| ---- | ---- | --------------- | ----------- | ------------- | ------- |
+| Pass | Date       | Reviewed commit                          | Disposition | Failed checks  | Summary                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---- | ---------- | ---------------------------------------- | ----------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1    | 2026-11-06 | 16d41b91a2e112e42fb2d3d0b545615bb197d3e4 | findings    | 02, 03, 04, 05 | Checks 01, 06, 07, and 08 pass: the criteria are concrete, Open Questions hides no decision, the 0401 jump motivates the timing, and the estimate fits the edits. Check 03 fails on the no-origin order, the ID match, the move, and the key derivation, and check 02 on missing requestors (5 major). Checks 02, 03, 04, and 05 add four minor rows on boundaries, records, the collision, and the session-start check. |
