@@ -10,7 +10,7 @@ agents:
     description: Create arc42 documentation, Structurizr C4 models, and ADRs — with a Pugh Matrix where genuine alternatives exist. Address review findings on repeat passes.
     path: agents/architecture-agent.md
     tokens: 1555
-    total_tokens: 8846
+    total_tokens: 8901
     inputs:
       required:
         - any_of:
@@ -65,7 +65,7 @@ agents:
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
     tokens: 823
-    total_tokens: 6377
+    total_tokens: 6480
     inputs:
       required:
         - type: feature
@@ -153,7 +153,7 @@ agents:
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
     tokens: 985
-    total_tokens: 6370
+    total_tokens: 6473
     inputs:
       required:
         - type: story
@@ -342,7 +342,7 @@ agents:
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
     tokens: 1696
-    total_tokens: 14376
+    total_tokens: 14429
     inputs:
       required:
         - type: feature
@@ -385,7 +385,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1286
-    total_tokens: 9888
+    total_tokens: 9991
     inputs:
       required:
         - type: feature
@@ -425,7 +425,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2179
-    total_tokens: 13855
+    total_tokens: 13958
     inputs:
       required:
         - type: scope-map
@@ -593,7 +593,7 @@ agents:
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
     tokens: 931
-    total_tokens: 5569
+    total_tokens: 5672
     inputs:
       required:
         - type: feature
@@ -800,12 +800,12 @@ skills:
     category: architecture
     description: Document an architecture decision as an ADR (Nygard format). The sole owner of ADR format in this project — every ADR, from any caller, is written by this skill.
     path: skills/write-adr/SKILL.md
-    tokens: 932
+    tokens: 987
   - name: create-backlog
     category: planning
     description: Break specification and architecture into a local backlog of markdown stories — EPICs and User Stories with INVEST criteria and MoSCoW priority.
     path: skills/create-backlog/SKILL.md
-    tokens: 2158
+    tokens: 2211
   - name: create-backlog-epics
     category: planning
     description: Survey user capabilities, map them against the codebase, and present the EPIC slicing approach for user approval. Phase 1 of 4 in the create-backlog sequence.
@@ -1023,7 +1023,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 16328
+    total_tokens: 16486
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -1040,7 +1040,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 54341
+    total_tokens: 54705
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1049,8 +1049,8 @@ playbooks:
     agents:
       - developer-agent
       - qa-agent
-    tokens: 681
-    total_tokens: 16317
+    tokens: 733
+    total_tokens: 16472
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1062,7 +1062,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1502
-    total_tokens: 41510
+    total_tokens: 41819
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1079,7 +1079,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4821
-    total_tokens: 95864
+    total_tokens: 96487
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1097,7 +1097,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2849
-    total_tokens: 95241
+    total_tokens: 95864
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1113,7 +1113,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 16820
+    total_tokens: 16923
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1198,7 +1198,7 @@ rulebooks:
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
-    tokens: 1105
+    tokens: 1208
   - name: foundational-principles
     category: conventions
     path: rulebooks/conventions/foundational-principles.md
@@ -1266,7 +1266,7 @@ rulebooks:
   - name: todo-format
     category: conventions
     path: rulebooks/conventions/todo-format.md
-    tokens: 416
+    tokens: 466
   - name: touches-hygiene
     category: conventions
     path: rulebooks/conventions/touches-hygiene.md

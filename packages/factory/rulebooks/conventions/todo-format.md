@@ -21,7 +21,7 @@ Single file: `docs/spec/work/todo.md`. Create lazily — only when the first ite
 
 Skeleton: [todo-entry.md template](../templates/todo-entry.md).
 
-- ID: `T-<NNNN>`, zero-padded, sequential. Allocate the next number by scanning existing entries.
+- ID: `T-<NNNN>`, zero-padded, sequential. Allocate the number with `.agent-factory/factory/scripts/next-id T`; read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 - One entry per open item, appended — do not rewrite prior entries.
 
 ## Status lifecycle

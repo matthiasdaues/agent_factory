@@ -27,7 +27,7 @@ If this decision has multiple real alternatives worth formally comparing, invoke
 
 ## Step 3 — Write the ADR
 
-Save as `docs/adr/NNNN-short-title.md` (next available number — scan `docs/adr/` for the highest existing and increment).
+Run `.agent-factory/factory/scripts/next-id ADR` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. Save as `docs/adr/NNNN-short-title.md`, with `NNNN` the number of the printed `ADR-NNNN`.
 
 See [adr.md template](../../rulebooks/templates/adr.md) for the complete format.
 

@@ -87,3 +87,77 @@ def test_st_0374_git_workflow_states_claim_push_exception_for_both_modes():
 def test_st_0374_rules_never_say_an_outside_push_only_leaves_a_gap():
     text = RULES.read_text()
     assert not re.search(r"only leave a gap|only leaves a gap", text, re.IGNORECASE)
+
+
+# ST-0372: the five producer files number a new artifact with next-id.
+SKILLS = REPO_ROOT / "packages/factory/skills"
+CREATE_BACKLOG = SKILLS / "create-backlog/SKILL.md"
+FINDING_FORMAT = REPO_ROOT / "packages/factory/rulebooks/conventions/finding-format.md"
+BUG_FIX = REPO_ROOT / "packages/factory/playbooks/bug-fix.md"
+TODO_FORMAT = REPO_ROOT / "packages/factory/rulebooks/conventions/todo-format.md"
+WRITE_ADR = SKILLS / "write-adr/SKILL.md"
+SLICE_STORY = SKILLS / "create-backlog-slice-story/SKILL.md"
+
+NEXT_ID_PATH = ".agent-factory/factory/scripts/next-id"
+
+PRODUCERS = {
+    CREATE_BACKLOG: ["ST"],
+    FINDING_FORMAT: ["SPEC", "FAGAN", "SEC", "BUG", "RECON", "ATAM", "IMPL"],
+    BUG_FIX: ["BUG"],
+    TODO_FORMAT: ["T"],
+    WRITE_ADR: ["ADR"],
+}
+
+# A sentence that tells the reader to find the highest number by scanning.
+SCAN_FOR_HIGHEST = re.compile(
+    r"(scan(ning)?[^.\n]*(highest|existing|next)|(highest|next available)[^.\n]*scan"
+    r"|increment the highest numeric)",
+    re.IGNORECASE,
+)
+
+
+def _without_split_rule(path, text: str) -> str:
+    # The create-backlog id rule keeps the letter scan for a split.
+    if path == CREATE_BACKLOG:
+        return re.sub(r"[^.\n]*split[^.\n]*letter[^.\n]*\.?", "", text, flags=re.IGNORECASE)
+    return text
+
+
+@pytest.mark.spec("CID-07-LN-01")
+@pytest.mark.parametrize("path", list(PRODUCERS), ids=lambda p: p.parent.name + "/" + p.name)
+def test_st_0372_producer_calls_next_id_with_its_prefixes(path):
+    text = path.read_text()
+    assert NEXT_ID_PATH in text
+    for prefix in PRODUCERS[path]:
+        assert re.search(rf"next-id[` ]+{prefix}\b|next-id <TAG>", text), prefix
+    assert "standard output" in text
+    assert re.search(r"stop[^.\n]*report|report[^.\n]*stop", text, re.IGNORECASE)
+    assert re.search(r"never[^.\n]*(by hand|pick)", text, re.IGNORECASE)
+
+
+@pytest.mark.spec("CID-07-LN-01")
+def test_st_0372_finding_format_names_the_seven_tags_for_next_id():
+    text = FINDING_FORMAT.read_text()
+    for tag in PRODUCERS[FINDING_FORMAT]:
+        assert f"`{tag}`" in text
+
+
+@pytest.mark.spec("CID-07-LN-01")
+@pytest.mark.parametrize("path", list(PRODUCERS), ids=lambda p: p.parent.name + "/" + p.name)
+def test_st_0372_producer_has_no_scan_for_the_highest_number(path):
+    text = _without_split_rule(path, path.read_text())
+    assert SCAN_FOR_HIGHEST.search(text) is None
+
+
+@pytest.mark.spec("CID-07-LN-02")
+def test_st_0372_write_adr_numbers_with_next_id_adr_and_keeps_the_file_form():
+    text = WRITE_ADR.read_text()
+    assert "next-id ADR" in text
+    assert "docs/adr/NNNN-short-title.md" in text
+
+
+@pytest.mark.spec("CID-07-LN-03")
+def test_st_0372_slice_story_keeps_the_letter_scan_and_runs_no_next_id():
+    text = SLICE_STORY.read_text()
+    assert re.search(r"scanning existing `backlog/ST-NNNN\*\.md`", text)
+    assert "next-id" not in text
