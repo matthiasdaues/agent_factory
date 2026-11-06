@@ -422,7 +422,9 @@ def repository_markdown() -> list[str]:
 
 REPOSITORY_GATES = {
     "link-check": ("link-check",),
-    "arch-lint": ("arch-lint",),
+    # --no-validate: validation renders the diagrams into docs/assets/images
+    # (T-0019). The container test below covers structurizr validate.
+    "arch-lint": ("arch-lint", "--no-validate"),
     "dependency-check": ("dependency-check",),
     "spec-lint": ("spec-lint",),
     "statemachine-lint": ("statemachine-lint", "--spec-dir", "docs/spec"),

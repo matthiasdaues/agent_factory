@@ -16,7 +16,11 @@ one `<PREFIX>=<NNNN>` line per prefix that claimed an ID, and a random token.
 
 A claim runs in a throwaway bare repository in a new temporary directory, so
 the clone gains no ref and no object (BR-075). It pushes with a lease on the
-SHA it read (BR-072). A seed pushes with the create-only lease (BR-073).
+SHA it read (BR-072). When another claim pushed after this claim read the
+counter, the lease is stale. The claim then waits a random 0.1 to 1 second
+and reads again. After ten stale leases in a row, the claim fails. Every
+other refusal ends the claim after one push. A seed pushes with the
+create-only lease (BR-073).
 
 No third-party dependencies (Python stdlib only), matching backlog-lint.
 
@@ -33,13 +37,16 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import re
 import secrets
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from typing import Protocol
 
 PREFIXES = ("ST", "BUG", "SPEC", "FAGAN", "SEC", "RECON", "ATAM", "IMPL", "T", "ADR")
 COUNTER_REF = "refs/ids/counters"
@@ -51,10 +58,26 @@ USAGE = (
     "       next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]"
 )
 _NUMBER = re.compile(r"[0-9]+")
+MAX_STALE_LEASES = 10
+WAIT_SECONDS = (0.1, 1.0)
+# git's two messages for a stale lease (BR-072, DEC-23): the client notices
+# and reports `stale info`; the remote notices and reports `cannot lock ref`.
+_STALE_LEASE = re.compile(
+    r"stale info|cannot lock ref '[^']*': is at [0-9a-f]+ but expected [0-9a-f]+"
+)
 
 
 class NextIdError(Exception):
     """A claim or seed failed; the message goes to standard error."""
+
+
+class StaleLease(Exception):
+    """The remote's counter moved after this claim read it (BR-072)."""
+
+
+def is_stale_lease(error: str) -> bool:
+    """Tell whether git's push error reports a stale lease."""
+    return _STALE_LEASE.search(error) is not None
 
 
 def _prefix_list() -> str:
@@ -197,28 +220,86 @@ def _push(repo: list[str], remote: str, sha: str, lease: str) -> None:
     )
 
 
+class Counter(Protocol):
+    """The port of a claim: read the counter, push a new claim commit."""
+
+    def read(self) -> tuple[str, str]:
+        """Return the SHA and the message of the claim commit."""
+        ...
+
+    def push(self, message: str, lease: str) -> None:
+        """Push a claim commit; raise StaleLease, or NextIdError on another refusal."""
+        ...
+
+
+class RemoteCounter:
+    """The counter at refs/ids/counters on a remote, through a throwaway repository."""
+
+    def __init__(self, repo: list[str], url: str):
+        self.repo = repo
+        self.url = url
+
+    def read(self) -> tuple[str, str]:
+        try:
+            git(
+                [
+                    *self.repo,
+                    "fetch",
+                    "--quiet",
+                    self.url,
+                    f"+{COUNTER_REF}:{COUNTER_REF}",
+                ]
+            )
+        except subprocess.CalledProcessError as exc:
+            raise NextIdError(
+                f"cannot read {COUNTER_REF} on {self.url}: {_git_error(exc)}"
+            ) from None
+        old = git([*self.repo, "rev-parse", COUNTER_REF])
+        return old, git([*self.repo, "show", "--no-patch", "--format=%B", old])
+
+    def push(self, message: str, lease: str) -> None:
+        sha = _commit(self.repo, message)
+        try:
+            _push(self.repo, self.url, sha, lease)
+        except subprocess.CalledProcessError as exc:
+            error = _git_error(exc)
+            if is_stale_lease(error):
+                raise StaleLease(error) from None
+            raise NextIdError(f"on {self.url} failed: {error}") from None
+
+
+def claim_loop(
+    prefix: str, counter: Counter, *, sleep: Callable[[float], None] = time.sleep
+) -> str:
+    """Read, raise, and push until a push holds; return the claimed ID.
+
+    A stale lease waits a random 0.1 to 1 second and reads again. The tenth
+    stale lease in a row ends the claim. Any other refusal ends it at once.
+    """
+    for attempt in range(1, MAX_STALE_LEASES + 1):
+        old, message = counter.read()
+        new_message, new_id = raise_line(message, prefix, secrets.token_hex(8))
+        try:
+            counter.push(new_message, old)
+        except StaleLease:
+            if attempt < MAX_STALE_LEASES:
+                sleep(random.uniform(*WAIT_SECONDS))
+            continue
+        except NextIdError as exc:
+            raise NextIdError(f"the claim of {new_id} {exc}") from None
+        return new_id
+    raise NextIdError(
+        f"the claim of {prefix} met ten stale leases in a row; "
+        f"the last ID it tried was {new_id}"
+    )
+
+
 def claim(prefix: str, remote: str | None) -> str:
     """Claim the next ID of the prefix and return it, such as ST-1013."""
     check_prefix(prefix)
     url = resolve_remote(remote, for_seed=False)
     with throwaway() as repo:
-        try:
-            git([*repo, "fetch", "--quiet", url, f"+{COUNTER_REF}:{COUNTER_REF}"])
-        except subprocess.CalledProcessError as exc:
-            raise NextIdError(
-                f"cannot read {COUNTER_REF} on {url}: {_git_error(exc)}"
-            ) from None
-        old = git([*repo, "rev-parse", COUNTER_REF])
-        message = git([*repo, "show", "--no-patch", "--format=%B", old])
-        new_message, new_id = raise_line(message, prefix, secrets.token_hex(8))
-        sha = _commit(repo, new_message)
-        try:
-            _push(repo, url, sha, old)
-        except subprocess.CalledProcessError as exc:
-            raise NextIdError(
-                f"the claim of {new_id} on {url} failed: {_git_error(exc)}"
-            ) from None
-    return new_id
+        return claim_loop(prefix, RemoteCounter(repo, url))
 
 
 def seed(arguments: list[str], remote: str | None) -> str:
