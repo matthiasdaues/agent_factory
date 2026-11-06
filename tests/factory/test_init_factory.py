@@ -1057,13 +1057,27 @@ class TestDeriveFittingKeys:
 
 
 class TestFittingStatus:
-    def test_all_true_is_fitted(self):
+    @pytest.mark.spec("CIF-04-CT-01")
+    def test_st_0377_five_true_keys_without_counter_seeded_is_fitting(self):
         fitting = {
             "model_matrix_configured": True,
             "fingerprint_confirmed": True,
             "agent_context_populated": True,
             "test_regime_detected": True,
             "hooks_decided": True,
+            "counter_seeded": False,
+        }
+        assert inf._fitting_status(fitting) == "fitting"
+
+    @pytest.mark.spec("CIF-04-CT-01")
+    def test_st_0377_six_true_keys_is_fitted(self):
+        fitting = {
+            "model_matrix_configured": True,
+            "fingerprint_confirmed": True,
+            "agent_context_populated": True,
+            "test_regime_detected": True,
+            "hooks_decided": True,
+            "counter_seeded": True,
         }
         assert inf._fitting_status(fitting) == "fitted"
 
@@ -1358,7 +1372,7 @@ class TestReconcileProjectContext:
             is True
         )
 
-    def test_all_five_true_yields_fitted_status(self, tmp_path):
+    def test_all_six_true_yields_fitted_status(self, tmp_path):
         cache_path = self._seed_cache(
             tmp_path,
             {
@@ -1368,6 +1382,7 @@ class TestReconcileProjectContext:
                 "agent_context_populated": False,
                 "test_regime_detected": False,
                 "hooks_decided": False,
+                "counter_seeded": True,
             },
             languages=[{"name": "python", "evidence": "pyproject.toml"}],
         )

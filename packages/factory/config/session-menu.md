@@ -39,7 +39,7 @@ Present four actions when the developer selects K:
 Run `.agent-factory/factory/scripts/housekeeping-about` and display its output to the developer. The script reads four independent sources and reports:
 
 - **Factory version** and source path — from `.agent-factory/install.json`
-- **Fitting status** — from `.agent-factory/config/project-context.json` (X/5 with step names)
+- **Fitting status** — from `.agent-factory/config/project-context.json` (X/6 with step names)
 - **CLI integrations** — from `.agent-factory/install.json`
 - **Usage pipeline health** — from the usage runtime under `.agent-factory/usage/runtime/` and the newest usage record in `.agent-factory/usage/`
 
@@ -47,7 +47,7 @@ Each source is read independently. When a source is unreadable, its line shows `
 
 ### Re-fit
 
-Rerun all five fitting steps: model matrix, fingerprint, agent context, test regime, hooks. Call the existing fitting procedure from the virgil agent definition. Report completed and remaining steps after running.
+Rerun all six fitting steps: model matrix, fingerprint, agent context, test regime, hooks, ID counter seed. Call the existing fitting procedure from the virgil agent definition. Report completed and remaining steps after running.
 
 ### Update Factory
 
