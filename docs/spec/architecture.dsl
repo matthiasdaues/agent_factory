@@ -702,7 +702,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             nextId -> localCounter "Reads agent-factory.counterRemote, which the stopped move left set"
             nextId -> counterPort "Calls move to the URL of origin"
             gitRefAdapter -> localCounter "Fetches refs/ids/counters, reads the marker commit moved=<origin>, and takes C with ST=0012 from its parent"
-            gitRefAdapter -> projectRemote "Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin holds no counter and accepts it"
+            gitRefAdapter -> projectRemote "Asks origin for refs/ids/counters with git ls-remote; origin holds no counter"
+            gitRefAdapter -> projectRemote "Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin accepts it"
             gitRefAdapter -> counterPort "Returns moved"
             nextId -> localCounter "Removes agent-factory.counterRemote and exits 0"
         }

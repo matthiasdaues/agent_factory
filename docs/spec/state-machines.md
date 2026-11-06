@@ -834,7 +834,12 @@ On MarkerSet:
   ChangeState(PUSHING)
 On LeaseStale:
   # an ID claim raised the local counter after the read
-  ChangeState(READING)
+  if fewer than ten stale leases in a row
+    # next-id waits 0.1 to 1 second
+    ChangeState(READING)
+  else
+    # no marker is set, the setting stays
+    ChangeState(REFUSED)
 
 State: PUSHING
   # next-id pushes C to origin with the create-only lease
@@ -870,7 +875,7 @@ On MoveRerun:
   ChangeState(READING)
 
 State: RESUMING
-  # next-id takes C from the marker's parent and asks origin for refs/ids/counters
+  # next-id takes C from the marker's parent and asks origin for refs/ids/counters with git ls-remote
 On OriginHoldsC:
   # the push of the cut-off call was done
   ChangeState(CLEARING)
@@ -896,7 +901,8 @@ stateDiagram-v2
     READING --> MARKING : CounterRead
     READING --> RESUMING : MarkerRead
     MARKING --> PUSHING : MarkerSet
-    MARKING --> READING : LeaseStale
+    MARKING --> READING : LeaseStale (fewer than ten in a row)
+    MARKING --> REFUSED : LeaseStale (tenth in a row)
     PUSHING --> CLEARING : PushAccepted
     PUSHING --> RESTORING : CounterOnOrigin
     PUSHING --> RESTORING : PushRefused

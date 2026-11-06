@@ -1205,6 +1205,7 @@ the [Move Lifecycle](state-machines.md#move-lifecycle) shows them.
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `origin` holds no `refs/ids/counters`                                            | `origin` holds C, the local counter holds the marker, the setting is gone                                                                                                                                              |
 | an ID claim raised C before the marker                                           | the move reads the local counter again and carries the new claim commit to `origin` (BR-103)                                                                                                                           |
+| ten stale leases in a row on C                                                   | exit non-zero, no marker, the local counter and the setting stay, and the message names the move and the ten stale leases                                                                                              |
 | `origin` holds a counter                                                         | the local counter holds C again, the setting stays, and the message names both counters                                                                                                                                |
 | the push fails for another reason                                                | the local counter holds C again, the setting stays, and the message holds git's message                                                                                                                                |
 | the push runs over the time limit of BR-076                                      | the local counter keeps the marker, the setting stays, and the message names the remote and the time limit. This is the CutOff of the [Move Lifecycle](state-machines.md#move-lifecycle), and a second move resumes it |
@@ -1215,9 +1216,11 @@ the [Move Lifecycle](state-machines.md#move-lifecycle) shows them.
 The proposal names no exit code for the failure cases (CIF-G08). This
 specification takes non-zero, as for every failure of `next-id`.
 
-ST-0381 adds the restart after a stale lease on C and the resume from a
-marker. Until then, a stale lease and a marker at the local counter each end
-the move with a non-zero exit, and the move changes nothing.
+A stale lease on C makes the move wait 0.1 to 1 second and read the local
+counter again, at most ten times in a row. A marker at the read makes the move
+resume: it takes C from the marker's parent and asks `origin` with
+`git ls-remote` for `refs/ids/counters` before it pushes. The three resume rows
+of the case table follow from that answer.
 
 ### `init-factory` counter check
 
