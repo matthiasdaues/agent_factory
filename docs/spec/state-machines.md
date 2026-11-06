@@ -988,6 +988,8 @@ On Lowered:
   RejectCommand("finding-lint: a critical finding is lowered only after its stop is confirmed in HEAD")
 On Deferred:
   RejectCommand("finding-lint: only the migration sets deferred, on a file without review_class")
+On ClassRemoved:
+  RejectCommand("finding-lint: a finding file keeps the review_class of its HEAD version")
 On AgentConfirms:
   RejectCommand("guard-human-fields: only the stakeholder writes stop_confirmed_by")
 
@@ -1004,7 +1006,10 @@ On Raised:
   ChangeState(STOPPING)
 On Lowered:
   # the stakeholder changes an answer of the basis and writes override_by and override_reason
-  if severity is major
+  if HEAD severity is critical and HEAD lacks text in stop_confirmed_by or stop_confirmed_reason
+    # the stop is confirmed only in the working tree, and BR-109 reads the HEAD version
+    RejectCommand("finding-lint: a critical finding is lowered only after its stop is confirmed in HEAD")
+  else if severity is major
     # a confirmed critical finding becomes major and drops its two confirmation fields
     ChangeState(IN_LOOP)
   else if severity is minor
@@ -1016,6 +1021,8 @@ On AgentLowers:
   RejectCommand("finding-lint: a lowered finding needs override_by and override_reason")
 On Deferred:
   RejectCommand("finding-lint: only the migration sets deferred, on a file without review_class")
+On ClassRemoved:
+  RejectCommand("finding-lint: a finding file keeps the review_class of its HEAD version")
 
 State: REGISTERED
   # one line in docs/findings/register/<class>.jsonl; it never blocks
@@ -1081,5 +1088,6 @@ stateDiagram-v2
 - **DEFERRED** has one entry, **NoArtifact** in the migration. No agent sets `deferred`, so **STOPPING** and **IN_LOOP** reject **Deferred** (DEC-55).
 - **Raised** is open to an agent and to the stakeholder, and it needs no override field (FC-G04, DEC-56).
 - **Lowered** is the stakeholder's edge. It needs `override_by` and `override_reason`, and `guard-human-fields` refuses an agent that writes them. So `finding-lint` rejects a lowering by an agent as **AgentLowers** (BR-092, BR-109). **Lowered** has no branch to **IN_REPORT**. A finding file whose `HEAD` version carries `review_class` is removed only when a register line replaces it, so the stakeholder sets a finding aside with **Waived** instead. The migration is exempt, because `finding-lint` compares no file whose `HEAD` version lacks `review_class` (BR-095).
+- **ClassRemoved** is an edit that deletes or changes the `review_class` of a file whose `HEAD` version carries it. `finding-lint` rejects it in **STOPPING** and **IN_LOOP**, so BR-086 and BR-091 keep reading the file, and no agent ends a stop or sets `deferred` that way (BR-109).
 - **AgentConfirms** and the agent's attempt to set `waived` are refused by `guard-human-fields` (BR-092). The finding stays in its state.
 - A **question** never enters this machine. The reviewer agent writes it into `docs/spec/work/todo.md` (BR-085).

@@ -574,6 +574,12 @@ Feature: Finding classification
       Then it exits 1 and names FAGAN-0042 and the rule
       And a finding that the stakeholder does not want fixed is set aside with waived, never lowered to a note
 
+    Scenario: An agent cannot delete review_class to end a stop
+      Given HEAD holds docs/findings/BUG-0037.md with severity critical, review_class code, status open, and no stop_confirmed_by
+      And an agent deletes the line review_class: code and sets status resolved
+      When finding-lint runs
+      Then it exits 1 and names BUG-0037 and the rule
+
     Scenario: The migration moves a finding into the register without the override fields
       Given HEAD holds docs/findings/BUG-0067.md without review_class
       And the migration commit removes the file and adds a line of BUG-0067 to its register without override_by and override_reason
