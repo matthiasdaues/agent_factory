@@ -18,7 +18,9 @@ import pytest
 from test_next_id import (  # noqa: F401
     FIXTURE_IDENTITY,
     NEXT_ID,
+    SHOWN_URL,
     _git,
+    _moved_project,
     _set_counter,
     clone,
     env,
@@ -302,3 +304,18 @@ def test_st_0376_usage_names_plan_seed():
         [sys.executable, str(NEXT_ID), "--help"], capture_output=True, text=True, check=False
     ).stdout
     assert "next-id --plan-seed [--remote <url>]" in help_text
+
+
+@pytest.mark.spec("CIF-07-IT-04")
+def test_st_0380_a_moved_counter_names_its_remote_and_advises_no_seed(env, tmp_path):
+    project, local_clone = _moved_project(env, tmp_path)
+    before = _refs(env, project, local_clone)
+
+    result = run(env, local_clone, "--plan-seed")
+
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert SHOWN_URL in result.stderr
+    assert "--seed" not in result.stderr
+    assert "user:token" not in result.stderr
+    assert _refs(env, project, local_clone) == before
