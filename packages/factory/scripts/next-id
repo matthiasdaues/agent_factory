@@ -6,7 +6,8 @@
 
 What: Prints the next ID of an ID prefix, such as ST-1013, and records it in
       the claim commit at refs/ids/counters on the remote. `--seed` creates
-      that counter once for a project.
+      that counter once for a project. `--plan-seed` prints the seed command
+      that continues every ID sequence of the clone.
 When: Before a producer names a new story, finding, todo entry, or ADR.
 By:   the User, or an agent through the User's CLI (ADR-0031).
 
@@ -27,11 +28,22 @@ Every line on standard output and standard error passes through one
 redaction: the user info of a URL, such as a token, shows as `***`
 (SEC-0007). The git calls get the URL as it is.
 
+`--plan-seed` changes no ref and no file (BR-098). It reads the counter as a
+claim does. When the remote holds no counter, it counts the IDs in use on
+every local branch, every remote-tracking branch, and the working tree: the
+file names in backlog/, docs/findings/, and docs/adr/, the `id` field of each
+line in docs/findings/register/*.jsonl, and each heading `## T-NNNN` in
+docs/spec/work/todo.md (BR-099). It prints `next-id --seed 0` with one pair
+per prefix, in the order of PREFIXES (BR-101). An old file name, such as
+ATAM-0014-some-title.md, counts by its number and gets a warning on standard
+error (BR-100).
+
 No third-party dependencies (Python stdlib only), matching backlog-lint.
 
 Usage
   next-id <PREFIX> [--remote <url>]
   next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]
+  next-id --plan-seed [--remote <url>]
 
 Exit code: 0 on success, 1 on a failed claim or seed, 2 on a usage error. On
 failure, nothing goes to standard output and the message goes to standard
@@ -41,7 +53,9 @@ error.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import posixpath
 import random
 import re
 import secrets
@@ -49,7 +63,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from typing import Protocol
 
@@ -62,7 +76,8 @@ IDENTITY = "next-id"
 IDENTITY_EMAIL = "next-id@agent-factory.invalid"
 USAGE = (
     "next-id <PREFIX> [--remote <url>]\n"
-    "       next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]"
+    "       next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]\n"
+    "       next-id --plan-seed [--remote <url>]"
 )
 _NUMBER = re.compile(r"[0-9]+")
 MAX_STALE_LEASES = 10
@@ -118,6 +133,10 @@ def redact_output() -> None:
 
 class NextIdError(Exception):
     """A claim or seed failed; the message goes to standard error."""
+
+
+class MissingCounter(NextIdError):
+    """The remote holds no refs/ids/counters."""
 
 
 class GitTimedOut(Exception):
@@ -353,7 +372,7 @@ class RemoteCounter:
         except subprocess.CalledProcessError as exc:
             error = _git_error(exc)
             if _MISSING_REF.search(error):
-                raise NextIdError(
+                raise MissingCounter(
                     f"{self.url} holds no {COUNTER_REF}; "
                     "run `next-id --seed <number>` once for the project"
                 ) from None
@@ -440,11 +459,184 @@ def seed(arguments: list[str], remote: str | None) -> str:
     return "\n".join(number_lines(lines))
 
 
+# BR-099 and BR-100: where an ID counts as in use, and what a counted name is.
+NAMED_DIRS = ("backlog", "docs/findings")
+ADR_DIR = "docs/adr"
+REGISTER_DIR = "docs/findings/register"
+TODO_FILE = "docs/spec/work/todo.md"
+_COUNTED = re.compile(r"([A-Z]+)-([0-9]+)")
+_CLEAN_NAME = re.compile(r"[A-Z]+-[0-9]{4}[A-Za-z]?\.md")
+_ADR_NAME = re.compile(r"([0-9]{4})-")
+_TODO_HEADING = re.compile(r"## (T)-([0-9]+)")
+
+# One ID in use: the prefix, the number, and the path to warn about, or None.
+Found = tuple[str, int, str | None]
+
+
+def _counted_id(text: str) -> tuple[str, int] | None:
+    match = _COUNTED.match(text)
+    if match is None or match.group(1) not in PREFIXES:
+        return None
+    return match.group(1), int(match.group(2))
+
+
+def count_name(path: str) -> tuple[str, int, bool] | None:
+    """Return the prefix, the number, and the warning flag of a file name (BR-100).
+
+    A name in backlog/ or docs/findings/ counts when it starts with a prefix,
+    a hyphen, and digits. It gets a warning when it is neither
+    `<PREFIX>-NNNN.md` nor `<PREFIX>-NNNN<letter>.md`. An ADR file counts when
+    its name starts with four digits and a hyphen.
+    """
+    folder, name = posixpath.split(path)
+    if folder == ADR_DIR:
+        match = _ADR_NAME.match(name)
+        return ("ADR", int(match.group(1)), False) if match else None
+    if folder not in NAMED_DIRS:
+        return None
+    counted = _counted_id(name)
+    if counted is None:
+        return None
+    return (*counted, _CLEAN_NAME.fullmatch(name) is None)
+
+
+def _register_ids(text: str) -> Iterator[tuple[str, int]]:
+    for line in text.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+            counted = _counted_id(entry["id"])
+            if counted is not None:
+                yield counted
+
+
+def _todo_ids(text: str) -> Iterator[tuple[str, int]]:
+    for line in text.splitlines():
+        match = _TODO_HEADING.match(line)
+        if match is not None:
+            yield match.group(1), int(match.group(2))
+
+
+def ids_in_tree(paths: Iterable[str], read: Callable[[str], str]) -> Iterator[Found]:
+    """Yield every ID in use in one tree of files (BR-099).
+
+    `read` returns the text of a path. It is called only for a register file
+    and the todo file, because body text holds examples such as ST-9999.
+    """
+    for path in paths:
+        counted = count_name(path)
+        if counted is not None:
+            prefix, number, warn = counted
+            yield prefix, number, path if warn else None
+        elif posixpath.dirname(path) == REGISTER_DIR and path.endswith(".jsonl"):
+            for prefix, number in _register_ids(read(path)):
+                yield prefix, number, None
+        elif path == TODO_FILE:
+            for prefix, number in _todo_ids(read(path)):
+                yield prefix, number, None
+
+
+def plan(found: Iterable[Found]) -> tuple[str, list[str]]:
+    """Return the seed command and the sorted paths to warn about (BR-101)."""
+    highest: dict[str, int] = {}
+    warnings: set[str] = set()
+    for prefix, number, warn in found:
+        highest[prefix] = max(number, highest.get(prefix, 0))
+        if warn is not None:
+            warnings.add(warn)
+    pairs = [f"{prefix}={highest[prefix]}" for prefix in PREFIXES if prefix in highest]
+    return " ".join(["next-id --seed 0", *pairs]), sorted(warnings)
+
+
+def _branch_trees(top: str) -> Iterator[Found]:
+    """Yield the IDs of every local and remote-tracking branch, without a checkout."""
+    commits = git(
+        ["-C", top, "for-each-ref", "--format=%(objectname)", "refs/heads", "refs/remotes"]
+    ).split()
+    blobs: dict[str, str] = {}
+
+    def read_blob(sha: str) -> str:
+        if sha not in blobs:
+            blobs[sha] = git(["-C", top, "cat-file", "blob", sha])
+        return blobs[sha]
+
+    for commit in dict.fromkeys(commits):
+        listing = git(
+            ["-C", top, "ls-tree", "-r", commit, "--", *NAMED_DIRS, ADR_DIR, TODO_FILE]
+        )
+        shas = {}
+        for line in listing.splitlines():
+            meta, _, path = line.partition("\t")
+            shas[path] = meta.split()[2]
+        yield from ids_in_tree(shas, lambda path, shas=shas: read_blob(shas[path]))
+
+
+def _working_tree(top: str) -> Iterator[Found]:
+    """Yield the IDs in the working tree, also of files that no commit holds."""
+    paths = []
+    for folder in (*NAMED_DIRS, ADR_DIR, REGISTER_DIR):
+        try:
+            names = os.listdir(os.path.join(top, folder))
+        except OSError:
+            continue
+        paths += [
+            f"{folder}/{name}"
+            for name in names
+            if os.path.isfile(os.path.join(top, folder, name))
+        ]
+    if os.path.isfile(os.path.join(top, TODO_FILE)):
+        paths.append(TODO_FILE)
+
+    def read(path: str) -> str:
+        with open(os.path.join(top, path), encoding="utf-8", errors="replace") as file:
+            return file.read()
+
+    yield from ids_in_tree(paths, read)
+
+
+def plan_seed(remote: str | None) -> str:
+    """Check the remote, then return the seed command or the in-use line (BR-098)."""
+    url = resolve_remote(remote, for_seed=True)
+    try:
+        with throwaway(guarded=True) as repo:
+            RemoteCounter(repo, url).read()
+    except MissingCounter:
+        pass
+    except GitTimedOut:
+        raise NextIdError(
+            f"a git call on {url} ran over the time limit of {GIT_TIME_LIMIT} seconds"
+        ) from None
+    else:
+        return f"{COUNTER_REF} is in use on {url}; the project needs no seed"
+    try:
+        top = git(["rev-parse", "--show-toplevel"])
+    except subprocess.CalledProcessError:
+        raise NextIdError(
+            "--plan-seed counts the IDs of a clone; run it inside the project's clone"
+        ) from None
+    command, warnings = plan([*_branch_trees(top), *_working_tree(top)])
+    for path in warnings:
+        print(
+            f"next-id: warning: {path} breaks the name <PREFIX>-NNNN.md; "
+            "it counts by its number",
+            file=sys.stderr,
+        )
+    return command
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="next-id", usage=USAGE, description=__doc__.split("\n")[0]
     )
-    p.add_argument("--seed", action="store_true", help="create the counter once")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--seed", action="store_true", help="create the counter once")
+    mode.add_argument(
+        "--plan-seed",
+        action="store_true",
+        help="print the seed command that continues every ID sequence",
+    )
     p.add_argument("--remote", help="the remote URL; the default is the URL of origin")
     p.add_argument(
         "arguments", nargs="*", help="<PREFIX>, or <number> [<PREFIX>=<n> …]"
@@ -455,14 +647,17 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     p = _parser()
     ns = p.parse_args(argv)
-    if not ns.seed and len(ns.arguments) != 1:
+    if ns.plan_seed and ns.arguments:
+        p.error("--plan-seed takes no argument")
+    if not (ns.seed or ns.plan_seed) and len(ns.arguments) != 1:
         p.error("name one ID prefix")
     try:
-        output = (
-            seed(ns.arguments, ns.remote)
-            if ns.seed
-            else claim(ns.arguments[0], ns.remote)
-        )
+        if ns.plan_seed:
+            output = plan_seed(ns.remote)
+        elif ns.seed:
+            output = seed(ns.arguments, ns.remote)
+        else:
+            output = claim(ns.arguments[0], ns.remote)
     except NextIdError as exc:
         print(f"next-id: {exc}", file=sys.stderr)
         return 1
