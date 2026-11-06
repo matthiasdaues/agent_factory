@@ -716,3 +716,37 @@ def test_st_0368_demo_scenario_end_to_end(env, remote, clone, tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
     assert run(env, outside, "FAGAN", "--remote", str(remote)).stdout == "FAGAN-1001\n"
+
+
+@pytest.mark.spec("CID-08-IT-01")
+def test_st_0373_two_branches_get_different_ids_and_commit_on_their_own(env, tmp_path, remote):
+    first = tmp_path / "a"
+    second = tmp_path / "b"
+    _git(env, "clone", "--quiet", str(remote), str(first))
+    _git(env, "checkout", "--quiet", "-b", "dev", cwd=first)
+    _git(env, "commit", "--quiet", "--allow-empty", "-m", "init", cwd=first, extra=FIXTURE_IDENTITY)
+    _git(env, "push", "--quiet", "origin", "dev", cwd=first)
+    assert run(env, first, "--seed", "1000").returncode == 0
+    _git(env, "clone", "--quiet", "--branch", "dev", str(remote), str(second))
+    _git(env, "checkout", "--quiet", "-b", "feature/counter-ids", cwd=second)
+
+    ids = {}
+    for clone_path, branch in ((first, "dev"), (second, "feature/counter-ids")):
+        claimed = run(env, clone_path, "IMPL")
+        assert claimed.returncode == 0
+        claim = claimed.stdout.strip()
+        ids[branch] = claim
+        finding = clone_path / "docs" / "findings" / f"{claim}.md"
+        finding.parent.mkdir(parents=True, exist_ok=True)
+        finding.write_text(f"# {claim}\n")
+        _git(env, "add", str(finding), cwd=clone_path)
+        _git(env, "commit", "--quiet", "-m", f"add {claim}", cwd=clone_path, extra=FIXTURE_IDENTITY)
+
+    assert ids == {"dev": "IMPL-1001", "feature/counter-ids": "IMPL-1002"}
+    for clone_path, branch, other in (
+        (first, "dev", "IMPL-1002"),
+        (second, "feature/counter-ids", "IMPL-1001"),
+    ):
+        tracked = _git(env, "ls-tree", "-r", "--name-only", branch, cwd=clone_path).splitlines()
+        assert f"docs/findings/{ids[branch]}.md" in tracked
+        assert f"docs/findings/{other}.md" not in tracked
