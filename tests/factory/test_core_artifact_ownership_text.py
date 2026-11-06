@@ -50,10 +50,11 @@ class TestSt0352FindingFormatDefinesOwner:
         tags = _tag_table_tags(FINDING_FORMAT.read_text(encoding="utf-8"))
         assert {"ARCH", "QA"} <= tags
 
-    def test_st_0352_tag_table_drops_recon(self):
+    def test_st_0352_tag_table_keeps_recon_again_per_dec_15(self):
+        # DEC-15 of counter-ids-fitting supersedes the ST-0352 point that dropped RECON.
         tags = _tag_table_tags(FINDING_FORMAT.read_text(encoding="utf-8"))
         assert "SPEC" in tags, "tag table not parsed"
-        assert "RECON" not in tags
+        assert "RECON" in tags
 
     def test_st_0352_orchestrator_sends_open_finding_to_owner(self):
         text = FINDING_FORMAT.read_text(encoding="utf-8")
@@ -1390,10 +1391,12 @@ class TestSt0363ReconciliationWritesOnlyItsReport:
 
     @pytest.mark.parametrize(
         "path",
-        [RECONCILIATION_AGENT, RECONCILE_SPEC, COMMIT_CONVENTIONS, BRANCHING_POLICY],
+        [COMMIT_CONVENTIONS, BRANCHING_POLICY],
         ids=lambda p: p.name,
     )
-    def test_st_0363_no_recon_tag_remains(self, path):
+    def test_st_0363_dec_15_recon_stays_out_of_conventions_but_not_agent_or_skill(self, path):
+        # DEC-15 makes RECON a finding tag again, so the reconciliation agent and
+        # reconcile-spec may name it. The two convention files still do not.
         assert "RECON" not in path.read_text(encoding="utf-8")
 
 

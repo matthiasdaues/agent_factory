@@ -192,15 +192,16 @@ Fitting tailors the factory to a project's existing stack — its codebase,
 test runner, CI, and other signals. It starts only after the newcomer
 selects a recommended action that needs it — see First-session insight
 above — not automatically at session start. Brownfield projects walk all
-five steps below. Greenfield projects (`fitting.status == "greenfield"`)
-skip fingerprint confirmation, agent context, and test regime detection
-(there is no existing stack to learn about), but **still walk step 0
-(model matrix)** — every project needs model mappings configured before
-dispatch can route work. After step 0, set
-`fitting.model_matrix_configured` to `true` and continue to the session
-menu.
+six steps below. Greenfield projects (`fitting.status == "greenfield"`)
+skip fingerprint confirmation, agent context, test regime detection,
+and hooks (there is no existing stack to learn about), but **still walk
+step 0 (model matrix)** and **step 4 (seed the ID counter)**. Every
+project needs model mappings configured before dispatch can route work,
+and every project needs its counter before the first ID. The first story
+of a greenfield project is `ST-0001`. After step 0, set
+`fitting.model_matrix_configured` to `true` and continue with step 4.
 
-Fitting walks five steps in order; each flips a key in
+Fitting walks six steps in order; each flips a key in
 `.agent-factory/config/project-context.json` when done. The user can stop at any point —
 progress is saved, and the next session picks up where they left off.
 
@@ -247,7 +248,7 @@ index files. When the skill completes, set
 
 When the first-session insight recommends context capture as the next
 action, invoke `capture-context` for that reason, not as an automatic
-part of a five-step walk. The newcomer reaches this step by selecting
+part of a six-step walk. The newcomer reaches this step by selecting
 the recommended action, not by fitting order alone.
 
 ### 2b. Detect test regime
@@ -293,9 +294,50 @@ placed last, after model configuration (step 0) and before dispatch.
 
 When done, set `fitting.hooks_decided` to `true`.
 
+### 4. Seed the ID counter
+
+A seed is a push, so this step follows the hooks decision of step 3. The
+Factory's first push comes after the newcomer has decided on hooks.
+
+When the project has no `origin`, the counter lives in the project's own
+repository. Before you run `--plan-seed`, set the git setting
+`agent-factory.counterRemote` to the parent of the directory that
+`git rev-parse --git-common-dir` prints, with
+`git config agent-factory.counterRemote <path>`. That parent is the main
+repository, so every worktree sees the setting in the shared `.git/config`.
+The setting stays when the newcomer declines the seed.
+
+Later runs of this step may find that `origin` exists. Check with `git remote`
+and a match on the line `origin`; run no command that prints a URL. When
+`origin` exists and the repository that the setting names holds no
+`refs/ids/counters`, remove the setting with
+`git config --unset agent-factory.counterRemote` before `--plan-seed`. Then
+`--plan-seed` and the seed use `origin`, and no second counter starts.
+
+Run `.agent-factory/factory/scripts/next-id --plan-seed`. It reads the
+counter and prints the seed command, such as `next-id --seed 0 ST=375 ADR=32`.
+Show that command as printed. Build no seed command of your own. Say what
+it does: it creates `refs/ids/counters` on the counter's remote once, and
+every later ID continues from it.
+
+Run the printed command only after the newcomer confirms it. ADR-0032 lets
+an agent push the claim ref through `next-id`. Run no plain `git push`.
+
+End the step in one of four ways:
+
+- **Confirmed:** run the printed command, then set `fitting.counter_seeded`
+  to `true`.
+- **Declined:** run no seed, say that the newcomer declined, and leave
+  `fitting.counter_seeded` `false`. The next session start lists the step
+  as open.
+- **Unreachable remote:** when the remote does not answer, run no seed,
+  name the remote as the reason, and leave the key `false`.
+- **Counter in use:** when `--plan-seed` reports a counter in use, run no
+  seed and set `fitting.counter_seeded` to `true`.
+
 ### Completion
 
-When all five keys are `true`, set `fitting.status` to `"fitted"`. Future
+When all six keys are `true`, set `fitting.status` to `"fitted"`. Future
 sessions see the fitted state and skip the fitting prompt.
 
 When the user chooses to continue fitting — either from a mid-session

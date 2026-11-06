@@ -1169,21 +1169,22 @@ moved=https://***@host/demo.git
 `next-id --plan-seed` prints the seed command that the fitting step shows to
 the User. It changes no ref and no file (BR-098).
 
-| Property | Contract                                                                                                                                                                               |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Remote   | The order of BR-096                                                                                                                                                                    |
-| Reads    | `refs/ids/counters` on the remote; the file names, register `id` fields, and todo headings of every local and remote-tracking branch (BR-099). Gap CIF-G10 asks about the working tree |
-| Output   | One line `next-id --seed 0 <PREFIX>=<highest> …` on standard output, or `next-id --seed 0` alone (BR-101). Gap CIF-G09 asks for the order of the pairs                                 |
-| Warnings | One warning per counted file name that breaks the new pattern, naming its path (BR-100). The warnings do not change the exit code                                                      |
-| Messages | The remote by its redacted URL (BR-077)                                                                                                                                                |
+| Property | Contract                                                                                                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Remote   | The order of BR-096                                                                                                                                                                                   |
+| Reads    | `refs/ids/counters` on the remote; the file names, register `id` fields, and todo headings of every local branch, every remote-tracking branch, and the working tree of the current worktree (BR-099) |
+| Output   | One line `next-id --seed 0 <PREFIX>=<highest> …` on standard output, or `next-id --seed 0` alone. The pairs follow the order of the prefix list in `next-id` (BR-101)                                 |
+| Warnings | One warning per counted file name that breaks the new pattern, naming its path (BR-100). The warnings do not change the exit code                                                                     |
+| Messages | The remote by its redacted URL (BR-077)                                                                                                                                                               |
 
-| Case                                       | Exit     | Output                                                        |
-| ------------------------------------------ | -------- | ------------------------------------------------------------- |
-| the remote holds no `refs/ids/counters`    | `0`      | the seed command                                              |
-| the remote holds a claim commit            | `0`      | that the counter is in use on the remote, and no seed command |
-| the remote holds a marker commit           | non-zero | the remote of the marker, and no mention of `--seed` (BR-097) |
-| no `--remote`, no setting, and no `origin` | non-zero | `origin` and `--remote`, and no seed command                  |
-| remote unreachable                         | non-zero | the remote and git's error message, and no seed command       |
+| Case                                                                                        | Exit     | Output                                                                                                                |
+| ------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| the remote holds no `refs/ids/counters`                                                     | `0`      | the seed command                                                                                                      |
+| the remote holds a claim commit                                                             | `0`      | the line `refs/ids/counters is in use on <remote>; the project needs no seed` on standard output, and no seed command |
+| the remote holds a marker commit                                                            | non-zero | the remote of the marker, and no mention of `--seed` (BR-097)                                                         |
+| no `--remote`, no setting, and no `origin`                                                  | non-zero | `origin` and `--remote`, and no seed command                                                                          |
+| remote unreachable                                                                          | non-zero | the remote and git's error message, and no seed command                                                               |
+| run with `--remote` outside any git repository, and the remote holds no `refs/ids/counters` | `1`      | a message that names `--plan-seed` and asks for a run inside the project's clone, and no seed command                 |
 
 ### `next-id --move-to-origin`
 
@@ -1191,25 +1192,43 @@ the User. It changes no ref and no file (BR-098).
 `agent-factory.counterRemote` names to `origin`. BR-102 defines its steps, and
 the [Move Lifecycle](state-machines.md#move-lifecycle) shows them.
 
-| Property | Contract                                                                                                                            |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Reads    | The local counter at the path of `agent-factory.counterRemote`, and `origin`                                                        |
-| Writes   | The local `refs/ids/counters`, `refs/ids/counters` on `origin`, and the removal of `agent-factory.counterRemote` from `.git/config` |
-| Leases   | A lease on the claim commit C for the marker, the create-only lease for the push, and a lease on the marker to put C back           |
-| Messages | Every remote by its redacted URL (BR-077)                                                                                           |
+| Property | Contract                                                                                                                                                                                       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reads    | The local counter at the path of `agent-factory.counterRemote`, and `origin`                                                                                                                   |
+| Writes   | The local `refs/ids/counters`, `refs/ids/counters` on `origin`, and the removal of `agent-factory.counterRemote` from `.git/config`                                                            |
+| Leases   | A lease on the claim commit C for the marker, and the create-only lease for the push                                                                                                           |
+| Messages | Every remote by its redacted URL (BR-077)                                                                                                                                                      |
+| Output   | On success, the line `moved refs/ids/counters from <local> to <remote>` on standard output, and exit `0`. `<local>` is the path of the setting, and `<remote>` is the redacted URL of `origin` |
+| Remote   | The marker names `remote.origin.url` as the clone configures it. The push goes to the URL that `git ls-remote --get-url` prints for it, so the clone's `url.<base>.insteadOf` rewrites apply   |
+| Push     | From a throwaway repository, as for a claim (BR-075). It fetches the local counter, whose marker has C as its parent, and pushes C. So no hook of the project runs                             |
 
-| Case                                                                             | Result                                                                                                           |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `origin` holds no `refs/ids/counters`                                            | `origin` holds C, the local counter holds the marker, the setting is gone                                        |
-| an ID claim raised C before the marker                                           | the move reads the local counter again and carries the new claim commit to `origin` (BR-103)                     |
-| `origin` holds a counter                                                         | the local counter holds C again, the setting stays, and the message names both counters                          |
-| the push fails for another reason                                                | the local counter holds C again, the setting stays, and the message holds git's message                          |
-| the local counter holds a marker, and `origin` holds no `refs/ids/counters`      | the move takes C from the marker's parent and pushes it. The result is that of the first row (BR-102)            |
-| the local counter holds a marker, and `origin` holds C                           | the push was done before the cut-off. The move only removes the setting, and the setting is gone                 |
-| the local counter holds a marker, and `origin` holds a claim commit other than C | a collision: the message names both counters, the local counter keeps the marker, and the setting stays (BR-102) |
+| Case                                                                             | Result                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin` holds no `refs/ids/counters`                                            | `origin` holds C, the local counter holds the marker, the setting is gone                                                                                                                                              |
+| an ID claim raised C before the marker                                           | the move reads the local counter again and carries the new claim commit to `origin` (BR-103)                                                                                                                           |
+| ten stale leases in a row on C                                                   | exit non-zero, no marker, the local counter and the setting stay, and the message names the move and the ten stale leases                                                                                              |
+| the push is refused, and `origin` then holds C                                   | the push of C got through after all. The move removes the setting, and the result is that of the first row                                                                                                             |
+| the push is refused, and `origin` then holds another counter                     | a collision: the local counter keeps the marker, the setting stays, and the message names both counters (DEC-16)                                                                                                       |
+| the push is refused, and `origin` then holds no counter or does not answer       | the local counter keeps the marker, the setting stays, and the message holds git's message (DEC-16)                                                                                                                    |
+| the push runs over the time limit of BR-076                                      | the local counter keeps the marker, the setting stays, and the message names the remote and the time limit. This is the CutOff of the [Move Lifecycle](state-machines.md#move-lifecycle), and a second move resumes it |
+| the local counter holds a marker, and `origin` holds no `refs/ids/counters`      | the move takes C from the marker's parent and pushes it. The result is that of the first row (BR-102)                                                                                                                  |
+| the local counter holds a marker, and `origin` holds C                           | the push was done before the cut-off. The move only removes the setting, and the setting is gone                                                                                                                       |
+| the local counter holds a marker, and `origin` holds a claim commit other than C | a collision: the message names both counters, the local counter keeps the marker, and the setting stays (BR-102)                                                                                                       |
 
-The proposal names no exit code for the last two cases (CIF-G08). This
+The proposal names no exit code for the failure cases (CIF-G08). This
 specification takes non-zero, as for every failure of `next-id`.
+
+A stale lease on C makes the move wait 0.1 to 1 second and read the local
+counter again, at most ten times in a row. A marker at the read makes the move
+resume: it takes C from the marker's parent and asks `origin` with
+`git ls-remote` for `refs/ids/counters` before it pushes. The three resume rows
+of the case table follow from that answer.
+
+After a refused push, the move asks `origin` again with `git ls-remote`, on a
+first move as on a resume. The three rows on a refused push follow from that
+answer. The move never puts C back on the local counter: from the marker on,
+the local counter hands out no number, so a counter that someone else seeded on
+`origin` meanwhile never repeats one (DEC-16).
 
 ### `init-factory` counter check
 
@@ -1217,16 +1236,22 @@ specification takes non-zero, as for every failure of `next-id`.
 with `git ls-remote`. The remote is `agent-factory.counterRemote`, else
 `origin` (BR-105). It never seeds (DEC-17) and changes no ref.
 
-| Case                        | Output                                                                                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `refs/ids/counters` missing | "run `next-id --seed <number>` with a number above your highest ID"                                                                                 |
-| no setting and no `origin`  | "add the remote `origin`, then run `next-id --seed <number>`"                                                                                       |
-| remote unreachable          | A warning that names the remote. `init-factory` finishes the install and exits `0` (DEC-23)                                                         |
-| `origin` URL has user info  | A warning that shows only the redacted URL and advises a credential helper (BR-078). `init-factory` goes on with the check and finishes the install |
+| Case                                             | Output                                                                                                                                                   |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `refs/ids/counters` missing on `origin`          | "counter: missing on origin; walk fitting step 4, or run `next-id --plan-seed` to print the seed command"                                                |
+| `refs/ids/counters` missing on the local counter | The same hint, with the redacted URL of `agent-factory.counterRemote` in place of `origin`                                                               |
+| no setting and no `origin`                       | "counter: no remote", then "fitting step 4 keeps the counter in this repository until `origin` exists"                                                   |
+| remote unreachable                               | A warning that names the redacted remote and git's last line. `init-factory` finishes the install and exits `0` (DEC-23)                                 |
+| remote URL has user info                         | A warning that names `origin` or `agent-factory.counterRemote`, shows only the redacted URL, and advises a credential helper (BR-078). The check goes on |
 
-The proposal names no exit code for the first two cases and no output when
-the counter exists (CID-G02). Gap CIF-G01 records that the first two hints
-contradict the seed step and the local counter.
+No hint names a number for the seed, because `next-id --plan-seed` finds the
+numbers (DEC-07). The proposal names no exit code for the hints and no output
+when the counter exists (CID-G02).
+
+The check returns `true` when the remote holds the counter, `false` when it
+does not or no remote exists, and no value when the remote does not answer. A
+separate step, `record_counter_seeded`, writes that result into the fitting key
+and skips the write when the check returned no value.
 
 The same check derives the sixth fitting key.
 

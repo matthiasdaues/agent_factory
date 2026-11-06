@@ -834,17 +834,20 @@ On MarkerSet:
   ChangeState(PUSHING)
 On LeaseStale:
   # an ID claim raised the local counter after the read
-  ChangeState(READING)
+  if fewer than ten stale leases in a row
+    # next-id waits 0.1 to 1 second
+    ChangeState(READING)
+  else
+    # no marker is set, the setting stays
+    ChangeState(REFUSED)
 
 State: PUSHING
   # next-id pushes C to origin with the create-only lease
 On PushAccepted:
   ChangeState(CLEARING)
-On CounterOnOrigin:
-  # the create-only lease refuses, because origin holds a counter
-  ChangeState(RESTORING)
 On PushRefused:
-  ChangeState(RESTORING)
+  # the create-only lease or the remote refuses the push
+  ChangeState(RECHECKING)
 On CutOff:
   # the call ends before git answers, such as on a lost connection
   ChangeState(INTERRUPTED)
@@ -856,9 +859,16 @@ On SettingRemoved:
 On CutOff:
   ChangeState(INTERRUPTED)
 
-State: RESTORING
-  # next-id puts C back on the local refs/ids/counters, with a lease on the marker
-On Restored:
+State: RECHECKING
+  # next-id asks origin again for refs/ids/counters with git ls-remote; the marker stays (DEC-16)
+On OriginHoldsC:
+  # the push got through after all
+  ChangeState(CLEARING)
+On OriginHoldsOther:
+  # a collision
+  ChangeState(REFUSED)
+On OriginWithoutC:
+  # origin holds no counter or does not answer
   ChangeState(REFUSED)
 On CutOff:
   ChangeState(INTERRUPTED)
@@ -870,7 +880,7 @@ On MoveRerun:
   ChangeState(READING)
 
 State: RESUMING
-  # next-id takes C from the marker's parent and asks origin for refs/ids/counters
+  # next-id takes C from the marker's parent and asks origin for refs/ids/counters with git ls-remote
 On OriginHoldsC:
   # the push of the cut-off call was done
   ChangeState(CLEARING)
@@ -885,7 +895,7 @@ State: MOVED
   # terminal — the setting is gone, next-id exits 0
 
 State: REFUSED
-  # terminal — both counters as before, the setting stays, next-id names the cause and exits non-zero
+  # terminal — origin unchanged by the move, the local counter holds C or the marker, the setting stays, next-id names the cause and exits non-zero
 ```
 
 #### Derived Mermaid
@@ -896,15 +906,17 @@ stateDiagram-v2
     READING --> MARKING : CounterRead
     READING --> RESUMING : MarkerRead
     MARKING --> PUSHING : MarkerSet
-    MARKING --> READING : LeaseStale
+    MARKING --> READING : LeaseStale (fewer than ten in a row)
+    MARKING --> REFUSED : LeaseStale (tenth in a row)
     PUSHING --> CLEARING : PushAccepted
-    PUSHING --> RESTORING : CounterOnOrigin
-    PUSHING --> RESTORING : PushRefused
+    PUSHING --> RECHECKING : PushRefused
     PUSHING --> INTERRUPTED : CutOff
     CLEARING --> MOVED : SettingRemoved
     CLEARING --> INTERRUPTED : CutOff
-    RESTORING --> REFUSED : Restored
-    RESTORING --> INTERRUPTED : CutOff
+    RECHECKING --> CLEARING : OriginHoldsC
+    RECHECKING --> REFUSED : OriginHoldsOther
+    RECHECKING --> REFUSED : OriginWithoutC
+    RECHECKING --> INTERRUPTED : CutOff
     INTERRUPTED --> READING : MoveRerun
     RESUMING --> CLEARING : OriginHoldsC
     RESUMING --> PUSHING : OriginEmpty
@@ -916,10 +928,10 @@ stateDiagram-v2
 #### Notes
 
 - **MARKING** is the only point where an ID claim can change the outcome. A claim before it makes the lease stale, and a claim after it reads the marker and fails (BR-103).
-- **CounterOnOrigin** names both counters in the message. VIRGIL reports the collision (BR-106).
+- **RECHECKING** never puts C back. From the marker on, the local counter hands out no number, so a counter that someone else seeded on `origin` meanwhile never repeats one (DEC-16). A second call resumes from the marker.
+- **OriginHoldsOther** in **RECHECKING** names both counters in the message. VIRGIL reports the collision (BR-106).
 - **INTERRUPTED** is the state between two calls. The marker keeps every ID claim away from the local counter until a second call finishes the move, so no number goes out twice (DEC-14).
-- **OriginHoldsOther** is a collision. A claim commit has no parent, so `next-id` cannot tell whether the counter on `origin` grew from C. It names both counters and changes nothing: the local counter keeps the marker and the setting stays, so no ID claim lands on C again (BR-102).
-- The proposal names no event for a lease on the marker that fails in **RESTORING**.
+- **OriginHoldsOther** in **RESUMING** is a collision. A claim commit has no parent, so `next-id` cannot tell whether the counter on `origin` grew from C. It names both counters and changes nothing: the local counter keeps the marker and the setting stays, so no ID claim lands on C again (BR-102).
 
 ## Finding Classification State Machines
 

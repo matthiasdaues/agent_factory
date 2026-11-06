@@ -52,7 +52,9 @@ Each row has the columns Artifact, Drift, Evidence, Owner, and Status, as [inter
 
 For **terminology drift**: the row has Artifact `docs/spec/glossary.md`, Drift naming both terms, Evidence naming the code path and line, Owner `domain-modeling-agent`, and Status `open`. It changes neither `docs/spec/glossary.md` nor `docs/spec/work/term-candidates.md`. Only the domain-modeling agent writes the glossary, and it acts on the row first.
 
-For **code defects**: do not fix and do not write a row. File per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `BUG`.
+For a **drift** that you record as a finding: Run `.agent-factory/factory/scripts/next-id RECON` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. File it per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `RECON`. Its row still goes to the owner of the artifact.
+
+For **code defects**: do not fix and do not write a row. File per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `BUG`. Run `.agent-factory/factory/scripts/next-id BUG` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 ## Step 3 — Write the reconciliation report
 

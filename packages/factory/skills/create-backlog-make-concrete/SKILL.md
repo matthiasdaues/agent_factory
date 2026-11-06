@@ -93,6 +93,8 @@ rationale instead of a resolved answer) to `docs/spec/work/todo.md` per the
 and deferral rationale. The deferred item stays in the Resolve Before
 Implementation section with its deferral blockquote — it is not
 
+Claim the number of each todo entry with `.agent-factory/factory/scripts/next-id T`, and read the ID from standard output. When `next-id` fails, stop and report its message; never pick a number by hand.
+
 ### 3. Plain-language pass
 
 Reread Goal, Domain Rule, Demo Scenario, Required API Behavior,

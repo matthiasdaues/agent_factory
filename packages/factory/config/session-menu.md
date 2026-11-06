@@ -2,6 +2,29 @@
 
 Presented by VIRGIL at the start of a session when no fitting is pending.
 
+## Counter check
+
+VIRGIL runs this check before the menu. It never replaces a pending fitting prompt.
+
+Check two things:
+
+1. `git config agent-factory.counterRemote` prints a path.
+2. `git remote` prints a line that reads `origin`. That command prints remote names only, never a URL.
+
+Without `origin`, or without the setting, VIRGIL offers no move and shows the menu. VIRGIL names a remote only by the redacted form that `next-id` prints.
+
+When both hold, say that the counter is local, that `origin` exists now, and offer the move. Say what the move does: it carries the counter to `origin`, leaves a marker in the project's `.git`, and removes the setting.
+
+Run `.agent-factory/factory/scripts/next-id --move-to-origin` only after the User confirms. Without a confirmation, run nothing and show the menu.
+
+Report the result, then show the menu:
+
+- **Success:** the counter is on `origin` now. Show the line `next-id` printed.
+- **Collision:** say that two counters exist. The report names both, the local counter and the counter on `origin`, and shows the lines that `next-id` printed. VIRGIL changes nothing else. The next session start offers the same move again.
+- **Another failure:** show the message of `next-id`. Name the next session start as the next chance.
+
+______________________________________________________________________
+
 > **What do you want to do?**
 >
 > **H** — Help: I'm new here or need orientation\
@@ -39,7 +62,7 @@ Present four actions when the developer selects K:
 Run `.agent-factory/factory/scripts/housekeeping-about` and display its output to the developer. The script reads four independent sources and reports:
 
 - **Factory version** and source path — from `.agent-factory/install.json`
-- **Fitting status** — from `.agent-factory/config/project-context.json` (X/5 with step names)
+- **Fitting status** — from `.agent-factory/config/project-context.json` (X/6 with step names)
 - **CLI integrations** — from `.agent-factory/install.json`
 - **Usage pipeline health** — from the usage runtime under `.agent-factory/usage/runtime/` and the newest usage record in `.agent-factory/usage/`
 
@@ -47,7 +70,7 @@ Each source is read independently. When a source is unreadable, its line shows `
 
 ### Re-fit
 
-Rerun all five fitting steps: model matrix, fingerprint, agent context, test regime, hooks. Call the existing fitting procedure from the virgil agent definition. Report completed and remaining steps after running.
+Rerun all six fitting steps: model matrix, fingerprint, agent context, test regime, hooks, ID counter seed. Call the existing fitting procedure from the virgil agent definition. Report completed and remaining steps after running.
 
 ### Update Factory
 

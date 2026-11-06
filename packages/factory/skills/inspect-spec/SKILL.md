@@ -77,7 +77,7 @@ Save as `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../../ru
 4. **Structure checks** — one section for each file that Step 2 checked, the glossary and the term candidates included. Each section lists the file's findings or states that the check found none.
 5. **Traceability summary** — orphans and gaps from the scope map and BR cross-reference checks.
 
-File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `SPEC`.
+File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `SPEC`. Run `.agent-factory/factory/scripts/next-id SPEC` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Format both the report and any finding files via `.agent-factory/factory/scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 

@@ -317,6 +317,13 @@ class TestErrorPathsShowOnlyTheRedactedUrl:
         url = _closed_port_url()
         _assert_failed_and_redacted(call(url, "ST"), url)
 
+    @pytest.mark.spec("CIF-07-IT-03")
+    def test_st_0376_unreachable_remote_on_a_plan_seed(self, call):
+        url = _closed_port_url()
+        result = call(url, "--plan-seed")
+        _assert_failed_and_redacted(result, url)
+        assert result.stdout == ""
+
     def test_sec_0007_unreachable_remote_on_a_seed(self, call):
         url = _closed_port_url()
         _assert_failed_and_redacted(call(url, "--seed", "1000"), url)

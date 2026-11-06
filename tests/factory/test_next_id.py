@@ -818,8 +818,17 @@ class TestClaimOnARemoteThatCannotAnswer:
     def test_st_0370_clone_without_origin_names_origin_remote_and_seed(
         self, env, tmp_path
     ):
+        # Precondition: no origin and no agent-factory.counterRemote (ST-0379).
         repo = tmp_path / "no-origin"
         _git(env, "init", "--quiet", str(repo))
+        unset = subprocess.run(
+            ["git", "-C", str(repo), "config", "--get", "agent-factory.counterRemote"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert unset.returncode == 1
         result = run(env, repo, "ST")
         _assert_failed_claim(result, "`origin`", "--remote", "next-id --seed")
 
@@ -952,3 +961,192 @@ def test_st_0370_git_call_over_the_limit_ends_the_claim(
     assert str(remote) in captured.err
     assert "30 seconds" in captured.err
     assert _counter(env, remote) == ["start=1000", "token=fixture0000000000"]
+
+
+# --- the local counter without origin (ST-0379, BR-096) ----------------------
+
+SETTING = "agent-factory.counterRemote"
+
+
+def _project(env: dict[str, str], path: Path) -> Path:
+    """A project repository without origin, its main branch holding one commit."""
+    _git(env, "init", "--quiet", str(path))
+    _git(
+        env,
+        "-C",
+        str(path),
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "root",
+        extra=FIXTURE_IDENTITY,
+    )
+    return path
+
+
+class StubGit:
+    """A stand-in for ni.git that answers the two lookups of resolve_remote."""
+
+    def __init__(self, setting: str | None, origin: str | None):
+        self.setting, self.origin, self.calls = setting, origin, []
+
+    def __call__(self, args, **kwargs):
+        self.calls.append(list(args))
+        answers = {
+            ("config", "--get", SETTING): self.setting,
+            ("remote", "get-url", "origin"): self.origin,
+        }
+        answer = answers.get(tuple(args))
+        if answer is None:
+            raise subprocess.CalledProcessError(1, ["git", *args])
+        return answer
+
+
+@pytest.mark.spec("CIF-08-CT-01")
+@pytest.mark.parametrize("for_seed", [False, True])
+class TestRemoteResolutionOrder:
+    def test_st_0379_remote_option_wins_over_setting_and_origin(
+        self, monkeypatch, for_seed
+    ):
+        stub = StubGit("/work/demo", "/tmp/origin.git")
+        monkeypatch.setattr(ni, "git", stub)
+        assert ni.resolve_remote("/tmp/remote.git", for_seed=for_seed) == "/tmp/remote.git"
+
+    def test_st_0379_setting_wins_over_origin(self, monkeypatch, for_seed):
+        stub = StubGit("/work/demo", "/tmp/origin.git")
+        monkeypatch.setattr(ni, "git", stub)
+        assert ni.resolve_remote(None, for_seed=for_seed) == "/work/demo"
+
+    def test_st_0379_origin_is_the_last_resort(self, monkeypatch, for_seed):
+        stub = StubGit(None, "/tmp/origin.git")
+        monkeypatch.setattr(ni, "git", stub)
+        assert ni.resolve_remote(None, for_seed=for_seed) == "/tmp/origin.git"
+
+    def test_st_0379_none_of_the_three_names_origin_and_remote(
+        self, monkeypatch, for_seed
+    ):
+        monkeypatch.setattr(ni, "git", StubGit(None, None))
+        with pytest.raises(ni.NextIdError) as caught:
+            ni.resolve_remote(None, for_seed=for_seed)
+        assert "`origin`" in str(caught.value)
+        assert "--remote" in str(caught.value)
+
+
+@pytest.mark.spec("CIF-08-IT-01")
+def test_st_0379_claim_from_local_counter_writes_into_the_project_git(env, tmp_path):
+    project = _project(env, tmp_path / "demo")
+    _set_counter(env, project / ".git", "start=0000", "ST=0012")
+    _git(env, "-C", str(project), "config", SETTING, str(project))
+    result = run(env, project, "ST")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ST-0013"
+    assert "ST=0013" in _counter(env, project / ".git")
+    refs = _git(env, "-C", str(project), "for-each-ref", "--format=%(refname)").split()
+    assert [r for r in refs if r.startswith("refs/ids")] == [REF]
+
+
+@pytest.mark.spec("CIF-08-IT-02")
+def test_st_0379_three_counters_setting_wins_and_remote_option_wins_over_it(
+    env, tmp_path, remote
+):
+    origin = _bare(env, tmp_path / "origin.git")
+    _set_counter(env, origin, "start=0000", "ST=0040")
+    _set_counter(env, remote, "start=0000", "ST=0070")
+    project = _project(env, tmp_path / "demo")
+    _set_counter(env, project / ".git", "start=0000", "ST=0012")
+    _git(env, "-C", str(project), "remote", "add", "origin", str(origin))
+    _git(env, "-C", str(project), "config", SETTING, str(project))
+    first = run(env, project, "ST")
+    assert first.stdout.strip() == "ST-0013", first.stderr
+    second = run(env, project, "ST", "--remote", str(remote))
+    assert second.stdout.strip() == "ST-0071", second.stderr
+    assert "ST=0040" in _counter(env, origin)
+
+
+@pytest.mark.spec("CIF-02-IT-01")
+def test_st_0379_seed_and_claim_from_a_second_worktree_use_the_main_git(env, tmp_path):
+    project = _project(env, tmp_path / "demo")
+    worktree = tmp_path / "demo-feature"
+    _git(env, "-C", str(project), "worktree", "add", "--quiet", "-b", "feature/local", str(worktree))
+    common = _git(env, "-C", str(worktree), "rev-parse", "--path-format=absolute", "--git-common-dir")
+    main = Path(common).parent
+    assert main.resolve() == project.resolve()
+    _git(env, "-C", str(worktree), "config", SETTING, str(main))
+    plan = run(env, worktree, "--plan-seed")
+    assert plan.returncode == 0, plan.stderr
+    assert "next-id --seed" in plan.stdout
+    seeded = run(env, worktree, "--seed", "0", "ST=12")
+    assert seeded.returncode == 0, seeded.stderr
+    assert _has_ref(env, project / ".git")
+    assert run(env, worktree, "ST").stdout.strip() == "ST-0013"
+    assert run(env, project, "ST").stdout.strip() == "ST-0014"
+
+
+# --- the marker of a moved counter (ST-0380, BR-097) --------------------------
+
+MADE_UP_URL = "https://user:token@host/demo.git"
+SHOWN_URL = "https://***@host/demo.git"
+
+
+def _set_marker(env: dict[str, str], repo: Path, remote_url: str) -> str:
+    """Put a marker commit, with the counter as its parent, at the repository's counter."""
+    tree = _git(env, "-C", str(repo), "mktree")
+    sha = subprocess.run(
+        ["git", "-C", str(repo), "commit-tree", tree, "-p", REF],
+        input=ni.format_marker(remote_url),
+        env={**env, **FIXTURE_IDENTITY},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    _git(env, "-C", str(repo), "update-ref", REF, sha)
+    return sha
+
+
+def _moved_project(env: dict[str, str], tmp_path: Path) -> tuple[Path, Path]:
+    """The project /work/demo with the marker, and a local clone whose origin it is."""
+    project = _project(env, tmp_path / "demo")
+    _set_counter(env, project / ".git", "start=0000", "ST=0012")
+    _set_marker(env, project, MADE_UP_URL)
+    local_clone = tmp_path / "demo-clone"
+    _git(env, "clone", "--quiet", str(project), str(local_clone))
+    return project, local_clone
+
+
+@pytest.mark.spec("CIF-10-CT-01")
+class TestMarkerMessage:
+    def test_st_0380_marker_is_one_redacted_line(self):
+        assert ni.format_marker(MADE_UP_URL) == f"moved={SHOWN_URL}\n"
+
+    def test_st_0380_reader_extracts_the_remote_of_a_marker(self):
+        assert ni.marker_remote(ni.format_marker(MADE_UP_URL)) == SHOWN_URL
+
+    def test_st_0380_a_claim_commit_is_no_marker(self):
+        assert ni.marker_remote("start=0000\nST=0012\ntoken=abc\n") is None
+
+    def test_st_0380_reader_of_a_counter_names_the_remote_of_the_marker(
+        self, env, remote, monkeypatch
+    ):
+        monkeypatch.setenv("HOME", env["HOME"])
+        monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+        _set_counter(env, remote, "start=0000", "ST=0012")
+        _set_marker(env, remote, MADE_UP_URL)
+        with ni.throwaway(guarded=True) as repo, pytest.raises(ni.MovedCounter) as caught:
+            ni.RemoteCounter(repo, str(remote)).read()
+        assert caught.value.remote == SHOWN_URL
+        assert SHOWN_URL in str(caught.value)
+        assert "--seed" not in str(caught.value)
+
+
+@pytest.mark.spec("CIF-08-IT-04")
+def test_st_0380_a_claim_in_a_local_clone_names_the_remote_of_the_marker(env, tmp_path):
+    project, local_clone = _moved_project(env, tmp_path)
+    before = _git(env, "-C", str(project), "rev-parse", REF)
+
+    result = run(env, local_clone, "ST")
+
+    _assert_failed_claim(result, SHOWN_URL)
+    assert "--seed" not in result.stderr
+    assert "user:token" not in result.stderr
+    assert _git(env, "-C", str(project), "rev-parse", REF) == before

@@ -37,7 +37,7 @@ merge. Zero unresolved survivors is required for merge.
 
 ### Filing a QA finding
 
-For `file-qa-finding`, write one `docs/findings/QA-NNNN.md` per mutant, per
+For `file-qa-finding`, run `.agent-factory/factory/scripts/next-id QA` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. Write one `docs/findings/QA-NNNN.md` per mutant, per
 the [finding format](../../rulebooks/conventions/finding-format.md). Set
 `owner: test-strategy-agent` and `status: open`. The body names the mutant's
 `location` and `operator`, the contract it joined to, if any, and why the

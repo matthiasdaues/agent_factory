@@ -900,7 +900,7 @@ sequenceDiagram
     GA->>LC: 4. Fetches refs/ids/counters and reads the claim commit C with ST=0012
     GA->>LC: 5. Replaces refs/ids/counters with the marker commit moved=<origin>, whose parent is C, under the lease on C
     LC-->>GA: accepted
-    GA->>PR: 6. Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:
+    GA->>PR: 6. Pushes C from a throwaway bare repository to refs/ids/counters with --force-with-lease=refs/ids/counters:
     PR-->>GA: accepted, because origin holds no counter
     GA->>CP: 7. Returns moved
     NI->>LC: 8. Removes agent-factory.counterRemote and exits 0
@@ -910,13 +910,19 @@ sequenceDiagram
 **Key Points:**
 
 - The marker goes in before the push. A claim from another worktree that
-  lands before step 5 makes the lease on `C` stale, so the move starts again
-  at step 4 and carries the new number to `origin`. A claim after step 5 reads
-  the marker and fails (BR-103).
-- When `origin` already holds a counter, the create-only lease in step 6
-  refuses the push. The adapter puts `C` back on the Local Counter under a
-  lease on the marker, the setting stays, and `next-id` exits non-zero and
-  names both counters. VIRGIL reports the collision (BR-102, BR-106).
+  lands before step 5 makes the lease on `C` stale, so the move waits a random
+  0.1 to 1 second, starts again at step 4, and carries the new number to
+  `origin`. After ten stale leases in a row, the move ends, changes nothing,
+  and keeps the setting. A claim after step 5 reads the marker and fails
+  (BR-103).
+- The push runs from a throwaway bare repository, so no hook of the project
+  runs.
+- When the push in step 6 fails, the Local Counter keeps the marker, the
+  setting stays, and `next-id` exits non-zero and names the cause. It never
+  puts `C` back, so the Local Counter hands out no number after step 5
+  (DEC-16). A second move resumes, as 6.16.1 shows. When `origin` already
+  holds a counter, the create-only lease refuses the push, `next-id` names
+  both counters, and VIRGIL reports the collision (BR-102, BR-106).
 - A claim or a `--plan-seed` that reads the marker names `origin` as the
   holder of the counter and never mentions `--seed`, so a local clone gets no
   advice to start a second counter (BR-097).
@@ -928,7 +934,7 @@ sequenceDiagram
 Derived from dynamic view `IdMoveToOriginResume` in [`architecture.dsl`](../spec/architecture.dsl).
 
 The move of 6.16 stops after step 5, for example because the shell kills
-`next-id` while git waits for credentials. The Local Counter holds the
+`next-id` while git waits for credentials, or the push in step 6 fails. The Local Counter holds the
 marker, `origin` holds no counter, and `agent-factory.counterRemote` is still
 set. Every claim now reads the marker and fails. At the next session start,
 VIRGIL sees the setting and `origin` and offers the move again.
@@ -946,21 +952,26 @@ sequenceDiagram
     NI->>LC: 2. Reads agent-factory.counterRemote, which the stopped move left set
     NI->>CP: 3. Calls move to the URL of origin
     GA->>LC: 4. Fetches refs/ids/counters, reads the marker commit moved=<origin>, and takes C with ST=0012 from its parent
-    GA->>PR: 5. Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:
-    PR-->>GA: accepted, because origin holds no counter
-    GA->>CP: 6. Returns moved
-    NI->>LC: 7. Removes agent-factory.counterRemote and exits 0
+    GA->>PR: 5. Asks origin for refs/ids/counters with git ls-remote
+    PR-->>GA: origin holds no counter
+    GA->>PR: 6. Pushes C from a throwaway bare repository to refs/ids/counters with --force-with-lease=refs/ids/counters:
+    PR-->>GA: accepted
+    GA->>CP: 7. Returns moved
+    NI->>LC: 8. Removes agent-factory.counterRemote and exits 0
     NI-->>VI: reports that the counter is on origin
 ```
 
 **Key Points:**
 
-- The second run finds the marker at its read, so it sets no new marker. It
-  goes on at the push with the `C` of the marker's parent.
+- The second run finds the marker at its read, so it sets no new marker and
+  meets no stale lease. It takes `C` from the marker's parent and asks
+  `origin` with `git ls-remote` before it pushes, as the `RESUMING` state of
+  the Move Lifecycle says. Step 5 decides among the three cases below.
+- When `origin` holds no counter, the move pushes `C`, as in 6.16.
 - When `origin` already holds `C`, the earlier push went through before the
-  stop. The move then skips the push, keeps the marker, removes the setting,
-  and never puts `C` back, so the Local Counter never comes back beside the
-  counter on `origin`.
+  stop. The move then skips the push, keeps the marker, and removes the
+  setting, so the Local Counter never comes back beside the counter on
+  `origin`.
 - When `origin` holds a claim commit other than `C`, the move cannot tell
   whether that counter grew from `C`, because a claim commit has no parent.
   So it treats the case as a collision, names both counters, and changes

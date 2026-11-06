@@ -33,6 +33,7 @@ FITTING_STEPS = [
     ("agent_context_populated", "agent context"),
     ("test_regime_detected", "test regime"),
     ("hooks_decided", "hooks"),
+    ("counter_seeded", "seed the ID counter"),
 ]
 
 
@@ -64,7 +65,8 @@ def read_fitting(base: Path) -> str:
         for key, label in FITTING_STEPS:
             if fitting.get(key):
                 done.append(label)
-        return f"{len(done)}/5 ({', '.join(done)})" if done else "0/5 (none)"
+        total = len(FITTING_STEPS)
+        return f"{len(done)}/{total} ({', '.join(done)})" if done else f"0/{total} (none)"
     except Exception as exc:
         return f"unknown ({type(exc).__name__}: {exc})"
 

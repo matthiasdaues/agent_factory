@@ -489,8 +489,9 @@ commit as its parent, so a second run of the move finishes a move that
 stopped before the push (DEC-14). Then it pushes the claim
 commit to `origin` with the create-only lease and removes the setting. So a
 claim during the move either travels to `origin` with the claim commit or
-reads the marker and fails. When `origin` already holds a counter, the push is
-refused and both counters stay as they were.
+reads the marker and fails. When the push fails, for example because `origin`
+already holds a counter, the marker and the setting stay, and the move never
+puts the claim commit back (DEC-16). A second run of the move resumes.
 [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin) shows the
 move.
 

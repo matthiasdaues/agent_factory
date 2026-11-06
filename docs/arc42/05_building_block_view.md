@@ -411,8 +411,8 @@ The adapter performs every transition of the
 `READING`, the leased push in `PUSHING`, and the wait in `WAITING`. `next-id`
 reports the terminal state. The adapter also performs every transition of the
 [Move Lifecycle](../spec/state-machines.md#move-lifecycle): the read in
-`READING`, the marker in `MARKING`, the create-only push in `PUSHING`, and
-the restore in `RESTORING`. The three components ship as one script, so
+`READING`, the marker in `MARKING`, the check of `origin` in `RESUMING`, and
+the create-only push in `PUSHING`. The three components ship as one script, so
 `dependency-rules.dsl` holds no rule for them.
 
 ## Referenced from

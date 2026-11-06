@@ -54,10 +54,13 @@ runs in this order (BR-102):
    reachable from the local ref (DEC-14). A stale lease starts the move again
    at step 1.
 3. It pushes `C` to `origin` with the create-only lease
-   `--force-with-lease=refs/ids/counters:`.
+   `--force-with-lease=refs/ids/counters:`. The push runs from a throwaway
+   bare repository, so no hook of the project runs.
 4. When the push succeeds, it removes `agent-factory.counterRemote`. When the
-   push fails, it puts `C` back under a lease on the marker and keeps the
-   setting.
+   push fails, the marker and the setting stay, and `next-id` names the
+   cause. It never puts `C` back: from step 2 on, the Local Counter hands out
+   no number, so it cannot repeat a number of a counter that someone seeded
+   on `origin` meanwhile (DEC-16).
 
 The marker goes in before the push. So a claim during the move either lands
 before the marker and travels to `origin` with `C`, or it reads the marker and
@@ -67,13 +70,13 @@ remote that now holds the counter and never advises a seed (BR-097).
 A second run of `next-id --move-to-origin` finishes a move that stopped after
 step 2 (DEC-14). It finds the marker, takes `C` from the marker's parent, and
 goes on at step 3. When `origin` already holds `C`, the earlier push went
-through, so the move keeps the marker, removes the setting, and never puts
-`C` back. When `origin` holds a claim commit other than `C`, the move cannot
+through, so the move keeps the marker and removes the setting. When `origin` holds a claim commit other than `C`, the move cannot
 tell whether that counter grew from `C`, because a claim commit has no parent.
 So it treats the case as a collision: it names both counters and changes
 nothing. The Local Counter keeps the marker and the setting stays, so no
 claim lands on `C` again. That is the same outcome as a counter that someone
-else seeded. So an interrupted move needs no new seed, and no claimed number
+else seeded. A failed push ends the same way as a cut-off move, so a second run resumes
+after both. So an interrupted move needs no new seed, and no claimed number
 goes out twice.
 
 This decision replaces one rule of ADR-0031: "without the remote, no session
@@ -90,7 +93,9 @@ ADR-0031 stands.
 - A clone that lost its `origin` by mistake fails as before, because it holds
   no setting.
 - When `origin` already holds a counter, the create-only lease refuses the
-  push. `next-id` names both counters and changes nothing, and VIRGIL reports
+  push. The Local Counter keeps the marker, the setting stays, and every claim
+  fails until a human resolves the collision. `next-id` names both counters,
+  and VIRGIL reports
   the collision, so a counter that someone else seeded never goes unnoticed
   (DEC-05). How a human resolves the collision is open (gap CIF-G03).
 - After the move, a local clone whose `origin` is the project's path reads the
