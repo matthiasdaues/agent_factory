@@ -294,3 +294,17 @@ files again, and the cause is not found. The `arch-lint` hook stages every
 SVG file with `git add docs/assets/images/*.svg`, and an agent's `git add -A`
 then carried 29 of them into the ST-0374 commit. `premerge-check` blocked that
 merge. Story briefs now forbid `git add -A`.
+
+## T-0020 — A claim can still open a credential dialog through `GIT_ASKPASS`
+
+- status: open
+- source: [security-review-2026-11-06-counter-ids.md](../../reviews/security-review-2026-11-06-counter-ids.md) (2026-11-06)
+
+BR-076 says a claim runs git without a prompt. `next-id` sets
+`GIT_TERMINAL_PROMPT=0` and ssh's `BatchMode`, but git still calls the program
+in `GIT_ASKPASS` or `core.askPass`. In a VS Code terminal, that program opens a
+credential dialog. Turning askpass off would also break CI jobs that pass their
+token through an askpass script.
+
+**Action:** decide whether a claim unsets `GIT_ASKPASS` and `core.askPass`, and
+how a CI job then passes its token. Record the answer in BR-076.
