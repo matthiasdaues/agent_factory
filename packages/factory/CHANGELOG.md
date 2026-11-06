@@ -1,5 +1,77 @@
 # Changelog
 
+## 1.6.0 — 2026-11-06
+
+This release numbers every indexed artifact from one counter on the
+project's remote, so two sessions on two branches never take the same ID
+(counter-ids, ST-0368 to ST-0375). It also seeds that counter in the
+fitting and keeps a local counter until a remote exists (counter-ids-fitting,
+ST-0376 to ST-0385). Run `update-factory` to receive it. A project that
+already has IDs runs fitting step 4 once, or seeds by hand with
+`next-id --seed`.
+
+### Features
+
+- **`next-id` hands out every ID from one counter.** The script claims the
+  next number of an ID prefix from the ref `refs/ids/counters` on `origin`,
+  with a leased push from a throwaway repository, so the clone stays
+  unchanged. A stale lease is retried at most ten times; any other refusal
+  fails at once and names its cause. Every git call runs without a prompt and
+  stops after 30 seconds. `--seed` creates the counter once and never
+  overwrites it (ST-0368, ST-0369, ST-0370, ST-0375).
+- **Twelve ID prefixes.** `ST`, `BUG`, `SPEC`, `FAGAN`, `SEC`, `RECON`,
+  `ATAM`, `IMPL`, `T`, `ADR`, `ARCH`, and `QA` each have their own sequence.
+  The new convention `rulebooks/conventions/id-prefixes.md` lists them with
+  their ID producers (DEC-25, ST-0383).
+- **Every ID producer names its prefix.** Each skill, agent, convention, and
+  playbook that creates an indexed artifact names the claim with its literal
+  prefix at the step that creates it, for example `next-id FAGAN`. Every step
+  that adds a todo entry names `next-id T`. A text test fails when a producer
+  drops its prefix (ST-0372, ST-0384, ST-0385).
+- **Indexed artifacts may be committed on any branch.** The counter keeps IDs
+  unique across branches, so a story or finding no longer has to go to `dev`
+  first. Agents may push the claim ref through `next-id`, the one exception to
+  the human's ownership of pushes (ST-0373, ST-0374).
+- **Fitting step 4 seeds the counter.** VIRGIL runs
+  `next-id --plan-seed`, which reads the highest number of each prefix from
+  the file names of all local and remote-tracking branches, and runs the seed
+  after the human confirms. Every sequence continues without a jump. The
+  fitting now has six keys; `counter_seeded` is the sixth, and `init-factory`
+  derives it from the counter's remote (ST-0376, ST-0377, ST-0378).
+- **A local counter until `origin` exists.** Without `origin`, the project's
+  own repository holds the counter, found through the git setting
+  `agent-factory.counterRemote`. `next-id --move-to-origin` later moves it to
+  the remote and leaves a marker that names the new home. An interrupted move
+  resumes on the next run, and a collision with a counter someone else seeded
+  stops claims instead of handing out a number twice. VIRGIL offers the move
+  at the session start (ST-0379 to ST-0382, DEC-14, DEC-16).
+
+### Changes
+
+- **`RECON` is a finding tag again.** A drift that the reconciliation agent
+  records as a finding gets a `RECON` ID; its report row still goes to the
+  artifact's owner (DEC-15).
+- **A story's `risk_level` is planning risk only.** `backlog-lint` accepts
+  `low`, `medium`, and `high`, independent of the test risk classes in
+  `docs/testing.yaml`.
+
+### Fixes
+
+- **No token in the clear.** `next-id` and `init-factory` send every line
+  they print through one redaction that hides the user info of a remote URL.
+  `init-factory` warns when `origin` carries a token in its URL (SEC-0007,
+  BR-077, BR-078).
+- **A claim keeps the user's ssh command.** `next-id` adds `BatchMode` to the
+  ssh command git would run instead of replacing it (IMPL-0004).
+- **`dispatch` finds its ledger among several.** It takes the ledger of the
+  current branch, `prepare-wave` fails on a wave without stories,
+  `verify-story` accepts a short SHA, and `dispatch init` runs without a
+  default ledger (BUG-0115, BUG-0116).
+- **Tests no longer render the diagrams.** `arch-lint --no-export` skips the
+  auto-export of stale diagrams; the default suite uses it, so a test run
+  leaves `docs/assets/images` unchanged and starts no container (T-0019).
+- **`housekeeping-about` counts six fitting steps** (BUG-0118).
+
 ## 1.5.0 — 2026-11-05
 
 This release gives every core artifact one producer and one declared
