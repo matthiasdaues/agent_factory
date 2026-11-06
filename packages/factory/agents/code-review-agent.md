@@ -87,7 +87,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 5. **Report** — Save `docs/reviews/code-review-YYYY-MM-DD.md` per
    [report-format.md](../rulebooks/conventions/report-format.md). File
    findings with tag `IMPL` per
-   [finding-format.md](../rulebooks/conventions/finding-format.md).
+   [finding-format.md](../rulebooks/conventions/finding-format.md). Run `.agent-factory/factory/scripts/next-id IMPL` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 6. **Verify prior findings** (repeat passes) — Per
    [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md):
