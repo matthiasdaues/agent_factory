@@ -112,7 +112,14 @@ def _before_menu() -> str:
 def test_st_0382_check_before_menu_names_both_conditions():
     check = _before_menu()
     assert "git config agent-factory.counterRemote" in check
-    assert "git remote get-url origin" in check
+    assert re.search(r"`git remote`[^\n]*line[^\n]*`origin`", check)
+
+
+@pytest.mark.spec("CIF-09-LN-01")
+def test_impl_0010_the_counter_check_names_no_command_that_prints_a_url():
+    check = _before_menu()
+    for command in ("get-url", "remote -v", "remote show", "remote.origin.url"):
+        assert command not in check, command
 
 
 @pytest.mark.spec("CIF-09-LN-01")

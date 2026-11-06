@@ -80,7 +80,7 @@ import tempfile
 import time
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
-from typing import Protocol
+from typing import NamedTuple, Protocol
 
 PREFIXES = (
     "ST", "BUG", "SPEC", "FAGAN", "SEC", "RECON", "ATAM", "IMPL", "T", "ADR", "ARCH", "QA"
@@ -721,8 +721,18 @@ def _set_local_counter(local: str, new: str, lease: str) -> None:
 
 
 def push_to_origin(local: str, url: str, sha: str) -> None:
-    """Push C from the local counter to origin with the create-only lease (BR-102)."""
-    _push(["-C", local], url, sha, "", guarded=True)
+    """Push C to origin with the create-only lease, from a throwaway repository.
+
+    A push from the project would run its pre-push hooks (IMPL-0008). The
+    throwaway repository has no hooks, as for a claim (BR-075). It fetches the
+    local counter, whose marker has C as its parent, so C arrives with it.
+    """
+    with throwaway(guarded=True) as repo:
+        git(
+            [*repo, "fetch", "--quiet", local, f"+{COUNTER_REF}:{COUNTER_REF}"],
+            guarded=True,
+        )
+        _push(repo, url, sha, "", guarded=True)
 
 
 class LocalCounter:
@@ -865,16 +875,50 @@ def move_to_origin() -> str:
             f"{COUNTER_REMOTE_SETTING} stays"
         ) from None
     except subprocess.CalledProcessError as exc:
-        error = _git_error(exc)
-        _restore(local, sha, marker)
-        if "stale info" in error or "already exists" in error:
-            raise _collision(local, url, target, message) from None
-        raise NextIdError(
-            f"the move to {url} failed: {error}; the local counter {local} "
-            f"holds its claim commit again, and {COUNTER_REMOTE_SETTING} stays"
-        ) from None
+        return _after_refusal(
+            Refusal(local, url, target, sha, message, marker, resumed), _git_error(exc)
+        )
     _guarded(["config", "--unset", COUNTER_REMOTE_SETTING], "this clone")
     return done
+
+
+class Refusal(NamedTuple):
+    """The state of a move whose push origin refused."""
+
+    local: str
+    url: str
+    target: str
+    sha: str
+    message: str
+    marker: str
+    resumed: bool
+
+
+def _after_refusal(move: Refusal, error: str) -> str:
+    """Ask origin again after a refused push, then finish or refuse (IMPL-0009).
+
+    origin may have gained C or another counter after the check. A resumed
+    move keeps the marker, because a counter on origin may have grown from C.
+    Only a first move puts C back.
+    """
+    try:
+        on_origin = _origin_counter(move.target, move.url)
+    except NextIdError:
+        on_origin = None
+    if on_origin == move.sha:
+        _guarded(["config", "--unset", COUNTER_REMOTE_SETTING], "this clone")
+        return f"moved {COUNTER_REF} from {move.local} to {move.url}"
+    if not move.resumed:
+        _restore(move.local, move.sha, move.marker)
+    if on_origin is not None:
+        raise _collision(move.local, move.url, move.target, move.message)
+    kept = "keeps the marker of the move"
+    if not move.resumed:
+        kept = "holds its claim commit again"
+    raise NextIdError(
+        f"the move to {move.url} failed: {error}; the local counter {move.local} "
+        f"{kept}, and {COUNTER_REMOTE_SETTING} stays"
+    )
 
 
 def _restore(local: str, sha: str, marker: str) -> None:

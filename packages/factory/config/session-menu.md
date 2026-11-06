@@ -9,7 +9,7 @@ VIRGIL runs this check before the menu. It never replaces a pending fitting prom
 Check two things:
 
 1. `git config agent-factory.counterRemote` prints a path.
-2. `git remote get-url origin` succeeds.
+2. `git remote` prints a line that reads `origin`. That command prints remote names only, never a URL.
 
 Without `origin`, or without the setting, VIRGIL offers no move and shows the menu. VIRGIL names a remote only by the redacted form that `next-id` prints.
 
