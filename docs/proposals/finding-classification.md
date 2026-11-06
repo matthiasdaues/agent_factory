@@ -696,7 +696,9 @@ damage, and its status changes on each repeat pass do not fit in one line.
 
 Each line is one JSON object with the ID, the `source`, the category, the type,
 the artifact, the story, the finding, the `basis`, the `**Why this severity:**`
-sentence, and the reviewed commit. The `basis` has the shape of the class, so
+sentence, and the reviewed commit. A line that replaces a filed finding also
+holds `override_by` and `override_reason`, because only the human lowers a
+filed finding (DEC-56). The `basis` has the shape of the class, so
 each register has its own JSON Schema in `packages/factory/rulebooks/schemas/`,
 such as `finding-register-security.schema.json`. `finding-lint` checks each
 line against it, because `schema-validate` reads whole JSON files, and then
@@ -760,7 +762,7 @@ override_reason: null         # required with status: waived
 stop_confirmed_by: null       # critical only — set only by the human
 stop_confirmed_reason: null   # required when stop_confirmed_by is set
 artifact: packages/factory/scripts/premerge-check:120
-status: open                  # open | resolved | deferred | waived (human only)
+status: open                  # open | resolved | waived (human only) | deferred (migration only)
 traces: [ST-0351]
 ---
 
@@ -809,9 +811,10 @@ lint skips them. The lint checks these rules:
   `override_reason`, and only a blocking finding may be waived. A waived
   `critical` finding also has a non-empty `stop_confirmed_by` and
   `stop_confirmed_reason`, and so does a resolved one (DEC-52).
-- `status` is one of `open`, `resolved`, `deferred`, and `waived`. An `open`
-  finding file is not `minor` or `note`, and no ID exists both as a file and
-  as a register line (DEC-53).
+- `status` is one of `open`, `resolved`, `deferred`, and `waived`. Only the
+  migration sets `deferred`, so a file that carries `review_class` is never
+  `deferred` (DEC-55). An `open` finding file is not `minor` or `note`, and no
+  ID exists both as a file and as a register line (DEC-53).
 - A `critical` finding holds `## Possible damage` with at least one item and
   its check. No other severity holds the section.
 - A set `stop_confirmed_by` comes with a non-empty `stop_confirmed_reason`,

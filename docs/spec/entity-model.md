@@ -984,7 +984,7 @@ The entities that a review writes and `finding-lint` checks in
 reviewer agent records a finding with its basis. The rule of the finding's
 review class computes the severity from the basis. A `critical` or `major`
 finding becomes a finding file, and a `minor` finding becomes one line in the
-register of its class. The rules are BR-079 to BR-095 in
+register of its class. The rules are BR-079 to BR-095 and BR-109 in
 [validation-rules.md](validation-rules.md#finding-classification-br-079br-095).
 
 ```mermaid
@@ -1016,12 +1016,12 @@ erDiagram
         string severity "critical | major, computed from the basis"
         object basis "see BASIS"
         string rating "the bug-bar level of a security finding, else null"
-        string override_by "null, or the person who waived the finding"
-        string override_reason "null, or why the finding stays unfixed"
-        string stop_confirmed_by "null, or the person who confirmed the stop, critical only"
-        string stop_confirmed_reason "null, or what the person checked and found"
+        string override_by "null, or the stakeholder who waived or lowered the finding"
+        string override_reason "null, or why the finding stays unfixed or was lowered"
+        string stop_confirmed_by "null, or the stakeholder who confirmed the stop, critical only"
+        string stop_confirmed_reason "null, or what the stakeholder checked and found"
         string artifact "path:line, path:start-end, or path#anchor"
-        string status "open | resolved | deferred | waived"
+        string status "open | resolved by an agent, waived by the stakeholder, deferred by the migration only"
         string owner "the agent that acts on the finding next"
         string traces "list of related IDs, optional"
         string why_this_severity "body line Why this severity:"
@@ -1043,6 +1043,8 @@ erDiagram
         object basis "see BASIS"
         string why_this_severity "the Why this severity sentence"
         string commit "the reviewed commit, 40 hex characters"
+        string override_by "only on a line that replaces a finding file: the stakeholder who lowered it"
+        string override_reason "only on a line that replaces a finding file: why it was lowered"
     }
     BASIS {
         boolean in_use "every class"
@@ -1060,7 +1062,7 @@ erDiagram
     }
     POSSIBLE_DAMAGE_ITEM {
         string depends "one thing outside the artifact that depends on it, from git or the file tree"
-        string check "one command or step the human runs"
+        string check "one command or step the stakeholder runs"
     }
     LINE_IDENTITY {
         string commit "the commit that introduced the line"
@@ -1091,8 +1093,8 @@ erDiagram
 ### Notes
 
 - **BASIS** is a payload with inner structure, both in a finding file and in a register line. Its shape depends on the review class: [schemas/finding-basis.json](schemas/finding-basis.json) holds the three shapes. The five register schemas in `packages/factory/rulebooks/schemas/` each take the one shape of their class, because the validator of `schema-validate` supports no `oneOf`. `finding-lint` validates each register line against its schema (DEC-49).
-- **FINDING_FILE** holds only a `critical` or `major` finding after the migration (BR-085). Its `severity` stays computed, also when the finding is waived. The fields `override_by`, `override_reason`, `stop_confirmed_by`, and `stop_confirmed_reason` are human fields: only a person writes a value into them (BR-092). `owner` comes from the core artifact ownership contract and stays.
-- **REGISTER_LINE** has no status. The commit that fixes the finding deletes the line, and git history keeps it (BR-090). A `story` of `null` marks a review that ran before a backlog existed, such as a spec review.
+- **FINDING_FILE** holds only a `critical` or `major` finding after the migration (BR-085). Its `severity` stays computed, also when the finding is waived. The fields `override_by`, `override_reason`, `stop_confirmed_by`, and `stop_confirmed_reason` are human fields: only the stakeholder writes a value into them (BR-092). An agent sets `status` to `open` or `resolved`. Only the migration sets `deferred`, and only on a file without `review_class` (DEC-55). A file whose `HEAD` version carries `review_class` is removed only when a register line replaces it (BR-109). `owner` comes from the core artifact ownership contract and stays.
+- **REGISTER_LINE** has no status. The commit that fixes the finding deletes the line, and git history keeps it (BR-090). A line that replaces a finding file holds `override_by` and `override_reason`, because only the stakeholder lowers a filed finding (BR-109). A `story` of `null` marks a review that ran before a backlog existed, such as a spec review.
 - **REGISTER** files exist only for a class that has recorded a `minor` finding. A missing file is an empty register. `.gitattributes` marks the registers `merge=union` (DEC-49). An ID names a finding file or a register line, never both (DEC-53).
 - **LINE_IDENTITY** comes from `git blame -M -C --porcelain`. Two lines are the same line when commit, original line number, and original file name all match (BR-088). The lint blames the `artifact` path and its rename and copy sources, not `original_path`, because that path may no longer exist (DEC-49).
 - **FACTORY_SETTINGS** holds the key `release_tag_patterns`. The project writes the file. `init-factory` and `update-factory` never write it (BR-089).

@@ -24,8 +24,8 @@ Feature: Finding classification
   code outside the run encode its statement.
 
   A finding is blocking when its category is defect or risk and its severity
-  is critical or major. A critical finding stops the run until the human
-  confirms the damage checks. A major finding loops back to its owner. A
+  is critical or major. A critical finding stops the run until the
+  stakeholder confirms the damage checks. A major finding loops back to its owner. A
   minor finding becomes one line in the register of its class and never
   blocks. A note stays in the review report.
 
@@ -36,7 +36,9 @@ Feature: Finding classification
 
   The rules live in
   packages/factory/rulebooks/conventions/finding-classification.md. The
-  stakeholder is the human who owns the project, as the glossary defines.
+  stakeholder is the person who owns the project, as the glossary defines.
+  Only the stakeholder confirms a stop, waives a finding, or lowers a filed
+  finding. The user runs validate and commits.
 
   Contracts. The feature changes four outside contracts. Each one has a Rule
   below that states it.
@@ -336,13 +338,13 @@ Feature: Finding classification
       Given a finding file that carries review_class
       When an agent sets its status
       Then the status is open or resolved
-      And only the human sets the status waived
+      And only the stakeholder sets the status waived
       And no agent sets the status deferred, because only the migration sets it, on a file without review_class
 
-    Scenario: The human sets a blocking finding aside with waived, not deferred
+    Scenario: The stakeholder sets a blocking finding aside with waived, not deferred
       Given FAGAN-0042 is open with severity major and review_class code
-      When the human decides not to fix it now
-      Then the human sets status waived with override_by and override_reason
+      When the stakeholder decides not to fix it now
+      Then the stakeholder sets status waived with override_by and override_reason
       And finding-lint rejects status deferred on that file
 
   Rule: Reviewer agent records a minor finding as one register line
@@ -533,10 +535,10 @@ Feature: Finding classification
       When finding-lint runs
       Then it exits 1 and names BUG-0037 and the rule
 
-    Scenario: The human lowers a filed finding with the override fields
+    Scenario: The stakeholder lowers a filed finding with the override fields
       Given HEAD holds docs/findings/FAGAN-0042.md with severity major and review_class code
-      And the human changes its answer to fails_purpose to false
-      And the human removes the file and adds a line of FAGAN-0042 to docs/findings/register/code.jsonl with override_by and override_reason that hold text
+      And the stakeholder changes its answer to fails_purpose to false
+      And the stakeholder removes the file and adds a line of FAGAN-0042 to docs/findings/register/code.jsonl with override_by and override_reason that hold text
       When finding-lint runs
       Then it exits 0
 
@@ -547,6 +549,21 @@ Feature: Finding classification
       When finding-lint runs
       Then it does not ask for override_by or override_reason
       And it exits 0
+
+    Scenario: The stakeholder lowers a critical finding only after its stop is confirmed at HEAD
+      Given HEAD holds docs/findings/BUG-0037.md with severity critical, review_class code, and no stop_confirmed_by
+      And the stakeholder changes its answer to harms_downstream to false and writes override_by and override_reason
+      When finding-lint runs
+      Then it exits 1 and names BUG-0037 and the rule
+      And the same lowering passes once HEAD holds both confirmation fields of BUG-0037
+
+    Scenario: A finding file with review_class is never removed without a replacing register line
+      Given HEAD holds docs/findings/FAGAN-0042.md with severity major, status resolved, and review_class code
+      And an agent removes the file
+      And no register line of FAGAN-0042 with override_by and override_reason replaces it
+      When finding-lint runs
+      Then it exits 1 and names FAGAN-0042 and the rule
+      And a finding that the stakeholder does not want fixed is set aside with waived, never lowered to a note
 
     Scenario: The migration moves a finding into the register without the override fields
       Given HEAD holds docs/findings/BUG-0067.md without review_class
@@ -707,7 +724,7 @@ Feature: Finding classification
     Scenario: A waived finding whose branch merged into dev still passes
       Given a major code finding was filed with in_use false on its feature branch
       And the branch merged into dev
-      When the human sets status waived with override_by and override_reason
+      When the stakeholder sets status waived with override_by and override_reason
       And finding-lint runs
       Then it does not run the git check, because basis and artifact equal their HEAD version
       And it exits 0
@@ -838,7 +855,7 @@ Feature: Finding classification
       When an agent runs git merge feature/core-artifact-ownership
       Then block-dangerous-git denies the merge, because no marker exists for that branch head
 
-    Scenario: The stop notice names what the human must check
+    Scenario: The stop notice names what the stakeholder must check
       Given BUG-0037 stops the run
       When dispatch or premerge-check prints the stop notice
       Then the notice names the finding ID BUG-0037 and its title
@@ -859,7 +876,7 @@ Feature: Finding classification
       And its final summary carries the stop notice
 
     Scenario: A confirmed stop lets the scripts run again
-      Given the human set stop_confirmed_by and stop_confirmed_reason in BUG-0037
+      Given the stakeholder set stop_confirmed_by and stop_confirmed_reason in BUG-0037
       When the orchestrator runs dispatch and premerge-check again
       Then neither script stops on BUG-0037
 
@@ -875,6 +892,31 @@ Feature: Finding classification
       Then finding-lint exits 1
       And the stop holds until stop_confirmed_by and stop_confirmed_reason both hold text
 
+    Scenario Outline: Only the confirmation lifts the stop
+      Given HEAD holds docs/findings/BUG-0037.md with severity critical, review_class code, status open, and no stop_confirmed_by
+      And an agent <change> in the working tree and commits nothing
+      When the orchestrator runs dispatch prepare-wave 3 or premerge-check
+      Then the script exits 1
+      And it prints the stop notice for BUG-0037
+
+      Examples:
+        | change                                       |
+        | sets status deferred on BUG-0037             |
+        | sets status resolved on BUG-0037             |
+        | lowers BUG-0037 to severity major            |
+        | removes docs/findings/BUG-0037.md            |
+
+    Scenario: A committed status other than open still stops on a file with review_class
+      Given HEAD holds docs/findings/BUG-0037.md with severity critical, review_class code, status deferred, and no stop_confirmed_by
+      When the orchestrator runs dispatch prepare-wave 3 or premerge-check
+      Then the script exits 1
+      And it prints the stop notice for BUG-0037
+
+    Scenario: A resolved critical finding from before the migration stops no run
+      Given a finding file with severity critical, status resolved, and no review_class, at HEAD and in the working tree
+      When the orchestrator runs dispatch prepare-wave 3 or premerge-check
+      Then the script does not stop on that file
+
   Rule: Orchestrator shows each new minor finding with its fails_purpose sentence
     # actor: Orchestrator
     # @packages/factory/rulebooks/conventions/finding-format.md
@@ -883,11 +925,11 @@ Feature: Finding classification
       Given an ATAM review produces a minor finding on the gap in ADR-0026
       And its sentence for the no to fails_purpose reads "an implementer can pick the obvious behavior"
       When the orchestrator reaches the pause point
-      Then the user sees the finding with that sentence before any file is written
+      Then the stakeholder sees the finding with that sentence before any file is written
 
-    Scenario: The user raises a wrong downgrade by changing the answer
-      Given the user disagrees with the no to fails_purpose at the pause point
-      When the user changes the answer to yes
+    Scenario: The stakeholder raises a wrong downgrade by changing the answer
+      Given the stakeholder disagrees with the no to fails_purpose at the pause point
+      When the stakeholder changes the answer to yes
       Then the rule computes major
       And the finding becomes a finding file and not a register line
 
@@ -899,12 +941,12 @@ Feature: Finding classification
     Scenario: A minor security finding shows its Why this severity line
       Given a security review produces a finding of level Low
       When the orchestrator reaches the pause point
-      Then the user sees the finding with its sentence for each precondition
-      And the user sees no fails_purpose sentence for it
+      Then the stakeholder sees the finding with its sentence for each precondition
+      And the stakeholder sees no fails_purpose sentence for it
 
-    Scenario: The human raises a registered minor finding to blocking
+    Scenario: The stakeholder raises a registered minor finding to blocking
       Given docs/findings/register/code.jsonl holds the line of FAGAN-0032 with severity minor
-      When the human changes its answer to fails_purpose to yes
+      When the stakeholder changes its answer to fails_purpose to yes
       Then docs/findings/FAGAN-0032.md exists with severity major and status open
       And the register no longer holds the line of FAGAN-0032
       And finding-lint exits 0
@@ -999,7 +1041,7 @@ Feature: Finding classification
         | Pi          |
         | OpenCode    |
 
-    Scenario: The human writes the fields outside the tool hooks
+    Scenario: The stakeholder writes the fields outside the tool hooks
       Given the stakeholder runs a ! command in the session that writes stop_confirmed_by
       When the command runs
       Then the hook does not see it, and the field is set

@@ -948,7 +948,7 @@ state of its own. `dispatch` and `premerge-check` read it from the findings in
 
 One finding, from the pause point to its end. The status field of a finding
 file shows the state: **STOPPING** and **IN_LOOP** are both `open`. BR-085,
-BR-086, BR-090, and BR-091 hold the rules.
+BR-086, BR-090, BR-091, and BR-109 hold the rules.
 
 #### Pseudocode
 
@@ -957,7 +957,7 @@ State: CLASSIFIED
   # initial — the reviewer agent or the migration agent recorded the basis, and the rule computed the severity
   # the pause point shows the finding; no file is written yet
 On AnswerChanged:
-  # the user changes an answer of the basis at the pause point, and the rule computes the severity again
+  # the stakeholder changes an answer of the basis at the pause point, and the rule computes the severity again
   ChangeState(CLASSIFIED)
 On Recorded:
   if severity is critical
@@ -970,10 +970,12 @@ On Recorded:
     ChangeState(IN_REPORT)
 On NoArtifact:
   # migration only — an old open finding that names no artifact moves into todo.md
+  # its file gets status deferred and carries no review_class
   ChangeState(DEFERRED)
 
 State: STOPPING
-  # finding file with severity critical, status open, and an empty stop_confirmed_by or stop_confirmed_reason
+  # finding file with severity critical and an empty stop_confirmed_by or stop_confirmed_reason
+  # the working tree version or the HEAD version counts, with status open or with review_class and any status
   # dispatch and premerge-check refuse work and print the stop notice
 On StopConfirmed:
   # the stakeholder ran the damage checks, and both stop_confirmed_by and stop_confirmed_reason hold text
@@ -982,8 +984,12 @@ On FixVerified:
   RejectCommand("finding-lint: a critical finding is resolved only after its stop is confirmed")
 On Waived:
   RejectCommand("finding-lint: a critical finding is waived only after its stop is confirmed")
+On Lowered:
+  RejectCommand("finding-lint: a critical finding is lowered only after its stop is confirmed in HEAD")
+On Deferred:
+  RejectCommand("finding-lint: only the migration sets deferred, on a file without review_class")
 On AgentConfirms:
-  RejectCommand("guard-human-fields: only a person writes stop_confirmed_by")
+  RejectCommand("guard-human-fields: only the stakeholder writes stop_confirmed_by")
 
 State: IN_LOOP
   # finding file with status open; the orchestrator sends it to its owner on each pass
@@ -993,6 +999,23 @@ On FixVerified:
 On Waived:
   # the stakeholder sets status waived with override_by and override_reason
   ChangeState(WAIVED)
+On Raised:
+  # an agent or the stakeholder changes an answer of the basis, the rule computes critical, and the file gains "## Possible damage"
+  ChangeState(STOPPING)
+On Lowered:
+  # the stakeholder changes an answer of the basis and writes override_by and override_reason
+  if severity is major
+    # a confirmed critical finding becomes major and drops its two confirmation fields
+    ChangeState(IN_LOOP)
+  else if severity is minor
+    # the file is removed, and a register line with the same ID and both override keys replaces it
+    ChangeState(REGISTERED)
+  else
+    RejectCommand("finding-lint: a finding file is removed only for a register line; set the finding aside with waived")
+On AgentLowers:
+  RejectCommand("finding-lint: a lowered finding needs override_by and override_reason")
+On Deferred:
+  RejectCommand("finding-lint: only the migration sets deferred, on a file without review_class")
 
 State: REGISTERED
   # one line in docs/findings/register/<class>.jsonl; it never blocks
@@ -1000,7 +1023,7 @@ On Fixed:
   # the commit that fixes the finding deletes the line
   ChangeState(LINE_DELETED)
 On Raised:
-  # the human changes an answer of the basis, removes the line, and files a finding file under the same ID
+  # an agent or the stakeholder changes an answer of the basis, removes the line, and files a finding file under the same ID
   if severity is critical
     ChangeState(STOPPING)
   else
@@ -1016,7 +1039,7 @@ State: WAIVED
   # terminal — accepted unfixed; the loop grep for status open skips it
 
 State: DEFERRED
-  # terminal — the file names the todo ID in its body
+  # terminal — the file names the todo ID in its body and carries no review_class
 
 State: LINE_DELETED
   # terminal — git history keeps the line
@@ -1036,6 +1059,9 @@ stateDiagram-v2
     STOPPING --> IN_LOOP : StopConfirmed
     IN_LOOP --> RESOLVED : FixVerified
     IN_LOOP --> WAIVED : Waived
+    IN_LOOP --> STOPPING : Raised
+    IN_LOOP --> IN_LOOP : Lowered (major)
+    IN_LOOP --> REGISTERED : Lowered (minor)
     REGISTERED --> LINE_DELETED : Fixed
     REGISTERED --> STOPPING : Raised (critical)
     REGISTERED --> IN_LOOP : Raised (major)
@@ -1049,8 +1075,11 @@ stateDiagram-v2
 #### Notes
 
 - **CLASSIFIED** covers the pause point of a review and the pause point of the migration. A headless run has no pause point, so **Recorded** follows at once, and the final summary lists each new register line (BR-090).
-- **STOPPING** has no edge to **RESOLVED** or **WAIVED**. A `critical` finding is resolved or waived only after both confirmation fields hold text, so the damage checks run before the stop ends (DEC-47, DEC-52). While the stop holds, `dispatch` starts and merges no work. A person who fixes the defect by hand confirms the stop first.
+- **STOPPING** ends only on **StopConfirmed** (DEC-52). A status change, a lower severity, or a removed file in the working tree does not end it, because `dispatch` and `premerge-check` also read the `HEAD` version and count every status of a file that carries `review_class` (BR-091). `finding-lint` rejects the same changes at the commit. So a `critical` finding is resolved, waived, or lowered only after both confirmation fields hold text, and the damage checks run before the stop ends (DEC-47). While the stop holds, `dispatch` starts and merges no work. The stakeholder confirms the stop before anyone fixes the defect by hand.
 - **IN_LOOP** of a confirmed `critical` finding keeps severity `critical`. The finding loops like a `major` one (DEC-28).
-- **Waived** is open to a blocking finding only. A `minor` finding never blocks, so **REGISTERED** has no **Waived** edge, and no override raises it (DEC-25). The stakeholder raises it only through **Raised**.
+- **Waived** is the stakeholder's path to set a blocking finding aside. A `minor` finding never blocks, so **REGISTERED** has no **Waived** edge, and no override raises it (DEC-25).
+- **DEFERRED** has one entry, **NoArtifact** in the migration. No agent sets `deferred`, so **STOPPING** and **IN_LOOP** reject **Deferred** (DEC-55).
+- **Raised** is open to an agent and to the stakeholder, and it needs no override field (FC-G04, DEC-56).
+- **Lowered** is the stakeholder's edge. It needs `override_by` and `override_reason`, and `guard-human-fields` refuses an agent that writes them. So `finding-lint` rejects a lowering by an agent as **AgentLowers** (BR-092, BR-109). **Lowered** has no branch to **IN_REPORT**. A finding file whose `HEAD` version carries `review_class` is removed only when a register line replaces it, so the stakeholder sets a finding aside with **Waived** instead. The migration is exempt, because `finding-lint` compares no file whose `HEAD` version lacks `review_class` (BR-095).
 - **AgentConfirms** and the agent's attempt to set `waived` are refused by `guard-human-fields` (BR-092). The finding stays in its state.
 - A **question** never enters this machine. The reviewer agent writes it into `docs/spec/work/todo.md` (BR-085).
