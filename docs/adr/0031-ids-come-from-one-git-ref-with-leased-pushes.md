@@ -6,6 +6,8 @@ evaluation: pugh-matrix
 
 # IDs come from one git ref on the project's remote with leased pushes
 
+Amended by [ADR-0033](0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md): without `origin`, the project's own repository holds the counter, so the rule that a claim fails without a remote no longer holds for a project that sets `agent-factory.counterRemote`.
+
 ## Context
 
 A session takes the number of a new story, finding, todo entry, or ADR by

@@ -25,6 +25,9 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # The project's git remote, which holds the ID counter
         projectRemote = softwareSystem "Project Git Remote" "The project's git remote: origin, or the URL that next-id gets with --remote; holds refs/ids/counters, the one ref with every ID sequence of the project" "External"
 
+        # The project's own repository, which holds the ID counter while the project has no origin
+        localCounter = softwareSystem "Local Counter" "The .git of the project's main repository: holds refs/ids/counters while the project has no origin, and the marker commit after the move; the git setting agent-factory.counterRemote in its .git/config names its path, so every worktree and local clone claims from it" "External"
+
         # Factory Flow Control system
         factoryFlowControl = softwareSystem "Factory Flow Control" "Precondition-based agent eligibility, dispatch, and validation for Agent Factory" {
 
@@ -98,7 +101,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 domainModelingAgent = component "domain-modeling-agent" "Produces domain structure: the glossary, the entity model, state machines, validation rules, interface contracts, and schemas; moves confirmed term candidates into the glossary" "Agent definition, strong tier"
                 architectureAgent = component "architecture-agent" "Produces architecture.dsl and dependency-rules.dsl; reads the entity model and state machines as context and files ARCH findings on a contradiction" "Agent definition, strong tier"
                 testStrategyAgent = component "test-strategy-agent" "Produces docs/testing.yaml and the QA strategies; chooses the test guardrails and their thresholds; resolves QA findings it owns" "Agent definition, strong tier"
-                virgil = component "virgil" "Produces docs/agent-context.md with capture-context during the fitting" "Agent definition"
+                virgil = component "virgil" "Produces docs/agent-context.md with capture-context during the fitting; seeds the ID counter in fitting step 4 and offers the move of a local counter to origin at the session start" "Agent definition"
                 specReviewAgent = component "spec-review-agent" "Reviews the feature files, the glossary, the structure files, the area specs, and the schemas in a session separate from their producers; shares the glossary review with the stakeholder" "Agent definition"
                 architectureReviewAgent = component "architecture-review-agent" "Reviews architecture.dsl and dependency-rules.dsl in a session separate from the architecture agent" "Agent definition"
                 developerAgent = component "developer-agent" "Implements one story; writes each specification drift as an open row of its story's spec-feedback report and edits no specification file" "Agent definition"
@@ -116,11 +119,11 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 pluginHealthMonitor = component "Health Monitor" "Tracks plugin health lifecycle; fails closed on initialization, manifest, permission, or worktree failures with named recovery actions" "TypeScript"
             }
 
-            # ID Allocation — claims the number of every new indexed artifact on the project's remote
-            idAllocation = container "ID Allocation" "Claims the number of every new story, finding, todo entry, and ADR as a leased push of refs/ids/counters on the project's remote; leaves no ref and no object in the clone" "Script, git CLI" {
-                nextId = component "next-id" "packages/factory/scripts/next-id: checks the prefix against its fixed prefix list, or the seed arguments; finds the remote from --remote or origin; calls the counter port; prints the ID or the seed lines on standard output. The only caller of the counter port" "Script"
-                counterPort = component "Counter Port" "Two operations: claim <prefix> returns the next number of the prefix that no other caller holds; seed <number> [<PREFIX>=<n> ...] creates the counter and refuses when it exists" "Interface"
-                gitRefAdapter = component "Git-Ref Adapter" "Implements the counter port on refs/ids/counters: works in a throwaway bare repository, writes a parentless claim commit with a new token, pushes it with a lease on the old SHA, and retries only on a stale lease, at most ten times in a row" "Script, git CLI"
+            # ID Allocation — claims the number of every new indexed artifact on the counter's remote
+            idAllocation = container "ID Allocation" "Claims the number of every new story, finding, todo entry, and ADR as a leased push of refs/ids/counters on the counter's remote: the Project Git Remote, or the Local Counter while the project has no origin; plans the seed and moves a local counter to origin" "Script, git CLI" {
+                nextId = component "next-id" "packages/factory/scripts/next-id: checks the prefix against its fixed prefix list, or the seed arguments; finds the remote from --remote, then agent-factory.counterRemote, then origin; calls the counter port; with --plan-seed counts the IDs in use on every local and remote-tracking branch and prints the seed command; with --move-to-origin moves the local counter and removes agent-factory.counterRemote; prints the ID or the seed lines on standard output. The only caller of the counter port" "Script"
+                counterPort = component "Counter Port" "Four operations: claim <prefix> returns the next number of the prefix that no other caller holds; seed <number> [<PREFIX>=<n> ...] creates the counter and refuses when it exists; inspect reports whether the counter is missing, in use, or a marker commit; move <remote> carries the claim commit of the local counter to a remote without a counter" "Interface"
+                gitRefAdapter = component "Git-Ref Adapter" "Implements the counter port on refs/ids/counters: works in a throwaway bare repository, writes a parentless claim commit with a new token, pushes it with a lease on the old SHA, and retries only on a stale lease, at most ten times in a row; for a move, sets the marker commit under a lease on the claim commit before it pushes with the create-only lease" "Script, git CLI"
             }
 
             # OpenCode Catalog — generated agent definitions and index
@@ -396,13 +399,19 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         # Relationships — Counter IDs
         # ================================================================
-        cliAgent -> nextId "Runs next-id <PREFIX> from a producer step of create-backlog, finding-format, bug-fix, todo-format, or write-adr"
-        humanOperator -> nextId "Runs next-id --seed <number> once per project"
-        nextId -> counterPort "Calls claim <prefix> or seed"
-        gitRefAdapter -> counterPort "Implements claim and seed; returns the claimed number"
-        gitRefAdapter -> projectRemote "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease"
+        cliAgent -> nextId "Runs next-id <PREFIX> at the step of an ID producer that creates an indexed artifact, with the prefix of that artifact's kind"
+        humanOperator -> nextId "Runs next-id --seed <number> by hand, when the project skipped the seed step"
+        virgil -> nextId "Runs next-id --plan-seed and the printed seed command in fitting step 4, and next-id --move-to-origin at the session start, each after the User confirms"
+        virgil -> localCounter "Sets agent-factory.counterRemote to the path of the main repository in fitting step 4, when the project has no origin"
+        nextId -> counterPort "Calls claim <prefix>, seed, inspect, or move"
+        nextId -> git "Lists file names, register id fields, and todo headings on every local and remote-tracking branch for --plan-seed; never reads body text"
+        nextId -> localCounter "Reads agent-factory.counterRemote; removes it after a move succeeds"
+        gitRefAdapter -> counterPort "Implements claim, seed, inspect, and move; returns the claimed number or the state of the counter"
+        gitRefAdapter -> projectRemote "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease; on a move, pushes the claim commit with the create-only lease"
+        gitRefAdapter -> localCounter "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease; on a move, sets and, after a failed push, removes the marker commit under a lease"
         nextId -> cliAgent "Prints the ID on standard output, or exits non-zero and names the reason"
-        initFactory -> projectRemote "Asks origin whether refs/ids/counters exists; never seeds"
+        initFactory -> projectRemote "Asks origin whether refs/ids/counters exists, when agent-factory.counterRemote is not set; derives fitting.counter_seeded from the answer; never seeds"
+        initFactory -> localCounter "Asks the local counter whether refs/ids/counters exists, when agent-factory.counterRemote is set; derives fitting.counter_seeded from the answer; never seeds"
     }
 
     views {
@@ -659,9 +668,10 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             cliAgent -> workingOutput "Checks the DONE list: no row of any report is open, or fixed on a core artifact"
         }
 
-        component idAllocation "IdAllocationComponents" "ID allocation internals: next-id, the counter port, and the git-ref adapter on the project's remote" {
+        component idAllocation "IdAllocationComponents" "ID allocation internals: next-id, the counter port, and the git-ref adapter on the counter's remote" {
             include *
             include initFactory
+            include virgil
             autoLayout lr
         }
 
@@ -674,6 +684,17 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             gitRefAdapter -> projectRemote "Pushes a claim commit with ST=1013 under the lease on the new SHA; the remote accepts it"
             gitRefAdapter -> counterPort "Returns 1013 and deletes the throwaway repository"
             nextId -> cliAgent "Prints ST-1013 and exits 0"
+        }
+
+        dynamic idAllocation "IdMoveToOrigin" "next-id --move-to-origin sets the marker on the local counter first and then pushes the claim commit to origin, each under a lease" {
+            virgil -> nextId "Runs next-id --move-to-origin at the session start, after the User confirms the move"
+            nextId -> localCounter "Reads agent-factory.counterRemote, the path of the main repository"
+            nextId -> counterPort "Calls move to the URL of origin"
+            gitRefAdapter -> localCounter "Fetches refs/ids/counters and reads the claim commit C with ST=0012"
+            gitRefAdapter -> localCounter "Replaces refs/ids/counters with the marker commit moved=<origin> under the lease on C; the local counter accepts it"
+            gitRefAdapter -> projectRemote "Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin holds no counter and accepts it"
+            gitRefAdapter -> counterPort "Returns moved"
+            nextId -> localCounter "Removes agent-factory.counterRemote and exits 0"
         }
 
         deployment * "Release 1" "Deployment" "Local, process-bound release-1 deployment" {

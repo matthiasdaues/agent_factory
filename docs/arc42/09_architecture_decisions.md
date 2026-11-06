@@ -40,6 +40,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0030 | [Reconciliation rows return through the documentation-update playbook](../adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md)   | accepted               | none        |
 | 0031 | [IDs come from one git ref on the project's remote with leased pushes](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)                           | accepted               | pugh-matrix |
 | 0032 | [Agents push the claim ref through `next-id`](../adr/0032-agents-push-the-claim-ref-through-next-id.md)                                                       | accepted               | none        |
+| 0033 | [The project's own repository holds the counter until `origin` exists](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)      | accepted               | none        |
 
 ## Key Decisions
 
@@ -279,6 +280,13 @@ repository at +1 and the countapi service at −6. See
 **ADR-0032** lets agents push the claim ref through `next-id` in manual and in
 automated mode. It is the one exception to the human's ownership of pushes.
 The guardrail hook stays unchanged.
+
+**ADR-0033** keeps the counter in the `.git` of the project's main repository
+while the project has no `origin`. The git setting
+`agent-factory.counterRemote` points `next-id` at it, and
+`next-id --move-to-origin` moves it to `origin` later, marker first. It amends
+ADR-0031, whose claim fails without a remote. See
+[6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin).
 
 ## Superseded Decisions
 

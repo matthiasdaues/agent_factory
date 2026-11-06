@@ -875,6 +875,56 @@ sequenceDiagram
   [validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-078)
   hold the rules.
 
+## 6.16 Move of a Local Counter to Origin
+
+Derived from dynamic view `IdMoveToOrigin` in [`architecture.dsl`](../spec/architecture.dsl).
+
+A project started without `origin`, so its Local Counter holds `ST=0012`. The
+human then adds `origin`. At the next session start, VIRGIL sees that
+`agent-factory.counterRemote` is set and that `origin` exists, and it offers
+the move. The User confirms
+([ADR-0033](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)).
+
+```mermaid
+sequenceDiagram
+    participant VI as virgil
+    participant NI as next-id
+    participant CP as Counter Port
+    participant GA as Git-Ref Adapter
+    participant LC as Local Counter
+    participant PR as Project Git Remote
+
+    VI->>NI: 1. Runs next-id --move-to-origin at the session start, after the User confirms the move
+    NI->>LC: 2. Reads agent-factory.counterRemote, the path of the main repository
+    NI->>CP: 3. Calls move to the URL of origin
+    GA->>LC: 4. Fetches refs/ids/counters and reads the claim commit C with ST=0012
+    GA->>LC: 5. Replaces refs/ids/counters with the marker commit moved=<origin> under the lease on C
+    LC-->>GA: accepted
+    GA->>PR: 6. Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:
+    PR-->>GA: accepted, because origin holds no counter
+    GA->>CP: 7. Returns moved
+    NI->>LC: 8. Removes agent-factory.counterRemote and exits 0
+    NI-->>VI: reports that the counter is on origin
+```
+
+**Key Points:**
+
+- The marker goes in before the push. A claim from another worktree that
+  lands before step 5 makes the lease on `C` stale, so the move starts again
+  at step 4 and carries the new number to `origin`. A claim after step 5 reads
+  the marker and fails (BR-103).
+- When `origin` already holds a counter, the create-only lease in step 6
+  refuses the push. The adapter puts `C` back on the Local Counter under a
+  lease on the marker, the setting stays, and `next-id` exits non-zero and
+  names both counters. VIRGIL reports the collision (BR-102, BR-106).
+- A claim or a `--plan-seed` that reads the marker names `origin` as the
+  holder of the counter and never mentions `--seed`, so a local clone gets no
+  advice to start a second counter (BR-097).
+- The [Move Lifecycle](../spec/state-machines.md#move-lifecycle) holds the
+  states, and BR-102 and BR-103 in
+  [validation-rules.md](../spec/validation-rules.md#next-id---move-to-origin)
+  hold the rules.
+
 ## Referenced from
 
 - [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)

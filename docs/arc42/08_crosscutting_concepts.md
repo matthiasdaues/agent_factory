@@ -451,7 +451,8 @@ same commit, only one wins, and the other reads again and retries.
 
 **A failed claim stops.** `next-id` never guesses a number. Without a remote,
 without the ref, or after ten stale leases in a row, it exits non-zero, prints
-no ID, and names the reason. Every session works online for this reason. A claim must also end without a
+no ID, and names the reason. Every session of a project with `origin` works
+online for this reason. A claim must also end without a
 person: `next-id` runs its git calls without credential prompts and within a
 time limit, which the [`next-id` contract](../spec/interface-contracts.md#packagesfactoryscriptsnext-id)
 sets (ATAM-0012). QS-20 in
@@ -466,14 +467,51 @@ contributors who each seed their own fork both claim `ST-1001`, and the two
 pull requests collide only at the merge. A person therefore seeds only the
 shared repository, never a fork.
 
-**Seeding.** A person seeds each project once with `next-id --seed <number>`,
-above the highest ID in use. `next-id --seed 1000 ADR=6` lets ADRs continue at
-`ADR-0007`, while every other prefix continues at `1001`. The seed is
-create-only, so it never changes a counter in use. Existing IDs keep their
-names.
+**The remote order.** `next-id` claims on the `--remote` URL, then on the path
+in the git setting `agent-factory.counterRemote`, then on the URL of `origin`
+(BR-096). The order holds for a claim, a seed, and `--plan-seed`.
+
+**The Local Counter.** A project without `origin` keeps the counter in the
+`.git` of its main repository
+([ADR-0033](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)).
+Every worktree shares that `.git`, and a local clone has the project's path as
+its `origin`, so every session on the machine claims from the one ref. The
+fitting step sets `agent-factory.counterRemote` to the path of the main
+repository, the parent of `git rev-parse --git-common-dir`. A clone without
+`origin` and without the setting still fails, so no counter starts by
+accident (DEC-08).
+
+**The move to `origin`.** Once `origin` exists, VIRGIL offers the move at the
+session start, and `next-id --move-to-origin` runs it after the User confirms.
+The move first replaces the Local Counter with a marker commit, one line
+`moved=<remote>`, under a lease on the claim commit. Then it pushes the claim
+commit to `origin` with the create-only lease and removes the setting. So a
+claim during the move either travels to `origin` with the claim commit or
+reads the marker and fails. When `origin` already holds a counter, the push is
+refused and both counters stay as they were.
+[6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin) shows the
+move.
+
+**Seeding.** Fitting step 4, "Seed the ID counter", seeds each project once.
+`next-id --plan-seed` reads the IDs in use on every local and remote-tracking
+branch: the file names, the `id` fields of the register lines, and the
+`## T-NNNN` headings of `todo.md`, never body text. It prints one command,
+`next-id --seed 0 <PREFIX>=<highest> …`, with the highest number of each
+prefix, so every sequence continues without a jump (BR-099 to BR-101). In a
+clone with stories up to `ST-0380` and ADRs up to `0032`, it prints
+`next-id --seed 0 ST=380 ADR=32`. A prefix without IDs starts at `0001`.
+VIRGIL shows the command and runs it after the User confirms (BR-104). The
+seed is create-only, so it never changes a counter in use. Existing IDs keep
+their names. The scan of `--plan-seed` runs once, to seed. A claim never
+scans.
+
+**The fitting key.** `init-factory` derives `fitting.counter_seeded` on every
+run. It asks the remote that `next-id` would use, the Local Counter or
+`origin`, whether `refs/ids/counters` exists. An unreachable remote leaves the
+key as it is (BR-105).
 
 **Agents push the claim.** An agent may push `refs/ids/counters` through
-`next-id` in both modes. That is the one exception to the human's ownership of
+`next-id` in both modes, for a claim, a seed, and a move. That is the one exception to the human's ownership of
 pushes in `rules.md`
 ([ADR-0032](../adr/0032-agents-push-the-claim-ref-through-next-id.md)). The
 lease protects only claims that `next-id` builds. A push outside `next-id`,
@@ -483,12 +521,15 @@ through, and T-0017 in [todo.md](../spec/work/todo.md) tracks that gap. So the
 counter rests on the rule that agents claim only through `next-id`, and on
 write access to the remote.
 
-**Specification artifacts.** The spec
-[counter-ids.feature](../spec/features/counter-ids.feature), the
+**Specification artifacts.** The specs
+[counter-ids.feature](../spec/features/counter-ids.feature) and
+[counter-ids-fitting.feature](../spec/features/counter-ids-fitting.feature),
+the
 [`next-id` contract](../spec/interface-contracts.md#packagesfactoryscriptsnext-id),
-the rules BR-068 to BR-075 in
+the rules BR-068 to BR-078 and BR-096 to BR-108 in
 [validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-078),
-and the [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle) define the
+the [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle), and the
+[Move Lifecycle](../spec/state-machines.md#move-lifecycle) define the
 details.
 
 ## Referenced from

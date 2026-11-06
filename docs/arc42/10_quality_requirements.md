@@ -258,6 +258,30 @@ References: [8.18](08_crosscutting_concepts.md#818-id-allocation), [`next-id` co
 
 References: [8.18](08_crosscutting_concepts.md#818-id-allocation), [ADR-0032](../adr/0032-agents-push-the-claim-ref-through-next-id.md)
 
+### QS-22: A move hands out no ID twice
+
+| Field             | Description                                                                                                                                                                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Correctness (counter move)                                                                                                                                                                                                                                                                  |
+| Stimulus          | A session in a second worktree runs `next-id ST` while `next-id --move-to-origin` moves the Local Counter to `origin`.                                                                                                                                                                      |
+| Environment       | The project's main repository holds the Local Counter, `agent-factory.counterRemote` names it, and `origin` holds no counter.                                                                                                                                                               |
+| Response          | A claim that lands before the marker makes the lease of the move stale, so the move reads again and carries the new number to `origin`. A claim that reads the marker fails and names `origin`.                                                                                             |
+| Response measure  | In 20 rounds of one move with one parallel claim on local bare repositories, every claim that exits `0` returns a number at or below the `ST` line on `origin` after the move, the next claim on `origin` returns a number above it, and every other claim exits non-zero and prints no ID. |
+
+References: [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin), [8.18](08_crosscutting_concepts.md#818-id-allocation), [ADR-0033](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)
+
+### QS-23: A second counter on origin shows at the move
+
+| Field             | Description                                                                                                                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Operability (counter collision)                                                                                                                                                        |
+| Stimulus          | VIRGIL runs `next-id --move-to-origin` after the User confirms, and `origin` already holds `refs/ids/counters` that someone else seeded.                                               |
+| Environment       | The project's Local Counter holds its own claim commit, and `agent-factory.counterRemote` names it.                                                                                    |
+| Response          | The create-only lease refuses the push. `next-id` puts the claim commit back on the Local Counter, keeps the setting, and names both counters. VIRGIL reports that two counters exist. |
+| Response measure  | After the call, both refs hold the same SHA as before, the setting is still set, the call exits non-zero, and its message names both remotes by their redacted URLs.                   |
+
+References: [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin), [ADR-0033](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)
+
 ## 10.2 Quality Attribute Priority
 
 | Priority | Quality attribute                        | Scenarios |
@@ -283,6 +307,8 @@ References: [8.18](08_crosscutting_concepts.md#818-id-allocation), [ADR-0032](..
 | 2        | Availability (parallel claims)           | QS-19     |
 | 2        | Operability (failed claim)               | QS-20     |
 | 2        | Security (counter writes)                | QS-21     |
+| 1        | Correctness (counter move)               | QS-22     |
+| 2        | Operability (counter collision)          | QS-23     |
 
 ## Referenced from
 

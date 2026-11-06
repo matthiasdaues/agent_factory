@@ -372,32 +372,47 @@ An agent that files a finding needs a number that no other branch takes. So
 the agent runs `next-id FAGAN` and uses the ID that the script prints. The
 number comes from one ref, `refs/ids/counters`, on the project's git remote
 ([ADR-0031](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)).
+A project without `origin` keeps that ref in its own repository, the Local
+Counter, until VIRGIL moves it to `origin`
+([ADR-0033](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)).
 [8.18](08_crosscutting_concepts.md#818-id-allocation) describes the concept.
 
 ![ID Allocation components](../assets/images/IdAllocationComponents.svg)
 
-| Component           | Responsibility                                                                                                                                                                                                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **next-id**         | Checks the prefix against its fixed list, or the seed arguments, before it contacts the remote. Finds the remote from `--remote <url>`, or else from `git remote get-url origin`. Calls the counter port, and prints the ID or the seed lines. It is the only caller of the port |
-| **Counter Port**    | Offers two operations. `claim <prefix>` returns the next number of the prefix that no other caller holds. `seed <number> [<PREFIX>=<n> …]` creates the counter and refuses when it exists                                                                                        |
-| **Git-Ref Adapter** | Implements the port on `refs/ids/counters`. It works in a throwaway bare repository, writes a parentless claim commit with a new token, and pushes it with a lease on the old SHA. It retries only on a stale lease, at most ten times in a row                                  |
+| Component           | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **next-id**         | Checks the prefix against its fixed list, or the seed arguments, before it contacts the remote. Finds the remote from `--remote <url>`, then the git setting `agent-factory.counterRemote`, then `git remote get-url origin`. Calls the counter port, and prints the ID or the seed lines. With `--plan-seed`, it counts the IDs in use on every local and remote-tracking branch and prints the seed command. With `--move-to-origin`, it moves the Local Counter to `origin` and removes the setting. It is the only caller of the port |
+| **Counter Port**    | Offers four operations. `claim <prefix>` returns the next number of the prefix that no other caller holds. `seed <number> [<PREFIX>=<n> …]` creates the counter and refuses when it exists. `inspect` reports whether the counter is missing, in use, or a marker commit. `move <remote>` carries the claim commit of the Local Counter to a remote without a counter                                                                                                                                                                     |
+| **Git-Ref Adapter** | Implements the port on `refs/ids/counters`, on the Project Git Remote or the Local Counter alike. It works in a throwaway bare repository, writes a parentless claim commit with a new token, and pushes it with a lease on the old SHA. It retries only on a stale lease, at most ten times in a row. For a move, it sets the marker commit under a lease on the claim commit before it pushes with the create-only lease                                                                                                                |
 
 The callers sit outside the container:
 
-- **Producer steps.** A CLI session runs `next-id` from the five files that
-  create indexed artifacts: `create-backlog` (`ST`), `finding-format.md`
-  (`SPEC`, `FAGAN`, `SEC`, `BUG`, `RECON`, `ATAM`, `IMPL`, `ARCH`, `QA`), `bug-fix.md`
-  (`BUG`), `todo-format.md` (`T`), and `write-adr` (`ADR`). The session reads
-  the ID from standard output, because a shell variable does not survive from
-  one agent command to the next.
-- **The Human Operator** seeds each project once with `next-id --seed`.
-- **init-factory** only asks `origin` whether `refs/ids/counters` exists. It
-  prints the seed message when the ref is missing and never seeds.
+- **ID producers.** A CLI session runs `next-id <PREFIX>` at the step of an ID
+  producer that creates an indexed artifact, such as `next-id FAGAN` in
+  `fagan-review`. The kind of artifact decides the prefix, and
+  `id-prefixes.md` lists each prefix with its producers (BR-107, BR-108). The
+  session reads the ID from standard output, because a shell variable does
+  not survive from one agent command to the next.
+- **virgil** seeds the counter in fitting step 4, "Seed the ID counter".
+  Without `origin`, it first sets `agent-factory.counterRemote` to the path of
+  the main repository. It runs `next-id --plan-seed`, shows the printed seed
+  command, and runs it after the User confirms. At the session start, it
+  offers the move to `origin` when the setting is set and `origin` exists, and
+  runs `next-id --move-to-origin` after the User confirms (BR-104, BR-106).
+- **The Human Operator** runs `next-id --seed` by hand only when the project
+  skipped the seed step.
+- **init-factory** asks the counter's remote whether `refs/ids/counters`
+  exists: the Local Counter when `agent-factory.counterRemote` is set, else
+  `origin`. It derives `fitting.counter_seeded` from the answer and never
+  seeds (BR-105).
 
 The adapter performs every transition of the
 [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle): the fetch in
 `READING`, the leased push in `PUSHING`, and the wait in `WAITING`. `next-id`
-reports the terminal state. The three components ship as one script, so
+reports the terminal state. The adapter also performs every transition of the
+[Move Lifecycle](../spec/state-machines.md#move-lifecycle): the read in
+`READING`, the marker in `MARKING`, the create-only push in `PUSHING`, and
+the restore in `RESTORING`. The three components ship as one script, so
 `dependency-rules.dsl` holds no rule for them.
 
 ## Referenced from
