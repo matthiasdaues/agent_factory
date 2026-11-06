@@ -92,3 +92,12 @@ def test_st_0377_no_five_key_wording_remains():
     paths = [p for p in CONFIG.glob("*.md")] + [VIRGIL]
     hits = [p.name for p in paths if stale.search(p.read_text())]
     assert hits == []
+
+
+@pytest.mark.spec("CIF-02-LN-01")
+def test_st_0379_missing_origin_sets_the_setting_before_plan_seed():
+    step = _step("4. Seed the ID counter")
+    setting = step.index("agent-factory.counterRemote")
+    assert "git rev-parse --git-common-dir" in step
+    assert re.search(r"parent of the directory", step)
+    assert setting < step.index("next-id --plan-seed")
