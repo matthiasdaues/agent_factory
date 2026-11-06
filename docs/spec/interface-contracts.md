@@ -1169,21 +1169,22 @@ moved=https://***@host/demo.git
 `next-id --plan-seed` prints the seed command that the fitting step shows to
 the User. It changes no ref and no file (BR-098).
 
-| Property | Contract                                                                                                                                                                               |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Remote   | The order of BR-096                                                                                                                                                                    |
-| Reads    | `refs/ids/counters` on the remote; the file names, register `id` fields, and todo headings of every local and remote-tracking branch (BR-099). Gap CIF-G10 asks about the working tree |
-| Output   | One line `next-id --seed 0 <PREFIX>=<highest> …` on standard output, or `next-id --seed 0` alone (BR-101). Gap CIF-G09 asks for the order of the pairs                                 |
-| Warnings | One warning per counted file name that breaks the new pattern, naming its path (BR-100). The warnings do not change the exit code                                                      |
-| Messages | The remote by its redacted URL (BR-077)                                                                                                                                                |
+| Property | Contract                                                                                                                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Remote   | The order of BR-096                                                                                                                                                                                   |
+| Reads    | `refs/ids/counters` on the remote; the file names, register `id` fields, and todo headings of every local branch, every remote-tracking branch, and the working tree of the current worktree (BR-099) |
+| Output   | One line `next-id --seed 0 <PREFIX>=<highest> …` on standard output, or `next-id --seed 0` alone. The pairs follow the order of the prefix list in `next-id` (BR-101)                                 |
+| Warnings | One warning per counted file name that breaks the new pattern, naming its path (BR-100). The warnings do not change the exit code                                                                     |
+| Messages | The remote by its redacted URL (BR-077)                                                                                                                                                               |
 
-| Case                                       | Exit     | Output                                                        |
-| ------------------------------------------ | -------- | ------------------------------------------------------------- |
-| the remote holds no `refs/ids/counters`    | `0`      | the seed command                                              |
-| the remote holds a claim commit            | `0`      | that the counter is in use on the remote, and no seed command |
-| the remote holds a marker commit           | non-zero | the remote of the marker, and no mention of `--seed` (BR-097) |
-| no `--remote`, no setting, and no `origin` | non-zero | `origin` and `--remote`, and no seed command                  |
-| remote unreachable                         | non-zero | the remote and git's error message, and no seed command       |
+| Case                                                                                        | Exit     | Output                                                                                                                |
+| ------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| the remote holds no `refs/ids/counters`                                                     | `0`      | the seed command                                                                                                      |
+| the remote holds a claim commit                                                             | `0`      | the line `refs/ids/counters is in use on <remote>; the project needs no seed` on standard output, and no seed command |
+| the remote holds a marker commit                                                            | non-zero | the remote of the marker, and no mention of `--seed` (BR-097)                                                         |
+| no `--remote`, no setting, and no `origin`                                                  | non-zero | `origin` and `--remote`, and no seed command                                                                          |
+| remote unreachable                                                                          | non-zero | the remote and git's error message, and no seed command                                                               |
+| run with `--remote` outside any git repository, and the remote holds no `refs/ids/counters` | `1`      | a message that names `--plan-seed` and asks for a run inside the project's clone, and no seed command                 |
 
 ### `next-id --move-to-origin`
 
