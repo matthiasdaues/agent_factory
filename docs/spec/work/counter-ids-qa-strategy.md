@@ -7,7 +7,7 @@ Generated from:
 - Proposal: [counter-ids.md § Design](../../proposals/counter-ids.md#design) and [§ Completion Criteria](../../proposals/counter-ids.md#completion-criteria)
 - Entity model: [entity-model.md § Counter IDs Entities](../entity-model.md#counter-ids-entities)
 - Interface contracts: [interface-contracts.md § Counter IDs Contracts](../interface-contracts.md#counter-ids-contracts)
-- Validation rules: [validation-rules.md § Counter IDs](../validation-rules.md#counter-ids-next-id-br-068br-075), BR-068 to BR-075
+- Validation rules: [validation-rules.md § Counter IDs](../validation-rules.md#counter-ids-next-id-br-068br-078), BR-068 to BR-075
 - Charter layer bindings: [testing.yaml](../../testing.yaml)
 - Repository test infrastructure: [tests/conftest.py](../../../tests/conftest.py) (`load_script`, the autouse fixture that removes `GIT_*` variables), `tests/factory/test_block_dangerous_git.py`, `tests/factory/test_init_factory_rerun.py`, `tests/factory/test_backlog_lint.py`, `pyproject.toml` (markers `spec` and `container`), and [poc/counters/ref-claim-race.sh](../../../poc/counters/ref-claim-race.sh), read and not run
 

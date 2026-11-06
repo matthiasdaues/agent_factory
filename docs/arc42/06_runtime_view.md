@@ -872,7 +872,7 @@ sequenceDiagram
   throwaway repository that `next-id` deletes at exit.
 - The [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle) holds the
   states, and BR-071 and BR-072 in
-  [validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-075)
+  [validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-078)
   hold the rules.
 
 ## Referenced from
