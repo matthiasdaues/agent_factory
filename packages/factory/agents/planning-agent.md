@@ -105,9 +105,9 @@ Write `backlog/ST-NNNN.md` files with MoSCoW priorities, dependencies, and `back
 
 **Gate:** user confirms the backlog.
 
-### Phase 5 — Commit to dev
+### Phase 5 — Commit
 
-All indexed artifacts (backlog stories, proposals, findings) are committed to `dev`. The `dev` branch is the single canonical index for sequential IDs (ST-NNNN, PROP-NN, etc.). All stories are committed with `status: pending`. Never commit indexed artifacts to a feature branch.
+An indexed artifact (backlog story, proposal, finding) may be committed on any branch, the one where you make it. `next-id` hands out the sequential IDs (ST-NNNN, PROP-NN, etc.) from one shared counter. Commit all stories with `status: pending`.
 
 For tier suggestions, cite the authoritative rubric table in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md#tier-rubric) and do not copy it here.
 
