@@ -21,7 +21,10 @@ Operational procedure for **fixing defects** in production or development.
 If bug not yet in `docs/findings/`:
 
 ```bash
-# Create finding manually or via QA agent
+# Create finding manually or via QA agent.
+# Run .agent-factory/factory/scripts/next-id BUG and read the ID from its standard output;
+# a shell variable does not survive between agent commands. When next-id fails,
+# stop and report its message; never pick a number by hand.
 cat > docs/findings/BUG-NNNN.md << EOF
 ---
 id: BUG-NNNN

@@ -19,7 +19,8 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 
 - Directory: `docs/findings/`
 - Filename: `<TAG>-<NNNN>.md`, zero-padded, sequential per tag (e.g. `SPEC-0001.md`).
-- Allocate the next `NNNN` by scanning existing files with the same tag.
+- Allocate `NNNN` with `.agent-factory/factory/scripts/next-id <TAG>` for `SPEC`, `FAGAN`, `SEC`, `BUG`, `RECON`, `ATAM`, and `IMPL`. Read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
+- `next-id` has no prefix for `ARCH` and `QA`. Those two tags take the next unused number of their own files.
 
 | Review                          | TAG     |
 | ------------------------------- | ------- |
