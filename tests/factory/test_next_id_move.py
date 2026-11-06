@@ -1,4 +1,4 @@
-"""Tests for next-id --move-to-origin (ST-0380, counter-ids-fitting.feature).
+"""Tests for next-id --move-to-origin (ST-0380, ST-0381, counter-ids-fitting.feature).
 
 The move carries the claim commit C of the local counter to `origin` in the
 four steps of BR-102. Every remote is a local bare repository in tmp_path.
@@ -6,16 +6,23 @@ The made-up URL `https://user:token@host/demo.git` reaches the bare repository
 through `url.<bare path>.insteadOf` in the project's own config, so git talks
 to the bare repository and next-id sees the made-up URL (QA strategy, Test
 setup). Every failing path checks that no token shows.
+
+ST-0381 adds the claims during a move and the move that was cut off after the
+marker. The forced race wraps the read of the local counter and runs a real
+`next-id ST` right after the first read, so the test needs no timing. A
+cut-off test writes the marker itself, because no command stops a move there.
 """
 
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 from test_next_id import (  # noqa: F401
     FIXTURE_IDENTITY,
+    NEXT_ID,
     REF,
     _bare,
     _counter,
@@ -79,6 +86,48 @@ def _add_origin(env: dict[str, str], project: Path, bare: Path) -> None:
     """Give the project the made-up origin URL that git rewrites to the bare path."""
     _git(env, "-C", str(project), "remote", "add", "origin", ORIGIN_URL)
     _git(env, "-C", str(project), "config", f"url.{bare}.insteadOf", ORIGIN_URL)
+
+
+def _write_marker(env: dict[str, str], project: Path) -> str:
+    """Put the marker of a move to the made-up origin on the local counter, parent C."""
+    tree = _git(env, "-C", str(project), "mktree")
+    sha = subprocess.run(
+        ["git", "-C", str(project), "commit-tree", tree, "-p", REF],
+        input=ni.format_marker(ORIGIN_URL),
+        env={**env, **FIXTURE_IDENTITY},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    _git(env, "-C", str(project), "update-ref", REF, sha)
+    return sha
+
+
+def _worktree(env: dict[str, str], project: Path, path: Path) -> Path:
+    _git(
+        env,
+        "-C",
+        str(project),
+        "worktree",
+        "add",
+        "--quiet",
+        "-b",
+        "feature/x",
+        str(path),
+    )
+    return path
+
+
+def _in_project(monkeypatch, env: dict[str, str], project: Path) -> None:
+    """Run the move in this process, inside the project, with the test's git setup."""
+    for key in ("HOME", "GIT_CONFIG_NOSYSTEM", "GIT_CEILING_DIRECTORIES"):
+        monkeypatch.setenv(key, env[key])
+    monkeypatch.chdir(project)
+
+
+def _st_line(env: dict[str, str], repo: Path) -> int:
+    lines = dict(line.split("=", 1) for line in _counter(env, repo))
+    return int(lines["ST"])
 
 
 @pytest.fixture
@@ -222,39 +271,13 @@ class TestAMoveWithAMissingPiece:
         assert _setting(env, project) == str(project)
 
 
-def test_st_0380_a_marker_at_the_local_counter_stops_the_move(env, demo):
-    """Until ST-0381 resumes a move, a marker at the local counter changes nothing."""
-    project, _, _ = demo
-    assert run(env, project, "--move-to-origin").returncode == 0
-    _git(env, "-C", str(project), "config", SETTING, str(project))
-    before = _refs(env, project)
-
-    result = run(env, project, "--move-to-origin")
-
-    _assert_refused(result)
-    assert SHOWN_URL in result.stderr
-    assert "--seed" not in result.stderr
-    assert _refs(env, project) == before
-
-
 @pytest.mark.spec("CIF-12-IT-02")
 def test_st_0380_a_claim_in_a_worktree_after_the_marker_claims_nothing(
     env, tmp_path, demo
 ):
     project, _, _ = demo
-    worktree = tmp_path / "demo-feature"
-    _git(env, "-C", str(project), "worktree", "add", "--quiet", "-b", "feature/x", str(worktree))
-    marker = ni.format_marker(ORIGIN_URL)
-    tree = _git(env, "-C", str(project), "mktree")
-    sha = subprocess.run(
-        ["git", "-C", str(project), "commit-tree", tree, "-p", REF],
-        input=marker,
-        env={**env, **FIXTURE_IDENTITY},
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-    _git(env, "-C", str(project), "update-ref", REF, sha)
+    worktree = _worktree(env, project, tmp_path / "demo-feature")
+    _write_marker(env, project)
     before = _refs(env, project)
 
     result = run(env, worktree, "ST")
@@ -296,7 +319,10 @@ def test_st_0380_demo_scenario_end_to_end(env, tmp_path):
 
     twice, sha = _local_project(env, tmp_path / "move-twice", "start=0000", "ST=0012")
     taken = _bare(env, tmp_path / "move-taken.git")
-    assert run(env, tmp_path, "--seed", "0", "ST=40", "--remote", str(taken)).returncode == 0
+    assert (
+        run(env, tmp_path, "--seed", "0", "ST=40", "--remote", str(taken)).returncode
+        == 0
+    )
     _git(env, "-C", str(twice), "remote", "add", "origin", str(taken))
     taken_sha = _sha(env, taken)
     result = run(env, twice, "--move-to-origin")
@@ -306,3 +332,176 @@ def test_st_0380_demo_scenario_end_to_end(env, tmp_path):
     assert _sha(env, twice / ".git") == sha
     assert _sha(env, taken) == taken_sha
     assert _setting(env, twice) == str(twice)
+
+
+# --- ST-0381: claims during the move ------------------------------------------
+
+
+class StaleLocalCounter:
+    """A mocked local counter: an ID claim raises it after every read."""
+
+    def __init__(self):
+        self.reads = 0
+        self.marks: list[str] = []
+
+    def read(self) -> tuple[str, str]:
+        self.reads += 1
+        return f"sha{self.reads}", f"start=0000\nST={12 + self.reads:04d}\ntoken=x\n"
+
+    def parent(self, marker: str) -> tuple[str, str]:
+        raise AssertionError("a claim commit has no marker parent")
+
+    def mark(self, lease: str) -> str:
+        self.marks.append(lease)
+        raise ni.StaleLease("cannot lock ref")
+
+
+def test_st_0381_ten_stale_leases_on_c_end_the_move_without_a_marker():
+    counter = StaleLocalCounter()
+    waits: list[float] = []
+
+    with pytest.raises(ni.NextIdError) as failed:
+        ni.mark_loop(counter, "/demo", sleep=waits.append)
+
+    assert counter.reads == 10
+    assert counter.marks == [f"sha{n}" for n in range(1, 11)]
+    assert len(waits) == 9
+    assert all(0.1 <= wait <= 1.0 for wait in waits)
+    message = str(failed.value)
+    assert "the move" in message
+    assert "ten stale leases" in message
+    assert "/demo" in message
+
+
+def test_st_0381_nine_stale_leases_still_end_in_a_marker():
+    class NineStale(StaleLocalCounter):
+        def mark(self, lease: str) -> str:
+            self.marks.append(lease)
+            if len(self.marks) < 10:
+                raise ni.StaleLease("cannot lock ref")
+            return "marker"
+
+    counter = NineStale()
+    moved = ni.mark_loop(counter, "/demo", sleep=lambda _s: None)
+    assert moved == ("sha10", "start=0000\nST=0022\ntoken=x\n", "marker", False)
+
+
+@pytest.mark.spec("CIF-12-IT-01")
+def test_st_0381_a_claim_between_the_read_and_the_marker_reaches_origin(
+    env, tmp_path, demo, monkeypatch
+):
+    project, _, origin = demo
+    worktree = _worktree(env, project, tmp_path / "demo-feature")
+    _in_project(monkeypatch, env, project)
+    real = ni.read_local_counter
+    claims: list[subprocess.CompletedProcess] = []
+
+    def read_then_claim(local: str) -> tuple[str, str]:
+        found = real(local)
+        if not claims:
+            claims.append(run(env, worktree, "ST"))
+        return found
+
+    monkeypatch.setattr(ni, "read_local_counter", read_then_claim)
+
+    output = ni.move_to_origin()
+
+    assert claims[0].stdout == "ST-0013\n", claims[0].stderr
+    assert output.startswith("moved ")
+    assert "ST=0013" in _counter(env, origin)
+    marker = project / ".git"
+    parent = _git(env, "-C", str(marker), "log", "-1", "--format=%P", REF)
+    assert parent == _sha(env, origin)
+    assert _setting(env, project) is None
+
+
+def test_st_0381_twenty_moves_with_a_parallel_claim_hand_out_no_number_twice(
+    env, tmp_path
+):
+    """QS-22: a claim that exits 0 holds a number at or below the ST line on origin."""
+    for round_number in range(1, 21):
+        base = tmp_path / f"round-{round_number}"
+        project, _ = _local_project(env, base / "demo", "start=0000", "ST=0012")
+        origin = _bare(env, base / "origin.git")
+        _git(env, "-C", str(project), "remote", "add", "origin", str(origin))
+        worktree = _worktree(env, project, base / "demo-feature")
+        move, claim = (
+            subprocess.Popen(
+                [sys.executable, str(NEXT_ID), *args],
+                cwd=cwd,
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            for cwd, args in ((project, ["--move-to-origin"]), (worktree, ["ST"]))
+        )
+        _, moved_err = move.communicate(timeout=120)
+        claim_out, _ = claim.communicate(timeout=120)
+
+        assert move.returncode == 0, (round_number, moved_err)
+        on_origin = _st_line(env, origin)
+        if claim.returncode == 0:
+            assert int(claim_out.strip().split("-")[1]) <= on_origin, (
+                round_number,
+                claim_out,
+                on_origin,
+            )
+        else:
+            assert claim_out == "", (round_number, claim_out)
+        after = run(env, project, "ST")
+        assert int(after.stdout.strip().split("-")[1]) == on_origin + 1, (
+            round_number,
+            after.stderr,
+        )
+
+
+# --- ST-0381: a move that was cut off after the marker -------------------------
+
+
+def test_st_0381_a_cut_off_move_pushes_c_from_the_marker_parent(env, demo):
+    project, sha, origin = demo
+    marker = _write_marker(env, project)
+
+    result = run(env, project, "--move-to-origin")
+
+    assert result.returncode == 0, result.stderr
+    _assert_no_token(result)
+    assert _sha(env, origin) == sha
+    assert _sha(env, project / ".git") == marker
+    assert _setting(env, project) is None
+    claim = run(env, project, "ST")
+    assert claim.stdout == "ST-0013\n", claim.stderr
+
+
+def test_st_0381_a_cut_off_move_whose_push_was_done_only_removes_the_setting(env, demo):
+    project, sha, origin = demo
+    marker = _write_marker(env, project)
+    _git(env, "-C", str(project), "push", "--quiet", str(origin), f"{sha}:{REF}")
+    before = _refs(env, project, origin)
+
+    result = run(env, project, "--move-to-origin")
+
+    assert result.returncode == 0, result.stderr
+    _assert_no_token(result)
+    assert _refs(env, project, origin) == before
+    assert _sha(env, origin) == sha
+    assert _sha(env, project / ".git") == marker
+    assert _setting(env, project) is None
+
+
+def test_st_0381_a_cut_off_move_meets_another_counter_on_origin(env, demo):
+    project, _, origin = demo
+    _write_marker(env, project)
+    _set_counter(env, origin, "start=0000", "ST=0040")
+    before = _refs(env, project, origin)
+
+    result = run(env, project, "--move-to-origin")
+
+    _assert_refused(result)
+    assert str(project) in result.stderr
+    assert SHOWN_URL in result.stderr
+    assert "ST=0012" in result.stderr
+    assert "ST=0040" in result.stderr
+    assert _refs(env, project, origin) == before
+    assert _setting(env, project) == str(project)

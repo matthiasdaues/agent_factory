@@ -45,7 +45,12 @@ git setting agent-factory.counterRemote names, to `origin` in four steps
 `moved=<remote>` on the local counter with a lease on C, pushes C to `origin`
 with the create-only lease, and removes the setting. A failed push puts C
 back with a lease on the marker. A claim or `--plan-seed` that reads a marker
-fails and names the remote of the marker (BR-097).
+fails and names the remote of the marker (BR-097). A claim that raises the
+local counter after the read makes the lease on C stale, so the move reads
+again, at most ten times in a row (BR-103). A move that reads a marker at the
+local counter was cut off: it takes C from the marker's parent and asks
+`origin`. No counter there: it pushes C. C there: it only removes the
+setting. Another counter there: a collision, and nothing changes (BR-102).
 
 No third-party dependencies (Python stdlib only), matching backlog-lint.
 
@@ -720,6 +725,91 @@ def push_to_origin(local: str, url: str, sha: str) -> None:
     _push(["-C", local], url, sha, "", guarded=True)
 
 
+class LocalCounter:
+    """The port of a move on the local counter: read it, and set the marker on it."""
+
+    def __init__(self, local: str, url: str):
+        self.local = local
+        self.url = url
+
+    def read(self) -> tuple[str, str]:
+        """Return the SHA and the message of the commit at the local counter."""
+        return read_local_counter(self.local)
+
+    def parent(self, marker: str) -> tuple[str, str]:
+        """Return the SHA and the message of C, the parent of the marker (DEC-14)."""
+        try:
+            sha = _guarded(
+                ["-C", self.local, "rev-parse", "--verify", "--quiet", f"{marker}^"],
+                self.local,
+            )
+        except subprocess.CalledProcessError:
+            raise NextIdError(
+                f"the marker at the local counter {self.local} has no parent; "
+                "the move changed nothing"
+            ) from None
+        message = _guarded(
+            ["-C", self.local, "show", "--no-patch", "--format=%B", sha], self.local
+        )
+        return sha, message
+
+    def mark(self, lease: str) -> str:
+        """Set the marker with parent C, with a lease on C; return the marker."""
+        marker = _marker_commit(self.local, self.url, lease)
+        try:
+            _set_local_counter(self.local, marker, lease)
+        except subprocess.CalledProcessError as exc:
+            error = _git_error(exc)
+            if is_stale_lease(error):
+                raise StaleLease(error) from None
+            raise NextIdError(
+                f"the local counter {self.local} refused the marker: {error}; "
+                "the move changed nothing"
+            ) from None
+        return marker
+
+
+# C, the message of C, the marker, and whether an earlier move set the marker.
+Marked = tuple[str, str, str, bool]
+
+
+def mark_loop(
+    counter: LocalCounter, local: str, *, sleep: Callable[[float], None] = time.sleep
+) -> Marked:
+    """Read the local counter and set the marker until the lease on C holds (BR-103).
+
+    A stale lease waits a random 0.1 to 1 second and reads again. The tenth
+    stale lease in a row ends the move. A marker at the read is the marker of
+    a cut-off move, so C is its parent (BR-102).
+    """
+    for attempt in range(1, MAX_STALE_LEASES + 1):
+        sha, message = counter.read()
+        if marker_remote(message) is not None:
+            return (*counter.parent(sha), sha, True)
+        try:
+            return sha, message, counter.mark(sha), False
+        except StaleLease:
+            if attempt < MAX_STALE_LEASES:
+                sleep(random.uniform(*WAIT_SECONDS))
+    raise NextIdError(
+        f"the move met ten stale leases in a row on the local counter {local}: "
+        "an ID claim raised it after each read; the move changed nothing, "
+        f"and {COUNTER_REMOTE_SETTING} stays"
+    )
+
+
+def _origin_counter(target: str, url: str) -> str | None:
+    """Return the SHA at refs/ids/counters on origin, or None when origin holds none."""
+    try:
+        listing = _guarded(["ls-remote", target, COUNTER_REF], url)
+    except subprocess.CalledProcessError as exc:
+        raise NextIdError(
+            f"cannot read {COUNTER_REF} on {url}: {_git_error(exc)}; "
+            "the move changed nothing"
+        ) from None
+    return listing.split()[0] if listing else None
+
+
 def _number_lines_of(message: str) -> str:
     lines = [line for line in message.splitlines() if not line.startswith("token=")]
     return ", ".join(lines)
@@ -757,21 +847,15 @@ def move_to_origin() -> str:
     # git rewrites the URL with the clone's url.<base>.insteadOf settings; the
     # throwaway repository of a read has none, so the move resolves it here.
     target = _guarded(["ls-remote", "--get-url", url], "this clone")
-    sha, message = read_local_counter(local)
-    moved_to = marker_remote(message)
-    if moved_to is not None:
-        raise NextIdError(
-            f"the local counter {local} holds the marker of a move to {moved_to}; "
-            "the move changed nothing"
-        )
-    marker = _marker_commit(local, url, sha)
-    try:
-        _set_local_counter(local, marker, sha)
-    except subprocess.CalledProcessError as exc:
-        raise NextIdError(
-            f"the local counter {local} changed after the move read it: "
-            f"{_git_error(exc)}; the move changed nothing"
-        ) from None
+    sha, message, marker, resumed = mark_loop(LocalCounter(local, url), local)
+    done = f"moved {COUNTER_REF} from {local} to {url}"
+    if resumed:
+        on_origin = _origin_counter(target, url)
+        if on_origin == sha:
+            _guarded(["config", "--unset", COUNTER_REMOTE_SETTING], "this clone")
+            return done
+        if on_origin is not None:
+            raise _collision(local, url, target, message)
     try:
         push_to_origin(local, target, sha)
     except GitTimedOut:
@@ -790,7 +874,7 @@ def move_to_origin() -> str:
             f"holds its claim commit again, and {COUNTER_REMOTE_SETTING} stays"
         ) from None
     _guarded(["config", "--unset", COUNTER_REMOTE_SETTING], "this clone")
-    return f"moved {COUNTER_REF} from {local} to {url}"
+    return done
 
 
 def _restore(local: str, sha: str, marker: str) -> None:
