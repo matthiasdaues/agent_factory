@@ -295,6 +295,14 @@ SVG file with `git add docs/assets/images/*.svg`, and an agent's `git add -A`
 then carried 29 of them into the ST-0374 commit. `premerge-check` blocked that
 merge. Story briefs now forbid `git add -A`.
 
+Cause found on 2026-11-06: `arch-lint` exports every diagram when
+`architecture.dsl` is newer than the newest SVG, and `--no-validate` does not
+stop that. A merge or checkout that touches the DSL gives it a fresh mtime, so
+every later run of the two default-suite callers and of the commit hook
+rendered all diagrams in a container. `62beeb74` adds `--no-export`, used by
+both test callers; the post-merge suite of ST-0376 then left every SVG
+unchanged and took 80 s. Open: only the cap on parallel test runs.
+
 ## T-0020 — A claim can still open a credential dialog through `GIT_ASKPASS`
 
 - status: open
@@ -344,3 +352,15 @@ regime. Add `pytest-cov` and a step that writes `coverage.json`, then enable
 `crap_score`. Pick a mutation tool, such as `mutmut` or `cosmic-ray`, write its
 command and time limit into `docs/testing.yaml`, and pick the gate per story
 through `quality-gates` for stories with risky logic.
+
+## T-0403 — `test_st_0365_slow_command_is_stopped_with_its_child_and_blocks_the_merge` fails at random
+
+- status: open
+- source: the first commit attempt of ST-0376 (2026-11-06)
+
+The test raised `FileNotFoundError` on `/proc/<pid>/stat`: the child process it
+watches had already exited when it read the file. A second run passed. A
+flaky test aborts an agent's commit and costs one full suite run each time.
+
+**Action:** make the test tolerate a process that exits between the lookup
+and the read, for example by treating a missing `/proc/<pid>/stat` as "gone".
