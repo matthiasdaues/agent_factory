@@ -28,7 +28,7 @@ CHECK_SCRIPTS = [
 # Arguments that keep a script from writing tracked files during the test.
 # Without them, index-lint regenerates the factory's INDEX.yaml, and arch-lint
 # renders the diagrams into docs/assets/images/ (T-0019).
-NO_WRITE_ARGS = {"index-lint": ["--check"], "arch-lint": ["--no-validate"]}
+NO_WRITE_ARGS = {"index-lint": ["--check"], "arch-lint": ["--no-validate", "--no-export"]}
 
 
 class TestCheckScriptsExist:
