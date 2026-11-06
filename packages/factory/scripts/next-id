@@ -1,0 +1,274 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""next-id — claim the next ID of an ID prefix from the counter on the remote.
+
+What: Prints the next ID of an ID prefix, such as ST-1013, and records it in
+      the claim commit at refs/ids/counters on the remote. `--seed` creates
+      that counter once for a project.
+When: Before a producer names a new story, finding, todo entry, or ADR.
+By:   the User, or an agent through the User's CLI (ADR-0031).
+
+The counter is the ref refs/ids/counters. It points at a claim commit: a
+commit with no parent on the empty tree. Its message holds `start=<NNNN>`,
+one `<PREFIX>=<NNNN>` line per prefix that claimed an ID, and a random token.
+
+A claim runs in a throwaway bare repository in a new temporary directory, so
+the clone gains no ref and no object (BR-075). It pushes with a lease on the
+SHA it read (BR-072). A seed pushes with the create-only lease (BR-073).
+
+No third-party dependencies (Python stdlib only), matching backlog-lint.
+
+Usage
+  next-id <PREFIX> [--remote <url>]
+  next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]
+
+Exit code: 0 on success, 1 on a failed claim or seed, 2 on a usage error. On
+failure, nothing goes to standard output and the message goes to standard
+error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import secrets
+import subprocess
+import sys
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
+
+PREFIXES = ("ST", "BUG", "SPEC", "FAGAN", "SEC", "RECON", "ATAM", "IMPL", "T", "ADR")
+COUNTER_REF = "refs/ids/counters"
+MAX_SEED = 9998
+IDENTITY = "next-id"
+IDENTITY_EMAIL = "next-id@agent-factory.invalid"
+USAGE = (
+    "next-id <PREFIX> [--remote <url>]\n"
+    "       next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]"
+)
+_NUMBER = re.compile(r"[0-9]+")
+
+
+class NextIdError(Exception):
+    """A claim or seed failed; the message goes to standard error."""
+
+
+def _prefix_list() -> str:
+    return ", ".join(PREFIXES)
+
+
+def check_prefix(prefix: str) -> None:
+    """Refuse a prefix outside the list of BR-068."""
+    if prefix not in PREFIXES:
+        raise NextIdError(
+            f"the ID prefix '{prefix}' is not in the list: {_prefix_list()}"
+        )
+
+
+def _seed_number(text: str, argument: str) -> int:
+    if not _NUMBER.fullmatch(text) or int(text) > MAX_SEED:
+        raise NextIdError(
+            f"the argument '{argument}' is not a whole number from 0 to {MAX_SEED}"
+        )
+    return int(text)
+
+
+def parse_seed(arguments: list[str]) -> dict[str, int]:
+    """Check the seed arguments of BR-069 and return the lines in order."""
+    if not arguments:
+        raise NextIdError("--seed needs a number")
+    lines = {"start": _seed_number(arguments[0], arguments[0])}
+    for argument in arguments[1:]:
+        prefix, sep, number = argument.partition("=")
+        if not sep:
+            raise NextIdError(f"the argument '{argument}' is not a pair <PREFIX>=<n>")
+        check_prefix(prefix)
+        if prefix in lines:
+            raise NextIdError(f"the ID prefix '{prefix}' has more than one pair")
+        lines[prefix] = _seed_number(number, argument)
+    return lines
+
+
+def number_lines(lines: dict[str, int]) -> list[str]:
+    """Write each line as `<key>=<NNNN>`, in four digits (BR-070)."""
+    return [f"{key}={value:04d}" for key, value in lines.items()]
+
+
+def format_message(lines: dict[str, int], token: str) -> str:
+    """Write the claim commit message: the number lines, then the token."""
+    return "\n".join([*number_lines(lines), f"token={token}"]) + "\n"
+
+
+def parse_message(message: str) -> dict[str, int]:
+    """Read the number lines of a claim commit message; drop the token."""
+    lines: dict[str, int] = {}
+    for line in message.splitlines():
+        key, sep, value = line.strip().partition("=")
+        if not sep or key == "token":
+            continue
+        if not _NUMBER.fullmatch(value):
+            raise NextIdError(f"the claim commit holds the line '{line}', not a number")
+        lines[key] = int(value)
+    return lines
+
+
+def raise_line(message: str, prefix: str, token: str) -> tuple[str, str]:
+    """Raise the prefix's line by one and return the new message and the ID.
+
+    A prefix without a line gets `start` plus one (BR-071). Every other line
+    stays, and the token is replaced.
+    """
+    lines = parse_message(message)
+    number = lines.get(prefix, lines.get("start", 0)) + 1
+    lines[prefix] = number
+    return format_message(lines, token), f"{prefix}-{number:04d}"
+
+
+def git(args: list[str], *, stdin: str = "", env: dict[str, str] | None = None) -> str:
+    """Run git with LC_ALL=C and return its standard output, stripped."""
+    full_env = {**os.environ, "LC_ALL": "C", **(env or {})}
+    result = subprocess.run(
+        ["git", *args],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        env=full_env,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            result.returncode, result.args, result.stdout, result.stderr
+        )
+    return result.stdout.strip()
+
+
+def _git_error(exc: subprocess.CalledProcessError) -> str:
+    return (exc.stderr or "").strip() or f"git exited {exc.returncode}"
+
+
+def resolve_remote(remote: str | None, *, for_seed: bool) -> str:
+    """Return the --remote URL, else the URL of origin after rewrites (BR-074)."""
+    if remote is not None:
+        return remote
+    try:
+        return git(["remote", "get-url", "origin"])
+    except subprocess.CalledProcessError:
+        hint = "" if for_seed else ", then run `next-id --seed <number>`"
+        raise NextIdError(
+            f"no remote: add the remote `origin` or pass `--remote <url>`{hint}"
+        ) from None
+
+
+@contextmanager
+def throwaway() -> Iterator[list[str]]:
+    """Yield git arguments for a bare repository deleted at exit (BR-075)."""
+    with tempfile.TemporaryDirectory(prefix="next-id-") as tmp:
+        repo = os.path.join(tmp, "claim.git")
+        git(["init", "--quiet", "--bare", "--template=", repo])
+        yield [f"--git-dir={repo}"]
+
+
+def _commit(repo: list[str], message: str) -> str:
+    """Create a parentless claim commit on the empty tree."""
+    identity = {
+        "GIT_AUTHOR_NAME": IDENTITY,
+        "GIT_AUTHOR_EMAIL": IDENTITY_EMAIL,
+        "GIT_COMMITTER_NAME": IDENTITY,
+        "GIT_COMMITTER_EMAIL": IDENTITY_EMAIL,
+    }
+    tree = git([*repo, "mktree"])
+    return git([*repo, "commit-tree", tree], stdin=message, env=identity)
+
+
+def _push(repo: list[str], remote: str, sha: str, lease: str) -> None:
+    git(
+        [
+            *repo,
+            "push",
+            "--quiet",
+            f"--force-with-lease={COUNTER_REF}:{lease}",
+            remote,
+            f"{sha}:{COUNTER_REF}",
+        ]
+    )
+
+
+def claim(prefix: str, remote: str | None) -> str:
+    """Claim the next ID of the prefix and return it, such as ST-1013."""
+    check_prefix(prefix)
+    url = resolve_remote(remote, for_seed=False)
+    with throwaway() as repo:
+        try:
+            git([*repo, "fetch", "--quiet", url, f"+{COUNTER_REF}:{COUNTER_REF}"])
+        except subprocess.CalledProcessError as exc:
+            raise NextIdError(
+                f"cannot read {COUNTER_REF} on {url}: {_git_error(exc)}"
+            ) from None
+        old = git([*repo, "rev-parse", COUNTER_REF])
+        message = git([*repo, "show", "--no-patch", "--format=%B", old])
+        new_message, new_id = raise_line(message, prefix, secrets.token_hex(8))
+        sha = _commit(repo, new_message)
+        try:
+            _push(repo, url, sha, old)
+        except subprocess.CalledProcessError as exc:
+            raise NextIdError(
+                f"the claim of {new_id} on {url} failed: {_git_error(exc)}"
+            ) from None
+    return new_id
+
+
+def seed(arguments: list[str], remote: str | None) -> str:
+    """Create the counter on the remote and return the seed lines."""
+    lines = parse_seed(arguments)
+    url = resolve_remote(remote, for_seed=True)
+    with throwaway() as repo:
+        message = format_message(lines, secrets.token_hex(8))
+        sha = _commit(repo, message)
+        try:
+            _push(repo, url, sha, "")
+        except subprocess.CalledProcessError as exc:
+            error = _git_error(exc)
+            if "stale info" in error or "already exists" in error:
+                raise NextIdError(
+                    f"{COUNTER_REF} already exists on {url}; the seed changed nothing"
+                ) from None
+            raise NextIdError(f"the seed on {url} failed: {error}") from None
+    return "\n".join(number_lines(lines))
+
+
+def _parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="next-id", usage=USAGE, description=__doc__.split("\n")[0]
+    )
+    p.add_argument("--seed", action="store_true", help="create the counter once")
+    p.add_argument("--remote", help="the remote URL; the default is the URL of origin")
+    p.add_argument(
+        "arguments", nargs="*", help="<PREFIX>, or <number> [<PREFIX>=<n> …]"
+    )
+    return p
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = _parser()
+    ns = p.parse_args(argv)
+    if not ns.seed and len(ns.arguments) != 1:
+        p.error("name one ID prefix")
+    try:
+        output = (
+            seed(ns.arguments, ns.remote)
+            if ns.seed
+            else claim(ns.arguments[0], ns.remote)
+        )
+    except NextIdError as exc:
+        print(f"next-id: {exc}", file=sys.stderr)
+        return 1
+    print(output)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
