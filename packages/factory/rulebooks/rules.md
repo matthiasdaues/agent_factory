@@ -126,6 +126,7 @@ Rules in this section apply to both modes unless marked **(automated only)**. In
 - **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak. **(automated only)**
 - **MUST** maintain a dispatch ledger (`.current-work/<feature-branch>/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status. **(automated only)**
 - **MUST** update the story file's `status` field in the same commit that delivers the story's implementation. **(automated only)** In manual mode, the human owns this commit.
+- **MAY** run `next-id` in manual mode and let it push the claim ref. The claim push by `next-id` is the one exception to the human's ownership of pushes. Every other push stays with the human.
 
 ## Step boundaries
 
@@ -154,6 +155,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `.agent-factory/factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.
 - **MUST** use full 40-character SHAs in machine-consumed gates, markers, dispatch records, and handoffs; abbreviated SHAs are display-only.
+- **MUST** claim every ID through `next-id` in manual and in automated mode. The claim push by `next-id` is the one exception to the human's ownership of pushes; every other push stays with the human in manual mode. A push outside `next-id`, such as `git -C . push` with a hand-written claim commit, can set a line back, and then IDs repeat.
 
 ## Handoffs
 
