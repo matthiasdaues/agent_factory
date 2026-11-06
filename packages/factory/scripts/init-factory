@@ -3039,6 +3039,55 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
     )
 
 
+COUNTER_REF = "refs/ids/counters"
+COUNTER_CHECK_SECONDS = 15
+
+
+def check_counter(target: Path, report: list[str]) -> None:
+    """Tell the user how to seed the counter; never seed, never fail.
+
+    Asks `origin` only whether `refs/ids/counters` exists (DEC-17). No case
+    stops the install (DEC-23). git runs without prompts and with a time
+    limit, so a dead remote cannot hang the install."""
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"}
+
+    def run(*args: str) -> subprocess.CompletedProcess | None:
+        try:
+            return subprocess.run(
+                ["git", *args],
+                cwd=target,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+                timeout=COUNTER_CHECK_SECONDS,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+
+    url_result = run("remote", "get-url", "origin")
+    if url_result is None or url_result.returncode != 0:
+        log(report, "counter: no remote `origin`")
+        log(report, "add the remote `origin`, then run `next-id --seed <number>`")
+        return
+    url = url_result.stdout.strip()
+    result = run("ls-remote", "origin", COUNTER_REF)
+    if result is None or result.returncode != 0:
+        detail = (result.stderr.strip().splitlines() or [""])[-1] if result else (
+            f"no answer within {COUNTER_CHECK_SECONDS} seconds"
+        )
+        log(report, f"WARNING: the remote {url} does not answer; the counter is unchecked")
+        if detail:
+            log(report, f"git said: {detail}")
+        return
+    if not result.stdout.strip():
+        log(report, "counter: missing on origin")
+        log(
+            report,
+            "run `next-id --seed <number>` with a number above your highest ID",
+        )
+
+
 def mark_clone_installed(target: Path, report: list[str]) -> None:
     """Set `agent-factory.installed` in the clone's local git config.
 
@@ -4683,6 +4732,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n  STOPPED — {e}", file=sys.stderr)
         return 1
     mark_clone_installed(target, report)
+
+    # ── Section 8b: Counter IDs ─────────────────────────────────────────
+    section("Counter IDs")
+    check_counter(target, report)
 
     # ── Finalize (silent) ──────────────────────────────────────────────
     _out.quiet = True
