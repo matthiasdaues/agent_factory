@@ -135,3 +135,5 @@ The author asked whether the `id-prefixes.md` row holds. It does not. The pass-1
 ### Verdict after pass 2
 
 The specification is not ready for architecture. SPEC-0059 blocks it. Its fix deletes one Outline row, closes CIF-G11, and adds one line to the QA strategy.
+
+Short check at commit 7f20a24c: the row is gone from CID-07, the Outline parses with four Examples rows, CIF-G11 is closed, and SPEC-0059 is resolved. The "five ID Producer files" in `counter-ids-qa-strategy.md` and `PRODUCERS` in `test_counter_ids_text.py` change in the CIF-16 story. That follow-up does not block, so the specification is ready for architecture.
