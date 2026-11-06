@@ -1196,18 +1196,20 @@ the [Move Lifecycle](state-machines.md#move-lifecycle) shows them.
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Reads    | The local counter at the path of `agent-factory.counterRemote`, and `origin`                                                                                                                   |
 | Writes   | The local `refs/ids/counters`, `refs/ids/counters` on `origin`, and the removal of `agent-factory.counterRemote` from `.git/config`                                                            |
-| Leases   | A lease on the claim commit C for the marker, the create-only lease for the push, and a lease on the marker to put C back                                                                      |
+| Leases   | A lease on the claim commit C for the marker, and the create-only lease for the push                                                                                                           |
 | Messages | Every remote by its redacted URL (BR-077)                                                                                                                                                      |
 | Output   | On success, the line `moved refs/ids/counters from <local> to <remote>` on standard output, and exit `0`. `<local>` is the path of the setting, and `<remote>` is the redacted URL of `origin` |
 | Remote   | The marker names `remote.origin.url` as the clone configures it. The push goes to the URL that `git ls-remote --get-url` prints for it, so the clone's `url.<base>.insteadOf` rewrites apply   |
+| Push     | From a throwaway repository, as for a claim (BR-075). It fetches the local counter, whose marker has C as its parent, and pushes C. So no hook of the project runs                             |
 
 | Case                                                                             | Result                                                                                                                                                                                                                 |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `origin` holds no `refs/ids/counters`                                            | `origin` holds C, the local counter holds the marker, the setting is gone                                                                                                                                              |
 | an ID claim raised C before the marker                                           | the move reads the local counter again and carries the new claim commit to `origin` (BR-103)                                                                                                                           |
 | ten stale leases in a row on C                                                   | exit non-zero, no marker, the local counter and the setting stay, and the message names the move and the ten stale leases                                                                                              |
-| `origin` holds a counter                                                         | the local counter holds C again, the setting stays, and the message names both counters                                                                                                                                |
-| the push fails for another reason                                                | the local counter holds C again, the setting stays, and the message holds git's message                                                                                                                                |
+| the push is refused, and `origin` then holds C                                   | the push of C got through after all. The move removes the setting, and the result is that of the first row                                                                                                             |
+| the push is refused, and `origin` then holds another counter                     | a collision: the local counter keeps the marker, the setting stays, and the message names both counters (DEC-16)                                                                                                       |
+| the push is refused, and `origin` then holds no counter or does not answer       | the local counter keeps the marker, the setting stays, and the message holds git's message (DEC-16)                                                                                                                    |
 | the push runs over the time limit of BR-076                                      | the local counter keeps the marker, the setting stays, and the message names the remote and the time limit. This is the CutOff of the [Move Lifecycle](state-machines.md#move-lifecycle), and a second move resumes it |
 | the local counter holds a marker, and `origin` holds no `refs/ids/counters`      | the move takes C from the marker's parent and pushes it. The result is that of the first row (BR-102)                                                                                                                  |
 | the local counter holds a marker, and `origin` holds C                           | the push was done before the cut-off. The move only removes the setting, and the setting is gone                                                                                                                       |
@@ -1221,6 +1223,12 @@ counter again, at most ten times in a row. A marker at the read makes the move
 resume: it takes C from the marker's parent and asks `origin` with
 `git ls-remote` for `refs/ids/counters` before it pushes. The three resume rows
 of the case table follow from that answer.
+
+After a refused push, the move asks `origin` again with `git ls-remote`, on a
+first move as on a resume. The three rows on a refused push follow from that
+answer. The move never puts C back on the local counter: from the marker on,
+the local counter hands out no number, so a counter that someone else seeded on
+`origin` meanwhile never repeats one (DEC-16).
 
 ### `init-factory` counter check
 

@@ -272,13 +272,13 @@ References: [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin), [8
 
 ### QS-23: A second counter on origin shows at the move
 
-| Field             | Description                                                                                                                                                                            |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Operability (counter collision)                                                                                                                                                        |
-| Stimulus          | VIRGIL runs `next-id --move-to-origin` after the User confirms, and `origin` already holds `refs/ids/counters` that someone else seeded.                                               |
-| Environment       | The project's Local Counter holds its own claim commit, and `agent-factory.counterRemote` names it.                                                                                    |
-| Response          | The create-only lease refuses the push. `next-id` puts the claim commit back on the Local Counter, keeps the setting, and names both counters. VIRGIL reports that two counters exist. |
-| Response measure  | After the call, both refs hold the same SHA as before, the setting is still set, the call exits non-zero, and its message names both remotes by their redacted URLs.                   |
+| Field             | Description                                                                                                                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Operability (counter collision)                                                                                                                                                                                                              |
+| Stimulus          | VIRGIL runs `next-id --move-to-origin` after the User confirms, and `origin` already holds `refs/ids/counters` that someone else seeded.                                                                                                     |
+| Environment       | The project's Local Counter holds its own claim commit, and `agent-factory.counterRemote` names it.                                                                                                                                          |
+| Response          | The create-only lease refuses the push. The Local Counter keeps the marker, the setting stays, and `next-id` names both counters. VIRGIL reports that two counters exist.                                                                    |
+| Response measure  | After the call, `origin` holds the same SHA as before, the Local Counter holds the marker with the claim commit as its parent, the setting is still set, the call exits non-zero, and its message names both remotes by their redacted URLs. |
 
 References: [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin), [ADR-0033](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)
 
