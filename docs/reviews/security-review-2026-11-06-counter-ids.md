@@ -2,7 +2,7 @@
 type: security-review
 title: Security review of the counter-ids implementation
 date: 2026-11-06
-status: defects
+status: pass
 reviewer: qa-agent
 findings_filed: 1
 story: counter-ids
@@ -95,3 +95,52 @@ These observations need no change. They stay in this report only.
   the standard library only. A10: `next-id` contacts no host except the remote
   that the user names, through git's own transport. A04 is covered by the
   lease and the throwaway repository above.
+
+## Pass 2
+
+Pass 2 checks the fix commit `d4dba899c0d6be408060228d84ed6ec023180756` on
+`fix/sec-0007`, diffed against `feature/counter-ids`. It looks for new defects
+in the fix only. The fix holds, and SEC-0007 is resolved. The fix adds no
+blocking defect. Once `fix/sec-0007` is merged into `feature/counter-ids`, the
+branch may merge into `dev`.
+
+Both scripts wrap `sys.stdout` and `sys.stderr` in one redaction before `main`
+runs. The run tried every path that could pass the wrap, with made-up tokens
+in temporary repositories:
+
+- **Messages of `next-id`.** A claim and a seed through `origin`, and claims
+  with `--remote` in the forms `HTTPS://`, `git+https://`, a password with `@`,
+  a URL without a path, and a percent-encoded `/`. No output held the token.
+- **argparse, `sys.exit`, and tracebacks.** An unknown option next to a URL
+  with a token, and an uncaught `CalledProcessError` whose argument list holds
+  the URL. Python writes each through `sys.stderr`, and no output held the
+  token.
+- **Child processes.** Every git call of `next-id` captures its output, so
+  git, ssh, and a credential helper write to a pipe and never to the terminal.
+  Every `subprocess.run` in `init-factory` captures its output, including the
+  generators, `uv`, `pre-commit`, and now `migrate-spec-layout`. The one
+  `os.write` in `init-factory` writes a usage file, not a stream.
+- **Exceptions before the wrap.** The wrap is the first statement of the
+  `__main__` block. Before it, only imports and constants run, and none of
+  them reads a URL.
+- **`init-factory`.** `check_counter` on an `origin` with a token prints the
+  new warning, the "does not answer" warning, and git's line, all with `***`.
+  The report list that `init-factory` keeps holds the same redacted lines.
+
+**What capturing `migrate-spec-layout` changes for the user.** The script asks
+no question and reads no input, so nothing waits for an answer. Its lines now
+appear when it ends, not while it runs, and all standard-output lines come
+before the standard-error lines. The script prints its moves on standard output
+and writes to standard error only on a failure, after the moves. So the user
+sees the same lines in the same order.
+
+**Notes.** These need no change.
+
+- A password with a raw `/`, such as `https://u:a/b@host/r.git`, keeps its
+  second half after the redaction, because the pattern stops at the first `/`.
+  Such a URL is invalid, git refuses it with "URL using bad/illegal format",
+  and git's own message prints it in full too. A real token with a `/` must be
+  percent-encoded, and that form is redacted.
+- `input()` prompts of `init-factory` still work through the wrap. On a
+  terminal, Python writes the prompt itself and not through `sys.stdout`. No
+  prompt holds a URL.

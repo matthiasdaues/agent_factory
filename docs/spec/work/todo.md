@@ -308,3 +308,19 @@ token through an askpass script.
 
 **Action:** decide whether a claim unsets `GIT_ASKPASS` and `core.askPass`, and
 how a CI job then passes its token. Record the answer in BR-076.
+
+## T-0021 — An agent can read a token in a remote URL with ordinary commands
+
+- status: open
+- source: SEC-0007 and the stakeholder's rule of 2026-11-06: an agent must never see a token in the clear
+
+`next-id` and `init-factory` redact the user info of every URL they print
+(SEC-0007). A token stored in `.git/config` stays readable for an agent all the
+same: `git remote -v`, `git remote get-url`, `git config --list`, or
+`cat .git/config` print it. `init-factory` warns about such a URL, but nothing
+stops an agent from reading it.
+
+**Action:** decide how the guardrail hook blocks the common commands that
+print remote URLs, and say in `rules.md` that credentials belong in a
+credential helper, never in a remote URL. A hook cannot catch every way to
+read a file, so the rule carries the main weight.
