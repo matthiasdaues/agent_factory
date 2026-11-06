@@ -9,7 +9,7 @@ supersedes:
 
 impact:
   scope: cross_component
-  architecture_change: false
+  architecture_change: true  # mechanical detection
   external_contract_change: true
   boundaries:
     - packages/factory/agents/virgil.md
