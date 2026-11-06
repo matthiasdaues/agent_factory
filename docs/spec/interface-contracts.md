@@ -1192,25 +1192,32 @@ the User. It changes no ref and no file (BR-098).
 `agent-factory.counterRemote` names to `origin`. BR-102 defines its steps, and
 the [Move Lifecycle](state-machines.md#move-lifecycle) shows them.
 
-| Property | Contract                                                                                                                            |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Reads    | The local counter at the path of `agent-factory.counterRemote`, and `origin`                                                        |
-| Writes   | The local `refs/ids/counters`, `refs/ids/counters` on `origin`, and the removal of `agent-factory.counterRemote` from `.git/config` |
-| Leases   | A lease on the claim commit C for the marker, the create-only lease for the push, and a lease on the marker to put C back           |
-| Messages | Every remote by its redacted URL (BR-077)                                                                                           |
+| Property | Contract                                                                                                                                                                                       |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reads    | The local counter at the path of `agent-factory.counterRemote`, and `origin`                                                                                                                   |
+| Writes   | The local `refs/ids/counters`, `refs/ids/counters` on `origin`, and the removal of `agent-factory.counterRemote` from `.git/config`                                                            |
+| Leases   | A lease on the claim commit C for the marker, the create-only lease for the push, and a lease on the marker to put C back                                                                      |
+| Messages | Every remote by its redacted URL (BR-077)                                                                                                                                                      |
+| Output   | On success, the line `moved refs/ids/counters from <local> to <remote>` on standard output, and exit `0`. `<local>` is the path of the setting, and `<remote>` is the redacted URL of `origin` |
+| Remote   | The marker names `remote.origin.url` as the clone configures it. The push goes to the URL that `git ls-remote --get-url` prints for it, so the clone's `url.<base>.insteadOf` rewrites apply   |
 
-| Case                                                                             | Result                                                                                                           |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `origin` holds no `refs/ids/counters`                                            | `origin` holds C, the local counter holds the marker, the setting is gone                                        |
-| an ID claim raised C before the marker                                           | the move reads the local counter again and carries the new claim commit to `origin` (BR-103)                     |
-| `origin` holds a counter                                                         | the local counter holds C again, the setting stays, and the message names both counters                          |
-| the push fails for another reason                                                | the local counter holds C again, the setting stays, and the message holds git's message                          |
-| the local counter holds a marker, and `origin` holds no `refs/ids/counters`      | the move takes C from the marker's parent and pushes it. The result is that of the first row (BR-102)            |
-| the local counter holds a marker, and `origin` holds C                           | the push was done before the cut-off. The move only removes the setting, and the setting is gone                 |
-| the local counter holds a marker, and `origin` holds a claim commit other than C | a collision: the message names both counters, the local counter keeps the marker, and the setting stays (BR-102) |
+| Case                                                                             | Result                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin` holds no `refs/ids/counters`                                            | `origin` holds C, the local counter holds the marker, the setting is gone                                                                                                                                              |
+| an ID claim raised C before the marker                                           | the move reads the local counter again and carries the new claim commit to `origin` (BR-103)                                                                                                                           |
+| `origin` holds a counter                                                         | the local counter holds C again, the setting stays, and the message names both counters                                                                                                                                |
+| the push fails for another reason                                                | the local counter holds C again, the setting stays, and the message holds git's message                                                                                                                                |
+| the push runs over the time limit of BR-076                                      | the local counter keeps the marker, the setting stays, and the message names the remote and the time limit. This is the CutOff of the [Move Lifecycle](state-machines.md#move-lifecycle), and a second move resumes it |
+| the local counter holds a marker, and `origin` holds no `refs/ids/counters`      | the move takes C from the marker's parent and pushes it. The result is that of the first row (BR-102)                                                                                                                  |
+| the local counter holds a marker, and `origin` holds C                           | the push was done before the cut-off. The move only removes the setting, and the setting is gone                                                                                                                       |
+| the local counter holds a marker, and `origin` holds a claim commit other than C | a collision: the message names both counters, the local counter keeps the marker, and the setting stays (BR-102)                                                                                                       |
 
-The proposal names no exit code for the last two cases (CIF-G08). This
+The proposal names no exit code for the failure cases (CIF-G08). This
 specification takes non-zero, as for every failure of `next-id`.
+
+ST-0381 adds the restart after a stale lease on C and the resume from a
+marker. Until then, a stale lease and a marker at the local counter each end
+the move with a non-zero exit, and the move changes nothing.
 
 ### `init-factory` counter check
 
