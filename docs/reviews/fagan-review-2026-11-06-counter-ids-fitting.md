@@ -82,3 +82,15 @@ These observations need no change now. They stay in this report only.
 **The printed command names a bare `next-id`.** Step 4 tells VIRGIL to run the command as printed, and the installed script is `.agent-factory/factory/scripts/next-id`. The feature file fixes the printed form, and an agent sees the error at once.
 
 **A lock on the local counter ends the move without a retry.** When a claim's push holds `refs/ids/counters.lock`, `update-ref` reports "File exists", not a stale lease. The move then fails with "the move changed nothing", and the local counter stays at C. A test with a hand-made lock file showed this. The outcome is safe, and the User runs the move again.
+
+## Pass 2
+
+Pass 2 checks only FAGAN-0033 and the fix commit `c61c671b3a1a22f9533ba93214d3ca93a17b0cfc` on `fix/fagan-0033`, diffed against `feature/counter-ids-fitting`. The fix holds and adds no blocking defect. FAGAN-0033 is `resolved`. The branch may merge into `dev` once the fix is merged into `feature/counter-ids-fitting`.
+
+**The change.** Step 4 of `virgil.md` now checks for `origin` with `git remote` and a match on the line `origin`, so no command prints a URL. When `origin` exists and the repository that the setting names holds no `refs/ids/counters`, VIRGIL removes the setting before `--plan-seed`. A declined seed without `origin` still keeps the setting, so CIFP-C04 holds. The new test in `tests/factory/test_fitting_text.py` checks that the check, the ref, and the unset command come before `--plan-seed`.
+
+**The reproduction, walked through the new text.** `origin` holds a counter with `ST=0041` claimed. In `demo`, the setting points at `demo`, which holds no counter. `git remote` lists `origin`, and `git ls-remote <path> refs/ids/counters` prints nothing, so VIRGIL removes the setting. `--plan-seed` then prints "refs/ids/counters is in use on .../origin.git; the project needs no seed" and exits 0. The next two claims print `ST-0042` and `ST-0043`, both from `origin`. The session-start check finds no setting and offers no move. The project ends with one counter.
+
+**Control case.** A local counter that holds a claim commit or a marker answers `git ls-remote` with one line. So the setting stays, and the move of the session start, or its resume, still carries the counter to `origin`.
+
+**Note.** The new text says "holds no `refs/ids/counters`" and names no command for that check. `git ls-remote <path> refs/ids/counters` prints no URL, because the setting holds a path. An agent can pick that command without help, so this needs no change.
