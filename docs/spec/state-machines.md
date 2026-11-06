@@ -719,7 +719,7 @@ has no state machine.
 ### Claim Lifecycle
 
 One call of `next-id <PREFIX>`, after the prefix check and the remote lookup
-passed. BR-071 and BR-072 hold the rules.
+passed. BR-071, BR-072, and BR-076 hold the rules.
 
 #### Pseudocode
 
@@ -735,6 +735,9 @@ On FetchRefused:
   ChangeState(FAILED)
 On RemoteUnreachable:
   ChangeState(FAILED)
+On GitCallTimedOut:
+  # the fetch runs longer than the time limit of BR-076
+  ChangeState(FAILED)
 
 State: PUSHING
   # next-id pushes the new claim commit with the lease on the old SHA
@@ -748,6 +751,9 @@ On LeaseStale:
 On PushRefused:
   ChangeState(FAILED)
 On RemoteUnreachable:
+  ChangeState(FAILED)
+On GitCallTimedOut:
+  # the push runs longer than the time limit of BR-076
   ChangeState(FAILED)
 
 State: WAITING
@@ -771,11 +777,13 @@ stateDiagram-v2
     READING --> FAILED : CounterMissing
     READING --> FAILED : FetchRefused
     READING --> FAILED : RemoteUnreachable
+    READING --> FAILED : GitCallTimedOut
     PUSHING --> CLAIMED : PushAccepted
     PUSHING --> WAITING : LeaseStale (fewer than ten in a row)
     PUSHING --> FAILED : LeaseStale (tenth in a row)
     PUSHING --> FAILED : PushRefused
     PUSHING --> FAILED : RemoteUnreachable
+    PUSHING --> FAILED : GitCallTimedOut
     WAITING --> READING : WaitEnds
     CLAIMED --> [*]
     FAILED --> [*]

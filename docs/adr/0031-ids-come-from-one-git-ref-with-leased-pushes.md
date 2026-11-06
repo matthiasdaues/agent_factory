@@ -93,6 +93,15 @@ the unique-ID criterion decides, whatever weight the other criteria get.
 - The clone gains no ref and no object. Credentials must come from the user's
   global git config, a credential helper, or an SSH key, because the throwaway
   repository does not read the clone's `.git/config` (DEC-23).
+- QS-18 holds only while every clone that creates indexed artifacts has the
+  one shared project repository as `origin`, because the producer steps call
+  `next-id` without `--remote`. A fork or a mirror as `origin` holds its own
+  counter. A person who seeds a fork starts a second sequence, and IDs repeat
+  across forks without any step failing. Support for fork workflows would need
+  a new decision in the proposal.
+- QS-19 to QS-21 in
+  [chapter 10](../arc42/10_quality_requirements.md#qs-19-parallel-claims-succeed-within-the-retry-budget)
+  set the availability, operability, and security measures of a claim.
 - A writer who deletes `refs/ids/counters` stops every claim until a person
   seeds again with a number above the highest ID. Nothing in the Factory
   deletes the ref.

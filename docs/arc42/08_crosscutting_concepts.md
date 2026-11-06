@@ -451,7 +451,20 @@ same commit, only one wins, and the other reads again and retries.
 
 **A failed claim stops.** `next-id` never guesses a number. Without a remote,
 without the ref, or after ten stale leases in a row, it exits non-zero, prints
-no ID, and names the reason. Every session works online for this reason.
+no ID, and names the reason. Every session works online for this reason. A claim must also end without a
+person: `next-id` runs its git calls without credential prompts and within a
+time limit, which the [`next-id` contract](../spec/interface-contracts.md#packagesfactoryscriptsnext-id)
+sets (ATAM-0012). QS-20 in
+[chapter 10](10_quality_requirements.md#qs-20-a-failed-claim-ends-with-a-named-cause)
+states the measure.
+
+**One `origin` for every clone.** `next-id` claims on the URL of `origin`, and
+the producer steps pass no `--remote`. So the design holds only while every
+clone that creates indexed artifacts has the one shared project repository as
+`origin`. A fork or a mirror as `origin` holds its own counter. Two
+contributors who each seed their own fork both claim `ST-1001`, and the two
+pull requests collide only at the merge. A person therefore seeds only the
+shared repository, never a fork.
 
 **Seeding.** A person seeds each project once with `next-id --seed <number>`,
 above the highest ID in use. `next-id --seed 1000 ADR=6` lets ADRs continue at
@@ -462,7 +475,13 @@ names.
 **Agents push the claim.** An agent may push `refs/ids/counters` through
 `next-id` in both modes. That is the one exception to the human's ownership of
 pushes in `rules.md`
-([ADR-0032](../adr/0032-agents-push-the-claim-ref-through-next-id.md)).
+([ADR-0032](../adr/0032-agents-push-the-claim-ref-through-next-id.md)). The
+lease protects only claims that `next-id` builds. A push outside `next-id`,
+such as `git -C . push` with a hand-written claim commit or plain `--force`,
+can set a line back, and then IDs repeat. The guardrail hook lets such a push
+through, and T-0017 in [todo.md](../spec/work/todo.md) tracks that gap. So the
+counter rests on the rule that agents claim only through `next-id`, and on
+write access to the remote.
 
 **Specification artifacts.** The spec
 [counter-ids.feature](../spec/features/counter-ids.feature), the

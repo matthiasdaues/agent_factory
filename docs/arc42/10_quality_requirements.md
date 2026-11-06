@@ -222,6 +222,42 @@ References: [6.12](06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-00
 
 References: [6.15](06_runtime_view.md#615-id-claim-with-a-stale-lease), [8.18](08_crosscutting_concepts.md#818-id-allocation), [ADR-0031](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)
 
+### QS-19: Parallel claims succeed within the retry budget
+
+| Field             | Description                                                                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Availability (ID allocation)                                                                                                                                                                                       |
+| Stimulus          | Eight sessions run `next-id` at the same moment, for mixed prefixes, such as developer agents of one wave that each file a finding.                                                                                |
+| Environment       | One remote holds `refs/ids/counters`. Every prefix shares the one ref, so every claim collides with every other. The Factory sets no upper limit on parallel sessions, so this scenario fixes the number at eight. |
+| Response          | Each refused claim waits a random 0.1 to 1 second, reads the counter again, and retries.                                                                                                                           |
+| Response measure  | On a local bare repository, all eight calls exit `0` with eight different IDs, and none uses up its ten stale leases. A hosted remote is not measured here.                                                        |
+
+References: [6.15](06_runtime_view.md#615-id-claim-with-a-stale-lease), [8.18](08_crosscutting_concepts.md#818-id-allocation), [ADR-0031](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)
+
+### QS-20: A failed claim ends with a named cause
+
+| Field             | Description                                                                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Operability                                                                                                                                                             |
+| Stimulus          | An agent runs `next-id FAGAN` while the remote is unreachable, refuses access, lacks `refs/ids/counters`, or wants credentials that the user's git setup does not hold. |
+| Environment       | No person watches the agent's shell, so nobody answers a credential prompt.                                                                                             |
+| Response          | `next-id` asks for no credentials, stops each git call at the time limit of the `next-id` contract, and fails.                                                          |
+| Response measure  | The call exits non-zero within the bound that the contract sets for one claim, prints no ID, and names exactly one cause from the claim error table of the contract.    |
+
+References: [8.18](08_crosscutting_concepts.md#818-id-allocation), [`next-id` contract](../spec/interface-contracts.md#packagesfactoryscriptsnext-id)
+
+### QS-21: Only next-id and repository writers change the counter
+
+| Field             | Description                                                                                                                                                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Security (ID allocation)                                                                                                                                                                                                                       |
+| Stimulus          | A principal pushes `refs/ids/counters`: a token with read access only, or an agent that writes the claim commit by hand instead of running `next-id`.                                                                                          |
+| Environment       | The remote grants write access per repository. The guardrail hook does not block a push written as `git -C . push` (T-0017).                                                                                                                   |
+| Response          | The remote refuses the read-only push. A claim through `next-id` needs write access to the repository and nothing more. A hand-written push by a writer is not refused, so the rule that agents claim only through `next-id` guards that case. |
+| Response measure  | A push with a read-only token fails after one try, and `next-id` prints git's message. No step of the Factory pushes the counter outside `next-id`.                                                                                            |
+
+References: [8.18](08_crosscutting_concepts.md#818-id-allocation), [ADR-0032](../adr/0032-agents-push-the-claim-ref-through-next-id.md)
+
 ## 10.2 Quality Attribute Priority
 
 | Priority | Quality attribute                        | Scenarios |
@@ -244,6 +280,9 @@ References: [6.15](06_runtime_view.md#615-id-claim-with-a-stale-lease), [8.18](0
 | 2        | Maintainability (artifact ownership)     | QS-16     |
 | 2        | Maintainability (specification currency) | QS-17     |
 | 1        | Correctness (unique IDs)                 | QS-18     |
+| 2        | Availability (parallel claims)           | QS-19     |
+| 2        | Operability (failed claim)               | QS-20     |
+| 2        | Security (counter writes)                | QS-21     |
 
 ## Referenced from
 

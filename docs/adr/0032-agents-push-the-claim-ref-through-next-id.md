@@ -33,9 +33,17 @@ text `git push` in a shell command, so the command `next-id ST` passes it.
 ## Consequences
 
 - An agent creates an indexed artifact without waiting for the human.
-- A claim push changes no branch and carries no code. The lease refuses every
-  stale update, so a push cannot hand out a number twice.
+- A claim push by `next-id` changes no branch and carries no code. Its lease
+  refuses every stale update, and `next-id` only raises a line, so its push
+  cannot hand out a number twice.
 - The hook does not force a claim through `next-id`. A push written as
-  `git -C . push` passes the hook too. Such a push can leave a gap in a
-  sequence, but no duplicate. T-0017 in `docs/spec/work/todo.md` tracks the
-  hook gap.
+  `git -C . push` passes the hook too, and so does one with plain `--force`.
+  Such a push can write any counter value, including a lower one. Take a
+  counter at `ST=1020`: a hand-written claim commit with `ST=1012`, pushed with
+  a lease on the current SHA, is accepted. The next `next-id ST` then prints
+  `ST-1013`, which a branch already uses.
+- So two things guard the counter, not the lease: the rule that agents claim
+  only through `next-id`, and write access to the remote. T-0017 in
+  `docs/spec/work/todo.md` tracks the hook gap, and QS-21 in
+  [chapter 10](../arc42/10_quality_requirements.md#qs-21-only-next-id-and-repository-writers-change-the-counter)
+  states the security scenario.

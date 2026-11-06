@@ -1062,7 +1062,7 @@ The first reconciliation run of a day writes `reconciliation-<date>.md`. A secon
 ## Counter IDs Contracts
 
 The contracts of [counter-ids.feature](features/counter-ids.feature). The
-rules behind them are BR-068 to BR-075 in
+rules behind them are BR-068 to BR-076 in
 [validation-rules.md](validation-rules.md#counter-ids-next-id-br-068br-075).
 A value that the proposal leaves open carries the identifier of its gap in
 [counter-ids-gaps.md](work/counter-ids-gaps.md).
@@ -1080,19 +1080,21 @@ A value that the proposal leaves open carries the identifier of its gap in
 | Seed output  | On success, the seed lines on standard output, and exit `0`. Whether the token line is one of them is open (CID-G03)                                                    |
 | Failure      | Exit non-zero, nothing on standard output, and the message on standard error. The proposal names no exit code other than `0`                                            |
 | Credentials  | From the user's global git config, a credential helper, or an SSH key. A credential helper in the clone's own `.git/config` does not reach the claim                    |
+| Git calls    | A claim runs git without prompts and with a time limit per call (BR-076). A seed keeps git's prompts                                                                    |
 
 A claim fails in these cases. `next-id` checks the prefix before it looks for
 the remote.
 
-| Case                               | Message names                              |
-| ---------------------------------- | ------------------------------------------ |
-| prefix not in the list             | the prefix and the list of prefixes        |
-| no `--remote` and no `origin`      | `origin`, `--remote`, and `next-id --seed` |
-| remote unreachable                 | the remote and git's error message         |
-| `refs/ids/counters` missing        | the remote and `next-id --seed`            |
-| fetch refused by the remote        | the remote and git's error message         |
-| ten stale leases in a row (BR-072) | the prefix and the last number tried       |
-| push refused for another reason    | the remote and git's error message         |
+| Case                                    | Message names                              |
+| --------------------------------------- | ------------------------------------------ |
+| prefix not in the list                  | the prefix and the list of prefixes        |
+| no `--remote` and no `origin`           | `origin`, `--remote`, and `next-id --seed` |
+| remote unreachable                      | the remote and git's error message         |
+| `refs/ids/counters` missing             | the remote and `next-id --seed`            |
+| fetch refused by the remote             | the remote and git's error message         |
+| ten stale leases in a row (BR-072)      | the prefix and the last number tried       |
+| push refused for another reason         | the remote and git's error message         |
+| a git call over the time limit (BR-076) | the remote and the time limit              |
 
 A seed fails and changes nothing in these cases. `next-id` checks the
 arguments before it looks for the remote.
