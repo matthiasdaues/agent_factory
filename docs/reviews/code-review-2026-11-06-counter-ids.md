@@ -2,7 +2,7 @@
 type: code-review
 title: Code review of the counter-ids implementation
 date: 2026-11-06
-status: defects
+status: pass
 reviewer: code-review-agent
 findings_filed: 2
 branch: feature/counter-ids
@@ -65,3 +65,20 @@ These observations need no change. They stay in this report only.
 **Producer texts.** `create-backlog`, `finding-format.md`, `bug-fix.md`, `todo-format.md`, and `write-adr` name the installed path, read the ID from standard output, and stop on a failure (ST-0372). The split rule keeps its letter scan. `finding-format.md` lists `ARCH` and `QA` (DEC-25). The guardrail hook is unchanged, and its tests pass the three command texts of ST-0374.
 
 **Architecture.** `next-id` uses only the standard library and imports nothing from `usage`, so `dependency-rules.dsl` holds. The `Counter` protocol separates the claim loop from git, which lets the unit tests drive the loop without a remote (DEC-11).
+
+## Pass 2
+
+Pass 2 reviews the fix commit `3da01aa8dc31e48f1986b0cfd6e0b1f6516aa6f7` on `fix/impl-0004-0005`, diffed against `feature/counter-ids` at `585dda18`. It checks the three findings of pass 1 and looks for new defects in the fix only. The fix holds for all three findings, and it adds no blocking defect. The branch may go to reconciliation once the fix is merged into `feature/counter-ids`.
+
+| Finding   | Outcome                                                                                                                                                                                                                                             |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMPL-0004 | Resolved. `ssh_command_with_batch_mode` takes `GIT_SSH_COMMAND`, else `core.sshCommand`, else `ssh`, and adds ` -o BatchMode=yes`. The reproduction of pass 1 now runs the user's script. The spec-feedback row for BR-076 is filed.                |
+| IMPL-0005 | Resolved. The four statements name only the prefixes that `next-id` serves. They drop `PROP-NN` and name `PROP` rows and split letters as outside the counter.                                                                                      |
+| IMPL-0006 | Resolved. The test is now `test_st_0372_finding_format_names_every_tag_for_next_id`. The register holds unfixed findings only, so its line is removed from `code.jsonl`. This report keeps the record.                                              |
+| IMPL-0007 | New, `minor`, register line. The fixed texts say that the prefixes are listed in `finding-format.md`, but that list holds only the nine finding tags. `ST`, `T`, and `ADR` are missing. Each producer file names its own prefix, so no claim fails. |
+
+**Notes on the fix.** These need no change.
+
+- `ssh_command_with_batch_mode` reads `core.sshCommand` in the current directory, so a value in the clone's local config also reaches the claim. Plain `git fetch` in the clone uses that value too. The Credentials row of the contract names only a credential helper as local config that does not reach the claim, so the row stays true.
+- A user who sets only the older `GIT_SSH` variable still gets plain `ssh`, because `GIT_SSH_COMMAND` ranks above `GIT_SSH`. Pass 1 behaved the same way.
+- Every guarded git call now starts one extra `git config` process. A claim makes at most about twenty guarded calls, so the cost is small.
