@@ -424,7 +424,7 @@ REPOSITORY_GATES = {
     "link-check": ("link-check",),
     # --no-validate: validation renders the diagrams into docs/assets/images
     # (T-0019). The container test below covers structurizr validate.
-    "arch-lint": ("arch-lint", "--no-validate"),
+    "arch-lint": ("arch-lint", "--no-validate", "--no-export"),
     "dependency-check": ("dependency-check",),
     "spec-lint": ("spec-lint",),
     "statemachine-lint": ("statemachine-lint", "--spec-dir", "docs/spec"),

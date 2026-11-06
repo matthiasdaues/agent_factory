@@ -334,6 +334,26 @@ class TestStructurizrHandover:
         assert cmd[-1] == "export-all"
         assert kwargs["env"]["STRUCTURIZR_WORKSPACE"] == "arc42/architecture.dsl"
 
+    def test_t_0019_no_export_never_runs_structurizr(self, tmp_path, monkeypatch):
+        """T-0019: with --no-export, a stale projected workspace is not exported."""
+        calls = self._capture(monkeypatch)
+        docs_root = tmp_path / "docs"
+        dsl = docs_root / "spec" / "architecture.dsl"
+        dsl.parent.mkdir(parents=True)
+        dsl.write_text('workspace {\n  properties {\n    "arc42.projected" "true"\n  }\n}\n')
+        (docs_root / "arc42").mkdir()
+        al.main(
+            [
+                "--dsl",
+                str(dsl),
+                "--docs-dir",
+                str(docs_root / "arc42"),
+                "--no-validate",
+                "--no-export",
+            ]
+        )
+        assert calls == []
+
     def test_dsl_outside_docs_folder_is_an_error(self, tmp_path, monkeypatch):
         calls = self._capture(monkeypatch)
         rep = al.Report()

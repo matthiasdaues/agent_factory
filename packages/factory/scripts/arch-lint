@@ -506,6 +506,12 @@ def main(argv: list[str] | None = None) -> int:
         "--no-validate", action="store_true", help="skip structurizr validate"
     )
     ap.add_argument(
+        "--no-export",
+        action="store_true",
+        help="skip the auto-export of stale diagrams; tests use it so a run never "
+        "rewrites docs/assets/images (T-0019)",
+    )
+    ap.add_argument(
         "--allow-missing-docs-dir",
         action="store_true",
         help="warn instead of exit 2 when --docs-dir does not exist",
@@ -557,7 +563,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
         if dsl_path.exists():
-            if projected:
+            if projected and args.no_export:
+                rep.info("ARCH-STALE", "--no-export given; skipping diagram export")
+            elif projected:
                 check_staleness(rep, dsl_path, images, docs_root)
             else:
                 rep.info(
