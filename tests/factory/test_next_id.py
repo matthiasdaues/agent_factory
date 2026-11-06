@@ -8,11 +8,14 @@ a test (QA strategy, Test setup).
 
 from __future__ import annotations
 
+import contextlib
+import http.server
 import os
 import re
 import socket
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -750,3 +753,161 @@ def test_st_0373_two_branches_get_different_ids_and_commit_on_their_own(env, tmp
         tracked = _git(env, "ls-tree", "-r", "--name-only", branch, cwd=clone_path).splitlines()
         assert f"docs/findings/{ids[branch]}.md" in tracked
         assert f"docs/findings/{other}.md" not in tracked
+
+
+# --- a failed claim names its cause (ST-0370) ----------------------------------
+
+
+def _closed_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+@contextlib.contextmanager
+def _http_server(status: int, headers: dict[str, str] | None = None):
+    """Answer every request with one status; yield the base URL."""
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def _answer(self):
+            self.send_response(status)
+            for key, value in (headers or {}).items():
+                self.send_header(key, value)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        do_GET = do_POST = do_HEAD = _answer
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}/remote.git"
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def _assert_failed_claim(result, *names: str) -> None:
+    assert result.returncode != 0
+    assert result.stdout == ""
+    for name in names:
+        assert name in result.stderr
+
+
+@pytest.mark.spec("CID-04-IT-03")
+class TestClaimOnARemoteThatCannotAnswer:
+    def test_st_0370_remote_without_the_counter_names_the_seed(
+        self, env, tmp_path, remote
+    ):
+        result = run(env, tmp_path, "ST", "--remote", str(remote))
+        _assert_failed_claim(result, str(remote), "next-id --seed")
+        assert not _has_ref(env, remote)
+
+    def test_st_0370_closed_port_names_the_remote_and_git_error(self, env, tmp_path):
+        url = f"http://127.0.0.1:{_closed_port()}/remote.git"
+        result = run(env, tmp_path, "ST", "--remote", url)
+        _assert_failed_claim(result, url, "unable to access")
+
+    def test_st_0370_clone_without_origin_names_origin_remote_and_seed(
+        self, env, tmp_path
+    ):
+        repo = tmp_path / "no-origin"
+        _git(env, "init", "--quiet", str(repo))
+        result = run(env, repo, "ST")
+        _assert_failed_claim(result, "`origin`", "--remote", "next-id --seed")
+
+    def test_st_0370_remote_answering_403_names_the_remote_and_git_error(
+        self, env, tmp_path
+    ):
+        with _http_server(403) as url:
+            result = run(env, tmp_path, "ST", "--remote", url)
+        _assert_failed_claim(result, url, "403")
+
+
+@pytest.mark.spec("CID-04-IT-04")
+def test_st_0370_password_server_gets_no_prompt(env, tmp_path):
+    asking = {**env, "GIT_TERMINAL_PROMPT": "1"}
+    with _http_server(401, {"WWW-Authenticate": 'Basic realm="x"'}) as url:
+        result = subprocess.run(
+            [sys.executable, str(NEXT_ID), "ST", "--remote", url],
+            cwd=tmp_path,
+            env=asking,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=20,
+        )
+    _assert_failed_claim(result, url, "terminal prompts disabled")
+    assert len(result.stderr.strip().splitlines()) == 1
+
+
+@pytest.mark.spec("CID-04-IT-05")
+class TestEveryGitCallOfAClaimRunsWithoutPromptsAndWithALimit:
+    @pytest.fixture
+    def calls(self, monkeypatch, remote, env):
+        _set_counter(env, remote, "start=1000")
+        monkeypatch.setenv("HOME", env["HOME"])
+        monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+        seen: list[dict] = []
+        real = subprocess.run
+
+        def spy(cmd, **kwargs):
+            seen.append(kwargs)
+            return real(cmd, **kwargs)
+
+        monkeypatch.setattr(ni.subprocess, "run", spy)
+        return seen
+
+    def test_st_0370_claim_calls_carry_the_environment_and_the_limit(
+        self, calls, remote, monkeypatch
+    ):
+        monkeypatch.delenv("GIT_TERMINAL_PROMPT", raising=False)
+        monkeypatch.delenv("GIT_SSH_COMMAND", raising=False)
+        assert ni.claim("ST", str(remote)) == "ST-1001"
+        assert calls
+        for kwargs in calls:
+            assert kwargs["timeout"] == 30
+            assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
+            assert kwargs["env"]["GIT_SSH_COMMAND"] == "ssh -o BatchMode=yes"
+
+    def test_st_0370_seed_keeps_prompts_and_has_no_limit(
+        self, calls, tmp_path, env, monkeypatch
+    ):
+        monkeypatch.delenv("GIT_TERMINAL_PROMPT", raising=False)
+        monkeypatch.delenv("GIT_SSH_COMMAND", raising=False)
+        fresh = _bare(env, tmp_path / "fresh.git")
+        calls.clear()
+        ni.seed(["1000"], str(fresh))
+        assert calls
+        for kwargs in calls:
+            assert kwargs.get("timeout") is None
+            assert "GIT_TERMINAL_PROMPT" not in kwargs["env"]
+            assert "GIT_SSH_COMMAND" not in kwargs["env"]
+
+
+@pytest.mark.spec("CID-04-IT-06")
+def test_st_0370_git_call_over_the_limit_ends_the_claim(
+    remote, env, monkeypatch, capsys
+):
+    _set_counter(env, remote, "start=1000")
+    monkeypatch.setenv("HOME", env["HOME"])
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    real = subprocess.run
+
+    def slow_fetch(cmd, **kwargs):
+        if "fetch" in cmd:
+            raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+        return real(cmd, **kwargs)
+
+    monkeypatch.setattr(ni.subprocess, "run", slow_fetch)
+    assert ni.main(["ST", "--remote", str(remote)]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert str(remote) in captured.err
+    assert "30 seconds" in captured.err
+    assert _counter(env, remote) == ["start=1000", "token=fixture0000000000"]
