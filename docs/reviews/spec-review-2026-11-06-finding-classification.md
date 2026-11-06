@@ -206,3 +206,43 @@ The specification is not ready for architecture. SPEC-0080 blocks it. Its fix is
 ### Handoff, pass 2
 
 Requirements agent: the spec review found 1 open blocking finding, SPEC-0080. Add the rule and the Scenario, and hand the mirror in the Finding Lifecycle and the `finding-lint` contract to the domain-modeling agent. Then run spec review pass 3.
+
+## Pass 3
+
+The fixes of pass 2 hold, and nothing blocks architecture. SPEC-0080 stays resolved. SPEC-0081 to SPEC-0083 are fixed. The new glossary entry Lower adds one minor finding, SPEC-0084, and two notes stay here.
+
+Pass 3 is narrow. It read the fix commit `02669058` on `dev` against SPEC-0080 and the three minor findings of pass 2. It then read BR-086, BR-091, BR-095, BR-109, the Finding Lifecycle, and the `finding-lint` contract in full, to check that the fix contradicts none of them. It did not review the rest of the specification again.
+
+`spec-lint`: `0 error(s), 0 warning(s), 58 info across 66 spec file(s).` The info lines are unchanged since pass 2.
+
+### Pass-2 findings
+
+| ID        | Pass-2 record | Verdict  | Evidence                                                                                                                                                                                                                                                                                                                                                          |
+| --------- | ------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SPEC-0080 | finding file  | resolved | BR-109 rejects a version that lacks or changes the `review_class` of its `HEAD` version. The `finding-lint` contract reads and checks such a file and skips only a file without the field in both versions. The lifecycle rejects **ClassRemoved** in **STOPPING** and **IN_LOOP**. The new FC-10 Scenario expects exit `1` for BUG-0037, and FC-10-CT-07 owns it |
+| SPEC-0081 | register line | fixed    | Lowered on **IN_LOOP** first rejects a lowering when the `HEAD` version is `critical` and lacks a confirmation field, as BR-109 states                                                                                                                                                                                                                            |
+| SPEC-0082 | register line | fixed    | The boundary row cites the stop contract and no longer waits for FC-QG27                                                                                                                                                                                                                                                                                          |
+| SPEC-0083 | register line | fixed    | The glossary defines Lower in the terms of BR-109: a severity below the `HEAD` severity, or a file replaced by a register line                                                                                                                                                                                                                                    |
+
+The new rule agrees with the other rules. BR-086 still rejects `deferred` on a file with `review_class`, and BR-109 now keeps the field there. BR-091 counts a `HEAD` version with `review_class` as critical, and the lint keeps that version from losing the field at the commit. BR-095 is unaffected, because its old files carry no `review_class` at `HEAD`, so BR-109 compares none of them. The Scenario sets `resolved` and not `deferred`. The rule covers both, so the contract test can add a `deferred` row.
+
+### Semantic findings, pass 3
+
+| ID        | Severity | Category | Characteristic | Location                                    | Finding                                                                                                                                                        |
+| --------- | -------- | -------- | -------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SPEC-0084 | minor    | defect   | Terminology    | `finding-classification.feature:946`, FC-15 | The new entry Lower lists "downgrade" in its Avoid column. The Scenario "The stakeholder raises a wrong downgrade by changing the answer" still uses the word. |
+
+SPEC-0084 is a line in `docs/findings/register/document.jsonl`, with the requirements agent as its owner. It does not block, because the Scenario still tells a planner what to build.
+
+### Notes, pass 3
+
+1. **The lifecycle shows ClassRemoved only in two states.** BR-109 keeps `review_class` on every file whose `HEAD` version carries it, so also on a resolved or waived file. The terminal states of the Finding Lifecycle model no edits, so this is no contradiction. The `finding-lint` story takes the rule from BR-109 and the contract, which state it in full.
+2. **The entity model does not mention the new rule.** The FINDING_FILE note names the removal rule of BR-109, but not the rule that keeps `review_class`. The note does not contradict BR-109, and the planner reads BR-109.
+
+### Verdict, pass 3
+
+The specification is ready for architecture. No finding blocks it. SPEC-0084 is a register line and does not block.
+
+### Handoff, pass 3
+
+Architecture agent: the specification review of finding-classification is clean. Run the architecture agent. The requirements agent can rename the FC-15 Scenario of SPEC-0084 in any later commit.
