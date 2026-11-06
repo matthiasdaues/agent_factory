@@ -2,7 +2,7 @@
 type: reconcile-spec
 title: Reconciliation of the counter-ids-fitting specification and architecture
 date: 2026-11-06
-status: defects
+status: pass
 reviewer: reconciliation-agent
 findings_filed: 1
 story: counter-ids-fitting
@@ -182,3 +182,32 @@ acceptance specification and it contradicts DEC-16. The code needs no change.
 Once the requirements agent has renamed Rule CIF-11 and fixed its two
 Scenarios, a recheck of RECON-0030 alone decides the merge. The three `minor`
 findings and the notes can follow on `dev`.
+
+## Recheck
+
+The recheck read `feature/counter-ids-fitting` at
+`4b3a875d07dcf3c655b513f01a4d9b97df6e46b8`. Both rechecked findings hold
+as fixed:
+
+- **RECON-0030 is resolved.** Rule CIF-11 now keeps the marker and the
+  setting. Both Scenarios expect the marker commit with parent C, and the
+  second one resumes the move once the remote accepts pushes. This matches
+  DEC-16, BR-102, and the tests with the markers CIF-11-IT-01 and
+  CIF-11-IT-02.
+- **RECON-0031 is fixed.** The rows CIF-11-IT-01 and CIF-11-IT-02 describe
+  the marker and name `test_st_0380_a_counter_on_origin_refuses_the_move` and
+  `test_dec_16_a_refused_push_keeps_the_marker_and_a_second_move_resumes`.
+  Both tests exist. The run removed its line from the register.
+- **The scope map is reconciled.** All 17 Rules are `implemented`, and row
+  210 carries the new title of Rule CIF-11.
+
+Two notes stay open and block nothing:
+
+- The new step "the next local ID claim fails and names the remote" has no
+  assertion in CIF-11-IT-02. CIF-12-IT-02 checks a claim after the marker, so
+  the behaviour is tested. Owner: `test-strategy-agent`.
+- `backlog/epics-counter-ids-fitting.md:238` still lists the old Rule title.
+  Owner: `planning-agent`.
+
+No finding blocks the merge into `dev` any more. RECON-0032, RECON-0033, and
+the notes above can follow on `dev`.
