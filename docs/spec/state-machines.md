@@ -711,7 +711,10 @@ stateDiagram-v2
 
 One claim of `next-id` in
 [counter-ids.feature](features/counter-ids.feature) loops until the remote
-accepts its push or the claim fails. Written per
+accepts its push or the claim fails. One move of a local counter in
+[counter-ids-fitting.feature](features/counter-ids-fitting.feature) loops
+until it sets its marker, and then ends at `origin` or back on the local
+counter. Written per
 [state-machine-notation.md § Canonical Format](../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format):
 pseudocode is authoritative, Mermaid is derived. A seed has no loop, so it
 has no state machine.
@@ -719,7 +722,7 @@ has no state machine.
 ### Claim Lifecycle
 
 One call of `next-id <PREFIX>`, after the prefix check and the remote lookup
-passed. BR-071, BR-072, and BR-076 hold the rules.
+passed. BR-071, BR-072, BR-076, and BR-097 hold the rules.
 
 #### Pseudocode
 
@@ -729,6 +732,9 @@ State: READING
 On CounterRead:
   ChangeState(PUSHING)
 On CounterMissing:
+  ChangeState(FAILED)
+On MarkerRead:
+  # the counter ref holds a marker commit (BR-097)
   ChangeState(FAILED)
 On FetchRefused:
   # the remote answers but refuses the fetch, such as for missing credentials
@@ -775,6 +781,7 @@ stateDiagram-v2
     [*] --> READING
     READING --> PUSHING : CounterRead
     READING --> FAILED : CounterMissing
+    READING --> FAILED : MarkerRead
     READING --> FAILED : FetchRefused
     READING --> FAILED : RemoteUnreachable
     READING --> FAILED : GitCallTimedOut
@@ -792,8 +799,79 @@ stateDiagram-v2
 #### Notes
 
 - **READING** reads the claim commit again on every loop, so the next claim sees the number that the other caller took.
+
 - **LeaseStale** is the event for the git messages `stale info` and `cannot lock ref … is at <sha> but expected <sha>`, which git prints in English because `next-id` runs it with `LC_ALL=C`. Every other refusal is **PushRefused** and ends the claim after one push (DEC-23).
+
 - **FAILED** names the reason as the claim error table in [interface-contracts.md](interface-contracts.md#packagesfactoryscriptsnext-id) lists it. In every terminal state, `next-id` deletes its throwaway repository (BR-075).
+
+- **MarkerRead** ends a claim on a local counter that `next-id --move-to-origin` moved. The message names the remote of the marker and never `--seed` (BR-097).
+
+### Move Lifecycle
+
+One call of `next-id --move-to-origin`, with `agent-factory.counterRemote`
+set and `origin` present. The marker goes on the local counter before the push,
+so no ID claim lands on the local counter while the claim commit travels to
+`origin`. BR-102 and BR-103 hold the rules.
+
+#### Pseudocode
+
+```text
+State: READING
+  # initial — next-id reads the claim commit C of the local counter
+On CounterRead:
+  ChangeState(MARKING)
+
+State: MARKING
+  # next-id replaces the local refs/ids/counters with the marker commit, with a lease on C
+On MarkerSet:
+  ChangeState(PUSHING)
+On LeaseStale:
+  # an ID claim raised the local counter after the read
+  ChangeState(READING)
+
+State: PUSHING
+  # next-id pushes C to origin with the create-only lease
+On PushAccepted:
+  ChangeState(MOVED)
+On CounterOnOrigin:
+  # the create-only lease refuses, because origin holds a counter
+  ChangeState(RESTORING)
+On PushRefused:
+  ChangeState(RESTORING)
+
+State: RESTORING
+  # next-id puts C back on the local refs/ids/counters, with a lease on the marker
+On Restored:
+  ChangeState(REFUSED)
+
+State: MOVED
+  # terminal — next-id removes agent-factory.counterRemote and exits 0
+
+State: REFUSED
+  # terminal — both counters as before, the setting stays, next-id names the cause and exits non-zero
+```
+
+#### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> READING
+    READING --> MARKING : CounterRead
+    MARKING --> PUSHING : MarkerSet
+    MARKING --> READING : LeaseStale
+    PUSHING --> MOVED : PushAccepted
+    PUSHING --> RESTORING : CounterOnOrigin
+    PUSHING --> RESTORING : PushRefused
+    RESTORING --> REFUSED : Restored
+    MOVED --> [*]
+    REFUSED --> [*]
+```
+
+#### Notes
+
+- **MARKING** is the only point where an ID claim can change the outcome. A claim before it makes the lease stale, and a claim after it reads the marker and fails (BR-103).
+- **CounterOnOrigin** names both counters in the message. VIRGIL reports the collision (BR-106).
+- The proposal defines no state for a move that stops in **PUSHING** or **RESTORING**, such as on a lost connection. The local counter then holds the marker, and every ID claim fails (gap CIF-G05). It also names no event for a lease on the marker that fails in **RESTORING**.
 
 ## Finding Classification State Machines
 

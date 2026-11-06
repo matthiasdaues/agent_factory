@@ -1063,27 +1063,33 @@ The first reconciliation run of a day writes `reconciliation-<date>.md`. A secon
 
 ## Counter IDs Contracts
 
-The contracts of [counter-ids.feature](features/counter-ids.feature). The
+The contracts of [counter-ids.feature](features/counter-ids.feature) and
+[counter-ids-fitting.feature](features/counter-ids-fitting.feature). The
 rules behind them are BR-068 to BR-078 in
-[validation-rules.md](validation-rules.md#counter-ids-next-id-br-068br-078).
-A value that the proposal leaves open carries the identifier of its gap in
-[counter-ids-gaps.md](work/counter-ids-gaps.md).
+[validation-rules.md](validation-rules.md#counter-ids-next-id-br-068br-078)
+and BR-096 to BR-108 in
+[validation-rules.md](validation-rules.md#counter-ids-fitting-br-096br-108).
+A value that a proposal leaves open carries the identifier of its gap in
+[counter-ids-gaps.md](work/counter-ids-gaps.md) or
+[counter-ids-fitting-gaps.md](work/counter-ids-fitting-gaps.md).
 
 ### `packages/factory/scripts/next-id`
 
-| Property     | Contract                                                                                                                                                                |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claim usage  | `next-id <PREFIX> [--remote <url>]`                                                                                                                                     |
-| Seed usage   | `next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]`                                                                                                             |
-| Remote       | The `--remote` URL, else the URL of `origin` (BR-074). Tests pass a local bare repository with `--remote`                                                               |
-| Clone        | Optional. With `--remote`, `next-id` runs outside any git repository                                                                                                    |
-| Writes       | Only `refs/ids/counters` on the remote. A claim leaves the clone unchanged (BR-075). CID-G06 asks whether `--seed` also runs in a throwaway repository                  |
-| Claim output | On success, the ID alone on standard output, such as `ST-1013`, and exit `0`. An agent reads the ID from the output, because a shell variable does not survive (DEC-08) |
-| Seed output  | On success, the seed lines on standard output, and exit `0`. Whether the token line is one of them is open (CID-G03)                                                    |
-| Failure      | Exit non-zero, nothing on standard output, and the message on standard error. The proposal names no exit code other than `0`                                            |
-| Credentials  | From the user's global git config, a credential helper, or an SSH key. A credential helper in the clone's own `.git/config` does not reach the claim                    |
-| Git calls    | A claim runs git without prompts and with a time limit per call (BR-076). A seed keeps git's prompts                                                                    |
-| Messages     | A message names the remote by its redacted URL (BR-077). The git calls get the URL unchanged                                                                            |
+| Property     | Contract                                                                                                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claim usage  | `next-id <PREFIX> [--remote <url>]`                                                                                                                                                                                            |
+| Seed usage   | `next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]`                                                                                                                                                                    |
+| Plan usage   | `next-id --plan-seed [--remote <url>]`, as [§ `next-id --plan-seed`](#next-id---plan-seed) defines                                                                                                                             |
+| Move usage   | `next-id --move-to-origin`, as [§ `next-id --move-to-origin`](#next-id---move-to-origin) defines                                                                                                                               |
+| Remote       | The `--remote` URL, else the path in the git setting `agent-factory.counterRemote`, else the URL of `origin` (BR-096). Tests pass a local bare repository with `--remote`                                                      |
+| Clone        | Optional. With `--remote`, `next-id` runs outside any git repository                                                                                                                                                           |
+| Writes       | Only `refs/ids/counters` on the remote. A claim leaves the clone unchanged (BR-075). CID-G06 asks whether `--seed` also runs in a throwaway repository. `--move-to-origin` also removes `agent-factory.counterRemote` (BR-102) |
+| Claim output | On success, the ID alone on standard output, such as `ST-1013`, and exit `0`. An agent reads the ID from the output, because a shell variable does not survive (DEC-08)                                                        |
+| Seed output  | On success, the seed lines on standard output, and exit `0`. Whether the token line is one of them is open (CID-G03)                                                                                                           |
+| Failure      | Exit non-zero, nothing on standard output, and the message on standard error. The proposal names no exit code other than `0`                                                                                                   |
+| Credentials  | From the user's global git config, a credential helper, or an SSH key. A credential helper in the clone's own `.git/config` does not reach the claim                                                                           |
+| Git calls    | A claim runs git without prompts and with a time limit per call (BR-076). A seed keeps git's prompts                                                                                                                           |
+| Messages     | A message names the remote by its redacted URL (BR-077). The git calls get the URL unchanged                                                                                                                                   |
 
 A claim fails in these cases. `next-id` checks the prefix before it looks for
 the remote.
@@ -1091,7 +1097,8 @@ the remote.
 | Case                                    | Message names                              |
 | --------------------------------------- | ------------------------------------------ |
 | prefix not in the list                  | the prefix and the list of prefixes        |
-| no `--remote` and no `origin`           | `origin`, `--remote`, and `next-id --seed` |
+| no `--remote`, no setting, no `origin`  | `origin`, `--remote`, and `next-id --seed` |
+| a marker commit at the counter (BR-097) | the remote of the marker, never `--seed`   |
 | remote unreachable                      | the remote and git's error message         |
 | `refs/ids/counters` missing             | the remote and `next-id --seed`            |
 | fetch refused by the remote             | the remote and git's error message         |
@@ -1107,7 +1114,7 @@ arguments before it looks for the remote.
 | a number that is not a whole number from 0 to 9998 | the argument                        |
 | two pairs for one prefix                           | the prefix                          |
 | a prefix not in the list                           | the prefix and the list of prefixes |
-| no `--remote` and no `origin`                      | `origin` and `--remote`             |
+| no `--remote`, no setting, and no `origin`         | `origin` and `--remote`             |
 | remote unreachable                                 | the remote and git's error message  |
 | access refused by the remote                       | the remote and git's error message  |
 | `refs/ids/counters` exists                         | the remote and `refs/ids/counters`  |
@@ -1138,28 +1145,109 @@ token=9f3a61c0d2e4b871
 | `<PREFIX>=<NNNN>` | The highest number claimed so far for the prefix, four digits. At most one per prefix (BR-071) |
 | `token=<value>`   | A random value that differs in every claim commit, so no two claim commits share a SHA         |
 
+### Marker commit message
+
+`next-id --move-to-origin` leaves a marker commit at the local
+`refs/ids/counters` once the counter is on `origin`. Its message is one line:
+
+```text
+moved=https://***@host/demo.git
+```
+
+| Line             | Contract                                                                    |
+| ---------------- | --------------------------------------------------------------------------- |
+| `moved=<remote>` | The URL of `origin` at the move, redacted by BR-077. The only line (BR-097) |
+
+### `next-id --plan-seed`
+
+`next-id --plan-seed` prints the seed command that the fitting step shows to
+the User. It changes no ref and no file (BR-098).
+
+| Property | Contract                                                                                                                                                                               |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Remote   | The order of BR-096                                                                                                                                                                    |
+| Reads    | `refs/ids/counters` on the remote; the file names, register `id` fields, and todo headings of every local and remote-tracking branch (BR-099). Gap CIF-G10 asks about the working tree |
+| Output   | One line `next-id --seed 0 <PREFIX>=<highest> …` on standard output, or `next-id --seed 0` alone (BR-101). Gap CIF-G09 asks for the order of the pairs                                 |
+| Warnings | One warning per counted file name that breaks the new pattern, naming its path (BR-100). The warnings do not change the exit code                                                      |
+| Messages | The remote by its redacted URL (BR-077)                                                                                                                                                |
+
+| Case                                       | Exit     | Output                                                        |
+| ------------------------------------------ | -------- | ------------------------------------------------------------- |
+| the remote holds no `refs/ids/counters`    | `0`      | the seed command                                              |
+| the remote holds a claim commit            | `0`      | that the counter is in use on the remote, and no seed command |
+| the remote holds a marker commit           | non-zero | the remote of the marker, and no mention of `--seed` (BR-097) |
+| no `--remote`, no setting, and no `origin` | non-zero | `origin` and `--remote`, and no seed command                  |
+| remote unreachable                         | non-zero | the remote and git's error message, and no seed command       |
+
+### `next-id --move-to-origin`
+
+`next-id --move-to-origin` moves the local counter that
+`agent-factory.counterRemote` names to `origin`. BR-102 defines its steps, and
+the [Move Lifecycle](state-machines.md#move-lifecycle) shows them.
+
+| Property | Contract                                                                                                                            |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Reads    | The local counter at the path of `agent-factory.counterRemote`, and `origin`                                                        |
+| Writes   | The local `refs/ids/counters`, `refs/ids/counters` on `origin`, and the removal of `agent-factory.counterRemote` from `.git/config` |
+| Leases   | A lease on the claim commit C for the marker, the create-only lease for the push, and a lease on the marker to put C back           |
+| Messages | Every remote by its redacted URL (BR-077)                                                                                           |
+
+| Case                                   | Result                                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `origin` holds no `refs/ids/counters`  | `origin` holds C, the local counter holds the marker, the setting is gone                    |
+| an ID claim raised C before the marker | the move reads the local counter again and carries the new claim commit to `origin` (BR-103) |
+| `origin` holds a counter               | the local counter holds C again, the setting stays, and the message names both counters      |
+| the push fails for another reason      | the local counter holds C again, the setting stays, and the message holds git's message      |
+
+The proposal names no exit code for the last two cases (CIF-G08). This
+specification takes non-zero, as for every failure of `next-id`.
+
 ### `init-factory` counter check
 
-`init-factory` asks `origin` whether `refs/ids/counters` exists. It never
-seeds (DEC-17).
+`init-factory` asks the resolved remote whether `refs/ids/counters` exists,
+with `git ls-remote`. The remote is `agent-factory.counterRemote`, else
+`origin` (BR-105). It never seeds (DEC-17) and changes no ref.
 
 | Case                        | Output                                                                                                                                              |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `refs/ids/counters` missing | "run `next-id --seed <number>` with a number above your highest ID"                                                                                 |
-| no `origin`                 | "add the remote `origin`, then run `next-id --seed <number>`"                                                                                       |
-| `origin` unreachable        | A warning that names the remote. `init-factory` finishes the install and exits `0` (DEC-23)                                                         |
+| no setting and no `origin`  | "add the remote `origin`, then run `next-id --seed <number>`"                                                                                       |
+| remote unreachable          | A warning that names the remote. `init-factory` finishes the install and exits `0` (DEC-23)                                                         |
 | `origin` URL has user info  | A warning that shows only the redacted URL and advises a credential helper (BR-078). `init-factory` goes on with the check and finishes the install |
 
 The proposal names no exit code for the first two cases and no output when
-the counter exists (CID-G02).
+the counter exists (CID-G02). Gap CIF-G01 records that the first two hints
+contradict the seed step and the local counter.
+
+The same check derives the sixth fitting key.
+
+| Fitting key              | Contract                                                                                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fitting.counter_seeded` | `true` when the resolved remote holds `refs/ids/counters`, `false` when it does not or no remote exists, unchanged when the remote is unreachable. Greenfield too (BR-105, CIF-G07) |
+| `fitting.status`         | `fitted` only when all six keys are `true` (BR-104)                                                                                                                                 |
 
 ### Guardrail hook and `next-id`
 
 `block-dangerous-git.sh` stays unchanged. It matches the literal text of a
-push command, so the command `next-id ST` passes with exit `0`. A push written
+push command, so the commands `next-id ST` and `next-id --move-to-origin`
+pass with exit `0`. A push written
 with `git -C .` before the subcommand also passes, so the hook does not force a
 claim through `next-id`. The lease of BR-072 still refuses every stale claim
 (DEC-22).
+
+### `id-prefixes.md` table
+
+`packages/factory/rulebooks/conventions/id-prefixes.md` holds one table with a
+row per ID prefix of BR-068 (BR-108).
+
+| Column      | Contract                                             |
+| ----------- | ---------------------------------------------------- |
+| Prefix      | One prefix of the list in `next-id`, once per table  |
+| Artifact    | The kind of indexed artifact the prefix numbers      |
+| ID producer | The files that name `next-id <PREFIX>` for that kind |
+
+The text test for ID producers reads this table, the list in `next-id`, and
+each ID producer file. It fails as BR-108 defines.
 
 ## Finding Classification Contracts
 

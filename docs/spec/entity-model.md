@@ -829,7 +829,7 @@ erDiagram
     THROWAWAY_REPOSITORY }o--|| REMOTE : "claims on"
 
     REMOTE {
-        string url "the --remote URL, or what git remote get-url origin prints"
+        string url "the --remote URL, else agent-factory.counterRemote, else what git remote get-url origin prints"
     }
     COUNTER_REF {
         string name "refs/ids/counters"
@@ -867,13 +867,114 @@ erDiagram
 
 ### Notes
 
-- **COUNTER_REF** is one ref per remote. It holds every sequence of the project (DEC-14). Only `seed` creates it, and nothing in the Factory deletes it.
+- **COUNTER_REF** is one ref per remote. It holds every sequence of the project (DEC-14). Only `seed` creates it, and nothing in the Factory deletes it. On a local counter, `next-id --move-to-origin` replaces the claim commit with a marker commit, as [§ Counter IDs Fitting Entities](#counter-ids-fitting-entities) describes.
 - **CLAIM_COMMIT** is replaced on every claim. The token makes each claim commit unique, so no two claims share a SHA (DEC-13). [Claim commit message](interface-contracts.md#claim-commit-message) defines the lines.
 - **PREFIX_LINE** is missing for a prefix that has claimed nothing yet. The first claim of that prefix returns `start` plus one (DEC-17). `seed` pads every number to four digits. The proposal states the padding for `seed` only. This model takes four digits for the line a claim writes too, because that is the form of the printed ID.
 - **ID_PREFIX** values are fixed by the Factory, not by the project (DEC-18). `PROP` and `RETRO` are no prefixes (DEC-09).
 - **ID** of the prefix `ADR` names its file as `docs/adr/<NNNN>-<short-title>.md`, without the prefix. A `T` ID names an entry in `docs/spec/work/todo.md`, not a file.
 - **THROWAWAY_REPOSITORY** exists only while one claim runs. `next-id` deletes it at exit, so the clone gains no ref and no object (DEC-19). Gap CID-G06 in [counter-ids-gaps.md](work/counter-ids-gaps.md) asks whether `--seed` uses one too.
 - Split-story IDs such as `ST-0327A` take their letter from a scan, not from the counter.
+
+## Counter IDs Fitting Entities
+
+The entities of
+[counter-ids-fitting.feature](features/counter-ids-fitting.feature). The
+fitting step seeds the counter from a seed plan that `next-id --plan-seed`
+prints. A project without `origin` keeps the counter in its own `.git`, and
+the git setting `agent-factory.counterRemote` points `next-id` at it. Each ID
+producer names the ID prefix of the artifact it creates, and the convention
+`id-prefixes.md` lists every prefix in one table. The entities REMOTE,
+COUNTER_REF, CLAIM_COMMIT, ID_PREFIX, ID, and INDEXED_ARTIFACT are the ones of
+[§ Counter IDs Entities](#counter-ids-entities).
+
+```mermaid
+erDiagram
+    FITTING ||--|| FITTING_KEY_COUNTER_SEEDED : holds
+    FITTING_KEY_COUNTER_SEEDED }o--|| REMOTE : "derived from the counter on"
+    COUNTER_REMOTE_SETTING |o--|| PROJECT_REPOSITORY : "names the path of"
+    PROJECT_REPOSITORY ||--o| COUNTER_REF : "holds as local counter"
+    COUNTER_REF |o--o| MARKER_COMMIT : "points at after the move"
+    MARKER_COMMIT ||--|| REMOTE : "names the new"
+    SEED_PLAN ||--o{ SEED_PAIR : holds
+    SEED_PAIR }o--|| ID_PREFIX : "counts for"
+    SEED_PAIR ||--|{ ID_IN_USE : "takes the highest of"
+    ID_IN_USE }o--|| ID_PREFIX : carries
+    SEED_PLAN ||--o{ NAME_WARNING : prints
+    ID_PRODUCER ||--|{ CREATING_STEP : holds
+    CREATING_STEP }o--|| ID_PREFIX : "names next-id with"
+    CREATING_STEP }o--|| INDEXED_ARTIFACT : creates
+    PREFIX_TABLE ||--|{ PREFIX_TABLE_ROW : holds
+    PREFIX_TABLE_ROW ||--|| ID_PREFIX : describes
+    PREFIX_TABLE_ROW }o--|{ ID_PRODUCER : names
+
+    FITTING {
+        string home ".agent-factory/config/project-context.json, key fitting"
+        string status "unfitted | fitting | fitted | greenfield"
+        bool   model_matrix_configured
+        bool   fingerprint_confirmed
+        bool   agent_context_populated
+        bool   test_regime_detected
+        bool   hooks_decided
+    }
+    FITTING_KEY_COUNTER_SEEDED {
+        string name "fitting.counter_seeded, the sixth fitting key"
+        bool   value "true when the resolved remote holds refs/ids/counters"
+    }
+    COUNTER_REMOTE_SETTING {
+        string key "agent-factory.counterRemote"
+        string value "absolute path of the project's main repository"
+        string home ".git/config, shared by all worktrees"
+    }
+    PROJECT_REPOSITORY {
+        string path "the parent of the directory that git rev-parse --git-common-dir prints, such as /work/demo"
+    }
+    MARKER_COMMIT {
+        string message "one line moved=<remote>, the remote redacted, such as moved=https://***@host/demo.git"
+    }
+    SEED_PLAN {
+        string command "next-id --seed 0 <PREFIX>=<highest> ..., or next-id --seed 0 alone"
+        int    start "always 0"
+    }
+    SEED_PAIR {
+        string prefix "an ID_PREFIX with at least one ID in use"
+        int    highest "the highest number in use, not the count"
+    }
+    ID_IN_USE {
+        string prefix
+        int    number
+        string source "file name | id field of a register line | todo heading"
+        string branch "a local branch or a remote-tracking branch"
+    }
+    NAME_WARNING {
+        string path "a counted file name that breaks <PREFIX>-NNNN.md and <PREFIX>-NNNN<letter>.md, such as docs/findings/ATAM-0014-some-title.md"
+    }
+    ID_PRODUCER {
+        string path "a skill, agent, convention, or playbook, such as packages/factory/skills/fagan-review/SKILL.md"
+    }
+    CREATING_STEP {
+        string claim "the literal call next-id <PREFIX>, such as next-id FAGAN"
+        string artifact_kind "the kind of indexed artifact the step creates"
+    }
+    PREFIX_TABLE {
+        string path "packages/factory/rulebooks/conventions/id-prefixes.md"
+    }
+    PREFIX_TABLE_ROW {
+        string prefix
+        string artifact_kind
+        list   producers "the ID producer files of the prefix"
+    }
+```
+
+### Notes
+
+- **FITTING.status** is `fitted` only when all six keys are `true` (BR-104). `FITTING_KEY_COUNTER_SEEDED` is the sixth key. `init-factory` derives it on every run, and VIRGIL sets it in the seed step (BR-105).
+- **PROJECT_REPOSITORY** acts as the REMOTE of a local counter. Its worktrees share one `.git` and one `.git/config`, so every worktree claims from the same counter and sees the same setting (DEC-05). A local clone with the project's path as `origin` claims from it too.
+- **COUNTER_REMOTE_SETTING** exists only while the counter is local. The seed step sets it when the project has no `origin`, and a successful move removes it (DEC-08). Gap CIF-G06 in [counter-ids-fitting-gaps.md](work/counter-ids-fitting-gaps.md) asks whether it stays when the User declines the seed.
+- **COUNTER_REF** of a PROJECT_REPOSITORY points at a CLAIM_COMMIT until the move, and at a MARKER_COMMIT after it. Every ID claim and every `--plan-seed` that reads a marker commit fails (BR-097).
+- **SEED_PLAN** is the output of `next-id --plan-seed`. It exists only when the remote holds no counter (BR-098). A prefix without an ID in use gets no SEED_PAIR, so it starts at `0001` after the seed (DEC-04).
+- **ID_IN_USE** comes only from file names, the `id` field of register lines, and todo headings, never from body text (BR-099). A file name that counts but breaks the new pattern also gives a NAME_WARNING (BR-100). A new file carries the prefix and the number only (DEC-12).
+- **CREATING_STEP** names one prefix. The kind of artifact decides it, so a file that creates two kinds holds two steps with two prefixes (DEC-10, BR-107).
+- **PREFIX_TABLE** holds one row for each prefix in the list of `next-id` (DEC-11, BR-108).
 
 ## Finding Classification Entities
 
