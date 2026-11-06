@@ -35,7 +35,7 @@ Summarize what the scan found (languages, frameworks, CI, linters from the obser
 
 If the file exists and `fitting.status` is `"fitting"`:
 
-Read the five fitting keys from `.agent-factory/config/project-context.json` → `fitting`.
+Read the six fitting keys from `.agent-factory/config/project-context.json` → `fitting`.
 These values are cached; `init-factory` re-derives them from tracked
 artifacts on each run. If fitting progress looks stale after a pull,
 suggest that the developer runs `.agent-factory/factory/scripts/update-factory --target .` in their own terminal to reconcile. The update asks for confirmation, so an agent cannot run it.
@@ -49,10 +49,11 @@ Keys:
 | `agent_context_populated` | Agent context       |
 | `test_regime_detected`    | Test regime         |
 | `hooks_decided`           | Pre-commit hooks    |
+| `counter_seeded`          | ID counter seed     |
 
 Count how many are `true` (completed) vs. `false` (remaining). List the completed steps by name, then present:
 
-> "Fitting is X/5 done ([completed steps]). [Remaining steps] remain. Continue the fitting, or skip to the menu?"
+> "Fitting is X/6 done ([completed steps]). [Remaining steps] remain. Continue the fitting, or skip to the menu?"
 
 **Stop here. Wait for the user's answer. Do not present the session menu. Do not continue to step 2.**
 

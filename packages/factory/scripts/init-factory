@@ -2645,7 +2645,7 @@ def _derive_fitting_keys(target: Path) -> dict:
 
 
 def _fitting_status(fitting: dict) -> str:
-    """Derive fitting.status from its five keys: fitted when all true,
+    """Derive fitting.status from its six keys: fitted when all true,
     unfitted when none are, fitting otherwise. Does not apply to the
     greenfield path, which has its own status value."""
     keys = (
@@ -2654,6 +2654,7 @@ def _fitting_status(fitting: dict) -> str:
         "agent_context_populated",
         "test_regime_detected",
         "hooks_decided",
+        "counter_seeded",
     )
     values = [fitting.get(k, False) for k in keys]
     if all(values):
@@ -2796,6 +2797,7 @@ def _scan_project_context(target: Path) -> dict:
             "agent_context_populated": False,
             "test_regime_detected": False,
             "hooks_decided": False,
+            "counter_seeded": False,
         }
     else:
         fitting = {
@@ -2805,6 +2807,7 @@ def _scan_project_context(target: Path) -> dict:
             "agent_context_populated": True,
             "test_regime_detected": True,
             "hooks_decided": True,
+            "counter_seeded": False,
         }
 
     return {**observations, "fitting": fitting}
