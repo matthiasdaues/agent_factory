@@ -266,3 +266,22 @@ the Rules. These files have code fences today:
 
 **Action:** restore valid Gherkin in the three files. Make `derive-feature`
 and every skill that formats its outputs name only `.md` files for `mdformat`.
+
+## T-0019 — The test suite renders the diagrams into the repository
+
+- status: open
+- source: the counter-ids implementation run, ST-0369, ST-0375, and BUG-0115 (2026-11-06)
+
+`test_CAL_14_gate_passes_on_the_factory_repository[arch-lint]` in
+`tests/factory/test_core_layout_gates.py` runs `arch-lint` on the real
+repository without `--no-validate`. `arch-lint` then starts the Structurizr
+container and runs `export-all`, which rewrites about 30 SVG files in
+`docs/assets/images/`. The test carries no `container` marker, so it runs in
+every commit's `run-tests` hook. Three agents that committed at once ran up to
+six containers beside six suites with `-n auto`, and the machine nearly
+stalled. Each agent then had to restore the SVG files by hand.
+
+**Action:** run `arch-lint` with `--no-validate` in the default suite. The
+container test `test_CAL_14_structurizr_validate_passes_on_the_factory_repository`
+already covers `structurizr validate`. Cap the agents' test runs, so that
+parallel story agents do not each run the suite twice per commit.
