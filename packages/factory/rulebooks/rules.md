@@ -218,6 +218,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 → [todo-format.md](conventions/todo-format.md)
 
 - **MUST** file every deferred decision or unresolved question as an entry in `docs/spec/work/todo.md` — not left implicit in conversation.
+- **MUST** claim the number of each todo entry with `.agent-factory/factory/scripts/next-id T`, and read it from standard output. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 ## Versioning
 

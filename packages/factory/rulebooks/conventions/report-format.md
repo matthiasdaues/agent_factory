@@ -42,7 +42,7 @@ Row format: [review-report.md template](../templates/review-report.md).
 
 - **Defect** — the artifact is wrong: contradicts spec, breaks a principle with consequences, has a bug, or is unusable as-is.
 - **Suggestion** — usable but improvable: sharper wording, simplification, idiomatic pattern.
-- **Question** — needs the author to clarify intent. Also record in `docs/spec/work/todo.md` per [todo-format.md](todo-format.md).
+- **Question** — needs the author to clarify intent. Also record in `docs/spec/work/todo.md` per [todo-format.md](todo-format.md). Claim the entry's number with `.agent-factory/factory/scripts/next-id T`, and read the ID from standard output. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Every finding must state **what is wrong** and **what to do** — no "this looks off" without a fix direction.
 
