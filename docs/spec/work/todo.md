@@ -285,3 +285,12 @@ stalled. Each agent then had to restore the SVG files by hand.
 container test `test_CAL_14_structurizr_validate_passes_on_the_factory_repository`
 already covers `structurizr validate`. Cap the agents' test runs, so that
 parallel story agents do not each run the suite twice per commit.
+
+Done: `15ca486a` and `00e05229` give `arch-lint` `--no-validate` in the CAL-14
+test and in the characterization check. A full run in a story worktree, also
+with `GIT_INDEX_FILE` set, now leaves the SVG files unchanged. Still open: during
+the first commit attempts of ST-0370 and ST-0374, a hook run rewrote the SVG
+files again, and the cause is not found. The `arch-lint` hook stages every
+SVG file with `git add docs/assets/images/*.svg`, and an agent's `git add -A`
+then carried 29 of them into the ST-0374 commit. `premerge-check` blocked that
+merge. Story briefs now forbid `git add -A`.
