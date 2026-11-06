@@ -219,6 +219,105 @@ class TestPrefixOutsideTheList:
         )
 
 
+class FakeCounter:
+    """A mocked port: hands out counter states and records each push."""
+
+    def __init__(self, stale: int, refusal: str | None = None):
+        self.stale = stale
+        self.refusal = refusal
+        self.reads = 0
+        self.pushes: list[tuple[str, str]] = []
+
+    def read(self) -> tuple[str, str]:
+        self.reads += 1
+        # Each read sees the claim of another session: ST rises by one.
+        return f"sha{self.reads}", f"start=1000\nST={1000 + self.reads:04d}\ntoken=x\n"
+
+    def push(self, message: str, lease: str) -> None:
+        self.pushes.append((message, lease))
+        if self.refusal is not None:
+            raise ni.NextIdError(self.refusal)
+        if len(self.pushes) <= self.stale:
+            raise ni.StaleLease("stale info")
+
+
+@pytest.mark.spec("CID-03-CT-01")
+class TestRetryLoop:
+    def test_st_0369_stale_lease_waits_reads_again_and_claims_the_next_number(self):
+        counter = FakeCounter(stale=1)
+        waits: list[float] = []
+        assert ni.claim_loop("ST", counter, sleep=waits.append) == "ST-1003"
+        assert counter.reads == 2
+        assert [lease for _, lease in counter.pushes] == ["sha1", "sha2"]
+        assert "ST=1003" in counter.pushes[-1][0].splitlines()
+        assert len(waits) == 1
+        assert 0.1 <= waits[0] <= 1.0
+
+    def test_st_0369_ten_stale_leases_end_the_claim_and_name_prefix_and_number(self):
+        counter = FakeCounter(stale=99)
+        waits: list[float] = []
+        with pytest.raises(ni.NextIdError) as exc:
+            ni.claim_loop("ST", counter, sleep=waits.append)
+        assert len(counter.pushes) == 10
+        assert len(waits) == 9
+        assert all(0.1 <= wait <= 1.0 for wait in waits)
+        assert "ST-1011" in str(exc.value)
+        assert "ten stale leases" in str(exc.value)
+
+    def test_st_0369_nine_stale_leases_still_end_in_a_claim(self):
+        counter = FakeCounter(stale=9)
+        waits: list[float] = []
+        assert ni.claim_loop("ST", counter, sleep=waits.append) == "ST-1011"
+        assert len(counter.pushes) == 10
+        assert len(waits) == 9
+
+    def test_st_0369_waits_use_the_whole_range_from_0_1_to_1_second(self, monkeypatch):
+        bounds: list[tuple[float, float]] = []
+        monkeypatch.setattr(
+            ni.random, "uniform", lambda low, high: bounds.append((low, high)) or low
+        )
+        ni.claim_loop("ST", FakeCounter(stale=2), sleep=lambda _s: None)
+        assert bounds == [(0.1, 1.0), (0.1, 1.0)]
+
+    def test_st_0369_other_refusal_ends_the_loop_after_one_push(self):
+        counter = FakeCounter(stale=0, refusal="on fake.git failed: read-only")
+        waits: list[float] = []
+        with pytest.raises(ni.NextIdError, match="read-only"):
+            ni.claim_loop("ST", counter, sleep=waits.append)
+        assert len(counter.pushes) == 1
+        assert waits == []
+
+
+@pytest.mark.spec("CID-03-CT-02")
+class TestStaleLeaseCheck:
+    @pytest.mark.parametrize(
+        "error",
+        [
+            " ! [rejected]        abc -> refs/ids/counters (stale info)",
+            (
+                "remote: error: cannot lock ref 'refs/ids/counters': is at "
+                "db8c82cbcbdcf8f2575bf908be93d5e8b872c088 but expected "
+                "3559164876a3e91c18b1c5c404ae8f159c563120"
+            ),
+        ],
+    )
+    def test_st_0369_stale_lease_messages_count_as_stale(self, error):
+        assert ni.is_stale_lease(error)
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            " ! [remote rejected] abc -> refs/ids/counters (pre-receive hook declined)",
+            "remote: read-only",
+            "fatal: unable to access 'https://example.invalid/r.git/'",
+            "cannot lock ref 'refs/ids/counters': unable to create lock file",
+            "",
+        ],
+    )
+    def test_st_0369_other_refusals_count_as_final(self, error):
+        assert not ni.is_stale_lease(error)
+
+
 # --- integration tests: seed ---------------------------------------------------
 
 
@@ -448,6 +547,65 @@ def test_st_0368_claimed_id_passes_backlog_lint(env, tmp_path, remote, clone):
         check=False,
     )
     assert lint.returncode == 0, lint.stdout + lint.stderr
+
+
+# --- integration tests: stale lease and refusal --------------------------------
+
+STALE_LEASE_HOOK = """#!/bin/sh
+# Moves refs/ids/counters before every push, so every lease is stale.
+unset GIT_QUARANTINE_PATH GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+tree=$(git mktree </dev/null)
+sha=$(printf 'start=1000\\ntoken=%s\\n' "$(od -An -N8 -tx8 /dev/urandom | tr -d ' ')" |
+  GIT_AUTHOR_NAME=hook GIT_AUTHOR_EMAIL=hook@example.invalid \\
+  GIT_COMMITTER_NAME=hook GIT_COMMITTER_EMAIL=hook@example.invalid \\
+  git commit-tree "$tree")
+git update-ref refs/ids/counters "$sha"
+echo "$sha" >"$(git rev-parse --git-dir)/hook-last"
+exit 0
+"""
+
+READ_ONLY_HOOK = """#!/bin/sh
+echo push >>"{log}"
+echo read-only >&2
+exit 1
+"""
+
+
+def _install_hook(remote: Path, text: str) -> None:
+    hook = remote / "hooks" / "pre-receive"
+    hook.write_text(text)
+    hook.chmod(0o755)
+
+
+@pytest.mark.spec("CID-04-IT-01")
+def test_st_0369_ten_stale_leases_end_the_claim(env, remote):
+    _set_counter(env, remote, "start=1000")
+    _install_hook(remote, STALE_LEASE_HOOK)
+    outside = remote.parent / "outside"
+    outside.mkdir()
+    result = run(env, outside, "ST", "--remote", str(remote))
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "ST-1001" in result.stderr
+    assert "ten stale leases" in result.stderr
+    last = (remote / "hook-last").read_text().strip()
+    assert _git(env, "-C", str(remote), "rev-parse", REF) == last
+
+
+@pytest.mark.spec("CID-04-IT-02")
+def test_st_0369_read_only_refusal_ends_the_claim_after_one_push(env, tmp_path, remote):
+    before = _set_counter(env, remote, "start=1000", "ST=1012")
+    log = tmp_path / "hook.log"
+    _install_hook(remote, READ_ONLY_HOOK.format(log=log))
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    result = run(env, outside, "ST", "--remote", str(remote))
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "read-only" in result.stderr
+    assert str(remote) in result.stderr
+    assert log.read_text().splitlines() == ["push"]
+    assert _git(env, "-C", str(remote), "rev-parse", REF) == before
 
 
 @pytest.mark.spec("CID-05-IT-01")
