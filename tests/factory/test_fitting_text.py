@@ -149,3 +149,14 @@ def test_st_0382_no_offer_without_origin_or_setting():
 def test_st_0382_other_failure_names_next_session_start():
     check = _before_menu()
     assert re.search(r"next session start", check)
+
+
+@pytest.mark.spec("CIF-02-LN-01")
+def test_fagan_0033_stale_local_setting_is_dropped_before_plan_seed():
+    step = _step("4. Seed the ID counter")
+    plan = step.index("next-id --plan-seed")
+    before = step[:plan]
+    assert re.search(r"git remote\b", before)
+    assert re.search(r"line `origin`", before)
+    assert re.search(r"refs/ids/counters", before)
+    assert re.search(r"git config --unset agent-factory\.counterRemote", before)

@@ -307,6 +307,13 @@ repository. Before you run `--plan-seed`, set the git setting
 repository, so every worktree sees the setting in the shared `.git/config`.
 The setting stays when the newcomer declines the seed.
 
+Later runs of this step may find that `origin` exists. Check with `git remote`
+and a match on the line `origin`; run no command that prints a URL. When
+`origin` exists and the repository that the setting names holds no
+`refs/ids/counters`, remove the setting with
+`git config --unset agent-factory.counterRemote` before `--plan-seed`. Then
+`--plan-seed` and the seed use `origin`, and no second counter starts.
+
 Run `.agent-factory/factory/scripts/next-id --plan-seed`. It reads the
 counter and prints the seed command, such as `next-id --seed 0 ST=375 ADR=32`.
 Show that command as printed. Build no seed command of your own. Say what
