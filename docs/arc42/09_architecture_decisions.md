@@ -38,6 +38,8 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0028 | [Declared review and a core list check ownership](../adr/0028-declared-review-and-core-list-check-ownership.md)                                               | accepted               | none        |
 | 0029 | [Per-story drift reports block the wave close](../adr/0029-per-story-drift-reports-block-the-wave-close.md)                                                   | accepted               | none        |
 | 0030 | [Reconciliation rows return through the documentation-update playbook](../adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md)   | accepted               | none        |
+| 0031 | [IDs come from one git ref on the project's remote with leased pushes](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)                           | accepted               | pugh-matrix |
+| 0032 | [Agents push the claim ref through `next-id`](../adr/0032-agents-push-the-claim-ref-through-next-id.md)                                                       | accepted               | none        |
 
 ## Key Decisions
 
@@ -263,6 +265,20 @@ orchestrator of the `documentation-update` playbook dispatches each row's owner
 and then the owner's reviewer. Only the playbook's DONE list waits for the
 rows, and no script reads them. See
 [6.13](06_runtime_view.md#613-reconciliation-backfeed).
+
+### ID Allocation
+
+**ADR-0031** takes every new ID number from one git ref, `refs/ids/counters`,
+on the project's remote. `next-id` claims a number with a leased push from a
+throwaway bare repository, so two claims never get the same number and an
+indexed artifact may be created on any branch. The Pugh matrix scored this
+option +2 against the scan, ahead of one ref per ID and a shared cache
+repository at +1 and the countapi service at −6. See
+[8.18](08_crosscutting_concepts.md#818-id-allocation).
+
+**ADR-0032** lets agents push the claim ref through `next-id` in manual and in
+automated mode. It is the one exception to the human's ownership of pushes.
+The guardrail hook stays unchanged.
 
 ## Superseded Decisions
 

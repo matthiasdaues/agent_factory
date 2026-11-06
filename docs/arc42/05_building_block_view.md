@@ -32,6 +32,7 @@ and local JSONL spool.
 | Core Artifacts             | The core files under `docs/spec/` and the seam files `docs/agent-context.md` and `docs/testing.yaml`; each has exactly one producer and a declared review                                                                                                      | Markdown, DSL, YAML (storage)     |
 | Working Output             | Files under `docs/spec/work/`, `docs/reviews/`, and `docs/findings/`; several declared writers, each changing only its part                                                                                                                                    | Markdown (storage)                |
 | Core List                  | `rulebooks/core-artifacts.yaml` under the Factory root (`packages/factory/` in this repository, `.agent-factory/factory/` in an installed project): every core and seam artifact with its path pattern, sample path, family, and whether a project may lack it | YAML (storage)                    |
+| **ID Allocation**          | Claims the number of every new story, finding, todo entry, and ADR on the project's git remote; leaves no ref and no object in the clone                                                                                                                       | Script, git CLI                   |
 
 ![Containers](../assets/images/Containers.svg)
 
@@ -209,43 +210,44 @@ All components are stateless functions. The engine receives its inputs and retur
 
 Every building block's entry point, invoked how, and by whom:
 
-| Script / Component           | Invoked by                             | Entry point                                                                        | Exit codes                                                                              |
-| ---------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| intent                       | Human                                  | `.agent-factory/factory/scripts/intent select\|assess`                             | 0 (result), 1+ (error)                                                                  |
-| block-dangerous-git.sh       | Claude, Copilot, Codex native hook     | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                       | 0 (allow), 2 (deny)                                                                     |
-| trigger                      | Human                                  | `.agent-factory/factory/scripts/trigger agent <name> [--background]`               | 0 (dispatched), 1+ (error)                                                              |
-| usage-capture                | Native CLI hooks and Pi extensions     | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`          | 0 (captured or best-effort no-op)                                                       |
-| index-lint                   | Pre-commit hook, CI                    | `.agent-factory/factory/scripts/index-lint [--check]`                              | 0 (fresh), 1 (stale or reviewer finding)                                                |
-| dispatch close-wave          | Implementation agent                   | `.agent-factory/factory/scripts/dispatch close-wave <N>`                           | 0 (closed), non-zero (open or unconfirmed row, unreadable report, or missing core list) |
-| Ownership Contract Test      | Factory test suite                     | `tests/factory/test_index_lint.py`                                                 | 0 (pass), 1 (fail)                                                                      |
-| run-agent (Pi extension)     | Pi session (via `run_agent` tool call) | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                            | (tool result: text + usage, or error)                                                   |
-| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)  | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                     | (tool result: per-item status, or error)                                                |
-| openrouter-discover          | User, CI (`--check`)                   | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`  | 0 (ok), 1 (drift)                                                                       |
-| schema-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`     | 0 (conforms), 1 (violations), 2 (operational)                                           |
-| policy-validate              | Research skills/agents, CLI            | `.agent-factory/factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...` | 0 (pass), 1 (fail), 2 (operational)                                                     |
-| crap-score                   | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                      | 0 (pass), 1 (fail)                                                                      |
-| dependency-check             | Implementation-agent dispatcher        | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                | 0 (pass), 1 (violations)                                                                |
-| concern-lint                 | Pre-commit hook, validate skill        | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`   | 0 (pass), 1+ (CTX-\* findings)                                                          |
-| module-graph-check           | Orchestrating session                  | `.agent-factory/factory/scripts/module-graph-check [--proposal PATH]`              | 0 (result on stdout), 2 (input missing)                                                 |
-| Fence Runner                 | Post-agent-activity validation         | Python module (`packages/factory/engine/fence.py`)                                 | 0 (pass), 1 (violations)                                                                |
-| Proposal Validator           | `intent assess`, on-demand             | Python module (`packages/factory/engine/validators/proposal.py`)                   | 0 (pass), 1 (violations)                                                                |
-| Session Binding Manager      | Session start, workstream binding      | Python module (`packages/factory/engine/session_binding.py`)                       | (internal)                                                                              |
-| install-agent-factory        | Newcomer                               | `install-agent-factory --from-local\|--from-remote <src> --target <path>`          | 0 (installed), 1+ (error)                                                               |
-| build-release                | Release Maintainer                     | `factory/scripts/build-release --version <ver>`                                    | 0 (published), 1+ (error)                                                               |
-| hook-demo                    | Newcomer (via onboarding)              | `factory/scripts/hook-demo`                                                        | 0 (passed), 1+ (error)                                                                  |
-| init-factory                 | install-agent-factory, Human           | `factory/scripts/init-factory [--update] <path>`                                   | 0 (installed/updated), 1+ (error)                                                       |
-| update-factory               | Project Maintainer                     | `factory/scripts/update-factory [--check]`                                         | 0 (updated), 1+ (error)                                                                 |
-| migrate-spec-layout          | init-factory on an update, Human       | `factory/scripts/migrate-spec-layout [--dry-run]`                                  | 0 (moved or no work), non-zero (undone)                                                 |
-| remove-factory               | Human                                  | `factory/scripts/remove-factory`                                                   | 0 (removed), 1+ (error)                                                                 |
-| usage-query                  | Human (operator)                       | `uv run --project .agent-factory/usage-analysis usage-query <view>`                | 0 (result), 1+ (preflight/error)                                                        |
-| Input Snapshot               | usage-query (internal)                 | Python module                                                                      | (internal)                                                                              |
-| Contract Check               | usage-query (internal)                 | Python module                                                                      | (internal)                                                                              |
-| Operational Preflight        | usage-query (internal)                 | Python module                                                                      | (internal)                                                                              |
-| Accounting Registry          | usage-query (internal)                 | Python module                                                                      | (internal)                                                                              |
-| Query Model v1               | usage-query (internal)                 | DuckDB SQL views                                                                   | (internal)                                                                              |
-| Result Adapters              | usage-query (internal)                 | Python module                                                                      | (internal)                                                                              |
-| Parquet Exporter             | usage-query (internal)                 | Python module                                                                      | (internal)                                                                              |
-| OpenCode Plugin              | OpenCode V2 plugin lifecycle           | `packages/factory/config/plugins/agent-factory.ts` via `Plugin.define()`           | (plugin hooks)                                                                          |
+| Script / Component           | Invoked by                                 | Entry point                                                                                                                     | Exit codes                                                                              |
+| ---------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| intent                       | Human                                      | `.agent-factory/factory/scripts/intent select\|assess`                                                                          | 0 (result), 1+ (error)                                                                  |
+| block-dangerous-git.sh       | Claude, Copilot, Codex native hook         | stdin: CLI-specific command JSON, stdout: empty, exit 0 or 2                                                                    | 0 (allow), 2 (deny)                                                                     |
+| trigger                      | Human                                      | `.agent-factory/factory/scripts/trigger agent <name> [--background]`                                                            | 0 (dispatched), 1+ (error)                                                              |
+| usage-capture                | Native CLI hooks and Pi extensions         | `.agent-factory/factory/scripts/usage-capture --cli ... --transcript ...`                                                       | 0 (captured or best-effort no-op)                                                       |
+| index-lint                   | Pre-commit hook, CI                        | `.agent-factory/factory/scripts/index-lint [--check]`                                                                           | 0 (fresh), 1 (stale or reviewer finding)                                                |
+| dispatch close-wave          | Implementation agent                       | `.agent-factory/factory/scripts/dispatch close-wave <N>`                                                                        | 0 (closed), non-zero (open or unconfirmed row, unreadable report, or missing core list) |
+| Ownership Contract Test      | Factory test suite                         | `tests/factory/test_index_lint.py`                                                                                              | 0 (pass), 1 (fail)                                                                      |
+| run-agent (Pi extension)     | Pi session (via `run_agent` tool call)     | `.pi/extensions/run-agent.ts` spawns `pi ... -p <task>`                                                                         | (tool result: text + usage, or error)                                                   |
+| dispatch-wave (Pi extension) | Pi session (via `dispatch_wave` call)      | `.pi/extensions/dispatch-wave.ts` spawns worktree + merge/item                                                                  | (tool result: per-item status, or error)                                                |
+| openrouter-discover          | User, CI (`--check`)                       | `.agent-factory/factory/scripts/openrouter-discover [--list\|--suggest\|--check]`                                               | 0 (ok), 1 (drift)                                                                       |
+| schema-validate              | Research skills/agents, CLI                | `.agent-factory/factory/scripts/schema-validate <artifact-file> <schema-file>`                                                  | 0 (conforms), 1 (violations), 2 (operational)                                           |
+| policy-validate              | Research skills/agents, CLI                | `.agent-factory/factory/scripts/policy-validate [--pipeline] <artifact-or-dir>...`                                              | 0 (pass), 1 (fail), 2 (operational)                                                     |
+| crap-score                   | Implementation-agent dispatcher            | `.agent-factory/factory/scripts/crap-score [--story-id <id>]`                                                                   | 0 (pass), 1 (fail)                                                                      |
+| dependency-check             | Implementation-agent dispatcher            | `.agent-factory/factory/scripts/dependency-check [--story-id <id>]`                                                             | 0 (pass), 1 (violations)                                                                |
+| concern-lint                 | Pre-commit hook, validate skill            | `.agent-factory/factory/scripts/concern-lint [--root DIR] [--format text\|json]`                                                | 0 (pass), 1+ (CTX-\* findings)                                                          |
+| module-graph-check           | Orchestrating session                      | `.agent-factory/factory/scripts/module-graph-check [--proposal PATH]`                                                           | 0 (result on stdout), 2 (input missing)                                                 |
+| Fence Runner                 | Post-agent-activity validation             | Python module (`packages/factory/engine/fence.py`)                                                                              | 0 (pass), 1 (violations)                                                                |
+| Proposal Validator           | `intent assess`, on-demand                 | Python module (`packages/factory/engine/validators/proposal.py`)                                                                | 0 (pass), 1 (violations)                                                                |
+| Session Binding Manager      | Session start, workstream binding          | Python module (`packages/factory/engine/session_binding.py`)                                                                    | (internal)                                                                              |
+| install-agent-factory        | Newcomer                                   | `install-agent-factory --from-local\|--from-remote <src> --target <path>`                                                       | 0 (installed), 1+ (error)                                                               |
+| build-release                | Release Maintainer                         | `factory/scripts/build-release --version <ver>`                                                                                 | 0 (published), 1+ (error)                                                               |
+| hook-demo                    | Newcomer (via onboarding)                  | `factory/scripts/hook-demo`                                                                                                     | 0 (passed), 1+ (error)                                                                  |
+| init-factory                 | install-agent-factory, Human               | `factory/scripts/init-factory [--update] <path>`                                                                                | 0 (installed/updated), 1+ (error)                                                       |
+| update-factory               | Project Maintainer                         | `factory/scripts/update-factory [--check]`                                                                                      | 0 (updated), 1+ (error)                                                                 |
+| migrate-spec-layout          | init-factory on an update, Human           | `factory/scripts/migrate-spec-layout [--dry-run]`                                                                               | 0 (moved or no work), non-zero (undone)                                                 |
+| remove-factory               | Human                                      | `factory/scripts/remove-factory`                                                                                                | 0 (removed), 1+ (error)                                                                 |
+| usage-query                  | Human (operator)                           | `uv run --project .agent-factory/usage-analysis usage-query <view>`                                                             | 0 (result), 1+ (preflight/error)                                                        |
+| Input Snapshot               | usage-query (internal)                     | Python module                                                                                                                   | (internal)                                                                              |
+| Contract Check               | usage-query (internal)                     | Python module                                                                                                                   | (internal)                                                                              |
+| Operational Preflight        | usage-query (internal)                     | Python module                                                                                                                   | (internal)                                                                              |
+| Accounting Registry          | usage-query (internal)                     | Python module                                                                                                                   | (internal)                                                                              |
+| Query Model v1               | usage-query (internal)                     | DuckDB SQL views                                                                                                                | (internal)                                                                              |
+| Result Adapters              | usage-query (internal)                     | Python module                                                                                                                   | (internal)                                                                              |
+| Parquet Exporter             | usage-query (internal)                     | Python module                                                                                                                   | (internal)                                                                              |
+| OpenCode Plugin              | OpenCode V2 plugin lifecycle               | `packages/factory/config/plugins/agent-factory.ts` via `Plugin.define()`                                                        | (plugin hooks)                                                                          |
+| next-id                      | Producer steps of agents, Human (`--seed`) | `.agent-factory/factory/scripts/next-id <PREFIX> [--remote <url>]`, `next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]` | 0 (ID or seed lines on stdout), non-zero (reason on stderr, nothing on stdout)          |
 
 ## 5.6 Level 2: Component View -- Usage Capture
 
@@ -363,6 +365,40 @@ Three rules hold for every agent in the table:
 - **Readers raise findings.** An agent that reads an artifact it does not own writes a row or a finding with the owner's name. It does not edit the artifact.
 - **The architecture agent only reads domain structure.** It takes `entity-model.md` and `state-machines.md` as context inputs. On a contradiction it files an `ARCH` finding with the domain-modeling agent as owner.
 - **The lector agent is no producer.** It declares `docs/**/*.md` with `edits: wording`, because it changes wording and never meaning. The contract test skips that declaration.
+
+## 5.11 Level 2: Component View -- ID Allocation
+
+An agent that files a finding needs a number that no other branch takes. So
+the agent runs `next-id FAGAN` and uses the ID that the script prints. The
+number comes from one ref, `refs/ids/counters`, on the project's git remote
+([ADR-0031](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)).
+[8.18](08_crosscutting_concepts.md#818-id-allocation) describes the concept.
+
+![ID Allocation components](../assets/images/IdAllocationComponents.svg)
+
+| Component           | Responsibility                                                                                                                                                                                                                                                                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **next-id**         | Checks the prefix against its fixed list, or the seed arguments, before it contacts the remote. Finds the remote from `--remote <url>`, or else from `git remote get-url origin`. Calls the counter port, and prints the ID or the seed lines. It is the only caller of the port |
+| **Counter Port**    | Offers two operations. `claim <prefix>` returns the next number of the prefix that no other caller holds. `seed <number> [<PREFIX>=<n> …]` creates the counter and refuses when it exists                                                                                        |
+| **Git-Ref Adapter** | Implements the port on `refs/ids/counters`. It works in a throwaway bare repository, writes a parentless claim commit with a new token, and pushes it with a lease on the old SHA. It retries only on a stale lease, at most ten times in a row                                  |
+
+The callers sit outside the container:
+
+- **Producer steps.** A CLI session runs `next-id` from the five files that
+  create indexed artifacts: `create-backlog` (`ST`), `finding-format.md`
+  (`SPEC`, `FAGAN`, `SEC`, `BUG`, `RECON`, `ATAM`, `IMPL`), `bug-fix.md`
+  (`BUG`), `todo-format.md` (`T`), and `write-adr` (`ADR`). The session reads
+  the ID from standard output, because a shell variable does not survive from
+  one agent command to the next.
+- **The Human Operator** seeds each project once with `next-id --seed`.
+- **init-factory** only asks `origin` whether `refs/ids/counters` exists. It
+  prints the seed message when the ref is missing and never seeds.
+
+The adapter performs every transition of the
+[Claim Lifecycle](../spec/state-machines.md#claim-lifecycle): the fetch in
+`READING`, the leased push in `PUSHING`, and the wait in `WAITING`. `next-id`
+reports the terminal state. The three components ship as one script, so
+`dependency-rules.dsl` holds no rule for them.
 
 ## Referenced from
 

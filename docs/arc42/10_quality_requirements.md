@@ -210,6 +210,18 @@ References: [8.17](08_crosscutting_concepts.md#817-artifact-ownership-one-produc
 
 References: [6.12](06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-0029](../adr/0029-per-story-drift-reports-block-the-wave-close.md)
 
+### QS-18: No ID is handed out twice
+
+| Field             | Description                                                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Correctness (unique IDs)                                                                                                                       |
+| Stimulus          | Two sessions in two clones run `next-id` at the same moment, for the same prefix or for two prefixes.                                          |
+| Environment       | Both clones push to the same remote, which holds `refs/ids/counters`. Each session works on its own branch and sees none of the other's files. |
+| Response          | The remote accepts one leased push and refuses the other as stale. The refused claim reads the counter again and retries.                      |
+| Response measure  | In 20 rounds of two parallel claims on a local bare repository, all 40 IDs differ, no number of a prefix is skipped, and every call exits `0`. |
+
+References: [6.15](06_runtime_view.md#615-id-claim-with-a-stale-lease), [8.18](08_crosscutting_concepts.md#818-id-allocation), [ADR-0031](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)
+
 ## 10.2 Quality Attribute Priority
 
 | Priority | Quality attribute                        | Scenarios |
@@ -231,6 +243,7 @@ References: [6.12](06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-00
 | 2        | Operability (retryable migration)        | QS-15     |
 | 2        | Maintainability (artifact ownership)     | QS-16     |
 | 2        | Maintainability (specification currency) | QS-17     |
+| 1        | Correctness (unique IDs)                 | QS-18     |
 
 ## Referenced from
 

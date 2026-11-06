@@ -5,7 +5,8 @@
 ## 7.1 Release 1: Local Operator Workstation
 
 Release 1 runs inside one project checkout on one operator workstation. There
-is no database server, container, daemon, remote service, or cloud resource.
+is no database server, container, daemon, or cloud resource. The one remote
+that Release 1 needs is the project's own git remote, for ID allocation.
 
 ![Local release-1 deployment](../assets/images/Deployment.svg)
 
@@ -39,6 +40,14 @@ analysis and gate execution.
 An explicit Parquet destination may be anywhere the operator selects. It is a
 verified, attributable export and remains outside the authoritative
 `.agent-factory/usage/` evidence boundary.
+
+The ID Allocation container runs as the script `next-id` on the workstation.
+It creates a throwaway bare repository in a new temporary directory for each
+call, pushes the claim to `refs/ids/counters` on the project's git remote, and
+deletes the directory at exit. So a session that cannot reach the remote cannot
+create a story, finding, todo entry, or ADR. The
+[Deployment](../assets/images/Deployment.svg) view shows the container on the
+workstation. The remote itself is outside the Factory's deployment.
 
 ## 7.2 Lifecycle Boundaries
 

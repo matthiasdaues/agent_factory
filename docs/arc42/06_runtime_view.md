@@ -827,6 +827,54 @@ Full sequences for these flows are in their respective use cases:
 
 - **Agent dispatch (interactive vs. background)** -- `UC-04`
 
+## 6.15 ID Claim with a Stale Lease
+
+Derived from dynamic view `IdClaimStaleLeaseRetry` in [`architecture.dsl`](../spec/architecture.dsl).
+
+Two sessions claim at the same moment. The planning agent runs `next-id ST`
+for a new story, and a code review in another clone runs `next-id FAGAN`. Both
+read the claim commit with `ST=1012` and `FAGAN=1003`. The review pushes
+first, so the planning agent's push meets a stale lease. The one ref holds
+every prefix, so claims of different prefixes collide too.
+
+```mermaid
+sequenceDiagram
+    participant CA as CLI-Invoked Agent
+    participant NI as next-id
+    participant CP as Counter Port
+    participant GA as Git-Ref Adapter
+    participant PR as Project Git Remote
+
+    CA->>NI: 1. Runs next-id ST from create-backlog-stories
+    NI->>CP: 2. Calls claim ST on the URL of origin
+    GA->>PR: 3. Fetches refs/ids/counters into a throwaway bare repository and reads ST=1012
+    GA->>PR: 4. Pushes a claim commit with ST=1013 under the lease on the old SHA
+    PR-->>GA: stale lease, because another caller claimed FAGAN-1004 first
+    Note over GA: Waits a random 0.1 to 1 second
+    GA->>PR: 5. Fetches again and reads ST=1012 and FAGAN=1004
+    GA->>PR: 6. Pushes a claim commit with ST=1013 under the lease on the new SHA
+    PR-->>GA: accepted
+    GA->>CP: 7. Returns 1013 and deletes the throwaway repository
+    NI->>CA: 8. Prints ST-1013 and exits 0
+```
+
+**Key Points:**
+
+- The adapter reads the claim commit again after every stale lease, so the
+  next try sees the number that the other caller took.
+- Only the two git messages for a stale lease, `stale info` and
+  `cannot lock ref … is at <sha> but expected <sha>`, lead to a retry.
+  `next-id` runs git with `LC_ALL=C`, so git prints them in English. Any other
+  refusal ends the claim after one push with git's message.
+- After ten stale leases in a row, `next-id` exits non-zero and names the
+  prefix and the last number it tried. It prints no ID.
+- The claim leaves no ref and no object in the clone, because it runs in a
+  throwaway repository that `next-id` deletes at exit.
+- The [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle) holds the
+  states, and BR-071 and BR-072 in
+  [validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-075)
+  hold the rules.
+
 ## Referenced from
 
 - [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)

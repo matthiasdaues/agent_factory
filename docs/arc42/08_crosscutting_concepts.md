@@ -418,6 +418,60 @@ The two ownership checks match by sample path. So `docs/spec/features/{name}.fea
 
 **Specification artifacts.** The spec [core-artifact-ownership.feature](../spec/features/core-artifact-ownership.feature), the [core list contract](../spec/interface-contracts.md#packagesfactoryrulebookscore-artifactsyaml), and [BR-056 to BR-067](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) hold the details.
 
+## 8.18 ID Allocation
+
+A session that creates a story, finding, todo entry, or ADR needs a number no
+other branch takes. A scan of the files on one branch cannot see the other
+branches. So every new number comes from one ref, `refs/ids/counters`, on the
+project's git remote, and the script `next-id` claims it
+([ADR-0031](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)).
+
+**One ref, one sequence per prefix.** The ref points at a claim commit, a
+commit with no parent on the empty tree. Its message holds the seed value
+`start`, one line per prefix with the highest number claimed so far, and a
+random token:
+
+```text
+start=1000
+ST=1012
+FAGAN=1003
+token=9f3a61c0d2e4b871
+```
+
+A prefix without a line, such as `BUG`, has claimed nothing yet. Its first
+claim returns `start` plus one, `BUG-1001`. The token gives every claim commit
+its own SHA. That matters because a remote accepts a push that leaves a ref at
+the SHA it already has.
+
+**The lease decides.** A claim pushes its new claim commit with
+`--force-with-lease=refs/ids/counters:<old sha>`. The remote accepts the push
+only while the ref still holds the old SHA. So of two claims that read the
+same commit, only one wins, and the other reads again and retries.
+[6.15](06_runtime_view.md#615-id-claim-with-a-stale-lease) shows the retry.
+
+**A failed claim stops.** `next-id` never guesses a number. Without a remote,
+without the ref, or after ten stale leases in a row, it exits non-zero, prints
+no ID, and names the reason. Every session works online for this reason.
+
+**Seeding.** A person seeds each project once with `next-id --seed <number>`,
+above the highest ID in use. `next-id --seed 1000 ADR=6` lets ADRs continue at
+`ADR-0007`, while every other prefix continues at `1001`. The seed is
+create-only, so it never changes a counter in use. Existing IDs keep their
+names.
+
+**Agents push the claim.** An agent may push `refs/ids/counters` through
+`next-id` in both modes. That is the one exception to the human's ownership of
+pushes in `rules.md`
+([ADR-0032](../adr/0032-agents-push-the-claim-ref-through-next-id.md)).
+
+**Specification artifacts.** The spec
+[counter-ids.feature](../spec/features/counter-ids.feature), the
+[`next-id` contract](../spec/interface-contracts.md#packagesfactoryscriptsnext-id),
+the rules BR-068 to BR-075 in
+[validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-075),
+and the [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle) define the
+details.
+
 ## Referenced from
 
 - [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md)
