@@ -17,7 +17,7 @@ stop_confirmed_by:
 stop_confirmed_reason:
 artifact: packages/factory/agents/virgil.md:302-308
 owner: developer-agent
-status: open
+status: resolved
 traces: [ST-0379, ST-0382, BR-096, BR-104, CIFP-C04, counter-ids-fitting.feature/Rule-CIF-01]
 ---
 
@@ -40,3 +40,5 @@ Reproduction in a temporary directory, with local repositories only: seed a bare
 **Why this severity:** Step 4 exists to start the one counter of a project, and on this path it starts a second one, so two clones can claim the same ID (`fails_purpose`). The QA strategy triages "two claims hand out one number twice" as blocking. The text exists only on `feature/counter-ids-fitting`, so it is not in use.
 
 **Fix:** In `virgil.md` § 4, add one rule before `--plan-seed`. When `git remote` lists `origin` and the setting is set, check the setting's repository with `git ls-remote <path> refs/ids/counters`. When that check prints nothing, remove the setting with `git config --unset agent-factory.counterRemote` and say why. `--plan-seed` then reads `origin` and reports the counter in use. CIFP-C04 still holds: a declined seed keeps the setting while the project has no `origin`. Add a text test beside `test_fitting_text.py` for the new rule. The domain-modeling agent records the path in BR-104 and in the Rule of CIF-01.
+
+**Resolution (pass 2):** Commit `c61c671b3a1a22f9533ba93214d3ca93a17b0cfc` on `fix/fagan-0033` adds the rule to step 4. The reproduction, walked through the new text, ends with one counter: `--plan-seed` reports the counter in use on `origin`, and the next claims print `ST-0042` and `ST-0043` from `origin`. `test_fagan_0033_stale_local_setting_is_dropped_before_plan_seed` checks the rule.
