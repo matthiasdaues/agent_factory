@@ -80,8 +80,8 @@ Feature: Counter IDs
       Then origin holds exactly one claim commit at refs/ids/counters
       And one call exits 0 and the other call exits non-zero
 
-    Scenario: A seed without a remote fails
-      Given a clone without the remote origin
+    Scenario: A seed without origin and without agent-factory.counterRemote fails
+      Given a clone without the remote origin and without the git setting agent-factory.counterRemote
       When the User runs next-id --seed 1000 without --remote
       Then next-id exits non-zero
       And the message names origin and --remote
@@ -203,8 +203,8 @@ Feature: Counter IDs
       And the message names the remote and git's error message
       And the remote shows without its user info
 
-    Scenario: A clone without origin and without --remote cannot make an ID claim
-      Given a clone without the remote origin
+    Scenario: A clone without origin, agent-factory.counterRemote, and --remote cannot make an ID claim
+      Given a clone without the remote origin and without the git setting agent-factory.counterRemote
       When the User runs next-id ST without --remote
       Then next-id exits non-zero and prints no ID
       And the message names origin, --remote, and next-id --seed
