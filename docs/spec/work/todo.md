@@ -324,3 +324,23 @@ stops an agent from reading it.
 print remote URLs, and say in `rules.md` that credentials belong in a
 credential helper, never in a remote URL. A hook cannot catch every way to
 read a file, so the rule carries the main weight.
+
+## T-0402 — The CRAP and mutation gates are installed but cannot run
+
+- status: open
+- source: stakeholder question after the counter-ids `update-factory` run (2026-11-06)
+
+`crap-score` and `mutation-testing` are installed and current, but both are
+`enabled: false` in `docs/testing.yaml`, and new stories carry
+`quality-gates: []`. Neither gate could run usefully today:
+
+- `crap-score` needs `coverage.json`. `coverage` is not installed and no test
+  run writes the file, so every function counts as 0 % covered.
+- `mutation-testing` runs `gates.mutation_testing.command`, which does not
+  exist, and the project has no mutation tool.
+
+**Action:** the `test-strategy-agent` and the stakeholder decide the test
+regime. Add `pytest-cov` and a step that writes `coverage.json`, then enable
+`crap_score`. Pick a mutation tool, such as `mutmut` or `cosmic-ray`, write its
+command and time limit into `docs/testing.yaml`, and pick the gate per story
+through `quality-gates` for stories with risky logic.
