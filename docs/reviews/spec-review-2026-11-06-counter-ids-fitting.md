@@ -120,3 +120,18 @@ The specification is not ready for architecture. SPEC-0059 and SPEC-0060 block i
 ## Handoff
 
 Requirements agent: the spec review found 2 open blocking findings, SPEC-0059 and SPEC-0060. Address SPEC-0059, and hand SPEC-0060 to the test-strategy agent.
+
+## Pass 2
+
+Pass 2 reviewed commit 079034d92e7c338277c0dae154aae6b18e57f19e. It checked only SPEC-0059, SPEC-0060, and the text their fixes changed: row 265 of `counter-ids.feature` and three places in `counter-ids-fitting-qa-strategy.md`. The ten register lines SPEC-0061 to SPEC-0070 stay as they are.
+
+| ID        | Severity | Status   | Result                                                                                                                                                                                                                                                                         |
+| --------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SPEC-0059 | major    | open     | Row 265 now names `id-prefixes.md`. That file is no ID producer and holds no claim rule by BR-108, so the Outline step "the rule tells the reader to run next-id with the ID prefix" cannot hold for it. CID-07 and BR-108 still contradict each other. CIF-G11 stays open.    |
+| SPEC-0060 | major    | resolved | The QA strategy keeps `test_st_0370_clone_without_origin_names_origin_remote_and_seed` as CIF-08-IT-03, without `agent-factory.counterRemote`, with all three names in its assertion. The Gap Findings row and the retention line agree with CID-04 and the claim error table. |
+
+The author asked whether the `id-prefixes.md` row holds. It does not. The pass-1 fix offered two options, and the author chose neither: the row moved to a third file. The fix for pass 3 is to remove the row. CIF-14 already requires each review file to name its own prefix. The changed text holds no other defect, so pass 2 files no new finding.
+
+### Verdict after pass 2
+
+The specification is not ready for architecture. SPEC-0059 blocks it. Its fix deletes one Outline row, closes CIF-G11, and adds one line to the QA strategy.
