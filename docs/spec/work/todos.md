@@ -72,4 +72,4 @@ Per the build order, the `run_agent` single-agent primitive shipped and was vali
 
 - [validation-rules.md](../validation-rules.md)
 - [entity-model.md](../entity-model.md)
-- [docs/findings/ATAM-0002-monorepo-multi-framework-blind-spot.md](../../findings/ATAM-0002-monorepo-multi-framework-blind-spot.md)
+- [docs/findings/ATAM-0002.md](../../findings/ATAM-0002.md)
