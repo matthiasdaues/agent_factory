@@ -505,3 +505,107 @@ def test_st_0381_a_cut_off_move_meets_another_counter_on_origin(env, demo):
     assert "ST=0040" in result.stderr
     assert _refs(env, project, origin) == before
     assert _setting(env, project) == str(project)
+
+
+# --- IMPL-0008: the move runs no hook of the project ---------------------------
+
+FAILING_HOOK = """#!/bin/sh
+echo pre-push refused >&2
+exit 1
+"""
+
+
+def test_impl_0008_a_failing_pre_push_hook_of_the_project_does_not_stop_the_move(
+    env, demo
+):
+    project, sha, origin = demo
+    hook = project / ".git" / "hooks" / "pre-push"
+    hook.write_text(FAILING_HOOK)
+    hook.chmod(0o755)
+
+    result = run(env, project, "--move-to-origin")
+
+    assert result.returncode == 0, result.stderr
+    _assert_no_token(result)
+    assert _sha(env, origin) == sha
+    assert _setting(env, project) is None
+
+
+# --- IMPL-0009: a refused push asks origin again --------------------------------
+
+
+def _origin_changes_after_the_check(monkeypatch, change) -> None:
+    """Run `change` once, right after the first real `ls-remote` of the move."""
+    real = ni._origin_counter
+    calls: list[str | None] = []
+
+    def check_then_change(target: str, url: str) -> str | None:
+        found = real(target, url)
+        if not calls:
+            change()
+        calls.append(found)
+        return found
+
+    monkeypatch.setattr(ni, "_origin_counter", check_then_change)
+
+
+def test_impl_0009_a_resumed_move_keeps_the_marker_when_origin_gains_a_counter(
+    env, tmp_path, demo, monkeypatch
+):
+    project, sha, origin = demo
+    marker = _write_marker(env, project)
+    _in_project(monkeypatch, env, project)
+    claims: list[subprocess.CompletedProcess] = []
+
+    def push_c_and_claim() -> None:
+        _git(env, "-C", str(project), "push", "--quiet", str(origin), f"{sha}:{REF}")
+        claims.append(run(env, tmp_path, "ST", "--remote", str(origin)))
+
+    _origin_changes_after_the_check(monkeypatch, push_c_and_claim)
+
+    with pytest.raises(ni.NextIdError) as refused:
+        ni.move_to_origin()
+
+    assert claims[0].stdout == "ST-0013\n", claims[0].stderr
+    assert "two counters" in str(refused.value)
+    assert "ST=0013" in str(refused.value)
+    assert _sha(env, project / ".git") == marker
+    assert _setting(env, project) == str(project)
+    again = run(env, project, "ST")
+    assert again.returncode != 0
+    assert again.stdout == ""
+
+
+def test_impl_0009_a_refused_push_finishes_when_origin_holds_c(
+    env, demo, monkeypatch
+):
+    project, sha, origin = demo
+    marker = _write_marker(env, project)
+    _in_project(monkeypatch, env, project)
+
+    def push_c() -> None:
+        _git(env, "-C", str(project), "push", "--quiet", str(origin), f"{sha}:{REF}")
+
+    _origin_changes_after_the_check(monkeypatch, push_c)
+
+    output = ni.move_to_origin()
+
+    assert output.startswith("moved ")
+    assert _sha(env, origin) == sha
+    assert _sha(env, project / ".git") == marker
+    assert _setting(env, project) is None
+
+
+def test_impl_0009_a_resumed_move_keeps_the_marker_after_another_refusal(env, demo):
+    project, _, origin = demo
+    marker = _write_marker(env, project)
+    hook = origin / "hooks" / "pre-receive"
+    hook.write_text(READ_ONLY_HOOK)
+    hook.chmod(0o755)
+
+    result = run(env, project, "--move-to-origin")
+
+    _assert_refused(result)
+    assert "read-only" in result.stderr
+    assert _sha(env, project / ".git") == marker
+    assert _setting(env, project) == str(project)
