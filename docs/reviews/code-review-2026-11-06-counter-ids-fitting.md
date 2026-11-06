@@ -107,3 +107,27 @@ The review recommends option 1. QS-22 asks for no duplicate, and a collision nee
 - A resumed move whose push fails for another reason now keeps the marker, and the message says so. The contract has no row for that case yet. `spec-feedback-IMPL-0008.md` names it for the domain-modeling agent.
 - When the second `ls-remote` fails, `_after_refusal` treats `origin` as empty. A first move then restores C, and a resumed move keeps the marker. Both are the safe outcome.
 - A hooks path in the user's global git config still applies in the throwaway repository, as it does for a claim. `init-factory` installs its hooks per repository, so no Factory hook runs there.
+
+## Pass 3
+
+Pass 3 checks only the change for DEC-16: the code commit `e74568ba923c759872da452a8552bc7bc76337f9` on `fix/dec-16`, merged into `feature/counter-ids-fitting` as `55ac9467b2ffa928991b070d979f6cf1f6182f6d`, and the spec and architecture commit `9a21ba13`. DEC-16 answers the question of pass 2: a refused push keeps the marker and the setting and never puts C back. The change holds and adds no blocking defect. The branch is ready for reconciliation.
+
+**Code.** `_restore` is gone. After a refused push, `_after_refusal` asks `origin` again. When `origin` holds C, the move removes the setting. Otherwise the marker and the setting stay, and the move names both counters or git's message. The collision message now says that the local counter keeps the marker, so the false "the move changed nothing" of pass 1 is gone.
+
+**Reproductions against `55ac9467`.**
+
+- First-move race of pass 2: a clone claims `ST-0013` on `origin` before the push. The move reports two counters, and the local counter keeps the marker. The next local claim fails by BR-097, and the next claim on `origin` returns `ST-0014`. No number goes out twice.
+- Resume race of pass 1: the same outcome, with the marker kept.
+- Refused push, then resume: a read-only `pre-receive` hook on `origin` refuses the first move. The marker with parent C stays, and claims fail. Once the hook is removed, a second move resumes, pushes C, removes the setting, and the next claim returns `ST-0013`.
+
+`test_dec_16_a_first_move_keeps_the_marker_when_origin_gains_a_counter` and `test_dec_16_a_refused_push_keeps_the_marker_and_a_second_move_resumes` check the same two cases.
+
+**Spec and architecture.** The texts match the code. BR-102 describes the throwaway push, the second `ls-remote`, and "never puts C back, on a first move as on a resume". The contract table has three rows for a refused push, and the Leases row no longer names a lease on the marker. In the Move Lifecycle, PUSHING goes to RECHECKING on PushRefused, and RECHECKING leads to CLEARING, REFUSED, or INTERRUPTED. The code treats a failed second `ls-remote` as "does not answer", as the row and OriginWithoutC say. ADR-0033, arc42 6.16 and 6.16.1, and QS-23 say that the marker and the setting stay. No counter text still describes a restore.
+
+| Finding   | Outcome                                                                                                                                                                                                                                                              |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMPL-0009 | Resolved, now for the first move too. The question of pass 2 is answered by DEC-16.                                                                                                                                                                                  |
+| IMPL-0012 | Still open in the register. The test still pushes exactly C, so no test runs the branch `on_origin == move.sha`.                                                                                                                                                     |
+| IMPL-0013 | New, `minor`, register line. A refused move now blocks every ID claim until a move succeeds. The Collision and Another failure outcomes in `session-menu.md` do not tell VIRGIL to say so. The claim message names `origin` as the holder even when the push failed. |
+
+**Note.** arc42 6.16 says that a create-only lease refusal names both counters. It does not mention that the second `ls-remote` can still finish the move when `origin` holds C. BR-102 and the contract state that case, so the summary in the runtime view is enough.
