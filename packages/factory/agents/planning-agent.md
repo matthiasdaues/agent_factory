@@ -107,7 +107,7 @@ Write `backlog/ST-NNNN.md` files with MoSCoW priorities, dependencies, and `back
 
 ### Phase 5 — Commit
 
-An indexed artifact (backlog story, proposal, finding) may be committed on any branch, the one where you make it. `next-id` hands out the sequential IDs (ST-NNNN, PROP-NN, etc.) from one shared counter. Commit all stories with `status: pending`.
+An indexed artifact (backlog story, proposal, finding) may be committed on any branch, the one where you make it. `next-id` hands out the sequential IDs of the prefixes it serves (ST-NNNN, BUG-NNNN, and the rest listed in [finding-format.md § File location and name](../rulebooks/conventions/finding-format.md#file-location-and-name)) from one shared counter. `PROP` rows in a proposal and the split letters of a story keep their own numbering rule and stay outside the counter. Commit all stories with `status: pending`.
 
 For tier suggestions, cite the authoritative rubric table in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md#tier-rubric) and do not copy it here.
 
