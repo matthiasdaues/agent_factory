@@ -7,7 +7,7 @@ Feature: Finding classification
   back to its owner and waits for the fix. So the severity of a finding
   decides how long the review loop runs.
 
-  The reviewer does not pick the severity. It records the basis: a set of
+  The reviewer agent does not pick the severity. It records the basis: a set of
   yes/no answers and choices from fixed lists. A fixed rule computes the
   severity from the basis, and the script finding-lint computes it again.
   Every finding uses one scale: critical, major, minor, or note.
@@ -132,7 +132,7 @@ Feature: Finding classification
       Given a code finding whose Fix line demands a missing bounds check
       When the reviewer agent picks the type
       Then the type is checking
-      And the reviewer does not guess where the defect came from
+      And the reviewer agent does not guess where the defect came from
 
     Scenario: A question becomes a todo entry and no finding
       Given the reviewer agent needs the author's intent before it can classify a problem
@@ -146,8 +146,14 @@ Feature: Finding classification
       Then it becomes an action item of its retrospective or an entry in docs/spec/work/todo.md
       And no finding file is written for it
 
-    Scenario: A suggestion is at most minor
+    Scenario: A suggestion of the consequence tree classes describes material that works
       Given a code finding of category suggestion whose basis answers yes to fails_purpose
+      When finding-lint runs
+      Then it exits 1 and names the file and the rule
+      And a suggestion of the document, code, or runtime class answers false to harms_downstream and fails_purpose
+
+    Scenario: A suggestion of another class is at most minor
+      Given an architecture finding of category suggestion with importance high and exposure fails
       When the rule computes the severity
       Then the severity is minor
 
@@ -185,7 +191,7 @@ Feature: Finding classification
       Then the basis records in_use true and harms_downstream true
       And the severity is critical
 
-    Scenario: The reviewer records all three answers after the first yes
+    Scenario: The reviewer agent records all three answers after the first yes
       Given the reviewer agent answers yes to harms_downstream
       When it records the basis
       Then the basis also holds the answers to fails_purpose and raises_cost
@@ -327,10 +333,17 @@ Feature: Finding classification
       Then it runs next-id SEC and uses the printed ID
 
     Scenario: The status values of a finding file
-      Given a finding file
+      Given a finding file that carries review_class
       When an agent sets its status
-      Then the status is open, resolved, or deferred
+      Then the status is open or resolved
       And only the human sets the status waived
+      And no agent sets the status deferred, because only the migration sets it, on a file without review_class
+
+    Scenario: The human sets a blocking finding aside with waived, not deferred
+      Given FAGAN-0042 is open with severity major and review_class code
+      When the human decides not to fix it now
+      Then the human sets status waived with override_by and override_reason
+      And finding-lint rejects status deferred on that file
 
   Rule: Reviewer agent records a minor finding as one register line
     # actor: Reviewer agent
@@ -346,6 +359,7 @@ Feature: Finding classification
       When finding-lint checks the line against the register schema of its class, such as finding-register-code.schema.json
       Then the line holds the ID, source, review_class, category, type, severity, artifact, story, finding, basis, the Why this severity sentence, and the reviewed commit
       And the basis has the shape of its class
+      And a line that replaces a filed finding also holds override_by and override_reason
 
     Scenario: Two parallel reviews add lines without touching each other's lines
       Given two reviews on two branches each add one line to docs/findings/register/code.jsonl
@@ -465,6 +479,8 @@ Feature: Finding classification
         | has status resolved, severity critical, and no stop_confirmed_by                 |
         | has status resolved, severity critical, and an empty stop_confirmed_reason       |
         | has the status fixed, which is not open, resolved, deferred, or waived           |
+        | carries review_class and has status deferred                                     |
+        | is a code suggestion whose basis answers yes to fails_purpose                    |
         | has status open and severity minor                                               |
         | has status open and severity note                                                |
         | has the ID BUG-0067, which is also the ID of a register line                     |
@@ -502,6 +518,41 @@ Feature: Finding classification
       Given a line in docs/findings/register/document.jsonl with severity minor and a basis that answers yes to fails_purpose
       When finding-lint runs
       Then it exits 1
+
+    Scenario: An agent cannot move a filed finding into the register
+      Given HEAD holds docs/findings/FAGAN-0042.md with severity major and review_class code
+      And an agent changes its answer to fails_purpose to false
+      And the agent removes the file and adds a line of FAGAN-0042 to docs/findings/register/code.jsonl without override_by and override_reason
+      When finding-lint runs
+      Then it exits 1 and names FAGAN-0042 and the rule
+
+    Scenario: An agent cannot lower the severity of a finding file
+      Given HEAD holds docs/findings/BUG-0037.md with severity critical, review_class code, and no stop_confirmed_by
+      And an agent changes its answer to harms_downstream to false, so the file has severity major
+      And override_by and override_reason are null
+      When finding-lint runs
+      Then it exits 1 and names BUG-0037 and the rule
+
+    Scenario: The human lowers a filed finding with the override fields
+      Given HEAD holds docs/findings/FAGAN-0042.md with severity major and review_class code
+      And the human changes its answer to fails_purpose to false
+      And the human removes the file and adds a line of FAGAN-0042 to docs/findings/register/code.jsonl with override_by and override_reason that hold text
+      When finding-lint runs
+      Then it exits 0
+
+    Scenario: An agent may raise a filed finding
+      Given HEAD holds docs/findings/FAGAN-0042.md with severity major and review_class code
+      And an agent changes its answer to harms_downstream to true, sets severity critical, and adds "## Possible damage"
+      And override_by and override_reason are null
+      When finding-lint runs
+      Then it does not ask for override_by or override_reason
+      And it exits 0
+
+    Scenario: The migration moves a finding into the register without the override fields
+      Given HEAD holds docs/findings/BUG-0067.md without review_class
+      And the migration commit removes the file and adds a line of BUG-0067 to its register without override_by and override_reason
+      When finding-lint runs on the staged migration commit
+      Then it does not ask for override_by or override_reason, because the HEAD version carries no review_class
 
     Scenario: A file without review_class is skipped
       Given a resolved finding file from before the migration carries no review_class
@@ -607,7 +658,8 @@ Feature: Finding classification
     Scenario: A consumer project skips the installed copy step
       Given a consumer project has no packages/factory/
       When finding-lint runs the git check
-      Then it checks dev, main, and the tags that release_tag_patterns names only
+      Then it checks dev, main, origin/dev, origin/main, and the tags that release_tag_patterns names
+      And it does not check an installed copy
 
     Scenario Outline: Only the tags that release_tag_patterns names count as releases
       Given docs/factory-settings.yaml sets release_tag_patterns to ["v[0-9]*"]
@@ -643,7 +695,8 @@ Feature: Finding classification
     Scenario: An empty release setting counts no tag
       Given docs/factory-settings.yaml sets release_tag_patterns to []
       When finding-lint runs the git check
-      Then it checks dev, main, and the installed copy, and no tag
+      Then it checks dev, main, origin/dev, origin/main, and the installed copy
+      And it checks no tag
 
     Scenario: A missing release setting does not matter when no git check is due
       Given docs/factory-settings.yaml does not exist
@@ -668,6 +721,19 @@ Feature: Finding classification
       Given a staged finding file whose basis differs from its HEAD version
       When the pre-commit hook runs finding-lint
       Then finding-lint runs the git check on the staged version
+
+    Scenario: A new register line gets the git check
+      Given a new line in docs/findings/register/code.jsonl that HEAD does not hold
+      And the line records in_use false
+      And its artifact lines exist unchanged on dev
+      When finding-lint runs
+      Then it exits 1 with the message "artifact lines exist unchanged on dev"
+
+    Scenario: A register line that HEAD holds is not checked again
+      Given HEAD holds the line of FAGAN-0032 in docs/findings/register/code.jsonl with in_use false
+      And its artifact lines exist unchanged on dev
+      When finding-lint runs
+      Then it does not run the git check on that line
 
     Scenario: Document and architecture findings skip the git check
       Given a document finding with in_use false whose artifact lines exist on dev
@@ -805,7 +871,7 @@ Feature: Finding classification
 
     Scenario: A fixed critical finding becomes resolved only after its stop is confirmed
       Given the defect of BUG-0037 is fixed and its stop is not confirmed
-      When the reviewer sets status resolved on BUG-0037
+      When the reviewer agent of the repeat pass sets status resolved on BUG-0037
       Then finding-lint exits 1
       And the stop holds until stop_confirmed_by and stop_confirmed_reason both hold text
 
@@ -889,6 +955,11 @@ Feature: Finding classification
     Scenario: A Bash call that sets status waived is refused
       Given docs/findings/FAGAN-0042.md has status open
       When an agent runs sed -i 's/status: open/status: waived/' docs/findings/FAGAN-0042.md
+      Then guard-human-fields refuses the call
+
+    Scenario: An Edit that sets override_by in a register line is refused
+      Given docs/findings/register/code.jsonl holds a line of FAGAN-0042 without override_by
+      When an agent calls Edit with a new_string that adds "override_by": "human" to that line
       Then guard-human-fields refuses the call
 
     Scenario: A headless run cannot confirm its own stop
@@ -998,6 +1069,7 @@ Feature: Finding classification
       When the migration agent migrates it
       Then docs/spec/work/todo.md gains an entry for it
       And the file gets status deferred with the todo ID in its body
+      And the file carries no review_class
 
     Scenario: After the migration the lint passes and no open finding is minor
       Given the migration commit is in place

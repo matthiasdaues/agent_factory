@@ -1164,7 +1164,8 @@ None.
 - `finding-lint` exits `0` on `docs/findings/` after the migration. Every open
   finding carries `review_class`, and every resolved finding without it is
   skipped.
-- None of the 39 migrated findings is `open` with severity `minor`. Each
+- No migrated finding is `open` with severity `minor`. The migration covers
+  every open finding without `review_class` when it runs (DEC-54). Each
   migrated `minor` finding is a line in the register of its class under its
   old ID.
 - After the migration commit, no open `critical` finding lacks
@@ -1239,6 +1240,8 @@ The reviewer states the facts, and the rule states the severity.
 | DEC-52 | 2026-11-06 | decision   | stakeholder | A `critical` finding becomes `resolved` only after its stop is confirmed. The stop holds until both confirmation fields hold text.                                                                                                                                                                                          | Domain model Q2, QA strategy Q5                                    |
 | DEC-53 | 2026-11-06 | decision   | stakeholder | `finding-lint` also rejects an unknown status, an open `minor` or `note` file, and an ID that is both a file and a register line. The `fails_purpose` sentence carries the marker `no to fails_purpose`.                                                                                                                    | QA strategy Q3, Q4                                                 |
 | DEC-54 | 2026-11-06 | decision   | stakeholder | The migration covers every open finding without `review_class`, 47 on 2026-11-06, not only the 39 counted on 2026-11-04.                                                                                                                                                                                                    | Requirements gap FC-G01                                            |
+| DEC-55 | 2026-11-06 | decision   | stakeholder | No agent sets `deferred` on a finding. Only the migration sets it, on an old finding without an artifact, and that file carries no `review_class`. `finding-lint` rejects `deferred` on a file that carries `review_class`. A person who sets a blocking finding aside uses `waived`.                                       | Spec review SPEC-0072, requirements gap FC-G09                     |
+| DEC-56 | 2026-11-06 | decision   | stakeholder | Only the person lowers a filed finding. `finding-lint` compares each finding with `HEAD`; a falling severity, or a finding file that becomes a register line, needs `override_by` and `override_reason`, as a waiver does. Raising a severity stays free for agents (FC-G04).                                               | Spec review note 4, requirements gap FC-G10                        |
 
 ## Review findings
 
