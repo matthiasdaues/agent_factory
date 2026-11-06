@@ -83,3 +83,27 @@ These observations need no change. They stay in this report only.
 **Agent texts.** Step 4 follows step 3, shows the printed seed command, runs it only after confirmation, and names the four endings of BR-104. The four AGENTS files count six keys. `id-prefixes.md` holds twelve rows, and the text test compares it with `PREFIXES`. Every producer file names its literal prefix and its stop rule (BR-107). No file holds `next-id <TAG>`.
 
 **Architecture.** `next-id` still uses only the standard library. The move reaches git through `LocalCounter` and the module-level push, as ST-0380 built it. BUG-0117 covers the gap between the port and the architecture.
+
+## Pass 2
+
+Pass 2 reviews the fix commit `23d1c6e54e596f286eda4cda8ef5354126183a17` on `fix/impl-0008-0010`, diffed against `feature/counter-ids-fitting` at `3e7ca328`. It checks the three blocking findings of pass 1 and looks for new defects in the fix only. The fix holds for all three findings, and it adds no blocking defect. The branch may go to reconciliation once the fix is merged into `feature/counter-ids-fitting`. One question about the first move still needs the stakeholder's answer, and it does not block reconciliation.
+
+| Finding   | Outcome                                                                                                                                                                                                                                        |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMPL-0008 | Resolved. `push_to_origin` fetches the local counter into a throwaway repository and pushes C from there. The scratch project with a pre-commit pre-push hook that sleeps 35 seconds now moves the counter at once, and the hook does not run. |
+| IMPL-0009 | Resolved for the resume path. The reproduction of pass 1, run against the fix, keeps the marker and the setting, and the next local claim fails by BR-097. The question below covers the first move.                                           |
+| IMPL-0010 | Resolved. Check 2 uses `git remote` and a match on the line `origin`. A new text test refuses every command that prints a URL.                                                                                                                 |
+| IMPL-0012 | New, `minor`, register line. `test_impl_0009_a_refused_push_finishes_when_origin_holds_c` pushes exactly C, so git accepts the move's push as up to date. No test runs the branch `on_origin == move.sha` in `_after_refusal`.                 |
+
+**Question for the stakeholder: a first move that meets a counter grown from C.** The race of IMPL-0009 also reaches a first move. Take move A, which sets the marker, and move B, which reads that marker and resumes. B pushes C, a clone claims `ST-0013` on `origin`, and B is cut off before it removes the setting. Then A's push is refused. A is a first move, so it restores C, as BR-102 and the contract row "`origin` holds a counter" require. The setting stays, and the next claim in the clone returns `ST-0013` again. A scratch run against the fix showed exactly this. The code follows the specification here, so the review files no code defect. A first move cannot tell an independent seed from a counter that grew from C, because a claim commit has no parent.
+
+- Option 1: a first move also keeps the marker when `origin` holds a counter. No number goes out twice. Claims in the clone then fail until a human resolves the collision (CIF-G03), even when someone else seeded `origin` on their own.
+- Option 2: keep the restore. A duplicate then needs two moves at once, a cut-off, and a claim in the window.
+
+The review recommends option 1. QS-22 asks for no duplicate, and a collision needs a human under both options. The answer changes BR-102, the contract row, and the Move Lifecycle. The coordinator should record the question as a todo entry for the domain-modeling agent.
+
+**Notes on the fix.** These need no change.
+
+- A resumed move whose push fails for another reason now keeps the marker, and the message says so. The contract has no row for that case yet. `spec-feedback-IMPL-0008.md` names it for the domain-modeling agent.
+- When the second `ls-remote` fails, `_after_refusal` treats `origin` as empty. A first move then restores C, and a resumed move keeps the marker. Both are the safe outcome.
+- A hooks path in the user's global git config still applies in the throwaway repository, as it does for a claim. `init-factory` installs its hooks per repository, so no Factory hook runs there.

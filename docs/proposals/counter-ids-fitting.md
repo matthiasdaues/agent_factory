@@ -215,8 +215,10 @@ and `origin` exists. When both hold, it offers the move and runs
 3. pushes `C` to `refs/ids/counters` on `origin` with the create-only lease
    `--force-with-lease=refs/ids/counters:`;
 4. removes `agent-factory.counterRemote` when the push succeeds. When the push
-   fails, it puts `C` back on the local `refs/ids/counters`, with a lease on
-   the marker, and names the cause.
+   fails, the marker and the setting stay, and the move names the cause. It
+   never puts `C` back: from step 2 on, the local counter hands out no number,
+   so a counter that someone else seeded on `origin` meanwhile can never
+   repeat one. A second move resumes from the marker (DEC-16).
 
 A claim or a `--plan-seed` that reads the marker fails and names the remote
 that holds the counter now, and it never advises a seed. A local clone whose
@@ -397,6 +399,7 @@ prefix it claims.
 | DEC-13 | 2026-11-06 | decision | stakeholder | The proposal is accepted after review pass 4, with the minor rows PROP-06 to PROP-09 and PROP-13 open for planning.                                                                                                                                                                                                                                                                                                                  | review pass 4                                               |
 | DEC-14 | 2026-11-06 | decision | stakeholder | The marker commit has the claim commit `C` as its parent, and a second `next-id --move-to-origin` finishes an interrupted move from it. This keeps a claimed number from going out twice after a cut-off move.                                                                                                                                                                                                                       | ATAM-0014, PROP-13                                          |
 | DEC-15 | 2026-11-06 | decision | stakeholder | `RECON` is a finding tag again: a drift that the reconciliation agent records as a finding gets a `RECON` ID, and its report row still goes to the artifact's owner. This supersedes the one point of core-artifact-ownership ST-0352 that dropped `RECON` from the tag table; its test is inverted.                                                                                                                                 | ST-0383, conflict with `test_st_0352_tag_table_drops_recon` |
+| DEC-16 | 2026-11-06 | decision | stakeholder | A failed push in the move keeps the marker and the setting and never restores `C`, on the first move as on a resume. This replaces the restore of DEC-14: restoring `C` let the local counter and a counter seeded on `origin` meanwhile hand out the same number.                                                                                                                                                                   | code review pass 2 of counter-ids-fitting, IMPL-0009        |
 
 ## Review findings
 
