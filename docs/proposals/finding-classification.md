@@ -600,10 +600,19 @@ BUG-0037 again. The merges are lost before the bug hunt finds the cause, and no
 author agent can bring them back. So the run must dispatch and merge nothing
 more.
 
-Two scripts hold the stop (DEC-28). `dispatch` and `premerge-check` refuse to
-run while a finding file has `severity: critical`, `status: open`, and no
-`stop_confirmed_by`. `block-dangerous-git` lets `git merge` through only with
-the marker that `premerge-check` writes, so no merge passes the stop either.
+Two scripts hold the stop (DEC-28). `dispatch` and `premerge-check` read each
+finding file in the working tree and its `HEAD` version (DEC-57). They refuse
+to run while a finding is critical and unconfirmed. A finding is critical when
+one of its two versions has `severity: critical` together with `status: open`
+or a `review_class` field. A finding is confirmed when one of its two versions
+holds text in both `stop_confirmed_by` and `stop_confirmed_reason` (DEC-52).
+Only the human writes these two fields, so only the human's confirmation ends a
+stop. A status change, a lower severity, or a removed file in the working tree
+does not end it. The human lowers a `critical` finding only once its `HEAD`
+version holds the confirmation, so a lowering never ends a stop (DEC-58,
+DEC-59).
+`block-dangerous-git` lets `git merge` through only with the marker that
+`premerge-check` writes, so no merge passes the stop either.
 
 Both scripts print the same stop notice and exit `1`. The notice names the
 finding ID and title, the artifact, the evidence for `in_use`, each item of the
@@ -659,9 +668,13 @@ for edits, writes, and shell calls. In Claude Code these are the `PreToolUse`
 events for `Edit`, `Write`, and `Bash`. Where a CLI offers no hook for one of
 these calls, the architecture names that gap and how the guard closes it.
 
-The hook checks only `docs/findings/*.md` and the Appendix tables of
-`docs/proposals/*.md` (DEC-45). The rulebook, the templates, and the test
-fixtures lie outside, so the stories that build this feature can write them.
+A register line that replaces a filed finding carries `override_by` and
+`override_reason`, as [Register of minor findings](#register-of-minor-findings)
+describes. So the hook checks `docs/findings/*.md`, the lines of
+`docs/findings/register/*.jsonl`, and the Appendix tables of
+`docs/proposals/*.md`, and no other path (DEC-45, DEC-56). The rulebook, the
+templates, and the test fixtures lie outside, so the stories that build this
+feature can write them.
 "Sets" means that a value appears that was not there before:
 
 - For `Edit`, the hook compares `old_string` with `new_string`. A line that
@@ -670,8 +683,8 @@ fixtures lie outside, so the stories that build this feature can write them.
 - For `Write`, it compares the new content with the current file. A new
   finding from the template carries only `null`, so a reviewer can file it.
 - For `Bash`, it checks only a command that writes into a guarded path, such
-  as a redirect, `sed -i`, or `tee` on a finding file or a proposal. It
-  refuses the command when its text assigns a non-null value to one of the
+  as a redirect, `sed -i`, or `tee` on a finding file, a register, or a
+  proposal. It refuses the command when its text assigns a non-null value to one of the
   fields, or `waived` to a `status:` line or to the Status cell of a proposal
   row. A read such as `grep "status: waived"` and a heredoc that writes a
   test fixture pass.
@@ -1245,6 +1258,9 @@ The reviewer states the facts, and the rule states the severity.
 | DEC-54 | 2026-11-06 | decision   | stakeholder | The migration covers every open finding without `review_class`, 47 on 2026-11-06, not only the 39 counted on 2026-11-04.                                                                                                                                                                                                    | Requirements gap FC-G01                                            |
 | DEC-55 | 2026-11-06 | decision   | stakeholder | No agent sets `deferred` on a finding. Only the migration sets it, on an old finding without an artifact, and that file carries no `review_class`. `finding-lint` rejects `deferred` on a file that carries `review_class`. A person who sets a blocking finding aside uses `waived`.                                       | Spec review SPEC-0072, requirements gap FC-G09                     |
 | DEC-56 | 2026-11-06 | decision   | stakeholder | Only the person lowers a filed finding. `finding-lint` compares each finding with `HEAD`; a falling severity, or a finding file that becomes a register line, needs `override_by` and `override_reason`, as a waiver does. Raising a severity stays free for agents (FC-G04).                                               | Spec review note 4, requirements gap FC-G10                        |
+| DEC-57 | 2026-11-06 | decision   | stakeholder | `dispatch` and `premerge-check` read each finding file in the working tree and at `HEAD`. A finding stops the run when either version is critical, and a confirmation in either version ends the stop. A change in the working tree that nobody commits does not end a stop.                                                | Spec review SPEC-0071, requirements choice FC-C19                  |
+| DEC-58 | 2026-11-06 | decision   | stakeholder | A `critical` finding is lowered only when its `HEAD` version holds text in `stop_confirmed_by` and `stop_confirmed_reason`. The human confirms the stop in one commit and lowers the finding in a later one.                                                                                                                | Spec review SPEC-0071, requirements choice FC-C20                  |
+| DEC-59 | 2026-11-06 | decision   | stakeholder | A finding lowered from `critical` to `major` drops `stop_confirmed_by` and `stop_confirmed_reason`, because only a `critical` finding carries them. Its `HEAD` version keeps the confirmation in git history.                                                                                                               | Spec review SPEC-0071, requirements choice FC-C21                  |
 
 ## Review findings
 

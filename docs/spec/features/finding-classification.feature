@@ -53,7 +53,8 @@ Feature: Finding classification
     major, minor, and note (Rule: Reviewer agent reports its counts on the
     shared scale).
   - The stop notice that dispatch and premerge-check print (Rule:
-    Orchestrator stops the run on an open, unconfirmed critical finding).
+    Orchestrator stops the run on a critical finding that the stakeholder has
+    not confirmed).
 
   Proposal trace: docs/proposals/finding-classification.md
 
@@ -557,6 +558,14 @@ Feature: Finding classification
       Then it exits 1 and names BUG-0037 and the rule
       And the same lowering passes once HEAD holds both confirmation fields of BUG-0037
 
+    Scenario: A finding lowered from critical to major drops its confirmation fields
+      Given HEAD holds docs/findings/BUG-0037.md with severity critical, review_class code, and text in stop_confirmed_by and stop_confirmed_reason
+      And the stakeholder changes its answer to harms_downstream to false, so the file has severity major
+      And the stakeholder writes override_by and override_reason and sets stop_confirmed_by and stop_confirmed_reason to null
+      When finding-lint runs
+      Then it exits 0
+      And the same lowering fails when the file keeps text in stop_confirmed_by
+
     Scenario: A finding file with review_class is never removed without a replacing register line
       Given HEAD holds docs/findings/FAGAN-0042.md with severity major, status resolved, and review_class code
       And an agent removes the file
@@ -794,7 +803,7 @@ Feature: Finding classification
       Then it sends the finding to its owner
       And the finding keeps severity critical
 
-  Rule: Orchestrator stops the run on an open, unconfirmed critical finding
+  Rule: Orchestrator stops the run on a critical finding that the stakeholder has not confirmed
     # actor: Orchestrator
     # @packages/factory/scripts/dispatch::main
     # @packages/factory/scripts/premerge-check::main
@@ -876,7 +885,8 @@ Feature: Finding classification
       And its final summary carries the stop notice
 
     Scenario: A confirmed stop lets the scripts run again
-      Given the stakeholder set stop_confirmed_by and stop_confirmed_reason in BUG-0037
+      Given the stakeholder set stop_confirmed_by and stop_confirmed_reason in the working-tree version of BUG-0037
+      And the stakeholder has not committed the change
       When the orchestrator runs dispatch and premerge-check again
       Then neither script stops on BUG-0037
 
@@ -986,7 +996,7 @@ Feature: Finding classification
       When the stakeholder sets its Status cell to waived with the reason in its Resolution cell
       Then the row no longer blocks the transition to accepted
 
-  Rule: Agent is refused when it sets a field that only the human writes
+  Rule: Agent is refused when it sets a field that only the stakeholder writes
     # actor: Agent, as the guard hook guard-human-fields answers it
 
     Scenario: An Edit that sets stop_confirmed_by is refused
