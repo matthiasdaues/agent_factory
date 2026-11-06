@@ -364,3 +364,16 @@ flaky test aborts an agent's commit and costs one full suite run each time.
 
 **Action:** make the test tolerate a process that exits between the lookup
 and the read, for example by treating a missing `/proc/<pid>/stat` as "gone".
+
+## T-0404 — The "Deferred questions" paragraph of `create-backlog-make-concrete` is cut off
+
+- status: open
+- source: ST-0385 of counter-ids-fitting (2026-11-06)
+
+In `packages/factory/skills/create-backlog-make-concrete/SKILL.md`, lines 90
+to 92, the paragraph "Deferred questions" breaks off inside words: "those with
+exp", "Reco", and "it is not". The damage predates ST-0385, which added its
+`next-id T` claim as a separate paragraph below.
+
+**Action:** restore the paragraph from git history, find the commit that cut
+it, and check whether the same tool damaged other skill files.
