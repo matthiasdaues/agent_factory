@@ -124,3 +124,85 @@ The specification is not ready for architecture. SPEC-0071 to SPEC-0074 block it
 ## Handoff
 
 Requirements agent: the spec review found 4 open blocking findings, SPEC-0071 to SPEC-0074. Ask the stakeholder the `deferred` question of SPEC-0072, then fix SPEC-0072 to SPEC-0074, and hand SPEC-0071 to the domain-modeling agent.
+
+## Pass 2
+
+The fixes of pass 1 hold, and the specification now states the five stakeholder decisions of 2026-11-06 in every file. One new major finding blocks the next step. The fixes key the stop and the ban on `deferred` to the field `review_class`, and no rule keeps that field on a file. Three new minor findings go to the register, and six notes stay here.
+
+Pass 2 read the specification at commit `df5c5cc18da0dbd78c2bcd61ced2eb6d49d1e076` on `dev`. It read the fixes of `410b5025`, `e34afaa0`, `e12b464c`, `db0381be`, `b321e298`, and `df5c5cc1` as one diff from `2b1a540f`, and then each changed section in full. The inputs are those of pass 1, with BR-109, DEC-55 to DEC-59, FC-G09, FC-G10, and FC-C18 to FC-C21 added. The stakeholder was not present, so the review filed the findings without the pause point.
+
+### Reviewed specification, pass 2
+
+- `docs/spec/features/finding-classification.feature`: 21 Rules and 141 Scenarios.
+- `docs/spec/work/finding-classification-gaps.md`: FC-G09, FC-G10, and FC-C18 to FC-C21 added.
+- `docs/spec/work/finding-classification-qa-strategy.md`, at `b321e298` and `df5c5cc1`.
+- The finding-classification sections of the glossary, the entity model, the state machines, the validation rules (BR-079 to BR-095 and BR-109), and the interface contracts.
+- `docs/spec/schemas/finding-basis.json`, unchanged since pass 1.
+- `docs/spec/scope-map.md`, read only.
+- `docs/proposals/finding-classification.md`, DEC-55 to DEC-59 and the changed sections of § Design.
+
+`spec-lint`: `0 error(s), 0 warning(s), 58 info across 66 spec file(s).` The info lines are the four kinds that pass 1 dismissed, and none names BR-109 or a finding-classification file.
+
+### Pass-1 findings
+
+| ID        | Pass-1 record | Verdict  | Evidence                                                                                                                                                                                                                                                           |
+| --------- | ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SPEC-0071 | finding file  | resolved | BR-091, the stop contract, the `dispatch` sentence, and the Finding Lifecycle end a stop only on the confirmation. The Outline "Only the confirmation lifts the stop" covers `deferred`, `resolved`, a lower severity, and a removed file. SPEC-0080 is a new path |
+| SPEC-0072 | finding file  | resolved | BR-086, the finding-file contract, the entity model, and the Finding Lifecycle let only the migration set `deferred` (DEC-55). BR-109 closes the path of a lowering (DEC-56). SPEC-0080 is a new path                                                              |
+| SPEC-0073 | finding file  | resolved | Both Then steps name `origin/dev` and `origin/main`, and the word "only" is gone                                                                                                                                                                                   |
+| SPEC-0074 | finding file  | resolved | BR-084 lets a suggestion of the consequence tree classes answer only false to `harms_downstream` and `fails_purpose`. The Scenario expects exit `1`, and a structural row backs it                                                                                 |
+| SPEC-0075 | register line | fixed    | "A new register line gets the git check" and "A register line that HEAD holds is not checked again" cover BR-088 for register lines                                                                                                                                |
+| SPEC-0076 | register line | fixed    | The `dispatch` sentence names both confirmation fields                                                                                                                                                                                                             |
+| SPEC-0077 | register line | fixed    | The feature file and BR-080 say "the reviewer agent" in every place                                                                                                                                                                                                |
+| SPEC-0078 | register line | fixed    | The feature file names the stakeholder where a person confirms, waives, lowers, or raises a finding, and the user where a person runs `validate` or commits. No structure file says "the human"                                                                    |
+| SPEC-0079 | register line | fixed    | The glossary defines Migration Agent, Calibration Example, Child-Result Envelope, and Category                                                                                                                                                                     |
+
+SPEC-0071 and SPEC-0072 stay resolved. Each fix closes the paths its finding names: an agent can no longer end a stop or leave the loop by a change of the status alone. SPEC-0080 needs a second edit, the deletion of `review_class`, so it is a new defect of the new text and gets its own ID.
+
+### Semantic findings, pass 2
+
+| ID        | Severity | Category | Characteristic | Location                                                    | Finding                                                                                                                                                                                                                      |
+| --------- | -------- | -------- | -------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SPEC-0080 | major    | defect   | Complete       | `validation-rules.md:538`, BR-109 with BR-086 and BR-091    | An agent deletes `review_class` from BUG-0037 and sets `deferred` in one commit. The lint passes, because BR-086 skips a file without the field and BR-109 checks only severity and removal. The stop then ends unconfirmed. |
+| SPEC-0081 | minor    | defect   | Consistent     | `state-machines.md:1005`, Lowered on **IN_LOOP**            | A finding confirmed only in the working tree is in **IN_LOOP**, whose Lowered event accepts the lowering. BR-109 rejects it until `HEAD` holds the confirmation.                                                             |
+| SPEC-0082 | minor    | defect   | Verifiable     | `finding-classification-qa-strategy.md:235`, boundary table | The row still waits for FC-QG27, which line 282 and the stop contract answer.                                                                                                                                                |
+| SPEC-0083 | minor    | defect   | Terminology    | `glossary.md` § Finding Classification Vocabulary           | Lower has no glossary entry, although BR-109 rules it and the Finding Lifecycle names the events Lowered and AgentLowers.                                                                                                    |
+
+SPEC-0080 is a finding file with `status: open`. SPEC-0081 to SPEC-0083 are lines in `docs/findings/register/document.jsonl`, each with its owner in its `finding` text. SPEC-0080 is `major` because the planner who builds the lint from BR-086 and BR-109 builds the hole, and BR-091 then states a property that the rules do not deliver.
+
+### Notes, pass 2
+
+1. **The review loop reads the working tree only.** The loop greps `docs/findings/*.md` for `status: open` (glossary, Review Loop). An uncommitted agent change, such as `deferred`, a lower severity, or a removed file, drops a `major` finding from the loop until `finding-lint` runs at the next commit or `validate`. The stakeholder decided the `HEAD` read for the stop only (DEC-57). The architecture agent can check whether the loop step ends with a commit or a `validate` run, which closes the gap.
+2. **DEC-57 reads as two rules.** It says that a confirmation in either version ends the stop, and then that a change in the working tree that nobody commits does not end a stop. BR-091 and FC-C19 state the meant rule: a confirmation in the working tree ends the stop, and every other change does not. The decision log is a record, so no fix is due.
+3. **The gaps report says "the person".** FC-G10 says "for the person" and "only the person lowers a filed finding". The feature file and the structure files say the stakeholder.
+4. **The stop notice uses BUG-0037 as a worked example.** BR-091 names the resolved BUG-0037 without `review_class` as a file that stops no run. The notice example and the FC-14 Scenarios show BUG-0037 as it would stand after a classification with `review_class: code`. When an agent has removed the file, the confirmation step names a path that the working tree lacks, so the stakeholder restores the file first.
+5. **Override keys on a line that replaces nothing.** The entity model gives `override_by` and `override_reason` to a register line "only on a line that replaces a finding file". The register contract lets the schema allow them on any line, and no lint rule rejects them on another line. The guard keeps agents from writing them, so only the stakeholder can add such a line.
+6. **The guard names no pass case for a register line.** The Passes row of `guard-human-fields` lists no new register line without override keys. Every review appends such lines. BR-092 refuses only a call that sets a human field, so the rule is exact, and the guard tests can add the case.
+
+The question whether a register line should get an append-only status line instead of its deletion is an open design question for the architecture agent. The review files no finding on it.
+
+### Structure checks, pass 2
+
+- **`docs/spec/entity-model.md`**: FINDING_FILE and REGISTER_LINE carry the new status rule and the two override keys, and they agree with BR-086 and BR-109. Note 5 applies.
+- **`docs/spec/state-machines.md`**: the new edges Raised, Lowered (major), and Lowered (minor) of **IN_LOOP** match the Mermaid diagram and the FC-10 Scenarios. The rejected events Deferred and Lowered on **STOPPING** match BR-086 and BR-109. Lowered on **IN_LOOP** lacks the `HEAD` guard (SPEC-0081).
+- **`docs/spec/validation-rules.md`**: BR-109 names its attributes and traces to DEC-56, and FC-10 reaches each of its rules. Its rules for a `critical` finding carry DEC-58 and DEC-59, which FC-C20 and FC-C21 cite. BR-086, BR-091, and BR-109 leave `review_class` unguarded (SPEC-0080).
+- **`docs/spec/interface-contracts.md`**: the finding-file, register-line, `finding-lint`, stop, and `guard-human-fields` contracts agree with BR-086, BR-091, BR-092, and BR-109. The stop notice states which version it reads (FC-QG27). Notes 4 and 6 apply.
+- **`docs/spec/schemas/finding-basis.json`**: unchanged, and BR-084 asks nothing new of it. The check found no finding.
+- **`docs/spec/glossary.md`**: the four entries of SPEC-0079 are in place, and Stop and Human Field follow BR-091 and BR-092. Lower has no entry (SPEC-0083).
+- **`docs/spec/work/term-candidates.md`**: the file holds no row with the status `proposed`. The check found no finding.
+- **`docs/spec/work/finding-classification-qa-strategy.md`**: every new Scenario has a contract row, and FC-10-CT-06, FC-10-CT-07, FC-10-IT-02, and FC-14-IT-09 own BR-109 and the `HEAD` read. The structural Outline has 23 rows, as the strategy counts. One row is stale (SPEC-0082).
+
+### Traceability summary, pass 2
+
+- All 21 Rules appear in the scope map, the Actor-Goal Matrix, and the QA strategy. The two renamed Rules, FC-14 and FC-18, carry the same names in all three.
+- DEC-55 to DEC-59 each trace to a gap or a choice and to a Scenario: DEC-55 to FC-G09, DEC-56 to FC-G10, and DEC-57 to DEC-59 to FC-C19 to FC-C21.
+- BR-109 is cited by the entity model, the state machines, the contracts, and the QA strategy, and `spec-lint` reports it as referenced.
+- Gap: no Scenario covers a commit that deletes `review_class` from a filed finding (SPEC-0080).
+
+### Verdict, pass 2
+
+The specification is not ready for architecture. SPEC-0080 blocks it. Its fix is one rule in BR-109 and one Scenario in FC-10, and it needs no stakeholder decision. The three register lines do not block.
+
+### Handoff, pass 2
+
+Requirements agent: the spec review found 1 open blocking finding, SPEC-0080. Add the rule and the Scenario, and hand the mirror in the Finding Lifecycle and the `finding-lint` contract to the domain-modeling agent. Then run spec review pass 3.
