@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Seed the ID counter in the fitting, and name each requestor's prefix
-status: open
+status: accepted
 owner: matthiasdaues
 created: 2026-11-06
 updated: 2026-11-06
@@ -50,21 +50,19 @@ estimate:
 
 ## Primer
 
-The Factory is a set of agents, skills, and rules that help people build software in a git repository. Before the Factory can work in a project, a guided setup called the fitting walks the human through a few choices, such as the models to use and the commit hooks. The Factory's session agent, VIRGIL, leads that walk.
+The Factory is a set of agents, skills, and rules that help people build software in a git repository. Before it can work in a project, a guided setup called the fitting walks the human through a few choices, such as the hooks that run at commit. VIRGIL, the Factory's session agent, leads that walk.
 
-The Factory writes many small documents that other documents refer to: user stories, bug reports, review findings, architecture decisions, and todo entries. Each one is an indexed artifact. Its name is a prefix plus a number. The prefix says what kind of artifact it is, so ST-0375 is a story, and ADR-0032 is an architecture decision record. Every prefix has its own sequence of numbers.
+The Factory writes many small documents that refer to each other: stories, bug reports, review findings, architecture decisions, and todo entries. Each is an indexed artifact. Its name is a prefix plus a number. The prefix names the kind, so ST-0375 is a story and ADR-0032 is an architecture decision record. Each prefix has its own sequence of numbers.
 
-Two sessions on different branches used to pick the same next number, because each saw only its own files. The earlier proposal, counter-ids, fixed this with an ID counter. The counter lives in the project's shared remote, which git calls origin. A script named next-id claims a number there, and the remote refuses a second claim of the same number. So no two artifacts share an ID.
+Two sessions on different branches used to pick the same next number, because each saw only its own files. The earlier proposal, counter-ids, fixed this with an ID counter, which is a git ref on the project's shared remote, called origin. A script named next-id claims a number there, and the remote refuses a second claim of the same number.
 
-This proposal closes two gaps that the counter left open. The first gap is the start. Until someone creates the counter, every claim fails. The human did it by hand in this project and gave all prefixes the same start of 400, so stories and bugs jumped to 0401. Only architecture decisions continued from 0032.
+The counter leaves two gaps. First, until someone creates it, every claim fails. The human seeded it by hand in this project with one start of 400 for every prefix, so stories and bugs jumped to 0401.
 
-The proposal makes seeding a new step of the fitting, with a sixth fitting key. A new read-only mode of next-id searches the local and remote-tracking branches for the highest number of each prefix and prints one seed command. VIRGIL shows the command and runs it only after the human confirms. Every sequence then continues where the project left it.
+So the fitting gets a new step that seeds the counter and sets a sixth fitting key. A read-only mode of next-id finds the highest number of each prefix on the local and remote-tracking branches. It reads only file names, register id fields, and todo headings, never body text, and prints one seed command with a start per prefix. VIRGIL shows the command and runs it after the human confirms.
 
-A project without an origin keeps the counter in its own repository, which all its worktrees share. VIRGIL offers to move it to origin once one exists. The move is refused if origin already has a counter, so a collision shows and stays visible.
+A project without origin keeps the counter in its own .git, which all its worktrees share. A git setting named agent-factory.counterRemote tells next-id where to find it. Once origin exists, VIRGIL offers to move the counter there. The move is refused if origin already has a counter, so a collision shows.
 
-The second gap is the prefix. Today a reviewer picks its prefix from a table, and a wrong pick does not fail. A fagan finding claimed as a bug takes a valid bug number, and that number is gone. So every file that tells an agent to create an artifact will name the claim with its literal prefix. One convention file lists all twelve prefixes, and a text test checks that each requestor names its own.
-
-Both parts rest on one rule from the earlier proposal. Agents reach the counter only through next-id, and never push the counter by hand.
+The second gap is the prefix. Today a reviewer picks its prefix from a table, and a wrong pick does not fail. A fagan finding claimed under the bug prefix takes a valid bug number, and that number is gone. So every file that tells an agent to create an artifact names the claim with its literal prefix. One convention file, id-prefixes.md, holds a table of all twelve prefixes, and a text test checks that each requestor names its own.
 
 ## Summary
 
@@ -90,7 +88,7 @@ The second gap lies in the producers. `finding-format.md` tells a reviewer to
 claim "`next-id <TAG>`" and lists the tags in a table. Fourteen agents and
 skills file findings, and none of them names its own tag or `next-id`. The table
 also lacks `RECON`, although the reconciliation agent files `RECON` findings.
-The list in its first bullet lacks `ST`, `T`, and `ADR`. An agent that has to
+The list of `next-id` prefixes in that file lacks `ST`, `T`, and `ADR`. An agent that has to
 work out its prefix from a table can pick the wrong one. A wrong prefix does not
 fail: `next-id BUG` hands out a valid `BUG` number for a finding that should
 have been `FAGAN`, and that number is gone.
@@ -140,8 +138,7 @@ reports that the counter is in use, without a seed.
 Greenfield projects (`fitting.status == "greenfield"`) walk step 0 and this
 step, so a newcomer's first backlog never fails at a missing counter (DEC-06).
 A greenfield project has no indexed artifacts, so `--plan-seed` prints
-`next-id --seed 0`. Without `origin`, the seed goes to the local counter below,
-and the first story is `ST-0001`.
+`next-id --seed 0`, and the first story is `ST-0001`.
 
 ### `next-id --plan-seed`
 
@@ -152,21 +149,25 @@ mode changes nothing. It:
 1. checks the remote as a claim does. When `refs/ids/counters` exists, it
    prints "the counter is in use on <remote>" and exits `0`. When the remote is
    missing or unreachable, it fails with the same messages as a claim;
+
 2. collects the IDs in use on every local branch and every remote-tracking
    branch, from the artifacts themselves and never from body text, because
    text holds examples such as `ST-9999`:
+
    - file names: `backlog/ST-NNNN.md`, `docs/findings/<PREFIX>-NNNN.md`, and
      `docs/adr/NNNN-*.md` for `ADR`;
    - the `id` field of each line in `docs/findings/register/*.jsonl`;
    - the headings `## T-NNNN` in `docs/spec/work/todo.md`;
-     A file name counts when it starts with a prefix of the list, a hyphen, and
-     digits: `ST-0375A.md`, a split story, counts as 375, and older names such
-     as `SPEC-001-title.md` or `ATAM-0001-title.md` count by their number. A
-     name without a number, such as `BUG-HUNT.md`, does not count. The mode
-     prints each counted name that breaks `<PREFIX>-NNNN.md` or
-     `<PREFIX>-NNNN<letter>.md` as a warning and goes on, so an old name never
-     blocks the seed and never lowers it unnoticed. A new file carries the
-     prefix and the number only, never a title (DEC-12);
+
+   A file name counts when it starts with a prefix of the list, a hyphen, and
+   digits. `ST-0375A.md`, a split story, counts as 375. Older names such as
+   `SPEC-001-title.md` or `ATAM-0001-title.md` count by their number. A name
+   without a number, such as `BUG-HUNT.md`, does not count. The mode prints each
+   counted name that breaks `<PREFIX>-NNNN.md` or `<PREFIX>-NNNN<letter>.md` as
+   a warning and goes on, so an old name never blocks the seed and never lowers
+   it unnoticed. A new file carries the prefix and the number only, never a
+   title (DEC-12);
+
 3. prints one command:
    `next-id --seed <start> <PREFIX>=<highest> …`, with one pair for each
    prefix that has an ID in use. `<start>` is `0`, so a prefix without IDs
@@ -190,8 +191,8 @@ remote (counter-ids DEC-20).
 `next-id` finds the local counter through the git setting
 `agent-factory.counterRemote`, which holds the path of the project's
 repository. The fitting step sets it when the project has no `origin`.
-`next-id --move-to-origin` removes it once the counter is on `origin`. `.git/config` is shared by
-all worktrees, so all of them see it. `next-id` resolves its remote in this
+`next-id --move-to-origin` removes it once the counter is on `origin`.
+`.git/config` is shared by all worktrees, so all of them see it. `next-id` resolves its remote in this
 order: `--remote`, then `agent-factory.counterRemote`, then `origin`. A clone
 that lost its `origin` by mistake has no such setting, so its claim still fails
 and names `origin` and `--remote` (DEC-08).
@@ -206,7 +207,7 @@ and `origin` exists. When both hold, it offers the move and runs
 1. reads the claim commit `C` of the local counter;
 2. replaces the local `refs/ids/counters` with a marker commit whose message
    holds one line, `moved=<remote>`, with the remote redacted. The update uses
-   a lease on `C`, so a claim that raised the counter meanwhile makes the move
+   a lease on `C`. A claim that raised the counter meanwhile makes the move
    start again at step 1, and no claim lands on the local counter after this
    step;
 3. pushes `C` to `refs/ids/counters` on `origin` with the create-only lease
@@ -217,8 +218,8 @@ and `origin` exists. When both hold, it offers the move and runs
 
 A claim or a `--plan-seed` that reads the marker fails and names the remote
 that holds the counter now, and it never advises a seed. A local clone whose
-`origin` is the project's path so learns where to point its `origin`, and the
-fitting step offers no second seed that would split the counter.
+`origin` is the project's path learns from this where to point its `origin`,
+and the fitting step offers it no second seed that would split the counter.
 
 A claim that runs during the move either lands before step 2, and the move
 carries its number to `origin`, or it reads the marker and fails. No number
@@ -251,7 +252,16 @@ Every file that tells an agent to create an indexed artifact names the claim
 with its literal prefix, at the step that creates the artifact, for example
 "Claim the ID with `.agent-factory/factory/scripts/next-id FAGAN`". The kind of
 artifact decides the prefix, not the file, so a file that creates two kinds
-names one prefix at each of the two steps (DEC-10). These are the requestors:
+names one prefix at each of the two steps (DEC-10).
+
+Every file that tells an agent to add an entry to
+`docs/spec/work/todo.md`, such as a review that records an open question, is a
+requestor of `T`: at that step it names `next-id T` and points to
+`todo-format.md` for the form of the entry. The text test finds these files by
+that pointer, so a file that only links to `todo.md` is no requestor. A requestor
+missing from the table below fails the test.
+
+The table lists the requestors:
 
 | File                                                                 | Prefix                               |
 | -------------------------------------------------------------------- | ------------------------------------ |
@@ -273,12 +283,7 @@ names one prefix at each of the two steps (DEC-10). These are the requestors:
 
 The new convention `rulebooks/conventions/id-prefixes.md` holds one table of
 all twelve prefixes: the prefix, the kind of artifact, and the requestor files
-(DEC-11). Every file that tells an agent to add an entry to
-`docs/spec/work/todo.md`, such as a review that records an open question, is a
-requestor of `T`: at that step it names `next-id T` and points to
-`todo-format.md` for the form of the entry. The text test finds these files by
-that pointer, so a file that only links to `todo.md` is no requestor, and a
-requestor missing from the table fails the test. `rules.md`, `branching-policy.md`, and `finding-format.md` point to
+(DEC-11). `rules.md`, `branching-policy.md`, and `finding-format.md` point to
 it, and `finding-format.md` keeps only the review that files each tag, with the
 row for `RECON` added. A thirteenth prefix means two changes: the list in
 `next-id` and this table. A text test guards both.
@@ -295,6 +300,8 @@ row for `RECON` added. A thirteenth prefix means two changes: the list in
 - the derivation of `counter_seeded` in `init-factory`;
 - the prefix named in each requestor of the table, the convention
   `id-prefixes.md`, and the pointers to it;
+- the pointers in `create-backlog-stories` (`next-id ST`) and `retrospective`
+  (`next-id T`);
 - the text test for the requestors.
 
 **Explicitly deferred (do NOT plan stories for these):**
@@ -341,8 +348,6 @@ row for `RECON` added. A thirteenth prefix means two changes: the list in
   `docs/findings/ATAM-0014-some-title.md`, `backlog/ST-0380A.md`, and
   `docs/findings/BUG-HUNT.md` prints `ATAM=14` and `ST=380`, warns about the
   ATAM name only, and exits `0`.
-- The ATAM findings of this repository are named `ATAM-NNNN.md`, without a
-  title.
 - After `next-id --move-to-origin`, the local `refs/ids/counters` holds only
   the marker `moved=<remote>`. `next-id ST` and `next-id --plan-seed` in a
   local clone whose `origin` is the project's path fail, name the remote that
@@ -381,6 +386,7 @@ prefix it claims.
 | DEC-10 | 2026-11-06 | decision | stakeholder | The kind of artifact decides the prefix. A file that creates several kinds, such as `reconcile-spec` with `RECON` drift and `BUG` code defects, names one prefix at each step that creates one.                                                                                                                                                                                                                                      | grilling on the requestor table                    |
 | DEC-11 | 2026-11-06 | decision | stakeholder | One table of all twelve prefixes lives in the new convention `id-prefixes.md`, and `rules.md`, `branching-policy.md`, and `finding-format.md` point to it.                                                                                                                                                                                                                                                                           | IMPL-0007                                          |
 | DEC-12 | 2026-11-06 | decision | stakeholder | A finding file is named with its prefix and number only, `<PREFIX>-NNNN.md`. The 13 ATAM files lose their titles. `--plan-seed` fails on a file that starts with a prefix but breaks the pattern. Refined by PROP-12: it counts old names by their number and only warns.                                                                                                                                                            | PROP-02, pass 2                                    |
+| DEC-13 | 2026-11-06 | decision | stakeholder | The proposal is accepted after review pass 4, with the minor rows PROP-06 to PROP-09 and PROP-13 open for planning.                                                                                                                                                                                                                                                                                                                  | review pass 4                                      |
 
 ## Review findings
 
