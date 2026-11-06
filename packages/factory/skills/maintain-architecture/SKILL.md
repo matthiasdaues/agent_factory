@@ -97,7 +97,7 @@ This step reads `docs/spec/state-machines.md` and writes no specification file. 
 
 1. For each transition in `docs/spec/state-machines.md`, find the component in the component view that performs it. [state-machine-notation.md](../../rulebooks/conventions/state-machine-notation.md) defines the pseudocode.
 2. A transition without a performing component is a contradiction. So is a component that performs a transition the state machines do not allow.
-3. File each contradiction as `docs/findings/ARCH-NNNN.md` with `owner: domain-modeling-agent`, per [finding-format.md](../../rulebooks/conventions/finding-format.md). Name the state machine, the transition, and the component.
+3. File each contradiction as `docs/findings/ARCH-NNNN.md`. Run `.agent-factory/factory/scripts/next-id ARCH` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. Set `owner: domain-modeling-agent`, as [finding-format.md](../../rulebooks/conventions/finding-format.md). Name the state machine, the transition, and the component.
 
 Never write `docs/spec/state-machines.md`. A fix to the state machines belongs to the domain-modeling agent.
 

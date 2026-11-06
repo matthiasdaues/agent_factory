@@ -66,7 +66,7 @@ Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/con
 6. **Risk summary** — table of risks with severity and proposed mitigation.
 7. **Tradeoff summary** — table of identified tradeoffs.
 
-File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `ATAM` for risks rated Medium or higher.
+File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `ATAM` for risks rated Medium or higher. Run `.agent-factory/factory/scripts/next-id ATAM` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Format both the report and any finding files via `.agent-factory/factory/scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 

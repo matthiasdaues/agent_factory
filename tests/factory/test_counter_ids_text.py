@@ -221,6 +221,8 @@ def check_id_prefix_table(table_path, next_id_path, factory_root) -> list[str]:
         for name in files:
             if not (factory_root / name).is_file():
                 problems.append(f"prefix {prefix} names {name}, which does not exist")
+            elif not re.search(rf"next-id[` ]+{prefix}\b", (factory_root / name).read_text()):
+                problems.append(f"{name} does not name next-id {prefix}")
     return problems
 
 
@@ -277,3 +279,72 @@ def test_st_0383_checker_names_a_missing_prefix_and_a_missing_producer_file(tmp_
     problems = check_id_prefix_table(broken, NEXT_ID, FACTORY_ROOT)
     assert any("QA" in p for p in problems)
     assert any("skills/no-such/SKILL.md" in p for p in problems)
+
+
+@pytest.mark.spec("CIF-17-CT-01")
+def test_st_0384_checker_names_the_file_and_prefix_of_a_dropped_claim(tmp_path):
+    source = FACTORY_ROOT / "skills/fagan-review/SKILL.md"
+    copy = tmp_path / "skills/fagan-review/SKILL.md"
+    copy.parent.mkdir(parents=True)
+    copy.write_text(source.read_text().replace("next-id FAGAN", "next-id"))
+    table = tmp_path / "id-prefixes.md"
+    table.write_text(
+        "| Prefix | Artifact | ID producer |\n| --- | --- | --- |\n"
+        "| `FAGAN` | Fagan finding | `skills/fagan-review/SKILL.md` |\n"
+    )
+    problems = check_id_prefix_table(table, NEXT_ID, tmp_path)
+    assert "skills/fagan-review/SKILL.md does not name next-id FAGAN" in problems
+
+
+# ST-0384: each file that creates an artifact names the literal prefix (BR-107).
+CLAIMS = [
+    ("skills/create-backlog/SKILL.md", "ST"),
+    ("skills/create-backlog-stories/SKILL.md", "ST"),
+    ("skills/retrospective/SKILL.md", "T"),
+    ("skills/retrospective/SKILL.md", "ST"),
+    ("skills/write-adr/SKILL.md", "ADR"),
+    ("rulebooks/conventions/todo-format.md", "T"),
+    ("playbooks/bug-fix.md", "BUG"),
+    ("skills/bug-hunt/SKILL.md", "BUG"),
+    ("agents/qa-agent.md", "BUG"),
+    ("skills/inspect-spec/SKILL.md", "SPEC"),
+    ("agents/spec-review-agent.md", "SPEC"),
+    ("skills/atam-review/SKILL.md", "ATAM"),
+    ("agents/architecture-review-agent.md", "ATAM"),
+    ("skills/maintain-architecture/SKILL.md", "ARCH"),
+    ("agents/code-review-agent.md", "IMPL"),
+    ("skills/fagan-review/SKILL.md", "FAGAN"),
+    ("skills/security-review/SKILL.md", "SEC"),
+    ("skills/mutation-testing/SKILL.md", "QA"),
+    ("skills/reconcile-spec/SKILL.md", "RECON"),
+    ("skills/reconcile-spec/SKILL.md", "BUG"),
+    ("agents/reconciliation-agent.md", "RECON"),
+    ("agents/reconciliation-agent.md", "BUG"),
+    ("agents/reconciliation-agent.md", "QA"),
+]
+
+
+@pytest.mark.spec("CIF-14-LN-01")
+@pytest.mark.parametrize("name,prefix", CLAIMS, ids=lambda v: v.replace("/", "-"))
+def test_st_0384_producer_names_its_literal_prefix(name, prefix):
+    text = (FACTORY_ROOT / name).read_text()
+    assert re.search(rf"{re.escape(NEXT_ID_PATH)} {prefix}\b", text)
+    assert "next-id <TAG>" not in text
+    assert "standard output" in text
+    assert re.search(r"stop[^.\n]*report|report[^.\n]*stop", text, re.IGNORECASE)
+    assert re.search(r"never[^.\n]*(by hand|pick)", text, re.IGNORECASE)
+
+
+@pytest.mark.spec("CIF-14-LN-02")
+def test_st_0384_reconcile_spec_names_recon_and_bug_at_two_steps():
+    lines = (FACTORY_ROOT / "skills/reconcile-spec/SKILL.md").read_text().splitlines()
+    recon = [i for i, line in enumerate(lines) if re.search(r"next-id RECON\b", line)]
+    bug = [i for i, line in enumerate(lines) if re.search(r"next-id BUG\b", line)]
+    assert recon and bug and set(recon).isdisjoint(bug)
+
+
+@pytest.mark.spec("CIF-14-LN-01")
+def test_st_0384_retrospective_points_to_todo_format_at_its_todo_step():
+    text = (SKILLS / "retrospective/SKILL.md").read_text()
+    step = next(line for line in text.splitlines() if "docs/spec/work/todo.md" in line)
+    assert "todo-format.md" in step and "next-id T" in step

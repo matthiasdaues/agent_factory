@@ -30,7 +30,7 @@ Focus areas:
 - **Concurrency and timing** — race conditions, stale reads, double submissions
 - **Extension paths** — every alternative Scenario of the Rule, not just the happy path. Verify against the **Gherkin** Scenarios in `docs/spec/features/`.
 
-File each bug immediately per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `BUG`: reproduction steps, expected vs actual behaviour, violated Rule or Scenario of the feature file in `traces`. Format the finding file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
+File each bug immediately per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `BUG`. Run `.agent-factory/factory/scripts/next-id BUG` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. Record reproduction steps, expected vs actual behaviour, violated Rule or Scenario of the feature file in `traces`. Format the finding file via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 
 ## Phase: Fix
 

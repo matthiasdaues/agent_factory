@@ -58,10 +58,10 @@ Format via `scripts/mdformat --number <path>` per [markdown-formatting.md](../..
 
 From the Stop/Continue/Start sections, extract concrete action items. Present them to the user for confirmation. Confirmed items should be:
 
-- Filed as todos in `docs/spec/work/todo.md` or the project's issue tracker
+- Filed as todos in `docs/spec/work/todo.md` or the project's issue tracker. Write each todo entry in the form of [todo-format.md](../../rulebooks/conventions/todo-format.md). Run `.agent-factory/factory/scripts/next-id T` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 - Or captured as updates to agent definitions, skills, or `docs/agent-context.md` (process)
 - Or, for vocabulary, written as a row of `docs/spec/work/term-candidates.md` with status `candidate`; only the domain-modeling agent moves a term into `docs/spec/glossary.md`
-- Or filed as a backlog story (`backlog/ST-NNNN.md`, this repo's INVEST/MoSCoW schema) and handed off to `implementation-agent` for dispatch
+- Or filed as a backlog story (`backlog/ST-NNNN.md`, this repo's INVEST/MoSCoW schema) and handed off to `implementation-agent` for dispatch. Run `.agent-factory/factory/scripts/next-id ST` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Do not file action items without user confirmation.
 
