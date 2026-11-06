@@ -262,7 +262,6 @@ Feature: Counter IDs
       Examples:
         | file                                                     | ids                                      |
         | packages/factory/skills/create-backlog/SKILL.md          | ST                                       |
-        | packages/factory/rulebooks/conventions/id-prefixes.md     | SPEC, FAGAN, SEC, BUG, RECON, ATAM, IMPL, ARCH, QA |
         | packages/factory/playbooks/bug-fix.md                    | BUG                                      |
         | packages/factory/rulebooks/conventions/todo-format.md    | T                                        |
         | packages/factory/skills/write-adr/SKILL.md               | ADR                                      |
