@@ -117,20 +117,55 @@ def _main_worktree_root() -> Path:
     return Path(*parts[: git_idx])
 
 
+class LedgerChoiceError(Exception):
+    """Several ledgers exist and none fits the current branch."""
+
+
+def _ledger_holds_story(path: Path, story_id: str) -> bool:
+    """Return True when the ledger at *path* lists *story_id* under stories."""
+    try:
+        data = _load_yaml(path.read_text())
+    except Exception:  # noqa: BLE001 - an unreadable ledger holds nothing
+        return False
+    stories = data.get("stories") if isinstance(data, dict) else None
+    if isinstance(stories, dict):
+        return story_id in stories
+    if isinstance(stories, list):
+        return any(isinstance(s, dict) and s.get("id") == story_id for s in stories)
+    return False
+
+
 def _default_ledger() -> str:
     """Derive the ledger path from the active dispatch under .current-work/.
 
-    Scans the main worktree's .current-work/ for exactly one
-    dispatch-ledger.yaml.  When zero or more than one are found, returns
-    a path that will produce a clear 'ledger not found' error — the
-    caller must pass --ledger explicitly in multi-dispatch scenarios.
+    One ledger under the main worktree's .current-work/ is the default.
+    With several, the ledger under ``.current-work/<current branch>/`` wins.
+    On a ``story/<id>`` branch, the one ledger whose stories hold that story
+    wins. When no ledger fits, raise LedgerChoiceError, which names the
+    ledgers found. With none at all, return a path that produces a clear
+    'ledger not found' error.
     """
     cw = _main_worktree_root() / ".current-work"
-    if cw.is_dir():
-        ledgers = list(cw.glob("**/dispatch-ledger.yaml"))
-        if len(ledgers) == 1:
-            return str(ledgers[0])
-    return ".current-work/dispatch-ledger.yaml"
+    ledgers = sorted(cw.glob("**/dispatch-ledger.yaml")) if cw.is_dir() else []
+    if len(ledgers) == 1:
+        return str(ledgers[0])
+    if not ledgers:
+        return ".current-work/dispatch-ledger.yaml"
+    branch = _current_branch_name()
+    if branch:
+        own = cw / branch / "dispatch-ledger.yaml"
+        if own in ledgers:
+            return str(own)
+        story = re.fullmatch(r"story/(.+)", branch)
+        if story:
+            holders = [p for p in ledgers if _ledger_holds_story(p, story.group(1))]
+            if len(holders) == 1:
+                return str(holders[0])
+    found = "\n".join(f"  {p}" for p in ledgers)
+    raise LedgerChoiceError(
+        "several dispatch ledgers exist and none fits branch "
+        f"{branch or '(detached HEAD)'}:\n{found}\npass --ledger <path>"
+    )
 
 
 _TEST_COMMAND_KEYS = ("test_command", "test_all")
@@ -909,6 +944,9 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         return 1
 
     wave = args.wave
+    if not any(entry.wave == wave for entry in ledger.stories.values()):
+        print(f"error: no story in the ledger carries wave {wave}", file=sys.stderr)
+        return 1
     blocking = [
         entry
         for entry in ledger.stories.values()
@@ -1526,12 +1564,10 @@ def cmd_escalate(args: argparse.Namespace) -> int:
 
 
 def _validate_sha_format(sha: str) -> None:
-    """Raise ShaFormatError if *sha* is not exactly 40 lowercase hex chars."""
-    import re
-
-    if not re.match(r"^[0-9a-f]{40}$", sha):
+    """Raise ShaFormatError if *sha* is not 4 to 40 lowercase hex chars."""
+    if not re.fullmatch(r"[0-9a-f]{4,40}", sha):
         raise ShaFormatError(
-            f"SHA must be exactly 40 lowercase hex characters, got: {sha!r}"
+            f"SHA must be 4 to 40 lowercase hex characters, got: {sha!r}"
         )
 
 
@@ -1549,10 +1585,12 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    code, _, err = _git("cat-file", "-e", f"{sha}^{{commit}}")
+    # An abbreviated SHA expands to the full one, which the ledger records.
+    code, full_sha, err = _git("rev-parse", "--verify", f"{sha}^{{commit}}")
     if code != 0:
-        print(f"error: SHA does not exist: {sha}", file=sys.stderr)
+        print(f"error: SHA does not exist: {sha}: {err}", file=sys.stderr)
         return 1
+    sha = full_sha
 
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
@@ -2067,7 +2105,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--ledger",
-        default=_default_ledger(),
+        default=None,
         help="path to dispatch ledger (default: derived from current branch)",
     )
     sub = parser.add_subparsers(dest="subcommand", required=True)
@@ -2165,6 +2203,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+    if args.ledger is None:
+        try:
+            args.ledger = _default_ledger()
+        except LedgerChoiceError as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
 
     if args.subcommand == "status":
         return cmd_status(args)
