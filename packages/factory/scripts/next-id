@@ -23,6 +23,10 @@ and reads again. After ten stale leases in a row, the claim fails. Every
 other refusal ends the claim after one push. A seed pushes with the
 create-only lease (BR-073).
 
+Every line on standard output and standard error passes through one
+redaction: the user info of a URL, such as a token, shows as `***`
+(SEC-0007). The git calls get the URL as it is.
+
 No third-party dependencies (Python stdlib only), matching backlog-lint.
 
 Usage
@@ -76,6 +80,40 @@ _STALE_LEASE = re.compile(
 
 
 _MISSING_REF = re.compile(r"couldn't find remote ref")
+# SEC-0007: the user info of a URL with a scheme, such as `user:token@` in
+# `https://user:token@host/r.git`. The match runs to the last `@` before the
+# path, so a password with an `@` goes too. An scp-style URL has no scheme
+# and stays.
+_USER_INFO = re.compile(r"\b([A-Za-z][A-Za-z0-9+.-]*://)[^/\s]*@")
+
+
+def redact_user_info(text: str) -> str:
+    """Replace the user info of every URL in the text with `***` (SEC-0007)."""
+    return _USER_INFO.sub(r"\1***@", text)
+
+
+class RedactingStream:
+    """A text stream that redacts the user info of every URL it writes."""
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, text: str) -> int:
+        self._stream.write(redact_user_info(text))
+        return len(text)
+
+    def __getattr__(self, name: str):
+        return getattr(self._stream, name)
+
+
+def redact_output() -> None:
+    """Send every write to standard output and standard error through the redaction.
+
+    Messages, argparse errors, `sys.exit(<message>)`, and tracebacks all write
+    to sys.stdout or sys.stderr, so none of them can print a token (SEC-0007).
+    """
+    sys.stdout = RedactingStream(sys.stdout)
+    sys.stderr = RedactingStream(sys.stderr)
 
 
 class NextIdError(Exception):
@@ -433,4 +471,5 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    redact_output()
     sys.exit(main())

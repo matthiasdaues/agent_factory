@@ -122,6 +122,43 @@ try:
 except ModuleNotFoundError:
     tomllib = None  # type: ignore[assignment]
 
+# SEC-0007: the user info of a URL with a scheme, such as `user:token@` in
+# `https://user:token@host/r.git`. The match runs to the last `@` before the
+# path, so a password with an `@` goes too. An scp-style URL has no scheme
+# and stays. next-id holds the same pattern.
+_USER_INFO = re.compile(r"\b([A-Za-z][A-Za-z0-9+.-]*://)[^/\s]*@")
+
+
+def redact_user_info(text: str) -> str:
+    """Replace the user info of every URL in the text with `***` (SEC-0007)."""
+    return _USER_INFO.sub(r"\1***@", text)
+
+
+class RedactingStream:
+    """A text stream that redacts the user info of every URL it writes."""
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, text: str) -> int:
+        self._stream.write(redact_user_info(text))
+        return len(text)
+
+    def __getattr__(self, name: str):
+        return getattr(self._stream, name)
+
+
+def redact_output() -> None:
+    """Send every write to standard output and standard error through the redaction.
+
+    Messages, prompts, argparse errors, `sys.exit(<message>)`, and tracebacks
+    all write to sys.stdout or sys.stderr, so none of them can print a token
+    (SEC-0007). A child process that writes to these streams itself must have
+    its output captured and printed instead.
+    """
+    sys.stdout = RedactingStream(sys.stdout)
+    sys.stderr = RedactingStream(sys.stderr)
+
 # name -> path relative to factory/, symlinked into each dot-dir under the same name
 FACTORY_CONTENT = [
     "agents",
@@ -3048,7 +3085,8 @@ def check_counter(target: Path, report: list[str]) -> None:
 
     Asks `origin` only whether `refs/ids/counters` exists (DEC-17). No case
     stops the install (DEC-23). git runs without prompts and with a time
-    limit, so a dead remote cannot hang the install."""
+    limit, so a dead remote cannot hang the install. A URL of origin with
+    user info gets a warning that shows only the redacted URL (SEC-0007)."""
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"}
 
     def run(*args: str) -> subprocess.CompletedProcess | None:
@@ -3070,7 +3108,15 @@ def check_counter(target: Path, report: list[str]) -> None:
         log(report, "counter: no remote `origin`")
         log(report, "add the remote `origin`, then run `next-id --seed <number>`")
         return
-    url = url_result.stdout.strip()
+    raw_url = url_result.stdout.strip()
+    url = redact_user_info(raw_url)
+    if url != raw_url:
+        log(report, f"WARNING: the URL of origin, {url}, carries a user name or token")
+        log(
+            report,
+            "keep the credential in a git credential helper instead "
+            "(see `git help credentials`) and remove it from the URL",
+        )
     result = run("ls-remote", "origin", COUNTER_REF)
     if result is None or result.returncode != 0:
         detail = (result.stderr.strip().splitlines() or [""])[-1] if result else (
@@ -3078,7 +3124,7 @@ def check_counter(target: Path, report: list[str]) -> None:
         )
         log(report, f"WARNING: the remote {url} does not answer; the counter is unchecked")
         if detail:
-            log(report, f"git said: {detail}")
+            log(report, f"git said: {redact_user_info(detail)}")
         return
     if not result.stdout.strip():
         log(report, "counter: missing on origin")
@@ -3501,10 +3547,13 @@ def migrate_layout(target: Path, report: list[str]) -> bool:
 
     The script prints its own moves and, on failure, undoes every change it
     made before it exits non-zero."""
-    sys.stdout.flush()
     result = subprocess.run(
-        [sys.executable, str(MIGRATE_SCRIPT), str(target)], check=False
+        [sys.executable, str(MIGRATE_SCRIPT), str(target)],
+        capture_output=True, text=True, check=False,
     )
+    # The output goes through print, so it passes the redaction (SEC-0007).
+    print(result.stdout, end="")
+    print(result.stderr, end="", file=sys.stderr)
     if result.returncode != 0:
         return False
     log(report, "migrate-spec-layout: the project is in the core artifact layout")
@@ -4775,4 +4824,5 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    redact_output()
     sys.exit(main())
