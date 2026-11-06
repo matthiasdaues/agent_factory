@@ -484,7 +484,9 @@ accident (DEC-08).
 **The move to `origin`.** Once `origin` exists, VIRGIL offers the move at the
 session start, and `next-id --move-to-origin` runs it after the User confirms.
 The move first replaces the Local Counter with a marker commit, one line
-`moved=<remote>`, under a lease on the claim commit. Then it pushes the claim
+`moved=<remote>`, under a lease on the claim commit. The marker has the claim
+commit as its parent, so a second run of the move finishes a move that
+stopped before the push (DEC-14). Then it pushes the claim
 commit to `origin` with the create-only lease and removes the setting. So a
 claim during the move either travels to `origin` with the claim commit or
 reads the marker and fails. When `origin` already holds a counter, the push is

@@ -808,18 +808,25 @@ stateDiagram-v2
 
 ### Move Lifecycle
 
-One call of `next-id --move-to-origin`, with `agent-factory.counterRemote`
-set and `origin` present. The marker goes on the local counter before the push,
-so no ID claim lands on the local counter while the claim commit travels to
-`origin`. BR-102 and BR-103 hold the rules.
+One move of a local counter to `origin`, with `agent-factory.counterRemote`
+set and `origin` present. The move runs in one call of
+`next-id --move-to-origin`, or in two when the first call is cut off after the
+marker. The marker goes on the local counter before the push, so no ID claim
+lands on the local counter while the claim commit travels to `origin`. The
+marker has the claim commit C as its parent, so a second call finds C there
+(DEC-14). BR-102 and BR-103 hold the rules.
 
 #### Pseudocode
 
 ```text
 State: READING
-  # initial — next-id reads the claim commit C of the local counter
+  # initial — next-id reads the local refs/ids/counters
 On CounterRead:
+  # the local counter holds a claim commit C
   ChangeState(MARKING)
+On MarkerRead:
+  # the local counter holds the marker of a cut-off move
+  ChangeState(RESUMING)
 
 State: MARKING
   # next-id replaces the local refs/ids/counters with the marker commit, with a lease on C
@@ -832,20 +839,50 @@ On LeaseStale:
 State: PUSHING
   # next-id pushes C to origin with the create-only lease
 On PushAccepted:
-  ChangeState(MOVED)
+  ChangeState(CLEARING)
 On CounterOnOrigin:
   # the create-only lease refuses, because origin holds a counter
   ChangeState(RESTORING)
 On PushRefused:
   ChangeState(RESTORING)
+On CutOff:
+  # the call ends before git answers, such as on a lost connection
+  ChangeState(INTERRUPTED)
+
+State: CLEARING
+  # next-id removes agent-factory.counterRemote
+On SettingRemoved:
+  ChangeState(MOVED)
+On CutOff:
+  ChangeState(INTERRUPTED)
 
 State: RESTORING
   # next-id puts C back on the local refs/ids/counters, with a lease on the marker
 On Restored:
   ChangeState(REFUSED)
+On CutOff:
+  ChangeState(INTERRUPTED)
+
+State: INTERRUPTED
+  # no call runs — the local counter holds the marker with parent C, the setting stays, every ID claim fails
+On MoveRerun:
+  # the User runs next-id --move-to-origin again
+  ChangeState(READING)
+
+State: RESUMING
+  # next-id takes C from the marker's parent and asks origin for refs/ids/counters
+On OriginHoldsC:
+  # the push of the cut-off call was done
+  ChangeState(CLEARING)
+On OriginEmpty:
+  # origin holds no refs/ids/counters
+  ChangeState(PUSHING)
+On OriginHoldsOther:
+  # origin holds a claim commit other than C; next-id cannot tell whether it grew from C
+  ChangeState(REFUSED)
 
 State: MOVED
-  # terminal — next-id removes agent-factory.counterRemote and exits 0
+  # terminal — the setting is gone, next-id exits 0
 
 State: REFUSED
   # terminal — both counters as before, the setting stays, next-id names the cause and exits non-zero
@@ -857,12 +894,21 @@ State: REFUSED
 stateDiagram-v2
     [*] --> READING
     READING --> MARKING : CounterRead
+    READING --> RESUMING : MarkerRead
     MARKING --> PUSHING : MarkerSet
     MARKING --> READING : LeaseStale
-    PUSHING --> MOVED : PushAccepted
+    PUSHING --> CLEARING : PushAccepted
     PUSHING --> RESTORING : CounterOnOrigin
     PUSHING --> RESTORING : PushRefused
+    PUSHING --> INTERRUPTED : CutOff
+    CLEARING --> MOVED : SettingRemoved
+    CLEARING --> INTERRUPTED : CutOff
     RESTORING --> REFUSED : Restored
+    RESTORING --> INTERRUPTED : CutOff
+    INTERRUPTED --> READING : MoveRerun
+    RESUMING --> CLEARING : OriginHoldsC
+    RESUMING --> PUSHING : OriginEmpty
+    RESUMING --> REFUSED : OriginHoldsOther
     MOVED --> [*]
     REFUSED --> [*]
 ```
@@ -871,7 +917,9 @@ stateDiagram-v2
 
 - **MARKING** is the only point where an ID claim can change the outcome. A claim before it makes the lease stale, and a claim after it reads the marker and fails (BR-103).
 - **CounterOnOrigin** names both counters in the message. VIRGIL reports the collision (BR-106).
-- The proposal defines no state for a move that stops in **PUSHING** or **RESTORING**, such as on a lost connection. The local counter then holds the marker, and every ID claim fails (gap CIF-G05). It also names no event for a lease on the marker that fails in **RESTORING**.
+- **INTERRUPTED** is the state between two calls. The marker keeps every ID claim away from the local counter until a second call finishes the move, so no number goes out twice (DEC-14).
+- **OriginHoldsOther** is a collision. A claim commit has no parent, so `next-id` cannot tell whether the counter on `origin` grew from C. It names both counters and changes nothing: the local counter keeps the marker and the setting stays, so no ID claim lands on C again (BR-102).
+- The proposal names no event for a lease on the marker that fails in **RESTORING**.
 
 ## Finding Classification State Machines
 

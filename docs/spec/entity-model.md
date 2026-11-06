@@ -929,6 +929,7 @@ erDiagram
         string path "the parent of the directory that git rev-parse --git-common-dir prints, such as /work/demo"
     }
     MARKER_COMMIT {
+        string parent "the claim commit C that the move carries (DEC-14)"
         string message "one line moved=<remote>, the remote redacted, such as moved=https://***@host/demo.git"
     }
     SEED_PLAN {

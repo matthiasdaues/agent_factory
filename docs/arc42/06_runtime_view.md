@@ -898,7 +898,7 @@ sequenceDiagram
     NI->>LC: 2. Reads agent-factory.counterRemote, the path of the main repository
     NI->>CP: 3. Calls move to the URL of origin
     GA->>LC: 4. Fetches refs/ids/counters and reads the claim commit C with ST=0012
-    GA->>LC: 5. Replaces refs/ids/counters with the marker commit moved=<origin> under the lease on C
+    GA->>LC: 5. Replaces refs/ids/counters with the marker commit moved=<origin>, whose parent is C, under the lease on C
     LC-->>GA: accepted
     GA->>PR: 6. Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:
     PR-->>GA: accepted, because origin holds no counter
@@ -920,6 +920,54 @@ sequenceDiagram
 - A claim or a `--plan-seed` that reads the marker names `origin` as the
   holder of the counter and never mentions `--seed`, so a local clone gets no
   advice to start a second counter (BR-097).
+- The marker has `C` as its parent, so `C` stays reachable in the main
+  repository when the move stops before the push (DEC-14).
+
+### 6.16.1 Interrupted Move
+
+Derived from dynamic view `IdMoveToOriginResume` in [`architecture.dsl`](../spec/architecture.dsl).
+
+The move of 6.16 stops after step 5, for example because the shell kills
+`next-id` while git waits for credentials. The Local Counter holds the
+marker, `origin` holds no counter, and `agent-factory.counterRemote` is still
+set. Every claim now reads the marker and fails. At the next session start,
+VIRGIL sees the setting and `origin` and offers the move again.
+
+```mermaid
+sequenceDiagram
+    participant VI as virgil
+    participant NI as next-id
+    participant CP as Counter Port
+    participant GA as Git-Ref Adapter
+    participant LC as Local Counter
+    participant PR as Project Git Remote
+
+    VI->>NI: 1. Runs next-id --move-to-origin again at the next session start, after the User confirms the move
+    NI->>LC: 2. Reads agent-factory.counterRemote, which the stopped move left set
+    NI->>CP: 3. Calls move to the URL of origin
+    GA->>LC: 4. Fetches refs/ids/counters, reads the marker commit moved=<origin>, and takes C with ST=0012 from its parent
+    GA->>PR: 5. Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:
+    PR-->>GA: accepted, because origin holds no counter
+    GA->>CP: 6. Returns moved
+    NI->>LC: 7. Removes agent-factory.counterRemote and exits 0
+    NI-->>VI: reports that the counter is on origin
+```
+
+**Key Points:**
+
+- The second run finds the marker at its read, so it sets no new marker. It
+  goes on at the push with the `C` of the marker's parent.
+- When `origin` already holds `C`, the earlier push went through before the
+  stop. The move then skips the push, keeps the marker, removes the setting,
+  and never puts `C` back, so the Local Counter never comes back beside the
+  counter on `origin`.
+- When `origin` holds a claim commit other than `C`, the move cannot tell
+  whether that counter grew from `C`, because a claim commit has no parent.
+  So it treats the case as a collision, names both counters, and changes
+  nothing. The Local Counter keeps the marker and the setting stays, so no
+  claim lands on `C` again. A counter that someone else seeded ends the same
+  way.
+- No step needs a new seed, so no claimed number goes out twice.
 - The [Move Lifecycle](../spec/state-machines.md#move-lifecycle) holds the
   states, and BR-102 and BR-103 in
   [validation-rules.md](../spec/validation-rules.md#next-id---move-to-origin)

@@ -1148,7 +1148,9 @@ token=9f3a61c0d2e4b871
 ### Marker commit message
 
 `next-id --move-to-origin` leaves a marker commit at the local
-`refs/ids/counters` once the counter is on `origin`. Its message is one line:
+`refs/ids/counters` before it pushes the counter to `origin`. Its parent is
+the claim commit C that the move carries, so C stays reachable and a second
+move can take it from there (DEC-14). Its message is one line:
 
 ```text
 moved=https://***@host/demo.git
@@ -1157,6 +1159,10 @@ moved=https://***@host/demo.git
 | Line             | Contract                                                                    |
 | ---------------- | --------------------------------------------------------------------------- |
 | `moved=<remote>` | The URL of `origin` at the move, redacted by BR-077. The only line (BR-097) |
+
+| Property | Contract                                                          |
+| -------- | ----------------------------------------------------------------- |
+| Parent   | The claim commit C of the local counter, its only parent (DEC-14) |
 
 ### `next-id --plan-seed`
 
@@ -1192,12 +1198,15 @@ the [Move Lifecycle](state-machines.md#move-lifecycle) shows them.
 | Leases   | A lease on the claim commit C for the marker, the create-only lease for the push, and a lease on the marker to put C back           |
 | Messages | Every remote by its redacted URL (BR-077)                                                                                           |
 
-| Case                                   | Result                                                                                       |
-| -------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `origin` holds no `refs/ids/counters`  | `origin` holds C, the local counter holds the marker, the setting is gone                    |
-| an ID claim raised C before the marker | the move reads the local counter again and carries the new claim commit to `origin` (BR-103) |
-| `origin` holds a counter               | the local counter holds C again, the setting stays, and the message names both counters      |
-| the push fails for another reason      | the local counter holds C again, the setting stays, and the message holds git's message      |
+| Case                                                                             | Result                                                                                                           |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `origin` holds no `refs/ids/counters`                                            | `origin` holds C, the local counter holds the marker, the setting is gone                                        |
+| an ID claim raised C before the marker                                           | the move reads the local counter again and carries the new claim commit to `origin` (BR-103)                     |
+| `origin` holds a counter                                                         | the local counter holds C again, the setting stays, and the message names both counters                          |
+| the push fails for another reason                                                | the local counter holds C again, the setting stays, and the message holds git's message                          |
+| the local counter holds a marker, and `origin` holds no `refs/ids/counters`      | the move takes C from the marker's parent and pushes it. The result is that of the first row (BR-102)            |
+| the local counter holds a marker, and `origin` holds C                           | the push was done before the cut-off. The move only removes the setting, and the setting is gone                 |
+| the local counter holds a marker, and `origin` holds a claim commit other than C | a collision: the message names both counters, the local counter keeps the marker, and the setting stays (BR-102) |
 
 The proposal names no exit code for the last two cases (CIF-G08). This
 specification takes non-zero, as for every failure of `next-id`.

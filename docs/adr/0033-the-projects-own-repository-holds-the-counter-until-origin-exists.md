@@ -50,7 +50,9 @@ runs in this order (BR-102):
 
 1. It reads the claim commit `C` of the local counter.
 2. It replaces the local ref with a marker commit, `moved=<remote>`, under a
-   lease on `C`. A stale lease starts the move again at step 1.
+   lease on `C`. The marker has `C` as its only parent, so `C` stays
+   reachable from the local ref (DEC-14). A stale lease starts the move again
+   at step 1.
 3. It pushes `C` to `origin` with the create-only lease
    `--force-with-lease=refs/ids/counters:`.
 4. When the push succeeds, it removes `agent-factory.counterRemote`. When the
@@ -61,6 +63,18 @@ The marker goes in before the push. So a claim during the move either lands
 before the marker and travels to `origin` with `C`, or it reads the marker and
 fails (BR-103). A claim or a `--plan-seed` that reads the marker names the
 remote that now holds the counter and never advises a seed (BR-097).
+
+A second run of `next-id --move-to-origin` finishes a move that stopped after
+step 2 (DEC-14). It finds the marker, takes `C` from the marker's parent, and
+goes on at step 3. When `origin` already holds `C`, the earlier push went
+through, so the move keeps the marker, removes the setting, and never puts
+`C` back. When `origin` holds a claim commit other than `C`, the move cannot
+tell whether that counter grew from `C`, because a claim commit has no parent.
+So it treats the case as a collision: it names both counters and changes
+nothing. The Local Counter keeps the marker and the setting stays, so no
+claim lands on `C` again. That is the same outcome as a counter that someone
+else seeded. So an interrupted move needs no new seed, and no claimed number
+goes out twice.
 
 This decision replaces one rule of ADR-0031: "without the remote, no session
 can create an indexed artifact" (counter-ids DEC-20). Every other part of
@@ -83,8 +97,13 @@ ADR-0031 stands.
   marker and fails with the name of the new remote. The human then points the
   clone's `origin` at that remote.
 - A move that stops between the marker and the push leaves the marker, no
-  counter on `origin`, and the setting. Every claim then fails until a human
-  finishes or undoes the move. Gap CIF-G05 records how.
+  counter on `origin`, and the setting. Every claim then fails and names
+  `origin`, until VIRGIL offers the move again at the next session start and
+  the second run finishes it. VIRGIL offers it, because the setting is still
+  set and `origin` exists.
+- The marker keeps `C` alive in the main repository, so `git gc` never prunes
+  the last claim commit of the Local Counter. A claim reads only the message
+  of the marker, so the parent changes no claim.
 - [8.18](../arc42/08_crosscutting_concepts.md#818-id-allocation) describes the
   concept, [6.16](../arc42/06_runtime_view.md#616-move-of-a-local-counter-to-origin)
   shows the move, and QS-22 and QS-23 in

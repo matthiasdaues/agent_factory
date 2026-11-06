@@ -123,7 +123,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             idAllocation = container "ID Allocation" "Claims the number of every new story, finding, todo entry, and ADR as a leased push of refs/ids/counters on the counter's remote: the Project Git Remote, or the Local Counter while the project has no origin; plans the seed and moves a local counter to origin" "Script, git CLI" {
                 nextId = component "next-id" "packages/factory/scripts/next-id: checks the prefix against its fixed prefix list, or the seed arguments; finds the remote from --remote, then agent-factory.counterRemote, then origin; calls the counter port; with --plan-seed counts the IDs in use on every local and remote-tracking branch and prints the seed command; with --move-to-origin moves the local counter and removes agent-factory.counterRemote; prints the ID or the seed lines on standard output. The only caller of the counter port" "Script"
                 counterPort = component "Counter Port" "Four operations: claim <prefix> returns the next number of the prefix that no other caller holds; seed <number> [<PREFIX>=<n> ...] creates the counter and refuses when it exists; inspect reports whether the counter is missing, in use, or a marker commit; move <remote> carries the claim commit of the local counter to a remote without a counter" "Interface"
-                gitRefAdapter = component "Git-Ref Adapter" "Implements the counter port on refs/ids/counters: works in a throwaway bare repository, writes a parentless claim commit with a new token, pushes it with a lease on the old SHA, and retries only on a stale lease, at most ten times in a row; for a move, sets the marker commit under a lease on the claim commit before it pushes with the create-only lease" "Script, git CLI"
+                gitRefAdapter = component "Git-Ref Adapter" "Implements the counter port on refs/ids/counters: works in a throwaway bare repository, writes a parentless claim commit with a new token, pushes it with a lease on the old SHA, and retries only on a stale lease, at most ten times in a row; for a move, sets the marker commit, a child of the claim commit, under a lease on the claim commit before it pushes with the create-only lease; finishes a stopped move from the marker's parent" "Script, git CLI"
             }
 
             # OpenCode Catalog — generated agent definitions and index
@@ -691,7 +691,17 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             nextId -> localCounter "Reads agent-factory.counterRemote, the path of the main repository"
             nextId -> counterPort "Calls move to the URL of origin"
             gitRefAdapter -> localCounter "Fetches refs/ids/counters and reads the claim commit C with ST=0012"
-            gitRefAdapter -> localCounter "Replaces refs/ids/counters with the marker commit moved=<origin> under the lease on C; the local counter accepts it"
+            gitRefAdapter -> localCounter "Replaces refs/ids/counters with the marker commit moved=<origin>, whose parent is C, under the lease on C; the local counter accepts it"
+            gitRefAdapter -> projectRemote "Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin holds no counter and accepts it"
+            gitRefAdapter -> counterPort "Returns moved"
+            nextId -> localCounter "Removes agent-factory.counterRemote and exits 0"
+        }
+
+        dynamic idAllocation "IdMoveToOriginResume" "A second next-id --move-to-origin finishes a move that stopped after the marker, taking the claim commit C from the marker's parent" {
+            virgil -> nextId "Runs next-id --move-to-origin again at the next session start, after the User confirms the move"
+            nextId -> localCounter "Reads agent-factory.counterRemote, which the stopped move left set"
+            nextId -> counterPort "Calls move to the URL of origin"
+            gitRefAdapter -> localCounter "Fetches refs/ids/counters, reads the marker commit moved=<origin>, and takes C with ST=0012 from its parent"
             gitRefAdapter -> projectRemote "Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin holds no counter and accepts it"
             gitRefAdapter -> counterPort "Returns moved"
             nextId -> localCounter "Removes agent-factory.counterRemote and exits 0"
