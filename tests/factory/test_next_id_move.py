@@ -194,7 +194,6 @@ def test_st_0380_the_move_carries_c_to_origin_and_leaves_a_marker(env, demo):
 def test_st_0380_a_counter_on_origin_refuses_the_move(env, demo):
     project, sha, origin = demo
     taken = _set_counter(env, origin, "start=0000", "ST=0040")
-    before = _refs(env, project, origin)
 
     result = run(env, project, "--move-to-origin")
 
@@ -203,27 +202,35 @@ def test_st_0380_a_counter_on_origin_refuses_the_move(env, demo):
     assert SHOWN_URL in result.stderr
     assert "ST=0012" in result.stderr
     assert "ST=0040" in result.stderr
-    assert _sha(env, project / ".git") == sha
+    assert _counter(env, project / ".git") == [f"moved={SHOWN_URL}"]
+    assert _git(env, "-C", str(project), "rev-parse", f"{REF}^") == sha
     assert _sha(env, origin) == taken
-    assert _refs(env, project, origin) == before
     assert _setting(env, project) == str(project)
 
 
 @pytest.mark.spec("CIF-11-IT-02")
-def test_st_0380_a_refused_push_puts_c_back(env, demo):
+def test_dec_16_a_refused_push_keeps_the_marker_and_a_second_move_resumes(env, demo):
     project, sha, origin = demo
     hook = origin / "hooks" / "pre-receive"
     hook.write_text(READ_ONLY_HOOK)
     hook.chmod(0o755)
-    before = _refs(env, project, origin)
+    before = _refs(env, origin)
 
     result = run(env, project, "--move-to-origin")
 
     _assert_refused(result)
     assert "read-only" in result.stderr
-    assert _sha(env, project / ".git") == sha
-    assert _refs(env, project, origin) == before
+    assert "keeps the marker" in result.stderr
+    assert _counter(env, project / ".git") == [f"moved={SHOWN_URL}"]
+    assert _git(env, "-C", str(project), "rev-parse", f"{REF}^") == sha
+    assert _refs(env, origin) == before
     assert _setting(env, project) == str(project)
+
+    hook.unlink()
+    resumed = run(env, project, "--move-to-origin")
+    assert resumed.returncode == 0, resumed.stderr
+    assert _sha(env, origin) == sha
+    assert _setting(env, project) is None
 
 
 class TestAMoveWithAMissingPiece:
@@ -329,7 +336,7 @@ def test_st_0380_demo_scenario_end_to_end(env, tmp_path):
     assert result.returncode != 0
     assert "ST=0012" in result.stderr
     assert "ST=0040" in result.stderr
-    assert _sha(env, twice / ".git") == sha
+    assert _git(env, "-C", str(twice), "rev-parse", f"{REF}^") == sha
     assert _sha(env, taken) == taken_sha
     assert _setting(env, twice) == str(twice)
 
@@ -609,3 +616,34 @@ def test_impl_0009_a_resumed_move_keeps_the_marker_after_another_refusal(env, de
     assert "read-only" in result.stderr
     assert _sha(env, project / ".git") == marker
     assert _setting(env, project) == str(project)
+
+
+# --- DEC-16: a failed push never puts C back ------------------------------------
+
+
+def test_dec_16_a_first_move_keeps_the_marker_when_origin_gains_a_counter(
+    env, tmp_path, demo, monkeypatch
+):
+    """The reviewer's race: origin gains a counter grown from C before the push."""
+    project, sha, origin = demo
+    _in_project(monkeypatch, env, project)
+    real = ni.push_to_origin
+    claims: list[subprocess.CompletedProcess] = []
+
+    def seed_then_push(local: str, url: str, pushed: str) -> None:
+        _git(env, "-C", str(project), "push", "--quiet", str(origin), f"{sha}:{REF}")
+        claims.append(run(env, tmp_path, "ST", "--remote", str(origin)))
+        real(local, url, pushed)
+
+    monkeypatch.setattr(ni, "push_to_origin", seed_then_push)
+
+    with pytest.raises(ni.NextIdError) as refused:
+        ni.move_to_origin()
+
+    assert claims[0].stdout == "ST-0013\n", claims[0].stderr
+    assert "two counters" in str(refused.value)
+    assert _counter(env, project / ".git") == [f"moved={SHOWN_URL}"]
+    assert _setting(env, project) == str(project)
+    again = run(env, project, "ST")
+    assert again.returncode != 0
+    assert again.stdout == ""
