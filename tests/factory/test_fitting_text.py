@@ -101,3 +101,44 @@ def test_st_0379_missing_origin_sets_the_setting_before_plan_seed():
     assert "git rev-parse --git-common-dir" in step
     assert re.search(r"parent of the directory", step)
     assert setting < step.index("next-id --plan-seed")
+
+
+def _before_menu() -> str:
+    text = SESSION_MENU.read_text()
+    return text[: text.index("What do you want to do?")]
+
+
+@pytest.mark.spec("CIF-09-LN-01")
+def test_st_0382_check_before_menu_names_both_conditions():
+    check = _before_menu()
+    assert "git config agent-factory.counterRemote" in check
+    assert "git remote get-url origin" in check
+
+
+@pytest.mark.spec("CIF-09-LN-01")
+def test_st_0382_offer_runs_the_move_only_after_confirmation():
+    check = _before_menu()
+    assert "next-id --move-to-origin" in check
+    assert re.search(r"only after the (user|developer) confirms", check, re.IGNORECASE)
+
+
+@pytest.mark.spec("CIF-09-LN-01")
+def test_st_0382_collision_report_names_both_counters_and_changes_nothing_else():
+    check = _before_menu()
+    assert re.search(r"two counters", check)
+    assert re.search(r"names both", check)
+    assert re.search(r"lines[^\n]*next-id[^\n]*printed", check)
+    assert re.search(r"changes nothing else", check)
+
+
+@pytest.mark.spec("CIF-09-LN-01")
+def test_st_0382_no_offer_without_origin_or_setting():
+    check = _before_menu()
+    assert re.search(r"without `origin`[^\n]*no move", check, re.IGNORECASE)
+    assert re.search(r"without the setting", check, re.IGNORECASE)
+
+
+@pytest.mark.spec("CIF-09-LN-01")
+def test_st_0382_other_failure_names_next_session_start():
+    check = _before_menu()
+    assert re.search(r"next session start", check)
