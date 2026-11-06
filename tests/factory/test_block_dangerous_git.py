@@ -210,3 +210,23 @@ class TestNextIdPasses:
         result = _run_hook(command, cwd=main)
 
         assert result.returncode == 0
+
+
+class TestMoveToOriginPasses:
+    """The move is a push through next-id; the hook lets the script pass (CIF-09-IT-01)."""
+
+    @pytest.mark.spec("CIF-09-IT-01")
+    @pytest.mark.parametrize(
+        "command",
+        [
+            ".agent-factory/factory/scripts/next-id --move-to-origin",
+            "next-id --move-to-origin",
+        ],
+    )
+    def test_st_0382_move_to_origin_command_exits_zero(self, command, tmp_path):
+        main = tmp_path / "main"
+        _init_repo(main)
+
+        result = _run_hook(command, cwd=main)
+
+        assert result.returncode == 0

@@ -2,6 +2,29 @@
 
 Presented by VIRGIL at the start of a session when no fitting is pending.
 
+## Counter check
+
+VIRGIL runs this check before the menu. It never replaces a pending fitting prompt.
+
+Check two things:
+
+1. `git config agent-factory.counterRemote` prints a path.
+2. `git remote get-url origin` succeeds.
+
+Without `origin`, or without the setting, VIRGIL offers no move and shows the menu. VIRGIL names a remote only by the redacted form that `next-id` prints.
+
+When both hold, say that the counter is local, that `origin` exists now, and offer the move. Say what the move does: it carries the counter to `origin`, leaves a marker in the project's `.git`, and removes the setting.
+
+Run `.agent-factory/factory/scripts/next-id --move-to-origin` only after the User confirms. Without a confirmation, run nothing and show the menu.
+
+Report the result, then show the menu:
+
+- **Success:** the counter is on `origin` now. Show the line `next-id` printed.
+- **Collision:** say that two counters exist. The report names both, the local counter and the counter on `origin`, and shows the lines that `next-id` printed. VIRGIL changes nothing else. The next session start offers the same move again.
+- **Another failure:** show the message of `next-id`. Name the next session start as the next chance.
+
+______________________________________________________________________
+
 > **What do you want to do?**
 >
 > **H** — Help: I'm new here or need orientation\
