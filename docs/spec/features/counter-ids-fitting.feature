@@ -320,7 +320,7 @@ Feature: Counter IDs fitting
       And the git setting agent-factory.counterRemote no longer exists
       And the next ID claim with next-id ST prints ST-0013 from origin
 
-  Rule: next-id --move-to-origin leaves both counters as they are when origin holds one or the push fails
+  Rule: next-id --move-to-origin keeps the marker and the setting when origin holds a counter or the push fails
     # actor: next-id --move-to-origin
 
     Scenario: A counter on origin refuses the move
@@ -328,18 +328,22 @@ Feature: Counter IDs fitting
       And origin holds refs/ids/counters at another claim commit D
       When the User runs next-id --move-to-origin
       Then the message names both counters
-      And /work/demo/.git holds refs/ids/counters at C
+      And /work/demo/.git holds the marker commit with parent C
       And origin holds refs/ids/counters at D
       And agent-factory.counterRemote holds /work/demo
 
-    Scenario: A failed push puts the claim commit back on the local counter
+    Scenario: A failed push keeps the marker, and a second move resumes
       Given /work/demo/.git holds refs/ids/counters at the claim commit C
       And origin holds no refs/ids/counters
       And the remote refuses every update of refs/ids/counters with a pre-receive hook that prints read-only
       When the User runs next-id --move-to-origin
-      Then /work/demo/.git holds refs/ids/counters at C
+      Then /work/demo/.git holds the marker commit with parent C
       And agent-factory.counterRemote holds /work/demo
       And the message holds git's message with read-only
+      And the next local ID claim fails and names the remote
+      When the remote accepts updates of refs/ids/counters again
+      And the User runs next-id --move-to-origin
+      Then origin holds refs/ids/counters at C
 
   Rule: next-id --move-to-origin hands out no number twice while ID claims run during the move
     # actor: next-id --move-to-origin
