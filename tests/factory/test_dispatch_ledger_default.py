@@ -101,3 +101,17 @@ def test_bug_0115_verify_story_rejects_an_unknown_abbreviation(tmp_path):
     result = _dispatch(r["repo"], r["ledger"], "verify-story", "ST-0001", "--sha", "dead0000")
     assert result.returncode == 1
     assert "dead0000" in result.stderr
+
+
+def test_bug_0115_init_needs_no_default_ledger_among_several(tmp_path):
+    r = _repo(tmp_path)
+    for name in ("a", "b"):
+        path = r["repo"] / ".current-work" / name / "dispatch-ledger.yaml"
+        path.parent.mkdir(parents=True)
+        path.write_text(yaml.safe_dump({"version": 1, "stories": {}}))
+    base = _git(r["repo"], "rev-parse", "HEAD")
+    result = _run(
+        r["repo"], "init", "--base", base, "--stories", "ST-0001,ST-0002",
+        "--feature-branch", "feat/x", "--yes",
+    )
+    assert result.returncode == 0, result.stderr

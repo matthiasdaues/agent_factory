@@ -2203,7 +2203,8 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
-    if args.ledger is None:
+    # init creates its ledger and reads no existing one, so it needs no default.
+    if args.ledger is None and args.subcommand != "init":
         try:
             args.ledger = _default_ledger()
         except LedgerChoiceError as e:
