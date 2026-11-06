@@ -43,14 +43,15 @@ error (BR-100).
 git setting agent-factory.counterRemote names, to `origin` in four steps
 (BR-102). It reads C, sets a marker commit with parent C and the one line
 `moved=<remote>` on the local counter with a lease on C, pushes C to `origin`
-with the create-only lease, and removes the setting. A failed push puts C
-back with a lease on the marker. A claim or `--plan-seed` that reads a marker
+with the create-only lease, and removes the setting. A failed push never
+puts C back: the marker and the setting stay, and a second move resumes
+(DEC-16). A claim or `--plan-seed` that reads a marker
 fails and names the remote of the marker (BR-097). A claim that raises the
 local counter after the read makes the lease on C stale, so the move reads
 again, at most ten times in a row (BR-103). A move that reads a marker at the
 local counter was cut off: it takes C from the marker's parent and asks
 `origin`. No counter there: it pushes C. C there: it only removes the
-setting. Another counter there: a collision, and nothing changes (BR-102).
+setting. Another counter there: a collision, and the marker stays (BR-102).
 
 No third-party dependencies (Python stdlib only), matching backlog-lint.
 
@@ -835,7 +836,8 @@ def _collision(local: str, url: str, target: str, message: str) -> NextIdError:
     return NextIdError(
         f"two counters exist: the local counter {local} holds "
         f"{_number_lines_of(message)}, and {COUNTER_REF} on {url} holds "
-        f"{_number_lines_of(other)}; the move changed nothing"
+        f"{_number_lines_of(other)}; the local counter keeps the marker of the "
+        f"move, and {COUNTER_REMOTE_SETTING} stays"
     )
 
 
@@ -857,7 +859,7 @@ def move_to_origin() -> str:
     # git rewrites the URL with the clone's url.<base>.insteadOf settings; the
     # throwaway repository of a read has none, so the move resolves it here.
     target = _guarded(["ls-remote", "--get-url", url], "this clone")
-    sha, message, marker, resumed = mark_loop(LocalCounter(local, url), local)
+    sha, message, _, resumed = mark_loop(LocalCounter(local, url), local)
     done = f"moved {COUNTER_REF} from {local} to {url}"
     if resumed:
         on_origin = _origin_counter(target, url)
@@ -876,7 +878,7 @@ def move_to_origin() -> str:
         ) from None
     except subprocess.CalledProcessError as exc:
         return _after_refusal(
-            Refusal(local, url, target, sha, message, marker, resumed), _git_error(exc)
+            Refusal(local, url, target, sha, message), _git_error(exc)
         )
     _guarded(["config", "--unset", COUNTER_REMOTE_SETTING], "this clone")
     return done
@@ -890,16 +892,14 @@ class Refusal(NamedTuple):
     target: str
     sha: str
     message: str
-    marker: str
-    resumed: bool
 
 
 def _after_refusal(move: Refusal, error: str) -> str:
-    """Ask origin again after a refused push, then finish or refuse (IMPL-0009).
+    """Ask origin again after a refused push, then finish or refuse (DEC-16).
 
-    origin may have gained C or another counter after the check. A resumed
-    move keeps the marker, because a counter on origin may have grown from C.
-    Only a first move puts C back.
+    origin may have gained C or another counter after the check. A counter on
+    origin may have grown from C, so C never comes back: the local counter
+    keeps the marker, the setting stays, and a second move resumes.
     """
     try:
         on_origin = _origin_counter(move.target, move.url)
@@ -908,28 +908,12 @@ def _after_refusal(move: Refusal, error: str) -> str:
     if on_origin == move.sha:
         _guarded(["config", "--unset", COUNTER_REMOTE_SETTING], "this clone")
         return f"moved {COUNTER_REF} from {move.local} to {move.url}"
-    if not move.resumed:
-        _restore(move.local, move.sha, move.marker)
     if on_origin is not None:
         raise _collision(move.local, move.url, move.target, move.message)
-    kept = "keeps the marker of the move"
-    if not move.resumed:
-        kept = "holds its claim commit again"
     raise NextIdError(
         f"the move to {move.url} failed: {error}; the local counter {move.local} "
-        f"{kept}, and {COUNTER_REMOTE_SETTING} stays"
+        f"keeps the marker of the move, and {COUNTER_REMOTE_SETTING} stays"
     )
-
-
-def _restore(local: str, sha: str, marker: str) -> None:
-    """Put C back on the local counter, with a lease on the marker (BR-102)."""
-    try:
-        _set_local_counter(local, sha, marker)
-    except subprocess.CalledProcessError as exc:
-        raise NextIdError(
-            f"the push failed, and the local counter {local} keeps the marker "
-            f"of the move: {_git_error(exc)}; {COUNTER_REMOTE_SETTING} stays"
-        ) from None
 
 
 def _marker_commit(local: str, url: str, parent: str) -> str:
