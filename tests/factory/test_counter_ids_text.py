@@ -223,6 +223,7 @@ def check_id_prefix_table(table_path, next_id_path, factory_root) -> list[str]:
                 problems.append(f"prefix {prefix} names {name}, which does not exist")
             elif not re.search(rf"next-id[` ]+{prefix}\b", (factory_root / name).read_text()):
                 problems.append(f"{name} does not name next-id {prefix}")
+    problems.extend(todo_writer_problems(factory_root))
     return problems
 
 
@@ -348,3 +349,84 @@ def test_st_0384_retrospective_points_to_todo_format_at_its_todo_step():
     text = (SKILLS / "retrospective/SKILL.md").read_text()
     step = next(line for line in text.splitlines() if "docs/spec/work/todo.md" in line)
     assert "todo-format.md" in step and "next-id T" in step
+
+
+# ST-0385: a step that adds an entry to todo.md names next-id T (BR-107).
+WRITE_PRD = SKILLS / "write-prd/SKILL.md"
+TODO_POINTER = "todo-format.md"
+# A sentence that tells the reader to write, record, file, or move an entry into todo.md.
+TODO_ADD = re.compile(
+    r"\b(write|record|file|move|append|add)\b[^.]*(todo\.md|todo entr)",
+    re.IGNORECASE,
+)
+TODO_WRITERS = [
+    "skills/create-backlog-make-concrete/SKILL.md",
+    "rulebooks/conventions/report-format.md",
+    "rulebooks/rules.md",
+    "skills/retrospective/SKILL.md",
+]
+
+
+def _steps(text: str) -> list[str]:
+    """Split a file at its headings. Each heading starts one step."""
+    return re.split(r"(?m)^(?=#{1,6} )", text)
+
+
+def todo_writers(factory_root) -> list[str]:
+    """Return the files whose step points to todo-format.md and adds a todo entry."""
+    found = []
+    for path in sorted(factory_root.rglob("*.md")):
+        rel = path.relative_to(factory_root).as_posix()
+        if rel.startswith("rulebooks/templates/") or rel == "rulebooks/conventions/todo-format.md":
+            continue
+        if any(TODO_POINTER in step and TODO_ADD.search(step) for step in _steps(path.read_text())):
+            found.append(rel)
+    return found
+
+
+def todo_writer_problems(factory_root) -> list[str]:
+    """Return one problem per todo writer that does not name next-id T."""
+    return [
+        f"{rel} points to todo-format.md at a step that adds an entry and does not name next-id T"
+        for rel in todo_writers(factory_root)
+        if not re.search(r"next-id[` ]+T\b", (factory_root / rel).read_text())
+    ]
+
+
+@pytest.mark.spec("CIF-15-LN-01")
+def test_st_0385_every_todo_writer_names_next_id_t():
+    writers = todo_writers(FACTORY_ROOT)
+    assert set(TODO_WRITERS) <= set(writers)
+    assert todo_writer_problems(FACTORY_ROOT) == []
+
+
+@pytest.mark.spec("CIF-15-LN-01")
+@pytest.mark.parametrize("name", TODO_WRITERS)
+def test_st_0385_todo_writer_claim_reads_the_id_and_stops_on_failure(name):
+    text = (FACTORY_ROOT / name).read_text()
+    assert re.search(r"next-id T\b", text)
+    assert "standard output" in text
+    assert re.search(r"stop[^.\n]*report|report[^.\n]*stop", text, re.IGNORECASE)
+    assert re.search(r"never[^.\n]*(by hand|pick)", text, re.IGNORECASE)
+
+
+@pytest.mark.spec("CIF-15-LN-02")
+def test_st_0385_write_prd_links_todo_entries_and_needs_no_claim():
+    text = WRITE_PRD.read_text()
+    assert "todo.md" in text
+    assert TODO_POINTER not in text
+    assert "next-id T" not in text
+    assert "skills/write-prd/SKILL.md" not in todo_writers(FACTORY_ROOT)
+
+
+@pytest.mark.spec("CIF-17-CT-01")
+def test_st_0385_checker_names_a_todo_writer_without_next_id_t(tmp_path):
+    skill = tmp_path / "skills/review/SKILL.md"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        "## Record a question\n\n"
+        "Record the open question as an entry in `docs/spec/work/todo.md`. "
+        "Write the entry in the form of [todo-format.md](../../rulebooks/conventions/todo-format.md).\n"
+    )
+    problems = check_id_prefix_table(ID_PREFIXES, NEXT_ID, tmp_path)
+    assert any("skills/review/SKILL.md" in p for p in problems)
