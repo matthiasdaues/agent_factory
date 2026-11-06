@@ -19,7 +19,7 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 
 - Directory: `docs/findings/`
 - Filename: `<TAG>-<NNNN>.md`, zero-padded, sequential per tag (e.g. `SPEC-0001.md`).
-- Allocate `NNNN` with `.agent-factory/factory/scripts/next-id <TAG>` for `SPEC`, `FAGAN`, `SEC`, `BUG`, `RECON`, `ATAM`, `IMPL`, `ARCH`, and `QA`. Read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
+- Allocate `NNNN` with `next-id`. The prefix of each tag and the files that claim it are in [id-prefixes.md](id-prefixes.md). Read the ID from the standard output of `next-id`, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 | Review                          | TAG     |
 | ------------------------------- | ------- |
@@ -31,6 +31,7 @@ For most reviews the blocking severity is **Critical** or **Major** (see [report
 | Security review                 | `SEC`   |
 | Unresolved mutant               | `QA`    |
 | Bug hunt / exploratory testing  | `BUG`   |
+| Reconciliation agent            | `RECON` |
 
 ## Format
 
