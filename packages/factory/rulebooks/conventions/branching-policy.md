@@ -36,13 +36,13 @@ The checkout in which a command starts remains on its existing branch. Work on t
 
 In manual mode, the implementation-agent works in the primary checkout without dispatch scripts, ledgers, or worktrees. The human creates a feature branch from `dev` with `git checkout -b feature/<name>` or adopts the branch already checked out. No story branches are created. Stories dispatch serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. The git guardrail's standalone-branch-creation block does not apply in manual mode because the human — not an agent — owns the branch operation.
 
-### Indexed Artifacts On Dev
+### Indexed Artifacts On Any Branch
 
-All indexed artifacts — backlog stories (`ST-NNNN`), findings (`PROP-NN`, `BUG-NNNN`), proposals, and any other file with a sequential ID — are always committed to `dev`. The `dev` branch is the single canonical index so that parallel sessions never collide on IDs. Implementation work never touches `dev` directly; it lands on a feature branch and merges back after gates pass.
+An indexed artifact — a backlog story (`ST-NNNN`), a finding (`PROP-NN`, `BUG-NNNN`), a proposal, or any other file with a sequential ID — may be created and committed on any branch. `next-id` hands out each ID from one counter that all branches share, so two sessions on two branches never take the same ID. No branch is the index.
 
-The sequence is:
+The usual sequence is:
 
-1. **Planning agent** commits proposals and indexed artifacts (all `status: pending`) to `dev`.
+1. **Planning agent** commits proposals and indexed artifacts (all `status: pending`) on the branch where it makes them.
 2. **Implementation agent** creates the invocation branch from `dev` (automated mode uses `dispatch init`; manual mode uses `git checkout -b`).
 3. Story branches are cut from the invocation branch.
 4. After all stories pass gates, the invocation branch merges back to `dev`.

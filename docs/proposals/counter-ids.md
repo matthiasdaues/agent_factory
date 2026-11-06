@@ -53,7 +53,7 @@ Every new story, finding, and todo entry claims its number as a git ref on the p
 
 ## Motivation
 
-Today each session takes the next free number by looking at the files it can see. Two sessions on different branches see the same highest number, so both create ST-0346. The rule "Indexed Artifacts On Dev" in [branching-policy.md](../../packages/factory/rulebooks/conventions/branching-policy.md#indexed-artifacts-on-dev) works around this: every indexed artifact must be committed to dev. That rule breaks the manual-mode story flow of [manual-mode-gates.md](manual-mode-gates.md), where a code review files findings on the story branch.
+Today each session takes the next free number by looking at the files it can see. Two sessions on different branches see the same highest number, so both create ST-0346. The rule "Indexed Artifacts On Dev" in [branching-policy.md](../../packages/factory/rulebooks/conventions/branching-policy.md#indexed-artifacts-on-any-branch) works around this: every indexed artifact must be committed to dev. That rule breaks the manual-mode story flow of [manual-mode-gates.md](manual-mode-gates.md), where a code review files findings on the story branch.
 
 A claim on the shared remote removes the cause. Every clone pushes to the same remote, and the remote refuses a second claim of the same number. So a branch does not need to see the other branches to pick a free one.
 
@@ -171,7 +171,7 @@ The ticket adapters of [project-agent-flows.md](project-agent-flows.md#ticket-po
 
 ### Indexed artifacts on any branch
 
-An indexed artifact may be created and committed on any branch. [rules.md § Branching](../../packages/factory/rulebooks/rules.md#branching), [branching-policy.md](../../packages/factory/rulebooks/conventions/branching-policy.md#indexed-artifacts-on-dev), and [planning-agent.md](../../packages/factory/agents/planning-agent.md) state this instead of the dev-only rule.
+An indexed artifact may be created and committed on any branch. [rules.md § Branching](../../packages/factory/rulebooks/rules.md#branching), [branching-policy.md](../../packages/factory/rulebooks/conventions/branching-policy.md#indexed-artifacts-on-any-branch), and [planning-agent.md](../../packages/factory/agents/planning-agent.md) state this instead of the dev-only rule.
 
 ### Claim pushes by agents
 

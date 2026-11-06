@@ -16,7 +16,12 @@ one `<PREFIX>=<NNNN>` line per prefix that claimed an ID, and a random token.
 
 A claim runs in a throwaway bare repository in a new temporary directory, so
 the clone gains no ref and no object (BR-075). It pushes with a lease on the
-SHA it read (BR-072). A seed pushes with the create-only lease (BR-073).
+SHA it read (BR-072). It runs every git call without a prompt and stops a
+call after 30 seconds (BR-076); a seed keeps git's prompts and has no limit. When another claim pushed after this claim read the
+counter, the lease is stale. The claim then waits a random 0.1 to 1 second
+and reads again. After ten stale leases in a row, the claim fails. Every
+other refusal ends the claim after one push. A seed pushes with the
+create-only lease (BR-073).
 
 No third-party dependencies (Python stdlib only), matching backlog-lint.
 
@@ -33,13 +38,16 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import re
 import secrets
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from typing import Protocol
 
 PREFIXES = ("ST", "BUG", "SPEC", "FAGAN", "SEC", "RECON", "ATAM", "IMPL", "T", "ADR")
 COUNTER_REF = "refs/ids/counters"
@@ -51,10 +59,39 @@ USAGE = (
     "       next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]"
 )
 _NUMBER = re.compile(r"[0-9]+")
+MAX_STALE_LEASES = 10
+WAIT_SECONDS = (0.1, 1.0)
+GIT_TIME_LIMIT = 30
+# BR-076: a claim runs git without a terminal prompt and without an ssh prompt.
+CLAIM_ENV = {
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_SSH_COMMAND": "ssh -o BatchMode=yes",
+}
+# git's two messages for a stale lease (BR-072, DEC-23): the client notices
+# and reports `stale info`; the remote notices and reports `cannot lock ref`.
+_STALE_LEASE = re.compile(
+    r"stale info|cannot lock ref '[^']*': is at [0-9a-f]+ but expected [0-9a-f]+"
+)
+
+
+_MISSING_REF = re.compile(r"couldn't find remote ref")
 
 
 class NextIdError(Exception):
     """A claim or seed failed; the message goes to standard error."""
+
+
+class GitTimedOut(Exception):
+    """A git call of a claim ran over the time limit (BR-076)."""
+
+
+class StaleLease(Exception):
+    """The remote's counter moved after this claim read it (BR-072)."""
+
+
+def is_stale_lease(error: str) -> bool:
+    """Tell whether git's push error reports a stale lease."""
+    return _STALE_LEASE.search(error) is not None
 
 
 def _prefix_list() -> str:
@@ -128,17 +165,32 @@ def raise_line(message: str, prefix: str, token: str) -> tuple[str, str]:
     return format_message(lines, token), f"{prefix}-{number:04d}"
 
 
-def git(args: list[str], *, stdin: str = "", env: dict[str, str] | None = None) -> str:
-    """Run git with LC_ALL=C and return its standard output, stripped."""
-    full_env = {**os.environ, "LC_ALL": "C", **(env or {})}
-    result = subprocess.run(
-        ["git", *args],
-        input=stdin,
-        capture_output=True,
-        text=True,
-        env=full_env,
-        check=False,
-    )
+def git(
+    args: list[str],
+    *,
+    stdin: str = "",
+    env: dict[str, str] | None = None,
+    guarded: bool = False,
+) -> str:
+    """Run git with LC_ALL=C and return its standard output, stripped.
+
+    A guarded call is a call of a claim (BR-076): it gets no prompt and a time
+    limit, and raises GitTimedOut when git runs over.
+    """
+    full_env = {**os.environ, "LC_ALL": "C", **(CLAIM_ENV if guarded else {})}
+    full_env.update(env or {})
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            input=stdin,
+            capture_output=True,
+            text=True,
+            env=full_env,
+            check=False,
+            timeout=GIT_TIME_LIMIT if guarded else None,
+        )
+    except subprocess.TimeoutExpired:
+        raise GitTimedOut from None
     if result.returncode != 0:
         raise subprocess.CalledProcessError(
             result.returncode, result.args, result.stdout, result.stderr
@@ -164,15 +216,15 @@ def resolve_remote(remote: str | None, *, for_seed: bool) -> str:
 
 
 @contextmanager
-def throwaway() -> Iterator[list[str]]:
+def throwaway(*, guarded: bool = False) -> Iterator[list[str]]:
     """Yield git arguments for a bare repository deleted at exit (BR-075)."""
     with tempfile.TemporaryDirectory(prefix="next-id-") as tmp:
         repo = os.path.join(tmp, "claim.git")
-        git(["init", "--quiet", "--bare", "--template=", repo])
+        git(["init", "--quiet", "--bare", "--template=", repo], guarded=guarded)
         yield [f"--git-dir={repo}"]
 
 
-def _commit(repo: list[str], message: str) -> str:
+def _commit(repo: list[str], message: str, *, guarded: bool = False) -> str:
     """Create a parentless claim commit on the empty tree."""
     identity = {
         "GIT_AUTHOR_NAME": IDENTITY,
@@ -180,11 +232,15 @@ def _commit(repo: list[str], message: str) -> str:
         "GIT_COMMITTER_NAME": IDENTITY,
         "GIT_COMMITTER_EMAIL": IDENTITY_EMAIL,
     }
-    tree = git([*repo, "mktree"])
-    return git([*repo, "commit-tree", tree], stdin=message, env=identity)
+    tree = git([*repo, "mktree"], guarded=guarded)
+    return git(
+        [*repo, "commit-tree", tree], stdin=message, env=identity, guarded=guarded
+    )
 
 
-def _push(repo: list[str], remote: str, sha: str, lease: str) -> None:
+def _push(
+    repo: list[str], remote: str, sha: str, lease: str, *, guarded: bool = False
+) -> None:
     git(
         [
             *repo,
@@ -193,7 +249,105 @@ def _push(repo: list[str], remote: str, sha: str, lease: str) -> None:
             f"--force-with-lease={COUNTER_REF}:{lease}",
             remote,
             f"{sha}:{COUNTER_REF}",
-        ]
+        ],
+        guarded=guarded,
+    )
+
+
+class Counter(Protocol):
+    """The port of a claim: read the counter, push a new claim commit."""
+
+    def read(self) -> tuple[str, str]:
+        """Return the SHA and the message of the claim commit."""
+        ...
+
+    def push(self, message: str, lease: str) -> None:
+        """Push a claim commit; raise StaleLease, or NextIdError on another refusal."""
+        ...
+
+
+class RemoteCounter:
+    """The counter at refs/ids/counters on a remote, through a throwaway repository."""
+
+    def __init__(self, repo: list[str], url: str):
+        self.repo = repo
+        self.url = url
+
+    def _timed_out(self) -> NextIdError:
+        return NextIdError(
+            f"a git call on {self.url} ran over the time limit of "
+            f"{GIT_TIME_LIMIT} seconds"
+        )
+
+    def read(self) -> tuple[str, str]:
+        try:
+            git(
+                [
+                    *self.repo,
+                    "fetch",
+                    "--quiet",
+                    self.url,
+                    f"+{COUNTER_REF}:{COUNTER_REF}",
+                ],
+                guarded=True,
+            )
+        except GitTimedOut:
+            raise self._timed_out() from None
+        except subprocess.CalledProcessError as exc:
+            error = _git_error(exc)
+            if _MISSING_REF.search(error):
+                raise NextIdError(
+                    f"{self.url} holds no {COUNTER_REF}; "
+                    "run `next-id --seed <number>` once for the project"
+                ) from None
+            raise NextIdError(
+                f"cannot read {COUNTER_REF} on {self.url}: {error}"
+            ) from None
+        try:
+            old = git([*self.repo, "rev-parse", COUNTER_REF], guarded=True)
+            message = git(
+                [*self.repo, "show", "--no-patch", "--format=%B", old], guarded=True
+            )
+        except GitTimedOut:
+            raise self._timed_out() from None
+        return old, message
+
+    def push(self, message: str, lease: str) -> None:
+        try:
+            sha = _commit(self.repo, message, guarded=True)
+            _push(self.repo, self.url, sha, lease, guarded=True)
+        except GitTimedOut:
+            raise self._timed_out() from None
+        except subprocess.CalledProcessError as exc:
+            error = _git_error(exc)
+            if is_stale_lease(error):
+                raise StaleLease(error) from None
+            raise NextIdError(f"on {self.url} failed: {error}") from None
+
+
+def claim_loop(
+    prefix: str, counter: Counter, *, sleep: Callable[[float], None] = time.sleep
+) -> str:
+    """Read, raise, and push until a push holds; return the claimed ID.
+
+    A stale lease waits a random 0.1 to 1 second and reads again. The tenth
+    stale lease in a row ends the claim. Any other refusal ends it at once.
+    """
+    for attempt in range(1, MAX_STALE_LEASES + 1):
+        old, message = counter.read()
+        new_message, new_id = raise_line(message, prefix, secrets.token_hex(8))
+        try:
+            counter.push(new_message, old)
+        except StaleLease:
+            if attempt < MAX_STALE_LEASES:
+                sleep(random.uniform(*WAIT_SECONDS))
+            continue
+        except NextIdError as exc:
+            raise NextIdError(f"the claim of {new_id} {exc}") from None
+        return new_id
+    raise NextIdError(
+        f"the claim of {prefix} met ten stale leases in a row; "
+        f"the last ID it tried was {new_id}"
     )
 
 
@@ -201,24 +355,13 @@ def claim(prefix: str, remote: str | None) -> str:
     """Claim the next ID of the prefix and return it, such as ST-1013."""
     check_prefix(prefix)
     url = resolve_remote(remote, for_seed=False)
-    with throwaway() as repo:
-        try:
-            git([*repo, "fetch", "--quiet", url, f"+{COUNTER_REF}:{COUNTER_REF}"])
-        except subprocess.CalledProcessError as exc:
-            raise NextIdError(
-                f"cannot read {COUNTER_REF} on {url}: {_git_error(exc)}"
-            ) from None
-        old = git([*repo, "rev-parse", COUNTER_REF])
-        message = git([*repo, "show", "--no-patch", "--format=%B", old])
-        new_message, new_id = raise_line(message, prefix, secrets.token_hex(8))
-        sha = _commit(repo, new_message)
-        try:
-            _push(repo, url, sha, old)
-        except subprocess.CalledProcessError as exc:
-            raise NextIdError(
-                f"the claim of {new_id} on {url} failed: {_git_error(exc)}"
-            ) from None
-    return new_id
+    try:
+        with throwaway(guarded=True) as repo:
+            return claim_loop(prefix, RemoteCounter(repo, url))
+    except GitTimedOut:
+        raise NextIdError(
+            f"a git call on {url} ran over the time limit of {GIT_TIME_LIMIT} seconds"
+        ) from None
 
 
 def seed(arguments: list[str], remote: str | None) -> str:

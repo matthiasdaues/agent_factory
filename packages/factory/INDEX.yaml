@@ -282,7 +282,7 @@ agents:
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
     tokens: 4735
-    total_tokens: 14203
+    total_tokens: 14207
     inputs:
       required:
         - type: story
@@ -341,8 +341,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1699
-    total_tokens: 14379
+    tokens: 1696
+    total_tokens: 14376
     inputs:
       required:
         - type: feature
@@ -1062,7 +1062,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1502
-    total_tokens: 41506
+    total_tokens: 41510
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1079,7 +1079,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4821
-    total_tokens: 95863
+    total_tokens: 95864
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1097,7 +1097,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2849
-    total_tokens: 95240
+    total_tokens: 95241
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1158,7 +1158,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 4843
+    tokens: 4845
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1170,7 +1170,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3007
+    tokens: 3011
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
