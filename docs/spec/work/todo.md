@@ -251,6 +251,13 @@ exits `2` for `reset --hard` after `-c x=y` and for `clean -fd` after
 **Action:** let the hook skip git's global options before it checks for
 `push`, and add a test per option.
 
+Seen again on 2026-11-06: the developer agent of IMPL-0008 to IMPL-0010 ran the
+test runner once outside the hooks, which BR-024 forbids, and the hook did not
+stop it. The hook matches its test-runner patterns at the start of a line of
+the command text, so a call after `cd … &&` or through another interpreter
+passes, while a harmless line in a heredoc that starts with the runner's name
+is blocked.
+
 ## T-0018 — Three feature files do not parse as Gherkin
 
 - status: open
