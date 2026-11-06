@@ -1,5 +1,6 @@
 ---
 schema_version: 2
+scope: global
 title: Seed the ID counter in the fitting, and name each requestor's prefix
 status: accepted
 owner: matthiasdaues
