@@ -1478,7 +1478,10 @@ Both scripts print the same stop notice. It lists each stopping finding with
 these parts, in this order: the finding ID and title, the artifact, the
 evidence for `in_use` from the `**Why this severity:**` line, and each item of
 `## Possible damage` with its check. The notice ends with the confirmation
-step. For BUG-0037 it reads:
+step. The scripts take each part from the version that makes the finding
+critical: the working-tree version when both versions do, and the `HEAD`
+version otherwise. So a lowered or removed file still prints its damage items
+from `HEAD` (BR-091). For BUG-0037 it reads:
 
 ```text
 STOP: a critical finding has no confirmed stop. No work is dispatched or merged.
