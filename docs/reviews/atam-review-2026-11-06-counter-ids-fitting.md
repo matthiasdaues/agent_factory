@@ -2,7 +2,7 @@
 type: atam-review
 title: ATAM review of the counter-ids-fitting local counter and move
 date: 2026-11-06
-status: defects
+status: pass
 reviewer: architecture-review-agent
 findings_filed: 1
 story: counter-ids-fitting
@@ -107,3 +107,22 @@ Risk theme: the marker state. All three risks concern what the system does while
 | Collision shown at the move (DEC-05)               | A second counter never goes unnoticed.                         | Duplicates can exist before the move detects them (CIF-G03).                         |
 | Setting before `origin` in the remote order        | Adding `origin` does not split the counter before the move.    | The project keeps claiming locally while colleagues may already use `origin`.        |
 | Local Counter in the project's own `.git` (DEC-05) | No extra repository; every worktree and local clone shares it. | Write access no longer limits who changes the counter; only the `next-id` rule does. |
+
+## Pass 2
+
+Pass 2 checks only ATAM-0014 and the text its fix changed, on commit `54f1678dcf209f6c7f9fccb09b11e8ee722223ee`. The stakeholder accepted the fix as DEC-14. ATAM-0014 is resolved, and no new finding blocks. Planning may start.
+
+`arch-lint` found 0 errors, 1 warning, and 0 info, and exited 0. The `ARCH-PARSE` warning is the one dismissed in pass 1.
+
+### ATAM-0014: resolved
+
+The marker now has `C` as its only parent, so `C` stays reachable in the main repository and `git gc` keeps it. A second move reads the marker, takes `C`, and goes on at the push (`RESUMING` to `PUSHING`). When `origin` already holds `C`, it only removes the setting (`RESUMING` to `CLEARING`). No step needs a new seed, so `--plan-seed` no longer decides the next number after a cut-off. QS-22 measures the case with 20 rounds of a move killed after the marker. ADR-0033, 6.16.1, the view `IdMoveToOriginResume`, 8.18, BR-102, the marker and move contracts, and the Move Lifecycle agree with each other and with DEC-14.
+
+### Changed text: QS-22 after the fix
+
+- **Non-risk.** While the marker stands, every claim through the setting fails, and a local clone reaches the same marker through its `origin`. So no claim lands on `C` between two calls. Assumption: nobody removes the setting or the marker by hand.
+- **Risk (ATAM-0017, `minor`, register).** A cut-off after the push and before the setting is removed leaves `C` on `origin`. A clone of the new `origin` on another machine can claim there before the next session start. The second move then sees a claim commit other than `C` and reports a collision, although the move went through. No ID goes out twice, but local claims stay blocked until a human acts (CIF-G03). The fix lets the collision message print the lines of both claim commits.
+- **Note.** `MARKING` has no `CutOff` event. A cut-off there leaves either `C` or the marker, and the next call reads both correctly, so nothing changes.
+- **Note.** The QS-22 environment still says `origin` holds no counter. The case where `origin` already holds `C` has no measure. The contract row and the lifecycle state it, so a test writer can derive the check.
+
+ATAM-0015 and ATAM-0016 stay in the register. DEC-14 gives a move that reads a marker an outcome, which answers part of ATAM-0016. The case of a missing counter and the fitting key remain.
