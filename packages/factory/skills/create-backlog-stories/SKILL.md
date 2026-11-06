@@ -21,6 +21,8 @@ For each EPIC, create `backlog/ST-NNNN.md` stories (or `ST-NNNNA.md`, `ST-NNNNB.
 
 Apply the [story composition rules](../create-backlog/SKILL.md#story-composition-rules): write the Goal statement first, then the Demo (Rule 1), build Inputs and Affected Paths forward from Status Quo (Rule 2), write evidence as invariants (Rule 3), gather constraints as boundaries (Rule 4). Every story is a vertical slice that crosses all system boundaries its capability requires. A story that touches only one boundary (only schema, only service, only UI) and delivers nothing a person can demonstrate is not a story — fold it into the first story that needs it as a line item.
 
+Number each new story at the step that creates it. Run `.agent-factory/factory/scripts/next-id ST` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. A split keeps its letter, as `create-backlog` describes.
+
 Each story records in `traces`: the scope-map Rule(s) it implements, the arc42 component(s) it touches, and any constraining ADR(s).
 
 Judge each story's `tier` (`economy | standard | strong`) — the model strength its work needs, same vocabulary as agent frontmatter's `tier`.

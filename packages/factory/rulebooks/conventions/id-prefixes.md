@@ -22,7 +22,7 @@ version: 1.0.0
 | `T`     | Todo entry                              | `rulebooks/conventions/todo-format.md`, `skills/retrospective/SKILL.md`                                                                      |
 | `ADR`   | Architecture decision record            | `skills/write-adr/SKILL.md`                                                                                                                  |
 | `ARCH`  | Architecture agent's read-check finding | `skills/maintain-architecture/SKILL.md`                                                                                                      |
-| `QA`    | Unresolved mutant finding               | `skills/mutation-testing/SKILL.md`                                                                                                           |
+| `QA`    | Unresolved mutant finding               | `skills/mutation-testing/SKILL.md`, `agents/reconciliation-agent.md`                                                                         |
 
 The producer paths lie under `packages/factory/`. A thirteenth prefix means two changes: the list in `scripts/next-id` and this table. A text test fails when they differ.
 

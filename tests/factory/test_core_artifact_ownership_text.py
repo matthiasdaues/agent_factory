@@ -1391,10 +1391,12 @@ class TestSt0363ReconciliationWritesOnlyItsReport:
 
     @pytest.mark.parametrize(
         "path",
-        [RECONCILIATION_AGENT, RECONCILE_SPEC, COMMIT_CONVENTIONS, BRANCHING_POLICY],
+        [COMMIT_CONVENTIONS, BRANCHING_POLICY],
         ids=lambda p: p.name,
     )
-    def test_st_0363_no_recon_tag_remains(self, path):
+    def test_st_0363_dec_15_recon_stays_out_of_conventions_but_not_agent_or_skill(self, path):
+        # DEC-15 makes RECON a finding tag again, so the reconciliation agent and
+        # reconcile-spec may name it. The two convention files still do not.
         assert "RECON" not in path.read_text(encoding="utf-8")
 
 

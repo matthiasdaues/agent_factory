@@ -32,7 +32,7 @@ Save as `docs/reviews/security-review-YYYY-MM-DD.md` per
 [report-format.md](../../rulebooks/conventions/report-format.md). File
 findings per
 [finding-format.md](../../rulebooks/conventions/finding-format.md) with
-tag `SEC` for findings rated Medium or higher.
+tag `SEC` for findings rated Medium or higher. Run `.agent-factory/factory/scripts/next-id SEC` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Format via `scripts/mdformat --number` per
 [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).

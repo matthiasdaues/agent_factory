@@ -37,7 +37,7 @@ For every changed file, check:
 
 ## Step 3 — Write the review report
 
-Save as `docs/reviews/fagan-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md). File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `FAGAN`.
+Save as `docs/reviews/fagan-review-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md). File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `FAGAN`. Run `.agent-factory/factory/scripts/next-id FAGAN` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Write the What is wrong field of every Defect in this order: the consequence and who receives it, the first layer where information, control, or an assumption is lost or changed, and whether the behavior looks intended, wrong, or undocumented. When the defect crosses layers, add a causal chain of three to six steps in a text block. In Fix, name the smallest change and the layer where it belongs.
 
