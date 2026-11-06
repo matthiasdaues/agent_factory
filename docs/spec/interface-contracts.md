@@ -1218,16 +1218,22 @@ specification takes non-zero, as for every failure of `next-id`.
 with `git ls-remote`. The remote is `agent-factory.counterRemote`, else
 `origin` (BR-105). It never seeds (DEC-17) and changes no ref.
 
-| Case                        | Output                                                                                                                                              |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `refs/ids/counters` missing | "run `next-id --seed <number>` with a number above your highest ID"                                                                                 |
-| no setting and no `origin`  | "add the remote `origin`, then run `next-id --seed <number>`"                                                                                       |
-| remote unreachable          | A warning that names the remote. `init-factory` finishes the install and exits `0` (DEC-23)                                                         |
-| `origin` URL has user info  | A warning that shows only the redacted URL and advises a credential helper (BR-078). `init-factory` goes on with the check and finishes the install |
+| Case                                             | Output                                                                                                                                                   |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `refs/ids/counters` missing on `origin`          | "counter: missing on origin; walk fitting step 4, or run `next-id --plan-seed` to print the seed command"                                                |
+| `refs/ids/counters` missing on the local counter | The same hint, with the redacted URL of `agent-factory.counterRemote` in place of `origin`                                                               |
+| no setting and no `origin`                       | "counter: no remote", then "fitting step 4 keeps the counter in this repository until `origin` exists"                                                   |
+| remote unreachable                               | A warning that names the redacted remote and git's last line. `init-factory` finishes the install and exits `0` (DEC-23)                                 |
+| remote URL has user info                         | A warning that names `origin` or `agent-factory.counterRemote`, shows only the redacted URL, and advises a credential helper (BR-078). The check goes on |
 
-The proposal names no exit code for the first two cases and no output when
-the counter exists (CID-G02). Gap CIF-G01 records that the first two hints
-contradict the seed step and the local counter.
+No hint names a number for the seed, because `next-id --plan-seed` finds the
+numbers (DEC-07). The proposal names no exit code for the hints and no output
+when the counter exists (CID-G02).
+
+The check returns `true` when the remote holds the counter, `false` when it
+does not or no remote exists, and no value when the remote does not answer. A
+separate step, `record_counter_seeded`, writes that result into the fitting key
+and skips the write when the check returned no value.
 
 The same check derives the sixth fitting key.
 
