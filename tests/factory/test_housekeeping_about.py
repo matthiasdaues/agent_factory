@@ -71,7 +71,7 @@ class TestAllSourcesReadable:
         out = mod.report(tmp_path)
         assert "Factory version: 0.12.0" in out
         assert "Factory source: /src" in out
-        assert "Fitting: 5/5" in out
+        assert "Fitting: 6/6" in out
         assert "model matrix" in out
         assert "CLI integrations: claude, copilot" in out
         assert "Usage pipeline: healthy" in out
@@ -93,7 +93,7 @@ class TestMissingInstall:
         _write_usage(tmp_path)
 
         out = mod.report(tmp_path)
-        assert "Fitting: 5/5" in out
+        assert "Fitting: 6/6" in out
         assert "Usage pipeline: healthy" in out
 
 
@@ -130,7 +130,7 @@ class TestMissingUsage:
 
         out = mod.report(tmp_path)
         assert "Factory version: 0.12.0" in out
-        assert "Fitting: 5/5" in out
+        assert "Fitting: 6/6" in out
 
 
 class TestAllSourcesMissing:
@@ -159,10 +159,21 @@ class TestPartialFitting:
         )
 
         out = mod.report(tmp_path)
-        assert "Fitting: 3/" in out
+        assert "Fitting: 3/6" in out
         assert "model matrix" in out
         assert "fingerprint" in out
         assert "agent context" in out
+
+
+class TestAllSixFittingSteps:
+    def test_six_of_six_names_the_counter_step(self, tmp_path: Path) -> None:
+        _write_install(tmp_path)
+        _write_usage(tmp_path)
+        _write_context(tmp_path)
+
+        out = mod.report(tmp_path)
+        assert "Fitting: 6/6" in out
+        assert "seed the ID counter" in out
 
 
 class TestNoCli:
