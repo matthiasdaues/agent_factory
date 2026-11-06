@@ -1,0 +1,5 @@
+# Spec feedback ST-0378
+
+| Artifact                           | Drift                                                                                                                                                                                                                                             | Evidence                                     | Owner                   | Status |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------- | ------ |
+| `docs/spec/interface-contracts.md` | The `init-factory` counter check table lists the hints "run `next-id --seed <number>` with a number above your highest ID" and "add the remote `origin`, then run `next-id --seed <number>`"; the code now prints hints that name fitting step 4. | `packages/factory/scripts/init-factory:3124` | `domain-modeling-agent` | `open` |

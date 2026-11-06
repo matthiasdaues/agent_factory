@@ -3081,15 +3081,21 @@ def handle_precommit(target: Path, install: dict, report: list[str]) -> None:
 
 COUNTER_REF = "refs/ids/counters"
 COUNTER_CHECK_SECONDS = 15
+COUNTER_REMOTE_SETTING = "agent-factory.counterRemote"
 
 
-def check_counter(target: Path, report: list[str]) -> None:
+def check_counter(target: Path, report: list[str]) -> bool | None:
     """Tell the user how to seed the counter; never seed, never fail.
 
-    Asks `origin` only whether `refs/ids/counters` exists (DEC-17). No case
-    stops the install (DEC-23). git runs without prompts and with a time
-    limit, so a dead remote cannot hang the install. A URL of origin with
-    user info gets a warning that shows only the redacted URL (SEC-0007)."""
+    Asks the remote that `next-id` uses without `--remote` (BR-096), the
+    setting `agent-factory.counterRemote`, else `origin`, only whether
+    `refs/ids/counters` exists (DEC-17, BR-105). No case stops the install
+    (DEC-23). git runs without prompts and with a time limit, so a dead remote
+    cannot hang the install. A URL with user info gets a warning that shows
+    only the redacted URL (SEC-0007).
+
+    Returns True when the remote holds the counter, False when it does not or
+    no remote exists, and None when the remote does not answer."""
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"}
 
     def run(*args: str) -> subprocess.CompletedProcess | None:
@@ -3106,21 +3112,29 @@ def check_counter(target: Path, report: list[str]) -> None:
         except (subprocess.TimeoutExpired, OSError):
             return None
 
-    url_result = run("remote", "get-url", "origin")
+    label = "agent-factory.counterRemote"
+    url_result = run("config", "--get", COUNTER_REMOTE_SETTING)
+    if url_result is None or url_result.returncode != 0 or not url_result.stdout.strip():
+        label = "origin"
+        url_result = run("remote", "get-url", "origin")
     if url_result is None or url_result.returncode != 0:
-        log(report, "counter: no remote `origin`")
-        log(report, "add the remote `origin`, then run `next-id --seed <number>`")
-        return
+        log(report, "counter: no remote")
+        log(
+            report,
+            "fitting step 4 keeps the counter in this repository "
+            "until `origin` exists",
+        )
+        return False
     raw_url = url_result.stdout.strip()
     url = redact_user_info(raw_url)
     if url != raw_url:
-        log(report, f"WARNING: the URL of origin, {url}, carries a user name or token")
+        log(report, f"WARNING: the URL of {label}, {url}, carries a user name or token")
         log(
             report,
             "keep the credential in a git credential helper instead "
             "(see `git help credentials`) and remove it from the URL",
         )
-    result = run("ls-remote", "origin", COUNTER_REF)
+    result = run("ls-remote", "--", raw_url, COUNTER_REF)
     if result is None or result.returncode != 0:
         detail = (result.stderr.strip().splitlines() or [""])[-1] if result else (
             f"no answer within {COUNTER_CHECK_SECONDS} seconds"
@@ -3128,13 +3142,43 @@ def check_counter(target: Path, report: list[str]) -> None:
         log(report, f"WARNING: the remote {url} does not answer; the counter is unchecked")
         if detail:
             log(report, f"git said: {redact_user_info(detail)}")
-        return
+        return None
     if not result.stdout.strip():
-        log(report, "counter: missing on origin")
         log(
             report,
-            "run `next-id --seed <number>` with a number above your highest ID",
+            f"counter: missing on {'origin' if label == 'origin' else url}; "
+            "walk fitting step 4, or run "
+            "`next-id --plan-seed` to print the seed command",
         )
+        return False
+    return True
+
+
+def record_counter_seeded(
+    target: Path, seeded: bool | None, report: list[str]
+) -> None:
+    """Write `fitting.counter_seeded` from the counter check (BR-105).
+
+    An unanswered remote (None) leaves the key as it is. A greenfield cache
+    changes only this key and keeps its status and other keys (CIF-G07)."""
+    if seeded is None:
+        return
+    path = target / ".agent-factory" / "config" / "project-context.json"
+    try:
+        cached = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+    fitting = cached.get("fitting") if isinstance(cached, dict) else None
+    if not isinstance(fitting, dict):
+        return
+    greenfield = fitting.get("status") == "greenfield"
+    if fitting.get("counter_seeded", False if greenfield else None) == seeded:
+        return
+    fitting["counter_seeded"] = seeded
+    if not greenfield:
+        fitting["status"] = _fitting_status(fitting)
+    path.write_text(json.dumps(cached, indent=2) + "\n", encoding="utf-8")
+    log(report, f".agent-factory/config/project-context.json: counter_seeded is {str(seeded).lower()}")
 
 
 def mark_clone_installed(target: Path, report: list[str]) -> None:
@@ -4787,7 +4831,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # ── Section 8b: Counter IDs ─────────────────────────────────────────
     section("Counter IDs")
-    check_counter(target, report)
+    record_counter_seeded(target, check_counter(target, report), report)
 
     # ── Finalize (silent) ──────────────────────────────────────────────
     _out.quiet = True
