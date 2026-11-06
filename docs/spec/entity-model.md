@@ -850,7 +850,7 @@ erDiagram
         string home "the list inside packages/factory/scripts/next-id"
     }
     ID_PREFIX {
-        string value "ST | BUG | SPEC | FAGAN | SEC | RECON | ATAM | IMPL | T | ADR"
+        string value "ST | BUG | SPEC | FAGAN | SEC | RECON | ATAM | IMPL | T | ADR | ARCH | QA"
     }
     ID {
         string prefix

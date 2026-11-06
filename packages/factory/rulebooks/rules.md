@@ -98,7 +98,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** place every worktree under `.current-work/<feature-branch>/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
-- **MUST** commit all indexed artifacts (backlog stories, findings, proposals, and any other file with a sequential ID) to `dev` — `dev` is the single canonical index. Never commit indexed artifacts to a feature or invocation branch.
+- **MAY** create and commit an indexed artifact (backlog story, finding, proposal, or any other file with a sequential ID) on any branch. `next-id` hands out the ID of each prefix it serves from one counter for all branches, so IDs do not collide. The prefixes are listed in [finding-format.md § File location and name](conventions/finding-format.md#file-location-and-name). `PROP` rows in a proposal, the split letters of a story, and other IDs keep their own numbering rule and stay outside the counter.
 - **MUST** create every new invocation branch from `dev` (not `main`), using `feature/<proposal-title>` as the branch name. An adopted review branch keeps its existing name and ancestry and records current `HEAD` as its review root. Story branches are cut from the invocation branch.
 - **MUST** create every feature branch and worktree from the invocation branch, recording its origin commit as the branch root.
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
@@ -126,6 +126,7 @@ Rules in this section apply to both modes unless marked **(automated only)**. In
 - **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak. **(automated only)**
 - **MUST** maintain a dispatch ledger (`.current-work/<feature-branch>/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status. **(automated only)**
 - **MUST** update the story file's `status` field in the same commit that delivers the story's implementation. **(automated only)** In manual mode, the human owns this commit.
+- **MAY** run `next-id` in manual mode and let it push the claim ref. The claim push by `next-id` is the one exception to the human's ownership of pushes. Every other push stays with the human.
 
 ## Step boundaries
 
@@ -154,6 +155,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `.agent-factory/factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.
 - **MUST** use full 40-character SHAs in machine-consumed gates, markers, dispatch records, and handoffs; abbreviated SHAs are display-only.
+- **MUST** claim every ID of a prefix that `next-id` serves through `next-id` in manual and in automated mode. The claim push by `next-id` is the one exception to the human's ownership of pushes; every other push stays with the human in manual mode. A push outside `next-id`, such as `git -C . push` with a hand-written claim commit, can set a line back, and then IDs repeat.
 
 ## Handoffs
 

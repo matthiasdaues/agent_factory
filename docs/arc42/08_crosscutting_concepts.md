@@ -487,7 +487,7 @@ write access to the remote.
 [counter-ids.feature](../spec/features/counter-ids.feature), the
 [`next-id` contract](../spec/interface-contracts.md#packagesfactoryscriptsnext-id),
 the rules BR-068 to BR-075 in
-[validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-075),
+[validation-rules.md](../spec/validation-rules.md#counter-ids-next-id-br-068br-078),
 and the [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle) define the
 details.
 

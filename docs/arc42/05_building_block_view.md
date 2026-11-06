@@ -386,7 +386,7 @@ The callers sit outside the container:
 
 - **Producer steps.** A CLI session runs `next-id` from the five files that
   create indexed artifacts: `create-backlog` (`ST`), `finding-format.md`
-  (`SPEC`, `FAGAN`, `SEC`, `BUG`, `RECON`, `ATAM`, `IMPL`), `bug-fix.md`
+  (`SPEC`, `FAGAN`, `SEC`, `BUG`, `RECON`, `ATAM`, `IMPL`, `ARCH`, `QA`), `bug-fix.md`
   (`BUG`), `todo-format.md` (`T`), and `write-adr` (`ADR`). The session reads
   the ID from standard output, because a shell variable does not survive from
   one agent command to the next.

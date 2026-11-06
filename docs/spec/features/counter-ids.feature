@@ -17,7 +17,7 @@ Feature: Counter IDs
   next-id --seed <number>.
 
   The list of ID prefixes lives in next-id: ST, BUG, SPEC, FAGAN, SEC, RECON,
-  ATAM, IMPL, T, and ADR. An ID producer is a skill, agent, convention, or
+  ATAM, IMPL, T, ADR, ARCH, and QA. An ID producer is a skill, agent, convention, or
   playbook that tells its reader how to number a new indexed artifact, such
   as create-backlog-stories or write-adr.
 
@@ -57,6 +57,7 @@ Feature: Counter IDs
       When the User runs next-id --seed 1000
       Then next-id exits non-zero
       And the message names the remote and refs/ids/counters
+      And the remote shows without its user info
       And refs/ids/counters on origin points at the same claim commit as before
 
     Scenario Outline: A seed with a wrong argument fails before it reaches the remote
@@ -90,6 +91,7 @@ Feature: Counter IDs
       When the User runs next-id --seed 1000
       Then next-id exits non-zero
       And the message names the remote and git's error message
+      And the remote shows without its user info
 
     Scenario: A seed on a named remote creates the counter there
       Given a local bare repository at /tmp/remote.git without refs/ids/counters
@@ -135,6 +137,8 @@ Feature: Counter IDs
         | IMPL   |
         | T      |
         | ADR    |
+        | ARCH   |
+        | QA     |
 
     Scenario: An ID claim works in a clone without a git user name
       Given a clone whose git config holds no user.name and no user.email
@@ -190,12 +194,14 @@ Feature: Counter IDs
       When the User runs next-id ST
       Then next-id exits non-zero and prints no ID
       And the message names the remote and next-id --seed
+      And the remote shows without its user info
 
     Scenario: An unreachable remote ends the ID claim
       Given origin points at a URL that does not answer
       When the User runs next-id ST
       Then next-id exits non-zero and prints no ID
       And the message names the remote and git's error message
+      And the remote shows without its user info
 
     Scenario: A clone without origin and without --remote cannot make an ID claim
       Given a clone without the remote origin
@@ -256,7 +262,7 @@ Feature: Counter IDs
       Examples:
         | file                                                     | ids                                      |
         | packages/factory/skills/create-backlog/SKILL.md          | ST                                       |
-        | packages/factory/rulebooks/conventions/finding-format.md | SPEC, FAGAN, SEC, BUG, RECON, ATAM, IMPL |
+        | packages/factory/rulebooks/conventions/finding-format.md | SPEC, FAGAN, SEC, BUG, RECON, ATAM, IMPL, ARCH, QA |
         | packages/factory/playbooks/bug-fix.md                    | BUG                                      |
         | packages/factory/rulebooks/conventions/todo-format.md    | T                                        |
         | packages/factory/skills/write-adr/SKILL.md               | ADR                                      |
@@ -333,6 +339,16 @@ Feature: Counter IDs
       Given origin points at a URL that does not answer
       When the User runs init-factory
       Then init-factory prints a warning that names the remote
+      And the remote shows without its user info
+      And init-factory finishes the install and exits 0
+
+    Scenario: init-factory warns about user info in the URL of origin and finishes the install
+      Given origin points at the URL https://user:token@host/r.git
+      When the User runs init-factory
+      Then init-factory prints a warning that the URL of origin carries a user name or token
+      And the warning shows the URL as https://***@host/r.git
+      And the warning advises a git credential helper in place of the credential in the URL
+      And no line of the output holds the token
       And init-factory finishes the install and exits 0
 
   Rule: Stakeholder checks the ID claim against GitHub
