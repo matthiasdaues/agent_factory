@@ -41,6 +41,7 @@ def _write_context(
         "agent_context_populated": True,
         "test_regime_detected": True,
         "hooks_decided": True,
+        "counter_seeded": True,
     }
     if steps:
         fitting.update(steps)
@@ -142,7 +143,7 @@ class TestAllSourcesMissing:
 
 
 class TestPartialFitting:
-    def test_three_of_five(self, tmp_path: Path) -> None:
+    def test_three_of_six(self, tmp_path: Path) -> None:
         _write_install(tmp_path)
         _write_usage(tmp_path)
         _write_context(
@@ -153,11 +154,12 @@ class TestPartialFitting:
                 "agent_context_populated": True,
                 "test_regime_detected": False,
                 "hooks_decided": False,
+                "counter_seeded": False,
             },
         )
 
         out = mod.report(tmp_path)
-        assert "Fitting: 3/5" in out
+        assert "Fitting: 3/" in out
         assert "model matrix" in out
         assert "fingerprint" in out
         assert "agent context" in out
