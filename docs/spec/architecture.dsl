@@ -408,7 +408,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         nextId -> localCounter "Reads agent-factory.counterRemote; removes it after a move succeeds"
         gitRefAdapter -> counterPort "Implements claim, seed, inspect, and move; returns the claimed number or the state of the counter"
         gitRefAdapter -> projectRemote "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease; on a move, pushes the claim commit with the create-only lease"
-        gitRefAdapter -> localCounter "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease; on a move, sets and, after a failed push, removes the marker commit under a lease"
+        gitRefAdapter -> localCounter "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease; on a move, sets the marker commit under a lease on the claim commit and never removes it"
         nextId -> cliAgent "Prints the ID on standard output, or exits non-zero and names the reason"
         initFactory -> projectRemote "Asks origin whether refs/ids/counters exists, when agent-factory.counterRemote is not set; derives fitting.counter_seeded from the answer; never seeds"
         initFactory -> localCounter "Asks the local counter whether refs/ids/counters exists, when agent-factory.counterRemote is set; derives fitting.counter_seeded from the answer; never seeds"
@@ -692,7 +692,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             nextId -> counterPort "Calls move to the URL of origin"
             gitRefAdapter -> localCounter "Fetches refs/ids/counters and reads the claim commit C with ST=0012"
             gitRefAdapter -> localCounter "Replaces refs/ids/counters with the marker commit moved=<origin>, whose parent is C, under the lease on C; the local counter accepts it"
-            gitRefAdapter -> projectRemote "Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin holds no counter and accepts it"
+            gitRefAdapter -> projectRemote "Pushes C from a throwaway bare repository to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin holds no counter and accepts it"
             gitRefAdapter -> counterPort "Returns moved"
             nextId -> localCounter "Removes agent-factory.counterRemote and exits 0"
         }
@@ -703,7 +703,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             nextId -> counterPort "Calls move to the URL of origin"
             gitRefAdapter -> localCounter "Fetches refs/ids/counters, reads the marker commit moved=<origin>, and takes C with ST=0012 from its parent"
             gitRefAdapter -> projectRemote "Asks origin for refs/ids/counters with git ls-remote; origin holds no counter"
-            gitRefAdapter -> projectRemote "Pushes C to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin accepts it"
+            gitRefAdapter -> projectRemote "Pushes C from a throwaway bare repository to refs/ids/counters with --force-with-lease=refs/ids/counters:; origin accepts it"
             gitRefAdapter -> counterPort "Returns moved"
             nextId -> localCounter "Removes agent-factory.counterRemote and exits 0"
         }
