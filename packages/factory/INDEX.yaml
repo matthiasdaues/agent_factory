@@ -65,7 +65,7 @@ agents:
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
     tokens: 823
-    total_tokens: 6480
+    total_tokens: 6457
     inputs:
       required:
         - type: feature
@@ -153,7 +153,7 @@ agents:
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
     tokens: 985
-    total_tokens: 6473
+    total_tokens: 6450
     inputs:
       required:
         - type: story
@@ -385,7 +385,7 @@ agents:
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
     tokens: 1286
-    total_tokens: 9991
+    total_tokens: 9968
     inputs:
       required:
         - type: feature
@@ -425,7 +425,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2179
-    total_tokens: 13958
+    total_tokens: 13935
     inputs:
       required:
         - type: scope-map
@@ -593,7 +593,7 @@ agents:
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
     tokens: 931
-    total_tokens: 5672
+    total_tokens: 5649
     inputs:
       required:
         - type: feature
@@ -1023,7 +1023,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1105
-    total_tokens: 16486
+    total_tokens: 16463
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -1040,7 +1040,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 54705
+    total_tokens: 54636
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1050,7 +1050,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 733
-    total_tokens: 16472
+    total_tokens: 16449
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1062,7 +1062,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1502
-    total_tokens: 41819
+    total_tokens: 41750
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1079,7 +1079,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4821
-    total_tokens: 96487
+    total_tokens: 96372
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1097,7 +1097,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 2849
-    total_tokens: 95864
+    total_tokens: 95749
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1113,7 +1113,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1184
-    total_tokens: 16923
+    total_tokens: 16900
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1198,7 +1198,7 @@ rulebooks:
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
-    tokens: 1208
+    tokens: 1185
   - name: foundational-principles
     category: conventions
     path: rulebooks/conventions/foundational-principles.md

@@ -102,7 +102,7 @@ NEXT_ID_PATH = ".agent-factory/factory/scripts/next-id"
 
 PRODUCERS = {
     CREATE_BACKLOG: ["ST"],
-    FINDING_FORMAT: ["SPEC", "FAGAN", "SEC", "BUG", "RECON", "ATAM", "IMPL"],
+    FINDING_FORMAT: ["SPEC", "FAGAN", "SEC", "BUG", "RECON", "ATAM", "IMPL", "ARCH", "QA"],
     BUG_FIX: ["BUG"],
     TODO_FORMAT: ["T"],
     WRITE_ADR: ["ADR"],

@@ -147,7 +147,7 @@ class TestSeedArguments:
             (["1000", "ST=10000"], ["'ST=10000'"]),
             (
                 ["1000", "XX=5"],
-                ["'XX'", "ST, BUG, SPEC, FAGAN, SEC, RECON, ATAM, IMPL, T, ADR"],
+                ["'XX'", "ST, BUG, SPEC, FAGAN, SEC, RECON, ATAM, IMPL, T, ADR, ARCH, QA"],
             ),
             (["1000", "ST=5", "ST=7"], ["'ST'"]),
         ],
@@ -207,7 +207,7 @@ class TestPrefixOutsideTheList:
         assert f"'{prefix}'" in captured.err
         assert ", ".join(ni.PREFIXES) in captured.err
 
-    def test_st_0368_prefix_list_holds_the_ten_prefixes(self):
+    def test_st_0368_prefix_list_holds_the_twelve_prefixes(self):
         assert ni.PREFIXES == (
             "ST",
             "BUG",
@@ -219,6 +219,8 @@ class TestPrefixOutsideTheList:
             "IMPL",
             "T",
             "ADR",
+            "ARCH",
+            "QA",
         )
 
 
@@ -485,7 +487,8 @@ class TestClaimRecordsTheId:
 
 @pytest.mark.spec("CID-02-IT-02")
 @pytest.mark.parametrize(
-    "prefix", ["ST", "BUG", "SPEC", "FAGAN", "SEC", "RECON", "ATAM", "IMPL", "T", "ADR"]
+    "prefix",
+    ["ST", "BUG", "SPEC", "FAGAN", "SEC", "RECON", "ATAM", "IMPL", "T", "ADR", "ARCH", "QA"],
 )
 def test_st_0368_every_prefix_of_the_list_can_be_claimed(env, remote, clone, prefix):
     _set_counter(env, remote, "start=1000")

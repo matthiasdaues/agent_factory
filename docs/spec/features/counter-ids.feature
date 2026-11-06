@@ -17,7 +17,7 @@ Feature: Counter IDs
   next-id --seed <number>.
 
   The list of ID prefixes lives in next-id: ST, BUG, SPEC, FAGAN, SEC, RECON,
-  ATAM, IMPL, T, and ADR. An ID producer is a skill, agent, convention, or
+  ATAM, IMPL, T, ADR, ARCH, and QA. An ID producer is a skill, agent, convention, or
   playbook that tells its reader how to number a new indexed artifact, such
   as create-backlog-stories or write-adr.
 
@@ -256,7 +256,7 @@ Feature: Counter IDs
       Examples:
         | file                                                     | ids                                      |
         | packages/factory/skills/create-backlog/SKILL.md          | ST                                       |
-        | packages/factory/rulebooks/conventions/finding-format.md | SPEC, FAGAN, SEC, BUG, RECON, ATAM, IMPL |
+        | packages/factory/rulebooks/conventions/finding-format.md | SPEC, FAGAN, SEC, BUG, RECON, ATAM, IMPL, ARCH, QA |
         | packages/factory/playbooks/bug-fix.md                    | BUG                                      |
         | packages/factory/rulebooks/conventions/todo-format.md    | T                                        |
         | packages/factory/skills/write-adr/SKILL.md               | ADR                                      |
