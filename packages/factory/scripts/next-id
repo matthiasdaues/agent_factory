@@ -7,7 +7,8 @@
 What: Prints the next ID of an ID prefix, such as ST-1013, and records it in
       the claim commit at refs/ids/counters on the remote. `--seed` creates
       that counter once for a project. `--plan-seed` prints the seed command
-      that continues every ID sequence of the clone.
+      that continues every ID sequence of the clone. `--move-to-origin` moves a
+      local counter to `origin` once the project has one.
 When: Before a producer names a new story, finding, todo entry, or ADR.
 By:   the User, or an agent through the User's CLI (ADR-0031).
 
@@ -38,14 +39,23 @@ per prefix, in the order of PREFIXES (BR-101). An old file name, such as
 ATAM-0014-some-title.md, counts by its number and gets a warning on standard
 error (BR-100).
 
+`--move-to-origin` carries the claim commit C of the local counter, which the
+git setting agent-factory.counterRemote names, to `origin` in four steps
+(BR-102). It reads C, sets a marker commit with parent C and the one line
+`moved=<remote>` on the local counter with a lease on C, pushes C to `origin`
+with the create-only lease, and removes the setting. A failed push puts C
+back with a lease on the marker. A claim or `--plan-seed` that reads a marker
+fails and names the remote of the marker (BR-097).
+
 No third-party dependencies (Python stdlib only), matching backlog-lint.
 
 Usage
   next-id <PREFIX> [--remote <url>]
   next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]
   next-id --plan-seed [--remote <url>]
+  next-id --move-to-origin
 
-Exit code: 0 on success, 1 on a failed claim or seed, 2 on a usage error. On
+Exit code: 0 on success, 1 on a failed claim, seed, plan, or move, 2 on a usage error. On
 failure, nothing goes to standard output and the message goes to standard
 error.
 """
@@ -78,8 +88,10 @@ IDENTITY_EMAIL = "next-id@agent-factory.invalid"
 USAGE = (
     "next-id <PREFIX> [--remote <url>]\n"
     "       next-id --seed <number> [<PREFIX>=<n> …] [--remote <url>]\n"
-    "       next-id --plan-seed [--remote <url>]"
+    "       next-id --plan-seed [--remote <url>]\n"
+    "       next-id --move-to-origin"
 )
+MARKER_KEY = "moved"
 _NUMBER = re.compile(r"[0-9]+")
 MAX_STALE_LEASES = 10
 WAIT_SECONDS = (0.1, 1.0)
@@ -140,6 +152,17 @@ class MissingCounter(NextIdError):
     """The remote holds no refs/ids/counters."""
 
 
+class MovedCounter(NextIdError):
+    """The counter holds a marker commit: the counter moved to another remote."""
+
+    def __init__(self, url: str, remote: str):
+        super().__init__(
+            f"{COUNTER_REF} on {url} moved to {remote}; "
+            f"{remote} holds the counter now"
+        )
+        self.remote = remote
+
+
 class GitTimedOut(Exception):
     """A git call of a claim ran over the time limit (BR-076)."""
 
@@ -197,6 +220,20 @@ def number_lines(lines: dict[str, int]) -> list[str]:
 def format_message(lines: dict[str, int], token: str) -> str:
     """Write the claim commit message: the number lines, then the token."""
     return "\n".join([*number_lines(lines), f"token={token}"]) + "\n"
+
+
+def format_marker(remote: str) -> str:
+    """Write the marker commit message: the one line `moved=<remote>`, redacted (BR-097)."""
+    return f"{MARKER_KEY}={redact_user_info(remote)}\n"
+
+
+def marker_remote(message: str) -> str | None:
+    """Return the remote of a marker commit message, or None for a claim commit."""
+    lines = message.strip().splitlines()
+    if len(lines) != 1:
+        return None
+    key, sep, remote = lines[0].partition("=")
+    return remote if sep and key == MARKER_KEY else None
 
 
 def parse_message(message: str) -> dict[str, int]:
@@ -305,8 +342,10 @@ def throwaway(*, guarded: bool = False) -> Iterator[list[str]]:
         yield [f"--git-dir={repo}"]
 
 
-def _commit(repo: list[str], message: str, *, guarded: bool = False) -> str:
-    """Create a parentless claim commit on the empty tree."""
+def _commit(
+    repo: list[str], message: str, *, guarded: bool = False, parent: str | None = None
+) -> str:
+    """Create a commit on the empty tree: a claim commit, or a marker with a parent."""
     identity = {
         "GIT_AUTHOR_NAME": IDENTITY,
         "GIT_AUTHOR_EMAIL": IDENTITY_EMAIL,
@@ -314,8 +353,12 @@ def _commit(repo: list[str], message: str, *, guarded: bool = False) -> str:
         "GIT_COMMITTER_EMAIL": IDENTITY_EMAIL,
     }
     tree = git([*repo, "mktree"], guarded=guarded)
+    parents = ["-p", parent] if parent else []
     return git(
-        [*repo, "commit-tree", tree], stdin=message, env=identity, guarded=guarded
+        [*repo, "commit-tree", tree, *parents],
+        stdin=message,
+        env=identity,
+        guarded=guarded,
     )
 
 
@@ -391,6 +434,9 @@ class RemoteCounter:
             )
         except GitTimedOut:
             raise self._timed_out() from None
+        moved_to = marker_remote(message)
+        if moved_to is not None:
+            raise MovedCounter(self.url, moved_to)
         return old, message
 
     def push(self, message: str, lease: str) -> None:
@@ -631,6 +677,143 @@ def plan_seed(remote: str | None) -> str:
     return command
 
 
+# --- the move of a local counter to origin (BR-102) -----------------------------
+
+
+def _guarded(args: list[str], what: str) -> str:
+    """Run one git call of the move without prompts and with the limit (BR-076)."""
+    try:
+        return git(args, guarded=True)
+    except GitTimedOut:
+        raise NextIdError(
+            f"a git call on {what} ran over the time limit of {GIT_TIME_LIMIT} seconds"
+        ) from None
+
+
+def _setting_value(key: str) -> str | None:
+    try:
+        return _guarded(["config", "--get", key], "this clone")
+    except subprocess.CalledProcessError:
+        return None
+
+
+def read_local_counter(local: str) -> tuple[str, str]:
+    """Return the SHA and the message of the commit at the local counter."""
+    try:
+        sha = _guarded(["-C", local, "rev-parse", "--verify", "--quiet", COUNTER_REF], local)
+    except subprocess.CalledProcessError:
+        raise NextIdError(
+            f"the local counter {local} holds no {COUNTER_REF}; "
+            "set up the local counter in fitting step 4 \"Seed the ID counter\" first"
+        ) from None
+    message = _guarded(["-C", local, "show", "--no-patch", "--format=%B", sha], local)
+    return sha, message
+
+
+def _set_local_counter(local: str, new: str, lease: str) -> None:
+    """Point the local counter at `new`, with a lease on `lease`."""
+    _guarded(["-C", local, "update-ref", COUNTER_REF, new, lease], local)
+
+
+def push_to_origin(local: str, url: str, sha: str) -> None:
+    """Push C from the local counter to origin with the create-only lease (BR-102)."""
+    _push(["-C", local], url, sha, "", guarded=True)
+
+
+def _number_lines_of(message: str) -> str:
+    lines = [line for line in message.splitlines() if not line.startswith("token=")]
+    return ", ".join(lines)
+
+
+def _collision(local: str, url: str, target: str, message: str) -> NextIdError:
+    """Name both counters with their key=value lines (DEC-05, CIFP-C15)."""
+    try:
+        with throwaway(guarded=True) as repo:
+            _, other = RemoteCounter(repo, target).read()
+    except (NextIdError, GitTimedOut, subprocess.CalledProcessError) as exc:
+        other = f"a counter next-id cannot read ({exc})"
+    return NextIdError(
+        f"two counters exist: the local counter {local} holds "
+        f"{_number_lines_of(message)}, and {COUNTER_REF} on {url} holds "
+        f"{_number_lines_of(other)}; the move changed nothing"
+    )
+
+
+def move_to_origin() -> str:
+    """Move the local counter to origin in the four steps of BR-102."""
+    local = _setting_value(COUNTER_REMOTE_SETTING)
+    if local is None:
+        raise NextIdError(
+            f"no local counter is set: the git setting {COUNTER_REMOTE_SETTING} "
+            "does not exist; the move changed nothing"
+        )
+    # The URL as configured, not as git rewrites it, so the marker names it.
+    url = _setting_value("remote.origin.url")
+    if url is None:
+        raise NextIdError(
+            "no remote `origin`: add the remote `origin`, then run "
+            "`next-id --move-to-origin` again; the move changed nothing"
+        )
+    # git rewrites the URL with the clone's url.<base>.insteadOf settings; the
+    # throwaway repository of a read has none, so the move resolves it here.
+    target = _guarded(["ls-remote", "--get-url", url], "this clone")
+    sha, message = read_local_counter(local)
+    moved_to = marker_remote(message)
+    if moved_to is not None:
+        raise NextIdError(
+            f"the local counter {local} holds the marker of a move to {moved_to}; "
+            "the move changed nothing"
+        )
+    marker = _marker_commit(local, url, sha)
+    try:
+        _set_local_counter(local, marker, sha)
+    except subprocess.CalledProcessError as exc:
+        raise NextIdError(
+            f"the local counter {local} changed after the move read it: "
+            f"{_git_error(exc)}; the move changed nothing"
+        ) from None
+    try:
+        push_to_origin(local, target, sha)
+    except GitTimedOut:
+        raise NextIdError(
+            f"the push to {url} ran over the time limit of {GIT_TIME_LIMIT} seconds; "
+            f"the local counter {local} holds the marker of the move, and "
+            f"{COUNTER_REMOTE_SETTING} stays"
+        ) from None
+    except subprocess.CalledProcessError as exc:
+        error = _git_error(exc)
+        _restore(local, sha, marker)
+        if "stale info" in error or "already exists" in error:
+            raise _collision(local, url, target, message) from None
+        raise NextIdError(
+            f"the move to {url} failed: {error}; the local counter {local} "
+            f"holds its claim commit again, and {COUNTER_REMOTE_SETTING} stays"
+        ) from None
+    _guarded(["config", "--unset", COUNTER_REMOTE_SETTING], "this clone")
+    return f"moved {COUNTER_REF} from {local} to {url}"
+
+
+def _restore(local: str, sha: str, marker: str) -> None:
+    """Put C back on the local counter, with a lease on the marker (BR-102)."""
+    try:
+        _set_local_counter(local, sha, marker)
+    except subprocess.CalledProcessError as exc:
+        raise NextIdError(
+            f"the push failed, and the local counter {local} keeps the marker "
+            f"of the move: {_git_error(exc)}; {COUNTER_REMOTE_SETTING} stays"
+        ) from None
+
+
+def _marker_commit(local: str, url: str, parent: str) -> str:
+    """Create the marker commit in the local repository, with C as its parent."""
+    try:
+        return _commit(["-C", local], format_marker(url), guarded=True, parent=parent)
+    except GitTimedOut:
+        raise NextIdError(
+            f"a git call on {local} ran over the time limit of {GIT_TIME_LIMIT} seconds"
+        ) from None
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="next-id", usage=USAGE, description=__doc__.split("\n")[0]
@@ -641,6 +824,11 @@ def _parser() -> argparse.ArgumentParser:
         "--plan-seed",
         action="store_true",
         help="print the seed command that continues every ID sequence",
+    )
+    mode.add_argument(
+        "--move-to-origin",
+        action="store_true",
+        help="move the local counter of agent-factory.counterRemote to origin",
     )
     p.add_argument(
         "--remote",
@@ -658,10 +846,14 @@ def main(argv: list[str] | None = None) -> int:
     ns = p.parse_args(argv)
     if ns.plan_seed and ns.arguments:
         p.error("--plan-seed takes no argument")
-    if not (ns.seed or ns.plan_seed) and len(ns.arguments) != 1:
+    if ns.move_to_origin and (ns.arguments or ns.remote is not None):
+        p.error("--move-to-origin takes no argument and no --remote")
+    if not (ns.seed or ns.plan_seed or ns.move_to_origin) and len(ns.arguments) != 1:
         p.error("name one ID prefix")
     try:
-        if ns.plan_seed:
+        if ns.move_to_origin:
+            output = move_to_origin()
+        elif ns.plan_seed:
             output = plan_seed(ns.remote)
         elif ns.seed:
             output = seed(ns.arguments, ns.remote)
