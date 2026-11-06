@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Finding basis",
+  "description": "The answers a reviewer records for one finding. The field review_class of the finding file or register line picks the shape: the consequence tree for document, code, and runtime, the bug bar for security, and the matrix for architecture. The rule of the class computes the severity from these answers (validation-rules.md BR-081 to BR-083). schema-validate supports no oneOf, so each register schema in packages/factory/rulebooks/schemas/ inlines the one shape of its class.",
+  "oneOf": [
+    {
+      "title": "Consequence tree basis (document, code, runtime)",
+      "type": "object",
+      "required": ["in_use", "harms_downstream", "fails_purpose", "raises_cost"],
+      "additionalProperties": false,
+      "properties": {
+        "in_use": {
+          "type": "boolean",
+          "description": "true when something outside the current playbook run depends on the artifact. finding-lint checks it against git for code and runtime findings."
+        },
+        "harms_downstream": {
+          "type": "boolean",
+          "description": "true when the finding causes a wrong result, data loss, a security breach, or a broken contract, and the artifact is in use. true only when in_use is true."
+        },
+        "fails_purpose": {
+          "type": "boolean",
+          "description": "true when the reviewed artifact fails the job it exists for."
+        },
+        "raises_cost": {
+          "type": "boolean",
+          "description": "true when the artifact works, but the finding makes later reading, change, or testing harder."
+        }
+      }
+    },
+    {
+      "title": "Bug bar basis (security)",
+      "type": "object",
+      "required": [
+        "effect",
+        "second_breach",
+        "trusted_access",
+        "non_default",
+        "user_action",
+        "confidence",
+        "in_use"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "effect": {
+          "type": "string",
+          "enum": [
+            "execution",
+            "secrets",
+            "gate-bypass",
+            "tampering",
+            "disclosure",
+            "limited",
+            "leak",
+            "hardening"
+          ],
+          "description": "What the attacker gains. The effect class sets the starting level."
+        },
+        "second_breach": {
+          "type": "boolean",
+          "description": "true when the attack needs another compromise first."
+        },
+        "trusted_access": {
+          "type": "boolean",
+          "description": "true when the attack needs a local shell, write access to the repository, or an account in the project."
+        },
+        "non_default": {
+          "type": "boolean",
+          "description": "true when the attack needs a configuration or an opt-in feature that the Factory does not enable by default."
+        },
+        "user_action": {
+          "type": "boolean",
+          "description": "true when the attack needs the user to do something unusual."
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["proven", "plausible"],
+          "description": "proven when the attack path is reproduced or traced from the input to the sink in the code; plausible otherwise."
+        },
+        "in_use": {
+          "type": "boolean",
+          "description": "true when the vulnerable code is in use. finding-lint checks it against git."
+        }
+      }
+    },
+    {
+      "title": "Matrix basis (architecture)",
+      "type": "object",
+      "required": ["importance", "exposure", "in_use"],
+      "additionalProperties": false,
+      "properties": {
+        "importance": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "The importance of the threatened quality scenario. Priority 1 in arc42 section 10.2 is high, priority 2 is medium."
+        },
+        "exposure": {
+          "type": "string",
+          "enum": ["fails", "uncertain"],
+          "description": "fails when the analysis shows the decision cannot meet the response measure of the scenario; uncertain when no evidence exists either way."
+        },
+        "in_use": {
+          "type": "boolean",
+          "description": "true when something built from the decision is in use. It raises a major risk to critical."
+        }
+      }
+    }
+  ]
+}

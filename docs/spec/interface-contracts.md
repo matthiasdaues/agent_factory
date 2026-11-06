@@ -28,6 +28,8 @@ See `UC-04`.
 
 `dispatch` is the script-owned implementation dispatch state machine. `prepare-wave` / `prepare-story` establish the `prepared` state by creating the story branch/worktree, recording the declared base, writing the step manifest, and running `verify-base` before any developer-agent spawns. `escalate` performs a read-only check of the ledger, branch verification, and scope boundaries before granting a one-tier promotion or blocking the story when the wave slot is exhausted. `merge-story` runs `premerge-check` with the story's declared `outputs`, else its `touches`, as the scope: a plain entry as `--scope`, an entry with `*` or `?` as `--scope-glob`. It always adds three paths to the scope: `backlog/<story-id>.md`, whose status the merge updates; `docs/spec/work/spec-feedback-<story-id>.md`, the story's drift report (ADR-0029); and `packages/factory/INDEX.yaml`, which the `index-lint` hook rewrites during a commit. `merge-story` passes `--max-files` scaled from the story's declared `outputs` count (`max(20, len(outputs) * 2)`, so the pre-existing default of 20 holds for small stories). It then performs the merge, updates the story file status in the merge commit, runs post-merge tests, and records the terminal outcome in the ledger. `close-wave` succeeds only when every story in the requested wave is terminal, and it records a wave closeout entry with completed, blocked, failed, next_ready, and branch_head fields. `suggest-merge-args` reads the ledger and sums each story's declared `outputs` count to print a recommended `--max-files` value (floored at 20) for the final feature-branch-to-dev merge, which routinely exceeds any single story's per-story threshold.
 
+While an open `critical` finding has no `stop_confirmed_by`, the subcommands that start or merge work exit `1` with the stop notice, as [The stop in `dispatch` and `premerge-check`](#the-stop-in-dispatch-and-premerge-check) defines.
+
 ## `.agent-factory/factory/scripts/step-guard`
 
 |             |                                                                                                                                                                                                                                                                              |
@@ -113,13 +115,13 @@ See `UC-11`.
 
 ## Child-result envelope
 
-| Field            | Contract                                                                                                       |
-| ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| `disposition`    | Required pass/fail/block outcome                                                                               |
-| `finding_counts` | Required counts keyed by severity; zero counts remain explicit                                                 |
-| `artifact_paths` | Required complete list of canonical tracked report and finding paths                                           |
-| `next_action`    | Required one-to-three-sentence downstream action                                                               |
-| Full detail      | Forbidden in the envelope; it is persisted before return and read deliberately from `artifact_paths` if needed |
+| Field            | Contract                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `disposition`    | Required pass/fail/block outcome                                                                                            |
+| `finding_counts` | Required counts keyed by the four severities `critical`, `major`, `minor`, and `note`; zero counts remain explicit (BR-093) |
+| `artifact_paths` | Required complete list of canonical tracked report and finding paths                                                        |
+| `next_action`    | Required one-to-three-sentence downstream action                                                                            |
+| Full detail      | Forbidden in the envelope; it is persisted before return and read deliberately from `artifact_paths` if needed              |
 
 The envelope applies to native subagents, `run_agent`, and `dispatch_wave`; runtime-specific transport may differ but content does not (BR-040).
 
@@ -1158,3 +1160,244 @@ push command, so the command `next-id ST` passes with exit `0`. A push written
 with `git -C .` before the subcommand also passes, so the hook does not force a
 claim through `next-id`. The lease of BR-072 still refuses every stale claim
 (DEC-22).
+
+## Finding Classification Contracts
+
+The contracts of
+[finding-classification.feature](features/finding-classification.feature):
+the finding file, the register line, the envelope counts, the gate
+`finding-lint` with its settings file, the stop in `dispatch` and
+`premerge-check`, the hook `guard-human-fields`, and the proposal review row.
+The rules behind them are BR-079 to BR-095 in
+[validation-rules.md](validation-rules.md#finding-classification-br-079br-095).
+A value that the stakeholder settled on a gap carries the identifier in
+[finding-classification-gaps.md](work/finding-classification-gaps.md).
+
+### `docs/findings/<ID>.md` — finding file
+
+A reviewer agent writes a finding file for each `critical` or `major`
+finding. The frontmatter holds these fields:
+
+| Field                   | Contract                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `id`                    | The ID that `next-id` printed, such as `FAGAN-0042`. The file name is `<id>.md`                                          |
+| `source`                | The review or session that found the finding, such as `fagan-review` or `diagnosis`                                      |
+| `review_class`          | `document`, `code`, `security`, `architecture`, or `runtime` (BR-079)                                                    |
+| `category`              | `defect`, `risk`, or `suggestion` (BR-079)                                                                               |
+| `type`                  | A type from the vocabulary of the class (BR-079)                                                                         |
+| `severity`              | `critical` or `major`, computed from `basis` (BR-081 to BR-085)                                                          |
+| `basis`                 | A YAML mapping with the shape of the class, as [schemas/finding-basis.json](schemas/finding-basis.json) defines (BR-080) |
+| `rating`                | The bug-bar level `Critical`, `High`, `Medium`, or `Low` of a security finding; `null` in every other class (BR-082)     |
+| `override_by`           | `null`, or the person who waived the finding. Human field (BR-092)                                                       |
+| `override_reason`       | `null`, or why the finding stays unfixed. Human field                                                                    |
+| `stop_confirmed_by`     | `null`, or the person who confirmed the stop of a `critical` finding. Human field                                        |
+| `stop_confirmed_reason` | `null`, or what the person checked and found. Human field                                                                |
+| `artifact`              | `path:line`, `path:start-end`, or `path#anchor` (BR-086)                                                                 |
+| `status`                | `open`, `resolved`, `deferred`, or `waived`. Only a person sets `waived`                                                 |
+| `owner`                 | The agent that acts on the finding next, as [Finding frontmatter `owner:`](#finding-frontmatter-owner) defines           |
+| `traces`                | Optional list of related IDs, such as `[ST-0351]`                                                                        |
+
+A new finding written from the template carries `null` in all four human
+fields. The body holds three lines in this order: `**What is wrong:**`,
+`**Why this severity:**`, and `**Fix:**`. The Why line holds one sentence per
+"yes" answer, per precondition, or for the effect class, and it names the
+evidence for `in_use`.
+
+A `critical` finding ends with the section `## Possible damage`, and no other
+severity holds it. Each item is one list entry in this form:
+
+```markdown
+- merges on `dev` from dispatch runs since the installed copy was last updated — check: compare `git log --merges dev` with the merges the dispatch log records
+```
+
+The text before `— check:` names one thing outside the artifact that
+depends on it, as a fact from git or the file tree. The text after it names
+one command or step that the person runs.
+
+### `docs/findings/register/<class>.jsonl` — register line
+
+A reviewer agent records each `minor` finding as one line at the end of the
+register of its class. A line is one JSON object with these keys:
+
+| Key                 | Contract                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `id`                | The ID that `next-id` printed. A migrated finding keeps its old ID, such as `BUG-0067`                  |
+| `source`            | As in the finding file                                                                                  |
+| `review_class`      | The class of the register, such as `code` in `code.jsonl`                                               |
+| `category`          | `defect`, `risk`, or `suggestion`                                                                       |
+| `type`              | A type from the vocabulary of the class                                                                 |
+| `severity`          | `minor`                                                                                                 |
+| `artifact`          | `path:line`, `path:start-end`, or `path#anchor`                                                         |
+| `story`             | The story ID the review ran for, such as `ST-0370`, or `null` when no story exists yet                  |
+| `finding`           | What is wrong and the fix, as plain text                                                                |
+| `basis`             | A JSON object with the shape of the class                                                               |
+| `why_this_severity` | The Why this severity sentence. In the consequence tree classes it holds `no to fails_purpose` (BR-087) |
+| `commit`            | The reviewed commit as 40 hexadecimal characters                                                        |
+
+A line has no status. The commit that fixes the finding deletes the line
+(BR-090). `docs/findings/register/code.jsonl` and `document.jsonl` show lines
+in this form.
+
+| Register                                    | Schema                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------ |
+| `docs/findings/register/document.jsonl`     | `packages/factory/rulebooks/schemas/finding-register-document.schema.json`     |
+| `docs/findings/register/code.jsonl`         | `packages/factory/rulebooks/schemas/finding-register-code.schema.json`         |
+| `docs/findings/register/security.jsonl`     | `packages/factory/rulebooks/schemas/finding-register-security.schema.json`     |
+| `docs/findings/register/architecture.jsonl` | `packages/factory/rulebooks/schemas/finding-register-architecture.schema.json` |
+| `docs/findings/register/runtime.jsonl`      | `packages/factory/rulebooks/schemas/finding-register-runtime.schema.json`      |
+
+Each register schema lists the twelve keys as required, forbids other keys,
+and takes the basis shape of its class from
+[schemas/finding-basis.json](schemas/finding-basis.json). `finding-lint`
+validates each line against the schema of its class. `schema-validate` does
+not check the registers, because it reads one whole JSON document per file
+(DEC-49). The schemas use only the keywords that the validator of
+`schema-validate` supports, so they hold no `oneOf`. An implementation story
+writes them.
+
+`.gitattributes` holds the line `docs/findings/register/*.jsonl merge=union`.
+Two branches that each append one line at the end of a register then merge
+without a conflict, and the register keeps both lines (DEC-49). An ID is a
+finding file or a register line, never both (DEC-53).
+
+### `finding_counts` of the child-result envelope
+
+[Child-result envelope](#child-result-envelope) defines the envelope. A
+review that files one `major` finding and records nothing else returns:
+
+```json
+"finding_counts": {"critical": 0, "major": 1, "minor": 0, "note": 0}
+```
+
+`adversarial-review` keeps its own scale in its records and maps it only here:
+BLOCKER and MAJOR count under `major`, MINOR under `minor`, and NOTE under
+`note` (BR-093).
+
+### `packages/factory/scripts/finding-lint`
+
+| Property  | Contract                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Usage     | `finding-lint [--staged]`                                                                                                                                                                                                                                                                                                                                                                        |
+| Reads     | Every `docs/findings/*.md` that carries `review_class`, and every line of `docs/findings/register/*.jsonl`. With `--staged`, the staged version of each file; without it, the working tree. The `HEAD` version of each file, to decide whether a git check is due                                                                                                                                |
+| Reads too | Only when a git check is due: `docs/factory-settings.yaml`, the branches `dev`, `main`, `origin/dev`, and `origin/main`, the release tags, and the installed copy `.agent-factory/factory/` when `packages/factory/` exists. In a linked worktree, the installed copy is the one in the main checkout, which `packages/factory/scripts/_main_checkout.py` finds (BR-088, BR-089, DEC-49, DEC-50) |
+| Writes    | Nothing                                                                                                                                                                                                                                                                                                                                                                                          |
+| Skips     | A finding file without `review_class`, such as a resolved file from before the migration                                                                                                                                                                                                                                                                                                         |
+| Checks    | BR-079 to BR-090, including the shape of each register line against the schema of its class, an unknown status, an open `minor` or `note` file, and an ID that is both a file and a register line (DEC-53)                                                                                                                                                                                       |
+| Messages  | One line per violation. It names the file and the rule, and for a register line also the ID. One line per branch that the clone does not have, such as `skipped origin/main: no such branch`. A skipped branch is no violation                                                                                                                                                                   |
+| Exit code | `0` when every checked file and line passes; `1` on any violation, and on a missing release setting when a git check is due; `2` on a usage error or a git call that fails                                                                                                                                                                                                                       |
+| Run by    | The `validate` skill, without `--staged`, and the pre-commit hook, with `--staged`                                                                                                                                                                                                                                                                                                               |
+
+On each place, the git check blames the `artifact` path, and also each rename
+or copy source that `git diff -M -C <place> <reviewed branch>` names for that
+path. It compares line identities: the introducing commit, the line number in
+that commit, and the file name in that commit (BR-088). A failed git check
+names the first place where the lines exist unchanged:
+
+| Place found        | Message                                                |
+| ------------------ | ------------------------------------------------------ |
+| branch `dev`       | `artifact lines exist unchanged on dev`                |
+| branch `main`      | `artifact lines exist unchanged on main`               |
+| `origin/dev`       | `artifact lines exist unchanged on origin/dev`         |
+| `origin/main`      | `artifact lines exist unchanged on origin/main`        |
+| a release tag      | `artifact lines exist unchanged at tag <tag>`          |
+| the installed copy | `artifact lines exist unchanged in the installed copy` |
+
+A missing release setting gives a message that names the file, the key, and
+the fix, so a project can recover without reading the specification:
+
+```text
+docs/factory-settings.yaml: key release_tag_patterns is missing. Add the list of git tag patterns that count as releases, such as ["v[0-9]*"], or [] for none.
+```
+
+### `docs/factory-settings.yaml`
+
+| Property               | Contract                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Location               | The project root, tracked in git, so every clone uses the same setting (FC-C11)                                                        |
+| Writer                 | The project. `init-factory` and `update-factory` never write the file                                                                  |
+| `release_tag_patterns` | A YAML list of glob patterns as strings. A tag counts as a release when `git tag --list '<pattern>'` lists it for one pattern (BR-089) |
+| Empty list             | `[]` is valid and counts no tag                                                                                                        |
+| Missing                | A missing file, a missing key, or a value that is not a list of strings makes `finding-lint` exit `1` when a git check is due          |
+| Other keys             | `finding-lint` reads only `release_tag_patterns`                                                                                       |
+
+```yaml
+release_tag_patterns:
+  - "v[0-9]*"
+```
+
+With this setting, the tags `v1.0.0` and `v1.1.0-rc` count as releases, and
+`1.1.0` and `orchestrator-v0.1.0` do not.
+
+### The stop in `dispatch` and `premerge-check`
+
+| Property         | Contract                                                                                                                                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Condition        | A file in `docs/findings/*.md` has `severity: critical`, `status: open`, and no text in `stop_confirmed_by` or in `stop_confirmed_reason` (BR-091, DEC-52)                                                |
+| Reads            | `docs/findings/*.md` in the working tree where the script runs, at the top level that `git rev-parse --show-toplevel` prints. An uncommitted finding counts. Other worktrees and branches do not (FC-G06) |
+| `dispatch` stops | `init`, `prepare-wave`, `prepare-story`, `mark-dispatching`, `mark-dispatched`, `re-dispatch`, `escalate`, `refresh-story`, `merge-story`, and `close-wave` (FC-C12)                                      |
+| `dispatch` runs  | `status`, `plan`, `suggest-merge-args`, `verify-story`, `mark-done`, `mark-blocked`, `mark-failed`, and `clear-manifest`, as without a stop                                                               |
+| `premerge-check` | Checks the stop before any other check. During a stop it runs no other check and writes no `.current-work/premerge-check-ok` marker                                                                       |
+| Writes           | Nothing during a stop. The ledger stays unchanged                                                                                                                                                         |
+| Output           | The stop notice on standard output. Standard error keeps usage and git errors                                                                                                                             |
+| Exit code        | `1` during a stop                                                                                                                                                                                         |
+| Lift             | Both scripts run again once both confirmation fields of every stopping finding hold text, or the finding has a status other than `open`                                                                   |
+
+Both scripts print the same stop notice. It lists each stopping finding with
+these parts, in this order: the finding ID and title, the artifact, the
+evidence for `in_use` from the `**Why this severity:**` line, and each item of
+`## Possible damage` with its check. The notice ends with the confirmation
+step. For BUG-0037 it reads:
+
+```text
+STOP: an open critical finding has no confirmed stop. No work is dispatched or merged.
+
+BUG-0037: An empty story passes verify-story, and a red suite then resets earlier merges away
+  artifact: packages/factory/scripts/dispatch:1383
+  in use: the lines exist unchanged in .agent-factory/factory/scripts/dispatch, which every dispatch run executes
+  possible damage:
+    - merges on `dev` from dispatch runs since the installed copy was last updated
+      check: compare `git log --merges dev` with the merges the dispatch log records
+
+To confirm: run each check, then write stop_confirmed_by and stop_confirmed_reason
+into docs/findings/BUG-0037.md in your editor or with a ! command.
+```
+
+### `packages/factory/config/hooks/guard-human-fields`
+
+The implementation story picks the file extension, as for
+`block-dangerous-git.sh`.
+
+| Property   | Contract                                                                                                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Hook       | Runs in every supported CLI, registered on the hook events of that CLI for edit, write, and shell calls, as the table below lists (DEC-51)                                                                                                                                                       |
+| Reads      | The tool call as the CLI passes it, and for a write the current content of the target file                                                                                                                                                                                                       |
+| Guarded    | `docs/findings/*.md` and the Appendix tables of `docs/proposals/*.md`. Templates, the rulebook, register files, and test fixtures lie outside (DEC-45)                                                                                                                                           |
+| Refuses    | A call that sets a human field, as [BR-092](validation-rules.md#stop-and-guard) defines                                                                                                                                                                                                          |
+| Passes     | A new finding from the template with every human field `null`, an edit that leaves a waived status line as it is, an edit of `packages/factory/rulebooks/templates/finding.md`, a read-only `grep "status: waived" docs/findings/`, and a heredoc that writes a fixture outside `docs/findings/` |
+| Exit code  | A hook script exits `0` to let the call through and `2` to refuse it, as `block-dangerous-git.sh` does. The Pi extension and the OpenCode plugin block the call through the API of their CLI                                                                                                     |
+| Message    | On refusal, standard error names the file, the field, and that a person writes it in an editor or with a `!` command                                                                                                                                                                             |
+| Blind spot | A field name built from pieces in a script passes the hook (DEC-42)                                                                                                                                                                                                                              |
+
+Each CLI registers the guard where the hook `step-guard` already sits for
+edit, write, and shell calls. The architecture agent places the guard for
+each CLI and closes the gaps in the last column (DEC-51).
+
+| CLI         | Registration                                                                                  | Calls guarded                                                  | Gap for the architecture agent                                                                                                                                          |
+| ----------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `PreToolUse` entries in `.claude/settings.json`                                               | `Edit`, `Write`, `Bash`                                        | `step-guard` registers no `MultiEdit` and no `NotebookEdit`. Whether the installed Claude Code version offers these tools is not checked here                           |
+| Codex       | `PreToolUse` entries in `.codex/hooks.json`                                                   | `Edit`, `Write`, `apply_patch`, `Bash`                         | An `apply_patch` call names its path inside the patch text, so the guard reads the path and the removed and added lines from the patch. Not checked against a Codex run |
+| Copilot CLI | `preToolUse` entries in a hook file under `.github/hooks/`, as `step-guard.json` does         | `edit`, `apply_patch`, `write_file`, `create`, `bash`          | None known                                                                                                                                                              |
+| Pi          | The `tool_call` event of a project-local extension, as `config/extensions/step-guard.ts` does | `edit`, `write`, `write_file`, `create`, `apply_patch`, `bash` | None known                                                                                                                                                              |
+| OpenCode    | `execute.before` of the Factory plugin `agent-factory.ts`                                     | the plugin's edit, write, and shell tools                      | The plugin source `packages/factory/config/plugins/agent-factory.ts` that the OpenCode contract names does not exist on `dev`, so the guard has no place yet            |
+
+### Proposal review row
+
+The proposal-review agent writes one row per finding into the table
+`## Review findings` of the proposal's Appendix (BR-094).
+
+| Column     | Contract                                                                                                |
+| ---------- | ------------------------------------------------------------------------------------------------------- |
+| Severity   | `major`, `minor`, or `note`                                                                             |
+| Status     | `open`, `fixed`, `resolved`, or `waived`. Only the stakeholder sets `waived`, and only on a `major` row |
+| Finding    | Ends with one sentence that starts with `Severity:` and names the deciding answer                       |
+| Resolution | Holds the evidence of a fix, or the stakeholder's reason for a waiver                                   |

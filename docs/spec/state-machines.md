@@ -794,3 +794,125 @@ stateDiagram-v2
 - **READING** reads the claim commit again on every loop, so the next claim sees the number that the other caller took.
 - **LeaseStale** is the event for the git messages `stale info` and `cannot lock ref … is at <sha> but expected <sha>`, which git prints in English because `next-id` runs it with `LC_ALL=C`. Every other refusal is **PushRefused** and ends the claim after one push (DEC-23).
 - **FAILED** names the reason as the claim error table in [interface-contracts.md](interface-contracts.md#packagesfactoryscriptsnext-id) lists it. In every terminal state, `next-id` deletes its throwaway repository (BR-075).
+
+## Finding Classification State Machines
+
+A finding in
+[finding-classification.feature](features/finding-classification.feature)
+moves from its classification to a finding file, a register line, or the
+review report. Written per
+[state-machine-notation.md § Canonical Format](../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format):
+pseudocode is authoritative, Mermaid is derived. The stop of a run is no
+state of its own. `dispatch` and `premerge-check` read it from the findings in
+**STOPPING** each time they run (BR-091).
+
+### Finding Lifecycle
+
+One finding, from the pause point to its end. The status field of a finding
+file shows the state: **STOPPING** and **IN_LOOP** are both `open`. BR-085,
+BR-086, BR-090, and BR-091 hold the rules.
+
+#### Pseudocode
+
+```text
+State: CLASSIFIED
+  # initial — the reviewer agent or the migration agent recorded the basis, and the rule computed the severity
+  # the pause point shows the finding; no file is written yet
+On AnswerChanged:
+  # the user changes an answer of the basis at the pause point, and the rule computes the severity again
+  ChangeState(CLASSIFIED)
+On Recorded:
+  if severity is critical
+    ChangeState(STOPPING)
+  else if severity is major
+    ChangeState(IN_LOOP)
+  else if severity is minor
+    ChangeState(REGISTERED)
+  else
+    ChangeState(IN_REPORT)
+On NoArtifact:
+  # migration only — an old open finding that names no artifact moves into todo.md
+  ChangeState(DEFERRED)
+
+State: STOPPING
+  # finding file with severity critical, status open, and an empty stop_confirmed_by or stop_confirmed_reason
+  # dispatch and premerge-check refuse work and print the stop notice
+On StopConfirmed:
+  # the stakeholder ran the damage checks, and both stop_confirmed_by and stop_confirmed_reason hold text
+  ChangeState(IN_LOOP)
+On FixVerified:
+  RejectCommand("finding-lint: a critical finding is resolved only after its stop is confirmed")
+On Waived:
+  RejectCommand("finding-lint: a critical finding is waived only after its stop is confirmed")
+On AgentConfirms:
+  RejectCommand("guard-human-fields: only a person writes stop_confirmed_by")
+
+State: IN_LOOP
+  # finding file with status open; the orchestrator sends it to its owner on each pass
+On FixVerified:
+  # a repeat pass of the review checks the fix and sets status resolved
+  ChangeState(RESOLVED)
+On Waived:
+  # the stakeholder sets status waived with override_by and override_reason
+  ChangeState(WAIVED)
+
+State: REGISTERED
+  # one line in docs/findings/register/<class>.jsonl; it never blocks
+On Fixed:
+  # the commit that fixes the finding deletes the line
+  ChangeState(LINE_DELETED)
+On Raised:
+  # the human changes an answer of the basis, removes the line, and files a finding file under the same ID
+  if severity is critical
+    ChangeState(STOPPING)
+  else
+    ChangeState(IN_LOOP)
+
+State: IN_REPORT
+  # terminal — a note stays in the review report only
+
+State: RESOLVED
+  # terminal — the file stays as the record
+
+State: WAIVED
+  # terminal — accepted unfixed; the loop grep for status open skips it
+
+State: DEFERRED
+  # terminal — the file names the todo ID in its body
+
+State: LINE_DELETED
+  # terminal — git history keeps the line
+```
+
+#### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> CLASSIFIED
+    CLASSIFIED --> CLASSIFIED : AnswerChanged
+    CLASSIFIED --> STOPPING : Recorded (critical)
+    CLASSIFIED --> IN_LOOP : Recorded (major)
+    CLASSIFIED --> REGISTERED : Recorded (minor)
+    CLASSIFIED --> IN_REPORT : Recorded (note)
+    CLASSIFIED --> DEFERRED : NoArtifact (migration only)
+    STOPPING --> IN_LOOP : StopConfirmed
+    IN_LOOP --> RESOLVED : FixVerified
+    IN_LOOP --> WAIVED : Waived
+    REGISTERED --> LINE_DELETED : Fixed
+    REGISTERED --> STOPPING : Raised (critical)
+    REGISTERED --> IN_LOOP : Raised (major)
+    IN_REPORT --> [*]
+    RESOLVED --> [*]
+    WAIVED --> [*]
+    DEFERRED --> [*]
+    LINE_DELETED --> [*]
+```
+
+#### Notes
+
+- **CLASSIFIED** covers the pause point of a review and the pause point of the migration. A headless run has no pause point, so **Recorded** follows at once, and the final summary lists each new register line (BR-090).
+- **STOPPING** has no edge to **RESOLVED** or **WAIVED**. A `critical` finding is resolved or waived only after both confirmation fields hold text, so the damage checks run before the stop ends (DEC-47, DEC-52). While the stop holds, `dispatch` starts and merges no work. A person who fixes the defect by hand confirms the stop first.
+- **IN_LOOP** of a confirmed `critical` finding keeps severity `critical`. The finding loops like a `major` one (DEC-28).
+- **Waived** is open to a blocking finding only. A `minor` finding never blocks, so **REGISTERED** has no **Waived** edge, and no override raises it (DEC-25). The stakeholder raises it only through **Raised**.
+- **AgentConfirms** and the agent's attempt to set `waived` are refused by `guard-human-fields` (BR-092). The finding stays in its state.
+- A **question** never enters this machine. The reviewer agent writes it into `docs/spec/work/todo.md` (BR-085).

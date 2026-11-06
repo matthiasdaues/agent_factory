@@ -37,28 +37,28 @@ Six actors see an outcome of this feature. The reviewer agent is any agent or sk
 
 Each completion criterion of the proposal traces to a Rule or to a gap below.
 
-| Completion criterion (short form)                                                                       | Rule or gap   |
-| ------------------------------------------------------------------------------------------------------- | ------------- |
-| `finding-classification.md` defines the values, the scale, the tree, and five classes with examples     | FC-01         |
-| No other rulebook, skill, or agent in the boundaries defines a severity level                           | FC-01         |
-| Each review skill and agent names its review class and links its class section                          | FC-01         |
-| `finding-lint` exits `1` on a severity mismatch, with a test per review class                           | FC-10         |
-| `finding-lint` exits `1` on `in_use: false` for lines unchanged on `dev`, with six named tests          | FC-11, FC-G07 |
-| `finding-lint` checks `in_use` only on a finding new or changed against `HEAD`, with two tests          | FC-11         |
-| `finding-lint` exits `1` on a waived finding without companions, and the loop grep skips it             | FC-10, FC-13  |
-| `finding-lint` exits `1` on a critical finding without `## Possible damage`, and on a lone confirmer    | FC-10         |
-| A `minor` finding adds one register line, and `schema-validate` and `finding-lint` check it             | FC-07, FC-10  |
-| `dispatch` and `premerge-check` exit `1` with the stop notice, and run again once confirmed             | FC-14, FC-G05 |
-| `guard-human-fields` refuses the two named calls and passes the five named calls                        | FC-18         |
-| The pause point shows every new `minor` finding with its `fails_purpose` sentence                       | FC-15, FC-G02 |
-| The final summary of a headless run lists each new register line with that sentence                     | FC-15         |
-| The QA triage table has a `Consequence` column and no severity column                                   | FC-19         |
-| Every adversarial proposal-review row ends with a `Severity:` sentence, and the template lists `waived` | FC-08, FC-17  |
-| A child-result envelope carries the four keys                                                           | FC-09         |
-| `finding-lint` exits `0` after the migration, and every open finding carries `review_class`             | FC-20, FC-G01 |
-| No migrated finding is `open` and `minor`, and each migrated `minor` finding is a register line         | FC-20         |
-| No open `critical` finding lacks `stop_confirmed_by` after the migration, and the report counts them    | FC-20         |
-| The agreement check reaches 16 of 20 and beats the old rules, recorded in `docs/reviews/`               | FC-21         |
+| Completion criterion (short form)                                                                       | Rule or gap              |
+| ------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `finding-classification.md` defines the values, the scale, the tree, and five classes with examples     | FC-01                    |
+| No other rulebook, skill, or agent in the boundaries defines a severity level                           | FC-01                    |
+| Each review skill and agent names its review class and links its class section                          | FC-01                    |
+| `finding-lint` exits `1` on a severity mismatch, with a test per review class                           | FC-10                    |
+| `finding-lint` exits `1` on `in_use: false` for lines unchanged on `dev`, with six named tests          | FC-11, FC-G07            |
+| `finding-lint` checks `in_use` only on a finding new or changed against `HEAD`, with two tests          | FC-11                    |
+| `finding-lint` exits `1` on a waived finding without companions, and the loop grep skips it             | FC-10, FC-13             |
+| `finding-lint` exits `1` on a critical finding without `## Possible damage`, and on a lone confirmer    | FC-10                    |
+| A `minor` finding adds one register line, and `finding-lint` checks it against its schema and its basis | FC-07, FC-10, Other Gaps |
+| `dispatch` and `premerge-check` exit `1` with the stop notice, and run again once confirmed             | FC-14, FC-G05            |
+| `guard-human-fields` refuses the two named calls and passes the five named calls                        | FC-18                    |
+| The pause point shows every new `minor` finding with its `fails_purpose` sentence                       | FC-15, FC-G02            |
+| The final summary of a headless run lists each new register line with that sentence                     | FC-15                    |
+| The QA triage table has a `Consequence` column and no severity column                                   | FC-19                    |
+| Every adversarial proposal-review row ends with a `Severity:` sentence, and the template lists `waived` | FC-08, FC-17             |
+| A child-result envelope carries the four keys                                                           | FC-09                    |
+| `finding-lint` exits `0` after the migration, and every open finding carries `review_class`             | FC-20, FC-G01            |
+| No migrated finding is `open` and `minor`, and each migrated `minor` finding is a register line         | FC-20                    |
+| No open `critical` finding lacks `stop_confirmed_by` after the migration, and the report counts them    | FC-20                    |
+| The agreement check reaches 16 of 20 and beats the old rules, recorded in `docs/reviews/`               | FC-21                    |
 
 ## Missing Rules
 
@@ -160,6 +160,21 @@ Recommendation: no area spec, because the proposal holds that depth and the doma
 
 **Answered:** no area spec is needed.
 
+## Decisions After the First Pass
+
+The domain-modeling and test-strategy passes raised questions that the stakeholder decided on 2026-11-06. The proposal records them as DEC-49 to DEC-54. This table names the Scenarios that carry each decision.
+
+| Decision | What it settles                                                                                                                                                                                                                                                                          | Scenarios                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DEC-49   | The git check blames the `artifact` path and the rename and copy sources of `git diff -M -C`, not the porcelain file name. A linked worktree finds the installed copy in the main checkout. The registers are `merge=union`. `finding-lint` checks register lines against their schemas. | FC-11: "Lines that moved to another file are found in their old file" (changed), "Lines introduced under a path that was later renamed are still found", "A lint run in a linked worktree finds the installed copy in the main checkout". FC-07: "Two register lines from two branches merge without a conflict", and "A register line holds the fields of a finding" (changed to `finding-lint`). |
+| DEC-50   | The git check reads `dev` and `main` locally and as `origin/dev` and `origin/main`. A missing branch is skipped and named.                                                                                                                                                               | FC-11: "Lines on origin/dev count when the local dev lags behind", "A branch that the clone lacks is skipped and named".                                                                                                                                                                                                                                                                           |
+| DEC-51   | `guard-human-fields` runs in Claude Code, Codex, Copilot CLI, Pi, and OpenCode.                                                                                                                                                                                                          | FC-18: "The installer registers the guard in every supported CLI".                                                                                                                                                                                                                                                                                                                                 |
+| DEC-52   | A `critical` finding becomes `resolved` only after its stop is confirmed. The stop holds until both confirmation fields hold text.                                                                                                                                                       | FC-10: two rows for a resolved `critical` finding in "A structural rule is broken". FC-14: "The stop holds while stop_confirmed_reason is empty", "A fixed critical finding becomes resolved only after its stop is confirmed".                                                                                                                                                                    |
+| DEC-53   | The lint rejects an unknown status, an open `minor` or `note` file, and an ID that is both a file and a register line. The `fails_purpose` sentence carries the marker `no to fails_purpose`.                                                                                            | FC-10: four rows in "A structural rule is broken", and both Outlines on `minor` lines name the marker (changed).                                                                                                                                                                                                                                                                                   |
+| DEC-54   | The migration covers every open finding without `review_class`, counted when it runs. `docs/factory-settings.yaml` lands before the migration commit.                                                                                                                                    | FC-20: "The migration covers every open finding without review_class" (changed), "The release setting exists before the migration commit".                                                                                                                                                                                                                                                         |
+
+The brief also asked for a runtime Scenario and a `path#anchor` Scenario for the git check. FC-11 carries them as "A runtime finding gets the same check" and "A heading artifact is checked as the section under the heading". FC-06 adds `owner` to the fields of "A major code finding carries the new fields".
+
 ## Ambiguous Wording
 
 | Location                                             | Step Text                                                   | Issue                                                                                                                         | Suggested Fix                                                                                                     |
@@ -188,6 +203,8 @@ Recommendation: no area spec, because the proposal holds that depth and the doma
 | FC-C13 | The commit that fixes a `minor` finding deletes its register line.                                                                                                                                                                                                                                                                                                                                 | The answer says the line goes once the finding is fixed. No repeat pass reads register lines, so only the fixing commit knows the moment.                                                                                                                                                                                      |
 | FC-C14 | The pause point shows a `minor` security or architecture finding with its `**Why this severity:**` line instead of a `fails_purpose` sentence.                                                                                                                                                                                                                                                     | DEC-22 lets the user catch a wrong downgrade. For these classes, the answers that set the severity are the preconditions or the exposure, and the Why line names them.                                                                                                                                                         |
 | FC-C15 | `finding-lint` checks the release setting only when a git check is due.                                                                                                                                                                                                                                                                                                                            | A document finding or an unchanged finding needs no tag list, so the lint has nothing to guess there. A commit that touches no code, runtime, or security finding passes in a project without the file or the key.                                                                                                             |
+| FC-C16 | A `path#anchor` artifact covers the lines from the heading up to the next heading of the same or a higher level.                                                                                                                                                                                                                                                                                   | The proposal says "the section under the heading" and gives no end. Markdown sections end at the next heading of the same or a higher level.                                                                                                                                                                                   |
+| FC-C17 | The examples use real paths: `dispatch` moving to `dispatch_lib.py`, `factory/scripts/dispatch` as the old path, and the heading of feature-addition Step 1.1. The unknown status in the example is `fixed`.                                                                                                                                                                                       | Real names let a test author build the fixtures from the repository. `fixed` is a status that proposal review rows use, so a reviewer may write it by mistake in a finding file.                                                                                                                                               |
 
 ## Other Gaps
 
@@ -198,6 +215,7 @@ These gaps belong to the agents that run after this step. They need no stakehold
 - **Glossary terms (domain-modeling agent).** The feature file uses these project terms: review class, basis, in use, consequence tree, bug bar, register, stop notice, possible damage, blocking finding, and orchestrator. This pass did not write `docs/spec/work/term-candidates.md`, because the brief limits it to three files.
 - **Architecture (architecture agent).** The proposal sets `architecture_change: true`. `docs/spec/architecture.dsl` needs the gate `finding-lint`, the hook `guard-human-fields`, and the dependency of `dispatch` and `premerge-check` on `docs/findings/`.
 - **Release setting at install (implementation).** `init-factory` and `update-factory` do not write `docs/factory-settings.yaml`, because the Factory sets no default. The message of `finding-lint` must name the file and the key to add, so a project can recover without reading the specification.
+- **Proposal criterion against its Design (proposal owner).** The completion criterion on register lines says "`schema-validate` accepts the line". § Register of minor findings and DEC-49 say that `finding-lint` checks each line against its schema, because `schema-validate` reads whole JSON files. The feature file follows the Design. The proposal owner should align the criterion.
 - **Linked headings.** [review-loop-cap.md](../../proposals/review-loop-cap.md) links the proposal headings "Shared severity scale and blocking rule" and "Human override". This specification renames neither heading.
 
 ## Deferred Scope

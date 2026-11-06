@@ -293,7 +293,7 @@ Feature: Finding classification
     Scenario: A major code finding carries the new fields
       Given the reviewer agent files a major code finding on packages/factory/scripts/premerge-check:120
       When it writes the finding file from the template
-      Then the frontmatter holds id, source, review_class, category, type, severity, basis, rating, override_by, override_reason, stop_confirmed_by, stop_confirmed_reason, artifact, status, and traces
+      Then the frontmatter holds id, source, review_class, category, type, severity, basis, rating, override_by, override_reason, stop_confirmed_by, stop_confirmed_reason, artifact, owner, status, and traces
       And override_by, override_reason, stop_confirmed_by, and stop_confirmed_reason are null
       And the body holds the lines "What is wrong:", "Why this severity:", and "Fix:"
 
@@ -334,7 +334,6 @@ Feature: Finding classification
 
   Rule: Reviewer agent records a minor finding as one register line
     # actor: Reviewer agent
-    # @packages/factory/scripts/schema-validate
 
     Scenario: A minor security finding adds one line to the security register
       Given a security review produces a finding of level Low
@@ -344,7 +343,7 @@ Feature: Finding classification
 
     Scenario: A register line holds the fields of a finding
       Given the reviewer agent writes a register line
-      When schema-validate checks the line against the register schema of its class, such as finding-register-code.schema.json
+      When finding-lint checks the line against the register schema of its class, such as finding-register-code.schema.json
       Then the line holds the ID, source, review_class, category, type, severity, artifact, story, finding, basis, the Why this severity sentence, and the reviewed commit
       And the basis has the shape of its class
 
@@ -353,6 +352,13 @@ Feature: Finding classification
       When both branches merge into dev
       Then the register holds both lines
       And no earlier line of the register changed
+
+    Scenario: Two register lines from two branches merge without a conflict
+      Given .gitattributes marks docs/findings/register/*.jsonl with merge=union
+      And branch A and branch B each append one line to the end of docs/findings/register/code.jsonl
+      When branch A merges into dev and then branch B merges into dev
+      Then git reports no merge conflict
+      And docs/findings/register/code.jsonl holds both new lines
 
     Scenario: The review loop skips the register
       Given docs/findings/register/code.jsonl holds a line with severity minor
@@ -456,6 +462,12 @@ Feature: Finding classification
         | has status waived and an empty override_reason                                   |
         | has status waived and severity minor                                             |
         | has status waived, severity critical, and no stop_confirmed_by                   |
+        | has status resolved, severity critical, and no stop_confirmed_by                 |
+        | has status resolved, severity critical, and an empty stop_confirmed_reason       |
+        | has the status fixed, which is not open, resolved, deferred, or waived           |
+        | has status open and severity minor                                               |
+        | has status open and severity note                                                |
+        | has the ID BUG-0067, which is also the ID of a register line                     |
         | has severity critical and no section "## Possible damage"                        |
         | has severity major and a section "## Possible damage"                            |
         | sets stop_confirmed_by and leaves stop_confirmed_reason empty                    |
@@ -465,7 +477,7 @@ Feature: Finding classification
 
     Scenario Outline: A minor line of the consequence tree classes needs its fails_purpose sentence
       Given a line in docs/findings/register/<class>.jsonl with severity minor
-      And its Why this severity sentence gives no reason for the no to fails_purpose
+      And its Why this severity sentence does not contain the marker "no to fails_purpose"
       When finding-lint runs
       Then it exits 1 and names the register file, the ID, and the rule
 
@@ -477,7 +489,7 @@ Feature: Finding classification
 
     Scenario Outline: A minor security or architecture line needs no fails_purpose sentence
       Given a line in docs/findings/register/<class>.jsonl with severity minor and a basis that matches it
-      And its Why this severity sentence gives <reason> and no fails_purpose sentence
+      And its Why this severity sentence gives <reason> and does not contain the marker "no to fails_purpose"
       When finding-lint runs
       Then it does not reject the line for a missing fails_purpose sentence
 
@@ -515,6 +527,33 @@ Feature: Finding classification
       When finding-lint runs
       Then it exits 1
 
+    Scenario: A runtime finding gets the same check
+      Given a bug hunt files a runtime finding with in_use false on packages/factory/scripts/dispatch:1588
+      And those lines exist unchanged on dev
+      When finding-lint runs
+      Then it exits 1 with the message "artifact lines exist unchanged on dev"
+
+    Scenario: A heading artifact is checked as the section under the heading
+      Given a code finding with in_use false names packages/factory/playbooks/feature-addition.md#step-11--update-specification
+      And the section under that heading exists unchanged on dev
+      When finding-lint runs
+      Then it compares the lines of that section, up to the next heading of the same or a higher level
+      And it exits 1
+
+    Scenario: Lines on origin/dev count when the local dev lags behind
+      Given the local dev lags behind origin/dev
+      And the artifact lines of a code finding with in_use false exist unchanged on origin/dev only
+      When finding-lint runs
+      Then it exits 1 with a message that names origin/dev
+
+    Scenario: A branch that the clone lacks is skipped and named
+      Given the clone has neither main nor origin/main
+      And the artifact lines of a code finding with in_use false exist on no other place that counts
+      When finding-lint runs
+      Then it skips main and origin/main
+      And its output names main and origin/main as skipped
+      And it accepts in_use false
+
     Scenario: Lines in the installed copy make in_use true
       Given a code finding with in_use false whose artifact lines exist unchanged in .agent-factory/factory/
       When finding-lint runs
@@ -528,10 +567,25 @@ Feature: Finding classification
       And the lint rejects in_use false
 
     Scenario: Lines that moved to another file are found in their old file
-      Given the artifact range moved to another file on the feature branch
-      When finding-lint blames the original file that the porcelain output names for each line on dev
-      Then it finds the lines there
+      Given the artifact range moved from packages/factory/scripts/dispatch to packages/factory/scripts/dispatch_lib.py on the feature branch
+      When finding-lint blames, on dev, the artifact path and every rename or copy source that git diff -M -C between dev and the feature branch names
+      Then it finds the lines in packages/factory/scripts/dispatch on dev
       And the lint rejects in_use false
+
+    Scenario: Lines introduced under a path that was later renamed are still found
+      Given the defective lines were introduced while the script lived at factory/scripts/dispatch
+      And on dev and on the feature branch the script lives at packages/factory/scripts/dispatch
+      When finding-lint blames packages/factory/scripts/dispatch on dev
+      Then the porcelain output names factory/scripts/dispatch, a path that no longer exists, as part of each line identity
+      And the lint finds the identities on dev and rejects in_use false
+
+    Scenario: A lint run in a linked worktree finds the installed copy in the main checkout
+      Given finding-lint runs in a linked story worktree that holds no .agent-factory/
+      And the main checkout holds .agent-factory/factory/ with the artifact lines of a code finding unchanged
+      And the finding records in_use false
+      When finding-lint looks for the installed copy
+      Then it finds .agent-factory/factory/ in the main checkout
+      And it exits 1
 
     Scenario: Lines in the installed copy that git has no record of do not count as unchanged
       Given a range in the installed copy whose lines no commit introduced
@@ -743,6 +797,18 @@ Feature: Finding classification
       When the orchestrator runs dispatch and premerge-check again
       Then neither script stops on BUG-0037
 
+    Scenario: The stop holds while stop_confirmed_reason is empty
+      Given BUG-0037 has severity critical, status open, stop_confirmed_by human, and an empty stop_confirmed_reason
+      When the orchestrator runs dispatch prepare-wave 3 or premerge-check
+      Then the script exits 1
+      And it prints the stop notice
+
+    Scenario: A fixed critical finding becomes resolved only after its stop is confirmed
+      Given the defect of BUG-0037 is fixed and its stop is not confirmed
+      When the reviewer sets status resolved on BUG-0037
+      Then finding-lint exits 1
+      And the stop holds until stop_confirmed_by and stop_confirmed_reason both hold text
+
   Rule: Orchestrator shows each new minor finding with its fails_purpose sentence
     # actor: Orchestrator
     # @packages/factory/rulebooks/conventions/finding-format.md
@@ -849,6 +915,19 @@ Feature: Finding classification
         | a read-only grep "status: waived" docs/findings/                                            |
         | a heredoc that writes a test fixture with override_by: human outside docs/findings/         |
 
+    Scenario Outline: The installer registers the guard in every supported CLI
+      Given a project that uses <cli>
+      When the user runs init-factory or update-factory
+      Then <cli> runs guard-human-fields before each edit, write, and shell call of an agent
+
+      Examples:
+        | cli         |
+        | Claude Code |
+        | Codex       |
+        | Copilot CLI |
+        | Pi          |
+        | OpenCode    |
+
     Scenario: The human writes the fields outside the tool hooks
       Given the stakeholder runs a ! command in the session that writes stop_confirmed_by
       When the command runs
@@ -873,11 +952,17 @@ Feature: Finding classification
     # actor: Stakeholder
 
     Scenario: The migration covers every open finding without review_class
-      Given 47 findings are open, among them SPEC-0055 and ATAM-0010, which were filed after the proposal was accepted
-      And none of the 47 carries review_class
+      Given on 2026-11-06 47 findings are open without review_class, among them SPEC-0055 and ATAM-0010
       When the migration agent collects the findings to migrate
-      Then it collects all 47
+      Then it counts the open findings without review_class again at the time it runs
+      And it collects every one of them
       And it skips an open finding that already carries review_class
+
+    Scenario: The release setting exists before the migration commit
+      Given the migration commit adds review_class and basis to code findings, so finding-lint runs the git check
+      When the migration agent prepares the migration commit
+      Then docs/factory-settings.yaml with the key release_tag_patterns is already committed
+      And finding-lint does not fail on a missing release setting
 
     Scenario: The stakeholder reviews every result before any file changes
       Given the migration agent has classified every open finding without review_class with the new rulebook

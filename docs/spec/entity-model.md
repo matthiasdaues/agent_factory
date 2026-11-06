@@ -874,3 +874,125 @@ erDiagram
 - **ID** of the prefix `ADR` names its file as `docs/adr/<NNNN>-<short-title>.md`, without the prefix. A `T` ID names an entry in `docs/spec/work/todo.md`, not a file.
 - **THROWAWAY_REPOSITORY** exists only while one claim runs. `next-id` deletes it at exit, so the clone gains no ref and no object (DEC-19). Gap CID-G06 in [counter-ids-gaps.md](work/counter-ids-gaps.md) asks whether `--seed` uses one too.
 - Split-story IDs such as `ST-0327A` take their letter from a scan, not from the counter.
+
+## Finding Classification Entities
+
+The entities that a review writes and `finding-lint` checks in
+[finding-classification.feature](features/finding-classification.feature). A
+reviewer agent records a finding with its basis. The rule of the finding's
+review class computes the severity from the basis. A `critical` or `major`
+finding becomes a finding file, and a `minor` finding becomes one line in the
+register of its class. The rules are BR-079 to BR-095 in
+[validation-rules.md](validation-rules.md#finding-classification-br-079br-095).
+
+```mermaid
+erDiagram
+    REVIEW_CLASS ||--o{ FINDING_FILE : "classifies"
+    REVIEW_CLASS ||--|| REGISTER : "has"
+    REGISTER ||--o{ REGISTER_LINE : holds
+    FINDING_FILE ||--|| BASIS : records
+    REGISTER_LINE ||--|| BASIS : records
+    FINDING_FILE ||--o{ POSSIBLE_DAMAGE_ITEM : "lists, critical only"
+    FINDING_FILE ||--o{ LINE_IDENTITY : "artifact range yields"
+    REGISTER_LINE ||--o{ LINE_IDENTITY : "artifact range yields"
+    FACTORY_SETTINGS ||--o{ RELEASE_TAG_PATTERN : lists
+    RELEASE_TAG_PATTERN ||--o{ RELEASE_TAG : matches
+    PROPOSAL ||--o{ PROPOSAL_REVIEW_ROW : "holds in its Appendix"
+
+    REVIEW_CLASS {
+        string name "document | code | security | architecture | runtime"
+        string rule "consequence tree | bug bar | matrix of importance and exposure"
+        string types "the type vocabulary of the class, BR-079"
+    }
+    FINDING_FILE {
+        string path "docs/findings/<ID>.md"
+        string id "from next-id, such as FAGAN-0042"
+        string source "the review or session that found it, such as fagan-review"
+        string review_class "a REVIEW_CLASS name"
+        string category "defect | risk | suggestion"
+        string type "from the vocabulary of the class"
+        string severity "critical | major, computed from the basis"
+        object basis "see BASIS"
+        string rating "the bug-bar level of a security finding, else null"
+        string override_by "null, or the person who waived the finding"
+        string override_reason "null, or why the finding stays unfixed"
+        string stop_confirmed_by "null, or the person who confirmed the stop, critical only"
+        string stop_confirmed_reason "null, or what the person checked and found"
+        string artifact "path:line, path:start-end, or path#anchor"
+        string status "open | resolved | deferred | waived"
+        string owner "the agent that acts on the finding next"
+        string traces "list of related IDs, optional"
+        string why_this_severity "body line Why this severity:"
+    }
+    REGISTER {
+        string path "docs/findings/register/<class>.jsonl"
+        string schema "packages/factory/rulebooks/schemas/finding-register-<class>.schema.json"
+    }
+    REGISTER_LINE {
+        string id "from next-id, or the old ID of a migrated finding"
+        string source
+        string review_class "the class of its register"
+        string category "defect | risk | suggestion"
+        string type
+        string severity "minor"
+        string artifact "path:line, path:start-end, or path#anchor"
+        string story "the story the review ran for, or null"
+        string finding "what is wrong and the fix, as text"
+        object basis "see BASIS"
+        string why_this_severity "the Why this severity sentence"
+        string commit "the reviewed commit, 40 hex characters"
+    }
+    BASIS {
+        boolean in_use "every class"
+        boolean harms_downstream "document, code, runtime"
+        boolean fails_purpose "document, code, runtime"
+        boolean raises_cost "document, code, runtime"
+        string effect "security: the effect class"
+        boolean second_breach "security"
+        boolean trusted_access "security"
+        boolean non_default "security"
+        boolean user_action "security"
+        string confidence "security: proven | plausible"
+        string importance "architecture: high | medium | low"
+        string exposure "architecture: fails | uncertain"
+    }
+    POSSIBLE_DAMAGE_ITEM {
+        string depends "one thing outside the artifact that depends on it, from git or the file tree"
+        string check "one command or step the human runs"
+    }
+    LINE_IDENTITY {
+        string commit "the commit that introduced the line"
+        int original_line "the line number in that commit"
+        string original_path "the file name in that commit"
+    }
+    FACTORY_SETTINGS {
+        string path "docs/factory-settings.yaml, tracked"
+    }
+    RELEASE_TAG_PATTERN {
+        string glob "such as v[0-9]*"
+    }
+    RELEASE_TAG {
+        string name "a git tag that a pattern matches"
+    }
+    PROPOSAL {
+        string path "docs/proposals/<name>.md"
+    }
+    PROPOSAL_REVIEW_ROW {
+        string id "PROP-NN, counted within the proposal"
+        string severity "major | minor | note"
+        string status "open | fixed | resolved | waived"
+        string finding "ends with a Severity: sentence"
+        string resolution "holds the reason of a waiver"
+    }
+```
+
+### Notes
+
+- **BASIS** is a payload with inner structure, both in a finding file and in a register line. Its shape depends on the review class: [schemas/finding-basis.json](schemas/finding-basis.json) holds the three shapes. The five register schemas in `packages/factory/rulebooks/schemas/` each take the one shape of their class, because the validator of `schema-validate` supports no `oneOf`. `finding-lint` validates each register line against its schema (DEC-49).
+- **FINDING_FILE** holds only a `critical` or `major` finding after the migration (BR-085). Its `severity` stays computed, also when the finding is waived. The fields `override_by`, `override_reason`, `stop_confirmed_by`, and `stop_confirmed_reason` are human fields: only a person writes a value into them (BR-092). `owner` comes from the core artifact ownership contract and stays.
+- **REGISTER_LINE** has no status. The commit that fixes the finding deletes the line, and git history keeps it (BR-090). A `story` of `null` marks a review that ran before a backlog existed, such as a spec review.
+- **REGISTER** files exist only for a class that has recorded a `minor` finding. A missing file is an empty register. `.gitattributes` marks the registers `merge=union` (DEC-49). An ID names a finding file or a register line, never both (DEC-53).
+- **LINE_IDENTITY** comes from `git blame -M -C --porcelain`. Two lines are the same line when commit, original line number, and original file name all match (BR-088). The lint blames the `artifact` path and its rename and copy sources, not `original_path`, because that path may no longer exist (DEC-49).
+- **FACTORY_SETTINGS** holds the key `release_tag_patterns`. The project writes the file. `init-factory` and `update-factory` never write it (BR-089).
+- **PROPOSAL_REVIEW_ROW** is no finding file. `finding-lint` does not read it, and its rules are in BR-094.
+- A **question** is no entity of this model. It becomes an entry in `docs/spec/work/todo.md` only (BR-085). A **note** stays in the review report.
