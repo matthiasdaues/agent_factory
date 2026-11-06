@@ -38,7 +38,7 @@ In manual mode, the implementation-agent works in the primary checkout without d
 
 ### Indexed Artifacts On Any Branch
 
-An indexed artifact — a backlog story (`ST-NNNN`), a finding (`PROP-NN`, `BUG-NNNN`), a proposal, or any other file with a sequential ID — may be created and committed on any branch. `next-id` hands out each ID from one counter that all branches share, so two sessions on two branches never take the same ID. No branch is the index.
+An indexed artifact — a backlog story (`ST-NNNN`), a finding (`BUG-NNNN`), a proposal, or any other file with a sequential ID — may be created and committed on any branch. `next-id` hands out the ID of each prefix it serves from one counter that all branches share, so two sessions on two branches never take the same ID. The prefixes are listed in [finding-format.md § File location and name](finding-format.md#file-location-and-name). `PROP` rows in a proposal, the split letters of a story, and other IDs keep their own numbering rule and stay outside the counter. No branch is the index.
 
 The usual sequence is:
 

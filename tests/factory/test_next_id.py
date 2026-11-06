@@ -860,7 +860,8 @@ class TestEveryGitCallOfAClaimRunsWithoutPromptsAndWithALimit:
         real = subprocess.run
 
         def spy(cmd, **kwargs):
-            seen.append(kwargs)
+            if cmd[1:2] != ["config"]:
+                seen.append(kwargs)
             return real(cmd, **kwargs)
 
         monkeypatch.setattr(ni.subprocess, "run", spy)
@@ -891,6 +892,43 @@ class TestEveryGitCallOfAClaimRunsWithoutPromptsAndWithALimit:
             assert kwargs.get("timeout") is None
             assert "GIT_TERMINAL_PROMPT" not in kwargs["env"]
             assert "GIT_SSH_COMMAND" not in kwargs["env"]
+
+
+@pytest.mark.spec("CID-04-IT-05")
+class TestAClaimKeepsTheSshCommandOfTheUser:
+    """IMPL-0004: BatchMode joins the ssh command git would run; it never replaces it."""
+
+    @pytest.fixture
+    def recorded(self, tmp_path, env, monkeypatch):
+        log = tmp_path / "ssh-calls.log"
+        script = tmp_path / "custom-ssh"
+        script.write_text(f'#!/bin/sh\necho "$@" >> {log}\nexit 255\n')
+        script.chmod(0o755)
+        monkeypatch.setenv("HOME", env["HOME"])
+        monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+        monkeypatch.delenv("GIT_SSH_COMMAND", raising=False)
+        return script, log
+
+    def test_impl_0004_core_ssh_command_runs_with_batch_mode(self, recorded, env):
+        script, log = recorded
+        _git(env, "config", "--global", "core.sshCommand", str(script))
+        url = "ssh://git@example.invalid/x.git"
+        with pytest.raises(ni.NextIdError):
+            ni.claim("ST", url)
+        assert "-o BatchMode=yes" in log.read_text()
+
+    def test_impl_0004_environment_command_wins_over_core_ssh_command(
+        self, recorded, env, monkeypatch, tmp_path
+    ):
+        script, log = recorded
+        _git(env, "config", "--global", "core.sshCommand", "false")
+        monkeypatch.setenv("GIT_SSH_COMMAND", str(script))
+        with pytest.raises(ni.NextIdError):
+            ni.claim("ST", "ssh://git@example.invalid/x.git")
+        assert "-o BatchMode=yes" in log.read_text()
+
+    def test_impl_0004_without_any_setting_the_command_is_plain_ssh(self, recorded):
+        assert ni.ssh_command_with_batch_mode() == "ssh -o BatchMode=yes"
 
 
 @pytest.mark.spec("CID-04-IT-06")

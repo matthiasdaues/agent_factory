@@ -65,10 +65,9 @@ MAX_STALE_LEASES = 10
 WAIT_SECONDS = (0.1, 1.0)
 GIT_TIME_LIMIT = 30
 # BR-076: a claim runs git without a terminal prompt and without an ssh prompt.
-CLAIM_ENV = {
-    "GIT_TERMINAL_PROMPT": "0",
-    "GIT_SSH_COMMAND": "ssh -o BatchMode=yes",
-}
+# The ssh prompt goes off by adding BatchMode to the ssh command git would run.
+CLAIM_ENV = {"GIT_TERMINAL_PROMPT": "0"}
+BATCH_MODE = " -o BatchMode=yes"
 # git's two messages for a stale lease (BR-072, DEC-23): the client notices
 # and reports `stale info`; the remote notices and reports `cannot lock ref`.
 _STALE_LEASE = re.compile(
@@ -167,6 +166,21 @@ def raise_line(message: str, prefix: str, token: str) -> tuple[str, str]:
     return format_message(lines, token), f"{prefix}-{number:04d}"
 
 
+def ssh_command_with_batch_mode() -> str:
+    """Return the ssh command git would run, plus BatchMode (BR-076, DEC-23).
+
+    The order is the one git uses: GIT_SSH_COMMAND, then core.sshCommand, then
+    plain ssh.
+    """
+    command = os.environ.get("GIT_SSH_COMMAND")
+    if not command:
+        try:
+            command = git(["config", "--get", "core.sshCommand"])
+        except subprocess.CalledProcessError:
+            command = ""
+    return (command or "ssh") + BATCH_MODE
+
+
 def git(
     args: list[str],
     *,
@@ -179,7 +193,10 @@ def git(
     A guarded call is a call of a claim (BR-076): it gets no prompt and a time
     limit, and raises GitTimedOut when git runs over.
     """
-    full_env = {**os.environ, "LC_ALL": "C", **(CLAIM_ENV if guarded else {})}
+    full_env = {**os.environ, "LC_ALL": "C"}
+    if guarded:
+        full_env.update(CLAIM_ENV)
+        full_env["GIT_SSH_COMMAND"] = ssh_command_with_batch_mode()
     full_env.update(env or {})
     try:
         result = subprocess.run(

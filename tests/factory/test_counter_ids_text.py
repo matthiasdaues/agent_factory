@@ -136,7 +136,7 @@ def test_st_0372_producer_calls_next_id_with_its_prefixes(path):
 
 
 @pytest.mark.spec("CID-07-LN-01")
-def test_st_0372_finding_format_names_the_seven_tags_for_next_id():
+def test_st_0372_finding_format_names_every_tag_for_next_id():
     text = FINDING_FORMAT.read_text()
     for tag in PRODUCERS[FINDING_FORMAT]:
         assert f"`{tag}`" in text
@@ -161,3 +161,32 @@ def test_st_0372_slice_story_keeps_the_letter_scan_and_runs_no_next_id():
     text = SLICE_STORY.read_text()
     assert re.search(r"scanning existing `backlog/ST-NNNN\*\.md`", text)
     assert "next-id" not in text
+
+
+# IMPL-0005: next-id serves the prefixes of BR-068 only.
+NEXT_ID_TEXT_FILES = [RULES, BRANCHING_POLICY, PLANNING_AGENT]
+
+
+@pytest.mark.spec("CID-08-LN-01")
+@pytest.mark.parametrize("path", NEXT_ID_TEXT_FILES, ids=lambda p: p.name)
+def test_impl_0005_no_file_says_next_id_hands_out_prop(path):
+    text = path.read_text()
+    for sentence in re.split(r"(?<=[.!?])\s+|\n", text):
+        if "next-id" in sentence:
+            assert "PROP" not in sentence, sentence
+    assert not re.search(r"\(`?[^)]*PROP-NN", text), "PROP-NN in an example list"
+
+
+@pytest.mark.spec("CID-08-LN-01")
+def test_impl_0005_rules_limit_the_claim_to_prefixes_next_id_serves():
+    text = RULES.read_text()
+    assert "every ID of a prefix that `next-id` serves" in text
+    assert "claim every ID through `next-id`" not in text
+
+
+@pytest.mark.spec("CID-08-LN-01")
+@pytest.mark.parametrize("path", NEXT_ID_TEXT_FILES, ids=lambda p: p.name)
+def test_impl_0005_file_links_the_prefix_list_and_names_ids_outside_the_counter(path):
+    text = path.read_text()
+    assert "finding-format.md" in text
+    assert re.search(r"\bPROP\b[^.\n]*(own numbering|outside)", text)
