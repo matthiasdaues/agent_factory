@@ -50,10 +50,11 @@ class TestSt0352FindingFormatDefinesOwner:
         tags = _tag_table_tags(FINDING_FORMAT.read_text(encoding="utf-8"))
         assert {"ARCH", "QA"} <= tags
 
-    def test_st_0352_tag_table_drops_recon(self):
+    def test_st_0352_tag_table_keeps_recon_again_per_dec_15(self):
+        # DEC-15 of counter-ids-fitting supersedes the ST-0352 point that dropped RECON.
         tags = _tag_table_tags(FINDING_FORMAT.read_text(encoding="utf-8"))
         assert "SPEC" in tags, "tag table not parsed"
-        assert "RECON" not in tags
+        assert "RECON" in tags
 
     def test_st_0352_orchestrator_sends_open_finding_to_owner(self):
         text = FINDING_FORMAT.read_text(encoding="utf-8")
