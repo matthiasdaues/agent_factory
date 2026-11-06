@@ -71,6 +71,7 @@ PREFIXES = (
     "ST", "BUG", "SPEC", "FAGAN", "SEC", "RECON", "ATAM", "IMPL", "T", "ADR", "ARCH", "QA"
 )
 COUNTER_REF = "refs/ids/counters"
+COUNTER_REMOTE_SETTING = "agent-factory.counterRemote"
 MAX_SEED = 9998
 IDENTITY = "next-id"
 IDENTITY_EMAIL = "next-id@agent-factory.invalid"
@@ -279,9 +280,13 @@ def _git_error(exc: subprocess.CalledProcessError) -> str:
 
 
 def resolve_remote(remote: str | None, *, for_seed: bool) -> str:
-    """Return the --remote URL, else the URL of origin after rewrites (BR-074)."""
+    """Return the --remote URL, else the counterRemote setting, else origin (BR-096)."""
     if remote is not None:
         return remote
+    try:
+        return git(["config", "--get", COUNTER_REMOTE_SETTING])
+    except subprocess.CalledProcessError:
+        pass
     try:
         return git(["remote", "get-url", "origin"])
     except subprocess.CalledProcessError:
@@ -637,7 +642,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print the seed command that continues every ID sequence",
     )
-    p.add_argument("--remote", help="the remote URL; the default is the URL of origin")
+    p.add_argument(
+        "--remote",
+        help="the remote URL; the default is the git setting "
+        "agent-factory.counterRemote, then the URL of origin",
+    )
     p.add_argument(
         "arguments", nargs="*", help="<PREFIX>, or <number> [<PREFIX>=<n> …]"
     )

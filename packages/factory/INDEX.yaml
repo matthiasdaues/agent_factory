@@ -676,8 +676,8 @@ agents:
     tier: standard
     description: "Versatile Interactive Resource: Guide, Instructor, Liaison. The single human-facing session agent for Phase 0 — starts formless, reaches for skills on demand. Shows newcomers around, explains factory concepts, scaffolds or completes the agent context, sharpens vague ideas, and helps an idea find its shape before handing off to the right playbook."
     path: agents/virgil.md
-    tokens: 4273
-    total_tokens: 19074
+    tokens: 4362
+    total_tokens: 19163
     inputs:
       context:
         - .agent-factory/config/project-context.json

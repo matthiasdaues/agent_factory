@@ -299,6 +299,14 @@ When done, set `fitting.hooks_decided` to `true`.
 A seed is a push, so this step follows the hooks decision of step 3. The
 Factory's first push comes after the newcomer has decided on hooks.
 
+When the project has no `origin`, the counter lives in the project's own
+repository. Before you run `--plan-seed`, set the git setting
+`agent-factory.counterRemote` to the parent of the directory that
+`git rev-parse --git-common-dir` prints, with
+`git config agent-factory.counterRemote <path>`. That parent is the main
+repository, so every worktree sees the setting in the shared `.git/config`.
+The setting stays when the newcomer declines the seed.
+
 Run `.agent-factory/factory/scripts/next-id --plan-seed`. It reads the
 counter and prints the seed command, such as `next-id --seed 0 ST=375 ADR=32`.
 Show that command as printed. Build no seed command of your own. Say what
@@ -315,9 +323,8 @@ End the step in one of four ways:
 - **Declined:** run no seed, say that the newcomer declined, and leave
   `fitting.counter_seeded` `false`. The next session start lists the step
   as open.
-- **Unreachable remote:** when the remote does not answer, or `origin` is
-  missing, run no seed, name the remote or the missing `origin` as the
-  reason, and leave the key `false`.
+- **Unreachable remote:** when the remote does not answer, run no seed,
+  name the remote as the reason, and leave the key `false`.
 - **Counter in use:** when `--plan-seed` reports a counter in use, run no
   seed and set `fitting.counter_seeded` to `true`.
 
