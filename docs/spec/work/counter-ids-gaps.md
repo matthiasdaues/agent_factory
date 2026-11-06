@@ -33,7 +33,7 @@ Each completion criterion of the proposal traces to a Rule or to a gap below.
 | ----------------------------------------------------------------------------------- | --------------- |
 | `next-id ST` prints the next story ID, and the claim commit holds it                | CID-02          |
 | The race test: 20 rounds, 40 different IDs, no skipped number, every call exits `0` | CID-03          |
-| Ten rejected ID claims in a row: exit non-zero, name `ST` and the last number       | CID-04, CID-G01 |
+| Ten stale leases in a row: exit non-zero, name `ST` and the last number             | CID-04, CID-G01 |
 | `next-id XX` names `XX` and the list of ID prefixes                                 | CID-04          |
 | A refusal other than a stale lease fails after one try with git's message           | CID-04          |
 | A clone without `user.name` makes an ID claim, and the claim commit names `next-id` | CID-02          |
@@ -71,14 +71,14 @@ None. Every Rule has at least one Scenario. The feature file holds 11 Rules and 
 
 ## Other Gaps
 
-| ID      | Gap                                                                                                                                                                                                                                                                                                               |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CID-G02 | The proposal gives `init-factory`'s exit code only for an unreachable `origin` (exit `0`). It names no exit code for a missing counter or a missing `origin`, and no output when the counter exists. The Scenarios state only the messages. Since the install needs no counter, exit `0` is the likely intent.    |
-| CID-G04 | An ID claim on an ID prefix whose line holds 9999 has no defined result. The proposal defers numbers above 9999 and gives no error row for that case.                                                                                                                                                             |
-| CID-G05 | A claim commit whose message has no `start` line, or a line that is not a number, has no defined result. `seed` always writes a `start` line, so the case arises only when someone writes the ref by hand.                                                                                                        |
-| CID-G06 | The proposal states the throwaway bare repository for the ID claim only. It does not say whether `--seed` also runs in one, or whether `--seed` leaves the clone unchanged. CID-06 covers ID claims only.                                                                                                         |
-| CID-G07 | The guardrail hook lets `git -C . push` pass, so an agent can push the counter without `next-id` (DEC-22). The lease still refuses every stale ID claim, so such a push can leave a gap but no duplicate. The hook stays unchanged, so no Rule covers it. T-0017 in `docs/spec/work/todo.md` tracks the hook gap. |
-| CID-G08 | `index-lint --check` is a gate for the changed Factory files, not a behaviour of the counter. No Scenario holds it. The QA strategy runs it as a gate.                                                                                                                                                            |
+| ID      | Gap                                                                                                                                                                                                                                                                                                                       |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CID-G02 | The proposal gives `init-factory`'s exit code only for an unreachable `origin` (exit `0`). It names no exit code for a missing counter or a missing `origin`, and no output when the counter exists. The Scenarios state only the messages. Since the install needs no counter, exit `0` is the likely intent.            |
+| CID-G04 | An ID claim on an ID prefix whose line holds 9999 has no defined result. The proposal defers numbers above 9999 and gives no error row for that case.                                                                                                                                                                     |
+| CID-G05 | A claim commit whose message has no `start` line, or a line that is not a number, has no defined result. `seed` always writes a `start` line, so the case arises only when someone writes the ref by hand.                                                                                                                |
+| CID-G06 | The proposal states the throwaway bare repository for the ID claim only. It does not say whether `--seed` also runs in one, or whether `--seed` leaves the clone unchanged. CID-06 covers ID claims only.                                                                                                                 |
+| CID-G07 | The guardrail hook lets `git -C . push` pass, so an agent can push the counter without `next-id` (DEC-22). Such a push can write a lower counter value, so the next claim can repeat a number (ADR-0032, DEC-24). The hook stays unchanged, so no Rule covers it. T-0017 in `docs/spec/work/todo.md` tracks the hook gap. |
+| CID-G08 | `index-lint --check` is a gate for the changed Factory files, not a behaviour of the counter. No Scenario holds it. The QA strategy runs it as a gate.                                                                                                                                                                    |
 
 ## Proposal Statements Without a Scenario
 
