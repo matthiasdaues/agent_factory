@@ -12,6 +12,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SOURCE = (
     REPO_ROOT / "packages" / "factory" / "config" / "hooks" / "block-dangerous-git.sh"
@@ -186,4 +188,25 @@ class TestLedgerGateDoesNotAffectMainCheckout:
         )
 
         result = _run_hook("git commit -m test", cwd=main)
+        assert result.returncode == 0
+
+
+class TestNextIdPasses:
+    """The claim push belongs to next-id; the hook lets the script pass (CID-09-CT-01)."""
+
+    @pytest.mark.spec("CID-09-CT-01")
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "next-id ST",
+            "next-id ST --remote /tmp/remote.git",
+            ".agent-factory/factory/scripts/next-id ST",
+        ],
+    )
+    def test_st_0374_next_id_command_exits_zero(self, command, tmp_path):
+        main = tmp_path / "main"
+        _init_repo(main)
+
+        result = _run_hook(command, cwd=main)
+
         assert result.returncode == 0
