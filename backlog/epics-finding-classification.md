@@ -9,7 +9,7 @@ Specification trace: [finding-classification.feature](../docs/spec/features/find
 Architecture trace: [ADR-0034](../docs/adr/0034-one-register-file-per-minor-finding.md), [ADR-0035](../docs/adr/0035-guard-human-fields-in-every-cli.md), [ADR-0036](../docs/adr/0036-typescript-tests-run-as-a-node-test-suite.md), [arc42 § 5.12](../docs/arc42/05_building_block_view.md#512-level-2-component-view----finding-classification), [arc42 § 6.17 to § 6.21](../docs/arc42/06_runtime_view.md#617-a-critical-finding-stops-the-run), [arc42 § 8.19](../docs/arc42/08_crosscutting_concepts.md#819-finding-classification), [QS-24](../docs/arc42/10_quality_requirements.md#qs-24-a-critical-finding-stops-every-dispatch-and-merge), [QS-25](../docs/arc42/10_quality_requirements.md#qs-25-no-agent-writes-a-human-field)
 QA strategy trace: [finding-classification-qa-strategy.md](../docs/spec/work/finding-classification-qa-strategy.md), 111 contract-owner rows
 
-Dependency order: four stories start at once: the rulebook (ST-0386), the stop (ST-0397), the Claude Code guard (ST-0400), and the `--plan-seed` change (ST-0404). The lint (E2) starts once the review files and the register schemas exist (ST-0387). The migration (ST-0406) comes last, because it needs the complete lint, the hook, the release setting, and the `--plan-seed` change.
+Dependency order: four stories start at once: the rulebook (ST-0386), the stop (ST-0397), the Claude Code guard (ST-0400), and the `--plan-seed` change (ST-0404). The lint (E2) starts once the review files and the register schemas exist (ST-0387). The migration (ST-0406) comes last, because it needs the complete lint, the hook, the release setting, and the `--plan-seed` change. The second agreement check (ST-0407) follows it, because the first check failed and the stakeholder chose on 2026-11-08 to sharpen the rulebook and measure again.
 
 ## Story waves
 
@@ -22,6 +22,7 @@ Dependency order: four stories start at once: the rulebook (ST-0386), the stop (
 | W5   | ST-0394, ST-0395, ST-0396                   | ST-0394, then ST-0395, then ST-0396; the first two edit `finding-lint`, and ST-0394 and ST-0396 both edit `test_update_factory.py`                |
 | W6   | ST-0405                                     | alone                                                                                                                                             |
 | W7   | ST-0406                                     | alone                                                                                                                                             |
+| W8   | ST-0407                                     | alone; it follows ST-0406 so that no later story touches the rulebook before the second measurement                                               |
 
 Every story carries `quality-gates: []`, because `docs/testing.yaml` disables both gates.
 
@@ -152,17 +153,18 @@ None.
 
 ### Size
 
-5 stories.
+6 stories.
 
 ### Building-Block Inventory
 
-| Story   | Capability                                        | Tier     | Size | Goal                                                                                                                                                     | Basis                                                                                                                                    |
-| ------- | ------------------------------------------------- | -------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| ST-0386 | Classify a finding with the one rulebook          | strong   | L    | A reviewer agent reads one rulebook that computes the severity of each class from the basis, and no other rulebook defines a severity level.             | `report-format.md` and `finding-format.md` define three levels by adjectives; `owasp-top-10.md` uses a fourth scale. Adds the rulebook.  |
-| ST-0387 | File each review finding by its computed severity | standard | L    | Each of the twelve review files names its class, files a blocking finding from the new template, and writes a `minor` finding as one register file.      | The review files define their own levels; the template lacks the new fields; no register schema exists. Adds fields, schemas, and links. |
-| ST-0388 | Rate each proposal review row with two questions  | economy  | S    | The proposal-review agent ends each adversarial row with a `Severity:` sentence from two questions, and the template lists `waived` as stakeholder-only. | `proposal-review-agent.md` rates rows major or note. Adds the two questions.                                                             |
-| ST-0389 | State the consequence in the QA triage table      | economy  | S    | The test-strategy agent fills a triage table with a `Consequence` column, and its actions follow the computed severity.                                  | The triage table in `templates/qa-strategy.md` has a severity column. Replaces it.                                                       |
-| ST-0390 | Measure how often two runs agree on the severity  | standard | M    | The stakeholder reads one review report that compares two runs under the new rulebook with two runs under the old rules on 20 fixed findings.            | No measurement exists. Adds four fresh subagent runs and the report.                                                                     |
+| Story   | Capability                                                | Tier     | Size | Goal                                                                                                                                                     | Basis                                                                                                                                        |
+| ------- | --------------------------------------------------------- | -------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| ST-0386 | Classify a finding with the one rulebook                  | strong   | L    | A reviewer agent reads one rulebook that computes the severity of each class from the basis, and no other rulebook defines a severity level.             | `report-format.md` and `finding-format.md` define three levels by adjectives; `owasp-top-10.md` uses a fourth scale. Adds the rulebook.      |
+| ST-0387 | File each review finding by its computed severity         | standard | L    | Each of the twelve review files names its class, files a blocking finding from the new template, and writes a `minor` finding as one register file.      | The review files define their own levels; the template lacks the new fields; no register schema exists. Adds fields, schemas, and links.     |
+| ST-0388 | Rate each proposal review row with two questions          | economy  | S    | The proposal-review agent ends each adversarial row with a `Severity:` sentence from two questions, and the template lists `waived` as stakeholder-only. | `proposal-review-agent.md` rates rows major or note. Adds the two questions.                                                                 |
+| ST-0389 | State the consequence in the QA triage table              | economy  | S    | The test-strategy agent fills a triage table with a `Consequence` column, and its actions follow the computed severity.                                  | The triage table in `templates/qa-strategy.md` has a severity column. Replaces it.                                                           |
+| ST-0390 | Measure how often two runs agree on the severity          | standard | M    | The stakeholder reads one review report that compares two runs under the new rulebook with two runs under the old rules on 20 fixed findings.            | No measurement exists. Adds four fresh subagent runs and the report.                                                                         |
+| ST-0407 | Re-measure the agreement after sharpening two class rules | standard | M    | The stakeholder reads a second agreement report, measured with a sharper document and runtime rule on 20 fresh findings.                                 | The first check failed, 18 of 20 against 20 of 20; two runs split on SPEC-0012 and BUG-0006. Sharpens the two class rules and adds a report. |
 
 ### Testability Assessment
 
