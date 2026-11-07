@@ -119,3 +119,55 @@ Risk theme: enforcement outside the reviewed path. All three risks concern a pat
 | One register file per finding (ADR-0034) | No lost fix after a merge; no merge driver.                 | A reader no longer sees a register as one file.                                              |
 | No release-tag default (DEC-48)          | No project runs the check with a guessed setting.           | The first code finding commit fails until the project writes the file; `[]` passes silently. |
 | Stop in two scripts (DEC-28)             | The stop needs no change to the Pi tools or to `trigger`.   | Sessions still start during a stop; only merges are refused.                                 |
+
+## Pass 2
+
+Pass 2 checked only the fix commit `809df5ac` against ATAM-0018, ATAM-0019, and the notes of pass 1. The fix of ATAM-0018 holds. The fix of ATAM-0019 leaves the hook out of every new project, so ATAM-0019 is open again and blocks planning. Next, the architecture agent sets `availability: always` for `agent_factory_hook-finding-lint` in the places that name the entry: 5.12, chapter 7, 8.19, QS-24, the `finding-lint` contract, and the DSL.
+
+### Checks run
+
+`.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42` found 0 errors, 1 warning, and 0 info, and exited 0. The warning is the `ARCH-PARSE` warning of pass 1, dismissed for the same reason. `.agent-factory/factory/scripts/structurizr validate` exited 0. The commit adds no dependency rule, so the rules check has no mismatch.
+
+### Verdict per pass-1 finding
+
+| ID        | Verdict  | Reason                                                                                                                                                                                                                                                                      |
+| --------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ATAM-0018 | resolved | The patch rule is part of the shared guard rule in every place. The OpenCode tools `edit`, `write`, `patch`, `shell`, and `execute` match `opencode.ai/docs/tools`, read on 2026-11-07.                                                                                     |
+| ATAM-0019 | open     | The entry has `availability: requires-path:docs/findings`. `hook-subset generate` leaves an unavailable hook out, and a new project has no `docs/findings/` at fitting time. So a new project runs without `finding-lint` until an `update-factory` that its user confirms. |
+| ATAM-0020 | open     | Out of scope for this pass, as the brief states. It stays in `docs/findings/register/architecture.jsonl`.                                                                                                                                                                   |
+
+### ATAM-0019: the hook does not reach a new project
+
+The architecture now names the hook id, the metadata entry, and the update path, as the finding asked. One value differs from the finding: the entry has `availability: requires-path:docs/findings`, not `availability: always`. The code of `hook-subset` decides availability by the path at fitting time and leaves an unavailable hook out of the generated config. During fitting step 3, a new project has no `docs/findings/`, because no review has run yet.
+
+So in a new project, the first `critical` finding arrives without the hook. An agent can lower it with a matching basis and commit, and the stop ends. QS-24 lists two accepted residual cases: a user who bypasses the hook, and a user who answers no to the update. This third case is not among them, and the stakeholder has not accepted it. The text "fitting includes it without asking" in 5.12, chapter 7, 8.19, QS-24, and the `finding-lint` contract is wrong for such a project.
+
+The fix is one value. With `availability: always`, the `files: ^docs/findings/` filter of the hook keeps the lint idle until the folder exists. The rating stays `major`. QS-24 has priority 1, so importance is `high`, and no code is built yet, so `in_use` is false.
+
+This review did not settle one point in the fitting text. `init-factory` writes the full factory block into a project without a `.pre-commit-config.yaml`. Step 3 of the Virgil fitting then builds the filtered set, but it does not say clearly that the filtered set replaces that block. In both readings, the architecture claims an inclusion that `hook-subset` does not make.
+
+### Contradictions with the rest of the architecture
+
+The fix agrees with ADR-0034 to ADR-0036, 6.17 to 6.21, chapter 7, 8.19, QS-24 to QS-27, the DSL, BR-092, and the guard and `finding-lint` contracts, apart from the availability value above. This review checked these claims of the fix against the code:
+
+- `update-factory` re-splices the full `agent_factory_hook-*` block with `merge-precommit-config --update`. It asks first, and it writes without asking after the layout migration (`refresh_precommit_hooks` in `packages/factory/scripts/update-factory`).
+- `update-factory` runs the `init-factory` of the new release, so the guard entries reach an earlier install.
+- `block-dangerous-git.sh` denies every git call that carries the flag that skips hooks.
+- `hook-metadata.yaml` knows the values `trade_off: none` and `availability: requires-path:<path>`. Fitting includes a `none` hook without asking when the hook is available.
+
+The fix also handles three notes of pass 1. The blind spot now names the class of hidden field names. The DSL has the relationships from `init-factory` to the four guard entries. 6.20 orders the cross-feature `next-id --plan-seed` story before the migration commit. The schema path in chapter 7 belongs to the BR-090 work of the requirements agent, so this pass does not file it.
+
+### Notes
+
+- **The OpenCode tool `subagent` starts a session with its own tool calls.** This review assumes that each such call fires `execute.before` in the same plugin, so the guard sees it. The OpenCode CLI feature can check that assumption with test FC-18-LN-03.
+
+### Counts
+
+| Severity | Count | Items                            |
+| -------- | ----- | -------------------------------- |
+| critical | 0     |                                  |
+| major    | 1     | ATAM-0019, reopened              |
+| minor    | 0 new | ATAM-0020 stays open from pass 1 |
+| note     | 1     | The `subagent` assumption        |
+
+This pass claimed no new ATAM number, because the open risk is ATAM-0019 itself.
