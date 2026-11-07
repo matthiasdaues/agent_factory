@@ -55,11 +55,11 @@ Compare the terms of `docs/spec/glossary.md` with the words the feature files an
 - **Term not defined.** A feature file or a structure file uses a domain term that the glossary does not define.
 - **Avoided term in use.** A feature file or a structure file uses a word that the Avoid column of a glossary term names.
 
-File each defect as a Minor `SPEC` finding with `owner: domain-modeling-agent`. File it even though Minor findings usually stay in the review report, so the owner receives it. It does not block: the blocking glossary gate stays deferred. The domain-modeling agent is the one producer of the glossary, so it fixes the defect. `spec-lint` rule `GLOSS001` already reports a glossary term that no file uses. Do not report an unused term again.
+Classify each defect by the consequence tree and file it by its computed severity, as [Step 3](#step-3--write-the-review-report) describes. A glossary defect usually raises the cost of reading and is `minor`, so it becomes a register file. The review report names `domain-modeling-agent` as the agent that acts on it. The domain-modeling agent is the one producer of the glossary, so it fixes the defect. `spec-lint` rule `GLOSS001` already reports a glossary term that no file uses. Do not report an unused term again.
 
 ### Check the term candidates
 
-Read `docs/spec/work/term-candidates.md` when it exists. A row with status `proposed` waits for the stakeholder's confirmation. File one Major `SPEC` finding with `owner: domain-modeling-agent` for each row with status `proposed`. Name the term and its domain area in the finding.
+Read `docs/spec/work/term-candidates.md` when it exists. A row with status `proposed` waits for the stakeholder's confirmation. File one `SPEC` finding with `owner: domain-modeling-agent` for each row with status `proposed`. Each answers `fails_purpose` with yes, because no agent may use the term before the stakeholder confirms it, so the finding is `major`. Name the term and its domain area in the finding.
 
 Terms in the glossary count as confirmed, among them the terms that `migrate-spec-layout` moved there. File no finding that a glossary term lacks the stakeholder's confirmation.
 
@@ -77,7 +77,7 @@ Save as `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../../ru
 4. **Structure checks** — one section for each file that Step 2 checked, the glossary and the term candidates included. Each section lists the file's findings or states that the check found none.
 5. **Traceability summary** — orphans and gaps from the scope map and BR cross-reference checks.
 
-File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `SPEC`. Run `.agent-factory/factory/scripts/next-id SPEC` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
+This review classifies findings of the review class `document`. Classify each finding by [Class: document](../../rulebooks/conventions/finding-classification.md#class-document): record its basis, and let the rule of the class compute the severity. File each finding by that severity. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file with tag `SPEC` from the [finding template](../../rulebooks/templates/finding.md), as [finding-format.md](../../rulebooks/conventions/finding-format.md) describes. A `minor` finding becomes one register file `docs/findings/register/document/<ID>.json` with `status: open` and gets no finding file. The commit that fixes it sets `status` of the register file to `resolved`. A `note` stays a row of the review report, and a `question` becomes an entry of `docs/spec/work/todo.md`. A register file takes its ID from `next-id`, as a finding file does. Take every ID from `next-id`, for a register file as for a finding file. Run `.agent-factory/factory/scripts/next-id SPEC` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Format both the report and any finding files via `.agent-factory/factory/scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 

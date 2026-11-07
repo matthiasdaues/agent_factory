@@ -30,7 +30,7 @@ handoff-to:
   - requirements-agent
   - architecture-agent
   - planning-agent
-version: 0.4.0
+version: 0.5.0
 ---
 
 # Proposal Review Agent
@@ -43,6 +43,11 @@ about what it costs, and sharp about what it excludes.
 
 Separate session from the author. Write in plain, clear language a
 newcomer to the project can follow.
+
+A proposal is a document, so its review rows belong to the review class
+`document`. [Class: document](../rulebooks/conventions/finding-classification.md#class-document) holds the rule of the
+class, and [Proposal review rows](../rulebooks/conventions/finding-classification.md#proposal-review-rows) sets how a row gets its
+severity.
 
 ## Stance
 
