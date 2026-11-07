@@ -740,11 +740,14 @@ such as `finding-register-security.schema.json`. `finding-lint` runs
 `schema-validate` on each register file with the schema of its class, and then
 recomputes the file's severity (DEC-60).
 
-The `status` of a register file is `open` or `resolved`. The reviewer agent
-writes `open` when it records the finding. The commit that fixes the finding
-sets `resolved`, and the file stays as the record. A register file is never
-`waived`, because only a blocking finding is waived, and never `deferred`
-(DEC-55). A register file is removed only when the finding is raised and a
+The `status` of a register file is `open`, `resolved`, or `waived`. The
+reviewer agent writes `open` when it records the finding. The commit that
+fixes the finding sets `resolved`, and the file stays as the record. Nobody
+fixes some `minor` findings, such as an unclear sentence in a document that a
+later feature replaces. The human sets such a file to `waived`, with
+`override_by` and `override_reason`, as on a finding file (DEC-44, DEC-63).
+The finding is then accepted as is, and the file stays as well. A register
+file is never `deferred` (DEC-55). A register file is removed only when the finding is raised and a
 finding file with the same ID replaces it.
 
 One file per finding keeps parallel work apart. Two reviews on two branches
@@ -851,14 +854,14 @@ lint skips them. The lint checks these rules:
 - A `suggestion` is at most `minor`. No finding file and no register file has
   the category `question`.
 - The body holds a `**Why this severity:**` line.
-- A finding with `status: waived` has a non-empty `override_by` and
-  `override_reason`, and only a blocking finding may be waived. A waived
+- A finding file or a register file with `status: waived` has a non-empty
+  `override_by` and `override_reason` (DEC-63). A waived
   `critical` finding also has a non-empty `stop_confirmed_by` and
   `stop_confirmed_reason`, and so does a resolved one (DEC-52).
 - `status` is one of `open`, `resolved`, `deferred`, and `waived`. Only the
   migration sets `deferred`, so a file that carries `review_class` is never
   `deferred` (DEC-55). An `open` finding file is not `minor` or `note`. A
-  register file is `open` or `resolved`, and a register file that `HEAD`
+  register file is `open`, `resolved`, or `waived`, and a register file that `HEAD`
   holds is removed only for a finding file with the same ID (DEC-60). No ID
   names both a finding file and a register file (DEC-53).
 - A `critical` finding holds `## Possible damage` with at least one item and
@@ -1210,7 +1213,8 @@ None.
   `docs/findings/register/<class>/<ID>.json` with `status: open` and files no
   finding file for it. `finding-lint` accepts the file against the schema of
   its class. It exits `1` on a register file whose `severity` does not match
-  its `basis`, on a status other than `open` or `resolved`, and on a register
+  its `basis`, on a status other than `open`, `resolved`, or `waived`, on a
+  waived register file without `override_by` or `override_reason`, and on a register
   file that `HEAD` holds and the commit removes without a finding file of the
   same ID.
 - While an open `critical` finding has no `stop_confirmed_by`, `dispatch` and
@@ -1331,6 +1335,7 @@ The reviewer states the facts, and the rule states the severity.
 | DEC-60 | 2026-11-07 | decision   | stakeholder | A `minor` finding is one register file `docs/findings/register/<class>/<ID>.json` with the status `open` or `resolved`. The reviewer agent writes `open`, and the fixing commit sets `resolved` instead of deleting the file. `finding-lint` runs `schema-validate` on each file and recomputes its severity. No union merge and no `.gitattributes` line. Lowering and the ID rule of DEC-53 become checks between two file paths, and `guard-human-fields` guards `docs/findings/register/**/*.json`. The migration moves each line of the old `.jsonl` registers into one file. Replaces DEC-33, the register parts of DEC-49, and the deletion of FC-C13. | Architecture decision 1, option C                                  |
 | DEC-61 | 2026-11-07 | decision   | stakeholder | Claude Code registers `guard-human-fields` on `Edit`, `MultiEdit`, `Write`, `NotebookEdit`, and `Bash`. Codex refuses an `apply_patch` call that the guard cannot parse when its raw text names a guarded path. Copilot CLI uses `preToolUse` entries in a hook file under `.github/hooks/`. Pi and OpenCode block the call when the guard script is missing. This feature writes a first, guard-only OpenCode plugin at `packages/factory/config/plugins/agent-factory.ts`; `init-factory` links it into `.opencode/plugins/` and accepts the CLI name `opencode`. Refines DEC-51.                                                                           | Architecture decision 2                                            |
 | DEC-62 | 2026-11-07 | decision   | stakeholder | The TypeScript tests in `packages/factory/config/**/*.test.ts` run as a `node:test` suite on Node 22.6 or later, with no new dependency. The test-strategy agent writes the entry in `docs/testing.yaml`. Answers FC-QG25.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Architecture decision 3                                            |
+| DEC-63 | 2026-11-07 | decision   | stakeholder | A register file may hold `open`, `resolved`, or `waived`. Only the stakeholder sets `waived`, with non-empty `override_by` and `override_reason`, as on a finding file (DEC-44). `guard-human-fields` refuses `waived` from an agent. `deferred` and a missing status still fail. A waived register file is a `minor` finding that nobody will fix, accepted as is. Changes FC-C23 and the register part of DEC-60.                                                                                                                                                                                                                                           | FC-C23                                                             |
 
 ## Review findings
 

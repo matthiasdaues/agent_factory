@@ -948,9 +948,9 @@ state of its own. `dispatch` and `premerge-check` read it from the findings in
 
 One finding, from the pause point to its end. The status field of a finding
 file shows the state: **STOPPING** and **IN_LOOP** are both `open`. A register
-file in **REGISTERED** is `open`, and **RESOLVED** holds both kinds of file
-with `resolved`. BR-085, BR-086, BR-090, BR-091, BR-109, and BR-110 hold the
-rules.
+file in **REGISTERED** is `open`. **RESOLVED** holds both kinds of file with
+`resolved`, and **WAIVED** holds both kinds of file with `waived`. BR-085,
+BR-086, BR-090, BR-091, BR-109, and BR-110 hold the rules.
 
 #### Pseudocode
 
@@ -1040,7 +1040,13 @@ On Raised:
 On Removed:
   RejectCommand("finding-lint: a register file is removed only for a finding file with the same ID; set status resolved")
 On Waived:
-  RejectCommand("finding-lint: only a blocking finding is waived; a register file is open or resolved")
+  # the stakeholder sets status waived because nobody will fix the minor finding
+  if override_by or override_reason is empty
+    RejectCommand("finding-lint: a waived register file needs override_by and override_reason")
+  else
+    ChangeState(WAIVED)
+On AgentWaives:
+  RejectCommand("guard-human-fields: only the stakeholder sets waived")
 
 State: IN_REPORT
   # terminal — a note stays in the review report only
@@ -1076,6 +1082,7 @@ stateDiagram-v2
     REGISTERED --> RESOLVED : Fixed
     REGISTERED --> STOPPING : Raised (critical)
     REGISTERED --> IN_LOOP : Raised (major)
+    REGISTERED --> WAIVED : Waived (stakeholder only)
     IN_REPORT --> [*]
     RESOLVED --> [*]
     WAIVED --> [*]
@@ -1087,11 +1094,11 @@ stateDiagram-v2
 - **CLASSIFIED** covers the pause point of a review and the pause point of the migration. A headless run has no pause point, so **Recorded** follows at once, and the final summary lists each new register file (BR-090).
 - **STOPPING** ends only on **StopConfirmed** (DEC-52). A status change, a lower severity, or a removed file in the working tree does not end it, because `dispatch` and `premerge-check` also read the `HEAD` version and count every status of a file that carries `review_class` (BR-091). `finding-lint` rejects the same changes at the commit. So a `critical` finding is resolved, waived, or lowered only after both confirmation fields hold text, and the damage checks run before the stop ends (DEC-47). While the stop holds, `dispatch` starts and merges no work. The stakeholder confirms the stop before anyone fixes the defect by hand.
 - **IN_LOOP** of a confirmed `critical` finding keeps severity `critical`. The finding loops like a `major` one (DEC-28).
-- **Waived** is the stakeholder's path to set a blocking finding aside. A `minor` finding never blocks, so **REGISTERED** rejects **Waived**, and no override raises it (DEC-25, BR-110).
+- **Waived** is the stakeholder's path to accept a finding unfixed. From **IN_LOOP**, it sets a blocking finding aside. From **REGISTERED**, it closes a `minor` finding that nobody will fix, and the register file stays (DEC-63, BR-110). Both edges need text in `override_by` and `override_reason`. No override raises a `minor` finding (DEC-25).
 - **DEFERRED** has one entry, **NoArtifact** in the migration. No agent sets `deferred`, so **STOPPING** and **IN_LOOP** reject **Deferred** (DEC-55).
 - **Raised** is open to an agent and to the stakeholder, and it needs no override field (FC-G04, DEC-56).
 - **Lowered** is the stakeholder's edge. It needs `override_by` and `override_reason`, and `guard-human-fields` refuses an agent that writes them. So `finding-lint` rejects a lowering by an agent as **AgentLowers** (BR-092, BR-109). **Lowered** has no branch to **IN_REPORT**. A finding file whose `HEAD` version carries `review_class` is removed only when a register file replaces it, so the stakeholder sets a finding aside with **Waived** instead. The migration is exempt, because `finding-lint` compares no file whose `HEAD` version lacks `review_class` (BR-095).
 - **ClassRemoved** is an edit that deletes or changes the `review_class` of a file whose `HEAD` version carries it. `finding-lint` rejects it in **STOPPING** and **IN_LOOP**, so BR-086 and BR-091 keep reading the file, and no agent ends a stop or sets `deferred` that way (BR-109).
 - **Removed** is the deletion of a register file that `HEAD` holds, without a finding file of the same ID. `finding-lint` rejects it, so a fix keeps the register file and sets `resolved` (DEC-60, BR-110). The migration also removes the old `.jsonl` registers. They are no register files, so that removal is no **Removed** event (BR-095).
-- **AgentConfirms** and the agent's attempt to set `waived` are refused by `guard-human-fields` (BR-092). The finding stays in its state.
+- **AgentConfirms** and **AgentWaives**, the agent's attempt to set `waived` in a finding file or a register file, are refused by `guard-human-fields` (BR-092). The finding stays in its state.
 - A **question** never enters this machine. The reviewer agent writes it into `docs/spec/work/todo.md` (BR-085).

@@ -523,7 +523,8 @@ Feature: Finding classification
 
       Examples:
         | violation                                                                    |
-        | has status waived                                                            |
+        | has status waived and no override_by                                         |
+        | has status waived and an empty override_reason                               |
         | has status deferred                                                          |
         | has no status                                                                |
         | lies in docs/findings/register/code/ and carries review_class document       |
@@ -1008,6 +1009,13 @@ Feature: Finding classification
       When the stakeholder sets status waived with override_by and override_reason
       Then finding-lint exits 1 until stop_confirmed_by and stop_confirmed_reason are set
 
+    Scenario: The stakeholder waives a register file that nobody will fix
+      Given docs/findings/register/code/FAGAN-0032.json holds status open
+      When the stakeholder sets its status to waived with override_by and override_reason
+      Then finding-lint exits 0
+      And the register file stays in docs/findings/register/code/
+      And the review loop never lists it
+
     Scenario: No override raises a minor finding
       Given a minor finding at the pause point or in a register
       When the stakeholder wants it to block
@@ -1035,6 +1043,11 @@ Feature: Finding classification
     Scenario: An Edit that sets override_by in a register file is refused
       Given docs/findings/register/code/FAGAN-0032.json holds no override_by
       When an agent calls Edit with a new_string that adds "override_by": "human" to that file
+      Then guard-human-fields refuses the call
+
+    Scenario: An Edit that sets status waived in a register file is refused
+      Given docs/findings/register/code/FAGAN-0032.json holds status open
+      When an agent calls Edit with a new_string that sets "status": "waived" in that file
       Then guard-human-fields refuses the call
 
     Scenario: A headless run cannot confirm its own stop

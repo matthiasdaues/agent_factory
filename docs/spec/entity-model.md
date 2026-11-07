@@ -1045,9 +1045,9 @@ erDiagram
         object basis "see BASIS"
         string why_this_severity "the Why this severity sentence"
         string commit "the reviewed commit, 40 hex characters"
-        string status "open by the reviewer agent, the migration, or a lowering | resolved by the fixing commit"
-        string override_by "only on a register file that replaces a finding file: the stakeholder who lowered it"
-        string override_reason "only on a register file that replaces a finding file: why it was lowered"
+        string status "open by the reviewer agent, the migration, or a lowering | resolved by the fixing commit | waived by the stakeholder only"
+        string override_by "only on a register file that replaces a finding file or is waived: the stakeholder who lowered or waived it"
+        string override_reason "only on a register file that replaces a finding file or is waived: why it was lowered or stays unfixed"
     }
     BASIS {
         boolean in_use "every class"
@@ -1097,7 +1097,7 @@ erDiagram
 
 - **BASIS** is a payload with inner structure, both in a finding file and in a register file. Its shape depends on the review class: [schemas/finding-basis.json](schemas/finding-basis.json) holds the three shapes. The five register schemas in `packages/factory/rulebooks/schemas/` each take the one shape of their class, because the validator of `schema-validate` supports no `oneOf`. `finding-lint` runs `schema-validate` on each register file with its schema (DEC-60).
 - **FINDING_FILE** holds only a `critical` or `major` finding after the migration (BR-085). Its `severity` stays computed, also when the finding is waived. The fields `override_by`, `override_reason`, `stop_confirmed_by`, and `stop_confirmed_reason` are human fields: only the stakeholder writes a value into them (BR-092). An agent sets `status` to `open` or `resolved`. Only the migration sets `deferred`, and only on a file without `review_class` (DEC-55). A file whose `HEAD` version carries `review_class` is removed only when a register file replaces it (BR-109). `owner` comes from the core artifact ownership contract and stays.
-- **REGISTER_FILE** has the status `open` or `resolved`. The commit that fixes the finding sets `resolved`, and the file stays as the record. A register file that `HEAD` holds is removed only when a finding file with the same ID replaces it (BR-110). A register file that replaces a finding file holds `override_by` and `override_reason`, because only the stakeholder lowers a filed finding (BR-109). A `story` of `null` marks a review that ran before a backlog existed, such as a spec review.
+- **REGISTER_FILE** has the status `open`, `resolved`, or `waived`. The commit that fixes the finding sets `resolved`, and the file stays as the record. Only the stakeholder sets `waived`, with text in `override_by` and `override_reason`, when nobody will fix the finding (BR-110, DEC-63). A register file that `HEAD` holds is removed only when a finding file with the same ID replaces it (BR-110). A register file that replaces a finding file holds `override_by` and `override_reason`, because only the stakeholder lowers a filed finding (BR-109). A `story` of `null` marks a review that ran before a backlog existed, such as a spec review.
 - **REGISTER** folders exist only for a class that has recorded a `minor` finding. A missing folder is an empty register. Each finding is its own file, so parallel reviews merge without a merge driver (DEC-60). An ID names a finding file or a register file, never both, and at most one register file (DEC-53, BR-090).
 - **LINE_IDENTITY** comes from `git blame -M -C --porcelain`. Two lines are the same line when commit, original line number, and original file name all match (BR-088). The lint blames the `artifact` path and its rename and copy sources, not `original_path`, because that path may no longer exist (DEC-49).
 - **FACTORY_SETTINGS** holds the key `release_tag_patterns`. The project writes the file. `init-factory` and `update-factory` never write it (BR-089).
