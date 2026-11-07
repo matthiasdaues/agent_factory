@@ -87,8 +87,9 @@ rule that an ID names one file only become checks between two file paths.
   enter the review loop.
 - `next-id --plan-seed` of counter-ids-fitting counts the `id` field of each
   `.jsonl` line (BR-099). It must count the file names of the register files
-  instead, or it misses every `minor` ID. That change belongs to the
-  counter-ids-fitting stories.
+  instead, or it misses every `minor` ID. The counter-ids-fitting stories,
+  such as ST-0376, are done. So the finding-classification backlog plans the
+  change as a cross-feature story that lands before the migration commit.
 - [5.12](../arc42/05_building_block_view.md#512-level-2-component-view----finding-classification)
   lists the components, and QS-26 in
   [chapter 10](../arc42/10_quality_requirements.md#qs-26-parallel-reviews-merge-their-registers-without-loss)

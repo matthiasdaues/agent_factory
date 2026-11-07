@@ -52,11 +52,23 @@ workstation. The remote itself is outside the Factory's deployment.
 Finding classification adds no process. `finding-lint`, the stop check in
 `dispatch`, and `premerge-check` run as scripts in the checkout. The Finding
 Registers and Factory Settings are tracked files under `docs/`, and the
-Finding Schemas ship with the Factory under
-`.agent-factory/factory/rulebooks/schemas/`. `guard-human-fields` runs in the
-process of each CLI hook. In OpenCode, `init-factory --cli opencode` links the
-plugin `agent-factory.ts` into `.opencode/plugins/`, and OpenCode loads it at
-session start.
+Finding Schemas ship with the Factory as
+`packages/factory/rulebooks/schemas/finding-register-<class>.schema.json`
+(BR-090). `guard-human-fields` runs in the process of each CLI hook.
+`init-factory` writes the guard entries of Claude Code, Codex, Copilot CLI,
+and Pi beside the `step-guard` entries. In OpenCode, `init-factory --cli opencode` links the plugin `agent-factory.ts` into `.opencode/plugins/`, and
+OpenCode loads it at session start.
+
+`finding-lint` reaches a project as the pre-commit hook
+`agent_factory_hook-finding-lint` in
+`packages/factory/config/pre-commit-config.yaml`. Its entry in
+`packages/factory/config/hook-metadata.yaml` is `trade_off: none` and
+`availability: requires-path:docs/findings`, so fitting includes it without
+asking. A project that finished its fitting earlier gets the hook from
+`update-factory`. The update re-splices the `agent_factory_hook-*` block of
+`.pre-commit-config.yaml` from the template of the new release and writes it
+on a yes. It also runs `init-factory` of the new release, which adds the
+missing guard entries.
 
 ## 7.2 Lifecycle Boundaries
 

@@ -22,8 +22,9 @@ supports: Claude Code, Codex, Copilot CLI, Pi, and OpenCode (DEC-51).
 The hooks that exist today left three gaps:
 
 - Claude Code had no guard entry for `MultiEdit` and `NotebookEdit`.
-- A Codex `apply_patch` call names its paths inside the patch text, so a
-  path check on the call alone misses them.
+- A patch call names its paths inside the patch text, so a path check on the
+  call alone misses them. Codex, Copilot CLI, and Pi have `apply_patch`, and
+  OpenCode has `patch`.
 - OpenCode had no Factory plugin on `dev`. The OpenCode CLI feature defines
   the full plugin `packages/factory/config/plugins/agent-factory.ts`, but it
   has not shipped.
@@ -45,11 +46,14 @@ Each CLI calls it from its own hook for edit, write, and shell calls (DEC-61):
 | Codex       | `PreToolUse` entries in `.codex/hooks.json`                                               | `Edit`, `Write`, `apply_patch`, `Bash`                         |
 | Copilot CLI | `preToolUse` entries in a hook file under `.github/hooks/`, as `step-guard.json` does     | `edit`, `apply_patch`, `write_file`, `create`, `bash`          |
 | Pi          | The `tool_call` event of a project-local extension                                        | `edit`, `write`, `write_file`, `create`, `apply_patch`, `bash` |
-| OpenCode    | `execute.before` of the Factory plugin `packages/factory/config/plugins/agent-factory.ts` | the plugin's edit, write, and shell tools                      |
+| OpenCode    | `execute.before` of the Factory plugin `packages/factory/config/plugins/agent-factory.ts` | `edit`, `write`, `patch`, `shell`, `execute`                   |
 
-For Codex, the guard reads the paths and the removed and added lines from the
-patch text. It refuses a patch that it cannot parse when the raw text names a
-guarded path. Pi and OpenCode block the call when the guard script is
+A patch call names its paths inside the patch text: `apply_patch` in Codex,
+Copilot CLI, and Pi, and `patch` in OpenCode. So in every CLI the guard reads
+the paths and the removed and added lines from the patch text. It refuses a
+patch that it cannot parse when the raw text names a guarded path. The
+OpenCode tool `execute` runs JavaScript that can call the other tools, so the
+guard checks that JavaScript as the text of a shell call. Pi and OpenCode block the call when the guard script is
 missing, so a broken install refuses the edit. The Pi extension
 `step-guard.ts` lets a call through in that case. The guard does not.
 
@@ -84,8 +88,18 @@ every control, and it fails closed, as QS-7 asks. ADR-0019 keeps its status.
   when that feature starts.
 - The OpenCode test FC-18-LN-03 can run once the first plugin exists.
 - The guard checks the text of each call, as `block-dangerous-git.sh` does.
-  An agent that builds a field name from pieces in a script gets past it. The
-  design for that path is deferred to the gate-evidence proposal.
+  An agent that hides the field name gets past it, for example with a field
+  name built from pieces in a script, a `cp` of a prepared file, or
+  `git checkout <ref> -- <file>`. The design for that class is deferred to
+  the gate-evidence proposal.
+- `init-factory` writes the entries of Claude Code, Codex, Copilot CLI, and
+  Pi beside the `step-guard` entries. `update-factory` runs `init-factory`
+  of the new release, so a project installed earlier gets the missing
+  entries.
+- The OpenCode tool names come from the OpenCode tools documentation
+  (`opencode.ai/docs/tools`), read on 2026-11-07. OpenCode exposes `patch`
+  only for some GPT models and `edit` and `write` for the others. The
+  guard covers all five tools, so the model choice does not matter.
 - A broken Pi or OpenCode install refuses every guarded edit until the guard
   script is back. The refusal names the missing script.
 - [5.12](../arc42/05_building_block_view.md#512-level-2-component-view----finding-classification)

@@ -569,6 +569,8 @@ end a stop, set a finding aside, or lower it. Three mechanisms hold this:
   every CLI ([ADR-0035](../adr/0035-guard-human-fields-in-every-cli.md)).
 - `finding-lint` rejects a lowering, a removal, or a lost `review_class`
   without the human fields, by comparing each file with its `HEAD` version.
+  It runs as a pre-commit hook that fitting includes without asking, so it
+  covers a change that an agent tries to commit (QS-24).
 - The stop check in `dispatch` and `premerge-check` reads the working tree
   and `HEAD`, so an uncommitted change cannot end a stop
   ([6.17](06_runtime_view.md#617-a-critical-finding-stops-the-run)).

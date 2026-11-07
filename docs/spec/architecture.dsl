@@ -54,9 +54,9 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 fenceRunner = component "Fence Runner" "Deterministic output validation after agent activity; snapshots declared output patterns, compares post-activity filesystem state, and stores fence evidence" "Python"
                 proposalValidator = component "Proposal Validator" "Checks proposal file existence, format, and required fields; returns the shared validator result shape" "Python"
                 findingLint = component "finding-lint" "packages/factory/scripts/finding-lint [--staged]: reads each finding file that carries review_class or whose HEAD version carries it, and every register file; recomputes the severity from the basis, runs schema-validate on each register file with the schema of its folder, compares each file with its HEAD version for a lowering, a removal, or a lost review_class, and runs the git check of in_use when a code, runtime, or security finding is new or its basis or artifact changed; writes nothing and exits 1 on any violation" "Python" "Finding Classification"
-                guardHumanFields = component "guard-human-fields" "packages/factory/config/hooks/guard-human-fields: reads one tool call as its CLI passes it and, for a write, the current content of the target; refuses a call that sets a human field in docs/findings/*.md, docs/findings/register/**/*.json, or the Appendix tables of docs/proposals/*.md; exits 0 to pass and 2 to refuse; a field name built from pieces in a script passes it" "Hook script" "Finding Classification"
+                guardHumanFields = component "guard-human-fields" "packages/factory/config/hooks/guard-human-fields: reads one tool call as its CLI passes it and, for a write, the current content of the target; refuses a call that sets a human field in docs/findings/*.md, docs/findings/register/**/*.json, or the Appendix tables of docs/proposals/*.md; for a patch call, apply_patch in Codex, Copilot CLI, and Pi or patch in OpenCode, reads the paths and lines from the patch text and refuses a patch it cannot parse when the raw text names a guarded path; exits 0 to pass and 2 to refuse; an agent that hides the field name, such as by building it from pieces in a script, passes it" "Hook script" "Finding Classification"
                 guardClaudeCode = component "guard entry: Claude Code" "PreToolUse entries in .claude/settings.json for Edit, MultiEdit, Write, NotebookEdit, and Bash that run guard-human-fields" "Hook configuration" "Finding Classification"
-                guardCodex = component "guard entry: Codex" "PreToolUse entries in .codex/hooks.json for Edit, Write, apply_patch, and Bash that run guard-human-fields; for apply_patch the guard reads the paths and lines from the patch text and refuses a patch it cannot parse when the raw text names a guarded path" "Hook configuration" "Finding Classification"
+                guardCodex = component "guard entry: Codex" "PreToolUse entries in .codex/hooks.json for Edit, Write, apply_patch, and Bash that run guard-human-fields" "Hook configuration" "Finding Classification"
                 guardCopilot = component "guard entry: Copilot CLI" "preToolUse entries in a hook file under .github/hooks/, as step-guard.json has them, for edit, apply_patch, write_file, create, and bash; run guard-human-fields" "Hook configuration" "Finding Classification"
                 guardPi = component "guard entry: Pi extension" "tool_call event of a project-local Pi extension for edit, write, write_file, create, apply_patch, and bash; runs guard-human-fields and blocks the call when the guard script is missing, unlike step-guard.ts" "TypeScript/Pi" "Finding Classification"
                 premergeCheck = component "premerge-check" "Checks the stop before any other check; during a stop it runs no other check, writes no .current-work/premerge-check-ok marker, prints the stop notice, and exits 1; otherwise runs its checks and writes the marker that block-dangerous-git reads before it lets git merge through" "Python" "Finding Classification"
@@ -129,7 +129,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 usageObserver = component "Usage Observer" "Captures completed root and child session usage via execute.after hooks without double-counting child tokens" "TypeScript"
                 worktreeStrategyComponent = component "Worktree Strategy" "Registers a Factory worktree strategy through ctx.worktree.transform; delegates branch and path creation to Factory scripts" "TypeScript"
                 orientationInjector = component "Orientation Injector" "Injects AGENTS.opencode.md into session context via session.hook context; describes OpenCode tool names and session-start procedure" "TypeScript"
-                guardOpenCode = component "guard entry: OpenCode plugin" "execute.before of packages/factory/config/plugins/agent-factory.ts for the edit, write, and shell tools: runs guard-human-fields and blocks the call when the guard script is missing; the first version of the plugin holds only this component, and the OpenCode CLI feature adds the others to the same file" "TypeScript" "Finding Classification"
+                guardOpenCode = component "guard entry: OpenCode plugin" "execute.before of packages/factory/config/plugins/agent-factory.ts for the tools edit, write, patch, shell, and execute: runs guard-human-fields, which checks the JavaScript of an execute call as the text of a shell call, and blocks the call when the guard script is missing; the first version of the plugin holds only this component, and the OpenCode CLI feature adds the others to the same file" "TypeScript" "Finding Classification"
                 pluginHealthMonitor = component "Health Monitor" "Tracks plugin health lifecycle; fails closed on initialization, manifest, permission, or worktree failures with named recovery actions" "TypeScript"
             }
 
@@ -450,7 +450,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent -> guardCodex "Codex: an Edit, Write, apply_patch, or Bash call fires PreToolUse" "" "Finding Classification"
         cliAgent -> guardCopilot "Copilot CLI: an edit, apply_patch, write_file, create, or bash call fires preToolUse" "" "Finding Classification"
         cliAgent -> guardPi "Pi: an edit, write, write_file, create, apply_patch, or bash call fires tool_call" "" "Finding Classification"
-        cliAgent -> guardOpenCode "OpenCode: an edit, write, or shell call fires execute.before" "" "Finding Classification"
+        cliAgent -> guardOpenCode "OpenCode: an edit, write, patch, shell, or execute call fires execute.before" "" "Finding Classification"
         guardClaudeCode -> guardHumanFields "Runs with the tool call on standard input" "" "Finding Classification"
         guardCodex -> guardHumanFields "Runs with the tool call on standard input" "" "Finding Classification"
         guardCopilot -> guardHumanFields "Runs with the tool call on standard input" "" "Finding Classification"
@@ -462,6 +462,12 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         guardHumanFields -> cliAgent "Refuses a call that sets a human field with exit 2 and names the file, the field, and the stakeholder's way to write it" "" "Finding Classification"
         guardOpenCode -> cliAgent "Blocks the call through the plugin API when the guard refuses it or the guard script is missing" "" "Finding Classification"
         guardPi -> cliAgent "Blocks the call through the extension API when the guard refuses it or the guard script is missing" "" "Finding Classification"
+        initFactory -> guardClaudeCode "Writes the PreToolUse entries for Edit, MultiEdit, Write, NotebookEdit, and Bash into .claude/settings.json beside the step-guard entries; update-factory runs it after each update, so an earlier install gets the missing entries" "" "Finding Classification"
+        initFactory -> guardCodex "Writes the PreToolUse entries for Edit, Write, apply_patch, and Bash into .codex/hooks.json beside the step-guard entries" "" "Finding Classification"
+        initFactory -> guardCopilot "Writes the preToolUse entries for edit, apply_patch, write_file, create, and bash into a hook file under .github/hooks/, beside step-guard.json" "" "Finding Classification"
+        initFactory -> guardPi "Links the project-local guard extension beside step-guard.ts" "" "Finding Classification"
+        initFactory -> projectFilesystem "Splices the factory hook block into .pre-commit-config.yaml; the block holds agent_factory_hook-finding-lint, which hook-metadata.yaml marks trade_off none and availability requires-path:docs/findings, so fitting includes it without asking" "" "Finding Classification"
+        updateFactory -> projectFilesystem "Re-splices the agent_factory_hook-* block of .pre-commit-config.yaml from the template of the new release with merge-precommit-config --update, so an earlier install gets agent_factory_hook-finding-lint; shows the diff and writes on yes" "" "Finding Classification"
         initFactory -> opencodePlugin "With --cli opencode, links .agent-factory/factory/config/plugins/agent-factory.ts into .opencode/plugins/; the OpenCode CLI feature extends the same plugin file" "" "Finding Classification,Cross-feature"
 
         # The lint and its git check
@@ -798,6 +804,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             include dispatchCli
             include nextId
             include initFactory
+            include updateFactory
             include opencodePlugin
             exclude specReviewAgent
             exclude architectureReviewAgent

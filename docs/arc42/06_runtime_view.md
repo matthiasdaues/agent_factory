@@ -1142,8 +1142,12 @@ sequenceDiagram
 
 Derived from dynamic view `FindingMigration` in [`architecture.dsl`](../spec/architecture.dsl).
 
-The migration runs once, after the project has committed
-`docs/factory-settings.yaml`, because its commit triggers the git check.
+The migration runs once, after two preconditions. The project has committed
+`docs/factory-settings.yaml`, because the migration commit triggers the git
+check. The cross-feature story that makes `next-id --plan-seed` count the
+register files has landed, because the migration turns `.jsonl` lines into
+register files
+([5.12](05_building_block_view.md#512-level-2-component-view----finding-classification)).
 
 ```mermaid
 sequenceDiagram

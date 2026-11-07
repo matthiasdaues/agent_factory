@@ -671,18 +671,23 @@ events for edits, writes, and shell calls:
 
 - Claude Code registers it as `PreToolUse` hooks for `Edit`, `MultiEdit`,
   `Write`, `NotebookEdit`, and `Bash`.
-- Codex registers it as `PreToolUse` hooks. An `apply_patch` call names its
-  paths inside the patch text, so the guard reads them from the patch. When
-  the guard cannot parse a patch whose raw text names a guarded path, it
-  refuses the call.
+- Codex registers it as `PreToolUse` hooks for `Edit`, `Write`,
+  `apply_patch`, and `Bash`.
 - Copilot CLI registers it as `preToolUse` entries in a hook file under
   `.github/hooks/`, as `step-guard.json` does.
 - Pi calls it from the `tool_call` event of a project-local extension.
 - OpenCode calls it from `execute.before` of the Factory plugin
-  `packages/factory/config/plugins/agent-factory.ts`. This feature writes the
+  `packages/factory/config/plugins/agent-factory.ts`, for the tools `edit`,
+  `write`, `patch`, `shell`, and `execute`. The guard checks the JavaScript
+  of an `execute` call as the text of a shell call. This feature writes the
   first version of that plugin, and it holds only the guard. `init-factory`
   accepts the CLI name `opencode` and links the plugin into
   `.opencode/plugins/`.
+
+A patch call names its paths inside the patch text: `apply_patch` in Codex,
+Copilot CLI, and Pi, and `patch` in OpenCode. So in every CLI the guard reads
+the paths from the patch. When the guard cannot parse a patch whose raw text
+names a guarded path, it refuses the call.
 
 Pi and OpenCode block the call when the guard script is missing, so a broken
 install refuses the edit instead of letting it through. The Pi extension
