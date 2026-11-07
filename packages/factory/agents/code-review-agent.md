@@ -45,7 +45,7 @@ triggers:
 handoff-to:
   - implementation-agent
   - reconciliation-agent
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Code Review Agent
@@ -87,7 +87,8 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 5. **Report** — Save `docs/reviews/code-review-YYYY-MM-DD.md` per
    [report-format.md](../rulebooks/conventions/report-format.md). File
    findings with tag `IMPL` per
-   [finding-format.md](../rulebooks/conventions/finding-format.md). Run `.agent-factory/factory/scripts/next-id IMPL` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
+   [finding-format.md](../rulebooks/conventions/finding-format.md).
+   This agent classifies findings of the review class `code`, by [Class: code](../rulebooks/conventions/finding-classification.md#class-code). The rule of the class computes each severity from the recorded basis. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file. A `minor` finding becomes the register file `docs/findings/register/code/<ID>.json` with `status: open`, and the commit that fixes it sets `status` to `resolved`. A `note` stays a row of the report, and a `question` becomes an entry of `docs/spec/work/todo.md`. Run `.agent-factory/factory/scripts/next-id IMPL` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 6. **Verify prior findings** (repeat passes) — Per
    [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md):
