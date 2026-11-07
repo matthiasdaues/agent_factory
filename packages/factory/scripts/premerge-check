@@ -71,7 +71,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import _load_yaml, glob_match
+from dispatch_lib import _load_yaml, glob_match, stop_notice
 
 try:
     import yaml
@@ -389,6 +389,13 @@ def main(argv: list[str] | None = None) -> int:
     if code != 0:
         print(f"premerge-check: not a git repository: {err}", file=sys.stderr)
         return 2
+
+    # The stop on a critical finding comes before every other check. During
+    # a stop, no other check runs and no marker is written (BR-091).
+    notice = stop_notice()
+    if notice is not None:
+        sys.stdout.write(notice)
+        return 1
 
     findings: list[bool] = []
 

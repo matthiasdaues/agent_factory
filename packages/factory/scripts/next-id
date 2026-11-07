@@ -569,6 +569,18 @@ def _register_ids(text: str) -> Iterator[tuple[str, int]]:
                 yield counted
 
 
+def _register_file_id(path: str) -> tuple[str, int] | None:
+    """Return the prefix and number of a register file name, never its body.
+
+    `docs/findings/register/<class>/<PREFIX>-NNNN.json` counts, in any
+    subfolder of the register folder. A JSON name without an ID does not.
+    """
+    folder, name = posixpath.split(path)
+    if not folder.startswith(REGISTER_DIR + "/") or not name.endswith(".json"):
+        return None
+    return _counted_id(name)
+
+
 def _todo_ids(text: str) -> Iterator[tuple[str, int]]:
     for line in text.splitlines():
         match = _TODO_HEADING.match(line)
@@ -587,6 +599,9 @@ def ids_in_tree(paths: Iterable[str], read: Callable[[str], str]) -> Iterator[Fo
         if counted is not None:
             prefix, number, warn = counted
             yield prefix, number, path if warn else None
+        elif _register_file_id(path) is not None:
+            prefix, number = _register_file_id(path)
+            yield prefix, number, None
         elif posixpath.dirname(path) == REGISTER_DIR and path.endswith(".jsonl"):
             for prefix, number in _register_ids(read(path)):
                 yield prefix, number, None
@@ -633,7 +648,7 @@ def _branch_trees(top: str) -> Iterator[Found]:
 def _working_tree(top: str) -> Iterator[Found]:
     """Yield the IDs in the working tree, also of files that no commit holds."""
     paths = []
-    for folder in (*NAMED_DIRS, ADR_DIR, REGISTER_DIR):
+    for folder in (*NAMED_DIRS, ADR_DIR):
         try:
             names = os.listdir(os.path.join(top, folder))
         except OSError:
@@ -643,6 +658,9 @@ def _working_tree(top: str) -> Iterator[Found]:
             for name in names
             if os.path.isfile(os.path.join(top, folder, name))
         ]
+    for root, _, names in os.walk(os.path.join(top, REGISTER_DIR)):
+        relative = os.path.relpath(root, top).replace(os.sep, "/")
+        paths += [f"{relative}/{name}" for name in names]
     if os.path.isfile(os.path.join(top, TODO_FILE)):
         paths.append(TODO_FILE)
 
