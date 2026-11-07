@@ -740,10 +740,13 @@ the story, the finding, the `basis`, the `**Why this severity:**` sentence, the
 reviewed commit, and the `status`. A register file that replaces a filed
 finding also holds `override_by` and `override_reason`, because only the human
 lowers a filed finding (DEC-56). The `basis` has the shape of the class, so
-each register has its own JSON Schema in `packages/factory/rulebooks/schemas/`,
-such as `finding-register-security.schema.json`. `finding-lint` runs
-`schema-validate` on each register file with the schema of its class, and then
-recomputes the file's severity (DEC-60).
+each register has its own JSON Schema, such as
+`rulebooks/schemas/finding-register-security.schema.json` under the Factory
+root. The Factory root is `packages/factory/` in this repository and
+`.agent-factory/factory/` in an installed project. `finding-lint` runs
+`schema-validate` on each register file with the schema of its class under
+the Factory root that it runs from, and then recomputes the file's severity
+(DEC-60).
 
 The `status` of a register file is `open`, `resolved`, or `waived`. The
 reviewer agent writes `open` when it records the finding. The commit that
@@ -1232,10 +1235,11 @@ None.
   a waived finding, an edit of the finding template, a read-only
   `grep "status: waived"`, and a heredoc that writes a test fixture.
 - Each supported CLI runs `guard-human-fields` on the calls that
-  [Fields only the human writes](#fields-only-the-human-writes) lists. A test
-  shows that Codex refuses an `apply_patch` call that the guard cannot parse
-  and whose text names a guarded path. In Pi and OpenCode, a test shows that a
-  missing guard script blocks the call. `init-factory --cli opencode` links
+  [Fields only the human writes](#fields-only-the-human-writes) lists. For each
+  patch call, `apply_patch` in Codex, Copilot CLI, and Pi and `patch` in
+  OpenCode, a test shows that the CLI refuses a call that the guard cannot
+  parse and whose text names a guarded path. In Pi and OpenCode, a test shows
+  that a missing guard script blocks the call. `init-factory --cli opencode` links
   `agent-factory.ts` into `.opencode/plugins/`.
 - `docs/testing.yaml` declares a `node:test` suite for
   `packages/factory/config/**/*.test.ts`, and the suite passes on Node 22.6 or
@@ -1338,9 +1342,10 @@ The reviewer states the facts, and the rule states the severity.
 | DEC-58 | 2026-11-06 | decision   | stakeholder | A `critical` finding is lowered only when its `HEAD` version holds text in `stop_confirmed_by` and `stop_confirmed_reason`. The human confirms the stop in one commit and lowers the finding in a later one.                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Spec review SPEC-0071, requirements choice FC-C20                  |
 | DEC-59 | 2026-11-06 | decision   | stakeholder | A finding lowered from `critical` to `major` drops `stop_confirmed_by` and `stop_confirmed_reason`, because only a `critical` finding carries them. Its `HEAD` version keeps the confirmation in git history.                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Spec review SPEC-0071, requirements choice FC-C21                  |
 | DEC-60 | 2026-11-07 | decision   | stakeholder | A `minor` finding is one register file `docs/findings/register/<class>/<ID>.json` with the status `open` or `resolved`. The reviewer agent writes `open`, and the fixing commit sets `resolved` instead of deleting the file. `finding-lint` runs `schema-validate` on each file and recomputes its severity. No union merge and no `.gitattributes` line. Lowering and the ID rule of DEC-53 become checks between two file paths, and `guard-human-fields` guards `docs/findings/register/**/*.json`. The migration moves each line of the old `.jsonl` registers into one file. Replaces DEC-33, the register parts of DEC-49, and the deletion of FC-C13. | Architecture decision 1, option C                                  |
-| DEC-61 | 2026-11-07 | decision   | stakeholder | Claude Code registers `guard-human-fields` on `Edit`, `MultiEdit`, `Write`, `NotebookEdit`, and `Bash`. Codex refuses an `apply_patch` call that the guard cannot parse when its raw text names a guarded path. Copilot CLI uses `preToolUse` entries in a hook file under `.github/hooks/`. Pi and OpenCode block the call when the guard script is missing. This feature writes a first, guard-only OpenCode plugin at `packages/factory/config/plugins/agent-factory.ts`; `init-factory` links it into `.opencode/plugins/` and accepts the CLI name `opencode`. Refines DEC-51.                                                                           | Architecture decision 2                                            |
+| DEC-61 | 2026-11-07 | decision   | stakeholder | Claude Code registers `guard-human-fields` on `Edit`, `MultiEdit`, `Write`, `NotebookEdit`, and `Bash`. Codex refuses an `apply_patch` call that the guard cannot parse when its raw text names a guarded path. Copilot CLI uses `preToolUse` entries in a hook file under `.github/hooks/`. Pi and OpenCode block the call when the guard script is missing. This feature writes a first, guard-only OpenCode plugin at `packages/factory/config/plugins/agent-factory.ts`; `init-factory` links it into `.opencode/plugins/` and accepts the CLI name `opencode`. Refines DEC-51. Patch rule extended to every CLI by DEC-64.                               | Architecture decision 2                                            |
 | DEC-62 | 2026-11-07 | decision   | stakeholder | The TypeScript tests in `packages/factory/config/**/*.test.ts` run as a `node:test` suite on Node 22.6 or later, with no new dependency. The test-strategy agent writes the entry in `docs/testing.yaml`. Answers FC-QG25.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Architecture decision 3                                            |
 | DEC-63 | 2026-11-07 | decision   | stakeholder | A register file may hold `open`, `resolved`, or `waived`. Only the stakeholder sets `waived`, with non-empty `override_by` and `override_reason`, as on a finding file (DEC-44). `guard-human-fields` refuses `waived` from an agent. `deferred` and a missing status still fail. A waived register file is a `minor` finding that nobody will fix, accepted as is. Changes FC-C23 and the register part of DEC-60.                                                                                                                                                                                                                                           | FC-C23                                                             |
+| DEC-64 | 2026-11-07 | assumption | author      | Correction from the architecture review: the patch rule of DEC-61 covers every patch call, not only the Codex one. The OpenCode plugin guards the tools `edit`, `write`, `patch`, `shell`, and `execute`, and the guard checks the JavaScript of an `execute` call as the text of a shell call. Changes DEC-61.                                                                                                                                                                                                                                                                                                                                               | ATAM-0018                                                          |
 
 ## Review findings
 

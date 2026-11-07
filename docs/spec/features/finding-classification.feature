@@ -1085,13 +1085,20 @@ Feature: Finding classification
         | Codex       | Edit, Write, apply_patch, and Bash                     |
         | Copilot CLI | edit, apply_patch, write_file, create, and bash        |
         | Pi          | edit, write, write_file, create, apply_patch, and bash |
-        | OpenCode    | the edit, write, and shell tools of the plugin         |
+        | OpenCode    | edit, write, patch, shell, and execute                 |
 
-    Scenario: Codex refuses a patch that the guard cannot parse
-      Given an agent in Codex sends an apply_patch call whose text the guard cannot parse
+    Scenario Outline: Every CLI refuses a patch that the guard cannot parse
+      Given an agent in <cli> sends a <tool> call whose text the guard cannot parse
       And the raw text of the patch names docs/findings/FAGAN-0042.md
       When guard-human-fields checks the call
-      Then it refuses the call
+      Then guard-human-fields refuses the call
+
+      Examples:
+        | cli         | tool        |
+        | Codex       | apply_patch |
+        | Copilot CLI | apply_patch |
+        | Pi          | apply_patch |
+        | OpenCode    | patch       |
 
     Scenario Outline: A missing guard script blocks the call in Pi and OpenCode
       Given a project that uses <cli>
