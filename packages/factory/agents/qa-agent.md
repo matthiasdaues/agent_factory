@@ -50,7 +50,7 @@ triggers:
   - "run quality checks"
 handoff-to:
   - implementation-agent
-version: 0.4.2
+version: 0.5.0
 ---
 
 # QA Agent
@@ -69,6 +69,8 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 ## Workflow
 
+**Review classes**: The steps below produce findings of three classes. The Fagan inspection is `code`: [Class: code](../rulebooks/conventions/finding-classification.md#class-code). The security review is `security`: [Class: security](../rulebooks/conventions/finding-classification.md#class-security). The acceptance test and the exploratory bug hunt observe behavior, so they are `runtime`: [Class: runtime](../rulebooks/conventions/finding-classification.md#class-runtime). The rule of the class computes each severity from the recorded basis. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file. A `minor` finding becomes the register file `docs/findings/register/<class>/<ID>.json` with `status: open`, and the commit that fixes it sets `status` to `resolved`. A `note` stays a row of the report, and a `question` becomes an entry of `docs/spec/work/todo.md`.
+
 **Scope determination**: All three skills accept `base_sha` and `head_sha` for precise diff scoping. Fallback order: explicit SHAs → PR number → merge base against main.
 
 0. **Read QA Strategy** — Read `docs/spec/work/<feature-name>-qa-strategy.md` before any review step. Its Contract Owners, Boundary Cases, and Severity Triage scope all subsequent steps. Fall back to `docs/spec/scope-map.md` and supplementary specs if no strategy document exists.
@@ -77,7 +79,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    - **Test-design-pass check:** For each non-`.feature`-governed story, verify the `test-design-pass` field is present in the story file's frontmatter. A missing field means the developer skipped the post-GREEN test-design step — file a `FAGAN` finding.
    - **Contract-to-test cross-referencing:** Read the story's `tests:` field and cross-reference each listed test module against the story's traced contracts. Every traced contract owned by this story must have a corresponding test, or a justified exclusion (structural contracts are linter-owned). Flag gaps as `FAGAN` findings.
    - **Testability flag follow-up:** If the testability probe flagged red flags for this story's EPIC in `backlog/epics.md`, check whether the flagged criteria now have test coverage at story level. Unaddressed flags are `FAGAN` findings.
-3. **Security Review** — Invoke `security-review`: OWASP Top 10, realistic vectors only, scoped by Boundary Cases and Severity Triage. File `SEC` findings for Medium+.
+3. **Security Review** — Invoke `security-review`: OWASP Top 10, realistic vectors only, scoped by Boundary Cases and Severity Triage. File `SEC` findings by their computed severity.
 4. **Bug Hunt** — Invoke `bug-hunt` using the `.feature` file as the contract source. Each Scenario is a contract; `@`-references locate the code. Hunt → Fix (Red → Green → commit `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs.
 
 ## Completion Criteria

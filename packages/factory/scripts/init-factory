@@ -244,6 +244,13 @@ CODEX_STEP_GUARD_HOOK_COMMANDS = {
     "Bash": 'GUARD_TYPE=bash "$(git rev-parse --show-toplevel)"/.codex/hooks/step-guard.sh',
 }
 
+# The PreToolUse entries that wire guard-human-fields into .codex/hooks.json
+# beside the step-guard entries (BR-092, ADR-0035).
+CODEX_GUARD_HUMAN_FIELDS_HOOK_COMMAND = (
+    '"$(git rev-parse --show-toplevel)"/.codex/hooks/guard-human-fields'
+)
+CODEX_GUARD_HUMAN_FIELDS_TOOLS = ("Edit", "Write", "apply_patch", "Bash")
+
 COPILOT_STEP_GUARD_MATCHERS = {
     "Read": ("read_file", "view"),
     "Edit": ("edit", "apply_patch"),
@@ -1024,7 +1031,7 @@ def preflight_codex_adapter(target: Path, install: dict) -> None:
     # Standard factory symlinks (playbooks, rulebooks, scripts, INDEX.yaml)
     # are validated and created by symlink_factory_content.
     for name in ("block-dangerous-git.sh", "capture-codex-usage.sh", "step-guard.sh",
-                  "check-factory-freshness.sh"):
+                  "guard-human-fields", "check-factory-freshness.sh"):
         _preflight_codex_link(
             target / ".codex/hooks" / name,
             target / ".agent-factory/factory/config/hooks" / name,
@@ -1404,9 +1411,13 @@ def install_guard_human_fields(target: Path, install: dict, report: list[str],
                                clis: list[str] | None = None) -> None:
     """Install guard-human-fields beside step-guard (BR-092, ADR-0035).
 
-    Claude Code only; the other CLIs follow in their own stories."""
+    Pi and OpenCode follow in their own stories."""
     if _wants(clis, "claude"):
         _install_claude_guard_human_fields(target, install, report)
+    if _wants(clis, "copilot"):
+        _install_copilot_guard_human_fields(target, install, report)
+    if _wants(clis, "codex"):
+        _install_codex_guard_human_fields(target, install, report)
 
 
 def install_freshness_check(target: Path, install: dict, report: list[str],
@@ -1762,14 +1773,50 @@ def _install_copilot_step_guard(target: Path, install: dict, report: list[str]) 
         )
 
 
+def _install_copilot_guard_human_fields(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Link the guard and its Copilot hook file into .github/hooks/ beside step-guard.json."""
+    hooks_dir = target / ".github" / "hooks"
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    install["github_ignored_entries"].add(".github/hooks")
+
+    for name in ("guard-human-fields", "guard-human-fields.json"):
+        ensure_symlink(
+            hooks_dir / name,
+            target / ".agent-factory" / "factory" / "config" / "hooks" / name,
+            report,
+            install=install,
+        )
+
+
 def _install_codex_step_guard(target: Path, install: dict, report: list[str]) -> None:
     """Merge Factory's Codex step-guard hooks into project hook config."""
+    _install_codex_pre_tool_use(
+        target, install, report, "step-guard.sh", CODEX_STEP_GUARD_HOOK_COMMANDS,
+    )
+
+
+def _install_codex_guard_human_fields(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Merge the guard-human-fields entries into .codex/hooks.json beside step-guard."""
+    _install_codex_pre_tool_use(
+        target, install, report, "guard-human-fields",
+        {tool: CODEX_GUARD_HUMAN_FIELDS_HOOK_COMMAND for tool in CODEX_GUARD_HUMAN_FIELDS_TOOLS},
+    )
+
+
+def _install_codex_pre_tool_use(
+    target: Path, install: dict, report: list[str], script: str, commands: dict[str, str],
+) -> None:
+    """Link a hook script into .codex/hooks/ and wire one PreToolUse entry per matcher."""
     hooks_dir = _ensure_codex_hooks_dir(target, install, report)
-    install["codex_ignored_entries"].add(".codex/hooks/step-guard.sh")
+    install["codex_ignored_entries"].add(f".codex/hooks/{script}")
 
     ensure_symlink(
-        hooks_dir / "step-guard.sh",
-        target / ".agent-factory" / "factory" / "config" / "hooks" / "step-guard.sh",
+        hooks_dir / script,
+        target / ".agent-factory" / "factory" / "config" / "hooks" / script,
         report,
         install=install,
     )
@@ -1780,7 +1827,7 @@ def _install_codex_step_guard(target: Path, install: dict, report: list[str]) ->
         raise Collision(f"{path}: 'hooks.PreToolUse' exists but isn't a list")
 
     changed = False
-    for event, command in CODEX_STEP_GUARD_HOOK_COMMANDS.items():
+    for event, command in commands.items():
         already_wired = any(
             isinstance(entry, dict)
             and entry.get("matcher") == event
@@ -1806,7 +1853,8 @@ def _install_codex_step_guard(target: Path, install: dict, report: list[str]) ->
 
     if changed or not existed:
         path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-        log(report, ".codex/hooks.json: wired step-guard PreToolUse entries")
+        label = script.removesuffix(".sh")
+        log(report, f".codex/hooks.json: wired {label} PreToolUse entries")
 
 
 def _ensure_pi_extensions_dir(target: Path, install: dict, report: list[str]) -> Path:
