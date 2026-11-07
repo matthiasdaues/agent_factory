@@ -13,8 +13,14 @@ Guarded paths, relative to the git top level of the target file:
   docs/findings/register/**/<name>.json  register files
   docs/proposals/<name>.md               the tables under `# Appendix`
 
-Input: the PreToolUse payload of Claude Code on standard input, for the
-tools Edit, MultiEdit, Write, NotebookEdit, and Bash.
+Input: the tool call on standard input, in the format of its CLI:
+
+  Claude Code, Codex   `tool_name` and `tool_input` (PreToolUse)
+  Copilot CLI          `toolName` and `toolArgs`, an object or a JSON string
+  Pi extension         `toolName` and `input`
+
+Guarded tools: Edit, MultiEdit, Write, NotebookEdit, and Bash, and the
+lowercase names edit, write, write_file, create, bash, and apply_patch.
 
 "Sets" means a value appears that was not there before. Edit and MultiEdit
 apply each edit to the current file and compare the values before and after;
@@ -22,7 +28,14 @@ when the file is missing or an old_string is not in it, the guard compares
 old_string with new_string. Write and NotebookEdit compare the new content
 with the current file. Bash is checked only when it writes into a guarded
 path: a redirect, tee, sed -i, perl -i, or an interpreter that names the
-path. Then any human value in the command text refuses it.
+path. Then any human value in the command text refuses it. The guard follows
+each literal `cd <dir>` of the command line; a `cd` inside parentheses ends
+with the subshell.
+
+apply_patch: the guard reads the paths and the removed and added lines from
+the patch text. Each hunk of `*** Update File:` is checked as an edit, each
+`*** Add File:` as a write. A patch the guard cannot parse is refused when
+its raw text names a guarded path.
 
 Exit 0 lets the call through. Exit 2 refuses it, with a message on standard
 error that names the file and the field. The guard writes no file.
@@ -30,6 +43,7 @@ error that names the file and the field. The guard writes no file.
 Blind spot (DEC-42): the guard checks the text of each call. An agent that
 hides the field name passes it, such as with a field name built from pieces
 in a script, a `cp` of a prepared file, or `git checkout <ref> -- <file>`.
+A `cd` to a variable, such as `cd "$DIR"`, is part of the blind spot.
 """
 
 from __future__ import annotations
@@ -63,6 +77,9 @@ INTERPRETERS = {"python", "python3", "perl", "ruby", "node", "awk", "gawk"}
 SHELLS = {"sh", "bash", "zsh", "dash"}
 SEPARATORS = {";", "&&", "||", "|", "&", "(", ")"}
 REDIRECTS = {">", ">>", ">|", "&>", "&>>", "1>", "1>>", "2>", "2>>"}
+WRITE_TOOLS = {"write", "write_file", "create"}
+PATCH_FILE = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+)$")
+PATH_WORD = re.compile(r"[\w./*-]+")
 
 
 def main() -> int:
@@ -84,17 +101,19 @@ def main() -> int:
 
 def check_call(payload: dict) -> str | None:
     """Return the refusal message for a call that sets a human field, else None."""
-    tool = payload.get("tool_name")
-    args = payload.get("tool_input")
-    if not isinstance(args, dict):
+    tool, args = _tool_call(payload)
+    if args is None:
         return None
     cwd = Path(payload.get("cwd") or os.getcwd())
+    name = tool.lower()
 
-    if tool == "Bash":
-        return check_shell(str(args.get("command") or ""), cwd)
+    if name == "bash":
+        return check_shell(_command_text(args.get("command") or args.get("cmd")), cwd)
+    if name == "apply_patch":
+        return check_patch(_patch_text(args), cwd)
 
-    raw_path = args.get("notebook_path") if tool == "NotebookEdit" else args.get("file_path")
-    if not isinstance(raw_path, str) or not raw_path:
+    raw_path = _first_text(args, ("notebook_path", "file_path", "filePath", "path"))
+    if not raw_path:
         return None
     path = _absolute(raw_path, cwd)
     rel, kind = guarded(path)
@@ -102,16 +121,57 @@ def check_call(payload: dict) -> str | None:
         return None
     current = _read(path)
 
-    if tool == "Write":
-        return _compare(rel, kind, current or "", str(args.get("content") or ""))
+    if name in WRITE_TOOLS:
+        return _compare(rel, kind, current or "", _first_text(args, ("content", "file_text")))
     if tool == "NotebookEdit":
         return _compare(rel, kind, current or "", str(args.get("new_source") or ""))
-    if tool == "Edit":
+    if name == "edit":
         return check_edits(rel, kind, current, [args])
     if tool == "MultiEdit":
         edits = args.get("edits")
         return check_edits(rel, kind, current, edits if isinstance(edits, list) else [])
     return None
+
+
+def _tool_call(payload: dict) -> tuple[str, dict | None]:
+    """The tool name and its arguments, whichever CLI format the payload has."""
+    tool = str(payload.get("tool_name") or payload.get("toolName") or "")
+    args = next(
+        (payload[key] for key in ("tool_input", "toolArgs", "input") if key in payload),
+        None,
+    )
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except json.JSONDecodeError:
+            args = {"patch": args} if tool.lower() == "apply_patch" else None
+    return tool, args if isinstance(args, dict) else None
+
+
+def _first_text(args: dict, keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = args.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def _command_text(command: object) -> str:
+    """A shell command as text; Codex may pass it as an argument list."""
+    if isinstance(command, list):
+        return shlex.join(str(word) for word in command)
+    return str(command or "")
+
+
+def _patch_text(args: dict) -> str:
+    """The patch text of an apply_patch call; Codex may pass an argument list."""
+    for key in ("patch", "input", "command"):
+        value = args.get(key)
+        if isinstance(value, list):
+            value = next((v for v in reversed(value) if isinstance(v, str)), "")
+        if isinstance(value, str) and value:
+            return value
+    return ""
 
 
 def check_edits(rel: str, kind: str, current: str | None, edits: list) -> str | None:
@@ -123,8 +183,8 @@ def check_edits(rel: str, kind: str, current: str | None, edits: list) -> str | 
     for edit in edits:
         if not isinstance(edit, dict):
             continue
-        old = str(edit.get("old_string") or "")
-        new = str(edit.get("new_string") or "")
+        old = str(edit.get("old_string") or edit.get("old_str") or "")
+        new = str(edit.get("new_string") or edit.get("new_str") or "")
         if text is not None and old and old in text:
             after = text.replace(old, new) if edit.get("replace_all") else text.replace(old, new, 1)
             refusal = _compare(rel, kind, text, after)
@@ -133,6 +193,90 @@ def check_edits(rel: str, kind: str, current: str | None, edits: list) -> str | 
             refusal = _compare(rel, kind, old, new)
         if refusal:
             return refusal
+    return None
+
+
+def check_patch(text: str, cwd: Path) -> str | None:
+    """Refuse a patch that sets a human field, or that cannot be parsed and names a guarded path."""
+    files = parse_patch(text)
+    if files is None:
+        return check_unparsable(text, cwd)
+    for op, raw_path, body in files:
+        if op == "Delete":
+            continue
+        path = _absolute(raw_path, cwd)
+        rel, kind = guarded(path)
+        if kind is None:
+            continue
+        current = _read(path)
+        if op == "Add":
+            refusal = _compare(rel, kind, current or "", "\n".join(body))
+        else:
+            refusal = check_edits(rel, kind, current, _hunk_edits(body))
+        if refusal:
+            return refusal
+    return None
+
+
+def parse_patch(text: str) -> list[tuple[str, str, list[str]]] | None:
+    """The file sections of an apply_patch text, as (operation, path, body lines).
+
+    A `*** Move to:` line becomes an Update section of its own with the same
+    hunks. Returns None when the text breaks the patch format."""
+    lines = text.strip("\n").split("\n")
+    if len(lines) < 2 or lines[0].strip() != "*** Begin Patch" or lines[-1].strip() != "*** End Patch":
+        return None
+    files: list[tuple[str, str, list[str]]] = []
+    for line in lines[1:-1]:
+        header = PATCH_FILE.match(line)
+        if header:
+            files.append((header.group(1), header.group(2).strip(), []))
+            continue
+        if not files:
+            return None
+        op, _, body = files[-1]
+        if op == "Update" and line.startswith("*** Move to: "):
+            files.append(("Update", line[len("*** Move to: "):].strip(), body))
+        elif line == "*** End of File":
+            continue
+        elif op == "Add" and line.startswith("+"):
+            body.append(line[1:])
+        elif op == "Update" and (line.startswith(("@@", " ", "-", "+")) or line == ""):
+            body.append(line)
+        else:
+            return None
+    return files or None
+
+
+def _hunk_edits(body: list[str]) -> list[dict]:
+    """One edit per hunk: old text from the context and `-` lines, new text from the context and `+` lines."""
+    hunks: list[list[str]] = [[]]
+    for line in body:
+        if line.startswith("@@"):
+            hunks.append([])
+        else:
+            hunks[-1].append(line)
+    edits = []
+    for hunk in hunks:
+        old = [line[1:] for line in hunk if not line.startswith("+")]
+        new = [line[1:] for line in hunk if not line.startswith("-")]
+        if hunk:
+            edits.append({"old_string": "\n".join(old), "new_string": "\n".join(new)})
+    return edits
+
+
+def check_unparsable(text: str, cwd: Path) -> str | None:
+    for word in PATH_WORD.findall(text):
+        if not (_matches(word, ".md") or _matches(word, ".json")):
+            continue
+        rel, kind = guarded(_absolute(word, cwd))
+        if kind is not None:
+            return (
+                f"guard-human-fields: refused. The guard cannot parse the patch, and its "
+                f"text names {rel}. Only the stakeholder writes a human field there, in an "
+                "editor or with a `!` command (BR-092). Send the change as a well-formed "
+                "patch, an edit, or a write, so the guard can check it."
+            )
     return None
 
 
@@ -166,19 +310,31 @@ def shell_write_targets(command: str, cwd: Path) -> list[Path]:
         # Unbalanced quotes: treat every path-like word of the text as a target.
         return [_absolute(word, cwd) for word in re.findall(r"[\w./*-]+", command)]
 
-    for simple in _split_commands(words):
-        targets.extend(_absolute(word, cwd) for word in _simple_targets(simple, cwd))
+    # Follow each literal `cd` in order; a subshell restores the directory (BUG-0120).
+    subshells: list[Path] = []
+    simple: list[str] = []
+    for word in words + [";"]:
+        if word not in SEPARATORS:
+            simple.append(word)
+            continue
+        if simple and simple[0] == "cd":
+            cwd = _changed_directory(simple[1:], cwd)
+        elif simple:
+            targets.extend(_absolute(w, cwd) for w in _simple_targets(simple, cwd))
+        simple = []
+        if word == "(":
+            subshells.append(cwd)
+        elif word == ")" and subshells:
+            cwd = subshells.pop()
     return targets
 
 
-def _split_commands(words: list[str]) -> list[list[str]]:
-    commands: list[list[str]] = [[]]
-    for word in words:
-        if word in SEPARATORS:
-            commands.append([])
-        else:
-            commands[-1].append(word)
-    return [c for c in commands if c]
+def _changed_directory(args: list[str], cwd: Path) -> Path:
+    """The directory after `cd <args>`; a variable or a missing argument keeps cwd."""
+    args = [a for a in args if a not in ("--", "-P", "-L")]
+    if len(args) != 1 or re.search(r"[$`~*?\[]", args[0]) or args[0] == "-":
+        return cwd
+    return _absolute(args[0], cwd)
 
 
 def _simple_targets(words: list[str], cwd: Path) -> list[str]:
@@ -198,8 +354,10 @@ def _simple_targets(words: list[str], cwd: Path) -> list[str]:
     elif name in INTERPRETERS:
         # A script can write any path that its text names.
         targets.extend(re.findall(r"[\w./*-]+", " ".join(rest)))
-    elif name in SHELLS and "-c" in rest:
-        script = rest[rest.index("-c") + 1] if rest.index("-c") + 1 < len(rest) else ""
+    elif name in SHELLS:
+        # `-c`, or a flag group that ends in c, such as Codex's `bash -lc`.
+        flag = next((i for i, w in enumerate(rest) if re.match(r"^-\w*c$", w)), None)
+        script = rest[flag + 1] if flag is not None and flag + 1 < len(rest) else ""
         targets.extend(str(p) for p in shell_write_targets(script, cwd))
     return targets
 
