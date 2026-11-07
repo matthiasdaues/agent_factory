@@ -63,7 +63,7 @@ OpenCode loads it at session start.
 `agent_factory_hook-finding-lint` in
 `packages/factory/config/pre-commit-config.yaml`. Its entry in
 `packages/factory/config/hook-metadata.yaml` is `trade_off: none` and
-`availability: requires-path:docs/findings`, so fitting includes it without
+`availability: always`, so fitting includes it without
 asking. A project that finished its fitting earlier gets the hook from
 `update-factory`. The update re-splices the `agent_factory_hook-*` block of
 `.pre-commit-config.yaml` from the template of the new release and writes it

@@ -466,7 +466,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         initFactory -> guardCodex "Writes the PreToolUse entries for Edit, Write, apply_patch, and Bash into .codex/hooks.json beside the step-guard entries" "" "Finding Classification"
         initFactory -> guardCopilot "Writes the preToolUse entries for edit, apply_patch, write_file, create, and bash into a hook file under .github/hooks/, beside step-guard.json" "" "Finding Classification"
         initFactory -> guardPi "Links the project-local guard extension beside step-guard.ts" "" "Finding Classification"
-        initFactory -> projectFilesystem "Splices the factory hook block into .pre-commit-config.yaml; the block holds agent_factory_hook-finding-lint, which hook-metadata.yaml marks trade_off none and availability requires-path:docs/findings, so fitting includes it without asking" "" "Finding Classification"
+        initFactory -> projectFilesystem "Splices the factory hook block into .pre-commit-config.yaml; the block holds agent_factory_hook-finding-lint, which hook-metadata.yaml marks trade_off none and availability always, so fitting includes it without asking" "" "Finding Classification"
         updateFactory -> projectFilesystem "Re-splices the agent_factory_hook-* block of .pre-commit-config.yaml from the template of the new release with merge-precommit-config --update, so an earlier install gets agent_factory_hook-finding-lint; shows the diff and writes on yes" "" "Finding Classification"
         initFactory -> opencodePlugin "With --cli opencode, links .agent-factory/factory/config/plugins/agent-factory.ts into .opencode/plugins/; the OpenCode CLI feature extends the same plugin file" "" "Finding Classification,Cross-feature"
 
