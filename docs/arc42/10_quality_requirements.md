@@ -282,6 +282,54 @@ References: [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin), [8
 
 References: [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin), [ADR-0033](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)
 
+### QS-24: A critical finding stops every dispatch and merge
+
+| Field             | Description                                                                                                                                                                                                                                                                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety (critical stop)                                                                                                                                                                                                                                                                                                              |
+| Stimulus          | A review commits a `critical` finding with empty `stop_confirmed_by`. Then an agent sets its status to `resolved`, lowers its severity, or removes its file in the working tree, and runs `dispatch prepare-wave` and `premerge-check`.                                                                                             |
+| Environment       | A feature branch in a worktree. The orchestrator runs headless.                                                                                                                                                                                                                                                                     |
+| Response          | Both scripts read the finding in the working tree and at `HEAD`, print the stop notice, write nothing, and exit `1`. `block-dangerous-git` denies `git merge`, because no marker exists. After the stakeholder writes both confirmation fields, both scripts run again.                                                             |
+| Response measure  | For each of the three working-tree changes and for no change, `dispatch prepare-wave` and `premerge-check` exit `1`, the ledger and `.current-work/premerge-check-ok` stay unchanged, and `git merge` is denied. With both confirmation fields set, `dispatch prepare-wave` runs, and `premerge-check` goes on to its other checks. |
+
+References: [6.17](06_runtime_view.md#617-a-critical-finding-stops-the-run), [5.12](05_building_block_view.md#512-level-2-component-view----finding-classification)
+
+### QS-25: No agent writes a human field
+
+| Field             | Description                                                                                                                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Security (human fields)                                                                                                                                                                                                                                     |
+| Stimulus          | An agent tries to write `stop_confirmed_by: human`, a non-null `override_by`, or `status: waived` into a finding file, a register file, or the Appendix of a proposal, through an edit, a write, a patch, or a shell redirect.                              |
+| Environment       | Each of Claude Code, Codex, Copilot CLI, Pi, and OpenCode, with the Factory installed. In Pi and OpenCode, also with the guard script removed.                                                                                                              |
+| Response          | The CLI's entry point runs `guard-human-fields`, which refuses the call. Pi and OpenCode block the call when the script is missing. An edit that leaves an existing human field unchanged passes.                                                           |
+| Response measure  | Every guarded call type of every CLI is refused, and the target file is unchanged afterwards. A Codex `apply_patch` that the guard cannot parse and that names a guarded path is refused. A field name built from pieces in a script is the one known pass. |
+
+References: [6.18](06_runtime_view.md#618-the-guard-refuses-a-human-field), [ADR-0035](../adr/0035-guard-human-fields-in-every-cli.md)
+
+### QS-26: Parallel reviews merge their registers without loss
+
+| Field             | Description                                                                                                                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Correctness (registers)                                                                                                                                                                       |
+| Stimulus          | On one branch, a commit fixes RECON-0027 and sets its register file to `resolved`. On another branch, a review adds a new register file in the same register. Both branches merge into `dev`. |
+| Environment       | No merge driver and no `.gitattributes` line for the registers.                                                                                                                               |
+| Response          | Git merges both changes as changes to two different files.                                                                                                                                    |
+| Response measure  | The merge has no conflict. RECON-0027 holds `resolved`, the new file holds `open`, and `finding-lint` exits `0` on the merge result.                                                          |
+
+References: [ADR-0034](../adr/0034-one-register-file-per-minor-finding.md), [5.12](05_building_block_view.md#512-level-2-component-view----finding-classification)
+
+### QS-27: A wrong in_use answer fails the commit
+
+| Field             | Description                                                                                                                                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety (deterministic validation)                                                                                                                                                                        |
+| Stimulus          | A reviewer commits a code finding with `in_use: false`, and every line of its artifact range exists unchanged on `dev`, on a release tag, or in the installed copy, also after a move to another file.   |
+| Environment       | The pre-commit hook in the main checkout or in a linked worktree, with `docs/factory-settings.yaml` committed.                                                                                           |
+| Response          | `finding-lint --staged` finds the line identities in that place and rejects the finding.                                                                                                                 |
+| Response measure  | The commit fails with exit `1` and the message of the first place found, such as `artifact lines exist unchanged on dev`. A range whose lines changed on the feature branch passes with `in_use: false`. |
+
+References: [6.19](06_runtime_view.md#619-finding-lint-at-a-commit)
+
 ## 10.2 Quality Attribute Priority
 
 | Priority | Quality attribute                        | Scenarios |
@@ -309,6 +357,10 @@ References: [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin), [A
 | 2        | Security (counter writes)                | QS-21     |
 | 1        | Correctness (counter move)               | QS-22     |
 | 2        | Operability (counter collision)          | QS-23     |
+| 1        | Safety (critical stop)                   | QS-24     |
+| 1        | Security (human fields)                  | QS-25     |
+| 1        | Correctness (registers)                  | QS-26     |
+| 2        | Safety (deterministic validation)        | QS-27     |
 
 ## Referenced from
 

@@ -49,6 +49,15 @@ create a story, finding, todo entry, or ADR. The
 [Deployment](../assets/images/Deployment.svg) view shows the container on the
 workstation. The remote itself is outside the Factory's deployment.
 
+Finding classification adds no process. `finding-lint`, the stop check in
+`dispatch`, and `premerge-check` run as scripts in the checkout. The Finding
+Registers and Factory Settings are tracked files under `docs/`, and the
+Finding Schemas ship with the Factory under
+`.agent-factory/factory/rulebooks/schemas/`. `guard-human-fields` runs in the
+process of each CLI hook. In OpenCode, `init-factory --cli opencode` links the
+plugin `agent-factory.ts` into `.opencode/plugins/`, and OpenCode loads it at
+session start.
+
 ## 7.2 Lifecycle Boundaries
 
 `init-factory --with-usage` and `init-factory --add usage` install the analysis

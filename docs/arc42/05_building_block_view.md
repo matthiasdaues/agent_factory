@@ -33,6 +33,9 @@ and local JSONL spool.
 | Working Output             | Files under `docs/spec/work/`, `docs/reviews/`, and `docs/findings/`; several declared writers, each changing only its part                                                                                                                                    | Markdown (storage)                |
 | Core List                  | `rulebooks/core-artifacts.yaml` under the Factory root (`packages/factory/` in this repository, `.agent-factory/factory/` in an installed project): every core and seam artifact with its path pattern, sample path, family, and whether a project may lack it | YAML (storage)                    |
 | **ID Allocation**          | Claims the number of every new story, finding, todo entry, and ADR on the project's git remote; leaves no ref and no object in the clone                                                                                                                       | Script, git CLI                   |
+| Finding Registers          | The folders `docs/findings/register/<class>/`, one per review class: one JSON register file `<ID>.json` per `minor` finding, with status `open`, `resolved`, or `waived`                                                                                       | JSON (storage)                    |
+| Finding Schemas            | `packages/factory/rulebooks/schemas/finding-register-<class>.schema.json`, one per review class, each with the basis shape of its class                                                                                                                        | JSON Schema (storage)             |
+| Factory Settings           | `docs/factory-settings.yaml`, tracked: `release_tag_patterns` names the git tags that count as releases for the `in_use` check. The project writes it; `init-factory` and `update-factory` never do                                                            | YAML (storage)                    |
 
 ![Containers](../assets/images/Containers.svg)
 
@@ -330,6 +333,8 @@ The **OpenCode Plugin** is a V2 plugin adapter that maps Factory safety controls
 | **Orientation Injector** | Injects `AGENTS.opencode.md` into session context via `session.hook("context")`; describes OpenCode tool names and session-start procedure                              | OpenCode Catalog           | (none)      |
 | **Health Monitor**       | Tracks plugin health lifecycle (UNLOADED → HEALTHY → UNHEALTHY); fails closed on initialization, manifest, permission, or worktree failures with named recovery actions | (none)                     | (none)      |
 
+The component **guard entry: OpenCode plugin** runs the hook `guard-human-fields` from `execute.before`. The finding-classification feature writes it as the first and only component of the plugin file, and the OpenCode CLI feature adds the six components above to the same file. [5.12](#512-level-2-component-view----finding-classification) describes it.
+
 The plugin implements a fail-closed trust model: any failure in initialization, manifest loading, permission evaluation, or worktree creation denies the operation and reports the specific failed control with a recovery action. The health lifecycle state machine is documented in [state-machines.md](../spec/state-machines.md).
 
 ## 5.10 Level 2: Component View -- Factory Agents
@@ -414,6 +419,78 @@ reports the terminal state. The adapter also performs every transition of the
 `READING`, the marker in `MARKING`, the check of `origin` in `RESUMING`, and
 the create-only push in `PUSHING`. The three components ship as one script, so
 `dependency-rules.dsl` holds no rule for them.
+
+## 5.12 Level 2: Component View -- Finding Classification
+
+A reviewer records each finding with its basis, the yes-or-no answers and
+choices that the rule of its review class turns into a severity. A
+`critical` or `major` finding becomes a finding file `docs/findings/<ID>.md`
+in Working Output. A `minor` finding becomes one register file in the Finding
+Registers ([ADR-0034](../adr/0034-one-register-file-per-minor-finding.md)).
+Four mechanisms then act on the files: the stop, the guard, the lint, and the
+one-time migration. [8.19](08_crosscutting_concepts.md#819-finding-classification)
+describes the concept. The view spans four containers, so it shows the
+components of each mechanism together.
+
+![Finding Classification components](../assets/images/FindingClassification.svg)
+
+The stop keeps a run from dispatching or merging while a `critical` finding
+is unconfirmed:
+
+| Component          | Container  | Responsibility                                                                                                                                                                                                                                              |
+| ------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Stop Check**     | Dispatcher | Reads each `docs/findings/*.md` in the working tree and its `HEAD` version. A finding stops the run when one version is critical and neither holds text in both `stop_confirmed_by` and `stop_confirmed_reason`. Prints the stop notice and changes no file |
+| **dispatch**       | Dispatcher | Calls the stop check before `init`, `prepare-wave`, `prepare-story`, `mark-dispatching`, `mark-dispatched`, `re-dispatch`, `escalate`, `refresh-story`, `merge-story`, and `close-wave`, and exits `1` during a stop                                        |
+| **premerge-check** | Validator  | Calls the stop check before any other check. During a stop it writes no `.current-work/premerge-check-ok` marker, so `block-dangerous-git.sh` denies `git merge`                                                                                            |
+
+The guard keeps agents from writing human fields. One script holds the rule,
+and each CLI calls it from its own entry point
+([ADR-0035](../adr/0035-guard-human-fields-in-every-cli.md)):
+
+| Component                        | Container       | Responsibility                                                                                                                                                                                                                    |
+| -------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **guard-human-fields**           | Validator       | Reads one tool call and, for a write, the current target file. Refuses a call that sets a human field in `docs/findings/*.md`, `docs/findings/register/**/*.json`, or the Appendix tables of `docs/proposals/*.md`, with exit `2` |
+| **guard entry: Claude Code**     | Validator       | `PreToolUse` entries for `Edit`, `MultiEdit`, `Write`, `NotebookEdit`, and `Bash`                                                                                                                                                 |
+| **guard entry: Codex**           | Validator       | `PreToolUse` entries for `Edit`, `Write`, `apply_patch`, and `Bash`. The guard reads the paths of an `apply_patch` call from the patch text and refuses a patch it cannot parse when the raw text names a guarded path            |
+| **guard entry: Copilot CLI**     | Validator       | `preToolUse` entries in a hook file under `.github/hooks/` for `edit`, `apply_patch`, `write_file`, `create`, and `bash`                                                                                                          |
+| **guard entry: Pi extension**    | Validator       | The `tool_call` event of a project-local extension. Blocks the call when the guard script is missing                                                                                                                              |
+| **guard entry: OpenCode plugin** | OpenCode Plugin | `execute.before` of `agent-factory.ts`. Blocks the call when the guard script is missing. The first version of the plugin holds only this component                                                                               |
+
+The lint checks every finding file and register file at each commit and each
+`validate` run:
+
+| Component                 | Container | Responsibility                                                                                                                                                                                                                                                                                                             |
+| ------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **finding-lint**          | Validator | Recomputes the severity from the basis, runs `schema-validate` on each register file, compares each file with its `HEAD` version for a lowering, a removal, or a lost `review_class`, and runs the git check of `in_use` when a code, runtime, or security finding is new or its basis or artifact changed. Writes nothing |
+| **Main Checkout Locator** | Validator | The helper `packages/factory/scripts/_main_checkout.py`. Finds the main checkout from a linked worktree, so `finding-lint` blames the installed copy there                                                                                                                                                                 |
+| **schema-validate**       | Validator | Validates a register file against the schema of its class                                                                                                                                                                                                                                                                  |
+
+The migration runs once:
+
+| Component           | Container      | Responsibility                                                                                                                                                                                                                      |
+| ------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Migration Agent** | Factory Agents | The role of the session that classifies every open finding without `review_class`, shows every result at one pause point, and then rewrites the files and moves each `minor` result and each old `.jsonl` line into a register file |
+
+Two dependencies cross into other features:
+
+- **`next-id --plan-seed`** of counter-ids-fitting counts the file names of
+  the register files on every local and remote-tracking branch as IDs in use.
+  BR-099 of that feature still counts `.jsonl` lines, so its stories change
+  the count.
+- **The OpenCode CLI feature** extends the plugin file that this feature
+  writes. `init-factory` already accepts `--cli opencode` and links the plugin
+  into `.opencode/plugins/`.
+
+The components perform the guarded and rejected transitions of the
+[Finding Lifecycle](../spec/state-machines.md#finding-lifecycle). A reviewer
+agent performs **Recorded**, **FixVerified**, and **Raised**. The commit that
+fixes a `minor` finding performs **Fixed**. The Migration Agent performs
+**NoArtifact** and the migration's **Recorded**. The stakeholder performs
+**StopConfirmed**, **Waived**, **Lowered**, and **AnswerChanged**.
+`finding-lint` rejects the forbidden events, such as **Removed**,
+**ClassRemoved**, and **AgentLowers**. `guard-human-fields` refuses
+**AgentConfirms** and **AgentWaives**. The stop check reads
+**STOPPING** each time it runs, because the stop is no state of its own.
 
 ## Referenced from
 

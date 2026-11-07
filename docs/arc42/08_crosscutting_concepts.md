@@ -535,6 +535,48 @@ the [Claim Lifecycle](../spec/state-machines.md#claim-lifecycle), and the
 [Move Lifecycle](../spec/state-machines.md#move-lifecycle) define the
 details.
 
+## 8.19 Finding Classification
+
+The same review, run twice, used to rate a borderline finding differently, so
+the fix loop changed length by chance. So a reviewer records facts about a
+finding, and a fixed rule computes its severity: `critical`, `major`,
+`minor`, or `note`. The facts are the basis: yes-or-no answers, such as
+whether the defective artifact is already in use, or a choice from a fixed
+list. The rulebook `finding-classification.md` holds one rule per review
+class, and `finding-lint` recomputes the severity from the basis at every
+commit. This is [8.1](#81-agentic-creation-deterministic-validation) applied
+to findings: the agent classifies, and a script checks.
+
+**One threshold blocks.** A finding blocks when its category is `defect` or
+`risk` and its severity is `critical` or `major`. A `major` finding loops
+back to its author. A `critical` finding stops the run, because its harm may
+already exist outside the run. A `minor` finding becomes a register file and
+never blocks ([ADR-0034](../adr/0034-one-register-file-per-minor-finding.md)).
+
+**Git settles `in_use`.** For a code, runtime, or security finding,
+`finding-lint` compares the line identities of the artifact range with
+`dev`, `main`, their remote branches, the release tags of
+`docs/factory-settings.yaml`, and the installed copy. When every line exists
+unchanged in one of these places, `in_use` must be `true`. The check sets a
+lower bound only: a reviewer may still answer `true` when git finds no match.
+
+**Only the stakeholder lifts a block.** The human fields are a non-null
+`override_by`, `override_reason`, `stop_confirmed_by`, or
+`stop_confirmed_reason`, and the status `waived`. They are the only way to
+end a stop, set a finding aside, or lower it. Three mechanisms hold this:
+
+- `guard-human-fields` refuses an agent call that sets a human field, in
+  every CLI ([ADR-0035](../adr/0035-guard-human-fields-in-every-cli.md)).
+- `finding-lint` rejects a lowering, a removal, or a lost `review_class`
+  without the human fields, by comparing each file with its `HEAD` version.
+- The stop check in `dispatch` and `premerge-check` reads the working tree
+  and `HEAD`, so an uncommitted change cannot end a stop
+  ([6.17](06_runtime_view.md#617-a-critical-finding-stops-the-run)).
+
+The guard reads the text of each call. An agent that builds a field name in
+a script gets past it, and no local check can tell a human from an agent with
+a shell. The design for that path is deferred to the gate-evidence proposal.
+
 ## Referenced from
 
 - [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md)

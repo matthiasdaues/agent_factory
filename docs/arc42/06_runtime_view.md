@@ -984,6 +984,226 @@ sequenceDiagram
   [validation-rules.md](../spec/validation-rules.md#next-id---move-to-origin)
   hold the rules.
 
+## 6.17 A Critical Finding Stops the Run
+
+Derived from dynamic view `CriticalStop` in [`architecture.dsl`](../spec/architecture.dsl).
+
+A bug hunt files BUG-0037 as `critical`: the defective lines of `dispatch`
+exist unchanged in the installed copy, so real runs may already have lost
+merges. The orchestrator then runs the next step of the wave.
+
+```mermaid
+sequenceDiagram
+    participant CA as CLI-Invoked Agent
+    participant DC as dispatch
+    participant SC as Stop Check
+    participant WO as Working Output
+    participant G as Git
+    participant PC as premerge-check
+    participant BG as block-dangerous-git.sh
+    participant SF as State Files
+    actor SH as Stakeholder
+
+    CA->>DC: 1. Runs dispatch prepare-wave
+    DC->>SC: 2. Calls the stop check before the subcommand
+    SC->>WO: 3. Reads BUG-0037.md, severity critical, stop_confirmed_by empty
+    SC->>G: 4. Reads the HEAD version of BUG-0037.md, which is not confirmed either
+    SC->>CA: 5. Prints the stop notice, dispatch writes nothing and exits 1
+    CA->>PC: 6. Runs premerge-check for a story branch
+    PC->>SC: 7. Calls the stop check before any other check
+    SC->>CA: 8. Prints the same stop notice, premerge-check writes no marker and exits 1
+    CA->>BG: 9. Runs git merge
+    BG->>SF: 10. Finds no premerge-check-ok marker
+    BG->>CA: 11. Denies the merge
+    SH->>WO: 12. Runs each damage check, then writes stop_confirmed_by and stop_confirmed_reason in an editor
+    CA->>DC: 13. Runs dispatch prepare-wave again
+    DC->>SC: 14. Calls the stop check
+    SC->>WO: 15. Finds both confirmation fields with text
+    Note over SC: The stop ends, and BUG-0037 loops like a major finding
+```
+
+**Key Points:**
+
+- The stop check reads the working tree and `HEAD` (DEC-57). A status change,
+  a lower severity, or a removed file in the working tree keeps the `HEAD`
+  version critical, so it does not end the stop. Only a confirmation in
+  either version ends it.
+- During a stop, `dispatch` still runs `status`, `plan`, `suggest-merge-args`,
+  `verify-story`, `mark-done`, `mark-blocked`, `mark-failed`, and
+  `clear-manifest`, so the orchestrator can report and record.
+- In an interactive session, the orchestrator explains each stopping finding
+  with `explain-review-finding`. A headless run ends and carries the stop
+  notice in its final summary.
+- The stop check reads only the worktree it runs in. A critical finding on
+  another branch stops no run until that branch merges (FC-G06).
+- BR-091 holds the rule, and **STOPPING** of the
+  [Finding Lifecycle](../spec/state-machines.md#finding-lifecycle) holds the
+  state.
+
+## 6.18 The Guard Refuses a Human Field
+
+Derived from dynamic views `GuardRefusesHumanField` and `GuardFailsClosed` in [`architecture.dsl`](../spec/architecture.dsl).
+
+A headless run meets the stop of 6.17. Its orchestrator tries to finish the
+run by confirming the stop itself.
+
+```mermaid
+sequenceDiagram
+    participant CA as CLI-Invoked Agent
+    participant GC as guard entry - Claude Code
+    participant GH as guard-human-fields
+
+    CA->>GC: 1. Edit call adds stop_confirmed_by human to docs/findings/BUG-0037.md
+    GC->>GH: 2. Runs guard-human-fields with the call
+    GH->>CA: 3. Finds stop_confirmed_by in new_string and not in old_string, exits 2
+    Note over CA: The run ends with the stop notice
+```
+
+In OpenCode and Pi, a broken install refuses the edit instead of letting it
+through. Take an OpenCode install whose guard script is missing:
+
+```mermaid
+sequenceDiagram
+    participant CA as CLI-Invoked Agent
+    participant GO as guard entry - OpenCode plugin
+    participant GH as guard-human-fields
+
+    CA->>GO: 1. A write call on docs/findings/FAGAN-0042.md fires execute.before
+    GO->>GH: 2. Looks for the guard script and finds none
+    GO->>CA: 3. Blocks the call and names the missing script
+```
+
+**Key Points:**
+
+- The refusal names the file, the field, and that the stakeholder writes it
+  in an editor or with a `!` command. A `!` command runs outside the tool
+  hooks.
+- An edit that leaves an existing human field unchanged passes, so an agent
+  can fix a typo in a waived finding. A new finding from the template carries
+  only `null` and passes too.
+- The guard reads the text of each call. A field name built from pieces in a
+  script passes it (DEC-42).
+- BR-092 holds the rule.
+  [ADR-0035](../adr/0035-guard-human-fields-in-every-cli.md) records the entry
+  point of each CLI.
+
+## 6.19 finding-lint at a Commit
+
+Derived from dynamic view `FindingLintCommit` in [`architecture.dsl`](../spec/architecture.dsl).
+
+A Fagan review on a feature branch, in a linked worktree, commits FAGAN-0042
+with `in_use: false` and a `minor` security finding as the register file
+`docs/findings/register/security/SEC-0012.json`. The defective lines of
+FAGAN-0042 were never changed on the feature branch, so `dev` carries them.
+
+```mermaid
+sequenceDiagram
+    participant G as Git
+    participant FL as finding-lint
+    participant FR as Finding Registers
+    participant SV as schema-validate
+    participant FS as Finding Schemas
+    participant WO as Working Output
+    participant ST as Factory Settings
+    participant MC as Main Checkout Locator
+    participant PF as Project Filesystem
+
+    G->>FL: 1. Runs finding-lint --staged for the commit
+    FL->>FR: 2. Reads the staged SEC-0012.json
+    FL->>SV: 3. Runs schema-validate on SEC-0012.json with the security schema
+    SV->>FS: 4. Reads finding-register-security.schema.json
+    FL->>WO: 5. Reads the staged FAGAN-0042.md, review_class code, in_use false
+    FL->>G: 6. Reads the HEAD versions, neither file exists there, so the git check is due for both
+    FL->>ST: 7. Reads release_tag_patterns
+    FL->>G: 8. Blames the artifact range on the reviewed branch, then on dev, main, origin/dev, origin/main, and each release tag
+    FL->>MC: 9. Finds the main checkout, because the commit runs in a linked worktree
+    FL->>PF: 10. Blames the installed copy in the main checkout with --contents
+    FL->>G: 11. Finds every line identity of FAGAN-0042 on dev
+    Note over FL: Exits 1 with "artifact lines exist unchanged on dev"
+```
+
+**Key Points:**
+
+- The reviewer corrects the answer to `in_use: true`. The rule then computes
+  `critical`, the file gains `## Possible damage`, and the run stops as 6.17
+  shows.
+- The lint compares line identities from `git blame -M -C --porcelain`, not
+  text, so a range that moved within the file or to another file still
+  matches (BR-088).
+- The git check runs only for a code, runtime, or security finding that is new
+  or whose `basis` or `artifact` changed. A change to a status or a human
+  field triggers no git check (DEC-43).
+- Without `docs/factory-settings.yaml` or its key, the lint exits `1` and
+  names both, but only when a git check is due.
+- The pre-commit hook reads the staged files, and `validate` reads the working
+  tree. Both compare with `HEAD`, so both give the same answer.
+
+## 6.20 Migration of Open Findings
+
+Derived from dynamic view `FindingMigration` in [`architecture.dsl`](../spec/architecture.dsl).
+
+The migration runs once, after the project has committed
+`docs/factory-settings.yaml`, because its commit triggers the git check.
+
+```mermaid
+sequenceDiagram
+    participant CA as CLI-Invoked Agent
+    participant MA as Migration Agent
+    participant WO as Working Output
+    actor SH as Stakeholder
+    participant FR as Finding Registers
+    participant G as Git
+    participant FL as finding-lint
+    participant ST as Factory Settings
+
+    CA->>MA: 1. Runs the migration after docs/factory-settings.yaml is committed
+    MA->>WO: 2. Classifies each open finding file without review_class with the rulebook
+    MA->>SH: 3. Presents every result at one pause point
+    SH->>WO: 4. Confirms the stop of each critical result
+    MA->>WO: 5. Writes review_class, basis, and Why this severity, removes BUG-0067.md, sets deferred on RETRO-0002.md
+    MA->>FR: 6. Writes code/BUG-0067.json and document/RECON-0027.json with status open, removes the three .jsonl files
+    MA->>G: 7. Commits the migration
+    G->>FL: 8. Fires pre-commit with --staged
+    FL->>ST: 9. Reads release_tag_patterns for the git check of each migrated code, runtime, or security finding
+```
+
+**Key Points:**
+
+- No file changes before the pause point. So the migration commit holds no
+  unconfirmed `critical` finding, and no later run stops on a finding it did
+  not produce.
+- The removed finding files carry no `review_class` at `HEAD`, so
+  `finding-lint` does not compare them, and the register files need no
+  override fields (BR-095).
+- The migration counts the open findings again when it runs. The proposal
+  counted 47 by 2026-11-06.
+
+## 6.21 What the Review Loop Reads
+
+Every playbook with a review loop decides the next pass with a grep, such as
+`grep -l "status: open" docs/findings/SPEC-*.md` at Decision Point 1.3 of
+`feature-addition`. The grep reads the working tree only. Take an agent that
+sets `deferred` on a `major` finding, lowers it, or removes its file, and
+does not commit. The grep then misses the finding, and the loop ends.
+`finding-lint` rejects each of these changes, but only when it runs.
+
+The loop steps do not close this gap. Each step was checked for a commit or a
+`validate` run before the decision point:
+
+| Step                                                 | Ends with a commit                      | Ends with a `validate` run |
+| ---------------------------------------------------- | --------------------------------------- | -------------------------- |
+| Fix step of a requirements or architecture agent     | Yes, one commit per repeat pass         | No                         |
+| Spec review, architecture review, code review        | No commit step in the agent definitions | No                         |
+| Developer agent with `--no-commit` or in manual mode | No, the human owns the commit           | No                         |
+| Decision points 1.3, 2.3, 4.3, 4.5, and 5.2          | No                                      | No                         |
+
+So the gap stays open. A review pass ends without a commit, so the decision
+point greps files that no lint has checked. A run of `finding-lint`
+or `validate` at each decision point, before the grep, would close it. That
+is a change to the playbooks, so this chapter records it as an open item and
+changes no rule. The stop itself is not affected, because the stop check
+also reads `HEAD` (6.17).
+
 ## Referenced from
 
 - [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)

@@ -41,6 +41,9 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0031 | [IDs come from one git ref on the project's remote with leased pushes](../adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md)                           | accepted               | pugh-matrix |
 | 0032 | [Agents push the claim ref through `next-id`](../adr/0032-agents-push-the-claim-ref-through-next-id.md)                                                       | accepted               | none        |
 | 0033 | [The project's own repository holds the counter until `origin` exists](../adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md)      | accepted               | none        |
+| 0034 | [One register file per minor finding](../adr/0034-one-register-file-per-minor-finding.md)                                                                     | accepted               | pugh-matrix |
+| 0035 | [Guard the human fields in every CLI](../adr/0035-guard-human-fields-in-every-cli.md)                                                                         | accepted               | pugh-matrix |
+| 0036 | [The TypeScript tests run as a `node:test` suite](../adr/0036-typescript-tests-run-as-a-node-test-suite.md)                                                   | accepted               | none        |
 
 ## Key Decisions
 
@@ -287,6 +290,25 @@ while the project has no `origin`. The git setting
 `next-id --move-to-origin` moves it to `origin` later, marker first. It amends
 ADR-0031, whose claim fails without a remote. See
 [6.16](06_runtime_view.md#616-move-of-a-local-counter-to-origin).
+
+### Finding Classification
+
+**ADR-0034** records each `minor` finding as one JSON file
+`docs/findings/register/<class>/<ID>.json` with a status. A fix sets
+`resolved` instead of deleting a line, so no union merge can bring a fixed
+finding back, and no project needs a `.gitattributes` line. The Pugh matrix
+scored this option +2, against 0 for deleting the line and −2 for appended
+status lines. See
+[5.12](05_building_block_view.md#512-level-2-component-view----finding-classification).
+
+**ADR-0035** runs `guard-human-fields` in Claude Code, Codex, Copilot CLI,
+Pi, and OpenCode, each from its own hook for edit, write, and shell calls.
+Pi and OpenCode block the call when the guard script is missing. OpenCode
+gets a first, guard-only Factory plugin, which builds on ADR-0019 without
+changing it. See [6.18](06_runtime_view.md#618-the-guard-refuses-a-human-field).
+
+**ADR-0036** runs the TypeScript tests of the Factory as one `node:test`
+suite on Node 22.6 or later, with no new dependency.
 
 ## Superseded Decisions
 
