@@ -51,7 +51,7 @@ triggers:
 handoff-to:
   - architecture-agent
   - planning-agent
-version: 0.3.1
+version: 0.4.0
 ---
 
 # Architecture Review Agent
@@ -74,7 +74,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 1. **Read** — arc42 docs, ADRs, spec. Understand what was built and why.
 2. **ATAM Review** — Deterministic: `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42`. Semantic: evaluate each quality scenario from `docs/arc42/10_quality_requirements.md` (sensitivity points, tradeoff points, risks, non-risks). YAGNI pass: flag artificial complexity.
-3. **Report** — Save `docs/reviews/atam-review.md` per [report-format.md](../rulebooks/conventions/report-format.md), file Medium+ risks per [finding-format.md](../rulebooks/conventions/finding-format.md). Run `.agent-factory/factory/scripts/next-id ATAM` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
+3. **Report** — Save `docs/reviews/atam-review.md` per [report-format.md](../rulebooks/conventions/report-format.md), file each finding by its computed severity per [finding-format.md](../rulebooks/conventions/finding-format.md). This agent classifies findings of the review class `architecture`, by [Class: architecture](../rulebooks/conventions/finding-classification.md#class-architecture). The rule of the class computes each severity from the recorded basis. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file. A `minor` finding becomes the register file `docs/findings/register/architecture/<ID>.json` with `status: open`, and the commit that fixes it sets `status` to `resolved`. A `note` stays a row of the report, and a `question` becomes an entry of `docs/spec/work/todo.md`. A non-risk names the assumptions it rests on. A defect in an architecture document belongs to [Class: document](../rulebooks/conventions/finding-classification.md#class-document). Run `.agent-factory/factory/scripts/next-id ATAM` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `ATAM` finding, **and** re-run the full evaluation fresh.
 
 **Pause point:** Present findings before filing.
@@ -82,7 +82,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 ## Completion Criteria
 
 - `arch-lint` reports zero errors
-- Medium+ risks filed
+- Blocking risks filed as finding files, `minor` risks as register files
 - Prior findings resolved or annotated, re-evaluation complete
 
 ## Handoff
