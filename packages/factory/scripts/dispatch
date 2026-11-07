@@ -35,6 +35,7 @@ from dispatch_lib import (
     FAILURE_CLASSES,
     MANIFEST_FILENAME,
     QUALIFYING_ESCALATION_FAILURE_CLASSES,
+    STOP_SUBCOMMANDS,
     TIER_RANK,
     Ledger,
     ManifestExistsError,
@@ -60,6 +61,7 @@ from dispatch_lib import (
     remove_manifest,
     render_handoff_contract,
     spec_feedback_path,
+    stop_notice,
     suggest_tier,
     write_handoff_contract,
     write_manifest,
@@ -2098,7 +2100,8 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Build the dispatch parser; every subcommand is in one list of BR-091."""
     parser = argparse.ArgumentParser(
         prog="dispatch",
         description="Mechanized dispatch orchestration for Agent Factory.",
@@ -2201,8 +2204,18 @@ def main(argv: list[str] | None = None) -> int:
         "suggest-merge-args",
         help="print recommended --max-files for the final feature-to-dev merge",
     )
+    return parser
 
-    args = parser.parse_args(argv)
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    # A critical finding without a confirmed stop refuses every subcommand
+    # that starts or merges work, before any ledger is read (BR-091).
+    if args.subcommand in STOP_SUBCOMMANDS:
+        notice = stop_notice()
+        if notice is not None:
+            sys.stdout.write(notice)
+            return 1
     # init creates its ledger and reads no existing one, so it needs no default.
     if args.ledger is None and args.subcommand != "init":
         try:

@@ -9,6 +9,7 @@ import ast
 import fnmatch
 import json
 import re
+import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -1717,3 +1718,291 @@ def compute_wave_plan(
         waves.append(wave_entry)
 
     return WavePlan(waves=waves)
+
+
+# -- The stop on a critical finding (BR-091) ---------------------------------
+
+# Every subcommand of the dispatch parser is in exactly one of these lists.
+# A stop refuses the first list and lets the second run (BR-091, FC-QG13).
+STOP_SUBCOMMANDS = frozenset(
+    {
+        "init",
+        "prepare-wave",
+        "prepare-story",
+        "mark-dispatching",
+        "mark-dispatched",
+        "re-dispatch",
+        "escalate",
+        "refresh-story",
+        "merge-story",
+        "close-wave",
+    }
+)
+READ_SUBCOMMANDS = frozenset(
+    {
+        "status",
+        "plan",
+        "suggest-merge-args",
+        "verify-story",
+        "mark-done",
+        "mark-blocked",
+        "mark-failed",
+        "clear-manifest",
+    }
+)
+
+FINDINGS_DIR = "docs/findings"
+_TOP_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(?:\s+(.*))?$")
+_SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`])")
+_CHECK_SEPARATOR = " — check: "
+
+
+def _finding_scalar(raw: str) -> str | None:
+    """Return the text of an inline YAML scalar, or None for null."""
+    value = raw.strip()
+    if value[:1] in ("'", '"'):
+        quote = value[0]
+        end = value.find(quote, 1)
+        return value[1:end] if end > 0 else value[1:]
+    value = re.split(r"\s+#", value, maxsplit=1)[0].strip()
+    if value in ("", "null", "~", "Null", "NULL"):
+        return None
+    return value
+
+
+def finding_fields(text: str | None) -> dict[str, str | None] | None:
+    """Return the top-level frontmatter keys of a finding file.
+
+    Reads only the top-level keys, so both scripts decide the same way with
+    or without PyYAML. A nested mapping such as ``basis`` maps to its
+    indented lines joined by spaces. Returns None without frontmatter.
+    """
+    frontmatter = _extract_frontmatter(text) if text else None
+    if frontmatter is None:
+        return None
+    fields: dict[str, str | None] = {}
+    key: str | None = None
+    block: list[str] = []
+    inline: str | None = None
+
+    def close() -> None:
+        if key is None:
+            return
+        if block:
+            joined = " ".join(part.strip() for part in block if part.strip())
+            fields[key] = joined or None
+        else:
+            fields[key] = inline
+
+    for line in frontmatter.splitlines():
+        match = _TOP_KEY_RE.match(line)
+        if match and not line[:1].isspace():
+            close()
+            key, block = match.group(1), []
+            raw = match.group(2) or ""
+            inline = None if raw.strip()[:1] in ("|", ">") else _finding_scalar(raw)
+        elif key is not None and (line[:1].isspace() or not line.strip()):
+            block.append(line)
+    close()
+    return fields
+
+
+def _has_text(value: str | None) -> bool:
+    return bool(value and value.strip())
+
+
+def _is_critical(fields: dict[str, str | None] | None) -> bool:
+    if fields is None or fields.get("severity") != "critical":
+        return False
+    return fields.get("status") == "open" or "review_class" in fields
+
+
+def _is_confirmed(fields: dict[str, str | None] | None) -> bool:
+    if fields is None:
+        return False
+    return _has_text(fields.get("stop_confirmed_by")) and _has_text(
+        fields.get("stop_confirmed_reason")
+    )
+
+
+def finding_stops(worktree: str | None, head: str | None) -> bool:
+    """Decide the stop from the working-tree and HEAD versions of one finding."""
+    versions = [finding_fields(worktree), finding_fields(head)]
+    if not any(_is_critical(fields) for fields in versions):
+        return False
+    return not any(_is_confirmed(fields) for fields in versions)
+
+
+@dataclass
+class StopEntry:
+    finding_id: str
+    title: str
+    artifact: str
+    in_use: str
+    damage: list[tuple[str, str | None]]
+
+
+def _body(text: str) -> list[str]:
+    lines = text.splitlines()
+    if lines and lines[0].strip() == "---":
+        for index, line in enumerate(lines[1:], start=1):
+            if line.strip() == "---":
+                return lines[index + 1 :]
+    return lines
+
+
+def _title(body: list[str]) -> str:
+    for line in body:
+        if line.startswith("# "):
+            return line[2:].strip()
+    return ""
+
+
+def _in_use_evidence(body: list[str]) -> str:
+    """Return the first sentence of the Why this severity line.
+
+    The first sentence answers ``in_use``, the first question of each class.
+    """
+    marker = "**Why this severity:**"
+    for index, line in enumerate(body):
+        if line.startswith(marker):
+            parts = [line[len(marker) :]]
+            for more in body[index + 1 :]:
+                if not more.strip():
+                    break
+                parts.append(more)
+            text = " ".join(part.strip() for part in parts).strip()
+            sentence = _SENTENCE_END_RE.split(text, maxsplit=1)[0].rstrip(".")
+            if sentence[:1].isupper() and sentence[1:2].islower():
+                sentence = sentence[0].lower() + sentence[1:]
+            return sentence
+    return ""
+
+
+def _damage_items(body: list[str]) -> list[tuple[str, str | None]]:
+    items: list[str] = []
+    inside = False
+    for line in body:
+        if line.startswith("## "):
+            inside = line.strip() == "## Possible damage"
+            continue
+        if not inside:
+            continue
+        if line.startswith("- "):
+            items.append(line[2:].strip())
+        elif line.strip() and items and line[:1].isspace():
+            items[-1] = f"{items[-1]} {line.strip()}"
+    result: list[tuple[str, str | None]] = []
+    for item in items:
+        what, sep, check = item.partition(_CHECK_SEPARATOR)
+        result.append((what.strip(), check.strip() if sep else None))
+    return result
+
+
+def stop_entry(finding_id: str, worktree: str | None, head: str | None) -> StopEntry | None:
+    """Return the notice parts of a stopping finding, or None when it does not stop.
+
+    The parts come from the working-tree version when it is critical, and
+    from the HEAD version otherwise (BR-091).
+    """
+    if not finding_stops(worktree, head):
+        return None
+    source = worktree if _is_critical(finding_fields(worktree)) else head
+    assert source is not None
+    fields = finding_fields(source) or {}
+    body = _body(source)
+    return StopEntry(
+        finding_id=finding_id,
+        title=_title(body),
+        artifact=fields.get("artifact") or "",
+        in_use=_in_use_evidence(body),
+        damage=_damage_items(body),
+    )
+
+
+def render_stop_notice(entries: list[StopEntry]) -> str:
+    """Render the stop notice that dispatch and premerge-check print."""
+    lines = [
+        "STOP: a critical finding has no confirmed stop. No work is dispatched or merged.",
+        "",
+    ]
+    for entry in entries:
+        heading = f"{entry.finding_id}: {entry.title}" if entry.title else entry.finding_id
+        lines.append(heading)
+        lines.append(f"  artifact: {entry.artifact}")
+        lines.append(f"  in use: {entry.in_use}")
+        lines.append("  possible damage:")
+        for what, check in entry.damage:
+            lines.append(f"    - {what}")
+            if check is not None:
+                lines.append(f"      check: {check}")
+        lines.append("")
+    paths = ", ".join(f"{FINDINGS_DIR}/{entry.finding_id}.md" for entry in entries)
+    lines.append(
+        "To confirm: run each check, then write stop_confirmed_by and stop_confirmed_reason"
+    )
+    lines.append(f"into {paths} in your editor or with a ! command.")
+    return "\n".join(lines) + "\n"
+
+
+def _git_out(top: Path, *args: str, stdin: bytes | None = None) -> bytes | None:
+    result = subprocess.run(
+        ["git", "-C", str(top), *args],
+        input=stdin,
+        capture_output=True,
+        check=False,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
+def _head_findings(top: Path) -> dict[str, str]:
+    """Return the HEAD version of each docs/findings/*.md, keyed by finding ID."""
+    listing = _git_out(top, "ls-tree", "HEAD", f"{FINDINGS_DIR}/")
+    if not listing:
+        return {}
+    blobs: list[tuple[str, str]] = []
+    for row in listing.decode().splitlines():
+        meta, _, path = row.partition("\t")
+        parts = meta.split()
+        name = Path(path).name
+        if len(parts) == 3 and parts[1] == "blob" and name.endswith(".md"):
+            blobs.append((name[:-3], parts[2]))
+    if not blobs:
+        return {}
+    stdin = "".join(f"{sha}\n" for _, sha in blobs).encode()
+    data = _git_out(top, "cat-file", "--batch", stdin=stdin)
+    if data is None:
+        return {}
+    versions: dict[str, str] = {}
+    offset = 0
+    for finding_id, _ in blobs:
+        header_end = data.index(b"\n", offset)
+        size = int(data[offset:header_end].split()[2])
+        start = header_end + 1
+        versions[finding_id] = data[start : start + size].decode("utf-8", "replace")
+        offset = start + size + 1
+    return versions
+
+
+def stop_notice(cwd: Path | None = None) -> str | None:
+    """Return the stop notice for the worktree at *cwd*, or None without a stop.
+
+    Reads docs/findings/*.md of the working tree at the top level that
+    ``git rev-parse --show-toplevel`` prints, and the HEAD version of each
+    finding file. Changes no file (BR-091, FC-G06).
+    """
+    out = _git_out(cwd or Path.cwd(), "rev-parse", "--show-toplevel")
+    top = Path(out.decode().strip()) if out else (cwd or Path.cwd())
+    head = _head_findings(top)
+    folder = top / FINDINGS_DIR
+    worktree = (
+        {path.stem: path.read_text(errors="replace") for path in folder.glob("*.md") if path.is_file()}
+        if folder.is_dir()
+        else {}
+    )
+    entries = []
+    for finding_id in sorted(set(head) | set(worktree)):
+        entry = stop_entry(finding_id, worktree.get(finding_id), head.get(finding_id))
+        if entry is not None:
+            entries.append(entry)
+    return render_stop_notice(entries) if entries else None
