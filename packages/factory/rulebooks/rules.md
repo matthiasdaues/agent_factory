@@ -183,7 +183,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 
 → [finding-format.md](conventions/finding-format.md)
 
-- **MUST** file every Defect, and every finding at or above the review's blocking severity, as its own `docs/findings/<TAG>-NNNN.md`.
+- **MUST** classify every finding by [finding-classification.md](conventions/finding-classification.md), and file every blocking finding as its own `docs/findings/<TAG>-NNNN.md`.
 - **MUST** state both what is wrong and what to do in every finding.
 
 ## Markdown formatting
@@ -244,6 +244,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 - [commit-conventions.md § Story/Bug ID Required](conventions/commit-conventions.md#storybug-id-required)
 - [cross-reference-format.md § Rule](conventions/cross-reference-format.md#rule)
 - [finding-format.md § When to file](conventions/finding-format.md#when-to-file)
+- [finding-classification.md § Referenced from](conventions/finding-classification.md#referenced-from)
 - [markdown-formatting.md § Rule](conventions/markdown-formatting.md#rule)
 - [mermaid-notation.md § Rule](conventions/mermaid-notation.md#rule)
 - [review-loop-discipline.md § Rule](conventions/review-loop-discipline.md#rule)

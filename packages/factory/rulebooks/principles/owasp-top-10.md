@@ -26,6 +26,12 @@ awareness document for web application security risks.
 ## Application in security review
 
 For each finding, identify the OWASP category, describe the attack
-vector, assess severity (Critical / High / Medium / Low), and provide a
-concrete remediation. Report only findings with a plausible attack vector
-in the specific codebase under review.
+vector, and provide a concrete remediation. The OWASP category is the type
+of the finding. Rate the finding with the bug bar in
+[finding-classification.md § Class: security](../conventions/finding-classification.md#class-security).
+Report only findings with a plausible attack vector in the specific
+codebase under review.
+
+## Referenced from
+
+- [finding-classification.md § Class: security](../conventions/finding-classification.md#class-security)

@@ -13,7 +13,7 @@ Shared rules for filing review findings as local markdown files. Findings are pr
 
 Canonical statement: [rules.md § Findings](../rules.md#findings).
 
-For most reviews the blocking severity is **Critical** or **Major** (see [report-format.md](report-format.md)); the security and ATAM reviews file at **Medium or higher**. Minor findings and Suggestions stay in the review report only, unless the user asks to track them.
+[finding-classification.md § Shared severity scale and blocking rule](finding-classification.md#shared-severity-scale-and-blocking-rule) says which finding becomes a finding file, which becomes a register file, and which stays in the review report.
 
 ## File location and name
 
@@ -60,6 +60,7 @@ Present the findings to the user before writing any files. The user decides whic
 
 ## Referenced from
 
+- [finding-classification.md § Shared severity scale and blocking rule](finding-classification.md#shared-severity-scale-and-blocking-rule)
 - [rules.md § Findings](../rules.md#findings)
 - [report-format.md § Findings drive the loop](report-format.md#findings-drive-the-loop)
 - [reconciliation-agent.md § Workflow](../../agents/reconciliation-agent.md#workflow)
