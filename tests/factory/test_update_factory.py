@@ -2145,3 +2145,57 @@ class TestHookBlockFollowsTheTemplate:
         ]
         assert len(lines) == 1, run.stdout + run.stderr
         assert not lines[0].endswith("Skipped"), run.stdout + run.stderr
+
+
+# ST-0400: update-factory adds guard-human-fields to an earlier install.
+
+
+def _strip_guard_human_fields(target: Path) -> None:
+    """Turn a fresh install into one of a release before guard-human-fields:
+    the settings keep only the step-guard and other Factory entries."""
+    from test_init_factory import GUARD_HUMAN_FIELDS_COMMAND
+
+    path = target / ".claude" / "settings.json"
+    settings = json.loads(path.read_text())
+    entries = settings["hooks"]["PreToolUse"]
+    settings["hooks"]["PreToolUse"] = [
+        entry for entry in entries
+        if all(hook.get("command") != GUARD_HUMAN_FIELDS_COMMAND for hook in entry["hooks"])
+    ]
+    path.write_text(json.dumps(settings, indent=2) + "\n")
+    (target / ".claude" / "hooks" / "guard-human-fields").unlink()
+
+
+@pytest.mark.spec("FC-18-IT-06")
+def test_st_0400_update_adds_the_guard_entries_to_an_earlier_install(tmp_path):
+    from test_init_factory import (
+        GUARD_HUMAN_FIELDS_COMMAND,
+        GUARD_HUMAN_FIELDS_TOOLS,
+        pre_tool_use_commands,
+        run_init,
+        stage_source,
+    )
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "earlier", {"README.md": "# earlier\n"})
+    first = run_init(stage_source(tmp_path / "source-1.5.0", "1.5.0"), target,
+                     "--cli", "claude", "--project-name", "earlier")
+    assert first.returncode == 0, first.stderr
+    _strip_guard_human_fields(target)
+    before = pre_tool_use_commands(target)
+    assert not any(command == GUARD_HUMAN_FIELDS_COMMAND for _, command in before)
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    result = subprocess.run(
+        [sys.executable,
+         str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+         "--target", str(target), "--source", str(stage_source(tmp_path / "source-1.6.0", "1.6.0"))],
+        input="yes\n", capture_output=True, text=True, env=env, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    after = pre_tool_use_commands(target)
+    for tool in GUARD_HUMAN_FIELDS_TOOLS:
+        assert after.count((tool, GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    assert [pair for pair in after if pair[1] != GUARD_HUMAN_FIELDS_COMMAND] == before
+    assert (target / ".claude" / "hooks" / "guard-human-fields").is_symlink()

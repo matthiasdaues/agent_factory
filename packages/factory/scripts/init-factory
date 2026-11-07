@@ -201,6 +201,14 @@ CLAUDE_STEP_GUARD_HOOK_COMMANDS = {
     "Bash": 'GUARD_TYPE=bash "$CLAUDE_PROJECT_DIR"/.claude/hooks/step-guard.sh',
 }
 
+# The PreToolUse entries that wire guard-human-fields into .claude/settings.json
+# beside the step-guard entries (BR-092, ADR-0035). One command serves every
+# tool, because the hook reads the tool name from its payload.
+CLAUDE_GUARD_HUMAN_FIELDS_HOOK_COMMAND = (
+    '"$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-human-fields'
+)
+CLAUDE_GUARD_HUMAN_FIELDS_TOOLS = ("Edit", "MultiEdit", "Write", "NotebookEdit", "Bash")
+
 # The exact Stop/SubagentStop hook command string that wires the usage-capture
 # trigger into a project's .claude/settings.json. One hook-pair covers both
 # the human main session (Stop) and every dispatched sub-agent (SubagentStop)
@@ -1392,6 +1400,15 @@ def install_step_guard(target: Path, install: dict, report: list[str],
         _install_codex_step_guard(target, install, report)
 
 
+def install_guard_human_fields(target: Path, install: dict, report: list[str],
+                               clis: list[str] | None = None) -> None:
+    """Install guard-human-fields beside step-guard (BR-092, ADR-0035).
+
+    Claude Code only; the other CLIs follow in their own stories."""
+    if _wants(clis, "claude"):
+        _install_claude_guard_human_fields(target, install, report)
+
+
 def install_freshness_check(target: Path, install: dict, report: list[str],
                             clis: list[str] | None = None) -> None:
     """Install the factory-freshness PreToolUse hook for the selected CLIs.
@@ -1703,6 +1720,18 @@ def _install_claude_step_guard(target: Path, install: dict, report: list[str]) -
     ensure_symlink(link, dest, report, install=install)
 
     _ensure_claude_step_guard_settings(target, install, report)
+
+
+def _install_claude_guard_human_fields(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    hooks_dir = _ensure_claude_hooks_dir(target, install, report)
+
+    link = hooks_dir / "guard-human-fields"
+    dest = target / ".agent-factory" / "factory" / "config" / "hooks" / "guard-human-fields"
+    ensure_symlink(link, dest, report, install=install)
+
+    _ensure_claude_guard_human_fields_settings(target, install, report)
 
 
 def _install_copilot_guardrail(target: Path, install: dict, report: list[str]) -> None:
@@ -2135,14 +2164,53 @@ def _ensure_claude_step_guard_settings(
         path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
 
+def _ensure_claude_guard_human_fields_settings(
+    target: Path, install: dict, report: list[str]
+) -> None:
+    """Wire the guard-human-fields entries into .claude/settings.json beside
+    the step-guard entries, preserving every other hook."""
+    path = target / ".claude" / "settings.json"
+    if not path.exists():
+        path.write_text(json.dumps({"hooks": {}}, indent=2) + "\n", encoding="utf-8")
+        install["claude_settings_existed"] = False
+        install["remove_paths"].append(".claude/settings.json")
+        log(report, ".claude/settings.json: created for guard-human-fields")
+
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise Collision(
+            f"{path} exists but isn't valid JSON ({e}) — wire the "
+            "guard-human-fields hooks in by hand"
+        )
+    if not isinstance(settings, dict) or not isinstance(settings.setdefault("hooks", {}), dict):
+        raise Collision(
+            f"{path}: 'hooks' isn't an object — wire the guard-human-fields hooks in by hand"
+        )
+
+    changed = False
+    for tool_name in CLAUDE_GUARD_HUMAN_FIELDS_TOOLS:
+        changed = (
+            _wire_claude_step_guard_event(
+                path, settings["hooks"], tool_name,
+                CLAUDE_GUARD_HUMAN_FIELDS_HOOK_COMMAND, report,
+                label="guard-human-fields",
+            )
+            or changed
+        )
+    if changed:
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
 def _wire_claude_step_guard_event(
-    path: Path, hooks: dict, tool_name: str, command: str, report: list[str]
+    path: Path, hooks: dict, tool_name: str, command: str, report: list[str],
+    label: str = "step-guard",
 ) -> bool:
     pre_tool_use = hooks.setdefault("PreToolUse", [])
     if not isinstance(pre_tool_use, list):
         raise Collision(
             f"{path}: 'hooks.PreToolUse' exists but isn't a list — wire the "
-            "step-guard hook in by hand"
+            f"{label} hook in by hand"
         )
 
     for entry in pre_tool_use:
@@ -2153,7 +2221,7 @@ def _wire_claude_step_guard_event(
             if isinstance(hook, dict) and hook.get("command") == command:
                 log(
                     report,
-                    f".claude/settings.json: {tool_name} step-guard hook already wired in",
+                    f".claude/settings.json: {tool_name} {label} hook already wired in",
                 )
                 return False
 
@@ -2163,7 +2231,7 @@ def _wire_claude_step_guard_event(
             "hooks": [{"type": "command", "command": command}],
         }
     )
-    log(report, f".claude/settings.json: added {tool_name} step-guard hook")
+    log(report, f".claude/settings.json: added {tool_name} {label} hook")
     return True
 
 
@@ -4235,6 +4303,7 @@ def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> in
         pre_guard = len(report)
         install_git_guardrail(target, install, report, chosen)
         install_step_guard(target, install, report, chosen)
+        install_guard_human_fields(target, install, report, chosen)
         guard_count = len(report) - pre_guard
         _out.quiet = False
         if guard_count:
@@ -4761,6 +4830,7 @@ def main(argv: list[str] | None = None) -> int:
         pre_guard = len(report)
         install_git_guardrail(target, install, report, clis)
         install_step_guard(target, install, report, clis)
+        install_guard_human_fields(target, install, report, clis)
         guard_count = len(report) - pre_guard
         _out.quiet = False
         if guard_count:
