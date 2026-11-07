@@ -1287,10 +1287,10 @@ each ID producer file. It fails as BR-108 defines.
 
 The contracts of
 [finding-classification.feature](features/finding-classification.feature):
-the finding file, the register line, the envelope counts, the gate
+the finding file, the register file, the envelope counts, the gate
 `finding-lint` with its settings file, the stop in `dispatch` and
 `premerge-check`, the hook `guard-human-fields`, and the proposal review row.
-The rules behind them are BR-079 to BR-095 and BR-109 in
+The rules behind them are BR-079 to BR-095, BR-109, and BR-110 in
 [validation-rules.md](validation-rules.md#finding-classification-br-079br-095).
 A value that the stakeholder settled on a gap carries the identifier in
 [finding-classification-gaps.md](work/finding-classification-gaps.md).
@@ -1337,60 +1337,67 @@ depends on it, as a fact from git or the file tree. The text after it names
 one command or step that the stakeholder runs.
 
 A finding file whose `HEAD` version carries `review_class` is never removed,
-except when a register line with the same ID and both override keys replaces
+except when a register file with the same ID and both override keys replaces
 it (BR-109).
 
-### `docs/findings/register/<class>.jsonl` — register line
+### `docs/findings/register/<class>/<ID>.json` — register file
 
-A reviewer agent records each `minor` finding as one line at the end of the
-register of its class. A line is one JSON object with these keys:
+A reviewer agent records each `minor` finding as one register file in the
+register of its class, the folder `docs/findings/register/<class>/` (DEC-60).
+The file holds one JSON object with these keys:
 
-| Key                 | Contract                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `id`                | The ID that `next-id` printed. A migrated finding keeps its old ID, such as `BUG-0067`                             |
-| `source`            | As in the finding file                                                                                             |
-| `review_class`      | The class of the register, such as `code` in `code.jsonl`                                                          |
-| `category`          | `defect`, `risk`, or `suggestion`                                                                                  |
-| `type`              | A type from the vocabulary of the class                                                                            |
-| `severity`          | `minor`                                                                                                            |
-| `artifact`          | `path:line`, `path:start-end`, or `path#anchor`                                                                    |
-| `story`             | The story ID the review ran for, such as `ST-0370`, or `null` when no story exists yet                             |
-| `finding`           | What is wrong and the fix, as plain text                                                                           |
-| `basis`             | A JSON object with the shape of the class                                                                          |
-| `why_this_severity` | The Why this severity sentence. In the consequence tree classes it holds `no to fails_purpose` (BR-087)            |
-| `commit`            | The reviewed commit as 40 hexadecimal characters                                                                   |
-| `override_by`       | Only on a line that replaces a finding file: the stakeholder who lowered the finding. Human field (BR-092, BR-109) |
-| `override_reason`   | Only on a line that replaces a finding file: why the stakeholder lowered the finding. Human field                  |
+| Key                 | Contract                                                                                                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                | The ID that `next-id` printed. A migrated finding keeps its old ID, such as `BUG-0067`. The file name is `<id>.json`                               |
+| `source`            | As in the finding file                                                                                                                             |
+| `review_class`      | The class of the register, such as `code` in `docs/findings/register/code/`                                                                        |
+| `category`          | `defect`, `risk`, or `suggestion`                                                                                                                  |
+| `type`              | A type from the vocabulary of the class                                                                                                            |
+| `severity`          | `minor`                                                                                                                                            |
+| `artifact`          | `path:line`, `path:start-end`, or `path#anchor`                                                                                                    |
+| `story`             | The story ID the review ran for, such as `ST-0370`, or `null` when no story exists yet                                                             |
+| `finding`           | What is wrong and the fix, as plain text                                                                                                           |
+| `basis`             | A JSON object with the shape of the class                                                                                                          |
+| `why_this_severity` | The Why this severity sentence. In the consequence tree classes it holds `no to fails_purpose` (BR-087)                                            |
+| `commit`            | The reviewed commit as 40 hexadecimal characters                                                                                                   |
+| `status`            | `open`, written by the reviewer agent, the migration, or the stakeholder who lowers a filed finding. `resolved`, set by the fixing commit (BR-110) |
+| `override_by`       | Only on a register file that replaces a finding file: the stakeholder who lowered the finding. Human field (BR-092, BR-109)                        |
+| `override_reason`   | Only on a register file that replaces a finding file: why the stakeholder lowered the finding. Human field                                         |
 
-A line has no status. The commit that fixes the finding deletes the line
-(BR-090). The schema allows both override keys on any line.
-`finding-lint` requires both with text on a line that replaces a finding
-file, because only a comparison with `HEAD` shows the replacement (BR-109).
-`docs/findings/register/code.jsonl` and `document.jsonl` show lines
-in this form.
+The commit that fixes the finding sets `status` to `resolved`, and the file
+stays. A register file that `HEAD` holds is removed only when a finding file
+with the same ID replaces it, which is the raise of FC-G04 (BR-110). The schema
+allows both override keys on any register file. `finding-lint` requires both
+with text on a register file that replaces a finding file, because only a
+comparison with `HEAD` shows the replacement (BR-109). This object, with its
+two texts shortened, holds RECON-0027 after the migration:
 
-| Register                                    | Schema                                                                         |
-| ------------------------------------------- | ------------------------------------------------------------------------------ |
-| `docs/findings/register/document.jsonl`     | `packages/factory/rulebooks/schemas/finding-register-document.schema.json`     |
-| `docs/findings/register/code.jsonl`         | `packages/factory/rulebooks/schemas/finding-register-code.schema.json`         |
-| `docs/findings/register/security.jsonl`     | `packages/factory/rulebooks/schemas/finding-register-security.schema.json`     |
-| `docs/findings/register/architecture.jsonl` | `packages/factory/rulebooks/schemas/finding-register-architecture.schema.json` |
-| `docs/findings/register/runtime.jsonl`      | `packages/factory/rulebooks/schemas/finding-register-runtime.schema.json`      |
+```json
+{"id": "RECON-0027", "source": "reconcile-spec", "review_class": "document", "category": "defect", "type": "incorrect", "severity": "minor", "artifact": "docs/spec/validation-rules.md:491", "story": "ST-0370", "finding": "BR-076 bounds a claim ...", "basis": {"in_use": false, "harms_downstream": false, "fails_purpose": false, "raises_cost": true}, "why_this_severity": "... (no to fails_purpose) ...", "commit": "d0a78a5c40327c1f7e4c9a204ab5e766a7e0c44b", "status": "open"}
+```
 
-Each register schema lists the first twelve keys as required, allows
+| Register                               | Schema                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------ |
+| `docs/findings/register/document/`     | `packages/factory/rulebooks/schemas/finding-register-document.schema.json`     |
+| `docs/findings/register/code/`         | `packages/factory/rulebooks/schemas/finding-register-code.schema.json`         |
+| `docs/findings/register/security/`     | `packages/factory/rulebooks/schemas/finding-register-security.schema.json`     |
+| `docs/findings/register/architecture/` | `packages/factory/rulebooks/schemas/finding-register-architecture.schema.json` |
+| `docs/findings/register/runtime/`      | `packages/factory/rulebooks/schemas/finding-register-runtime.schema.json`      |
+
+Each register schema lists the first thirteen keys as required, allows
 `override_by` and `override_reason` as optional strings, forbids other keys,
-and takes the basis shape of its class from
-[schemas/finding-basis.json](schemas/finding-basis.json). `finding-lint`
-validates each line against the schema of its class. `schema-validate` does
-not check the registers, because it reads one whole JSON document per file
-(DEC-49). The schemas use only the keywords that the validator of
-`schema-validate` supports, so they hold no `oneOf`. An implementation story
-writes them.
+restricts `status` to `open` and `resolved`, and takes the basis shape of its
+class from [schemas/finding-basis.json](schemas/finding-basis.json).
+`finding-lint` runs `schema-validate <file> <schema>` on each register file
+with the schema of its folder (FC-C27). The schemas use only the keywords that
+the validator of `schema-validate` supports, so they hold no `oneOf`. An
+implementation story writes them.
 
-`.gitattributes` holds the line `docs/findings/register/*.jsonl merge=union`.
-Two branches that each append one line at the end of a register then merge
-without a conflict, and the register keeps both lines (DEC-49). An ID is a
-finding file or a register line, never both (DEC-53).
+Two branches that each add a register file add two different paths, so git
+merges them without a conflict and needs no merge driver. An ID is a finding
+file or a register file, never both, and names at most one register file
+(DEC-53, BR-090). The orchestrator loop greps `docs/findings/*.md` for
+`status: open`, which matches no register file.
 
 ### `finding_counts` of the child-result envelope
 
@@ -1407,17 +1414,17 @@ BLOCKER and MAJOR count under `major`, MINOR under `minor`, and NOTE under
 
 ### `packages/factory/scripts/finding-lint`
 
-| Property  | Contract                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Usage     | `finding-lint [--staged]`                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Reads     | Every `docs/findings/*.md` that carries `review_class` or whose `HEAD` version carries it, and every line of `docs/findings/register/*.jsonl`. With `--staged`, the staged version of each file; without it, the working tree. The `HEAD` version of each file and of each register, to decide whether a git check is due, whether a finding was lowered or removed, and whether a file kept its `review_class` (BR-109)      |
-| Reads too | Only when a git check is due: `docs/factory-settings.yaml`, the branches `dev`, `main`, `origin/dev`, and `origin/main`, the release tags, and the installed copy `.agent-factory/factory/` when `packages/factory/` exists. In a linked worktree, the installed copy is the one in the main checkout, which `packages/factory/scripts/_main_checkout.py` finds (BR-088, BR-089, DEC-49, DEC-50)                              |
-| Writes    | Nothing                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Skips     | A finding file without `review_class` in both its checked version and its `HEAD` version, such as a resolved file from before the migration                                                                                                                                                                                                                                                                                   |
-| Checks    | BR-079 to BR-090 and BR-109, including the shape of each register line against the schema of its class, an unknown status, `deferred` on a file that carries `review_class` (DEC-55), an open `minor` or `note` file, an ID that is both a file and a register line (DEC-53), a finding lowered or removed without the override fields (DEC-56), and a version that drops or changes the `review_class` of its `HEAD` version |
-| Messages  | One line per violation. It names the file and the rule, and for a register line also the ID. One line per branch that the clone does not have, such as `skipped origin/main: no such branch`. A skipped branch is no violation                                                                                                                                                                                                |
-| Exit code | `0` when every checked file and line passes; `1` on any violation, and on a missing release setting when a git check is due; `2` on a usage error or a git call that fails                                                                                                                                                                                                                                                    |
-| Run by    | The `validate` skill, without `--staged`, and the pre-commit hook, with `--staged`                                                                                                                                                                                                                                                                                                                                            |
+| Property  | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Usage     | `finding-lint [--staged]`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Reads     | Every `docs/findings/*.md` that carries `review_class` or whose `HEAD` version carries it, and every register file `docs/findings/register/**/*.json`. With `--staged`, the staged version of each file; without it, the working tree. The `HEAD` version of each file, to decide whether a git check is due, whether a finding was lowered or removed, and whether a file kept its `review_class` (BR-109, BR-110). During the migration commit, the `HEAD` version of the old `.jsonl` registers (FC-C25)                 |
+| Reads too | Only when a git check is due: `docs/factory-settings.yaml`, the branches `dev`, `main`, `origin/dev`, and `origin/main`, the release tags, and the installed copy `.agent-factory/factory/` when `packages/factory/` exists. In a linked worktree, the installed copy is the one in the main checkout, which `packages/factory/scripts/_main_checkout.py` finds (BR-088, BR-089, DEC-49, DEC-50)                                                                                                                            |
+| Writes    | Nothing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Skips     | A finding file without `review_class` in both its checked version and its `HEAD` version, such as a resolved file from before the migration                                                                                                                                                                                                                                                                                                                                                                                 |
+| Checks    | BR-079 to BR-090, BR-109, and BR-110, including `schema-validate` on each register file with the schema of its class, an unknown status, `deferred` on a file that carries `review_class` (DEC-55), an open `minor` or `note` file, an ID that is both a finding file and a register file (DEC-53), a finding lowered or removed without the override fields (DEC-56), a register file removed without a finding file of the same ID (DEC-60), and a version that drops or changes the `review_class` of its `HEAD` version |
+| Messages  | One line per violation. It names the file and the rule, and for a removed file also the ID. One line per branch that the clone does not have, such as `skipped origin/main: no such branch`. A skipped branch is no violation                                                                                                                                                                                                                                                                                               |
+| Exit code | `0` when every checked file passes; `1` on any violation, and on a missing release setting when a git check is due; `2` on a usage error or a git call that fails                                                                                                                                                                                                                                                                                                                                                           |
+| Run by    | The `validate` skill, without `--staged`, and the pre-commit hook, with `--staged`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 On each place, the git check blames the `artifact` path, and also each rename
 or copy source that `git diff -M -C <place> <reviewed branch>` names for that
@@ -1504,26 +1511,34 @@ The implementation story picks the file extension, as for
 
 | Property   | Contract                                                                                                                                                                                                                                                                                         |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Hook       | Runs in every supported CLI, registered on the hook events of that CLI for edit, write, and shell calls, as the table below lists (DEC-51)                                                                                                                                                       |
+| Hook       | Runs in every supported CLI, registered on the hook events of that CLI for edit, write, and shell calls, as the table below lists (DEC-51, DEC-61)                                                                                                                                               |
 | Reads      | The tool call as the CLI passes it, and for a write the current content of the target file                                                                                                                                                                                                       |
-| Guarded    | `docs/findings/*.md`, the lines of `docs/findings/register/*.jsonl` (BR-092), and the Appendix tables of `docs/proposals/*.md`. Templates, the rulebook, and test fixtures lie outside (DEC-45)                                                                                                  |
+| Guarded    | `docs/findings/*.md`, the register files `docs/findings/register/**/*.json` (BR-092), and the Appendix tables of `docs/proposals/*.md`. Templates, the rulebook, and test fixtures lie outside (DEC-45)                                                                                          |
 | Refuses    | A call that sets a human field, as [BR-092](validation-rules.md#stop-and-guard) defines                                                                                                                                                                                                          |
 | Passes     | A new finding from the template with every human field `null`, an edit that leaves a waived status line as it is, an edit of `packages/factory/rulebooks/templates/finding.md`, a read-only `grep "status: waived" docs/findings/`, and a heredoc that writes a fixture outside `docs/findings/` |
-| Exit code  | A hook script exits `0` to let the call through and `2` to refuse it, as `block-dangerous-git.sh` does. The Pi extension and the OpenCode plugin block the call through the API of their CLI                                                                                                     |
+| Exit code  | A hook script exits `0` to let the call through and `2` to refuse it, as `block-dangerous-git.sh` does. The Pi extension and the OpenCode plugin block the call through the API of their CLI, and block it also when the guard script is missing (DEC-61)                                        |
 | Message    | On refusal, standard error names the file, the field, and that the stakeholder writes it in an editor or with a `!` command                                                                                                                                                                      |
 | Blind spot | A field name built from pieces in a script passes the hook (DEC-42)                                                                                                                                                                                                                              |
 
 Each CLI registers the guard where the hook `step-guard` already sits for
-edit, write, and shell calls. The architecture agent places the guard for
-each CLI and closes the gaps in the last column (DEC-51).
+edit, write, and shell calls (DEC-61). The last column names what the guard
+does beyond the shared rule.
 
-| CLI         | Registration                                                                                  | Calls guarded                                                  | Gap for the architecture agent                                                                                                                                          |
-| ----------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Claude Code | `PreToolUse` entries in `.claude/settings.json`                                               | `Edit`, `Write`, `Bash`                                        | `step-guard` registers no `MultiEdit` and no `NotebookEdit`. Whether the installed Claude Code version offers these tools is not checked here                           |
-| Codex       | `PreToolUse` entries in `.codex/hooks.json`                                                   | `Edit`, `Write`, `apply_patch`, `Bash`                         | An `apply_patch` call names its path inside the patch text, so the guard reads the path and the removed and added lines from the patch. Not checked against a Codex run |
-| Copilot CLI | `preToolUse` entries in a hook file under `.github/hooks/`, as `step-guard.json` does         | `edit`, `apply_patch`, `write_file`, `create`, `bash`          | None known                                                                                                                                                              |
-| Pi          | The `tool_call` event of a project-local extension, as `config/extensions/step-guard.ts` does | `edit`, `write`, `write_file`, `create`, `apply_patch`, `bash` | None known                                                                                                                                                              |
-| OpenCode    | `execute.before` of the Factory plugin `agent-factory.ts`                                     | the plugin's edit, write, and shell tools                      | The plugin source `packages/factory/config/plugins/agent-factory.ts` that the OpenCode contract names does not exist on `dev`, so the guard has no place yet            |
+| CLI         | Registration                                                                                  | Calls guarded                                                  | CLI-specific behavior                                                                                                                                                                                             |
+| ----------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `PreToolUse` entries in `.claude/settings.json`                                               | `Edit`, `MultiEdit`, `Write`, `NotebookEdit`, `Bash`           | None                                                                                                                                                                                                              |
+| Codex       | `PreToolUse` entries in `.codex/hooks.json`                                                   | `Edit`, `Write`, `apply_patch`, `Bash`                         | An `apply_patch` call names its paths inside the patch text. The guard reads the paths and the removed and added lines from the patch, and refuses a patch it cannot parse when the raw text names a guarded path |
+| Copilot CLI | `preToolUse` entries in a hook file under `.github/hooks/`, as `step-guard.json` does         | `edit`, `apply_patch`, `write_file`, `create`, `bash`          | None                                                                                                                                                                                                              |
+| Pi          | The `tool_call` event of a project-local extension, as `config/extensions/step-guard.ts` does | `edit`, `write`, `write_file`, `create`, `apply_patch`, `bash` | Blocks the call when the guard script is missing. `step-guard.ts` lets a call through in that case                                                                                                                |
+| OpenCode    | `execute.before` of the Factory plugin `packages/factory/config/plugins/agent-factory.ts`     | the plugin's edit, write, and shell tools                      | Blocks the call when the guard script is missing. This feature writes the first version of the plugin, which holds only the guard                                                                                 |
+
+### `init-factory` change for the guard in OpenCode
+
+| Property | Contract                                                                                                                                                                          |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI name | `--cli opencode` is accepted, and `opencode` joins the list of known CLIs (DEC-61)                                                                                                |
+| Creates  | `.opencode/plugins/agent-factory.ts` as a link to `.agent-factory/factory/config/plugins/agent-factory.ts`                                                                        |
+| Rest     | The detection markers, the version check, and the other paths of [`init-factory` OpenCode CLI additions](#init-factory-opencode-cli-additions) belong to the OpenCode CLI feature |
 
 ### Proposal review row
 

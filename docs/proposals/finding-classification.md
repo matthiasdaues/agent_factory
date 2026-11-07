@@ -5,7 +5,7 @@ title: Finding Classification
 status: accepted
 owner: agent-factory
 created: 2026-11-04
-updated: 2026-11-06
+updated: 2026-11-07
 supersedes:
 
 impact:
@@ -44,6 +44,9 @@ impact:
     - packages/factory/rulebooks/schemas
     - docs/spec/architecture.dsl
     - packages/factory/config/hooks
+    - packages/factory/config/plugins/agent-factory.ts
+    - packages/factory/scripts/init-factory
+    - docs/testing.yaml
 
 governance:
   assurance: elevated
@@ -111,8 +114,8 @@ merges, with a check for each item. No new work is dispatched or
 merged until the human runs the checks and confirms. Then the finding goes back
 like a major one.
 
-A minor finding never blocks. It becomes one line in the register of its
-class. A finding rated too low escapes later review, so the human sees each new
+A minor finding never blocks. It becomes one small file in the register of
+its class. A finding rated too low escapes later review, so the human sees each new
 minor finding with the reason the work still serves its purpose.
 
 Only the human may lift a block or confirm a stop. A guard on the agents' tool
@@ -202,7 +205,7 @@ The four categories mean this:
   suggestion is at most `minor`.
 - A **question** means the reviewer needs the author's intent before
   classifying the finding. A question becomes an entry in
-  `docs/spec/work/todo.md` only. It gets no finding file and no register line,
+  `docs/spec/work/todo.md` only. It gets no finding file and no register file,
   and it carries no severity.
 
 ### Review classes
@@ -261,7 +264,7 @@ downstream.[^gilb] This design borrows the idea of a tier but defines it by
 may already exist outside the run.
 
 A `minor` finding goes to the [register](#register-of-minor-findings) of its
-review class and never blocks (DEC-12, DEC-33). A `note` stays in the review
+review class and never blocks (DEC-12, DEC-60). A `note` stays in the review
 report only.
 
 ### In use
@@ -663,16 +666,33 @@ editor or with a `!` command in the session, which runs outside the tool
 hooks.
 
 The guard runs in every CLI the Factory supports: Claude Code, Codex, Copilot
-CLI, Pi, and OpenCode (DEC-51). Each CLI registers it on its own hook events
-for edits, writes, and shell calls. In Claude Code these are the `PreToolUse`
-events for `Edit`, `Write`, and `Bash`. Where a CLI offers no hook for one of
-these calls, the architecture names that gap and how the guard closes it.
+CLI, Pi, and OpenCode (DEC-51, DEC-61). Each CLI registers it on its own hook
+events for edits, writes, and shell calls:
 
-A register line that replaces a filed finding carries `override_by` and
+- Claude Code registers it as `PreToolUse` hooks for `Edit`, `MultiEdit`,
+  `Write`, `NotebookEdit`, and `Bash`.
+- Codex registers it as `PreToolUse` hooks. An `apply_patch` call names its
+  paths inside the patch text, so the guard reads them from the patch. When
+  the guard cannot parse a patch whose raw text names a guarded path, it
+  refuses the call.
+- Copilot CLI registers it as `preToolUse` entries in a hook file under
+  `.github/hooks/`, as `step-guard.json` does.
+- Pi calls it from the `tool_call` event of a project-local extension.
+- OpenCode calls it from `execute.before` of the Factory plugin
+  `packages/factory/config/plugins/agent-factory.ts`. This feature writes the
+  first version of that plugin, and it holds only the guard. `init-factory`
+  accepts the CLI name `opencode` and links the plugin into
+  `.opencode/plugins/`.
+
+Pi and OpenCode block the call when the guard script is missing, so a broken
+install refuses the edit instead of letting it through. The Pi extension
+`step-guard.ts` lets a call through in that case; the guard does not.
+
+A register file that replaces a filed finding carries `override_by` and
 `override_reason`, as [Register of minor findings](#register-of-minor-findings)
-describes. So the hook checks `docs/findings/*.md`, the lines of
-`docs/findings/register/*.jsonl`, and the Appendix tables of
-`docs/proposals/*.md`, and no other path (DEC-45, DEC-56). The rulebook, the
+describes. So the hook checks `docs/findings/*.md`, the register files
+`docs/findings/register/**/*.json`, and the Appendix tables of
+`docs/proposals/*.md`, and no other path (DEC-45, DEC-56, DEC-60). The rulebook, the
 templates, and the test fixtures lie outside, so the stories that build this
 feature can write them.
 "Sets" means that a value appears that was not there before:
@@ -683,7 +703,7 @@ feature can write them.
 - For `Write`, it compares the new content with the current file. A new
   finding from the template carries only `null`, so a reviewer can file it.
 - For `Bash`, it checks only a command that writes into a guarded path, such
-  as a redirect, `sed -i`, or `tee` on a finding file, a register, or a
+  as a redirect, `sed -i`, or `tee` on a finding file, a register file, or a
   proposal. It refuses the command when its text assigns a non-null value to one of the
   fields, or `waived` to a `status:` line or to the Status cell of a proposal
   row. A read such as `grep "status: waived"` and a heredoc that writes a
@@ -701,48 +721,59 @@ receipts. The design for that path is deferred.
 
 ### Register of minor findings
 
-A `minor` finding is recorded as one line in the register of its review class.
-The registers live in `docs/findings/register/`, one JSON Lines file per class,
-such as `security.jsonl`. So a reader finds every recorded, unfixed finding in
-one folder. A blocking finding stays a file, because its `Fix`, its possible
-damage, and its status changes on each repeat pass do not fit in one line.
+A `minor` finding is recorded as one register file in the register of its
+review class. The register of a class is the folder
+`docs/findings/register/<class>/`, and each register file in it holds one
+finding as one JSON object, such as
+`docs/findings/register/security/SEC-0012.json`. So a reader finds every
+recorded `minor` finding in one folder. A blocking finding stays a Markdown
+finding file, because its `Fix`, its possible damage, and its status changes
+on each repeat pass read better as a document (DEC-60).
 
-Each line is one JSON object with the ID, the `source`, the category, the type,
-the artifact, the story, the finding, the `basis`, the `**Why this severity:**`
-sentence, and the reviewed commit. A line that replaces a filed finding also
-holds `override_by` and `override_reason`, because only the human lowers a
-filed finding (DEC-56). The `basis` has the shape of the class, so
+The object holds the ID, the `source`, the category, the type, the artifact,
+the story, the finding, the `basis`, the `**Why this severity:**` sentence, the
+reviewed commit, and the `status`. A register file that replaces a filed
+finding also holds `override_by` and `override_reason`, because only the human
+lowers a filed finding (DEC-56). The `basis` has the shape of the class, so
 each register has its own JSON Schema in `packages/factory/rulebooks/schemas/`,
-such as `finding-register-security.schema.json`. `finding-lint` checks each
-line against it, because `schema-validate` reads whole JSON files, and then
-recomputes the line's severity (DEC-49).
+such as `finding-register-security.schema.json`. `finding-lint` runs
+`schema-validate` on each register file with the schema of its class, and then
+recomputes the file's severity (DEC-60).
 
-JSON Lines suits the register for three reasons. A new finding adds one line at
-the end, and `.gitattributes` marks the registers `merge=union`, so two
-parallel reviews merge without a conflict (DEC-49). A
-padded Markdown table rewrites every line when one cell grows. The `basis`
-nests in JSON, where CSV would flatten it into columns. And the factory already
-validates JSON against schemas with the standard library only. The orchestrator
-loop greps finding files for `status: open`, so it skips the registers.
+The `status` of a register file is `open` or `resolved`. The reviewer agent
+writes `open` when it records the finding. The commit that fixes the finding
+sets `resolved`, and the file stays as the record. A register file is never
+`waived`, because only a blocking finding is waived, and never `deferred`
+(DEC-55). A register file is removed only when the finding is raised and a
+finding file with the same ID replaces it.
+
+One file per finding keeps parallel work apart. Two reviews on two branches
+add two new files, and two fixes change two different files, so git merges
+both without a conflict and without a merge driver. A fix that changes a
+status leaves every other finding as it is. The `basis` nests in JSON, where
+CSV would flatten it into columns, and the factory already validates JSON
+against schemas with the standard library only. The orchestrator loop greps
+`docs/findings/*.md` for `status: open`. A register file lies in a subfolder
+and holds JSON, so the grep never lists it.
 
 A finding classified too high blocks, so someone looks at it. A finding
-classified too low becomes a register line, and nothing questions its answers
+classified too low becomes a register file, and nothing questions its answers
 again. The lint checks only that the severity matches the answers, and a
 wrong "no" matches as well as a right one. The repeat pass reads only blocking
 findings. So the pause point in `finding-format.md` shows each new `minor`
 finding with its "no" sentence for `fails_purpose` (DEC-22). The pause point
-and the orchestrator's final summary render the register lines as text for the
-human. Take an ATAM review that records "an implementer can pick the obvious
+and the orchestrator's final summary render the new register files as text
+for the human. Take an ATAM review that records "an implementer can pick the obvious
 behavior" for the gap in ADR-0026. The user reads the sentence and can raise
 the finding to `major` by changing the answer. In a headless run, the
-orchestrator's final summary lists the new register lines with the same
+orchestrator's final summary lists the new register files with the same
 sentence. That summary comes only after the loop ends, so a headless run can
 still carry a wrong downgrade into implementation.
 
 ### Finding IDs
 
-Every finding gets its ID from `next-id`, whether it becomes a file or a
-register line (DEC-32). The [counter-ids](counter-ids.md) proposal defines that
+Every finding gets its ID from `next-id`, whether it becomes a finding file
+or a register file (DEC-32). The [counter-ids](counter-ids.md) proposal defines that
 script. Until it ships, the reviewer takes the next plausible number of the
 tag. The reviewer looks at the finding files, the IDs in the registers, and the
 branches of open runs, and checks by hand that no other finding holds that
@@ -809,7 +840,7 @@ The child-result envelope keys `finding_counts` by the shared scale:
 
 `finding-lint` is a new deterministic gate in `packages/factory/scripts/`. It
 reads every `docs/findings/*.md` that carries `review_class`, and every
-register line. After the migration, only files that are not `open` lack the
+register file. After the migration, only files that are not `open` lack the
 field, as [Migration of open findings](#migration-of-open-findings) lists. The
 lint skips them. The lint checks these rules:
 
@@ -817,7 +848,7 @@ lint skips them. The lint checks these rules:
   their class.
 - `basis` has the shape its class requires.
 - The severity computed from `basis` equals the recorded `severity`.
-- A `suggestion` is at most `minor`. No finding file and no register line has
+- A `suggestion` is at most `minor`. No finding file and no register file has
   the category `question`.
 - The body holds a `**Why this severity:**` line.
 - A finding with `status: waived` has a non-empty `override_by` and
@@ -826,8 +857,10 @@ lint skips them. The lint checks these rules:
   `stop_confirmed_reason`, and so does a resolved one (DEC-52).
 - `status` is one of `open`, `resolved`, `deferred`, and `waived`. Only the
   migration sets `deferred`, so a file that carries `review_class` is never
-  `deferred` (DEC-55). An `open` finding file is not `minor` or `note`, and no
-  ID exists both as a file and as a register line (DEC-53).
+  `deferred` (DEC-55). An `open` finding file is not `minor` or `note`. A
+  register file is `open` or `resolved`, and a register file that `HEAD`
+  holds is removed only for a finding file with the same ID (DEC-60). No ID
+  names both a finding file and a register file (DEC-53).
 - A `critical` finding holds `## Possible damage` with at least one item and
   its check. No other severity holds the section.
 - A set `stop_confirmed_by` comes with a non-empty `stop_confirmed_reason`,
@@ -841,7 +874,7 @@ lint skips them. The lint checks these rules:
   when `in_use` is `true`.
 - A `minor` finding holds one sentence for its "no" answer to `fails_purpose`
   in its `**Why this severity:**` sentence (DEC-27). The sentence contains the
-  marker `no to fails_purpose`, so the lint can check it on each register line
+  marker `no to fails_purpose`, so the lint can check it on each register file
   (DEC-53).
 
 The script exits `1` on any violation and names the file and the rule. The
@@ -872,8 +905,8 @@ may still answer `in_use: true`, for example when another project already
 reads the artifact. The `**Why this severity:**` line then names who reads it.
 
 The lint checks `in_use` only when a finding is new or its `basis` or
-`artifact` changed (DEC-43). It compares each finding file with its version at
-`HEAD` (DEC-46). A file that does not exist at `HEAD`, or whose `basis` or
+`artifact` changed (DEC-43). It compares each finding file and each register file with
+its version at `HEAD` (DEC-46, DEC-60). A file that does not exist at `HEAD`, or whose `basis` or
 `artifact` differs from it, gets the check. The pre-commit hook compares the
 staged file, and `validate` compares the working tree, so both give the same
 answer. A change to the override or confirmation fields, the status, or the
@@ -958,15 +991,24 @@ findings the new rule makes `critical` (DEC-35).
 
 After the pause point, the agent changes the files:
 
-- A finding that comes out `minor` becomes a line in the register of its
-  class and keeps its ID, for example BUG-0067. The file is removed, and git
-  history keeps its text. This is the one exception to the rule in
-  `finding-format.md` that a finding file is never deleted (DEC-33).
+- A finding that comes out `minor` becomes a register file with
+  `status: open` in the register of its class and keeps its ID, for example
+  `docs/findings/register/code/BUG-0067.json`. The finding file is removed,
+  and git history keeps its text. This is one of two exceptions to the rule in
+  `finding-format.md` that a finding file is never deleted. The other is a
+  lowering by the human (DEC-56, DEC-60).
 - Any other finding stays a file and is checked by the lint from then on, for
   example BUG-0105.
 - A finding that names no artifact, such as RETRO-0002, is not a finding
   (DEC-37, DEC-40). The agent moves it into `docs/spec/work/todo.md`, and the
   file gets `status: deferred` with the todo ID in its body.
+
+The migration also moves each line of the old registers
+`docs/findings/register/architecture.jsonl`, `code.jsonl`, and
+`document.jsonl` into one register file under the same ID, with
+`status: open`, and removes the three files (DEC-60). On 2026-11-07 they held
+25 lines. For example, the line of RECON-0027 in `document.jsonl` becomes
+`docs/findings/register/document/RECON-0027.json`.
 
 The other 208 files stay as they are: 195 resolved findings, IMPL-0003 with
 `status: deferred`, and 12 files without frontmatter. Three of the twelve are
@@ -1009,11 +1051,14 @@ run did not classify the finding.
   The finding file carries the status `waived`, `override_by`,
   `override_reason`, `stop_confirmed_by`, `stop_confirmed_reason`, and, on a
   `critical` finding, the section `## Possible damage`.
-- The registers in `docs/findings/register/`, one JSON Lines file per review
-  class, with one schema per class in `packages/factory/rulebooks/schemas/`.
-  The review skills write each `minor` finding into the register of its class.
-- `finding-format.md` allows the migration to remove the file of a migrated
-  `minor` finding, as the one exception to "never delete".
+- The registers in `docs/findings/register/<class>/`, one JSON register file
+  per `minor` finding, with one schema per class in
+  `packages/factory/rulebooks/schemas/`. The review skills write each `minor`
+  finding as a register file of its class, and the fixing commit sets its
+  status to `resolved`.
+- `finding-format.md` allows two removals of a finding file as the exceptions
+  to "never delete": the migration of a `minor` finding and a lowering by the
+  human. Each one leaves a register file under the same ID.
 - `finding-lint` checks the rules in [`finding-lint`](#finding-lint).
   `validate` and pre-commit run it.
 - `dispatch` and `premerge-check` hold the stop for an open, unconfirmed
@@ -1021,7 +1066,15 @@ run did not classify the finding.
   stopping finding with `explain-review-finding`, and a headless run ends with
   the notice in its final summary.
 - The hook `guard-human-fields` in `packages/factory/config/hooks/`, registered
-  in every supported CLI for its edit, write, and shell calls (DEC-51).
+  in every supported CLI for its edit, write, and shell calls (DEC-51,
+  DEC-61).
+- The first OpenCode plugin `packages/factory/config/plugins/agent-factory.ts`,
+  which holds only the guard, and the change to `init-factory` that accepts
+  the CLI name `opencode` and links the plugin into `.opencode/plugins/`
+  (DEC-61).
+- A `node:test` suite for the TypeScript tests in
+  `packages/factory/config/**/*.test.ts`, on Node 22.6 or later and with no
+  new dependency, declared in `docs/testing.yaml` (DEC-62).
 - The pause point in `finding-format.md` and the final summary of each playbook
   with a review loop show every new `minor` finding with its `fails_purpose`
   sentence.
@@ -1031,7 +1084,8 @@ run did not classify the finding.
   with the two questions, end its Finding cell with the severity sentence, and
   know the status `waived`.
 - `docs/spec/interface-contracts.md` keys `finding_counts` by the shared scale.
-- The one-time migration of every open finding without `review_class`, after
+- The one-time migration of every open finding without `review_class` and of
+  every line of the old `.jsonl` registers, after
   `docs/factory-settings.yaml` exists, as
   [Migration of open findings](#migration-of-open-findings) describes.
 - The [agreement check](#agreement-check) on a fixed set of existing findings.
@@ -1152,10 +1206,13 @@ None.
 - `finding-lint` exits `1` on a `critical` finding without
   `## Possible damage`, and on a `stop_confirmed_by` without
   `stop_confirmed_reason`.
-- A review that produces a `minor` finding adds one line to the register of
-  its class and files no finding file for it. `finding-lint` accepts the line
-  against the schema of its class, and exits `1` on a line whose `severity` does not match
-  its `basis`.
+- A review that produces a `minor` finding writes one register file
+  `docs/findings/register/<class>/<ID>.json` with `status: open` and files no
+  finding file for it. `finding-lint` accepts the file against the schema of
+  its class. It exits `1` on a register file whose `severity` does not match
+  its `basis`, on a status other than `open` or `resolved`, and on a register
+  file that `HEAD` holds and the commit removes without a finding file of the
+  same ID.
 - While an open `critical` finding has no `stop_confirmed_by`, `dispatch` and
   `premerge-check` exit `1` and print the stop notice with the finding's
   possible damage. A test covers each script, and a test shows that both run
@@ -1165,10 +1222,19 @@ None.
   show that these pass: a new finding written from the template, a typo fix in
   a waived finding, an edit of the finding template, a read-only
   `grep "status: waived"`, and a heredoc that writes a test fixture.
+- Each supported CLI runs `guard-human-fields` on the calls that
+  [Fields only the human writes](#fields-only-the-human-writes) lists. A test
+  shows that Codex refuses an `apply_patch` call that the guard cannot parse
+  and whose text names a guarded path. In Pi and OpenCode, a test shows that a
+  missing guard script blocks the call. `init-factory --cli opencode` links
+  `agent-factory.ts` into `.opencode/plugins/`.
+- `docs/testing.yaml` declares a `node:test` suite for
+  `packages/factory/config/**/*.test.ts`, and the suite passes on Node 22.6 or
+  later without a new dependency.
 - At the pause point, the user sees every new `minor` finding with its
   `fails_purpose` sentence before any file is written.
-- The final summary of a headless run lists each new `minor` register line
-  with its `fails_purpose` sentence.
+- The final summary of a headless run lists each new register file with its
+  `fails_purpose` sentence.
 - The triage table in `rulebooks/templates/qa-strategy.md` has a
   `Consequence` column with the three values "harm if in use", "fails
   purpose", and "raises cost", and no severity column.
@@ -1182,8 +1248,9 @@ None.
   skipped.
 - No migrated finding is `open` with severity `minor`. The migration covers
   every open finding without `review_class` when it runs (DEC-54). Each
-  migrated `minor` finding is a line in the register of its class under its
-  old ID.
+  migrated `minor` finding is a register file of its class under its old ID.
+  Each line of the old `.jsonl` registers is a register file under its ID, and
+  no `.jsonl` file remains in `docs/findings/register/`.
 - After the migration commit, no open `critical` finding lacks
   `stop_confirmed_by`, and the migration review report states how many
   migrated findings are `critical`.
@@ -1200,67 +1267,70 @@ The reviewer states the facts, and the rule states the severity.
 
 ## Decisions
 
-| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                                                                                                                                                                    | Raised by                                                          |
-| ------ | ---------- | ---------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| DEC-01 | 2026-11-04 | decision   | stakeholder | Each review class gets its own classification criteria.                                                                                                                                                                                                                                                                     | Chat discussion                                                    |
-| DEC-02 | 2026-11-04 | decision   | stakeholder | Sources are named. The design does not copy standards that are not accessible and may draw on general domain knowledge instead.                                                                                                                                                                                             | Chat discussion                                                    |
-| DEC-03 | 2026-11-04 | decision   | stakeholder | All classes record severity on one four-level scale (`critical`, `major`, `minor`, `note`) with one blocking threshold at `major`. Native ratings stay in `rating`.                                                                                                                                                         | Grilling Q1                                                        |
-| DEC-04 | 2026-11-04 | assumption | author      | The reviewer records a basis, a rule computes the severity, and `finding-lint` recomputes it.                                                                                                                                                                                                                               | Motivation                                                         |
-| DEC-05 | 2026-11-04 | decision   | stakeholder | Security review does not use CVSS, SSVC, CWSS, or OWASP factor scoring. CVSS and SSVC need deployment and threat data, and factor judgments vary between runs. Superseded in its method by DEC-20.                                                                                                                          | Grilling Q7b                                                       |
-| DEC-06 | 2026-11-04 | decision   | stakeholder | Security impact uses the maximum of the four factors. OWASP allows an estimate instead of the mean, and IEEE 1044 and CVSS v3.1 treat impact as the worst case.                                                                                                                                                             | Source research. Superseded by DEC-20, which has no impact factors |
-| DEC-07 | 2026-11-04 | assumption | author      | `finding-lint` skips findings without `review_class`, and migration of old findings is deferred. Superseded by DEC-24.                                                                                                                                                                                                      | Design                                                             |
-| DEC-08 | 2026-11-04 | assumption | author      | The agreement target is 80 %, that is 16 of 20 findings in the fixed set. It stays an assumption; the baseline condition in DEC-23 tests the proposal. Answers OQ-01.                                                                                                                                                       | Grilling Q11                                                       |
-| DEC-09 | 2026-11-04 | decision   | stakeholder | In the document and code classes, the type follows from the fix that the finding demands, as ODC chooses it from the fix made.                                                                                                                                                                                              | Source research                                                    |
-| DEC-10 | 2026-11-04 | decision   | stakeholder | Architecture severity uses the importance of the threatened scenario (source: DEC-19). Each non-risk names its assumptions.                                                                                                                                                                                                 | Source research                                                    |
-| DEC-11 | 2026-11-04 | decision   | stakeholder | The document class gains the type `compound` for a statement that bundles two requirements.                                                                                                                                                                                                                                 | Source research                                                    |
-| DEC-12 | 2026-11-04 | decision   | stakeholder | A `minor` finding becomes one row in the project register `docs/findings/register.md` and never blocks. Answers OQ-03. Storage changed by DEC-33.                                                                                                                                                                           | T-0016 grilling                                                    |
-| DEC-13 | 2026-11-04 | decision   | stakeholder | Only the human overrides the computed blocking value, through `blocking_override`, `override_by`, and `override_reason`. The severity stays computed. Field replaced by the status `waived` in DEC-44.                                                                                                                      | T-0016 grilling                                                    |
-| DEC-14 | 2026-11-04 | decision   | stakeholder | A `critical` finding stops the playbook run until the human confirms. A `major` finding loops back to its author.                                                                                                                                                                                                           | Grilling Q2                                                        |
-| DEC-15 | 2026-11-04 | decision   | stakeholder | `harms_downstream` asks whether the defective artifact is already in use (see DEC-16). The reviewer checks this fact and does not predict later gates.                                                                                                                                                                      | Grilling Q3                                                        |
-| DEC-16 | 2026-11-04 | decision   | stakeholder | An artifact is in use when something outside the current run depends on it: `dev`, `main`, the installed copy, a release, or an artifact the run did not produce. The feature branch of the run does not count.                                                                                                             | Grilling Q3b                                                       |
-| DEC-17 | 2026-11-04 | decision   | stakeholder | `review_class` names the rule, not the review. A defect that ATAM review finds in an ADR or arc42 chapter belongs to the document class. The architecture class covers only findings measured against a quality scenario.                                                                                                   | Grilling Q4                                                        |
-| DEC-18 | 2026-11-04 | decision   | stakeholder | The architecture matrix gives at most `major`. A risk becomes `critical` only when something built from the decision is in use (DEC-16).                                                                                                                                                                                    | Grilling Q5                                                        |
-| DEC-19 | 2026-11-04 | decision   | stakeholder | Scenario importance comes from the priority in arc42 § 10.2: priority 1 is `high`, priority 2 is `medium`. A utility tree with H/M/L ratings is deferred.                                                                                                                                                                   | Grilling Q6                                                        |
-| DEC-20 | 2026-11-04 | decision   | stakeholder | Security severity comes from a bug bar: the effect class sets the level, each of four preconditions lowers it one step, and `critical` needs `in_use` and `proven` confidence.                                                                                                                                              | Grilling Q7b                                                       |
-| DEC-21 | 2026-11-04 | decision   | stakeholder | `finding-lint` checks `in_use` against `dev`, `main`, release tags, and the installed copy. Release tags refined by DEC-48. Every class records `in_use`, and `artifact` must resolve to a line range or a heading.                                                                                                         | Grilling Q9                                                        |
-| DEC-22 | 2026-11-04 | decision   | stakeholder | The pause point shows each new `minor` finding with its `fails_purpose` sentence, so the user can raise a wrong downgrade. A headless run lists the rows in its final summary.                                                                                                                                              | Grilling Q10                                                       |
-| DEC-23 | 2026-11-04 | decision   | stakeholder | Agreement is measured by re-classifying a fixed set of 20 existing findings, twice with the new rulebook and twice with the old rules. The new rules must reach the target and beat the old ones.                                                                                                                           | Grilling Q11                                                       |
-| DEC-24 | 2026-11-04 | decision   | stakeholder | The 39 open findings are migrated once with the new rulebook; migrated `minor` findings become register rows under their old ID. The 208 resolved findings stay untouched. Corrected count: 208 files that are not `open`, 195 of them resolved (PROP-12). Answers OQ-02.                                                   | Grilling Q12                                                       |
-| DEC-25 | 2026-11-04 | decision   | stakeholder | The override only sets a blocking finding to `false`. A `minor` finding never blocks, and no override raises it.                                                                                                                                                                                                            | review-loop-cap lector pass                                        |
-| DEC-26 | 2026-11-04 | decision   | stakeholder | A document is in use only when stories or code outside the run encode its statement. The git check for `in_use` applies to code and runtime findings only. Extended to security by DEC-31.                                                                                                                                  | Lector pass C2                                                     |
-| DEC-27 | 2026-11-04 | decision   | stakeholder | A `minor` finding carries one sentence for its "no" to `fails_purpose`, and `finding-lint` checks that the sentence exists.                                                                                                                                                                                                 | Lector pass C4                                                     |
-| DEC-28 | 2026-11-05 | decision   | stakeholder | `dispatch` and `premerge-check` hold the `critical` stop. The human confirms through `stop_confirmed_by` and `stop_confirmed_reason`; the finding then loops like a `major` one. A headless run ends with the stop notice.                                                                                                  | Review PROP-01, grilling Q1                                        |
-| DEC-29 | 2026-11-05 | decision   | stakeholder | Only a `critical` finding carries `## Possible damage`, filled by the reviewer from git and the file tree, one check per item. The scripts print it in the stop notice, and the orchestrator explains the finding with `explain-review-finding`.                                                                            | Review PROP-01, grilling Q1b                                       |
-| DEC-30 | 2026-11-05 | decision   | stakeholder | `finding-lint` compares line identities from `git blame -M -C --porcelain`, using `--contents` for the installed copy, and checks `in_use` only on finding files new or changed in the commit. Text matching and SARIF fingerprints are not used.                                                                           | Review PROP-02, grilling Q2                                        |
-| DEC-31 | 2026-11-05 | decision   | stakeholder | The git check for `in_use` covers the security class as well as code and runtime. Document and architecture findings stay outside it.                                                                                                                                                                                       | Review PROP-03, grilling Q3                                        |
-| DEC-32 | 2026-11-05 | decision   | stakeholder | Every finding, file or register line, gets its ID from `next-id` of the counter-ids proposal. Until it ships, the reviewer takes the next plausible number and avoids clashes by hand.                                                                                                                                      | Review PROP-16, grilling Q4                                        |
-| DEC-33 | 2026-11-05 | decision   | stakeholder | `minor` findings go to one JSON Lines register per review class in `docs/findings/register/`, each with a JSON Schema. Blocking findings stay files. Removing a migrated `minor` file is the one exception to "never delete".                                                                                               | Review PROP-16, grilling Q4c and Q4d                               |
-| DEC-34 | 2026-11-05 | decision   | stakeholder | The QA triage table states the consequence, not the severity. A defect that is not in use cannot harm production yet, so it is `major` and the automated loop fixes it; in use, it is `critical`.                                                                                                                           | Review PROP-04, grilling Q5                                        |
-| DEC-35 | 2026-11-05 | decision   | stakeholder | Migrated `critical` findings get `## Possible damage` from the migration agent and are confirmed by the human at the migration pause point, so no later run stops on them. The rarity claim based on old labels is replaced by the count in the migration report.                                                           | Review PROP-09, grilling Q6                                        |
-| DEC-36 | 2026-11-05 | decision   | stakeholder | Claim review is not a review class. A refuted claim is a success, eliminating a bad argument, and harms nothing. `adversarial-review` keeps its scale; its envelope counts BLOCKER under `major`.                                                                                                                           | Review PROP-05, grilling Q7                                        |
-| DEC-37 | 2026-11-05 | decision   | stakeholder | The class follows the material for every source, not only reviews. Text that agents execute (playbooks, skills, agent definitions, rulebooks, hook configuration) is code. An observation without an artifact is not a finding; it becomes a retro action item or a todo entry.                                             | Review PROP-06, grilling Q8                                        |
-| DEC-38 | 2026-11-05 | decision   | stakeholder | Proposal review rows stay in the Appendix. Severity comes from two questions, whether a planner must ask back (`major`) and whether a reader pays later (`minor`), with one severity sentence per row. A `major` row blocks acceptance; only the stakeholder sets `waived`. `finding-lint` skips proposals.                 | Review PROP-07, grilling Q9                                        |
-| DEC-39 | 2026-11-05 | decision   | stakeholder | The agreement set is picked by class of material with fixed quotas (6 document, 5 code, 4 runtime, 2 architecture, 3 security). A `question` counts as disagreement. Each run is a fresh subagent with only the rules and the texts, on the review agents' model.                                                           | Review PROP-10, grilling Q10                                       |
-| DEC-40 | 2026-11-05 | assumption | author      | The migration rewrites each `artifact` to the range of its fix. An open finding without an artifact moves into `todo.md`, and its file gets `status: deferred` with the todo ID.                                                                                                                                            | Review PROP-08                                                     |
-| DEC-41 | 2026-11-05 | assumption | author      | A `question` is only a `todo.md` entry; no finding file and no register line carries the category.                                                                                                                                                                                                                          | Review PROP-17                                                     |
-| DEC-42 | 2026-11-05 | decision   | stakeholder | The hook `guard-human-fields` refuses agent tool calls that set override or stop-confirmation fields or the row status `waived`. The design against an agent that hides the field name is deferred to gate-evidence.                                                                                                        | Review PROP-15, grilling Q11                                       |
-| DEC-43 | 2026-11-05 | decision   | stakeholder | `finding-lint` checks `in_use` only when a commit adds the finding or changes its `basis` or `artifact`. Override, confirmation, status, and text changes do not trigger it.                                                                                                                                                | Lector pass C4                                                     |
-| DEC-44 | 2026-11-05 | decision   | stakeholder | The override is the status `waived` with `override_by` and `override_reason`; the field `blocking_override` is dropped. The loops keep `grep "status: open"`, so a waived finding drops out without playbook changes.                                                                                                       | Review PROP-19, grilling Q12                                       |
-| DEC-45 | 2026-11-05 | decision   | stakeholder | `guard-human-fields` checks only finding files and proposal Appendix tables, and refuses only a value that was not there before: a non-null human field or the status `waived`. `Edit` and `Write` compare old and new; `Bash` checks the command text.                                                                     | Review PROP-20, grilling Q13                                       |
-| DEC-46 | 2026-11-05 | decision   | stakeholder | `finding-lint` decides "new or changed" by comparing each finding file with its `HEAD` version: staged in pre-commit, working tree in `validate`. `validate --changed` is dropped.                                                                                                                                          | Review PROP-21, grilling Q14                                       |
-| DEC-47 | 2026-11-05 | decision   | stakeholder | A `critical` finding can be waived only after its stop is confirmed with `stop_confirmed_by` and `stop_confirmed_reason`, so the damage checks run even when the finding stays unfixed. `finding-lint` checks this.                                                                                                         | Review pass 3, raised by the author                                |
-| DEC-48 | 2026-11-06 | decision   | stakeholder | Each project defines which git tags count as release tags for the `in_use` check, as `release_tag_patterns` in the tracked file `docs/factory-settings.yaml`. No Factory default; without the file or the key, `finding-lint` exits `1` and names both. Refines DEC-21.                                                     | Requirements gaps FC-G07 and FC-C11                                |
-| DEC-49 | 2026-11-06 | assumption | author      | Corrections from the QA strategy: the git check blames the `artifact` path plus the rename and copy sources of the branch diff, not the porcelain file name; the lint finds the installed copy through `_main_checkout.py`; the registers are `merge=union`; `finding-lint` validates register lines against their schemas. | QA strategy FC-QG03, QG04, QG07, QG08                              |
-| DEC-50 | 2026-11-06 | decision   | stakeholder | The git check reads `dev` and `main` locally and as `origin/dev` and `origin/main`. A missing branch is skipped and named in the output.                                                                                                                                                                                    | Domain model Q3, QA strategy Q1                                    |
-| DEC-51 | 2026-11-06 | decision   | stakeholder | `guard-human-fields` runs in every supported CLI: Claude Code, Codex, Copilot CLI, Pi, and OpenCode. Where a CLI lacks a hook for a call, the architecture names the gap and how the guard closes it.                                                                                                                       | QA strategy Q2                                                     |
-| DEC-52 | 2026-11-06 | decision   | stakeholder | A `critical` finding becomes `resolved` only after its stop is confirmed. The stop holds until both confirmation fields hold text.                                                                                                                                                                                          | Domain model Q2, QA strategy Q5                                    |
-| DEC-53 | 2026-11-06 | decision   | stakeholder | `finding-lint` also rejects an unknown status, an open `minor` or `note` file, and an ID that is both a file and a register line. The `fails_purpose` sentence carries the marker `no to fails_purpose`.                                                                                                                    | QA strategy Q3, Q4                                                 |
-| DEC-54 | 2026-11-06 | decision   | stakeholder | The migration covers every open finding without `review_class`, 47 on 2026-11-06, not only the 39 counted on 2026-11-04.                                                                                                                                                                                                    | Requirements gap FC-G01                                            |
-| DEC-55 | 2026-11-06 | decision   | stakeholder | No agent sets `deferred` on a finding. Only the migration sets it, on an old finding without an artifact, and that file carries no `review_class`. `finding-lint` rejects `deferred` on a file that carries `review_class`. A person who sets a blocking finding aside uses `waived`.                                       | Spec review SPEC-0072, requirements gap FC-G09                     |
-| DEC-56 | 2026-11-06 | decision   | stakeholder | Only the person lowers a filed finding. `finding-lint` compares each finding with `HEAD`; a falling severity, or a finding file that becomes a register line, needs `override_by` and `override_reason`, as a waiver does. Raising a severity stays free for agents (FC-G04).                                               | Spec review note 4, requirements gap FC-G10                        |
-| DEC-57 | 2026-11-06 | decision   | stakeholder | `dispatch` and `premerge-check` read each finding file in the working tree and at `HEAD`. A finding stops the run when either version is critical, and a confirmation in either version ends the stop. A change in the working tree that nobody commits does not end a stop.                                                | Spec review SPEC-0071, requirements choice FC-C19                  |
-| DEC-58 | 2026-11-06 | decision   | stakeholder | A `critical` finding is lowered only when its `HEAD` version holds text in `stop_confirmed_by` and `stop_confirmed_reason`. The human confirms the stop in one commit and lowers the finding in a later one.                                                                                                                | Spec review SPEC-0071, requirements choice FC-C20                  |
-| DEC-59 | 2026-11-06 | decision   | stakeholder | A finding lowered from `critical` to `major` drops `stop_confirmed_by` and `stop_confirmed_reason`, because only a `critical` finding carries them. Its `HEAD` version keeps the confirmation in git history.                                                                                                               | Spec review SPEC-0071, requirements choice FC-C21                  |
+| ID     | Date       | Kind       | Decided by  | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Raised by                                                          |
+| ------ | ---------- | ---------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| DEC-01 | 2026-11-04 | decision   | stakeholder | Each review class gets its own classification criteria.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Chat discussion                                                    |
+| DEC-02 | 2026-11-04 | decision   | stakeholder | Sources are named. The design does not copy standards that are not accessible and may draw on general domain knowledge instead.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Chat discussion                                                    |
+| DEC-03 | 2026-11-04 | decision   | stakeholder | All classes record severity on one four-level scale (`critical`, `major`, `minor`, `note`) with one blocking threshold at `major`. Native ratings stay in `rating`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Grilling Q1                                                        |
+| DEC-04 | 2026-11-04 | assumption | author      | The reviewer records a basis, a rule computes the severity, and `finding-lint` recomputes it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Motivation                                                         |
+| DEC-05 | 2026-11-04 | decision   | stakeholder | Security review does not use CVSS, SSVC, CWSS, or OWASP factor scoring. CVSS and SSVC need deployment and threat data, and factor judgments vary between runs. Superseded in its method by DEC-20.                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Grilling Q7b                                                       |
+| DEC-06 | 2026-11-04 | decision   | stakeholder | Security impact uses the maximum of the four factors. OWASP allows an estimate instead of the mean, and IEEE 1044 and CVSS v3.1 treat impact as the worst case.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Source research. Superseded by DEC-20, which has no impact factors |
+| DEC-07 | 2026-11-04 | assumption | author      | `finding-lint` skips findings without `review_class`, and migration of old findings is deferred. Superseded by DEC-24.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Design                                                             |
+| DEC-08 | 2026-11-04 | assumption | author      | The agreement target is 80 %, that is 16 of 20 findings in the fixed set. It stays an assumption; the baseline condition in DEC-23 tests the proposal. Answers OQ-01.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Grilling Q11                                                       |
+| DEC-09 | 2026-11-04 | decision   | stakeholder | In the document and code classes, the type follows from the fix that the finding demands, as ODC chooses it from the fix made.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Source research                                                    |
+| DEC-10 | 2026-11-04 | decision   | stakeholder | Architecture severity uses the importance of the threatened scenario (source: DEC-19). Each non-risk names its assumptions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Source research                                                    |
+| DEC-11 | 2026-11-04 | decision   | stakeholder | The document class gains the type `compound` for a statement that bundles two requirements.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Source research                                                    |
+| DEC-12 | 2026-11-04 | decision   | stakeholder | A `minor` finding becomes one row in the project register `docs/findings/register.md` and never blocks. Answers OQ-03. Storage changed by DEC-33.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | T-0016 grilling                                                    |
+| DEC-13 | 2026-11-04 | decision   | stakeholder | Only the human overrides the computed blocking value, through `blocking_override`, `override_by`, and `override_reason`. The severity stays computed. Field replaced by the status `waived` in DEC-44.                                                                                                                                                                                                                                                                                                                                                                                                                                                        | T-0016 grilling                                                    |
+| DEC-14 | 2026-11-04 | decision   | stakeholder | A `critical` finding stops the playbook run until the human confirms. A `major` finding loops back to its author.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Grilling Q2                                                        |
+| DEC-15 | 2026-11-04 | decision   | stakeholder | `harms_downstream` asks whether the defective artifact is already in use (see DEC-16). The reviewer checks this fact and does not predict later gates.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Grilling Q3                                                        |
+| DEC-16 | 2026-11-04 | decision   | stakeholder | An artifact is in use when something outside the current run depends on it: `dev`, `main`, the installed copy, a release, or an artifact the run did not produce. The feature branch of the run does not count.                                                                                                                                                                                                                                                                                                                                                                                                                                               | Grilling Q3b                                                       |
+| DEC-17 | 2026-11-04 | decision   | stakeholder | `review_class` names the rule, not the review. A defect that ATAM review finds in an ADR or arc42 chapter belongs to the document class. The architecture class covers only findings measured against a quality scenario.                                                                                                                                                                                                                                                                                                                                                                                                                                     | Grilling Q4                                                        |
+| DEC-18 | 2026-11-04 | decision   | stakeholder | The architecture matrix gives at most `major`. A risk becomes `critical` only when something built from the decision is in use (DEC-16).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Grilling Q5                                                        |
+| DEC-19 | 2026-11-04 | decision   | stakeholder | Scenario importance comes from the priority in arc42 § 10.2: priority 1 is `high`, priority 2 is `medium`. A utility tree with H/M/L ratings is deferred.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Grilling Q6                                                        |
+| DEC-20 | 2026-11-04 | decision   | stakeholder | Security severity comes from a bug bar: the effect class sets the level, each of four preconditions lowers it one step, and `critical` needs `in_use` and `proven` confidence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Grilling Q7b                                                       |
+| DEC-21 | 2026-11-04 | decision   | stakeholder | `finding-lint` checks `in_use` against `dev`, `main`, release tags, and the installed copy. Release tags refined by DEC-48. Every class records `in_use`, and `artifact` must resolve to a line range or a heading.                                                                                                                                                                                                                                                                                                                                                                                                                                           | Grilling Q9                                                        |
+| DEC-22 | 2026-11-04 | decision   | stakeholder | The pause point shows each new `minor` finding with its `fails_purpose` sentence, so the user can raise a wrong downgrade. A headless run lists the rows in its final summary.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Grilling Q10                                                       |
+| DEC-23 | 2026-11-04 | decision   | stakeholder | Agreement is measured by re-classifying a fixed set of 20 existing findings, twice with the new rulebook and twice with the old rules. The new rules must reach the target and beat the old ones.                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Grilling Q11                                                       |
+| DEC-24 | 2026-11-04 | decision   | stakeholder | The 39 open findings are migrated once with the new rulebook; migrated `minor` findings become register rows under their old ID. The 208 resolved findings stay untouched. Corrected count: 208 files that are not `open`, 195 of them resolved (PROP-12). Answers OQ-02.                                                                                                                                                                                                                                                                                                                                                                                     | Grilling Q12                                                       |
+| DEC-25 | 2026-11-04 | decision   | stakeholder | The override only sets a blocking finding to `false`. A `minor` finding never blocks, and no override raises it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | review-loop-cap lector pass                                        |
+| DEC-26 | 2026-11-04 | decision   | stakeholder | A document is in use only when stories or code outside the run encode its statement. The git check for `in_use` applies to code and runtime findings only. Extended to security by DEC-31.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Lector pass C2                                                     |
+| DEC-27 | 2026-11-04 | decision   | stakeholder | A `minor` finding carries one sentence for its "no" to `fails_purpose`, and `finding-lint` checks that the sentence exists.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Lector pass C4                                                     |
+| DEC-28 | 2026-11-05 | decision   | stakeholder | `dispatch` and `premerge-check` hold the `critical` stop. The human confirms through `stop_confirmed_by` and `stop_confirmed_reason`; the finding then loops like a `major` one. A headless run ends with the stop notice.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Review PROP-01, grilling Q1                                        |
+| DEC-29 | 2026-11-05 | decision   | stakeholder | Only a `critical` finding carries `## Possible damage`, filled by the reviewer from git and the file tree, one check per item. The scripts print it in the stop notice, and the orchestrator explains the finding with `explain-review-finding`.                                                                                                                                                                                                                                                                                                                                                                                                              | Review PROP-01, grilling Q1b                                       |
+| DEC-30 | 2026-11-05 | decision   | stakeholder | `finding-lint` compares line identities from `git blame -M -C --porcelain`, using `--contents` for the installed copy, and checks `in_use` only on finding files new or changed in the commit. Text matching and SARIF fingerprints are not used.                                                                                                                                                                                                                                                                                                                                                                                                             | Review PROP-02, grilling Q2                                        |
+| DEC-31 | 2026-11-05 | decision   | stakeholder | The git check for `in_use` covers the security class as well as code and runtime. Document and architecture findings stay outside it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Review PROP-03, grilling Q3                                        |
+| DEC-32 | 2026-11-05 | decision   | stakeholder | Every finding, file or register line, gets its ID from `next-id` of the counter-ids proposal. Until it ships, the reviewer takes the next plausible number and avoids clashes by hand.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Review PROP-16, grilling Q4                                        |
+| DEC-33 | 2026-11-05 | decision   | stakeholder | `minor` findings go to one JSON Lines register per review class in `docs/findings/register/`, each with a JSON Schema. Blocking findings stay files. Removing a migrated `minor` file is the one exception to "never delete". Replaced by DEC-60.                                                                                                                                                                                                                                                                                                                                                                                                             | Review PROP-16, grilling Q4c and Q4d                               |
+| DEC-34 | 2026-11-05 | decision   | stakeholder | The QA triage table states the consequence, not the severity. A defect that is not in use cannot harm production yet, so it is `major` and the automated loop fixes it; in use, it is `critical`.                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Review PROP-04, grilling Q5                                        |
+| DEC-35 | 2026-11-05 | decision   | stakeholder | Migrated `critical` findings get `## Possible damage` from the migration agent and are confirmed by the human at the migration pause point, so no later run stops on them. The rarity claim based on old labels is replaced by the count in the migration report.                                                                                                                                                                                                                                                                                                                                                                                             | Review PROP-09, grilling Q6                                        |
+| DEC-36 | 2026-11-05 | decision   | stakeholder | Claim review is not a review class. A refuted claim is a success, eliminating a bad argument, and harms nothing. `adversarial-review` keeps its scale; its envelope counts BLOCKER under `major`.                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Review PROP-05, grilling Q7                                        |
+| DEC-37 | 2026-11-05 | decision   | stakeholder | The class follows the material for every source, not only reviews. Text that agents execute (playbooks, skills, agent definitions, rulebooks, hook configuration) is code. An observation without an artifact is not a finding; it becomes a retro action item or a todo entry.                                                                                                                                                                                                                                                                                                                                                                               | Review PROP-06, grilling Q8                                        |
+| DEC-38 | 2026-11-05 | decision   | stakeholder | Proposal review rows stay in the Appendix. Severity comes from two questions, whether a planner must ask back (`major`) and whether a reader pays later (`minor`), with one severity sentence per row. A `major` row blocks acceptance; only the stakeholder sets `waived`. `finding-lint` skips proposals.                                                                                                                                                                                                                                                                                                                                                   | Review PROP-07, grilling Q9                                        |
+| DEC-39 | 2026-11-05 | decision   | stakeholder | The agreement set is picked by class of material with fixed quotas (6 document, 5 code, 4 runtime, 2 architecture, 3 security). A `question` counts as disagreement. Each run is a fresh subagent with only the rules and the texts, on the review agents' model.                                                                                                                                                                                                                                                                                                                                                                                             | Review PROP-10, grilling Q10                                       |
+| DEC-40 | 2026-11-05 | assumption | author      | The migration rewrites each `artifact` to the range of its fix. An open finding without an artifact moves into `todo.md`, and its file gets `status: deferred` with the todo ID.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Review PROP-08                                                     |
+| DEC-41 | 2026-11-05 | assumption | author      | A `question` is only a `todo.md` entry; no finding file and no register line carries the category.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Review PROP-17                                                     |
+| DEC-42 | 2026-11-05 | decision   | stakeholder | The hook `guard-human-fields` refuses agent tool calls that set override or stop-confirmation fields or the row status `waived`. The design against an agent that hides the field name is deferred to gate-evidence.                                                                                                                                                                                                                                                                                                                                                                                                                                          | Review PROP-15, grilling Q11                                       |
+| DEC-43 | 2026-11-05 | decision   | stakeholder | `finding-lint` checks `in_use` only when a commit adds the finding or changes its `basis` or `artifact`. Override, confirmation, status, and text changes do not trigger it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Lector pass C4                                                     |
+| DEC-44 | 2026-11-05 | decision   | stakeholder | The override is the status `waived` with `override_by` and `override_reason`; the field `blocking_override` is dropped. The loops keep `grep "status: open"`, so a waived finding drops out without playbook changes.                                                                                                                                                                                                                                                                                                                                                                                                                                         | Review PROP-19, grilling Q12                                       |
+| DEC-45 | 2026-11-05 | decision   | stakeholder | `guard-human-fields` checks only finding files and proposal Appendix tables, and refuses only a value that was not there before: a non-null human field or the status `waived`. `Edit` and `Write` compare old and new; `Bash` checks the command text.                                                                                                                                                                                                                                                                                                                                                                                                       | Review PROP-20, grilling Q13                                       |
+| DEC-46 | 2026-11-05 | decision   | stakeholder | `finding-lint` decides "new or changed" by comparing each finding file with its `HEAD` version: staged in pre-commit, working tree in `validate`. `validate --changed` is dropped.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Review PROP-21, grilling Q14                                       |
+| DEC-47 | 2026-11-05 | decision   | stakeholder | A `critical` finding can be waived only after its stop is confirmed with `stop_confirmed_by` and `stop_confirmed_reason`, so the damage checks run even when the finding stays unfixed. `finding-lint` checks this.                                                                                                                                                                                                                                                                                                                                                                                                                                           | Review pass 3, raised by the author                                |
+| DEC-48 | 2026-11-06 | decision   | stakeholder | Each project defines which git tags count as release tags for the `in_use` check, as `release_tag_patterns` in the tracked file `docs/factory-settings.yaml`. No Factory default; without the file or the key, `finding-lint` exits `1` and names both. Refines DEC-21.                                                                                                                                                                                                                                                                                                                                                                                       | Requirements gaps FC-G07 and FC-C11                                |
+| DEC-49 | 2026-11-06 | assumption | author      | Corrections from the QA strategy: the git check blames the `artifact` path plus the rename and copy sources of the branch diff, not the porcelain file name; the lint finds the installed copy through `_main_checkout.py`; the registers are `merge=union`; `finding-lint` validates register lines against their schemas. The two register parts are replaced by DEC-60.                                                                                                                                                                                                                                                                                    | QA strategy FC-QG03, QG04, QG07, QG08                              |
+| DEC-50 | 2026-11-06 | decision   | stakeholder | The git check reads `dev` and `main` locally and as `origin/dev` and `origin/main`. A missing branch is skipped and named in the output.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Domain model Q3, QA strategy Q1                                    |
+| DEC-51 | 2026-11-06 | decision   | stakeholder | `guard-human-fields` runs in every supported CLI: Claude Code, Codex, Copilot CLI, Pi, and OpenCode. Where a CLI lacks a hook for a call, the architecture names the gap and how the guard closes it.                                                                                                                                                                                                                                                                                                                                                                                                                                                         | QA strategy Q2                                                     |
+| DEC-52 | 2026-11-06 | decision   | stakeholder | A `critical` finding becomes `resolved` only after its stop is confirmed. The stop holds until both confirmation fields hold text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Domain model Q2, QA strategy Q5                                    |
+| DEC-53 | 2026-11-06 | decision   | stakeholder | `finding-lint` also rejects an unknown status, an open `minor` or `note` file, and an ID that is both a file and a register line. The `fails_purpose` sentence carries the marker `no to fails_purpose`.                                                                                                                                                                                                                                                                                                                                                                                                                                                      | QA strategy Q3, Q4                                                 |
+| DEC-54 | 2026-11-06 | decision   | stakeholder | The migration covers every open finding without `review_class`, 47 on 2026-11-06, not only the 39 counted on 2026-11-04.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Requirements gap FC-G01                                            |
+| DEC-55 | 2026-11-06 | decision   | stakeholder | No agent sets `deferred` on a finding. Only the migration sets it, on an old finding without an artifact, and that file carries no `review_class`. `finding-lint` rejects `deferred` on a file that carries `review_class`. A person who sets a blocking finding aside uses `waived`.                                                                                                                                                                                                                                                                                                                                                                         | Spec review SPEC-0072, requirements gap FC-G09                     |
+| DEC-56 | 2026-11-06 | decision   | stakeholder | Only the person lowers a filed finding. `finding-lint` compares each finding with `HEAD`; a falling severity, or a finding file that becomes a register line, needs `override_by` and `override_reason`, as a waiver does. Raising a severity stays free for agents (FC-G04).                                                                                                                                                                                                                                                                                                                                                                                 | Spec review note 4, requirements gap FC-G10                        |
+| DEC-57 | 2026-11-06 | decision   | stakeholder | `dispatch` and `premerge-check` read each finding file in the working tree and at `HEAD`. A finding stops the run when either version is critical, and a confirmation in either version ends the stop. A change in the working tree that nobody commits does not end a stop.                                                                                                                                                                                                                                                                                                                                                                                  | Spec review SPEC-0071, requirements choice FC-C19                  |
+| DEC-58 | 2026-11-06 | decision   | stakeholder | A `critical` finding is lowered only when its `HEAD` version holds text in `stop_confirmed_by` and `stop_confirmed_reason`. The human confirms the stop in one commit and lowers the finding in a later one.                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Spec review SPEC-0071, requirements choice FC-C20                  |
+| DEC-59 | 2026-11-06 | decision   | stakeholder | A finding lowered from `critical` to `major` drops `stop_confirmed_by` and `stop_confirmed_reason`, because only a `critical` finding carries them. Its `HEAD` version keeps the confirmation in git history.                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Spec review SPEC-0071, requirements choice FC-C21                  |
+| DEC-60 | 2026-11-07 | decision   | stakeholder | A `minor` finding is one register file `docs/findings/register/<class>/<ID>.json` with the status `open` or `resolved`. The reviewer agent writes `open`, and the fixing commit sets `resolved` instead of deleting the file. `finding-lint` runs `schema-validate` on each file and recomputes its severity. No union merge and no `.gitattributes` line. Lowering and the ID rule of DEC-53 become checks between two file paths, and `guard-human-fields` guards `docs/findings/register/**/*.json`. The migration moves each line of the old `.jsonl` registers into one file. Replaces DEC-33, the register parts of DEC-49, and the deletion of FC-C13. | Architecture decision 1, option C                                  |
+| DEC-61 | 2026-11-07 | decision   | stakeholder | Claude Code registers `guard-human-fields` on `Edit`, `MultiEdit`, `Write`, `NotebookEdit`, and `Bash`. Codex refuses an `apply_patch` call that the guard cannot parse when its raw text names a guarded path. Copilot CLI uses `preToolUse` entries in a hook file under `.github/hooks/`. Pi and OpenCode block the call when the guard script is missing. This feature writes a first, guard-only OpenCode plugin at `packages/factory/config/plugins/agent-factory.ts`; `init-factory` links it into `.opencode/plugins/` and accepts the CLI name `opencode`. Refines DEC-51.                                                                           | Architecture decision 2                                            |
+| DEC-62 | 2026-11-07 | decision   | stakeholder | The TypeScript tests in `packages/factory/config/**/*.test.ts` run as a `node:test` suite on Node 22.6 or later, with no new dependency. The test-strategy agent writes the entry in `docs/testing.yaml`. Answers FC-QG25.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Architecture decision 3                                            |
 
 ## Review findings
 

@@ -26,8 +26,8 @@ Feature: Finding classification
   A finding is blocking when its category is defect or risk and its severity
   is critical or major. A critical finding stops the run until the
   stakeholder confirms the damage checks. A major finding loops back to its owner. A
-  minor finding becomes one line in the register of its class and never
-  blocks. A note stays in the review report.
+  minor finding becomes one register file in the register of its class and
+  never blocks. A note stays in the review report.
 
   Each project names the git tags that count as releases. The key
   release_tag_patterns in the tracked file docs/factory-settings.yaml holds a
@@ -45,10 +45,10 @@ Feature: Finding classification
   - The finding file: the frontmatter fields and the body lines of
     docs/findings/<ID>.md (Rule: Reviewer agent files a blocking finding as a
     finding file).
-  - The register line: one JSON object per line in
-    docs/findings/register/<class>.jsonl, with one JSON Schema per class in
-    packages/factory/rulebooks/schemas/ (Rule: Reviewer agent records a minor
-    finding as one register line).
+  - The register file: one JSON object in
+    docs/findings/register/<class>/<ID>.json, with one JSON Schema per class
+    in packages/factory/rulebooks/schemas/ (Rule: Reviewer agent records a
+    minor finding as one register file).
   - The child-result envelope: finding_counts with the four keys critical,
     major, minor, and note (Rule: Reviewer agent reports its counts on the
     shared scale).
@@ -141,7 +141,7 @@ Feature: Finding classification
       Given the reviewer agent needs the author's intent before it can classify a problem
       When the reviewer agent records the problem
       Then the problem becomes an entry in docs/spec/work/todo.md
-      And no finding file and no register line carries the category question
+      And no finding file and no register file carries the category question
 
     Scenario: An observation that names no artifact is not a finding
       Given a retrospective observation such as RETRO-0002 names no artifact
@@ -348,45 +348,39 @@ Feature: Finding classification
       Then the stakeholder sets status waived with override_by and override_reason
       And finding-lint rejects status deferred on that file
 
-  Rule: Reviewer agent records a minor finding as one register line
+  Rule: Reviewer agent records a minor finding as one register file
     # actor: Reviewer agent
 
-    Scenario: A minor security finding adds one line to the security register
-      Given a security review produces a finding of level Low
+    Scenario: A minor security finding becomes one register file
+      Given a security review produces SEC-0012, a finding of level Low
       When the reviewer agent records it
-      Then docs/findings/register/security.jsonl gains one line at its end
+      Then docs/findings/register/security/SEC-0012.json exists with status open
       And no finding file is written for it
 
-    Scenario: A register line holds the fields of a finding
-      Given the reviewer agent writes a register line
-      When finding-lint checks the line against the register schema of its class, such as finding-register-code.schema.json
-      Then the line holds the ID, source, review_class, category, type, severity, artifact, story, finding, basis, the Why this severity sentence, and the reviewed commit
+    Scenario: A register file holds the fields of a finding
+      Given the reviewer agent writes a register file
+      When finding-lint runs schema-validate on the file with the register schema of its class, such as finding-register-code.schema.json
+      Then the file holds the ID, source, review_class, category, type, severity, artifact, story, finding, basis, the Why this severity sentence, the reviewed commit, and the status
       And the basis has the shape of its class
-      And a line that replaces a filed finding also holds override_by and override_reason
+      And a register file that replaces a filed finding also holds override_by and override_reason
 
-    Scenario: Two parallel reviews add lines without touching each other's lines
-      Given two reviews on two branches each add one line to docs/findings/register/code.jsonl
-      When both branches merge into dev
-      Then the register holds both lines
-      And no earlier line of the register changed
-
-    Scenario: Two register lines from two branches merge without a conflict
-      Given .gitattributes marks docs/findings/register/*.jsonl with merge=union
-      And branch A and branch B each append one line to the end of docs/findings/register/code.jsonl
+    Scenario: Two register files from two branches merge without a conflict
+      Given branch A adds docs/findings/register/code/FAGAN-0050.json
+      And branch B adds docs/findings/register/code/FAGAN-0051.json
       When branch A merges into dev and then branch B merges into dev
       Then git reports no merge conflict
-      And docs/findings/register/code.jsonl holds both new lines
+      And dev holds both register files
 
     Scenario: The review loop skips the register
-      Given docs/findings/register/code.jsonl holds a line with severity minor
+      Given docs/findings/register/code/FAGAN-0032.json holds status open and severity minor
       When the orchestrator greps docs/findings/*.md for status: open
-      Then the register line is not in the result
+      Then the register file is not in the result
 
-    Scenario: The fix of a minor finding deletes its register line
-      Given docs/findings/register/document.jsonl holds the line of RECON-0027
+    Scenario: The fix of a minor finding resolves its register file
+      Given docs/findings/register/document/RECON-0027.json holds status open
       When the commit that fixes RECON-0027 lands
-      Then that commit deletes the line of RECON-0027 from the register
-      And git log keeps the deleted line
+      Then that commit sets the status of RECON-0027.json to resolved
+      And the register file stays in docs/findings/register/document/
 
   Rule: Proposal-review agent rates each Appendix row with two questions
     # actor: Proposal-review agent
@@ -486,7 +480,7 @@ Feature: Finding classification
         | is a code suggestion whose basis answers yes to fails_purpose                    |
         | has status open and severity minor                                               |
         | has status open and severity note                                                |
-        | has the ID BUG-0067, which is also the ID of a register line                     |
+        | has the ID BUG-0067, which is also the ID of a register file                     |
         | has severity critical and no section "## Possible damage"                        |
         | has severity major and a section "## Possible damage"                            |
         | sets stop_confirmed_by and leaves stop_confirmed_reason empty                    |
@@ -494,11 +488,11 @@ Feature: Finding classification
         | names the artifact packages/factory/scripts/dispatch without a line or a heading |
         | answers harms_downstream true and in_use false in the code class                 |
 
-    Scenario Outline: A minor line of the consequence tree classes needs its fails_purpose sentence
-      Given a line in docs/findings/register/<class>.jsonl with severity minor
+    Scenario Outline: A minor register file of the consequence tree classes needs its fails_purpose sentence
+      Given a register file in docs/findings/register/<class>/ with severity minor
       And its Why this severity sentence does not contain the marker "no to fails_purpose"
       When finding-lint runs
-      Then it exits 1 and names the register file, the ID, and the rule
+      Then it exits 1 and names the register file and the rule
 
       Examples:
         | class    |
@@ -506,26 +500,48 @@ Feature: Finding classification
         | code     |
         | runtime  |
 
-    Scenario Outline: A minor security or architecture line needs no fails_purpose sentence
-      Given a line in docs/findings/register/<class>.jsonl with severity minor and a basis that matches it
+    Scenario Outline: A minor security or architecture register file needs no fails_purpose sentence
+      Given a register file in docs/findings/register/<class>/ with severity minor and a basis that matches it
       And its Why this severity sentence gives <reason> and does not contain the marker "no to fails_purpose"
       When finding-lint runs
-      Then it does not reject the line for a missing fails_purpose sentence
+      Then it does not reject the file for a missing fails_purpose sentence
 
       Examples:
         | class        | reason                          |
         | security     | one sentence per precondition   |
         | architecture | the importance and the exposure |
 
-    Scenario: A register line whose severity does not match its basis fails
-      Given a line in docs/findings/register/document.jsonl with severity minor and a basis that answers yes to fails_purpose
+    Scenario: A register file whose severity does not match its basis fails
+      Given docs/findings/register/document/SPEC-0061.json with severity minor and a basis that answers yes to fails_purpose
       When finding-lint runs
       Then it exits 1
+
+    Scenario Outline: A register file breaks a rule of the register
+      Given a register file that <violation>
+      When finding-lint runs
+      Then it exits 1 and names the file and the rule
+
+      Examples:
+        | violation                                                                    |
+        | has status waived                                                            |
+        | has status deferred                                                          |
+        | has no status                                                                |
+        | lies in docs/findings/register/code/ and carries review_class document       |
+        | is named FAGAN-0032.json and holds the id FAGAN-0033                          |
+        | fails schema-validate against the register schema of its class               |
+
+    Scenario: A register file is never removed without a replacing finding file
+      Given HEAD holds docs/findings/register/code/FAGAN-0032.json with status open
+      And an agent removes the file after fixing the finding
+      And no finding file docs/findings/FAGAN-0032.md replaces it
+      When finding-lint runs
+      Then it exits 1 and names FAGAN-0032 and the rule
+      And the fix sets status resolved instead
 
     Scenario: An agent cannot move a filed finding into the register
       Given HEAD holds docs/findings/FAGAN-0042.md with severity major and review_class code
       And an agent changes its answer to fails_purpose to false
-      And the agent removes the file and adds a line of FAGAN-0042 to docs/findings/register/code.jsonl without override_by and override_reason
+      And the agent removes the file and adds docs/findings/register/code/FAGAN-0042.json without override_by and override_reason
       When finding-lint runs
       Then it exits 1 and names FAGAN-0042 and the rule
 
@@ -539,7 +555,7 @@ Feature: Finding classification
     Scenario: The stakeholder lowers a filed finding with the override fields
       Given HEAD holds docs/findings/FAGAN-0042.md with severity major and review_class code
       And the stakeholder changes its answer to fails_purpose to false
-      And the stakeholder removes the file and adds a line of FAGAN-0042 to docs/findings/register/code.jsonl with override_by and override_reason that hold text
+      And the stakeholder removes the file and adds docs/findings/register/code/FAGAN-0042.json with override_by and override_reason that hold text
       When finding-lint runs
       Then it exits 0
 
@@ -566,10 +582,10 @@ Feature: Finding classification
       Then it exits 0
       And the same lowering fails when the file keeps text in stop_confirmed_by
 
-    Scenario: A finding file with review_class is never removed without a replacing register line
+    Scenario: A finding file with review_class is never removed without a replacing register file
       Given HEAD holds docs/findings/FAGAN-0042.md with severity major, status resolved, and review_class code
       And an agent removes the file
-      And no register line of FAGAN-0042 with override_by and override_reason replaces it
+      And no register file of FAGAN-0042 with override_by and override_reason replaces it
       When finding-lint runs
       Then it exits 1 and names FAGAN-0042 and the rule
       And a finding that the stakeholder does not want fixed is set aside with waived, never lowered to a note
@@ -582,7 +598,7 @@ Feature: Finding classification
 
     Scenario: The migration moves a finding into the register without the override fields
       Given HEAD holds docs/findings/BUG-0067.md without review_class
-      And the migration commit removes the file and adds a line of BUG-0067 to its register without override_by and override_reason
+      And the migration commit removes the file and adds docs/findings/register/code/BUG-0067.json without override_by and override_reason
       When finding-lint runs on the staged migration commit
       Then it does not ask for override_by or override_reason, because the HEAD version carries no review_class
 
@@ -592,7 +608,7 @@ Feature: Finding classification
       Then it does not check that file
 
     Scenario: A clean set of findings passes
-      Given every finding file with review_class and every register line follows the rules
+      Given every finding file with review_class and every register file follows the rules
       When finding-lint runs
       Then it exits 0
 
@@ -754,18 +770,19 @@ Feature: Finding classification
       When the pre-commit hook runs finding-lint
       Then finding-lint runs the git check on the staged version
 
-    Scenario: A new register line gets the git check
-      Given a new line in docs/findings/register/code.jsonl that HEAD does not hold
-      And the line records in_use false
+    Scenario: A new register file gets the git check
+      Given a new file docs/findings/register/code/FAGAN-0050.json that HEAD does not hold
+      And the file records in_use false
       And its artifact lines exist unchanged on dev
       When finding-lint runs
       Then it exits 1 with the message "artifact lines exist unchanged on dev"
 
-    Scenario: A register line that HEAD holds is not checked again
-      Given HEAD holds the line of FAGAN-0032 in docs/findings/register/code.jsonl with in_use false
+    Scenario: A register file that HEAD holds is not checked again when only its status changes
+      Given HEAD holds docs/findings/register/code/FAGAN-0032.json with in_use false
       And its artifact lines exist unchanged on dev
+      And the fixing commit changes only its status to resolved
       When finding-lint runs
-      Then it does not run the git check on that line
+      Then it does not run the git check on that file
 
     Scenario: Document and architecture findings skip the git check
       Given a document finding with in_use false whose artifact lines exist on dev
@@ -947,12 +964,12 @@ Feature: Finding classification
       Given the stakeholder disagrees with the no to fails_purpose at the pause point
       When the stakeholder changes the answer to yes
       Then the rule computes major
-      And the finding becomes a finding file and not a register line
+      And the finding becomes a finding file and not a register file
 
-    Scenario: A headless run lists the new register lines in its final summary
-      Given a headless run added two register lines
+    Scenario: A headless run lists the new register files in its final summary
+      Given a headless run added two register files
       When the run ends
-      Then its final summary lists both lines as text with their fails_purpose sentences
+      Then its final summary lists both findings as text with their fails_purpose sentences
 
     Scenario: A minor security finding shows its Why this severity line
       Given a security review produces a finding of level Low
@@ -961,10 +978,10 @@ Feature: Finding classification
       And the stakeholder sees no fails_purpose sentence for it
 
     Scenario: The stakeholder raises a registered minor finding to blocking
-      Given docs/findings/register/code.jsonl holds the line of FAGAN-0032 with severity minor
+      Given docs/findings/register/code/FAGAN-0032.json holds severity minor and status open
       When the stakeholder changes its answer to fails_purpose to yes
       Then docs/findings/FAGAN-0032.md exists with severity major and status open
-      And the register no longer holds the line of FAGAN-0032
+      And docs/findings/register/code/FAGAN-0032.json is removed
       And finding-lint exits 0
 
   Rule: Stakeholder confirms the stop of a critical finding after the damage checks
@@ -1015,9 +1032,9 @@ Feature: Finding classification
       When an agent runs sed -i 's/status: open/status: waived/' docs/findings/FAGAN-0042.md
       Then guard-human-fields refuses the call
 
-    Scenario: An Edit that sets override_by in a register line is refused
-      Given docs/findings/register/code.jsonl holds a line of FAGAN-0042 without override_by
-      When an agent calls Edit with a new_string that adds "override_by": "human" to that line
+    Scenario: An Edit that sets override_by in a register file is refused
+      Given docs/findings/register/code/FAGAN-0032.json holds no override_by
+      When an agent calls Edit with a new_string that adds "override_by": "human" to that file
       Then guard-human-fields refuses the call
 
     Scenario: A headless run cannot confirm its own stop
@@ -1047,15 +1064,38 @@ Feature: Finding classification
     Scenario Outline: The installer registers the guard in every supported CLI
       Given a project that uses <cli>
       When the user runs init-factory or update-factory
-      Then <cli> runs guard-human-fields before each edit, write, and shell call of an agent
+      Then <cli> runs guard-human-fields before each of the calls <calls> of an agent
 
       Examples:
-        | cli         |
-        | Claude Code |
-        | Codex       |
-        | Copilot CLI |
-        | Pi          |
-        | OpenCode    |
+        | cli         | calls                                                  |
+        | Claude Code | Edit, MultiEdit, Write, NotebookEdit, and Bash         |
+        | Codex       | Edit, Write, apply_patch, and Bash                     |
+        | Copilot CLI | edit, apply_patch, write_file, create, and bash        |
+        | Pi          | edit, write, write_file, create, apply_patch, and bash |
+        | OpenCode    | the edit, write, and shell tools of the plugin         |
+
+    Scenario: Codex refuses a patch that the guard cannot parse
+      Given an agent in Codex sends an apply_patch call whose text the guard cannot parse
+      And the raw text of the patch names docs/findings/FAGAN-0042.md
+      When guard-human-fields checks the call
+      Then it refuses the call
+
+    Scenario Outline: A missing guard script blocks the call in Pi and OpenCode
+      Given a project that uses <cli>
+      And the guard script guard-human-fields is missing from the installed copy
+      When an agent makes an edit call
+      Then <cli> blocks the call and names the missing guard script
+
+      Examples:
+        | cli      |
+        | Pi       |
+        | OpenCode |
+
+    Scenario: init-factory installs the guard-only OpenCode plugin
+      Given a project without .opencode/
+      When the user runs init-factory --cli opencode
+      Then .opencode/plugins/agent-factory.ts links to .agent-factory/factory/config/plugins/agent-factory.ts
+      And the plugin runs guard-human-fields in execute.before
 
     Scenario: The stakeholder writes the fields outside the tool hooks
       Given the stakeholder runs a ! command in the session that writes stop_confirmed_by
@@ -1104,11 +1144,24 @@ Feature: Finding classification
       When the migration agent migrates them
       Then each artifact names the line range or heading where its fix goes
 
-    Scenario: A migrated minor finding becomes a register line under its old ID
-      Given BUG-0067 comes out minor
+    Scenario: A migrated minor finding becomes a register file under its old ID
+      Given BUG-0067 comes out minor in the code class
       When the migration agent changes the files
-      Then the register of its class holds a line with the ID BUG-0067
+      Then docs/findings/register/code/BUG-0067.json exists with status open
       And the file docs/findings/BUG-0067.md is removed, and git history keeps its text
+
+    Scenario: The migration moves each line of the old registers into one register file
+      Given docs/findings/register/document.jsonl holds the line of RECON-0027
+      When the migration agent changes the files
+      Then docs/findings/register/document/RECON-0027.json holds the keys of that line and status open
+      And docs/findings/register/ holds no .jsonl file
+
+    Scenario: A moved register line keeps its earlier git check
+      Given HEAD holds the line of FAGAN-0032 in docs/findings/register/code.jsonl with in_use false
+      And its artifact lines exist unchanged on dev
+      When the migration commit moves the line to docs/findings/register/code/FAGAN-0032.json with the same basis and artifact
+      And finding-lint runs on the staged migration commit
+      Then it does not run the git check on that file
 
     Scenario: A migrated major finding stays a file
       Given BUG-0105 comes out major
