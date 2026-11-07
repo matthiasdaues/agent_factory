@@ -176,6 +176,28 @@ class TestOldFileNames:
         assert ni.plan(found) == ("next-id --seed 0 ST=380 ATAM=14", [ATAM_TITLED])
 
 
+@pytest.mark.spec("CIF-05-CT-01")
+class TestRegisterFileNames:
+    def test_st_0404_a_register_file_name_counts_and_its_body_is_never_read(self):
+        files = {
+            "docs/findings/register/security/SEC-0012.json": "SEC-9999",
+            "docs/findings/register/code/notes.json": "IMPL-9999",
+        }
+
+        def reader(path: str) -> str:
+            raise AssertionError(f"read {path}")
+
+        found = list(ni.ids_in_tree(files, reader))
+        assert found == [("SEC", 12, None)]
+
+    def test_st_0404_a_jsonl_line_still_counts_beside_a_register_file(self):
+        files = {
+            "docs/findings/register/security/SEC-0012.json": "{}",
+            "docs/findings/register/code.jsonl": json.dumps({"id": "IMPL-0007"}) + "\n",
+        }
+        assert _plan(files)[0] == "next-id --seed 0 SEC=12 IMPL=7"
+
+
 # --- integration tests --------------------------------------------------------
 
 
@@ -198,6 +220,35 @@ def test_st_0376_every_branch_counts_and_no_ref_changes(env, remote, clone):
     assert result.returncode == 0, result.stderr
     assert result.stdout == "next-id --seed 0 ST=380 ADR=32\n"
     assert _refs(env, clone, remote) == before
+
+
+@pytest.mark.spec("CIF-05-IT-01")
+def test_st_0404_a_register_file_on_a_remote_tracking_branch_counts(env, remote, clone):
+    _branch(env, clone, "dev")
+    _commit(env, clone, {"docs/findings/SEC-0005.md": ""})
+    _branch(env, clone, "feature/register")
+    _commit(env, clone, {"docs/findings/register/security/SEC-0012.json": "{}"})
+    _git(env, "-C", str(clone), "push", "--quiet", "origin", "feature/register")
+    _git(env, "-C", str(clone), "checkout", "--quiet", "dev")
+    _git(env, "-C", str(clone), "branch", "--quiet", "-D", "feature/register")
+    before = _refs(env, clone, remote)
+
+    result = run(env, clone, "--plan-seed")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "next-id --seed 0 SEC=12\n"
+    assert _refs(env, clone, remote) == before
+
+
+@pytest.mark.spec("CIF-05-IT-01")
+def test_st_0404_an_uncommitted_register_file_counts(env, clone):
+    _commit(env, clone, {"backlog/ST-0375.md": ""})
+    _write(clone, {"docs/findings/register/code/IMPL-0021.json": "{}"})
+
+    result = run(env, clone, "--plan-seed")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "next-id --seed 0 ST=375 IMPL=21\n"
 
 
 @pytest.mark.spec("CIF-06-IT-01")
