@@ -2258,3 +2258,29 @@ def test_st_0401_update_adds_the_codex_and_copilot_guard_to_an_earlier_install(t
     assert [pair for pair in after if pair[1] != CODEX_GUARD_HUMAN_FIELDS_COMMAND] == before
     assert sorted(copilot_guard_matchers(target)) == sorted(COPILOT_GUARD_HUMAN_FIELDS_TOOLS)
     assert (target / ".github" / "hooks" / "guard-human-fields").is_symlink()
+
+
+# ST-0402: update-factory adds the Pi guard extension to an earlier install.
+
+@pytest.mark.spec("FC-18-IT-16")
+def test_st_0402_update_adds_the_pi_guard_extension_to_an_earlier_install(tmp_path):
+    from test_init_factory import run_init, stage_source
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "earlier", {"README.md": "# earlier\n"})
+    first = run_init(stage_source(tmp_path / "source-1.5.0", "1.5.0"), target,
+                     "--cli", "pi", "--project-name", "earlier")
+    assert first.returncode == 0, first.stderr
+    (target / ".pi" / "extensions" / "guard-human-fields.ts").unlink()
+    assert (target / ".pi" / "extensions" / "step-guard.ts").is_symlink()
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    result = subprocess.run(
+        [sys.executable,
+         str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+         "--target", str(target), "--source", str(stage_source(tmp_path / "source-1.6.0", "1.6.0"))],
+        input="yes\n", capture_output=True, text=True, env=env, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (target / ".pi" / "extensions" / "guard-human-fields.ts").is_symlink()

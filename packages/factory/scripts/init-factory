@@ -1411,13 +1411,15 @@ def install_guard_human_fields(target: Path, install: dict, report: list[str],
                                clis: list[str] | None = None) -> None:
     """Install guard-human-fields beside step-guard (BR-092, ADR-0035).
 
-    Pi and OpenCode follow in their own stories."""
+    OpenCode follows in its own story."""
     if _wants(clis, "claude"):
         _install_claude_guard_human_fields(target, install, report)
     if _wants(clis, "copilot"):
         _install_copilot_guard_human_fields(target, install, report)
     if _wants(clis, "codex"):
         _install_codex_guard_human_fields(target, install, report)
+    if _wants(clis, "pi"):
+        _install_pi_guard_human_fields(target, install, report)
 
 
 def install_freshness_check(target: Path, install: dict, report: list[str],
@@ -1879,6 +1881,14 @@ def _install_pi_step_guard(target: Path, install: dict, report: list[str]) -> No
 
     link = extensions_dir / "step-guard.ts"
     dest = target / ".agent-factory" / "factory" / "config" / "extensions" / "step-guard.ts"
+    ensure_symlink(link, dest, report, install=install)
+
+
+def _install_pi_guard_human_fields(target: Path, install: dict, report: list[str]) -> None:
+    extensions_dir = _ensure_pi_extensions_dir(target, install, report)
+
+    link = extensions_dir / "guard-human-fields.ts"
+    dest = target / ".agent-factory" / "factory" / "config" / "extensions" / "guard-human-fields.ts"
     ensure_symlink(link, dest, report, install=install)
 
 
