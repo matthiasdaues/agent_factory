@@ -55,18 +55,18 @@ governance:
     - security
 
 estimate:
-  as_of: 2026-11-05
-  basis: judgment
-  confidence: low
+  as_of: 2026-11-07
+  basis: decomposition
+  confidence: medium
   human_review_hours:
-    min: 5.0
-    max: 9.0
+    min: 5.5
+    max: 10.0
   normalized_tokens:
-    min: 55000
-    max: 95000
+    min: 90000
+    max: 155000
   estimated_consumption:
-    min: 1100000
-    max: 1900000
+    min: 1800000
+    max: 3100000
     overhead_multiplier: 20
     playbook: feature-addition
 ---
