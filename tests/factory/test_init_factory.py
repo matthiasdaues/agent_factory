@@ -2271,3 +2271,98 @@ def test_st_0400_remove_factory_strips_the_guard_entries(tmp_path):
     assert removed.returncode == 0, removed.stderr
     assert pre_tool_use_commands(target) == [("Bash", "./own.sh")]
     assert not (target / ".claude" / "hooks" / "guard-human-fields").exists()
+
+
+# ST-0401: init-factory registers guard-human-fields for Codex and Copilot CLI.
+
+CODEX_GUARD_HUMAN_FIELDS_COMMAND = (
+    '"$(git rev-parse --show-toplevel)"/.codex/hooks/guard-human-fields'
+)
+CODEX_GUARD_HUMAN_FIELDS_TOOLS = ("Edit", "Write", "apply_patch", "Bash")
+COPILOT_GUARD_HUMAN_FIELDS_TOOLS = ("edit", "apply_patch", "write_file", "create", "bash")
+
+
+def codex_pre_tool_use_commands(target: Path) -> list[tuple[str, str]]:
+    """Each (matcher, command) pair of the PreToolUse entries in .codex/hooks.json."""
+    config = json.loads((target / ".codex" / "hooks.json").read_text())
+    return [
+        (entry.get("matcher"), hook.get("command"))
+        for entry in config["hooks"]["PreToolUse"]
+        for hook in entry.get("hooks", [])
+    ]
+
+
+def copilot_guard_matchers(target: Path) -> list[str]:
+    """The preToolUse matchers of the Copilot CLI guard hook file."""
+    config = json.loads((target / ".github" / "hooks" / "guard-human-fields.json").read_text())
+    return [
+        entry["matcher"] for entry in config["hooks"]["preToolUse"]
+        if entry.get("bash") == "./.github/hooks/guard-human-fields"
+    ]
+
+
+@pytest.mark.spec("FC-18-IT-07")
+def test_st_0401_init_writes_the_codex_guard_entries_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "codex", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    pairs = codex_pre_tool_use_commands(target)
+    for tool in CODEX_GUARD_HUMAN_FIELDS_TOOLS:
+        assert pairs.count((tool, CODEX_GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    step_guard = sorted(m for m, c in pairs if "step-guard.sh" in (c or ""))
+    assert step_guard == ["Bash", "Edit", "Read", "Write", "apply_patch"]
+    link = target / ".codex" / "hooks" / "guard-human-fields"
+    assert link.is_symlink()
+    assert os.access(link, os.X_OK)
+
+    again = run_init(source, target)
+
+    assert again.returncode == 0, again.stderr
+    assert codex_pre_tool_use_commands(target) == pairs
+
+
+@pytest.mark.spec("FC-18-IT-08")
+def test_st_0401_init_writes_the_copilot_guard_hook_file_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "copilot", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    hooks = target / ".github" / "hooks"
+    assert sorted(copilot_guard_matchers(target)) == sorted(COPILOT_GUARD_HUMAN_FIELDS_TOOLS)
+    assert (hooks / "step-guard.json").exists()
+    link = hooks / "guard-human-fields"
+    assert link.is_symlink()
+    assert os.access(link, os.X_OK)
+
+
+@pytest.mark.spec("FC-18-IT-07")
+def test_st_0401_remove_factory_strips_the_codex_and_copilot_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "codex", "copilot",
+                    "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert not (target / ".codex" / "hooks" / "guard-human-fields").exists()
+    assert not (target / ".github" / "hooks" / "guard-human-fields").exists()
+    assert not (target / ".github" / "hooks" / "guard-human-fields.json").exists()
+    hooks_json = target / ".codex" / "hooks.json"
+    if hooks_json.exists():
+        assert "guard-human-fields" not in hooks_json.read_text()

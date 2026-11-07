@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "edit",
+        "bash": "./.github/hooks/guard-human-fields",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "apply_patch",
+        "bash": "./.github/hooks/guard-human-fields",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "write_file",
+        "bash": "./.github/hooks/guard-human-fields",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "create",
+        "bash": "./.github/hooks/guard-human-fields",
+        "cwd": ".",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "bash",
+        "bash": "./.github/hooks/guard-human-fields",
+        "cwd": ".",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
