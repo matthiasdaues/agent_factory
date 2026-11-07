@@ -21,7 +21,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "spec(id): traces a test to its ACX-*, CAL-*, CAO-*, CID-*, or CIF-* contract-owner row in the QA strategy of its feature, such as docs/spec/work/agent-context-qa-strategy.md",
+    "spec(id): traces a test to its ACX-*, CAL-*, CAO-*, CID-*, CIF-*, or FC-* contract-owner row in the QA strategy of its feature, such as docs/spec/work/agent-context-qa-strategy.md",
     "container: renders in a container; skipped by the run-tests hook, run with the manual run-container-tests hook",
 ]
 

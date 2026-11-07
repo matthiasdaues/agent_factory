@@ -40,21 +40,19 @@ Row format: [review-report.md template](../templates/review-report.md).
 
 ## Category rules
 
-- **Defect** — the artifact is wrong: contradicts spec, breaks a principle with consequences, has a bug, or is unusable as-is.
-- **Suggestion** — usable but improvable: sharper wording, simplification, idiomatic pattern.
-- **Question** — needs the author to clarify intent. Also record in `docs/spec/work/todo.md` per [todo-format.md](todo-format.md). Claim the entry's number with `.agent-factory/factory/scripts/next-id T`, and read the ID from standard output. When `next-id` fails, stop and report its message; never pick a number by hand.
+[finding-classification.md § The values of a finding](finding-classification.md#the-values-of-a-finding) defines the four categories `defect`, `risk`, `suggestion`, and `question`.
+
+- A **question** needs the author to clarify intent. Record it only in `docs/spec/work/todo.md` per [todo-format.md](todo-format.md). Claim the entry's number with `.agent-factory/factory/scripts/next-id T`, and read the ID from standard output. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Every finding must state **what is wrong** and **what to do** — no "this looks off" without a fix direction.
 
 ## Severity
 
-- **Critical** — blocks the phase or introduces a security/correctness defect that will propagate.
-- **Major** — significant defect that must be fixed before the review can pass.
-- **Minor** — low-impact improvement; fix is optional for this pass.
+[finding-classification.md](finding-classification.md) holds the shared severity scale, the blocking rule, and the rule of each review class. Classify every finding by the section of its class, and record its basis.
 
 ## Findings drive the loop
 
-File each Defect and blocking-severity finding as its own `docs/findings/*.md` per [finding-format.md](finding-format.md). Under the orchestrator, the review loop reads those files directly — an `open` finding loops back to the author, a `resolved` one drops out — so the report table is for the reader and the finding files are what the tool acts on.
+File each blocking finding as its own `docs/findings/*.md` per [finding-format.md](finding-format.md). Under the orchestrator, the review loop reads those files directly — an `open` finding loops back to the author, a `resolved` one drops out — so the report table is for the reader and the finding files are what the tool acts on.
 
 ## Child-result envelope
 
@@ -66,15 +64,19 @@ fence:
 ```json
 {
   "disposition": "pass",
-  "finding_counts": {"critical": 0, "major": 0, "minor": 0},
+  "finding_counts": {"critical": 0, "major": 0, "minor": 0, "note": 0},
   "artifact_paths": ["docs/reviews/review-report.md"],
   "next_action": "Read the complete report before continuing the workflow."
 }
 ```
 
 - `disposition` is `pass`, `fail`, or `block`.
-- `finding_counts` contains a non-negative integer for every severity in the
-  applicable review scale; zero counts remain explicit.
+- `finding_counts` holds a whole number of zero or more for each of the four
+  severities `critical`, `major`, `minor`, and `note`. A key with zero findings
+  stays in the envelope. `adversarial-review` maps its own scale onto the four
+  keys, as
+  [finding-classification.md § Claim review stays outside](finding-classification.md#claim-review-stays-outside)
+  describes.
 - `artifact_paths` is the complete, non-empty list of repository-relative,
   canonical paths to the tracked report and finding files. Paths are unique.
 - `next_action` is one to three sentences stating the downstream action.
@@ -86,6 +88,7 @@ transport metadata outside this four-field object.
 
 ## Referenced from
 
+- [finding-classification.md § Claim review stays outside](finding-classification.md#claim-review-stays-outside)
 - [finding-format.md § When to file](finding-format.md#when-to-file)
 - [todo-format.md § When to file](todo-format.md#when-to-file)
 - [architecture-review-agent.md § Workflow](../../agents/architecture-review-agent.md#workflow)
