@@ -171,3 +171,41 @@ The fix also handles three notes of pass 1. The blind spot now names the class o
 | note     | 1     | The `subagent` assumption        |
 
 This pass claimed no new ATAM number, because the open risk is ATAM-0019 itself.
+
+## Pass 3
+
+Pass 3 checked only the fix commit `8d4ecdcd` against ATAM-0019. The fix holds, and ATAM-0019 is resolved. No open finding of this feature blocks planning. Next, the planning agent creates the backlog.
+
+### Checks run
+
+`.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42` found 0 errors, 1 warning, and 0 info, and exited 0. The warning is the `ARCH-PARSE` warning of pass 1, dismissed for the same reason. `.agent-factory/factory/scripts/structurizr validate` exited 0. The commit adds no dependency rule, so the rules check has no mismatch.
+
+### Verdict per open finding
+
+| ID        | Verdict  | Reason                                                                                                                                                                    |
+| --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ATAM-0019 | resolved | The hook entry now has `availability: always` in chapter 7, the `finding-lint` contract, and the DSL. `hook-subset` includes such a hook in a new project without asking. |
+| ATAM-0020 | open     | Out of scope for this pass, as the brief states. It is a minor finding and does not block planning.                                                                       |
+
+### ATAM-0019: the hook now reaches a new project
+
+The commit changes the availability value in the three places that name it: chapter 7, the `finding-lint` contract, and the DSL relationship from `init-factory`. 5.12, 8.19, and QS-24 do not name the value. They only claim that fitting includes the hook without asking, and that claim now holds. No architecture or spec file names `requires-path:docs/findings` any more.
+
+This review checked the claim against `packages/factory/scripts/hook-subset`:
+
+- `is_available` returns true for `availability: always`, whatever the project holds at fitting time.
+- `build_decisions` sets `needs_consent` only for a `trade_off` other than `none`. So the hook is included without consent.
+- The BUG-0029 exclusion drops only a hook whose `files` pattern lies under `.agent-factory/factory/`. The pattern `^docs/findings/` does not, so the exclusion does not drop the hook.
+
+Pass 2 left one point open: whether the filtered set of fitting step 3 replaces the full block that `init-factory` writes. With `always` and `none`, the hook is in both sets, so the point no longer matters for ATAM-0019.
+
+### Counts
+
+| Severity | Count | Items                            |
+| -------- | ----- | -------------------------------- |
+| critical | 0     |                                  |
+| major    | 0     | ATAM-0019 resolved               |
+| minor    | 0 new | ATAM-0020 stays open from pass 1 |
+| note     | 0     |                                  |
+
+This pass claimed no new ATAM number.
