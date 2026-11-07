@@ -4,7 +4,7 @@
 
 testing_strategy: .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
-test_all: 'uv run pytest --tb=short --quiet -n auto -m "not container"'
+test_all: 'uv run pytest --tb=short --quiet -n auto -m "not container" && node --experimental-strip-types --import ./packages/factory/config/extensions/__tests__/envelope-loader.mjs --test "packages/factory/config/**/*.test.ts"'
 
 # Compatibility commands consumed by the repository's test-command guard.
 test_command: 'uv run pytest --tb=short --quiet -n auto -m "not container"'
@@ -38,6 +38,18 @@ suites:
     pattern: "test_*.py"
     markers: []
     prerequisites: null
+  # The TypeScript tests of the Pi extensions and the OpenCode plugin (DEC-62,
+  # ADR-0036). The loader stubs the Pi runtime imports. Run from the
+  # repository root.
+  - name: typescript
+    framework: node:test
+    run_all: 'node --experimental-strip-types --import ./packages/factory/config/extensions/__tests__/envelope-loader.mjs --test "packages/factory/config/**/*.test.ts"'
+    run_file: "node --experimental-strip-types --import ./packages/factory/config/extensions/__tests__/envelope-loader.mjs --test {file}"
+    run_match: 'node --experimental-strip-types --import ./packages/factory/config/extensions/__tests__/envelope-loader.mjs --test --test-name-pattern {pattern} "packages/factory/config/**/*.test.ts"'
+    root: packages/factory/config
+    pattern: "*.test.ts"
+    markers: []
+    prerequisites: "Node 22.6 or later; no package to install"
 
 layers:
   deterministic_linter:
