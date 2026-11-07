@@ -1169,13 +1169,13 @@ moved=https://***@host/demo.git
 `next-id --plan-seed` prints the seed command that the fitting step shows to
 the User. It changes no ref and no file (BR-098).
 
-| Property | Contract                                                                                                                                                                                              |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Remote   | The order of BR-096                                                                                                                                                                                   |
-| Reads    | `refs/ids/counters` on the remote; the file names, register `id` fields, and todo headings of every local branch, every remote-tracking branch, and the working tree of the current worktree (BR-099) |
-| Output   | One line `next-id --seed 0 <PREFIX>=<highest> …` on standard output, or `next-id --seed 0` alone. The pairs follow the order of the prefix list in `next-id` (BR-101)                                 |
-| Warnings | One warning per counted file name that breaks the new pattern, naming its path (BR-100). The warnings do not change the exit code                                                                     |
-| Messages | The remote by its redacted URL (BR-077)                                                                                                                                                               |
+| Property | Contract                                                                                                                                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Remote   | The order of BR-096                                                                                                                                                                                                        |
+| Reads    | `refs/ids/counters` on the remote; the file names, register file names, register `id` fields, and todo headings of every local branch, every remote-tracking branch, and the working tree of the current worktree (BR-099) |
+| Output   | One line `next-id --seed 0 <PREFIX>=<highest> …` on standard output, or `next-id --seed 0` alone. The pairs follow the order of the prefix list in `next-id` (BR-101)                                                      |
+| Warnings | One warning per counted file name that breaks the new pattern, naming its path (BR-100). The warnings do not change the exit code                                                                                          |
+| Messages | The remote by its redacted URL (BR-077)                                                                                                                                                                                    |
 
 | Case                                                                                        | Exit     | Output                                                                                                                |
 | ------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -1323,7 +1323,8 @@ A new finding written from the template carries `null` in all four human
 fields. The body holds three lines in this order: `**What is wrong:**`,
 `**Why this severity:**`, and `**Fix:**`. The Why line holds one sentence per
 "yes" answer, per precondition, or for the effect class, and it names the
-evidence for `in_use`.
+evidence for `in_use`. In a `critical` finding, the first sentence of the Why
+line names that evidence, because the stop notice prints that sentence.
 
 A `critical` finding ends with the section `## Possible damage`, and no other
 severity holds it. Each item is one list entry in this form:
@@ -1503,8 +1504,17 @@ With this setting, the tags `v1.0.0` and `v1.1.0-rc` count as releases, and
 Both scripts print the same stop notice. It lists each stopping finding with
 these parts, in this order: the finding ID and title, the artifact, the
 evidence for `in_use` from the `**Why this severity:**` line, and each item of
-`## Possible damage` with its check. The notice ends with the confirmation
-step. The scripts take each part from the version that makes the finding
+`## Possible damage` with its check. The evidence for `in_use` is the first
+sentence of the Why line, with the lines up to the next blank line joined. That
+sentence ends at the first `.`, `!`, or `?` that a space and an upper-case
+letter or a backtick follow. The notice drops the final period of the
+sentence. It writes an upper-case first character in lower case when the
+second character is a lower-case letter. So `The lines exist` becomes
+`the lines exist`, and `QS-9 has` stays as it is. The notice ends with the
+confirmation step. With several stopping findings, the confirmation step names
+the paths of all of them in one line, separated by commas, such as
+`into docs/findings/BUG-0037.md, docs/findings/FAGAN-0042.md in your editor or with a ! command.`
+The scripts take each part from the version that makes the finding
 critical: the working-tree version when both versions do, and the `HEAD`
 version otherwise. So a lowered or removed file still prints its damage items
 from `HEAD` (BR-091). For BUG-0037 it reads:

@@ -74,3 +74,61 @@ the feature to a merge-ready branch without them, so the mode is automated:
 `dispatch` owns the feature branch `feature/finding-classification`, the story
 worktrees under `.current-work/`, and the ledger. The orchestrator session acts
 as the dispatcher and starts one developer agent per story.
+
+### 2026-11-07, Wave 1: dispatch
+
+`dispatch init --base dev --feature-branch feature/finding-classification`
+recorded 21 stories. `dispatch plan` set the seven waves of the backlog.
+`model.conf` has no Claude Code rows, so the tiers map onto the Agent tool's
+aliases: economy to haiku, standard to sonnet, strong to opus. Wave 1 started
+ST-0386, ST-0397, ST-0400 (opus) and ST-0404 (sonnet) from base `2e4cd6fb`.
+
+The pre-commit `run-tests` hook failed on every story branch, because
+`tests/factory/test_structure_gates.py` pinned arc42 chapter 5 at 57
+components, and the architecture commit `439d86fb` raised it to 68 on purpose.
+`dev` was red there since `439d86fb`; the docs commits never ran the suite.
+Every wave-1 story makes the identical two-line edit to 68, so the merges stay
+clean. No hook was skipped.
+
+`premerge-check` blocked the first merge of ST-0404, because the test file
+lies outside the story's `touches`. The fix moved to the invocation branch as
+`7cfda707`, and `refresh-story` brings it into each story branch, so it drops
+out of the story diffs.
+
+- ST-0404 merged (`a68a6dbc`, merge `f569be63`). Post-merge suite: 3207 passed.
+  Spec feedback: three open rows for the domain-modeling agent (BR-099, the
+  `--plan-seed` contract, `ID_IN_USE`).
+- ST-0397 merged (`95abbea9`). Post-merge suite: 3257 passed. The stop lives
+  in the source copy; the installed `dispatch` that runs this wave is
+  unchanged until `update-factory`. Spec feedback: two rows for the
+  domain-modeling agent.
+- ST-0386 merged (`82f2b0b0`). Post-merge suite: 3275 passed. Spec feedback:
+  one row for the test-strategy agent (FC-QG22). Follow-ups for later
+  stories: BUG-0116 contradicts BR-081 and goes through the migration
+  (ST-0406); the minor examples link the old `.jsonl` registers, which
+  ST-0406 must re-point; ST-0390 leaves the six runtime examples BUG-0035,
+  BUG-0054, BUG-0058, BUG-0063, BUG-0073, and BUG-0081 out of its agreement
+  set.
+- ST-0400 merged (`dcd8da53`). Post-merge suite: 3305 passed. Spec feedback:
+  two rows for the domain-modeling agent. The manual check in a real Claude
+  Code session (FC-QG23) is still to do.
+
+Drift rows: the domain-modeling agent fixes the seven spec rows, and the spec
+review agent reviews them. The test-strategy agent fixes the one QA row,
+which closes at `fixed`.
+
+Drift results. The domain-modeling agent fixed six of the seven spec rows.
+The seventh, the ST-0400 Blind spot row, showed a code defect: the guard does
+not follow `cd`, so `cd docs && sed -i …waived… findings/X.md` passes. That
+became BUG-0120 (`code`, `major`), owned by the developer agent, and ST-0401
+fixes it, because it touches the guard and its tests. The new first-sentence
+rule for the Why line of a critical finding needs the three critical
+calibration examples of the rulebook reordered; ST-0387 does it and gains the
+rulebook in its `touches`. The test-strategy agent closed the ST-0386 row and
+FC-QG22. The spec review agent reviews the six fixed spec rows.
+The spec review agent confirmed all six fixed spec rows and filed no BUG.
+
+### 2026-11-07, Wave 1: closed
+
+All four stories merged. The `cd` row of ST-0400 stays `open` until ST-0401
+fixes BUG-0120.

@@ -943,7 +943,7 @@ erDiagram
     ID_IN_USE {
         string prefix
         int    number
-        string source "file name | id field of a register line | todo heading"
+        string source "file name | register file name | id field of a register line | todo heading"
         string branch "a local branch or a remote-tracking branch"
     }
     NAME_WARNING {
@@ -973,7 +973,7 @@ erDiagram
 - **COUNTER_REMOTE_SETTING** exists only while the counter is local. The seed step sets it when the project has no `origin`, and a successful move removes it (DEC-08). Gap CIF-G06 in [counter-ids-fitting-gaps.md](work/counter-ids-fitting-gaps.md) asks whether it stays when the User declines the seed.
 - **COUNTER_REF** of a PROJECT_REPOSITORY points at a CLAIM_COMMIT until the move, and at a MARKER_COMMIT after it. Every ID claim and every `--plan-seed` that reads a marker commit fails (BR-097).
 - **SEED_PLAN** is the output of `next-id --plan-seed`. It exists only when the remote holds no counter (BR-098). A prefix without an ID in use gets no SEED_PAIR, so it starts at `0001` after the seed (DEC-04).
-- **ID_IN_USE** comes only from file names, the `id` field of register lines, and todo headings, never from body text (BR-099). A file name that counts but breaks the new pattern also gives a NAME_WARNING (BR-100). A new file carries the prefix and the number only (DEC-12).
+- **ID_IN_USE** comes only from file names, register file names, the `id` field of register lines, and todo headings, never from body text (BR-099). A register file counts by its name, never by its body. A file name that counts but breaks the new pattern also gives a NAME_WARNING (BR-100). A new file carries the prefix and the number only (DEC-12).
 - **CREATING_STEP** names one prefix. The kind of artifact decides it, so a file that creates two kinds holds two steps with two prefixes (DEC-10, BR-107).
 - **PREFIX_TABLE** holds one row for each prefix in the list of `next-id` (DEC-11, BR-108).
 
