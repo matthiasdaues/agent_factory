@@ -2199,3 +2199,62 @@ def test_st_0400_update_adds_the_guard_entries_to_an_earlier_install(tmp_path):
         assert after.count((tool, GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
     assert [pair for pair in after if pair[1] != GUARD_HUMAN_FIELDS_COMMAND] == before
     assert (target / ".claude" / "hooks" / "guard-human-fields").is_symlink()
+
+
+# ST-0401: update-factory adds the Codex and Copilot CLI guard to an earlier install.
+
+
+def _strip_codex_and_copilot_guard(target: Path) -> None:
+    """Turn a fresh install into one of a release before ST-0401: .codex/hooks.json
+    keeps only the step-guard and other entries, and .github/hooks/ only step-guard."""
+    from test_init_factory import CODEX_GUARD_HUMAN_FIELDS_COMMAND
+
+    path = target / ".codex" / "hooks.json"
+    config = json.loads(path.read_text())
+    config["hooks"]["PreToolUse"] = [
+        entry for entry in config["hooks"]["PreToolUse"]
+        if all(h.get("command") != CODEX_GUARD_HUMAN_FIELDS_COMMAND for h in entry["hooks"])
+    ]
+    path.write_text(json.dumps(config, indent=2) + "\n")
+    (target / ".codex" / "hooks" / "guard-human-fields").unlink()
+    (target / ".github" / "hooks" / "guard-human-fields").unlink()
+    (target / ".github" / "hooks" / "guard-human-fields.json").unlink()
+
+
+@pytest.mark.spec("FC-18-IT-07")
+@pytest.mark.spec("FC-18-IT-08")
+def test_st_0401_update_adds_the_codex_and_copilot_guard_to_an_earlier_install(tmp_path):
+    from test_init_factory import (
+        CODEX_GUARD_HUMAN_FIELDS_COMMAND,
+        CODEX_GUARD_HUMAN_FIELDS_TOOLS,
+        COPILOT_GUARD_HUMAN_FIELDS_TOOLS,
+        codex_pre_tool_use_commands,
+        copilot_guard_matchers,
+        run_init,
+        stage_source,
+    )
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "earlier", {"README.md": "# earlier\n"})
+    first = run_init(stage_source(tmp_path / "source-1.5.0", "1.5.0"), target,
+                     "--cli", "codex", "copilot", "--project-name", "earlier")
+    assert first.returncode == 0, first.stderr
+    _strip_codex_and_copilot_guard(target)
+    before = codex_pre_tool_use_commands(target)
+    assert (target / ".github" / "hooks" / "step-guard.json").exists()
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    result = subprocess.run(
+        [sys.executable,
+         str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+         "--target", str(target), "--source", str(stage_source(tmp_path / "source-1.6.0", "1.6.0"))],
+        input="yes\n", capture_output=True, text=True, env=env, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    after = codex_pre_tool_use_commands(target)
+    for tool in CODEX_GUARD_HUMAN_FIELDS_TOOLS:
+        assert after.count((tool, CODEX_GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    assert [pair for pair in after if pair[1] != CODEX_GUARD_HUMAN_FIELDS_COMMAND] == before
+    assert sorted(copilot_guard_matchers(target)) == sorted(COPILOT_GUARD_HUMAN_FIELDS_TOOLS)
+    assert (target / ".github" / "hooks" / "guard-human-fields").is_symlink()
