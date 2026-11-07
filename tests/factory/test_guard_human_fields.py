@@ -1,9 +1,11 @@
-"""Integration tests for the hook guard-human-fields in the Claude Code format.
+"""Integration tests for the hook guard-human-fields.
 
-Each test sends one Claude Code PreToolUse payload to the hook on standard
-input, inside a temporary git repository, and reads the exit code. The
-payloads follow the guard contract in docs/spec/interface-contracts.md; none
-was recorded from a real Claude Code session (FC-QG23).
+Each test sends one tool call to the hook on standard input, inside a
+temporary git repository, and reads the exit code. A call comes in the format
+of its CLI: a Claude Code or Codex PreToolUse payload, a Copilot CLI
+preToolUse payload, or the payload of the Pi extension. The payloads follow
+the guard contract in docs/spec/interface-contracts.md; none was recorded
+from a real CLI session (FC-QG23).
 """
 
 from __future__ import annotations
@@ -430,6 +432,226 @@ class TestMultiEditAndNotebookEdit:
         })
 
         assert result.returncode == 0, result.stderr
+
+
+def run_payload(project: Path, payload: dict) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [str(GUARD)],
+        input=json.dumps(payload),
+        cwd=project,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def codex_patch(project: Path, patch: str) -> subprocess.CompletedProcess:
+    """A Codex PreToolUse payload of an apply_patch call."""
+    return run_payload(project, {
+        "session_id": "test",
+        "hook_event_name": "PreToolUse",
+        "cwd": str(project),
+        "tool_name": "apply_patch",
+        "tool_input": {"command": patch},
+    })
+
+
+def copilot_call(project: Path, tool_name: str, tool_args: dict) -> subprocess.CompletedProcess:
+    """A Copilot CLI preToolUse payload; toolArgs arrives as a JSON string."""
+    return run_payload(project, {
+        "timestamp": 1762500000000,
+        "cwd": str(project),
+        "toolName": tool_name,
+        "toolArgs": json.dumps(tool_args),
+    })
+
+
+def copilot_patch(project: Path, patch: str) -> subprocess.CompletedProcess:
+    return copilot_call(project, "apply_patch", {"patch": patch})
+
+
+def pi_patch(project: Path, patch: str) -> subprocess.CompletedProcess:
+    """The payload the Pi extension passes for an apply_patch tool_call event."""
+    return run_payload(project, {
+        "cwd": str(project),
+        "toolName": "apply_patch",
+        "input": {"patch": patch},
+    })
+
+
+class TestCodexApplyPatch:
+    @pytest.mark.spec("FC-18-IT-09")
+    def test_st_0401_patch_that_adds_stop_confirmed_by_is_refused(self, project):
+        result = codex_patch(project, """\
+*** Begin Patch
+*** Update File: docs/findings/BUG-0037.md
+@@
+ override_reason: null
+-stop_confirmed_by: null
++stop_confirmed_by: human
+ stop_confirmed_reason: null
+*** End Patch
+""")
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/BUG-0037.md" in result.stderr
+        assert "stop_confirmed_by" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-09")
+    def test_st_0401_patch_that_fixes_a_typo_in_a_waived_finding_passes(self, project):
+        result = codex_patch(project, """\
+*** Begin Patch
+*** Update File: docs/findings/FAGAN-0043.md
+@@
+-# dispatch logs teh wrong path
++# dispatch logs the wrong path
+*** End Patch
+""")
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("FC-18-IT-09")
+    def test_st_0401_patch_whose_second_file_sets_a_field_is_refused(self, project):
+        result = codex_patch(project, """\
+*** Begin Patch
+*** Add File: notes/todo.md
++Check the base SHA.
+*** Update File: docs/findings/FAGAN-0042.md
+@@
+-status: open
++status: waived
+*** End Patch
+""")
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/FAGAN-0042.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-09")
+    def test_st_0401_patch_that_adds_a_waived_finding_file_is_refused(self, project):
+        result = codex_patch(project, """\
+*** Begin Patch
+*** Add File: docs/findings/FAGAN-0050.md
++---
++id: FAGAN-0050
++status: waived
++---
+*** End Patch
+""")
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/FAGAN-0050.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-09")
+    def test_st_0401_patch_and_shell_call_as_argument_lists_are_refused(self, project):
+        patch = "*** Begin Patch\n*** Update File: docs/findings/FAGAN-0042.md\n" \
+                "@@\n-status: open\n+status: waived\n*** End Patch\n"
+        shell = "sed -i 's/status: open/status: waived/' docs/findings/FAGAN-0042.md"
+
+        for tool_name, command in (("apply_patch", ["apply_patch", patch]),
+                                   ("Bash", ["bash", "-lc", shell])):
+            result = run_payload(project, {
+                "cwd": str(project),
+                "tool_name": tool_name,
+                "tool_input": {"command": command},
+            })
+
+            assert result.returncode == 2, (tool_name, result.stderr)
+
+
+class TestCopilotCalls:
+    @pytest.mark.spec("FC-18-IT-10")
+    def test_st_0401_edit_that_sets_status_waived_is_refused(self, project):
+        result = copilot_call(project, "edit", {
+            "path": path_of(project, "docs/findings/FAGAN-0042.md"),
+            "old_str": "status: open",
+            "new_str": "status: waived",
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/FAGAN-0042.md" in result.stderr
+        assert "status" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-10")
+    def test_st_0401_write_file_that_sets_status_waived_is_refused(self, project):
+        result = copilot_call(project, "write_file", {
+            "path": path_of(project, "docs/findings/FAGAN-0042.md"),
+            "content": FAGAN_0042.replace("status: open", "status: waived"),
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/FAGAN-0042.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-10")
+    @pytest.mark.parametrize("tool_name, tool_args", [
+        ("edit", {"old_str": "status: open", "new_str": "status: waived"}),
+        ("write_file", {"content": "status: waived\n"}),
+    ])
+    def test_st_0401_same_calls_on_the_finding_template_pass(self, project, tool_name, tool_args):
+        template = project / "packages" / "factory" / "rulebooks" / "templates" / "finding.md"
+        template.parent.mkdir(parents=True)
+        template.write_text("status: open\n")
+
+        result = copilot_call(project, tool_name, {"path": str(template), **tool_args})
+
+        assert result.returncode == 0, result.stderr
+
+
+UNPARSABLE_PATCH = """\
+*** Begin Patch
+*** Update File: docs/findings/FAGAN-0042.md
+status: open
+=> status: waived
+"""
+
+
+class TestUnparsablePatch:
+    @pytest.mark.spec("FC-18-IT-13")
+    @pytest.mark.parametrize("send", [codex_patch, copilot_patch, pi_patch],
+                             ids=["codex", "copilot", "pi"])
+    def test_st_0401_unparsable_patch_that_names_a_guarded_path_is_refused(self, project, send):
+        result = send(project, UNPARSABLE_PATCH)
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/FAGAN-0042.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-13")
+    @pytest.mark.parametrize("send", [codex_patch, copilot_patch, pi_patch],
+                             ids=["codex", "copilot", "pi"])
+    def test_st_0401_unparsable_patch_that_names_no_guarded_path_passes(self, project, send):
+        patch = UNPARSABLE_PATCH.replace("docs/findings/FAGAN-0042.md", "notes/todo.md")
+
+        result = send(project, patch)
+
+        assert result.returncode == 0, result.stderr
+
+
+class TestShellChangesDirectory:
+    """BUG-0120: the guard follows a literal `cd` of the command line."""
+
+    def test_bug_0120_cd_before_sed_into_a_finding_is_refused(self, project):
+        result = run_guard(project, "Bash", {
+            "command": "cd docs && sed -i 's/status: open/status: waived/' findings/FAGAN-0042.md",
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/FAGAN-0042.md" in result.stderr
+
+    def test_bug_0120_cd_before_sed_outside_the_guarded_paths_passes(self, project):
+        (project / "docs" / "notes.md").write_text("status: open\n")
+
+        result = run_guard(project, "Bash", {
+            "command": "cd docs && sed -i 's/status: open/status: waived/' notes.md",
+        })
+
+        assert result.returncode == 0, result.stderr
+
+    def test_bug_0120_cd_inside_a_subshell_ends_with_the_subshell(self, project):
+        result = run_guard(project, "Bash", {
+            "command": "(cd notes) && sed -i 's/status: open/status: waived/' "
+            "docs/findings/FAGAN-0042.md",
+        })
+
+        assert result.returncode == 2, result.stderr
 
 
 class TestHelp:

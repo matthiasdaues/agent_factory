@@ -7,7 +7,7 @@ version: 1.0.0
 
 # Finding Filing
 
-Shared rules for filing review findings as local markdown files. Findings are project artifacts, not entries in an external tracker — one file per finding, with strict frontmatter, under `docs/findings/`.
+Shared rules for filing review findings as local files. Findings are project artifacts, not entries in an external tracker. A blocking finding is one markdown file with strict frontmatter under `docs/findings/`. A `minor` finding is one JSON register file under `docs/findings/register/<class>/`.
 
 ## When to file
 
@@ -17,8 +17,9 @@ Canonical statement: [rules.md § Findings](../rules.md#findings).
 
 ## File location and name
 
-- Directory: `docs/findings/`
-- Filename: `<TAG>-<NNNN>.md`, zero-padded, sequential per tag (e.g. `SPEC-0001.md`).
+- Directory of a finding file: `docs/findings/`
+- Filename of a finding file: `<TAG>-<NNNN>.md`, zero-padded, sequential per tag (e.g. `SPEC-0001.md`).
+- Path of a register file: `docs/findings/register/<class>/<TAG>-<NNNN>.json`, where `<class>` is the review class of the finding (e.g. `docs/findings/register/security/SEC-0012.json`).
 - Allocate `NNNN` with `next-id`. The prefix of each tag and the files that claim it are in [id-prefixes.md](id-prefixes.md). Read the ID from the standard output of `next-id`, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 | Review                          | TAG     |
@@ -35,9 +36,26 @@ Canonical statement: [rules.md § Findings](../rules.md#findings).
 
 ## Format
 
-Frontmatter and body skeleton: [finding.md template](../templates/finding.md).
+Frontmatter and body skeleton: [finding.md template](../templates/finding.md). The frontmatter holds sixteen fields: `id`, `source`, `review_class`, `category`, `type`, `severity`, `basis`, `rating`, `override_by`, `override_reason`, `stop_confirmed_by`, `stop_confirmed_reason`, `artifact`, `status`, `owner`, and `traces`. The contract of each field is in [interface-contracts.md § finding file](../../../../docs/spec/interface-contracts.md#docsfindingsidmd--finding-file).
+
+The reviewer writes the four human fields `override_by`, `override_reason`, `stop_confirmed_by`, and `stop_confirmed_reason` as `null`. Only the stakeholder fills them.
 
 Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this looks off" without a fix direction.
+
+## Register files
+
+A `minor` finding gets no finding file. The reviewer writes one JSON object to `docs/findings/register/<class>/<ID>.json` with `status: open`. The keys are the contract of [interface-contracts.md § register file](../../../../docs/spec/interface-contracts.md#docsfindingsregisterclassidjson--register-file), and the schema `rulebooks/schemas/finding-register-<class>.schema.json` describes them. A register file has no `owner:` key, so the review report names the agent that acts on the finding.
+
+The commit that fixes a `minor` finding sets `status` of its register file to `resolved`. The register file stays.
+
+A `note` stays a row of the review report, and a `question` becomes an entry of `docs/spec/work/todo.md`. Neither gets a file in `docs/findings/`.
+
+## Removal of a finding file
+
+A finding file whose `HEAD` version carries `review_class` is never removed, with two exceptions. Each one leaves a register file under the same ID.
+
+- The migration moves a `minor` finding to the register of its class.
+- The stakeholder lowers a blocking finding to `minor`, and the register file with both override keys replaces the finding file.
 
 ## Owner
 
@@ -49,10 +67,12 @@ A finding about a proposal under `docs/proposals/` names `virgil`, who revises t
 
 - `open` — the finding stands; the owner must address it.
 - `resolved` — on a repeat pass, the reviewer verified the owner's fix and set the status. Keep the file as the durable record; do not delete it.
+- `waived` — the stakeholder decided not to fix the finding. Only the stakeholder sets it, with `override_by` and `override_reason`.
+- `deferred` — only the migration sets it, on a file without `review_class`. No agent sets it.
 
 ## How the orchestrator reads findings
 
-The finding files are the contract. When run under the orchestrator, the review loop reads every `docs/findings/*.md` whose `status` is `open`. Those are the findings the phase must still address. The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase. It sends an open finding without `owner:` to the producer of the artifact it names, read from the output declarations (`outputs:` in the agent definitions). The loop repeats until no open finding remains. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
+The finding files are the contract. When run under the orchestrator, the review loop reads every `docs/findings/*.md` whose `status` is `open`. Those are the findings the phase must still address. The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase. It sends an open finding without `owner:` to the producer of the artifact it names, read from the output declarations (`outputs:` in the agent definitions). The loop repeats until no open finding remains. The loop skips register files, because they are JSON files outside `docs/findings/*.md`. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
 
 ## Pause point
 
@@ -74,3 +94,4 @@ Present the findings to the user before writing any files. The user decides whic
 - [inspect-spec § Step 3 — Write the review report](../../skills/inspect-spec/SKILL.md#step-3--write-the-review-report)
 - [atam-review § Step 4 — Write the review report](../../skills/atam-review/SKILL.md#step-4--write-the-review-report)
 - [fagan-review § Step 3 — Write the review report](../../skills/fagan-review/SKILL.md#step-3--write-the-review-report)
+- [finding.md template](../templates/finding.md)

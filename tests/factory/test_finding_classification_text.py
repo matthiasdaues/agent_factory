@@ -211,3 +211,137 @@ def test_st_0386_older_rulebooks_link_the_rulebook_and_define_no_level(path, hea
     body = _section(text, heading) if heading else text
     assert "finding-classification.md" in body
     assert not LEVEL_DEFINITION.search(body), LEVEL_DEFINITION.search(body)
+
+
+# ST-0387: the twelve review files, the finding template, and the register rule.
+
+FACTORY = REPO_ROOT / "packages" / "factory"
+TEMPLATE = RULEBOOKS / "templates" / "finding.md"
+RULEBOOK_LINK = "finding-classification.md#class-"
+# The rows of the Scenario Outline in FC-01: the file and the classes it links.
+REVIEW_FILES = {
+    "skills/inspect-spec/SKILL.md": ("document",),
+    "skills/reconcile-spec/SKILL.md": ("document",),
+    "agents/proposal-review-agent.md": ("document",),
+    "agents/spec-review-agent.md": ("document",),
+    "agents/reconciliation-agent.md": ("document",),
+    "skills/fagan-review/SKILL.md": ("code",),
+    "agents/code-review-agent.md": ("code",),
+    "skills/security-review/SKILL.md": ("security",),
+    "skills/atam-review/SKILL.md": ("architecture",),
+    "agents/architecture-review-agent.md": ("architecture",),
+    "skills/bug-hunt/SKILL.md": ("runtime",),
+    "agents/qa-agent.md": ("code", "security", "runtime"),
+}
+REVIEW_SKILLS = {
+    path: classes[0] for path, classes in REVIEW_FILES.items() if path.startswith("skills/")
+}
+# A table row that starts with a level names that level and gives its meaning.
+LEVEL_ROW = re.compile(
+    r"^\|\s*`?(critical|major|minor|note|high|medium|low)`?\s*\|", re.IGNORECASE | re.MULTILINE
+)
+HUMAN_FIELDS = ("override_by", "override_reason", "stop_confirmed_by", "stop_confirmed_reason")
+TEMPLATE_FIELDS = (
+    "id",
+    "source",
+    "review_class",
+    "category",
+    "type",
+    "severity",
+    "basis",
+    "rating",
+    *HUMAN_FIELDS,
+    "artifact",
+    "status",
+    "owner",
+    "traces",
+)
+
+
+@pytest.mark.spec("FC-01-LN-03")
+@pytest.mark.parametrize("relative", sorted(REVIEW_FILES))
+def test_st_0387_review_file_links_its_class_section_and_defines_no_severity(relative):
+    text = _text(FACTORY / relative)
+    for class_name in REVIEW_FILES[relative]:
+        assert f"{RULEBOOK_LINK}{class_name})" in text, f"{relative} lacks the link to Class: {class_name}"
+    assert not LEVEL_DEFINITION.search(text), LEVEL_DEFINITION.search(text)
+    assert not LEVEL_ROW.search(text), LEVEL_ROW.search(text)
+
+
+@pytest.mark.spec("FC-01-LN-03")
+def test_st_0387_fagan_review_names_the_class_code():
+    text = _text(FACTORY / "skills" / "fagan-review" / "SKILL.md")
+    assert "review class `code`" in text
+    assert "[Class: code]" in text
+
+
+@pytest.mark.spec("FC-05-LN-01")
+def test_st_0387_a_non_risk_names_its_assumptions():
+    architecture = _flat(_section(_text(RULEBOOK), "Class: architecture"))
+    assert "each non-risk names its assumptions" in architecture
+    for relative in ("skills/atam-review/SKILL.md", "agents/architecture-review-agent.md"):
+        assert "A non-risk names the assumptions it rests on" in _flat(_text(FACTORY / relative))
+
+
+def _template_frontmatter_keys() -> list[str]:
+    block = _section(_text(TEMPLATE), "Frontmatter")
+    code = re.search(r"```markdown\n---\n(.*?)\n---\n```", block, re.DOTALL)
+    assert code, "the Frontmatter section holds no frontmatter block"
+    return re.findall(r"^([a-z_]+):(?:[ \t]|$)", code.group(1), re.MULTILINE)
+
+
+@pytest.mark.spec("FC-06-LN-01")
+def test_st_0387_template_holds_the_sixteen_frontmatter_fields():
+    assert _template_frontmatter_keys() == list(TEMPLATE_FIELDS)
+
+
+@pytest.mark.spec("FC-06-LN-01")
+def test_st_0387_template_leaves_the_human_fields_null():
+    block = _section(_text(TEMPLATE), "Frontmatter")
+    for field in HUMAN_FIELDS:
+        assert re.search(rf"^{field}:[ \t]*(#.*)?$", block, re.MULTILINE), f"{field} must carry no value"
+
+
+@pytest.mark.spec("FC-06-LN-01")
+def test_st_0387_template_holds_the_body_lines_and_the_possible_damage_section():
+    text = _text(TEMPLATE)
+    for line in ("**What is wrong:**", "**Why this severity:**", "**Fix:**"):
+        assert line in text
+    assert text.index("**What is wrong:**") < text.index("**Why this severity:**") < text.index("**Fix:**")
+    assert "## Possible damage" in text
+    assert "A `critical` finding ends with this section. No other severity holds it." in _flat(text)
+    assert "— check:" in text
+
+
+@pytest.mark.spec("FC-06-LN-01")
+def test_st_0387_template_lists_the_status_values_and_who_sets_them():
+    status = _flat(_section(_text(TEMPLATE), "Frontmatter"))
+    for phrase in (
+        "`open` and `resolved`: set by an agent",
+        "`waived`: set by the stakeholder only",
+        "`deferred`: set by the migration only",
+    ):
+        assert phrase in status, phrase
+
+
+@pytest.mark.spec("FC-07-LN-01")
+@pytest.mark.parametrize(("relative", "class_name"), sorted(REVIEW_SKILLS.items()))
+def test_st_0387_review_skill_writes_a_minor_finding_as_a_register_file(relative, class_name):
+    text = _flat(_text(FACTORY / relative))
+    assert f"`docs/findings/register/{class_name}/<ID>.json`" in text
+    assert "`status: open`" in text
+    assert "no finding file" in text
+    assert re.search(r"sets (?:`status` of the register file|its `status`) to `resolved`", text)
+
+
+@pytest.mark.spec("FC-07-LN-01")
+def test_st_0387_finding_format_resolves_a_register_file_and_names_two_removals():
+    text = _flat(_text(FINDING_FORMAT))
+    assert (
+        "The commit that fixes a `minor` finding sets `status` of its register file to `resolved`."
+        " The register file stays." in text
+    )
+    removal = _flat(_section(_text(FINDING_FORMAT), "Removal of a finding file"))
+    assert "The migration moves a `minor` finding" in removal
+    assert "The stakeholder lowers a blocking finding" in removal
+    assert "Each one leaves a register file under the same ID" in removal

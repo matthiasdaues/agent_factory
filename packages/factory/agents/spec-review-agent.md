@@ -55,7 +55,7 @@ triggers:
 handoff-to:
   - requirements-agent
   - architecture-agent
-version: 0.6.0
+version: 0.7.0
 ---
 
 # Specification Review Agent
@@ -78,7 +78,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 1. **Read** — Understand the system before evaluating how well the spec says it. The scope map is read only, because the review files no finding on its content. The stakeholder reviews the scope map.
 2. **Inspect** — Deterministic: `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec`. Semantic: the seven requirements-quality characteristics (consistent, unambiguous, verifiable, complete, feasible, necessary, terminology). Then run the `inspect-spec` check for each structure file that exists, for the glossary, and for the `proposed` rows of `docs/spec/work/term-candidates.md`. A missing optional structure file never stops the review.
-3. **Report** — Save `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../rulebooks/conventions/report-format.md), file Major+ findings per [finding-format.md](../rulebooks/conventions/finding-format.md). Run `.agent-factory/factory/scripts/next-id SPEC` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
+3. **Report** — Save `docs/reviews/spec-review-YYYY-MM-DD.md` per [report-format.md](../rulebooks/conventions/report-format.md), file each finding by its computed severity per [finding-format.md](../rulebooks/conventions/finding-format.md). This agent classifies findings of the review class `document`, by [Class: document](../rulebooks/conventions/finding-classification.md#class-document). The rule of the class computes each severity from the recorded basis. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file. A `minor` finding becomes the register file `docs/findings/register/document/<ID>.json` with `status: open`, and the commit that fixes it sets `status` to `resolved`. A `note` stays a row of the report, and a `question` becomes an entry of `docs/spec/work/todo.md`. Run `.agent-factory/factory/scripts/next-id SPEC` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 4. **Verify prior findings** (repeat passes) — Per [review-loop-discipline.md](../rulebooks/conventions/review-loop-discipline.md): resolve/annotate each open `SPEC` finding, **and** re-run the full inspection fresh.
 
 **Pause point:** Present findings before filing.
@@ -86,7 +86,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 ## Completion Criteria
 
 - `spec-lint` reports zero errors
-- Major+ findings filed
+- Blocking findings filed as finding files, `minor` findings as register files
 - Prior findings resolved or annotated, re-inspection complete
 
 ## Handoff

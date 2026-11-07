@@ -36,9 +36,9 @@ When `docs/spec/dependency-rules.dsl` does not exist, skip this step and write "
 1. Read the component view of `docs/spec/architecture.dsl`: every container and component, with its identifier and its name, and every relationship between them.
 2. For each rule, match `<source>` and `<target>` to a container or component by its identifier or its name.
 3. A rule that names a module the component view lacks is a mismatch. So is a rule that forbids a dependency the component view draws as a relationship.
-4. File each mismatch as `docs/findings/ATAM-NNNN.md` with `owner: architecture-agent`, per [finding-format.md](../../rulebooks/conventions/finding-format.md), whatever its severity. Name the rule and the component view.
+4. Classify each mismatch as a defect in a document, by [Class: document](../../rulebooks/conventions/finding-classification.md#class-document), and file it by its computed severity as Step 4 describes. A finding file carries `owner: architecture-agent`. The review report names `architecture-agent` for a mismatch that becomes a register file. Name the rule and the component view.
 
-Take a case. The component view has the components `payments` and `api`. The rules file has the rule `ledger must_not_depend_on payments`. The view has no `ledger`, so the review files `ATAM-0001.md` with `owner: architecture-agent`. The finding names the rule and the component view.
+Take a case. The component view has the components `payments` and `api`. The rules file has the rule `ledger must_not_depend_on payments`. The view has no `ledger`, so the review files a finding of type `inconsistent` that names the rule and the component view.
 
 **Completion**: every rule matched or filed as a mismatch, or the step recorded as skipped.
 
@@ -50,7 +50,7 @@ Read `docs/arc42/10_quality_requirements.md`. Extract every quality attribute sc
 
 ## Step 3 — Analyse each scenario
 
-For each quality scenario, read the relevant arc42 chapters and identify the **architectural approach**, **sensitivity points**, **tradeoff points**, and **risk / non-risk** classification, evaluated against the architecture as documented, not as imagined.
+For each quality scenario, read the relevant arc42 chapters and identify the **architectural approach**, **sensitivity points**, **tradeoff points**, and **risk / non-risk** classification, evaluated against the architecture as documented, not as imagined. A non-risk names the assumptions it rests on, so the review judges it again when an assumption changes.
 
 **Completion**: every scenario from step 2 has all four assessments.
 
@@ -66,7 +66,7 @@ Save as `docs/reviews/atam-review.md` per [report-format.md](../../rulebooks/con
 6. **Risk summary** — table of risks with severity and proposed mitigation.
 7. **Tradeoff summary** — table of identified tradeoffs.
 
-File findings per [finding-format.md](../../rulebooks/conventions/finding-format.md) with tag `ATAM` for risks rated Medium or higher. Run `.agent-factory/factory/scripts/next-id ATAM` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
+This review classifies findings of the review class `architecture`. Classify each finding by [Class: architecture](../../rulebooks/conventions/finding-classification.md#class-architecture): record its basis, and let the rule of the class compute the severity. File each finding by that severity. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file with tag `ATAM` from the [finding template](../../rulebooks/templates/finding.md), as [finding-format.md](../../rulebooks/conventions/finding-format.md) describes. A `minor` finding becomes one register file `docs/findings/register/architecture/<ID>.json` with `status: open` and gets no finding file. The commit that fixes it sets `status` of the register file to `resolved`. A `note` stays a row of the review report, and a `question` becomes an entry of `docs/spec/work/todo.md`. A register file takes its ID from `next-id`, as a finding file does. Sensitivity points, tradeoff points, and non-risks are notes. A defect in a document, such as an `arch-lint` error, belongs to the [document class](../../rulebooks/conventions/finding-classification.md#class-document). Run `.agent-factory/factory/scripts/next-id ATAM` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 Format both the report and any finding files via `.agent-factory/factory/scripts/mdformat --number` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).
 

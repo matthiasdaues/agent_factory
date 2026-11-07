@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Finding register file: code",
+  "description": "One register file docs/findings/register/code/<ID>.json holds a minor finding in code or in text that agents execute. The contract is interface-contracts.md, register file. The schema uses no oneOf, because schema-validate supports none, so finding-lint checks the rules that tie waived to the override keys.",
+  "type": "object",
+  "required": [
+    "id",
+    "source",
+    "review_class",
+    "category",
+    "type",
+    "severity",
+    "artifact",
+    "story",
+    "finding",
+    "basis",
+    "why_this_severity",
+    "commit",
+    "status"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z]+-[0-9]{4}$",
+      "description": "The ID that next-id printed. The file name is <id>.json."
+    },
+    "source": {
+      "type": "string",
+      "description": "The review or session that found the finding."
+    },
+    "review_class": {
+      "const": "code",
+      "description": "The class of the register folder."
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "defect",
+        "risk",
+        "suggestion"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "description": "A type from the vocabulary of the class."
+    },
+    "severity": {
+      "const": "minor"
+    },
+    "artifact": {
+      "type": "string",
+      "description": "path:line, path:start-end, or path#anchor."
+    },
+    "story": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The story ID the review ran for, or null when no story exists yet."
+    },
+    "finding": {
+      "type": "string",
+      "description": "What is wrong and the fix, as plain text."
+    },
+    "basis": {
+      "type": "object",
+      "required": [
+        "in_use",
+        "harms_downstream",
+        "fails_purpose",
+        "raises_cost"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "in_use": {
+          "type": "boolean",
+          "description": "true when something outside the current playbook run depends on the artifact. finding-lint checks it against git for code and runtime findings."
+        },
+        "harms_downstream": {
+          "type": "boolean",
+          "description": "true when the finding causes a wrong result, data loss, a security breach, or a broken contract, and the artifact is in use. true only when in_use is true."
+        },
+        "fails_purpose": {
+          "type": "boolean",
+          "description": "true when the reviewed artifact fails the job it exists for."
+        },
+        "raises_cost": {
+          "type": "boolean",
+          "description": "true when the artifact works, but the finding makes later reading, change, or testing harder."
+        }
+      },
+      "description": "The basis of the code class, as docs/spec/schemas/finding-basis.json defines it."
+    },
+    "why_this_severity": {
+      "type": "string",
+      "description": "The Why this severity sentence."
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "The reviewed commit as 40 hexadecimal characters."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "resolved",
+        "waived"
+      ]
+    },
+    "override_by": {
+      "type": "string",
+      "description": "Human field. The stakeholder who lowered or waived the finding."
+    },
+    "override_reason": {
+      "type": "string",
+      "description": "Human field. Why the stakeholder lowered or waived the finding."
+    }
+  }
+}

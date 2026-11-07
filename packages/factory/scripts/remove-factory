@@ -487,6 +487,7 @@ def _codex_artifact_owned(path: Path, rel: str, target: Path, manifest: dict) ->
         ".codex/hooks/block-dangerous-git.sh",
         ".codex/hooks/capture-codex-usage.sh",
         ".codex/hooks/step-guard.sh",
+        ".codex/hooks/guard-human-fields",
     }:
         return _symlink_points_to(
             path, target / ".agent-factory/factory/config/hooks" / Path(rel).name
