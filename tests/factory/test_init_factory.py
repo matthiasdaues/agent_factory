@@ -2366,3 +2366,42 @@ def test_st_0401_remove_factory_strips_the_codex_and_copilot_guard(tmp_path):
     hooks_json = target / ".codex" / "hooks.json"
     if hooks_json.exists():
         assert "guard-human-fields" not in hooks_json.read_text()
+
+
+# ST-0402: init-factory links the Pi guard extension beside step-guard.ts.
+
+@pytest.mark.spec("FC-18-IT-16")
+def test_st_0402_init_links_the_pi_guard_extension_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "pi", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    extensions = target / ".pi" / "extensions"
+    assert (extensions / "step-guard.ts").is_symlink()
+    link = extensions / "guard-human-fields.ts"
+    assert link.is_symlink()
+    assert link.resolve() == (
+        target / ".agent-factory" / "factory" / "config" / "extensions" / "guard-human-fields.ts"
+    ).resolve()
+
+
+@pytest.mark.spec("FC-18-IT-16")
+def test_st_0402_remove_factory_strips_the_pi_guard_extension(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "pi", "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert not (target / ".pi" / "extensions" / "guard-human-fields.ts").exists()
