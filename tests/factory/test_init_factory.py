@@ -2206,3 +2206,68 @@ def test_CAL_07_rerun_after_first_install_moves_no_file_and_lists_nothing(tmp_pa
     assert not any(
         "docs/spec/payments.feature" in line for line in _report_lines(result.stdout)
     ), result.stdout
+
+
+# ST-0400: init-factory registers guard-human-fields for Claude Code.
+
+GUARD_HUMAN_FIELDS_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-human-fields'
+GUARD_HUMAN_FIELDS_TOOLS = ("Edit", "MultiEdit", "Write", "NotebookEdit", "Bash")
+
+
+def pre_tool_use_commands(target: Path) -> list[tuple[str, str]]:
+    """Each (matcher, command) pair of the PreToolUse entries in .claude/settings.json."""
+    settings = json.loads((target / ".claude" / "settings.json").read_text())
+    return [
+        (entry.get("matcher"), hook.get("command"))
+        for entry in settings["hooks"]["PreToolUse"]
+        for hook in entry.get("hooks", [])
+    ]
+
+
+@pytest.mark.spec("FC-18-IT-06")
+def test_st_0400_init_writes_the_guard_entries_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "claude", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    pairs = pre_tool_use_commands(target)
+    for tool in GUARD_HUMAN_FIELDS_TOOLS:
+        assert pairs.count((tool, GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    step_guard = [pair for pair in pairs if "step-guard.sh" in (pair[1] or "")]
+    assert sorted(matcher for matcher, _ in step_guard) == ["Bash", "Edit", "Read", "Write"]
+    link = target / ".claude" / "hooks" / "guard-human-fields"
+    assert link.is_symlink()
+    assert link.resolve() == (
+        target / ".agent-factory" / "factory" / "config" / "hooks" / "guard-human-fields"
+    ).resolve()
+    assert os.access(link, os.X_OK)
+
+    again = run_init(source, target)
+
+    assert again.returncode == 0, again.stderr
+    assert pre_tool_use_commands(target) == pairs
+
+
+@pytest.mark.spec("FC-18-IT-06")
+def test_st_0400_remove_factory_strips_the_guard_entries(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    own_hook = {"matcher": "Bash", "hooks": [{"type": "command", "command": "./own.sh"}]}
+    settings = json.dumps({"hooks": {"PreToolUse": [own_hook]}})
+    target = make_project(tmp_path / "guard-demo", {".claude/settings.json": settings})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "claude", "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert pre_tool_use_commands(target) == [("Bash", "./own.sh")]
+    assert not (target / ".claude" / "hooks" / "guard-human-fields").exists()
