@@ -333,6 +333,59 @@ def test_st_0397_merge_is_denied_after_the_refused_premerge_check(tmp_path):
     assert "premerge-check-ok" in result.stderr
 
 
+BRANCH = "feature/core-artifact-ownership"
+
+
+def place_premerge_marker(repo: Path) -> None:
+    """The marker a passing premerge-check wrote for the head of the branch."""
+    head = _git(repo, "rev-parse", BRANCH)
+    marker = repo / ".current-work" / "premerge-check-ok"
+    marker.parent.mkdir(exist_ok=True)
+    marker.write_text(f"branch={BRANCH}\nhead={head}\n")
+
+
+def merge_through_hook(repo: Path, hook: Path = HOOK) -> subprocess.CompletedProcess:
+    payload = json.dumps({"tool_input": {"command": f"git merge {BRANCH}"}})
+    return subprocess.run(
+        ["bash", str(hook)], input=payload, cwd=repo, env=_env(),
+        capture_output=True, text=True, check=False,
+    )
+
+
+def test_bug_0124_merge_is_denied_while_the_stop_holds_despite_an_earlier_marker(tmp_path):
+    repo = merge_repo(tmp_path)
+    place_premerge_marker(repo)
+    assert merge_through_hook(repo).returncode == 0
+    write_finding(repo, finding())
+
+    result = merge_through_hook(repo)
+
+    assert result.returncode == 2
+    assert "BUG-0037" in result.stderr
+
+
+def test_bug_0124_merge_with_an_earlier_marker_passes_once_the_stop_lifts(tmp_path):
+    repo = merge_repo(tmp_path)
+    place_premerge_marker(repo)
+    write_finding(repo, finding(by="human", reason="compared 14 merges, none lost"))
+
+    assert merge_through_hook(repo).returncode == 0
+
+
+def test_bug_0124_merge_is_denied_when_the_hook_finds_no_stop_check(tmp_path):
+    repo = merge_repo(tmp_path)
+    place_premerge_marker(repo)
+    lone = tmp_path / "lone" / "config" / "hooks"
+    lone.mkdir(parents=True)
+    hook = lone / "block-dangerous-git.sh"
+    hook.write_text(HOOK.read_text())
+
+    result = merge_through_hook(repo, hook)
+
+    assert result.returncode == 2
+    assert "stop check" in result.stderr
+
+
 # -- FC-14-IT-05: the stop reads the worktree it runs in ----------------------
 
 

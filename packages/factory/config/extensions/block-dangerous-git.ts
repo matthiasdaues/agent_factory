@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
@@ -80,6 +80,8 @@ export default function (pi: ExtensionAPI) {
 
     if (/^git\s+merge\s+/.test(command)) {
       const mergeBranch = firstMergeBranch(command);
+      const stop = mergeStop(ctx.cwd, top, mergeBranch);
+      if (stop) return blocked(stop);
       const mergeHead = mergeBranch ? git(ctx.cwd, ["rev-parse", mergeBranch]) : null;
       const marker = top && join(top, ".current-work", "premerge-check-ok");
       const markerText = marker && existsSync(marker) ? readFileSync(marker, "utf-8") : "";
@@ -105,6 +107,33 @@ export default function (pi: ExtensionAPI) {
       }
     }
   });
+}
+
+// BUG-0124 (BR-091): a stop denies the merge even when a premerge-check-ok
+// marker from before the stop exists. The check is a read-only call to
+// stop_notice. Like guard-human-fields, a gate that cannot run it fails closed.
+function mergeStop(cwd: string, top: string | null, mergeBranch: string | null) {
+  const name = mergeBranch ?? "<branch>";
+  const scripts = join(top ?? cwd, ".agent-factory", "factory", "scripts");
+  if (!existsSync(join(scripts, "dispatch_lib.py"))) {
+    return `git merge ${name}: the stop check is missing at ${scripts}/dispatch_lib.py; run update-factory.`;
+  }
+  const run = spawnSync(
+    "python3",
+    [
+      "-c",
+      "import sys; sys.path.insert(0, sys.argv[1]); from dispatch_lib import stop_notice; sys.stdout.write(stop_notice() or '')",
+      scripts,
+    ],
+    { cwd, encoding: "utf-8" },
+  );
+  if (run.status !== 0) {
+    return `git merge ${name}: the stop check failed to run, so the merge is denied. Run update-factory.`;
+  }
+  if (run.stdout) {
+    return `git merge ${name} during a stop on a critical finding; no .current-work/premerge-check-ok marker counts until the stop lifts. ${run.stdout}`;
+  }
+  return null;
 }
 
 function isCharterAllowed(top: string, command: string): boolean {

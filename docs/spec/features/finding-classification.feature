@@ -910,6 +910,13 @@ Feature: Finding classification
       When an agent runs git merge feature/core-artifact-ownership
       Then block-dangerous-git denies the merge, because no marker exists for that branch head
 
+    Scenario: No merge passes the stop with an earlier marker
+      Given premerge-check passed for feature/core-artifact-ownership and wrote its marker
+      And BUG-0037 then stops the run
+      When an agent runs git merge feature/core-artifact-ownership
+      Then block-dangerous-git denies the merge, because the stop holds
+      And the earlier marker does not lift the denial
+
     Scenario: The stop notice names what the stakeholder must check
       Given BUG-0037 stops the run
       When dispatch or premerge-check prints the stop notice

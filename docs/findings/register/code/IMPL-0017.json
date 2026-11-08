@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Every premerge-check during the stop refuses and writes no marker, and a new branch head has no valid marker, so the stop holds on the normal path (no to fails_purpose). A merge passes only when the finding arrives between a passing premerge-check and the merge of the same head, and then the operator must find and reverse that merge.",
   "commit": "b2bd24a1ac5f05eef935135d5c957ec318c452e3",
-  "status": "open"
+  "status": "resolved"
 }
