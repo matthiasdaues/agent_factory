@@ -13,6 +13,10 @@
 #       register file without a finding file of the same ID (BR-109, BR-110).
 #       A repository without a commit, or a directory outside any repository,
 #       has no HEAD version, so the lint checks every file as new.
+#       For a code, runtime, or security finding with in_use false, it blames
+#       the artifact range and rejects the answer when every line identity
+#       exists unchanged on dev, main, origin/dev, origin/main, or in the
+#       installed copy (BR-088). It prints one line per branch the clone lacks.
 # When: In the validate skill without --staged (the working tree), and in the
 #       pre-commit hook with --staged (the index).
 # By:   `.agent-factory/factory/scripts/finding-lint [--staged]` from the
@@ -1178,10 +1182,272 @@ def read_index(root: Path) -> dict[str, str]:
     return _read_objects(root, ":", _listed(listed))
 
 
+# --- The git check for in use (BR-088) -----------------------------------------
+
+IN_USE_CLASSES = ("code", "runtime", "security")
+ZERO_COMMIT = "0" * 40
+# The branches in the order of the contract's message table (DEC-50).
+BRANCHES = (
+    ("dev", "refs/heads/dev"),
+    ("main", "refs/heads/main"),
+    ("origin/dev", "refs/remotes/origin/dev"),
+    ("origin/main", "refs/remotes/origin/main"),
+)
+INSTALLED_SOURCE = "packages/factory/"
+INSTALLED_COPY = ".agent-factory/factory"
+
+_PORCELAIN_HEADER = re.compile(
+    r"^(?P<commit>[0-9a-f]{40}) (?P<line>[0-9]+) [0-9]+(?: [0-9]+)?$"
+)
+_HEADING = re.compile(r"^(?P<marks>#{1,6})[ \t]+(?P<title>.*?)[ \t]*#*[ \t]*$")
+_FENCE = re.compile(r"^[ \t]{0,3}(```|~~~)")
+
+Identity = tuple[str, int, str]
+
+
+def parse_porcelain(output: str) -> list[Identity]:
+    """Return one line identity per line of `git blame --porcelain` output.
+
+    An identity is the introducing commit, the line number in that commit, and
+    the file name in that commit. Git prints the file name only with the first
+    line of a group, so a later line of the commit takes the last name given.
+    """
+    identities: list[Identity] = []
+    names: dict[str, str] = {}
+    commit, line = "", 0
+    for text in output.split("\n"):
+        if text.startswith("\t"):
+            identities.append((commit, line, names.get(commit, "")))
+            continue
+        header = _PORCELAIN_HEADER.match(text)
+        if header:
+            commit, line = header["commit"], int(header["line"])
+        elif text.startswith("filename "):
+            names[commit] = text[len("filename ") :]
+    return identities
+
+
+def holds_every_line(place: set[Identity], lines: list[Identity]) -> bool:
+    """Return whether *place* holds every line; a line no commit introduced never counts."""
+    return all(line[0] != ZERO_COMMIT and line in place for line in lines)
+
+
+def _slug(title: str) -> str:
+    text = re.sub(r"[^\w\- ]", "", title.lower(), flags=re.UNICODE)
+    return text.replace(" ", "-")
+
+
+def section_range(text: str, anchor: str) -> tuple[int, int] | None:
+    """Return the first and last line of the section under the heading *anchor*.
+
+    The section runs down to the next heading of the same or a higher level.
+    A heading inside a code fence does not count.
+    """
+    headings: list[tuple[int, int, str]] = []
+    seen: dict[str, int] = {}
+    fenced = False
+    lines = text.splitlines()
+    for number, line in enumerate(lines, start=1):
+        if _FENCE.match(line):
+            fenced = not fenced
+            continue
+        match = None if fenced else _HEADING.match(line)
+        if match:
+            slug = _slug(match["title"])
+            count = seen.get(slug, 0)
+            seen[slug] = count + 1
+            headings.append(
+                (number, len(match["marks"]), slug if count == 0 else f"{slug}-{count}")
+            )
+    for index, (number, level, slug) in enumerate(headings):
+        if slug != anchor:
+            continue
+        end = next(
+            (later - 1 for later, other, _ in headings[index + 1 :] if other <= level),
+            len(lines),
+        )
+        return number, end
+    return None
+
+
+def _exists(root: Path, revision: str, path: str = "") -> bool:
+    """Return whether *revision*, or the path *path* in it, exists."""
+    name = f"{revision}:{path}" if path else revision
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-e", name], cwd=root, capture_output=True, check=False
+        )
+    except OSError as exc:
+        raise GitError(f"finding-lint: cannot run git: {exc}") from exc
+    return result.returncode == 0
+
+
+class InUseCheck:
+    """Find the first place where every line of an artifact range exists unchanged."""
+
+    def __init__(self, root: Path):
+        self.root = root
+        self.skipped: list[str] = []
+        self._branches: list[tuple[str, str]] | None = None
+        self._blames: dict[tuple[str, str], set[Identity]] = {}
+        self._sources: dict[str, dict[str, set[str]]] = {}
+
+    def branches(self) -> list[tuple[str, str]]:
+        """Return the branches the clone has, and name each one it lacks once."""
+        if self._branches is None:
+            self._branches = []
+            for name, ref in BRANCHES:
+                if _exists(self.root, f"{ref}^{{commit}}"):
+                    self._branches.append((name, ref))
+                else:
+                    self.skipped.append(f"skipped {name}: no such branch")
+        return self._branches
+
+    def _blame(self, *args: str) -> list[Identity]:
+        output = _git(self.root, "blame", "-M", "-C", "--porcelain", *args)
+        return parse_porcelain(output.decode("utf-8", "replace"))
+
+    def _range(self, artifact: str) -> tuple[str, int, int] | None:
+        match = _ARTIFACT.match(artifact)
+        if match is None:
+            return None
+        path = match["path"]
+        file = self.root / path
+        if not file.is_file() or not _exists(self.root, "HEAD", path):
+            return None
+        text = file.read_text(encoding="utf-8", errors="replace")
+        if match["anchor"] is not None:
+            found = section_range(text, match["anchor"])
+            return None if found is None else (path, *found)
+        start = int(match["start"])
+        end = int(match["end"]) if match["end"] else start
+        return (path, start, end) if end <= len(text.splitlines()) else None
+
+    def _sources_of(self, ref: str, path: str) -> set[str]:
+        """Return the rename and copy sources that `git diff -M -C <ref>` names for *path*."""
+        if ref not in self._sources:
+            output = _git(self.root, "diff", "-M", "-C", "--name-status", "-z", ref)
+            fields = [field.decode("utf-8", "replace") for field in output.split(b"\0")]
+            sources: dict[str, set[str]] = {}
+            index = 0
+            while index < len(fields) and fields[index]:
+                status = fields[index]
+                if status[0] in "RC":
+                    sources.setdefault(fields[index + 2], set()).add(fields[index + 1])
+                    index += 3
+                else:
+                    index += 2
+            self._sources[ref] = sources
+        return {path} | self._sources[ref].get(path, set())
+
+    def _on_branch(self, ref: str, path: str) -> set[Identity]:
+        found: set[Identity] = set()
+        for source in sorted(self._sources_of(ref, path)):
+            key = (ref, source)
+            if key not in self._blames:
+                exists = _exists(self.root, ref, source)
+                self._blames[key] = (
+                    set(self._blame(ref, "--", source)) if exists else set()
+                )
+            found |= self._blames[key]
+        return found
+
+    def _installed_file(self, path: str) -> Path | None:
+        if (
+            not path.startswith(INSTALLED_SOURCE)
+            or not (self.root / INSTALLED_SOURCE).is_dir()
+        ):
+            return None
+        local = self.root / INSTALLED_COPY / path[len(INSTALLED_SOURCE) :]
+        if local.is_file():
+            return local
+        # The helper lives beside this script; a lint copied without it
+        # still runs every check that needs no main checkout.
+        here = str(Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        from _main_checkout import installed_copy_in_main_checkout
+
+        copy = installed_copy_in_main_checkout(local)
+        return copy if copy is not None and copy.is_file() else None
+
+    def place_of(self, artifact: str) -> str | None:
+        """Return where the lines of *artifact* exist unchanged, or None."""
+        found = self._range(artifact)
+        if found is None:
+            return None
+        path, start, end = found
+        lines = self._blame("-L", f"{start},{end}", "--", path)
+        if not holds_every_line(set(lines), lines):
+            return None
+        for name, ref in self.branches():
+            if holds_every_line(self._on_branch(ref, path), lines):
+                return f"on {name}"
+        installed = self._installed_file(path)
+        if installed is not None:
+            copy = set(self._blame("--contents", str(installed), "--", path))
+            if holds_every_line(copy, lines):
+                return "in the installed copy"
+        return None
+
+
+def _in_use_records(files: dict[str, str]) -> list[tuple[str, dict]]:
+    """Return each finding and register file that answers in_use false in a checked class."""
+    records: list[tuple[str, dict]] = []
+    for path in sorted(files):
+        record: Any = None
+        if is_finding_path(path) and carries_review_class(files[path]):
+            record = _meta(files[path])
+        elif is_register_path(path):
+            try:
+                record = json.loads(files[path])
+            except json.JSONDecodeError:
+                continue
+        if (
+            not isinstance(record, dict)
+            or record.get("review_class") not in IN_USE_CLASSES
+        ):
+            continue
+        basis = record.get("basis")
+        if (
+            isinstance(basis, dict)
+            and basis.get("in_use") is False
+            and isinstance(record.get("artifact"), str)
+        ):
+            records.append((path, record))
+    return records
+
+
+def check_in_use(root: Path, files: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Run the git check of BR-088 and return the violations and the skipped branches."""
+    records = _in_use_records(files)
+    if not records or not _in_repository(root) or not _has_head(root):
+        return [], []
+    check = InUseCheck(root)
+    out: list[str] = []
+    for path, record in records:
+        place = check.place_of(record["artifact"])
+        if place is not None:
+            out.append(
+                _message(
+                    path, "BR-088 in use", f"artifact lines exist unchanged {place}"
+                )
+            )
+    return out, check.skipped
+
+
+def check_tree(
+    root: Path, schemas: dict, staged: bool = False
+) -> tuple[list[str], list[str]]:
+    """Return the violations and the skipped branches of the findings under *root*."""
+    files = read_index(root) if staged else read_worktree(root)
+    in_use, skipped = check_in_use(root, files)
+    return lint_files(files, read_head(root), schemas) + in_use, skipped
+
+
 def lint_tree(root: Path, schemas: dict, staged: bool = False) -> list[str]:
     """Check the working tree under *root*, or the index with *staged*, against HEAD."""
-    files = read_index(root) if staged else read_worktree(root)
-    return lint_files(files, read_head(root), schemas)
+    return check_tree(root, schemas, staged)[0]
 
 
 def main(argv: list[str]) -> int:
@@ -1194,12 +1460,12 @@ def main(argv: list[str]) -> int:
         print(exc, file=sys.stderr)
         return 2
     try:
-        messages = lint_tree(Path.cwd(), schemas, staged=argv == ["--staged"])
+        messages, skipped = check_tree(Path.cwd(), schemas, staged=argv == ["--staged"])
     except GitError as exc:
         print(exc, file=sys.stderr)
         return 2
-    for message in messages:
-        print(message)
+    for line in skipped + messages:
+        print(line)
     return 1 if messages else 0
 
 

@@ -1400,3 +1400,105 @@ def test_st_0392_the_stakeholder_raises_fagan_0032_to_a_finding_file(tmp_path):
     (root / REGISTER_PATH).unlink()
     result = _run_in(root, env)
     assert (result.returncode, result.stdout) == (0, "")
+
+
+# --- The line identity of the git check (ST-0393) -----------------------------
+
+COMMIT_A = "d4d983054741803010834bbcf45c1c4f8e2f4bc7"
+COMMIT_B = "5b0e3c3e1b2a4f6d8c9e0a1b2c3d4e5f60718293"
+ZERO = "0" * 40
+
+# Porcelain output of git 2.34.1: the details of a commit come only with its
+# first line, and a later group of the same commit repeats only the header.
+PORCELAIN = f"""{COMMIT_A} 7 2 2
+author T
+author-mail <t@e>
+summary a
+boundary
+filename factory/scripts/dispatch
+\tline 7 of dispatch
+{COMMIT_A} 8 3
+\tline 8 of dispatch
+{COMMIT_B} 4 4 1
+author T
+summary b
+filename packages/factory/scripts/dispatch
+\t}}
+{COMMIT_A} 12 5 1
+\t}}
+{ZERO} 6 6 1
+author Not Committed Yet
+summary Version of packages/factory/scripts/dispatch from packages/factory/scripts/dispatch
+filename packages/factory/scripts/dispatch
+\tuncommitted
+"""
+
+
+@pytest.mark.spec("FC-11-CT-01")
+def test_st_0393_the_porcelain_parser_reads_one_identity_per_line():
+    assert lint.parse_porcelain(PORCELAIN) == [
+        (COMMIT_A, 7, "factory/scripts/dispatch"),
+        (COMMIT_A, 8, "factory/scripts/dispatch"),
+        (COMMIT_B, 4, "packages/factory/scripts/dispatch"),
+        (COMMIT_A, 12, "factory/scripts/dispatch"),
+        (ZERO, 6, "packages/factory/scripts/dispatch"),
+    ]
+
+
+@pytest.mark.spec("FC-11-CT-01")
+def test_st_0393_two_braces_of_two_commits_have_two_identities():
+    identities = lint.parse_porcelain(PORCELAIN)
+    assert identities[2] != identities[3]
+
+
+@pytest.mark.spec("FC-11-CT-01")
+def test_st_0393_lines_of_two_files_never_match():
+    same_commit_and_line = [(COMMIT_A, 7, "packages/factory/scripts/dispatch_lib.py")]
+    assert not lint.holds_every_line(
+        set(same_commit_and_line), [(COMMIT_A, 7, "factory/scripts/dispatch")]
+    )
+
+
+@pytest.mark.spec("FC-11-CT-01")
+def test_st_0393_a_line_no_commit_introduced_matches_no_line():
+    uncommitted = [(ZERO, 6, "packages/factory/scripts/dispatch")]
+    assert not lint.holds_every_line(set(uncommitted), uncommitted)
+
+
+@pytest.mark.spec("FC-11-CT-01")
+def test_st_0393_a_place_holds_the_range_only_with_every_line():
+    identities = lint.parse_porcelain(PORCELAIN)[:4]
+    assert lint.holds_every_line(set(identities), identities)
+    assert not lint.holds_every_line(set(identities[:3]), identities)
+
+
+PLAYBOOK = """# Feature addition
+
+## Step 1 — Prepare
+
+Read the story.
+
+## Step 1.1 — Update Specification
+
+Update the spec.
+
+### Nested check
+
+```markdown
+## Not a heading
+```
+
+Check it.
+
+## Step 1.2 — Review
+
+Review it.
+"""
+
+
+@pytest.mark.spec("FC-11-CT-01")
+def test_st_0393_a_heading_artifact_is_the_section_under_the_heading():
+    assert lint.section_range(PLAYBOOK, "step-11--update-specification") == (7, 18)
+    assert lint.section_range(PLAYBOOK, "step-12--review") == (19, 21)
+    assert lint.section_range(PLAYBOOK, "nested-check") == (11, 18)
+    assert lint.section_range(PLAYBOOK, "not-a-heading") is None
