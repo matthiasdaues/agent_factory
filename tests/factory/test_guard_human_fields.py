@@ -625,6 +625,107 @@ class TestUnparsablePatch:
         assert result.returncode == 0, result.stderr
 
 
+def opencode_call(project: Path, tool_name: str, args: dict) -> subprocess.CompletedProcess:
+    """The payload the guard-only OpenCode plugin hands to the guard (ST-0403)."""
+    return run_payload(project, {
+        "cwd": str(project),
+        "toolName": tool_name,
+        "input": args,
+    })
+
+
+class TestOpenCodeCalls:
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_edit_that_sets_stop_confirmed_by_is_refused(self, project):
+        result = opencode_call(project, "edit", {
+            "filePath": path_of(project, "docs/findings/BUG-0037.md"),
+            "oldString": "stop_confirmed_by: null",
+            "newString": "stop_confirmed_by: human",
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/BUG-0037.md" in result.stderr
+        assert "stop_confirmed_by" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_write_that_sets_stop_confirmed_by_is_refused(self, project):
+        result = opencode_call(project, "write", {
+            "filePath": path_of(project, "docs/findings/BUG-0037.md"),
+            "content": BUG_0037.replace("stop_confirmed_by: null", "stop_confirmed_by: human"),
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "stop_confirmed_by" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_patch_that_sets_stop_confirmed_by_is_refused(self, project):
+        result = opencode_call(project, "patch", {"patchText": """\
+*** Begin Patch
+*** Update File: docs/findings/BUG-0037.md
+@@
+ override_reason: null
+-stop_confirmed_by: null
++stop_confirmed_by: human
+ stop_confirmed_reason: null
+*** End Patch
+"""})
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/BUG-0037.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_shell_that_sets_stop_confirmed_by_is_refused(self, project):
+        result = opencode_call(project, "shell", {
+            "command": "sed -i 's/stop_confirmed_by: null/stop_confirmed_by: human/' "
+            "docs/findings/BUG-0037.md",
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "stop_confirmed_by" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_execute_with_javascript_that_writes_a_human_field_is_refused(self, project):
+        result = opencode_call(project, "execute", {
+            "code": "await Bun.write('docs/findings/BUG-0037.md', 'stop_confirmed_by: human\\n')",
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/BUG-0037.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_execute_with_javascript_outside_the_guarded_paths_passes(self, project):
+        result = opencode_call(project, "execute", {
+            "code": "await Bun.write('notes/todo.md', 'stop_confirmed_by: human\\n')",
+        })
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_unparsable_patch_that_names_a_guarded_path_is_refused(self, project):
+        result = opencode_call(project, "patch", {"patchText": UNPARSABLE_PATCH})
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/FAGAN-0042.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_unparsable_patch_that_names_no_guarded_path_passes(self, project):
+        result = opencode_call(project, "patch", {
+            "patchText": UNPARSABLE_PATCH.replace("docs/findings/FAGAN-0042.md", "notes/todo.md"),
+        })
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("FC-18-IT-17")
+    def test_st_0403_edit_that_sets_no_human_field_passes(self, project):
+        result = opencode_call(project, "edit", {
+            "filePath": path_of(project, "docs/findings/BUG-0037.md"),
+            "oldString": "The script skips the base check.",
+            "newString": "The script skips the base check on dev.",
+        })
+
+        assert result.returncode == 0, result.stderr
+
+
 class TestShellChangesDirectory:
     """BUG-0120: the guard follows a literal `cd` of the command line."""
 
