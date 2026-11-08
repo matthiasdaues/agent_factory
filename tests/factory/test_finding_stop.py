@@ -452,3 +452,25 @@ def test_st_0397_an_old_resolved_critical_finding_stops_no_run(tmp_path):
 
     assert "STOP:" not in result.stdout
     assert "stale-base" in result.stdout
+
+
+# -- FC-14-IT-10: a committed lowering fails at the hook, and the stop holds ---
+
+
+@pytest.mark.spec("FC-14-IT-10")
+def test_st_0396_hook_rejects_the_lowering_and_the_stop_holds(tmp_path):
+    from test_precommit_config_contract import install_finding_lint_hook, run_git
+
+    repo = merge_repo(tmp_path)
+    commit_finding(repo, finding())
+    install_finding_lint_hook(repo)
+    path = write_finding(repo, finding(severity="major"))
+    run_git(repo, "add", str(path))
+
+    lowered = run_git(repo, "commit", "-qm", "lower BUG-0037")
+
+    assert lowered.returncode == 1, lowered.stdout + lowered.stderr
+    assert "BUG-0037" in lowered.stdout + lowered.stderr
+    held = premerge(repo, "dev", "feature/core-artifact-ownership")
+    assert held.returncode == 1
+    assert held.stdout == contract_example()

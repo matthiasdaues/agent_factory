@@ -230,3 +230,34 @@ class TestMoveToOriginPasses:
         result = _run_hook(command, cwd=main)
 
         assert result.returncode == 0
+
+
+class TestNoVerifyForms:
+    """ST-0396, FC-12-IT-03: an agent cannot skip the pre-commit hook."""
+
+    @pytest.mark.spec("FC-12-IT-03")
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "git commit -m fix " + "--no-" + "verify",
+            "git commit " + "-" + "n -m fix",
+            "git commit -m fix " + "-" + "n",
+        ],
+    )
+    def test_st_0396_both_forms_are_denied(self, command):
+        result = _run_hook(command)
+
+        assert result.returncode == 2, result.stderr
+
+    @pytest.mark.spec("FC-12-IT-03")
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "grep -rn " + "--no-" + "verify packages/",
+            "grep -n " + "-" + "n docs/",
+        ],
+    )
+    def test_st_0396_a_harmless_grep_for_the_flag_passes(self, command):
+        result = _run_hook(command)
+
+        assert result.returncode == 0, result.stderr
