@@ -777,6 +777,43 @@ class TestOpenCodeCalls:
         assert result.returncode == 0, result.stderr
 
 
+def pi_edit(project: Path, args: dict) -> subprocess.CompletedProcess:
+    """The payload the Pi extension passes for an edit tool_call (Pi 1.5.0 schema)."""
+    return run_payload(project, {
+        "cwd": str(project),
+        "toolName": "edit",
+        "input": {"path": path_of(project, "docs/findings/BUG-0037.md"), **args},
+    })
+
+
+class TestPiEditCalls:
+    """BUG-0123: Pi sends {path, edits: [{oldText, newText}]}."""
+
+    def test_bug_0123_edits_list_that_sets_a_human_field_is_refused(self, project):
+        result = pi_edit(project, {"edits": [
+            {"oldText": "stop_confirmed_by: null", "newText": "stop_confirmed_by: human"},
+        ]})
+
+        assert result.returncode == 2, result.stderr
+        assert "stop_confirmed_by" in result.stderr
+
+    def test_bug_0123_legacy_top_level_old_and_new_text_is_refused(self, project):
+        result = pi_edit(project, {
+            "oldText": "stop_confirmed_by: null",
+            "newText": "stop_confirmed_by: human",
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert "stop_confirmed_by" in result.stderr
+
+    def test_bug_0123_edits_list_with_a_harmless_change_passes(self, project):
+        result = pi_edit(project, {"edits": [
+            {"oldText": "skips the base check", "newText": "skips the base-SHA check"},
+        ]})
+
+        assert result.returncode == 0, result.stderr
+
+
 class TestShellChangesDirectory:
     """BUG-0120: the guard follows a literal `cd` of the command line."""
 

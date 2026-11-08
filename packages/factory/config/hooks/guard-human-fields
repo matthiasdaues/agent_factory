@@ -140,7 +140,8 @@ def check_call(payload: dict) -> str | None:
     if tool == "NotebookEdit":
         return _compare(rel, kind, current or "", str(args.get("new_source") or ""))
     if name == "edit":
-        return check_edits(rel, kind, current, [args])
+        edits = args.get("edits")
+        return check_edits(rel, kind, current, edits if isinstance(edits, list) else [args])
     if tool == "MultiEdit":
         edits = args.get("edits")
         return check_edits(rel, kind, current, edits if isinstance(edits, list) else [])
@@ -197,8 +198,8 @@ def check_edits(rel: str, kind: str, current: str | None, edits: list) -> str | 
     for edit in edits:
         if not isinstance(edit, dict):
             continue
-        old = str(edit.get("old_string") or edit.get("old_str") or edit.get("oldString") or "")
-        new = str(edit.get("new_string") or edit.get("new_str") or edit.get("newString") or "")
+        old = str(edit.get("old_string") or edit.get("old_str") or edit.get("oldString") or edit.get("oldText") or "")
+        new = str(edit.get("new_string") or edit.get("new_str") or edit.get("newString") or edit.get("newText") or "")
         if text is not None and old and old in text:
             after = text.replace(old, new) if edit.get("replace_all") or edit.get("replaceAll") else text.replace(old, new, 1)
             refusal = _compare(rel, kind, text, after)
