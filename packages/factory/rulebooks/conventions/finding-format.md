@@ -46,13 +46,13 @@ Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this l
 
 A `minor` finding gets no finding file. The reviewer writes one JSON object to `docs/findings/register/<class>/<ID>.json` with `status: open`. The keys are the contract of [interface-contracts.md § register file](../../../../docs/spec/interface-contracts.md#docsfindingsregisterclassidjson--register-file), and the schema `rulebooks/schemas/finding-register-<class>.schema.json` describes them. A register file has no `owner:` key, so the review report names the agent that acts on the finding.
 
-The commit that fixes a `minor` finding sets `status` of its register file to `resolved`. The register file stays.
+The commit that fixes a `minor` finding sets `status` of its register file to `resolved`. A `resolved` or `waived` finding may be deleted (DEC-65).
 
 A `note` stays a row of the review report, and a `question` becomes an entry of `docs/spec/work/todo.md`. Neither gets a file in `docs/findings/`.
 
 ## Removal of a finding file
 
-A finding file whose `HEAD` version carries `review_class` is never removed, with two exceptions. Each one leaves a register file under the same ID.
+A finding file whose `HEAD` version carries `review_class` and has status `open` is never removed, with two exceptions. Each one leaves a register file under the same ID.
 
 - The migration moves a `minor` finding to the register of its class.
 - The stakeholder lowers a blocking finding to `minor`, and the register file with both override keys replaces the finding file.

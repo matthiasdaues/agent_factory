@@ -168,7 +168,9 @@ repos:
       # Check the recorded values of every finding in docs/findings/ against
       # the classification rules. Reads the staged version of each file, so a
       # commit that records a wrong severity, or lowers a critical finding
-      # without the override fields, exits 1.
+      # without the override fields, exits 1. Runs on every commit, because
+      # pre-commit leaves deleted paths out of its file list, and removing an
+      # open finding must fail.
       - id: agent_factory_hook-finding-lint
         name: "agent_factory: finding-lint (finding classification gate)"
         entry: >-
@@ -180,7 +182,7 @@ repos:
           "$AF"/factory/scripts/finding-lint --staged' --
         language: system
         pass_filenames: false
-        files: ^docs/findings/
+        always_run: true
 
       # Regenerate INDEX.yaml whenever agent, skill, or playbook
       # files change. INDEX.yaml is the routing table that tells

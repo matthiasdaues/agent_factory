@@ -2207,7 +2207,7 @@ def test_st_0396_update_adds_the_finding_lint_hook_to_an_earlier_install(tmp_pat
         for h in r["hooks"]
     }
     hook = hooks["agent_factory_hook-finding-lint"]
-    assert hook["files"] == "^docs/findings/"
+    assert hook["always_run"] is True
     assert hook["pass_filenames"] is False
     assert "trailing-whitespace" in hooks
 

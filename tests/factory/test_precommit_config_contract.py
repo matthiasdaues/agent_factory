@@ -530,7 +530,8 @@ def test_st_0396_hook_runs_finding_lint_staged_on_docs_findings():
     hook = _finding_lint_hook()
 
     assert re.search(r'finding-lint --staged\' --$', hook["entry"].strip())
-    assert hook["files"] == "^docs/findings/"
+    assert hook["always_run"] is True
+    assert "files" not in hook
     assert hook["pass_filenames"] is False
     assert hook["language"] == "system"
 

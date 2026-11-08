@@ -531,13 +531,24 @@ Feature: Finding classification
         | is named FAGAN-0032.json and holds the id FAGAN-0033                          |
         | fails schema-validate against the register schema of its class               |
 
-    Scenario: A register file is never removed without a replacing finding file
+    Scenario: An open register file is never removed without a replacing finding file
       Given HEAD holds docs/findings/register/code/FAGAN-0032.json with status open
       And an agent removes the file after fixing the finding
       And no finding file docs/findings/FAGAN-0032.md replaces it
       When finding-lint runs
       Then it exits 1 and names FAGAN-0032 and the rule
       And the fix sets status resolved instead
+
+    Scenario Outline: A resolved or waived register file may be removed
+      Given HEAD holds docs/findings/register/code/FAGAN-0032.json with status <status>
+      And the commit removes the file and adds no finding file
+      When finding-lint runs
+      Then it exits 0
+
+      Examples:
+        | status   |
+        | resolved |
+        | waived   |
 
     Scenario: An agent cannot move a filed finding into the register
       Given HEAD holds docs/findings/FAGAN-0042.md with severity major and review_class code
@@ -583,13 +594,24 @@ Feature: Finding classification
       Then it exits 0
       And the same lowering fails when the file keeps text in stop_confirmed_by
 
-    Scenario: A finding file with review_class is never removed without a replacing register file
-      Given HEAD holds docs/findings/FAGAN-0042.md with severity major, status resolved, and review_class code
+    Scenario: An open finding cannot be deleted
+      Given HEAD holds docs/findings/FAGAN-0042.md with severity major, status open, and review_class code
       And an agent removes the file
       And no register file of FAGAN-0042 with override_by and override_reason replaces it
       When finding-lint runs
       Then it exits 1 and names FAGAN-0042 and the rule
       And a finding that the stakeholder does not want fixed is set aside with waived, never lowered to a note
+
+    Scenario Outline: A resolved or waived finding may be deleted
+      Given HEAD holds docs/findings/FAGAN-0042.md with severity major, status <status>, and review_class code
+      And the commit removes the file and adds no register file
+      When finding-lint runs
+      Then it exits 0
+
+      Examples:
+        | status   |
+        | resolved |
+        | waived   |
 
     Scenario: An agent cannot delete review_class to end a stop
       Given HEAD holds docs/findings/BUG-0037.md with severity critical, review_class code, status open, and no stop_confirmed_by

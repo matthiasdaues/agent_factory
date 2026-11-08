@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0019",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/config/hooks/guard-human-fields:77-79",
+  "story": "ST-0400",
+  "finding": "An agent that writes a new finding through the shell with blank human fields gets a refusal for a field it did not set. The pattern SHELL_FIELD lets the gap after the colon cross a line break, so the line 'override_by:' takes the next line as its value. A literal backslash-n in a Python string and a trailing comment do the same. The template writes its human fields blank with a comment, and BR-092 refuses only a non-null value. The redirect form 'cat > docs/findings/IMPL-0099.md <<EOF' was refused before commit 2a20afc7. Commit 2a20afc7 extends the refusal to a Python heredoc: the same blank fields went from exit 0 to exit 2. In SHELL_FIELD, replace both \\s* with [ \\t]* and add a backslash and # to the excluded characters of the value. The review ran that pattern on eight samples: blank, comment, and null values gave no match, and waived and human values still matched. Add one test for a blank block through a heredoc and one for the template line with its comment.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The guard still refuses every human value, the literal null that the Passes row names goes through in every form, and a Write call takes the blank fields (no to fails_purpose). An agent that files through the shell gets a message that names a field it did not set, and must file again with a Write call.",
+  "commit": "2a20afc70bdbafccdbe7fe05082a37ac0ea08819",
+  "status": "open"
+}

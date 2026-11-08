@@ -1240,10 +1240,17 @@ def test_st_0392_a_finding_lowered_to_major_drops_its_confirmation_fields():
 
 @pytest.mark.spec("FC-10-CT-07")
 def test_st_0392_a_removed_finding_file_without_a_register_file_fails():
-    head = {FAGAN_PATH: _finding_text(_finding_fields(status="resolved"))}
+    head = {FAGAN_PATH: _finding_text(_finding_fields(status="open"))}
     messages = _compare({}, head)
     _assert_rule(messages, FAGAN_PATH, "BR-109 removal")
     assert "FAGAN-0042" in messages[0].split(": ", 2)[2]
+
+
+@pytest.mark.spec("FC-10-CT-07")
+@pytest.mark.parametrize("status", ["resolved", "waived"])
+def test_impl_0014_a_closed_finding_file_may_be_removed(status):
+    head = {FAGAN_PATH: _finding_text(_finding_fields(status=status))}
+    assert _compare({}, head) == []
 
 
 @pytest.mark.spec("FC-10-CT-07")
@@ -1314,6 +1321,12 @@ def test_st_0392_a_removed_register_file_without_a_finding_file_fails():
     messages = _compare({}, {REGISTER_PATH: _register()})
     _assert_rule(messages, REGISTER_PATH, "BR-110 removal")
     assert "FAGAN-0032" in messages[0].split(": ", 2)[2]
+
+
+@pytest.mark.spec("FC-10-CT-09")
+@pytest.mark.parametrize("status", ["resolved", "waived"])
+def test_impl_0014_a_closed_register_file_may_be_removed(status):
+    assert _compare({}, {REGISTER_PATH: _register(status=status)}) == []
 
 
 @pytest.mark.spec("FC-10-CT-09")

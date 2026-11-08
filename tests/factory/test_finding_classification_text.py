@@ -193,7 +193,7 @@ def test_st_0386_rulebook_states_the_waiver_rules():
         "No override raises a `minor` finding",
         "never with `deferred`",
         "never by a lowering to a `note`",
-        "the register file stays",
+        "the register file may stay",
         "`override_by` and `override_reason`",
         "`stop_confirmed_by` and `stop_confirmed_reason`",
     ):
@@ -386,7 +386,7 @@ def test_st_0387_finding_format_resolves_a_register_file_and_names_two_removals(
     text = _flat(_text(FINDING_FORMAT))
     assert (
         "The commit that fixes a `minor` finding sets `status` of its register file to `resolved`."
-        " The register file stays." in text
+        " A `resolved` or `waived` finding may be deleted (DEC-65)." in text
     )
     removal = _flat(_section(_text(FINDING_FORMAT), "Removal of a finding file"))
     assert "The migration moves a `minor` finding" in removal

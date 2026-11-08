@@ -440,7 +440,7 @@ its register file, and files a finding file under the same ID.
 Nobody fixes some `minor` findings, such as an unclear sentence in a document
 that a later feature replaces. The stakeholder sets such a register file to
 `waived`, with text in `override_by` and `override_reason`, and the register
-file stays as the record.
+file may stay as the record.
 
 A `critical` finding stops the run until the stakeholder confirms the stop.
 The stakeholder runs the checks of its `## Possible damage` section and then

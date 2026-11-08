@@ -1337,9 +1337,9 @@ The text before `— check:` names one thing outside the artifact that
 depends on it, as a fact from git or the file tree. The text after it names
 one command or step that the stakeholder runs.
 
-A finding file whose `HEAD` version carries `review_class` is never removed,
+An `open` finding file whose `HEAD` version carries `review_class` is never removed,
 except when a register file with the same ID and both override keys replaces
-it (BR-109).
+it (BR-109). A finding file whose `HEAD` status is `resolved` or `waived` may be removed (DEC-65).
 
 ### `docs/findings/register/<class>/<ID>.json` — register file
 
@@ -1368,8 +1368,9 @@ The file holds one JSON object with these keys:
 The commit that fixes the finding sets `status` to `resolved`, and the file
 stays. When nobody will fix the finding, the stakeholder sets `status` to
 `waived` and writes both override keys, and the file stays as well (BR-110,
-DEC-63). A register file that `HEAD` holds is removed only when a finding file
-with the same ID replaces it, which is the raise of FC-G04 (BR-110). The schema
+DEC-63). An `open` register file that `HEAD` holds is removed only when a finding
+file with the same ID replaces it, which is the raise of FC-G04 (BR-110). A
+`resolved` or `waived` register file may be removed (DEC-65). The schema
 allows both override keys on any register file. `finding-lint` requires both
 with text on a waived register file, and on a register file that replaces a
 finding file, because only a comparison with `HEAD` shows the replacement
@@ -1451,7 +1452,7 @@ BLOCKER and MAJOR count under `major`, MINOR under `minor`, and NOTE under
 | Messages  | One line per violation. It names the file and the rule, and for a removed file also the ID. One line per branch that the clone does not have, such as `skipped origin/main: no such branch`. The lint prints each of these lines once per run, before the violation lines, and only when a finding reached the branch check. A skipped branch is no violation                                                                                                                                                                                                                                                                                                                                   |
 | Exit code | `0` when every checked file passes; `1` on any violation, and on a missing release setting when a git check is due; `2` on a usage error or a git call that fails                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Run by    | The `validate` skill, without `--staged`, and the pre-commit hook, with `--staged`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Hook      | The hook id `agent_factory_hook-finding-lint` in `packages/factory/config/pre-commit-config.yaml`, with `files: ^docs/findings/` and `pass_filenames: false`. Its entry in `packages/factory/config/hook-metadata.yaml` is `trade_off: none` and `availability: always`, because the lint changes no file and runs fast. So fitting includes it without asking                                                                                                                                                                                                                                                                                                                                  |
+| Hook      | The hook id `agent_factory_hook-finding-lint` in `packages/factory/config/pre-commit-config.yaml`, with `always_run: true` and `pass_filenames: false`. The hook does not use `files: ^docs/findings/`, because pre-commit leaves deleted paths out of its file list and would skip a commit that only deletes a finding file (DEC-65). Its entry in `packages/factory/config/hook-metadata.yaml` is `trade_off: none` and `availability: always`, because the lint changes no file and runs fast. So fitting includes it without asking                                                                                                                                                        |
 | Update    | `update-factory` re-splices the `agent_factory_hook-*` block of `.pre-commit-config.yaml` from the template of the new release with `merge-precommit-config --update`. It shows the diff and writes the block on a yes, and writes it without asking after the layout migration. So a project that finished its fitting earlier gets the hook. A project that answers no keeps its old block without the hook                                                                                                                                                                                                                                                                                   |
 | Bypass    | `block-dangerous-git.sh` denies an agent's commit with `--no-verify`. A user who commits with `--no-verify` skips the hook. A stop committed earlier still holds against an uncommitted change, because the stop check reads `HEAD` and the working tree. A bypass commit that lowers or removes a `critical` finding puts the changed version into `HEAD`, so the stop ends. A later `validate` run or commit rejects a severity that disagrees with its basis. It does not see a removal or a lowering with a matching basis, because `HEAD` then holds the changed version. This is an accepted residual risk (QS-24)                                                                        |
 

@@ -972,10 +972,24 @@ def _check_lowering(path: str, head_meta: dict, text: str) -> list[str]:
     return out + _unconfirmed_critical(path, head_meta)
 
 
+REMOVABLE_STATUSES = {"resolved", "waived"}
+
+
+def _register_removable(text: str) -> bool:
+    """A register file that HEAD holds as resolved or waived may go (BR-110)."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(data, dict) and data.get("status") in REMOVABLE_STATUSES
+
+
 def _check_removed_finding(
     path: str, head_meta: dict, registers: dict[str, list[Any]]
 ) -> list[str]:
-    """A removed finding file needs a register file that lowers it (BR-109)."""
+    """A removed open finding file needs a register file that lowers it (BR-109)."""
+    if head_meta.get("status") in REMOVABLE_STATUSES:
+        return _unconfirmed_critical(path, head_meta)
     finding_id = _finding_id(path)
     replaced = any(
         isinstance(data, dict)
@@ -1011,9 +1025,9 @@ def compare_with_head(files: dict[str, str], head: dict[str, str]) -> list[str]:
     """Compare the checked version of the findings with their HEAD version.
 
     *files* and *head* map each path to its text. A finding file whose HEAD
-    version carries no review_class is not compared (BR-109). A register file
-    that HEAD holds is removed only when a finding file with review_class and
-    the same ID replaces it (BR-110).
+    version carries no review_class is not compared (BR-109). An open register
+    file that HEAD holds is removed only when a finding file with review_class
+    and the same ID replaces it (BR-110).
     """
     out: list[str] = []
     registers = _parsed_registers(files)
@@ -1028,6 +1042,8 @@ def compare_with_head(files: dict[str, str], head: dict[str, str]) -> list[str]:
             else:
                 out += _check_removed_finding(path, head_meta, registers)
         elif is_register_path(path) and path not in files:
+            if _register_removable(head[path]):
+                continue
             finding_id = _finding_id(path)
             replacement = files.get(f"docs/findings/{finding_id}.md")
             if replacement is None or not carries_review_class(replacement):
