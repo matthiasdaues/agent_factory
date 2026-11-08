@@ -216,6 +216,7 @@ SCRIPT = "packages/factory/scripts/premerge-check"
 DISPATCH = "packages/factory/scripts/dispatch"
 PLAYBOOK_PATH = "packages/factory/playbooks/feature-addition.md"
 INSTALLED = ".agent-factory/factory/scripts/premerge-check"
+SETTINGS = "docs/factory-settings.yaml"
 ON_DEV = f"{FAGAN_PATH}: BR-088 in use: artifact lines exist unchanged on dev"
 IN_USE_FALSE = {
     "document": _tree(False, False, True, False),
@@ -247,6 +248,8 @@ def _file_finding(root, review_class: str, artifact: str, **overrides) -> None:
     )
     fields.update(overrides)
     _write(root, FAGAN_PATH, _finding_text(fields))
+    if not (root / SETTINGS).exists():
+        _write(root, SETTINGS, "release_tag_patterns: []\n")
 
 
 def _base(tmp_path):
@@ -433,6 +436,7 @@ def test_st_0393_in_use_true_passes_without_a_match(demo):
         "code", basis=_tree(True, False, True, False), artifact=f"{SCRIPT}:100-119"
     )
     _write(root, FAGAN_PATH, _finding_text(fields, why=why))
+    _write(root, SETTINGS, "release_tag_patterns: []\n")
     _assert_passes(_run_in(root, env))
 
 
@@ -580,3 +584,102 @@ def test_st_0393_the_demo_scenario_of_the_story(demo):
     assert not (worktree / ".agent-factory").exists()
     _install(root, (worktree / SCRIPT).read_text())
     _assert_found(_run_in(worktree, env), "in the installed copy")
+
+
+# --- The release tags and the setting (ST-0394) --------------------------------
+
+MISSING_KEY = (
+    "docs/factory-settings.yaml: key release_tag_patterns is missing. Add the "
+    "list of git tag patterns that count as releases, such as "
+    '["v[0-9]*"], or [] for none.'
+)
+V_PATTERN = 'release_tag_patterns: ["v[0-9]*"]\n'
+RELEASE_LINES = f"{SCRIPT}:100-119"
+
+
+def _tagged(tmp_path, tag: str):
+    """The Demo Data of ST-0393 plus *tag* on the commit that introduced the lines.
+
+    The 20 inserted checks exist on the feature branch and at the tag only,
+    because dev and main do not hold them.
+    """
+    root, env = _base(tmp_path)
+    _feature(root, env)
+    _git(root, env, "tag", tag)
+    with (root / SCRIPT).open("a") as script:
+        script.write("a later step\n")
+    _commit(root, env, "a later step")
+    return root, env
+
+
+@pytest.mark.spec("FC-11-IT-12")
+@pytest.mark.parametrize(
+    ("tag", "code"),
+    [("v1.0.0", 1), ("v1.1.0-rc", 1), ("1.1.0", 0), ("orchestrator-v0.1.0", 0)],
+)
+def test_st_0394_only_a_tag_that_matches_a_pattern_counts(tmp_path, tag, code):
+    root, env = _tagged(tmp_path, tag)
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, V_PATTERN)
+    result = _run_in(root, env)
+    if code:
+        _assert_found(result, f"at tag {tag}")
+    else:
+        _assert_passes(result)
+
+
+@pytest.mark.spec("FC-11-IT-12")
+def test_st_0394_a_block_list_counts_the_same_tags(tmp_path):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, 'release_tag_patterns:\n  - "v[0-9]*"\n')
+    _assert_found(_run_in(root, env), "at tag v1.0.0")
+
+
+@pytest.mark.spec("FC-11-IT-13")
+@pytest.mark.parametrize(
+    "settings", [None, "other_key: 1\n"], ids=["no-file", "no-key"]
+)
+def test_st_0394_a_due_git_check_fails_closed_without_the_setting(
+    tmp_path, settings
+):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    (root / SETTINGS).unlink()
+    if settings:
+        _write(root, SETTINGS, settings)
+    result = _run_in(root, env)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.stdout.splitlines() == [MISSING_KEY]
+
+
+@pytest.mark.spec("FC-11-IT-13")
+def test_st_0394_a_value_that_is_no_list_of_strings_fails_naming_file_and_key(
+    tmp_path,
+):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, "release_tag_patterns: 3\n")
+    result = _run_in(root, env)
+    assert result.returncode == 1
+    assert result.stdout.startswith("docs/factory-settings.yaml: key release_tag_patterns")
+
+
+@pytest.mark.spec("FC-11-IT-14")
+def test_st_0394_an_empty_list_counts_no_tag_but_branches_still_count(tmp_path):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, "release_tag_patterns: []\n")
+    _assert_passes(_run_in(root, env))
+    _file_finding(root, "code", f"{SCRIPT}:1-20")
+    _assert_found(_run_in(root, env), "on dev")
+
+
+@pytest.mark.spec("FC-11-IT-15")
+def test_st_0394_a_document_finding_needs_no_setting(tmp_path):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "document", RELEASE_LINES)
+    (root / SETTINGS).unlink()
+    result = _run_in(root, env)
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+    assert not (root / SETTINGS).exists()

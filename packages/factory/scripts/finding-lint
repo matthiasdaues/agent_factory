@@ -1193,6 +1193,9 @@ BRANCHES = (
     ("origin/dev", "refs/remotes/origin/dev"),
     ("origin/main", "refs/remotes/origin/main"),
 )
+SETTINGS_PATH = "docs/factory-settings.yaml"
+SETTINGS_KEY = "release_tag_patterns"
+_EXAMPLE = 'such as ["v[0-9]*"], or [] for none.'
 INSTALLED_SOURCE = "packages/factory/"
 INSTALLED_COPY = ".agent-factory/factory"
 
@@ -1230,6 +1233,85 @@ def parse_porcelain(output: str) -> list[Identity]:
 def holds_every_line(place: set[Identity], lines: list[Identity]) -> bool:
     """Return whether *place* holds every line; a line no commit introduced never counts."""
     return all(line[0] != ZERO_COMMIT and line in place for line in lines)
+
+
+class SettingsError(Exception):
+    """The release setting is missing or wrong; the text is the lint line."""
+
+
+_KEY_LINE = re.compile(rf"^{SETTINGS_KEY}[ \t]*:(?P<rest>.*)$")
+_PLAIN_START = "*&!|>[]{}'\"%@`,#?:-"
+
+
+def _pattern(item: str, plain: bool) -> str | None:
+    """Return the pattern an item holds, or None when it is no string."""
+    if len(item) >= 2 and item[0] == item[-1] and item[0] in "'\"":
+        return item[1:-1] or None
+    if plain and item and item[0] not in _PLAIN_START:
+        return item
+    return None
+
+
+def parse_release_tag_patterns(text: str) -> list[str]:
+    """Return the list under `release_tag_patterns` in the settings *text*.
+
+    It reads the flow list of quoted strings, the block list, and `[]`, and
+    ignores every other key. A missing key or a value that is no list of
+    strings raises SettingsError with the line the lint prints.
+    """
+    missing = SettingsError(
+        f"{SETTINGS_PATH}: key {SETTINGS_KEY} is missing. Add the list of git "
+        f"tag patterns that count as releases, {_EXAMPLE}"
+    )
+    wrong = SettingsError(
+        f"{SETTINGS_PATH}: key {SETTINGS_KEY} must hold a list of strings, {_EXAMPLE}"
+    )
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        match = _KEY_LINE.match(line)
+        if match is None:
+            continue
+        rest = _strip_comment(match["rest"])
+        if rest.startswith("["):
+            if not rest.endswith("]"):
+                raise wrong
+            try:
+                items = [_pattern(item, False) for item in _split_flow(rest[1:-1])]
+            except FrontmatterError:
+                raise wrong from None
+            if None in items:
+                raise wrong
+            return items  # type: ignore[return-value]
+        if rest:
+            raise wrong
+        patterns: list[str] = []
+        for later in lines[index + 1 :]:
+            stripped = _strip_comment(later)
+            if not stripped:
+                continue
+            if not stripped.startswith("-"):
+                if later[:1] in (" ", "\t"):
+                    raise wrong
+                break
+            pattern = _pattern(stripped[1:].strip(), True)
+            if pattern is None:
+                raise wrong
+            patterns.append(pattern)
+        if not patterns:
+            raise wrong
+        return patterns
+    raise missing
+
+
+def read_release_tag_patterns(root: Path) -> list[str]:
+    """Return the release tag patterns of the project under *root*."""
+    try:
+        text = (root / SETTINGS_PATH).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        text = ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise SettingsError(f"{SETTINGS_PATH}: cannot read the file: {exc}") from exc
+    return parse_release_tag_patterns(text)
 
 
 def _slug(title: str) -> str:
@@ -1285,9 +1367,11 @@ def _exists(root: Path, revision: str, path: str = "") -> bool:
 class InUseCheck:
     """Find the first place where every line of an artifact range exists unchanged."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, tag_patterns: list[str] | None = None):
         self.root = root
+        self.tag_patterns = tag_patterns or []
         self.skipped: list[str] = []
+        self._tags: list[str] | None = None
         self._branches: list[tuple[str, str]] | None = None
         self._blames: dict[tuple[str, str], set[Identity]] = {}
         self._sources: dict[str, dict[str, set[str]]] = {}
@@ -1302,6 +1386,17 @@ class InUseCheck:
                 else:
                     self.skipped.append(f"skipped {name}: no such branch")
         return self._branches
+
+    def tags(self) -> list[str]:
+        """Return each tag that `git tag --list '<pattern>'` lists for a pattern."""
+        if self._tags is None:
+            self._tags = []
+            for pattern in self.tag_patterns:
+                output = _git(self.root, "tag", "--list", "--", pattern)
+                for tag in output.decode("utf-8", "replace").splitlines():
+                    if tag and tag not in self._tags:
+                        self._tags.append(tag)
+        return self._tags
 
     def _blame(self, *args: str) -> list[Identity]:
         output = _git(self.root, "blame", "-M", "-C", "--porcelain", *args)
@@ -1383,6 +1478,9 @@ class InUseCheck:
         for name, ref in self.branches():
             if holds_every_line(self._on_branch(ref, path), lines):
                 return f"on {name}"
+        for tag in self.tags():
+            if holds_every_line(self._on_branch(f"refs/tags/{tag}", path), lines):
+                return f"at tag {tag}"
         installed = self._installed_file(path)
         if installed is not None:
             copy = set(self._blame("--contents", str(installed), "--", path))
@@ -1423,7 +1521,11 @@ def check_in_use(root: Path, files: dict[str, str]) -> tuple[list[str], list[str
     records = _in_use_records(files)
     if not records or not _in_repository(root) or not _has_head(root):
         return [], []
-    check = InUseCheck(root)
+    try:
+        patterns = read_release_tag_patterns(root)
+    except SettingsError as exc:
+        return [str(exc)], []
+    check = InUseCheck(root, patterns)
     out: list[str] = []
     for path, record in records:
         place = check.place_of(record["artifact"])
