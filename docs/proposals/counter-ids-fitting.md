@@ -2,7 +2,7 @@
 schema_version: 2
 scope: global
 title: Seed the ID counter in the fitting, and name each requestor's prefix
-status: accepted
+status: implemented
 owner: matthiasdaues
 created: 2026-11-06
 updated: 2026-11-06

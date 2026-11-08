@@ -2,10 +2,10 @@
 schema_version: 2
 scope: global
 title: Counter IDs
-status: accepted
+status: implemented
 owner: Matthias Daues
 created: 2026-11-03
-updated: 2026-11-05
+updated: 2026-11-08
 supersedes:
 
 impact:

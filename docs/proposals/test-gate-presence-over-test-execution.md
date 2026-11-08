@@ -1,10 +1,10 @@
 ---
 scope: global
 schema_version: 2
-status: accepted
+status: implemented
 owner: Matthias Daues
 created: 2026-08-28
-updated: 2026-08-28
+updated: 2026-08-29
 supersedes:
   - docs/proposals/contract-traced-testing-strategy.md
 

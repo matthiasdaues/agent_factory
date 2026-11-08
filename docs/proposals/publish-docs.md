@@ -1,10 +1,10 @@
 ---
 schema_version: 2
 title: Publish arc42 documentation as PDF
-status: accepted
+status: implemented
 owner: Agent Factory maintainers
 created: 2026-10-15
-updated: 2026-10-16
+updated: 2026-11-08
 supersedes:
 
 impact:

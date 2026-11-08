@@ -2,10 +2,10 @@
 schema_version: 2
 scope: global
 title: Finding Classification
-status: accepted
+status: implemented
 owner: agent-factory
 created: 2026-11-04
-updated: 2026-11-07
+updated: 2026-11-08
 supersedes:
 
 impact:

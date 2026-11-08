@@ -1,7 +1,7 @@
 ---
 schema_version: 2
 title: Structurizr Theme EOL Migration
-status: accepted
+status: implemented
 owner: md@matthiasdaues.de
 created: 2026-09-23
 updated: 2026-09-29
