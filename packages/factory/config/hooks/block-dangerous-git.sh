@@ -125,6 +125,18 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
       *) MERGE_BRANCH="$tok"; break ;;
     esac
   done
+  # BUG-0124 (BR-091): a stop denies the merge even when a premerge-check-ok
+  # marker from before the stop exists. The check is a read-only call to
+  # stop_notice. Like guard-human-fields, a gate that cannot run it fails closed.
+  SCRIPTS_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../scripts"
+  if [ ! -f "$SCRIPTS_DIR/dispatch_lib.py" ]; then
+    deny "git merge $MERGE_BRANCH: the stop check is missing at $SCRIPTS_DIR/dispatch_lib.py; run update-factory."
+  fi
+  STOP_NOTICE=$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from dispatch_lib import stop_notice; sys.stdout.write(stop_notice() or "")' "$SCRIPTS_DIR" 2>/dev/null) \
+    || deny "git merge $MERGE_BRANCH: the stop check failed to run, so the merge is denied. Run update-factory."
+  if [ -n "$STOP_NOTICE" ]; then
+    deny "git merge $MERGE_BRANCH during a stop on a critical finding; no .current-work/premerge-check-ok marker counts until the stop lifts. $STOP_NOTICE"
+  fi
   MERGE_HEAD=$(git rev-parse "$MERGE_BRANCH" 2>/dev/null)
   MARKER="$TOP/.current-work/premerge-check-ok"
   if [ -z "$TOP" ] || [ ! -f "$MARKER" ] \

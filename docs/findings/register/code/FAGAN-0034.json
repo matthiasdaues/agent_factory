@@ -1,0 +1,20 @@
+{
+  "id": "FAGAN-0034",
+  "source": "fagan-review",
+  "review_class": "code",
+  "category": "defect",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch_lib.py:1882-1899",
+  "story": "ST-0397",
+  "finding": "finding-lint and dispatch_lib.py each parse the section Possible damage with their own rules, and the two already disagree. finding-lint accepts `* ` bullets, dispatch_lib.py reads only `- ` bullets. Reproduced with a critical finding that uses `* ` bullets: finding-lint reports no damage violation, and the stop notice prints an empty possible damage list. Fix: let one function own the parse. dispatch_lib.py is the place for it if finding-lint may import a sibling module, as it already does for _main_checkout.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "mdformat turns `* ` bullets into `- ` bullets, and every finding is formatted before commit, so a committed finding prints its items (no to fails_purpose). The rule exists twice, so a later change of the section format must find and change both parsers.",
+  "commit": "107bd1dee469710ef3eac740bdfbfd56d55e2520",
+  "status": "open"
+}

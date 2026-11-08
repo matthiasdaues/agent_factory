@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0034",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "spec-stale",
+  "severity": "minor",
+  "artifact": "docs/adr/0034-one-register-file-per-minor-finding.md:77-79",
+  "story": null,
+  "finding": "The Consequences of ADR-0034 say that a register file that HEAD holds is removed only when a finding file with the same ID replaces it, and that finding-lint rejects any other removal. DEC-65, BR-110, and _register_removable in finding-lint let a resolved or waived register file go. Fix: limit the sentence to an open register file and cite DEC-65.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "No story or code outside this run encodes the sentence, so in_use is false. The decision of the ADR still holds, and BR-110, the register-file contract, and the lint agree, so a reader who acts on the rule reaches the right result (no to fails_purpose). A reader of the ADR alone believes that a resolved register file cannot be removed and must open BR-110 to learn otherwise.",
+  "commit": "0cef8c3db7ed62e29dd5ccc9dbb85aec0ad42bfc",
+  "status": "open"
+}

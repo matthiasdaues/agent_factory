@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0065",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md#next-id---plan-seed",
+  "story": null,
+  "finding": "The contract of next-id --plan-seed puts the seed command on standard output and names no stream for the warnings of BR-100 or for the message that the counter is in use. VIRGIL reads the command from the output, and the Output row says one line. A warning on standard output breaks that line. Name the stream of each: for example, the warnings on standard error, and the in-use message on standard output.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can follow the Failure row and send messages to standard error (no to fails_purpose); the CIF-06 tests must still guess where to read the warning (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

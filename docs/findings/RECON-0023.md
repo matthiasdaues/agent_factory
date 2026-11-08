@@ -1,12 +1,24 @@
 ---
 id: RECON-0023
 source: reconcile-spec
-severity: minor
-category: suggestion
-artifact: docs/spec/scope-map.md
-status: open
-traces: [UC-09]
+review_class: document
+category: defect
+type: spec-stale
+severity: note
+basis:
+  in_use: false
+  harms_downstream: false
+  fails_purpose: false
+  raises_cost: false
+rating:
+override_by:
+override_reason:
+stop_confirmed_by:
+stop_confirmed_reason:
+artifact: docs/spec/scope-map.md:18
+status: resolved
 owner: requirements-agent
+traces: [UC-09]
 ---
 
 # Scope-map reconciliation needed post-merge
@@ -33,5 +45,7 @@ Two updates are needed after this branch merges to dev:
    - QA strategy grounds contract-owner assignments in charter
    - Developer-agent feeds back test-harness mismatches
    - Mutation-analysis skill classifies survivors by contract ownership
+
+**Why this severity:** The UC-09 row no longer points at `run-tests`, and the scope map holds all 14 Rules of `test-gate-presence.feature`. So the update is done, and no story or code encodes the old row.
 
 **Fix:** After merge to dev, run scope-map reconciliation: update the UC-09 row and add the 14 new Rules. This is a routine post-merge scope-map update, not a blocking issue.

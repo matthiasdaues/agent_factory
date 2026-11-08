@@ -561,7 +561,8 @@ class TestSt0354ArchitectureReviewChecksTheDependencyRules:
 
     def test_st_0354_mismatch_files_atam_finding_for_the_architecture_agent(self):
         step = _rules_check()
-        assert "`docs/findings/ATAM-NNNN.md`" in step
+        # ST-0387: a mismatch is a document defect, filed by its computed severity.
+        assert "[Class: document]" in step
         assert "`owner: architecture-agent`" in step
         assert "Name the rule and the component view." in step
 
@@ -1158,9 +1159,9 @@ class TestSt0356GlossaryCheck:
 
     def test_st_0356_glossary_defect_is_a_finding_for_domain_modeling(self):
         section = _inspect_spec_check("Check the glossary")
-        # Minor, so the finding reaches its owner without blocking (b63daee5).
-        assert f"File each defect as a Minor `SPEC` finding with {DOMAIN_OWNER}." in section
-        assert "It does not block" in section
+        # ST-0387: a minor finding is a register file, and the report names the owner.
+        assert "A glossary defect usually raises the cost of reading and is `minor`" in section
+        assert "The review report names `domain-modeling-agent`" in section
 
     def test_st_0356_glossary_check_leaves_unused_terms_to_spec_lint(self):
         section = _inspect_spec_check("Check the glossary")
@@ -1176,9 +1177,10 @@ class TestSt0356TermCandidateCheck:
         section = _inspect_spec_check("Check the term candidates")
         assert f"`{TERM_CANDIDATES}`" in section
         assert (
-            f"File one Major `SPEC` finding with {DOMAIN_OWNER} for each row with status `proposed`."
+            f"File one `SPEC` finding with {DOMAIN_OWNER} for each row with status `proposed`."
             in section
         )
+        assert "so the finding is `major`" in section
 
     def test_st_0356_glossary_terms_count_as_confirmed(self):
         section = _inspect_spec_check("Check the term candidates")
@@ -1427,7 +1429,7 @@ class TestSt0364ReviewLoopsSendFindingsToOwners:
 
     @pytest.mark.parametrize("path", REVIEW_LOOP_PLAYBOOKS, ids=lambda p: p.name)
     def test_st_0364_loop_reads_all_open_findings(self, path):
-        assert 'grep -l "status: open" docs/findings/*.md' in path.read_text(
+        assert 'grep -l "^status: open" docs/findings/*.md' in path.read_text(
             encoding="utf-8"
         )
 

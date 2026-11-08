@@ -846,6 +846,24 @@ class TestApplicationAndRollback:
         leftovers += list((target / ".agent-factory").glob(f"{uf.BACKUP_DIR_PREFIX}*"))
         assert leftovers == []
 
+    @pytest.mark.spec("FC-11-IT-21")
+    def test_st_0394_update_leaves_the_release_settings_absent(
+        self, tmp_path, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        self._install(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        assert uf.main(["--target", str(target)]) == 0
+        assert not (target / "docs" / "factory-settings.yaml").exists()
+
     def test_receipt_keeps_the_records_init_factory_wrote(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -1748,6 +1766,12 @@ class TestRefreshPrecommitHooks:
         """This repo's own config already carries the template block, so
         an update here asks nothing and loses none of its local lines."""
         factory = _factory_with_merge_tooling(tmp_path)
+        # ST-0396: the repository gets finding-lint when the human runs
+        # update-factory after the feature merges (FCP-C12), so the template
+        # is the one before that hook. Drop this line then.
+        (factory / "config" / "pre-commit-config.yaml").write_text(
+            _template_without_finding_lint(), encoding="utf-8"
+        )
         (tmp_path / ".pre-commit-config.yaml").write_text(
             (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
         )
@@ -2145,3 +2169,188 @@ class TestHookBlockFollowsTheTemplate:
         ]
         assert len(lines) == 1, run.stdout + run.stderr
         assert not lines[0].endswith("Skipped"), run.stdout + run.stderr
+
+
+# ST-0396: the update adds the finding-lint hook to an earlier install.
+
+
+def _template_without_finding_lint() -> str:
+    """The hook template as a release before ST-0396 wrote it."""
+    text = (SOURCE_FACTORY / "config" / "pre-commit-config.yaml").read_text(encoding="utf-8")
+    start = text.index("      # Check the recorded values of every finding")
+    end = text.index("      # Regenerate INDEX.yaml")
+    earlier = text[:start] + text[end:]
+    assert "finding-lint" not in earlier
+    return earlier
+
+
+@pytest.mark.spec("FC-12-IT-02")
+def test_st_0396_update_adds_the_finding_lint_hook_to_an_earlier_install(tmp_path):
+    import yaml
+
+    factory = _factory_with_merge_tooling(tmp_path)
+    earlier = _template_without_finding_lint()
+    assert "agent_factory_hook-finding-lint" not in earlier
+    config = tmp_path / ".pre-commit-config.yaml"
+    # The earlier block: the template of that release, then the project's own hook.
+    config.write_text(
+        _block_of(earlier) + "\n" + PROJECT_HOOK, encoding="utf-8"
+    )
+    assert "agent_factory_hook-finding-lint" not in config.read_text(encoding="utf-8")
+
+    changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=lambda _: "yes")
+
+    assert changed is True
+    hooks = {
+        h["id"]: h
+        for r in yaml.safe_load(config.read_text(encoding="utf-8"))["repos"]
+        for h in r["hooks"]
+    }
+    hook = hooks["agent_factory_hook-finding-lint"]
+    assert hook["always_run"] is True
+    assert hook["pass_filenames"] is False
+    assert "trailing-whitespace" in hooks
+
+
+def _block_of(template_text: str) -> str:
+    """The `repos:` body of a template, ready to prefix with `repos:`."""
+    return "repos:\n" + template_text.split("repos:\n", 1)[1]
+
+
+# ST-0400: update-factory adds guard-human-fields to an earlier install.
+
+
+def _strip_guard_human_fields(target: Path) -> None:
+    """Turn a fresh install into one of a release before guard-human-fields:
+    the settings keep only the step-guard and other Factory entries."""
+    from test_init_factory import GUARD_HUMAN_FIELDS_COMMAND
+
+    path = target / ".claude" / "settings.json"
+    settings = json.loads(path.read_text())
+    entries = settings["hooks"]["PreToolUse"]
+    settings["hooks"]["PreToolUse"] = [
+        entry for entry in entries
+        if all(hook.get("command") != GUARD_HUMAN_FIELDS_COMMAND for hook in entry["hooks"])
+    ]
+    path.write_text(json.dumps(settings, indent=2) + "\n")
+    (target / ".claude" / "hooks" / "guard-human-fields").unlink()
+
+
+@pytest.mark.spec("FC-18-IT-06")
+def test_st_0400_update_adds_the_guard_entries_to_an_earlier_install(tmp_path):
+    from test_init_factory import (
+        GUARD_HUMAN_FIELDS_COMMAND,
+        GUARD_HUMAN_FIELDS_TOOLS,
+        pre_tool_use_commands,
+        run_init,
+        stage_source,
+    )
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "earlier", {"README.md": "# earlier\n"})
+    first = run_init(stage_source(tmp_path / "source-1.5.0", "1.5.0"), target,
+                     "--cli", "claude", "--project-name", "earlier")
+    assert first.returncode == 0, first.stderr
+    _strip_guard_human_fields(target)
+    before = pre_tool_use_commands(target)
+    assert not any(command == GUARD_HUMAN_FIELDS_COMMAND for _, command in before)
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    result = subprocess.run(
+        [sys.executable,
+         str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+         "--target", str(target), "--source", str(stage_source(tmp_path / "source-1.6.0", "1.6.0"))],
+        input="yes\n", capture_output=True, text=True, env=env, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    after = pre_tool_use_commands(target)
+    for tool in GUARD_HUMAN_FIELDS_TOOLS:
+        assert after.count((tool, GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    assert [pair for pair in after if pair[1] != GUARD_HUMAN_FIELDS_COMMAND] == before
+    assert (target / ".claude" / "hooks" / "guard-human-fields").is_symlink()
+
+
+# ST-0401: update-factory adds the Codex and Copilot CLI guard to an earlier install.
+
+
+def _strip_codex_and_copilot_guard(target: Path) -> None:
+    """Turn a fresh install into one of a release before ST-0401: .codex/hooks.json
+    keeps only the step-guard and other entries, and .github/hooks/ only step-guard."""
+    from test_init_factory import CODEX_GUARD_HUMAN_FIELDS_COMMAND
+
+    path = target / ".codex" / "hooks.json"
+    config = json.loads(path.read_text())
+    config["hooks"]["PreToolUse"] = [
+        entry for entry in config["hooks"]["PreToolUse"]
+        if all(h.get("command") != CODEX_GUARD_HUMAN_FIELDS_COMMAND for h in entry["hooks"])
+    ]
+    path.write_text(json.dumps(config, indent=2) + "\n")
+    (target / ".codex" / "hooks" / "guard-human-fields").unlink()
+    (target / ".github" / "hooks" / "guard-human-fields").unlink()
+    (target / ".github" / "hooks" / "guard-human-fields.json").unlink()
+
+
+@pytest.mark.spec("FC-18-IT-07")
+@pytest.mark.spec("FC-18-IT-08")
+def test_st_0401_update_adds_the_codex_and_copilot_guard_to_an_earlier_install(tmp_path):
+    from test_init_factory import (
+        CODEX_GUARD_HUMAN_FIELDS_COMMAND,
+        CODEX_GUARD_HUMAN_FIELDS_TOOLS,
+        COPILOT_GUARD_HUMAN_FIELDS_TOOLS,
+        codex_pre_tool_use_commands,
+        copilot_guard_matchers,
+        run_init,
+        stage_source,
+    )
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "earlier", {"README.md": "# earlier\n"})
+    first = run_init(stage_source(tmp_path / "source-1.5.0", "1.5.0"), target,
+                     "--cli", "codex", "copilot", "--project-name", "earlier")
+    assert first.returncode == 0, first.stderr
+    _strip_codex_and_copilot_guard(target)
+    before = codex_pre_tool_use_commands(target)
+    assert (target / ".github" / "hooks" / "step-guard.json").exists()
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    result = subprocess.run(
+        [sys.executable,
+         str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+         "--target", str(target), "--source", str(stage_source(tmp_path / "source-1.6.0", "1.6.0"))],
+        input="yes\n", capture_output=True, text=True, env=env, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    after = codex_pre_tool_use_commands(target)
+    for tool in CODEX_GUARD_HUMAN_FIELDS_TOOLS:
+        assert after.count((tool, CODEX_GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    assert [pair for pair in after if pair[1] != CODEX_GUARD_HUMAN_FIELDS_COMMAND] == before
+    assert sorted(copilot_guard_matchers(target)) == sorted(COPILOT_GUARD_HUMAN_FIELDS_TOOLS)
+    assert (target / ".github" / "hooks" / "guard-human-fields").is_symlink()
+
+
+# ST-0402: update-factory adds the Pi guard extension to an earlier install.
+
+@pytest.mark.spec("FC-18-IT-16")
+def test_st_0402_update_adds_the_pi_guard_extension_to_an_earlier_install(tmp_path):
+    from test_init_factory import run_init, stage_source
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "earlier", {"README.md": "# earlier\n"})
+    first = run_init(stage_source(tmp_path / "source-1.5.0", "1.5.0"), target,
+                     "--cli", "pi", "--project-name", "earlier")
+    assert first.returncode == 0, first.stderr
+    (target / ".pi" / "extensions" / "guard-human-fields.ts").unlink()
+    assert (target / ".pi" / "extensions" / "step-guard.ts").is_symlink()
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    result = subprocess.run(
+        [sys.executable,
+         str(target / ".agent-factory" / "factory" / "scripts" / "update-factory"),
+         "--target", str(target), "--source", str(stage_source(tmp_path / "source-1.6.0", "1.6.0"))],
+        input="yes\n", capture_output=True, text=True, env=env, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (target / ".pi" / "extensions" / "guard-human-fields.ts").is_symlink()

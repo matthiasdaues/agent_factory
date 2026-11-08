@@ -1,0 +1,19 @@
+{
+  "id": "ATAM-0020",
+  "source": "atam-review",
+  "review_class": "architecture",
+  "category": "risk",
+  "type": "risk",
+  "severity": "minor",
+  "artifact": "docs/arc42/06_runtime_view.md:1133-1140",
+  "story": "finding-classification",
+  "finding": "The git check of in_use runs for a finding file or register file that HEAD does not hold (BR-088, DEC-46). At a merge commit, HEAD is the first parent, so every file that the other branch brings in counts as new. Take feature A, whose code review records a minor code finding with in_use false, because A changed the lines. A merges into dev. Feature B then merges dev. In B's merge commit, the register file of A is new against HEAD, its lines now exist unchanged on dev, and finding-lint rejects a correct answer with 'artifact lines exist unchanged on dev'. This happens when finding-lint runs at the pre-merge-commit stage or when the merge has a conflict and ends with git commit; the architecture fixes neither the stage nor the case. Treat a file as new only when no parent of the commit holds it, which is HEAD and MERGE_HEAD during a merge, and state that in 6.19, BR-088, and the finding-lint contract.",
+  "basis": {
+    "importance": "medium",
+    "exposure": "uncertain",
+    "in_use": false
+  },
+  "why_this_severity": "The affected scenario, QS-27, has priority 2, so importance is medium; whether the false rejection occurs depends on the hook stage of finding-lint and on merge conflicts, which nobody has settled, so exposure is uncertain. The rejection is loud and hands out no wrong severity.",
+  "commit": "439d86fbc2cedd03cb027a1dc9487e9905407f6f",
+  "status": "open"
+}

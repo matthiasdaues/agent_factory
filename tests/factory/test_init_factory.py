@@ -2206,3 +2206,267 @@ def test_CAL_07_rerun_after_first_install_moves_no_file_and_lists_nothing(tmp_pa
     assert not any(
         "docs/spec/payments.feature" in line for line in _report_lines(result.stdout)
     ), result.stdout
+
+
+# ST-0400: init-factory registers guard-human-fields for Claude Code.
+
+GUARD_HUMAN_FIELDS_COMMAND = '"$CLAUDE_PROJECT_DIR"/.claude/hooks/guard-human-fields'
+GUARD_HUMAN_FIELDS_TOOLS = ("Edit", "MultiEdit", "Write", "NotebookEdit", "Bash")
+
+
+def pre_tool_use_commands(target: Path) -> list[tuple[str, str]]:
+    """Each (matcher, command) pair of the PreToolUse entries in .claude/settings.json."""
+    settings = json.loads((target / ".claude" / "settings.json").read_text())
+    return [
+        (entry.get("matcher"), hook.get("command"))
+        for entry in settings["hooks"]["PreToolUse"]
+        for hook in entry.get("hooks", [])
+    ]
+
+
+@pytest.mark.spec("FC-18-IT-06")
+def test_st_0400_init_writes_the_guard_entries_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "claude", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    pairs = pre_tool_use_commands(target)
+    for tool in GUARD_HUMAN_FIELDS_TOOLS:
+        assert pairs.count((tool, GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    step_guard = [pair for pair in pairs if "step-guard.sh" in (pair[1] or "")]
+    assert sorted(matcher for matcher, _ in step_guard) == ["Bash", "Edit", "Read", "Write"]
+    link = target / ".claude" / "hooks" / "guard-human-fields"
+    assert link.is_symlink()
+    assert link.resolve() == (
+        target / ".agent-factory" / "factory" / "config" / "hooks" / "guard-human-fields"
+    ).resolve()
+    assert os.access(link, os.X_OK)
+
+    again = run_init(source, target)
+
+    assert again.returncode == 0, again.stderr
+    assert pre_tool_use_commands(target) == pairs
+
+
+@pytest.mark.spec("FC-18-IT-06")
+def test_st_0400_remove_factory_strips_the_guard_entries(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    own_hook = {"matcher": "Bash", "hooks": [{"type": "command", "command": "./own.sh"}]}
+    settings = json.dumps({"hooks": {"PreToolUse": [own_hook]}})
+    target = make_project(tmp_path / "guard-demo", {".claude/settings.json": settings})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "claude", "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert pre_tool_use_commands(target) == [("Bash", "./own.sh")]
+    assert not (target / ".claude" / "hooks" / "guard-human-fields").exists()
+
+
+# ST-0401: init-factory registers guard-human-fields for Codex and Copilot CLI.
+
+CODEX_GUARD_HUMAN_FIELDS_COMMAND = (
+    '"$(git rev-parse --show-toplevel)"/.codex/hooks/guard-human-fields'
+)
+CODEX_GUARD_HUMAN_FIELDS_TOOLS = ("Edit", "Write", "apply_patch", "Bash")
+COPILOT_GUARD_HUMAN_FIELDS_TOOLS = ("edit", "apply_patch", "write_file", "create", "bash")
+
+
+def codex_pre_tool_use_commands(target: Path) -> list[tuple[str, str]]:
+    """Each (matcher, command) pair of the PreToolUse entries in .codex/hooks.json."""
+    config = json.loads((target / ".codex" / "hooks.json").read_text())
+    return [
+        (entry.get("matcher"), hook.get("command"))
+        for entry in config["hooks"]["PreToolUse"]
+        for hook in entry.get("hooks", [])
+    ]
+
+
+def copilot_guard_matchers(target: Path) -> list[str]:
+    """The preToolUse matchers of the Copilot CLI guard hook file."""
+    config = json.loads((target / ".github" / "hooks" / "guard-human-fields.json").read_text())
+    return [
+        entry["matcher"] for entry in config["hooks"]["preToolUse"]
+        if entry.get("bash") == "./.github/hooks/guard-human-fields"
+    ]
+
+
+@pytest.mark.spec("FC-18-IT-07")
+def test_st_0401_init_writes_the_codex_guard_entries_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "codex", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    pairs = codex_pre_tool_use_commands(target)
+    for tool in CODEX_GUARD_HUMAN_FIELDS_TOOLS:
+        assert pairs.count((tool, CODEX_GUARD_HUMAN_FIELDS_COMMAND)) == 1, tool
+    step_guard = sorted(m for m, c in pairs if "step-guard.sh" in (c or ""))
+    assert step_guard == ["Bash", "Edit", "Read", "Write", "apply_patch"]
+    link = target / ".codex" / "hooks" / "guard-human-fields"
+    assert link.is_symlink()
+    assert os.access(link, os.X_OK)
+
+    again = run_init(source, target)
+
+    assert again.returncode == 0, again.stderr
+    assert codex_pre_tool_use_commands(target) == pairs
+
+
+@pytest.mark.spec("FC-18-IT-08")
+def test_st_0401_init_writes_the_copilot_guard_hook_file_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "copilot", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    hooks = target / ".github" / "hooks"
+    assert sorted(copilot_guard_matchers(target)) == sorted(COPILOT_GUARD_HUMAN_FIELDS_TOOLS)
+    assert (hooks / "step-guard.json").exists()
+    link = hooks / "guard-human-fields"
+    assert link.is_symlink()
+    assert os.access(link, os.X_OK)
+
+
+@pytest.mark.spec("FC-18-IT-07")
+def test_st_0401_remove_factory_strips_the_codex_and_copilot_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "codex", "copilot",
+                    "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert not (target / ".codex" / "hooks" / "guard-human-fields").exists()
+    assert not (target / ".github" / "hooks" / "guard-human-fields").exists()
+    assert not (target / ".github" / "hooks" / "guard-human-fields.json").exists()
+    hooks_json = target / ".codex" / "hooks.json"
+    if hooks_json.exists():
+        assert "guard-human-fields" not in hooks_json.read_text()
+
+
+# ST-0402: init-factory links the Pi guard extension beside step-guard.ts.
+
+@pytest.mark.spec("FC-18-IT-16")
+def test_st_0402_init_links_the_pi_guard_extension_beside_step_guard(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "pi", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    extensions = target / ".pi" / "extensions"
+    assert (extensions / "step-guard.ts").is_symlink()
+    link = extensions / "guard-human-fields.ts"
+    assert link.is_symlink()
+    assert link.resolve() == (
+        target / ".agent-factory" / "factory" / "config" / "extensions" / "guard-human-fields.ts"
+    ).resolve()
+
+
+@pytest.mark.spec("FC-18-IT-16")
+def test_st_0402_remove_factory_strips_the_pi_guard_extension(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "pi", "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert not (target / ".pi" / "extensions" / "guard-human-fields.ts").exists()
+
+
+# ST-0403: init-factory links the guard-only OpenCode plugin.
+
+@pytest.mark.spec("FC-18-IT-15")
+def test_st_0403_init_links_the_opencode_plugin_on_a_project_without_opencode(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert not (target / ".opencode").exists()
+
+    result = run_init(source, target, "--cli", "opencode", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    link = target / ".opencode" / "plugins" / "agent-factory.ts"
+    assert link.is_symlink()
+    assert link.resolve() == (
+        target / ".agent-factory" / "factory" / "config" / "plugins" / "agent-factory.ts"
+    ).resolve()
+    assert link.resolve().is_file()
+    # The guard-only plugin writes no orientation file, INDEX, or agent file.
+    assert sorted(p.name for p in (target / ".opencode").iterdir()) == ["plugins"]
+    assert not (target / "AGENTS.md").exists()
+
+
+@pytest.mark.spec("FC-18-IT-15")
+def test_st_0403_the_other_clis_create_no_opencode_directory(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "claude", "pi", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    assert not (target / ".opencode").exists()
+
+
+@pytest.mark.spec("FC-18-IT-15")
+def test_st_0403_remove_factory_strips_the_opencode_plugin_link(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "opencode", "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert not (target / ".opencode" / "plugins" / "agent-factory.ts").exists()
+    assert not (target / ".opencode").exists()
+
+
+@pytest.mark.spec("FC-11-IT-21")
+def test_st_0394_init_factory_does_not_write_the_release_settings(tmp_path):
+    target = make_installed_1_3_3(tmp_path)
+    assert not (target / "docs" / "factory-settings.yaml").exists()
+    result = run_init(stage_source(tmp_path / "source-1.4.0", "1.4.0"), target)
+    assert result.returncode == 0, result.stderr
+    assert not (target / "docs" / "factory-settings.yaml").exists()

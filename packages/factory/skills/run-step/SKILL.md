@@ -43,6 +43,8 @@ A step is done once its outputs exist, the gate passes, and no finding is open. 
 
 ## Step 4 — Dispatch
 
+The input of this step includes the stop notice. When `dispatch` or `premerge-check` exits `1` and prints `STOP:`, dispatch nothing. In an interactive session, explain each stopping finding with `explain-review-finding` and wait. A headless run ends with the notice in its final summary.
+
 ```bash
 .agent-factory/factory/scripts/trigger agent <name> --background --cli claude --cwd <project-root>
 ```

@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0029",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "spec-stale",
+  "severity": "minor",
+  "artifact": "docs/spec/work/counter-ids-qa-strategy.md:63",
+  "story": "ST-0369",
+  "finding": "37 of the 39 test rows say planned although their tests exist; the CID-10 rows name a file whose tests carry no CID marker; line 122 says 'for all ten prefixes'. Set each built test to implemented, name the three init-factory tests, and say twelve prefixes. CID-11-AC-01 stays planned.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The tests exist and run in the suite, so coverage is as planned (no to fails_purpose); a reader must search tests/factory/ to learn which rows are built (raises_cost).",
+  "commit": "d0a78a5c40327c1f7e4c9a204ab5e766a7e0c44b",
+  "status": "open"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0126",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "performance",
+  "severity": "minor",
+  "artifact": "packages/factory/config/hooks/guard-human-fields:306-309",
+  "story": "ST-0400",
+  "finding": "guard-human-fields starts one git process per word of an interpreter script. check_shell calls guarded for each path-like word of a heredoc body or a python3 -c text, and guarded runs git rev-parse each time. Measured on a scratch repository: 1500 words take 3.05 seconds and 5000 words take 11.27 seconds, on every such Bash call. The Copilot hook entry in guard-human-fields.json sets timeoutSec to 10. Fix: in check_shell, skip a word that does not contain docs/ before calling guarded, or keep the project root per directory.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The guard decides correctly on these calls, and a short script costs well under a second (no to fails_purpose). A long agent script waits seconds on every call, and above about 4400 words it passes the 10-second limit of the Copilot entry.",
+  "commit": "107bd1dee469710ef3eac740bdfbfd56d55e2520",
+  "status": "open"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0035",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "spec-stale",
+  "severity": "minor",
+  "artifact": "docs/spec/work/finding-classification-qa-strategy.md:152",
+  "story": null,
+  "finding": "Row FC-12-CT-01 of the QA strategy still expects the hook agent_factory_hook-finding-lint to hold files: ^docs/findings/. DEC-65 replaced the filter, the hook holds always_run: true, and the row Hook of the finding-lint contract says so. Fix: state always_run: true and pass_filenames: false, and drop the sentence on the files pattern.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "No story or code outside this run encodes the row, so in_use is false. The test of FC-12-CT-01 already asserts always_run and the absence of files, so the suite checks the right behavior (no to fails_purpose). A reader who plans a change of the hook from this row expects a filter that the correct hook does not have.",
+  "commit": "0cef8c3db7ed62e29dd5ccc9dbb85aec0ad42bfc",
+  "status": "open"
+}

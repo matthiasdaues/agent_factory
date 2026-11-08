@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0017",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "timing",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:393-398",
+  "story": "ST-0397",
+  "finding": "A premerge-check-ok marker written before a stop stays valid during the stop, so git merge passes for that branch head. premerge-check returns at lines 393-398 without touching .current-work/premerge-check-ok, and block-dangerous-git.sh compares only the branch name and the head. BR-091 says the merge is denied because no marker is written, and that holds only when no earlier marker exists. BR-091 also forbids the refusing script to change a file. So add the stop check to block-dangerous-git.sh before it accepts the marker, or change BR-091 so that the refusal removes the marker.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every premerge-check during the stop refuses and writes no marker, and a new branch head has no valid marker, so the stop holds on the normal path (no to fails_purpose). A merge passes only when the finding arrives between a passing premerge-check and the merge of the same head, and then the operator must find and reverse that merge.",
+  "commit": "b2bd24a1ac5f05eef935135d5c957ec318c452e3",
+  "status": "resolved"
+}

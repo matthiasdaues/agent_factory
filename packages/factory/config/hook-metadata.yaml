@@ -78,6 +78,12 @@ hooks:
     availability: requires-path:docs/spec
     description: When a spec file has both pseudocode and a Mermaid state diagram, verifies they describe the same states and transitions.
 
+  agent_factory_hook-finding-lint:
+    outcome: Finding classification consistency
+    trade_off: none
+    availability: always
+    description: Checks the recorded values of every finding in docs/findings/ against the classification rules, and rejects a lowered critical finding that lacks the override fields.
+
   agent_factory_hook-index-lint:
     outcome: Factory index maintenance
     trade_off: none

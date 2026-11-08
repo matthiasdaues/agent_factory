@@ -1,7 +1,7 @@
 ---
 id: RETRO-0001
 title: No env var registry — AF_SESSION_LOG provisioned ad-hoc
-status: open
+status: deferred
 severity: minor
 category: configuration
 date: 2026-07-13
@@ -15,3 +15,5 @@ owner: virgil
 `AF_SESSION_LOG` was declared in `.agent-factory/factory/scripts/_session_log.py`, documented in `.agent-factory/factory/docs/factory-guide.md` and `docs/proposals/session-log-addendum.md`, but never provisioned by any mechanism until the orchestrator's `_provision_session_log()` was added late in the session.
 
 **Fix:** Create `.agent-factory/factory/docs/env-vars.md` listing every env var: name, purpose, who provisions it, who reads it, default value. Today only `AF_SESSION_LOG` exists. The registry prevents the same gap from recurring as the system grows.
+
+**Deferred to:** T-0408 in docs/spec/work/todo.md

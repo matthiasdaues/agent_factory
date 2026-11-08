@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0011",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/virgil.md:304-306",
+  "story": "ST-0379",
+  "finding": "Step 4 tells VIRGIL to set agent-factory.counterRemote to the parent of the directory that `git rev-parse --git-common-dir` prints. In the main worktree, that command prints the relative `.git`, so an agent may store `.`. BR-096 and ST-0379 require the absolute path. With `.`, a claim run from a subdirectory pushes to that subdirectory and fails. Name `git rev-parse --path-format=absolute --git-common-dir` and say that the setting holds an absolute path.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "From the project root and from a worktree, `.` still reaches the shared repository, and an agent that resolves the parent usually writes an absolute path (no to fails_purpose); a wrong value fails only in a subdirectory, so a reader must find the cause behind an unrelated git error (raises_cost).",
+  "commit": "bda10b05d4ccb75109e49ee0ae44731c4ce828b8",
+  "status": "open"
+}

@@ -55,6 +55,7 @@ ALL_HOOK_IDS = [
     "agent_factory_hook-concern-lint",
     "agent_factory_hook-matrix-lint",
     "agent_factory_hook-statemachine-lint",
+    "agent_factory_hook-finding-lint",
     "agent_factory_hook-index-lint",
 ]
 
@@ -504,3 +505,99 @@ def test_CAL_09_factory_repository_hooks_run_arch_lint_on_dsl_change(
     ]
     assert len(arch_lint) == 2, output
     assert all(line.endswith("Passed") for line in arch_lint), output
+
+
+# ---------------------------------------------------------------------------
+# ST-0396: the finding-lint hook (FC-12-CT-01, FC-12-CT-02, FC-12-IT-01).
+# ---------------------------------------------------------------------------
+
+FINDING_LINT_ID = "agent_factory_hook-finding-lint"
+
+
+def _finding_lint_hook() -> dict:
+    import yaml
+
+    hooks = {
+        hook["id"]: hook
+        for repo in yaml.safe_load(PRE_COMMIT_TEXT)["repos"]
+        for hook in repo["hooks"]
+    }
+    return hooks[FINDING_LINT_ID]
+
+
+@pytest.mark.spec("FC-12-CT-01")
+def test_st_0396_hook_runs_finding_lint_staged_on_docs_findings():
+    hook = _finding_lint_hook()
+
+    assert re.search(r'finding-lint --staged\' --$', hook["entry"].strip())
+    assert hook["always_run"] is True
+    assert "files" not in hook
+    assert hook["pass_filenames"] is False
+    assert hook["language"] == "system"
+
+
+@pytest.mark.spec("FC-12-CT-02")
+def test_st_0396_metadata_makes_the_hook_part_of_every_fitting():
+    meta = hs.load_hook_metadata(METADATA_TEXT)[FINDING_LINT_ID]
+
+    assert meta.trade_off == "none"
+    assert meta.availability == "always"
+    assert meta.outcome
+    assert meta.description
+
+
+def install_finding_lint_hook(project: Path) -> None:
+    """Link the Factory into *project* and write .git/hooks/pre-commit as a
+    shell script that runs the hook's entry, so no pre-commit install is needed."""
+    (project / ".agent-factory").mkdir(exist_ok=True)
+    link = project / ".agent-factory" / "factory"
+    if not link.exists():
+        link.symlink_to(REPO_ROOT / "packages" / "factory")
+    script = project / ".git" / "hooks" / "pre-commit"
+    script.parent.mkdir(exist_ok=True)
+    script.write_text("#!/bin/sh\n" + _finding_lint_hook()["entry"].strip() + "\n")
+    script.chmod(0o755)
+
+
+def git_commit_env() -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "SKIP"))}
+    env.update(
+        GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+        GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t",
+    )
+    return env
+
+
+def run_git(project: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git", *args], cwd=project, env=git_commit_env(),
+        capture_output=True, text=True, check=False,
+    )
+
+
+@pytest.mark.spec("FC-12-IT-01")
+def test_st_0396_commit_of_a_broken_finding_exits_1_through_the_hook(tmp_path):
+    from test_finding_stop import finding
+
+    project = tmp_path / "project"
+    project.mkdir()
+    assert run_git(project, "init", "-q", "-b", "dev").returncode == 0
+    (project / "README.md").write_text("init\n")
+    run_git(project, "add", "README.md")
+    assert run_git(project, "commit", "-qm", "init").returncode == 0
+    install_finding_lint_hook(project)
+
+    path = project / "docs" / "findings" / "BUG-0037.md"
+    path.parent.mkdir(parents=True)
+    path.write_text(finding(severity="major"))  # the basis computes critical
+    run_git(project, "add", "docs/findings/BUG-0037.md")
+    broken = run_git(project, "commit", "-qm", "record BUG-0037")
+
+    assert broken.returncode == 1, broken.stdout + broken.stderr
+    assert "BUG-0037" in broken.stdout + broken.stderr
+
+    path.write_text(finding())
+    run_git(project, "add", "docs/findings/BUG-0037.md")
+    fixed = run_git(project, "commit", "-qm", "record BUG-0037")
+
+    assert fixed.returncode == 0, fixed.stdout + fixed.stderr

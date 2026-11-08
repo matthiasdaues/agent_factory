@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0122",
+  "source": "reconcile-spec",
+  "review_class": "code",
+  "category": "defect",
+  "type": "assignment",
+  "severity": "minor",
+  "artifact": "packages/factory/config/extensions/dispatch-wave.ts:561-563",
+  "story": null,
+  "finding": "aggregateEnvelope fills finding_counts with critical, major, and minor when no child returned an envelope. BR-093 says that every child-result envelope carries the four keys, also with zero findings, so this envelope lacks the key note. Fix: add note: 0 to the object.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The lines exist unchanged on dev, so in_use is true, and the envelope contract on dev names three keys, so no published contract breaks there. The path runs only when no child returned an envelope, the disposition is then block, and each count is zero, so every envelope that carries a real count is correct (no to fails_purpose). A consumer that reads note from this one aggregate must handle a missing key.",
+  "commit": "0cef8c3db7ed62e29dd5ccc9dbb85aec0ad42bfc",
+  "status": "open"
+}

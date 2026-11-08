@@ -1,0 +1,1679 @@
+#!/usr/bin/env python3
+# finding-lint — check the recorded values of every classified finding.
+#
+# What: Reads every finding file docs/findings/*.md that carries review_class
+#       and every register file docs/findings/register/**/*.json under the
+#       current directory. It rejects each recorded value that breaks a
+#       classification rule: the vocabulary of the class, the shape of the
+#       basis, the severity that the rule of the class computes, the status,
+#       the artifact form, the body sections, and the register rules
+#       (validation-rules.md BR-079 to BR-087, BR-090, BR-110). It compares
+#       each file with its HEAD version and rejects a lowering or a removal
+#       without the override fields, a dropped review_class, and a removed
+#       register file without a finding file of the same ID (BR-109, BR-110).
+#       A repository without a commit, or a directory outside any repository,
+#       has no HEAD version, so the lint checks every file as new.
+#       For a code, runtime, or security finding with in_use false that is
+#       new against HEAD, or whose basis or artifact differs from HEAD, it
+#       blames the artifact range and rejects the answer when every line
+#       identity exists unchanged on dev, main, origin/dev, origin/main, or in
+#       the installed copy (BR-088). A register file written from a line of the
+#       old .jsonl register of its class at HEAD keeps that line's earlier check
+#       when the id, basis, and artifact match. With --staged, the check reads
+#       and blames the artifact from the index. It prints one line per branch
+#       the clone lacks.
+# When: In the validate skill without --staged (the working tree), and in the
+#       pre-commit hook with --staged (the index).
+# By:   `.agent-factory/factory/scripts/finding-lint [--staged]` from the
+#       project root.
+#
+# The lint uses the Python standard library only. It runs the register schema
+# check through `validate` of schema-validate, which sits in the same folder,
+# and reads the register schemas under the Factory root it runs from.
+#
+# Exit code:
+#   0  every checked file passes
+#   1  a checked file breaks a rule (one line per violation on stdout)
+#   2  usage error, a register schema or schema-validate is missing, or a
+#      git call fails (also --staged outside a git repository)
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import re
+import subprocess
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+from typing import Any
+
+SEVERITY_ORDER = ("note", "minor", "major", "critical")
+
+# --- Severity rules (BR-081 to BR-084) -----------------------------------------
+
+# The bug bar levels from low to high, and the starting level of each effect
+# class (BR-082). `hardening` has no level.
+BAR_LEVELS = ("Low", "Medium", "High", "Critical")
+BAR_START = {
+    "execution": "Critical",
+    "secrets": "Critical",
+    "gate-bypass": "High",
+    "tampering": "High",
+    "disclosure": "High",
+    "limited": "Medium",
+    "leak": "Low",
+}
+BAR_PRECONDITIONS = ("second_breach", "trusted_access", "non_default", "user_action")
+
+# The matrix of BR-083: importance and exposure give the severity.
+MATRIX = {
+    ("high", "fails"): "major",
+    ("high", "uncertain"): "major",
+    ("medium", "fails"): "major",
+    ("medium", "uncertain"): "minor",
+    ("low", "fails"): "minor",
+    ("low", "uncertain"): "note",
+}
+NOTE_TYPES = ("non-risk", "sensitivity-point", "tradeoff-point")
+
+TREE_CLASSES = ("document", "code", "runtime")
+
+
+def tree_severity(basis: dict) -> str:
+    """Return the severity of the first yes answer of the consequence tree (BR-081)."""
+    if basis["harms_downstream"]:
+        return "critical"
+    if basis["fails_purpose"]:
+        return "major"
+    if basis["raises_cost"]:
+        return "minor"
+    return "note"
+
+
+def bug_bar_level(basis: dict) -> str | None:
+    """Return the bug bar level of a security basis, or None for hardening (BR-082)."""
+    start = BAR_START.get(basis["effect"])
+    if start is None:
+        return None
+    lowered = sum(1 for flag in BAR_PRECONDITIONS if basis[flag])
+    return BAR_LEVELS[max(BAR_LEVELS.index(start) - lowered, 0)]
+
+
+def bug_bar_severity(basis: dict) -> str:
+    """Map the bug bar level onto the shared scale (BR-082)."""
+    level = bug_bar_level(basis)
+    if level is None:
+        return "note"
+    if level == "Critical":
+        if basis["in_use"] and basis["confidence"] == "proven":
+            return "critical"
+        return "major"
+    if level == "Low":
+        return "minor"
+    return "major"
+
+
+def matrix_severity(basis: dict, type_name: str) -> str:
+    """Return the severity of an architecture finding from the matrix (BR-083)."""
+    if type_name in NOTE_TYPES:
+        return "note"
+    severity = MATRIX[(basis["importance"], basis["exposure"])]
+    if severity == "major" and basis["in_use"]:
+        return "critical"
+    return severity
+
+
+def computed_severity(
+    review_class: str, category: str, type_name: str, basis: dict
+) -> str:
+    """Return the severity that the rule of the class computes from the basis.
+
+    A suggestion of the security or architecture class is at most minor (BR-084).
+    """
+    if review_class == "security":
+        severity = bug_bar_severity(basis)
+    elif review_class == "architecture":
+        severity = matrix_severity(basis, type_name)
+    else:
+        severity = tree_severity(basis)
+    capped = category == "suggestion" and review_class in ("security", "architecture")
+    if capped and SEVERITY_ORDER.index(severity) > SEVERITY_ORDER.index("minor"):
+        return "minor"
+    return severity
+
+
+# --- Vocabulary (BR-079) and artifact form (BR-086) ---------------------------
+
+CLASSES = ("document", "code", "security", "architecture", "runtime")
+CATEGORIES = ("defect", "risk", "suggestion")
+TYPES = {
+    "document": (
+        "incorrect",
+        "ambiguous",
+        "incomplete",
+        "inconsistent",
+        "unverifiable",
+        "infeasible",
+        "untraced",
+        "unnecessary",
+        "compound",
+        "code-defect",
+        "spec-stale",
+        "undocumented",
+        "speculative",
+    ),
+    "code": (
+        "function",
+        "interface",
+        "checking",
+        "assignment",
+        "timing",
+        "algorithm",
+        "build",
+        "documentation",
+        "structure",
+        "test",
+    ),
+    "architecture": ("risk", "non-risk", "sensitivity-point", "tradeoff-point"),
+    "runtime": (
+        "crash",
+        "hang",
+        "wrong-result",
+        "data-loss",
+        "security",
+        "performance",
+        "usability",
+        "cosmetic",
+    ),
+}
+SECURITY_TYPE = re.compile(r"^A(0[1-9]|10)$")
+SEVERITY_RULE = {"security": "BR-082", "architecture": "BR-083"}
+FINDING_STATUSES = ("open", "resolved", "deferred", "waived")
+MARKER = "no to fails_purpose"
+
+_ARTIFACT = re.compile(
+    r"^(?P<path>[^\s:#][^:#]*)(?::(?P<start>[0-9]+)(?:-(?P<end>[0-9]+))?|#(?P<anchor>\S.*))$"
+)
+
+
+def artifact_is_valid(artifact: Any) -> bool:
+    """Return whether *artifact* is `path:line`, `path:start-end`, or `path#anchor` (BR-086)."""
+    if not isinstance(artifact, str):
+        return False
+    match = _ARTIFACT.match(artifact)
+    if match is None:
+        return False
+    if match["start"] is None:
+        return True
+    start = int(match["start"])
+    end = int(match["end"]) if match["end"] else start
+    return 1 <= start <= end
+
+
+def _has_text(value: Any) -> bool:
+    return value is not None and str(value).strip() != ""
+
+
+def _type_is_valid(review_class: str, type_name: Any) -> bool:
+    if review_class == "security":
+        return isinstance(type_name, str) and SECURITY_TYPE.match(type_name) is not None
+    return type_name in TYPES[review_class]
+
+
+# --- Schemas -------------------------------------------------------------------
+
+FACTORY_ROOT = Path(__file__).resolve().parent.parent
+
+
+class SetupError(Exception):
+    """A register schema or schema-validate is missing under the Factory root."""
+
+
+def _schema_validator(factory_root: Path):
+    path = factory_root / "scripts" / "schema-validate"
+    if not path.is_file():
+        raise SetupError(f"finding-lint: {path} is missing")
+    loader = SourceFileLoader("schema_validate", str(path))
+    spec = importlib.util.spec_from_loader("schema_validate", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module.validate
+
+
+def load_schemas(factory_root: Path) -> dict[str, Any]:
+    """Read the five register schemas and the validator of schema-validate (BR-090)."""
+    schemas: dict[str, Any] = {"validate": _schema_validator(factory_root)}
+    for review_class in CLASSES:
+        path = (
+            factory_root
+            / "rulebooks"
+            / "schemas"
+            / f"finding-register-{review_class}.schema.json"
+        )
+        try:
+            schemas[review_class] = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SetupError(
+                f"finding-lint: cannot read the register schema {path}: {exc}"
+            ) from exc
+    return schemas
+
+
+# --- Frontmatter ---------------------------------------------------------------
+
+
+class FrontmatterError(ValueError):
+    """A frontmatter line that the parser of finding-lint cannot read."""
+
+
+def _strip_comment(text: str) -> str:
+    quote = None
+    for index, char in enumerate(text):
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+        elif char == "#" and (index == 0 or text[index - 1] in " \t"):
+            return text[:index].strip()
+    return text.strip()
+
+
+def _split_flow(inner: str) -> list[str]:
+    items: list[str] = []
+    current = ""
+    quote = None
+    for char in inner:
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+        elif char == ",":
+            items.append(current.strip())
+            current = ""
+            continue
+        current += char
+    if quote:
+        raise FrontmatterError(f"unclosed quote in [{inner}]")
+    if current.strip():
+        items.append(current.strip())
+    return items
+
+
+def _scalar(text: str) -> Any:
+    text = _strip_comment(text)
+    if text in ("", "null", "~"):
+        return None
+    if text == "true":
+        return True
+    if text == "false":
+        return False
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in "'\"":
+        return text[1:-1]
+    if text.startswith("["):
+        if not text.endswith("]"):
+            raise FrontmatterError(f"unclosed flow list: {text}")
+        return [_scalar(item) for item in _split_flow(text[1:-1])]
+    if text[0] in "{|>&*!":
+        raise FrontmatterError(f"unsupported value: {text}")
+    return text
+
+
+def _key_value(line: str) -> tuple[str, str]:
+    key, colon, rest = line.partition(":")
+    key = key.strip()
+    if not colon or not key or " " in key:
+        raise FrontmatterError(f"not a key and a value: {line.strip()}")
+    return key, rest
+
+
+def _nested(meta: dict, key: str | None, line: str) -> None:
+    """Add one indented line to the block list or the mapping of *key*."""
+    if key is None:
+        raise FrontmatterError(f"indented line without a parent key: {line}")
+    if line.startswith("- "):
+        if meta[key] is None:
+            meta[key] = []
+        if not isinstance(meta[key], list):
+            raise FrontmatterError(f"list item under a key that holds no list: {line}")
+        meta[key].append(_scalar(line[2:]))
+        return
+    if meta[key] is None:
+        meta[key] = {}
+    if not isinstance(meta[key], dict):
+        raise FrontmatterError(
+            f"mapping entry under a key that holds no mapping: {line}"
+        )
+    sub, rest = _key_value(line)
+    meta[key][sub] = _scalar(rest)
+
+
+def parse_finding(text: str) -> tuple[dict | None, str]:
+    """Split a finding file into its frontmatter mapping and its body.
+
+    The parser reads the YAML subset of a finding file: scalars, null,
+    booleans, flow lists, block lists, and one nested mapping such as
+    `basis`. It returns None for the mapping when the file has no
+    frontmatter, and raises FrontmatterError on a line it cannot read.
+    """
+    lines = text.split("\n")
+    if lines[0].strip() != "---":
+        return None, text
+    end = next(
+        (index for index in range(1, len(lines)) if lines[index].strip() == "---"), None
+    )
+    if end is None:
+        raise FrontmatterError("the frontmatter has no closing ---")
+    meta: dict[str, Any] = {}
+    key = None
+    for line in lines[1:end]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line[0].isspace():
+            _nested(meta, key, line.strip())
+            continue
+        key, rest = _key_value(line)
+        meta[key] = _scalar(rest)
+    return meta, "\n".join(lines[end + 1 :])
+
+
+def carries_review_class(text: str) -> bool:
+    """Return whether the frontmatter of a finding file holds the key review_class."""
+    lines = text.split("\n")
+    if lines[0].strip() != "---":
+        return False
+    for line in lines[1:]:
+        if line.strip() == "---":
+            return False
+        if re.match(r"review_class\s*:", line):
+            return True
+    return False
+
+
+# --- Body sections (BR-086, BR-087) --------------------------------------------
+
+
+def _why_paragraph(body: str) -> str | None:
+    """Return the Why this severity paragraph up to the next blank line, or None."""
+    match = re.search(
+        r"^\*\*Why this severity:\*\*(?P<rest>.*(?:\n[ \t]*\S.*)*)", body, re.MULTILINE
+    )
+    return None if match is None else match["rest"]
+
+
+def _damage_items(body: str) -> list[str] | None:
+    """Return the items of `## Possible damage`, or None without the section."""
+    lines = body.split("\n")
+    start = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.strip() == "## Possible damage"
+        ),
+        None,
+    )
+    if start is None:
+        return None
+    items: list[str] = []
+    for line in lines[start + 1 :]:
+        if line.startswith("#"):
+            break
+        if line.startswith(("- ", "* ")):
+            items.append(line[2:].strip())
+        elif line.strip() and items:
+            items[-1] += " " + line.strip()
+    return items
+
+
+# --- Checks of one file --------------------------------------------------------
+
+
+def _message(path: str, rule: str, detail: str) -> str:
+    return f"{path}: {rule}: {detail}"
+
+
+def _check_vocabulary(path: str, record: dict) -> list[str]:
+    review_class = record["review_class"]
+    category = record.get("category")
+    type_name = record.get("type")
+    out: list[str] = []
+    if category == "question":
+        out.append(
+            _message(
+                path,
+                "BR-085 question",
+                "a question goes into docs/spec/work/todo.md, never into a file",
+            )
+        )
+    elif category not in CATEGORIES:
+        out.append(
+            _message(
+                path,
+                "BR-079 category",
+                f"category {category!r} is not one of {', '.join(CATEGORIES)}",
+            )
+        )
+    elif category == "risk" and review_class != "architecture":
+        out.append(
+            _message(
+                path,
+                "BR-079 category",
+                f"the category risk belongs to the architecture class only, not {review_class}",
+            )
+        )
+    if not _type_is_valid(review_class, type_name):
+        out.append(
+            _message(
+                path,
+                "BR-079 type",
+                f"type {type_name!r} is not in the vocabulary of the {review_class} class",
+            )
+        )
+    artifact = record.get("artifact")
+    if not artifact_is_valid(artifact):
+        out.append(
+            _message(
+                path,
+                "BR-086 artifact",
+                f"artifact {artifact!r} is not path:line, path:start-end, or path#anchor",
+            )
+        )
+    return out
+
+
+def _check_answers(path: str, record: dict, basis: dict) -> list[str]:
+    review_class = record["review_class"]
+    category = record.get("category")
+    out: list[str] = []
+    if review_class in TREE_CLASSES:
+        if basis["harms_downstream"] and not basis["in_use"]:
+            out.append(
+                _message(
+                    path,
+                    "BR-081 in use",
+                    "harms_downstream is true only when in_use is true",
+                )
+            )
+        if category == "suggestion" and (
+            basis["harms_downstream"] or basis["fails_purpose"]
+        ):
+            out.append(
+                _message(
+                    path,
+                    "BR-084 suggestion",
+                    "a suggestion describes material that works, so it answers false to harms_downstream and fails_purpose",
+                )
+            )
+    if (
+        review_class == "security"
+        and basis["effect"] == "hardening"
+        and category != "suggestion"
+    ):
+        out.append(
+            _message(
+                path,
+                "BR-082 hardening",
+                "a finding with the effect hardening is a suggestion",
+            )
+        )
+    return out
+
+
+def _check_severity(path: str, record: dict, basis: dict) -> list[str]:
+    review_class = record["review_class"]
+    type_name = record.get("type")
+    severity = computed_severity(review_class, record.get("category"), type_name, basis)
+    recorded = record.get("severity")
+    if recorded == severity:
+        return []
+    rule = SEVERITY_RULE.get(review_class, "BR-081")
+    if computed_severity(review_class, "defect", type_name, basis) != severity:
+        rule = "BR-084"
+    return [
+        _message(
+            path,
+            f"{rule} severity",
+            f"severity {recorded!r} differs from {severity}, which the basis gives",
+        )
+    ]
+
+
+def check_classification(
+    path: str, record: dict, schemas: dict
+) -> tuple[list[str], bool]:
+    """Check the values that a finding file and a register file share.
+
+    Returns the violations and whether the basis has the shape of its class.
+    """
+    review_class = record.get("review_class")
+    if review_class not in CLASSES:
+        return [
+            _message(
+                path,
+                "BR-079 review class",
+                f"review_class {review_class!r} is not one of {', '.join(CLASSES)}",
+            )
+        ], False
+    out = _check_vocabulary(path, record)
+    basis = record.get("basis")
+    errors = schemas["validate"](
+        basis, schemas[review_class]["properties"]["basis"], "$.basis"
+    )
+    if errors:
+        out += [
+            _message(
+                path,
+                "BR-080 basis",
+                f"the basis lacks the shape of the {review_class} class: {error}",
+            )
+            for error in errors
+        ]
+        return out, False
+    out += _check_answers(path, record, basis)
+    out += _check_severity(path, record, basis)
+    return out, True
+
+
+def _check_finding_status(path: str, meta: dict) -> list[str]:
+    out: list[str] = []
+    status = meta.get("status")
+    severity = meta.get("severity")
+    if status == "deferred":
+        out.append(
+            _message(
+                path,
+                "BR-086 status",
+                "a file that carries review_class is never deferred (DEC-55)",
+            )
+        )
+    elif status not in FINDING_STATUSES:
+        out.append(
+            _message(
+                path,
+                "BR-086 status",
+                f"status {status!r} is not one of {', '.join(FINDING_STATUSES)}",
+            )
+        )
+    if status == "open" and severity not in ("critical", "major"):
+        out.append(
+            _message(
+                path,
+                "BR-086 status",
+                f"an open finding file is critical or major, not {severity!r}",
+            )
+        )
+    if status == "waived":
+        if not (
+            _has_text(meta.get("override_by"))
+            and _has_text(meta.get("override_reason"))
+        ):
+            out.append(
+                _message(
+                    path,
+                    "BR-086 waived",
+                    "a waived finding needs text in override_by and override_reason",
+                )
+            )
+        if severity not in ("critical", "major"):
+            out.append(
+                _message(
+                    path,
+                    "BR-086 waived",
+                    f"a waived finding file is critical or major, not {severity!r}",
+                )
+            )
+    return out
+
+
+def _check_confirmation(path: str, meta: dict) -> list[str]:
+    out: list[str] = []
+    status = meta.get("status")
+    severity = meta.get("severity")
+    confirmed_by = _has_text(meta.get("stop_confirmed_by"))
+    confirmed = confirmed_by and _has_text(meta.get("stop_confirmed_reason"))
+    if status in ("waived", "resolved") and severity == "critical" and not confirmed:
+        out.append(
+            _message(
+                path,
+                "BR-086 confirmation",
+                f"a {status} critical finding needs text in stop_confirmed_by and stop_confirmed_reason",
+            )
+        )
+    if confirmed_by and not confirmed:
+        out.append(
+            _message(
+                path,
+                "BR-086 confirmation",
+                "stop_confirmed_by needs text in stop_confirmed_reason",
+            )
+        )
+    if confirmed_by and severity != "critical":
+        out.append(
+            _message(
+                path,
+                "BR-086 confirmation",
+                "stop_confirmed_by is set only on a critical finding",
+            )
+        )
+    return out
+
+
+def _check_damage(path: str, severity: Any, body: str) -> list[str]:
+    items = _damage_items(body)
+    if severity != "critical":
+        if items is None:
+            return []
+        return [
+            _message(
+                path,
+                "BR-086 possible damage",
+                f'only a critical finding holds "## Possible damage", not {severity!r}',
+            )
+        ]
+    if items is None:
+        return [
+            _message(
+                path,
+                "BR-086 possible damage",
+                'a critical finding ends with the section "## Possible damage"',
+            )
+        ]
+    if not items:
+        return [
+            _message(
+                path, "BR-086 possible damage", '"## Possible damage" holds no item'
+            )
+        ]
+    out: list[str] = []
+    for item in items:
+        thing, separator, check = item.partition("— check:")
+        if not separator or not thing.strip() or not check.strip():
+            out.append(
+                _message(
+                    path,
+                    "BR-086 possible damage",
+                    f'the item {item!r} needs a thing, then "— check:" and a check',
+                )
+            )
+    return out
+
+
+def _check_body(path: str, meta: dict, body: str) -> list[str]:
+    out: list[str] = []
+    why = _why_paragraph(body)
+    if why is None:
+        out.append(
+            _message(
+                path, "BR-086 why", 'the body lacks the line "**Why this severity:**"'
+            )
+        )
+    if (
+        meta.get("severity") == "minor"
+        and meta.get("review_class") in TREE_CLASSES
+        and MARKER not in (why or "")
+    ):
+        out.append(
+            _message(
+                path,
+                "BR-087 marker",
+                f'a minor finding gives its reason in the Why line with "{MARKER}"',
+            )
+        )
+    return out + _check_damage(path, meta.get("severity"), body)
+
+
+def _check_rating(path: str, meta: dict) -> list[str]:
+    rating = meta.get("rating")
+    if meta["review_class"] != "security":
+        if rating is None:
+            return []
+        return [
+            _message(
+                path,
+                "BR-082 rating",
+                f"rating is null outside the security class, not {rating!r}",
+            )
+        ]
+    level = bug_bar_level(meta["basis"])
+    if rating == level:
+        return []
+    return [
+        _message(
+            path,
+            "BR-082 rating",
+            f"rating {rating!r} differs from the bug bar level {level}",
+        )
+    ]
+
+
+def check_finding_file(
+    path: str, text: str, schemas: dict, force: bool = False
+) -> list[str]:
+    """Check one finding file.
+
+    A file without review_class is skipped, unless *force* is set because its
+    HEAD version carries review_class (BR-109).
+    """
+    if not force and not carries_review_class(text):
+        return []
+    try:
+        meta, body = parse_finding(text)
+    except FrontmatterError as exc:
+        return [_message(path, "frontmatter", f"the frontmatter cannot be read: {exc}")]
+    if meta is None:
+        return [_message(path, "frontmatter", "the file has no frontmatter")]
+    out, basis_ok = check_classification(path, meta, schemas)
+    if basis_ok:
+        out += _check_rating(path, meta)
+    out += _check_finding_status(path, meta)
+    out += _check_confirmation(path, meta)
+    return out + _check_body(path, meta, body)
+
+
+def _register_folder(path: str) -> str | None:
+    """Return the class of the folder `docs/findings/register/<class>/`, or None."""
+    parts = path.split("/")
+    if (
+        len(parts) != 5
+        or parts[:3] != ["docs", "findings", "register"]
+        or parts[3] not in CLASSES
+    ):
+        return None
+    return parts[3]
+
+
+def check_register_file(path: str, data: Any, schemas: dict) -> list[str]:
+    """Check one parsed register file at *path* (BR-087, BR-090, BR-110)."""
+    folder = _register_folder(path)
+    if folder is None:
+        return [
+            _message(
+                path,
+                "BR-090 register folder",
+                f"a register file lies in docs/findings/register/<class>/, where <class> is one of {', '.join(CLASSES)}",
+            )
+        ]
+    if not isinstance(data, dict):
+        return [
+            _message(
+                path, "BR-090 register file", "a register file holds one JSON object"
+            )
+        ]
+    out = [
+        _message(
+            path,
+            "BR-090 schema-validate",
+            f"{error} (finding-register-{folder}.schema.json)",
+        )
+        for error in schemas["validate"](data, schemas[folder])
+    ]
+    if data.get("review_class") != folder:
+        out.append(
+            _message(
+                path,
+                "BR-090 register folder",
+                f"review_class {data.get('review_class')!r} differs from the folder {folder}",
+            )
+        )
+    name = path.rsplit("/", 1)[1]
+    if name != f"{data.get('id')}.json":
+        out.append(
+            _message(
+                path,
+                "BR-090 file name",
+                f"the file name {name} differs from the id {data.get('id')!r} with .json",
+            )
+        )
+    classification, _ = check_classification(path, data, schemas)
+    out += classification
+    if data.get("status") == "waived" and not (
+        _has_text(data.get("override_by")) and _has_text(data.get("override_reason"))
+    ):
+        out.append(
+            _message(
+                path,
+                "BR-110 waived",
+                "a waived register file needs text in override_by and override_reason",
+            )
+        )
+    if data.get("severity") == "minor" and data.get("review_class") in TREE_CLASSES:
+        why = data.get("why_this_severity")
+        if not isinstance(why, str) or MARKER not in why:
+            out.append(
+                _message(
+                    path,
+                    "BR-087 marker",
+                    f'a minor register file gives its reason in why_this_severity with "{MARKER}"',
+                )
+            )
+    return out
+
+
+# --- The IDs of the findings --------------------------------------------------
+
+
+def _check_ids(
+    finding_ids: dict[str, str], register_ids: dict[str, list[str]]
+) -> list[str]:
+    """An ID names a finding file or one register file, never more (BR-090, DEC-53)."""
+    out: list[str] = []
+    for finding_id, paths in sorted(register_ids.items()):
+        if len(paths) > 1:
+            out.append(
+                _message(
+                    paths[0],
+                    "BR-090 one ID",
+                    f"the ID {finding_id} also names {', '.join(paths[1:])}",
+                )
+            )
+        if finding_id in finding_ids:
+            out.append(
+                _message(
+                    finding_ids[finding_id],
+                    "BR-090 one ID",
+                    f"the ID {finding_id} also names the register file {paths[0]}",
+                )
+            )
+    return out
+
+
+# --- The comparison with HEAD (BR-109, BR-110) ---------------------------------
+
+
+def is_finding_path(path: str) -> bool:
+    """Return whether *path* is a finding file `docs/findings/<ID>.md`."""
+    parts = path.split("/")
+    return (
+        len(parts) == 3 and parts[:2] == ["docs", "findings"] and path.endswith(".md")
+    )
+
+
+def is_register_path(path: str) -> bool:
+    """Return whether *path* is a register file under `docs/findings/register/`."""
+    return path.startswith("docs/findings/register/") and path.endswith(".json")
+
+
+OLD_REGISTERS = {f"docs/findings/register/{name}.jsonl" for name in CLASSES}
+
+
+def _finding_id(path: str) -> str:
+    return path.rsplit("/", 1)[1].rsplit(".", 1)[0]
+
+
+def _meta(text: str) -> dict | None:
+    """Return the frontmatter of a finding file, or None when it cannot be read."""
+    try:
+        meta, _ = parse_finding(text)
+    except FrontmatterError:
+        return None
+    return meta
+
+
+def _both(record: dict, first: str, second: str) -> bool:
+    return _has_text(record.get(first)) and _has_text(record.get(second))
+
+
+def _unconfirmed_critical(path: str, head_meta: dict) -> list[str]:
+    """A critical finding is lowered only when HEAD holds its confirmation (BR-109)."""
+    if head_meta.get("severity") != "critical" or _both(
+        head_meta, "stop_confirmed_by", "stop_confirmed_reason"
+    ):
+        return []
+    return [
+        _message(
+            path,
+            "BR-109 lowering",
+            f"{_finding_id(path)} is lowered from critical, but its HEAD version holds no text in stop_confirmed_by and stop_confirmed_reason",
+        )
+    ]
+
+
+def _check_kept_class(path: str, head_meta: dict, text: str) -> list[str]:
+    """A version keeps the review_class of its HEAD version (BR-109)."""
+    if carries_review_class(text):
+        meta = _meta(text)
+        if meta is None:
+            return []
+        review_class = meta.get("review_class")
+    else:
+        review_class = None
+    if review_class == head_meta.get("review_class"):
+        return []
+    return [
+        _message(
+            path,
+            "BR-109 review class",
+            f"{_finding_id(path)} keeps the review_class {head_meta.get('review_class')!r} of its HEAD version, not {review_class!r}",
+        )
+    ]
+
+
+def _check_lowering(path: str, head_meta: dict, text: str) -> list[str]:
+    """A severity below the HEAD severity needs the override fields (BR-109)."""
+    meta = _meta(text)
+    if meta is None:
+        return []
+    old, new = head_meta.get("severity"), meta.get("severity")
+    if old not in SEVERITY_ORDER or new not in SEVERITY_ORDER:
+        return []
+    if SEVERITY_ORDER.index(new) >= SEVERITY_ORDER.index(old):
+        return []
+    out: list[str] = []
+    if not _both(meta, "override_by", "override_reason"):
+        out.append(
+            _message(
+                path,
+                "BR-109 lowering",
+                f"{_finding_id(path)} is lowered from {old} to {new} without text in override_by and override_reason",
+            )
+        )
+    return out + _unconfirmed_critical(path, head_meta)
+
+
+REMOVABLE_STATUSES = {"resolved", "waived"}
+
+
+def _register_removable(text: str) -> bool:
+    """A register file that HEAD holds as resolved or waived may go (BR-110)."""
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return False
+    return isinstance(data, dict) and data.get("status") in REMOVABLE_STATUSES
+
+
+def _check_removed_finding(
+    path: str, head_meta: dict, registers: dict[str, list[Any]]
+) -> list[str]:
+    """A removed open finding file needs a register file that lowers it (BR-109)."""
+    if head_meta.get("status") in REMOVABLE_STATUSES:
+        return _unconfirmed_critical(path, head_meta)
+    finding_id = _finding_id(path)
+    replaced = any(
+        isinstance(data, dict)
+        and _both(data, "override_by", "override_reason")
+        and data.get("status") == "open"
+        for data in registers.get(finding_id, [])
+    )
+    if replaced:
+        return _unconfirmed_critical(path, head_meta)
+    return [
+        _message(
+            path,
+            "BR-109 removal",
+            f"{finding_id} is removed without a register file of the same ID that holds text in override_by and override_reason and the status open",
+        )
+    ]
+
+
+def _parsed_registers(files: dict[str, str]) -> dict[str, list[Any]]:
+    registers: dict[str, list[Any]] = {}
+    for path, text in files.items():
+        if not is_register_path(path):
+            continue
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        registers.setdefault(_finding_id(path), []).append(data)
+    return registers
+
+
+def compare_with_head(files: dict[str, str], head: dict[str, str]) -> list[str]:
+    """Compare the checked version of the findings with their HEAD version.
+
+    *files* and *head* map each path to its text. A finding file whose HEAD
+    version carries no review_class is not compared (BR-109). An open register
+    file that HEAD holds is removed only when a finding file with review_class
+    and the same ID replaces it (BR-110).
+    """
+    out: list[str] = []
+    registers = _parsed_registers(files)
+    for path in sorted(head):
+        if is_finding_path(path) and carries_review_class(head[path]):
+            head_meta = _meta(head[path])
+            if head_meta is None:
+                continue
+            if path in files:
+                out += _check_kept_class(path, head_meta, files[path])
+                out += _check_lowering(path, head_meta, files[path])
+            else:
+                out += _check_removed_finding(path, head_meta, registers)
+        elif is_register_path(path) and path not in files:
+            if _register_removable(head[path]):
+                continue
+            finding_id = _finding_id(path)
+            replacement = files.get(f"docs/findings/{finding_id}.md")
+            if replacement is None or not carries_review_class(replacement):
+                out.append(
+                    _message(
+                        path,
+                        "BR-110 removal",
+                        f"{finding_id} is removed without a finding file docs/findings/{finding_id}.md with review_class that replaces it",
+                    )
+                )
+    return out
+
+
+# --- The set of findings -------------------------------------------------------
+
+
+def lint_files(files: dict[str, str], head: dict[str, str], schemas: dict) -> list[str]:
+    """Check the findings of one version, given as path to text, against *head*.
+
+    A finding file is checked when it carries review_class or when its HEAD
+    version carries it (BR-109).
+    """
+    out: list[str] = []
+    finding_ids: dict[str, str] = {}
+    register_ids: dict[str, list[str]] = {}
+    for path in sorted(files):
+        text = files[path]
+        if is_finding_path(path):
+            classed = carries_review_class(text)
+            if classed:
+                finding_ids[_finding_id(path)] = path
+            if classed or (path in head and carries_review_class(head[path])):
+                out += check_finding_file(path, text, schemas, force=True)
+        elif is_register_path(path):
+            register_ids.setdefault(_finding_id(path), []).append(path)
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError as exc:
+                out.append(
+                    _message(
+                        path,
+                        "BR-090 register file",
+                        f"the file is not valid JSON: {exc}",
+                    )
+                )
+                continue
+            out += check_register_file(path, data, schemas)
+    return out + _check_ids(finding_ids, register_ids) + compare_with_head(files, head)
+
+
+# --- Reading the versions ------------------------------------------------------
+
+
+class GitError(Exception):
+    """A git call failed."""
+
+
+def read_worktree(root: Path) -> dict[str, str]:
+    """Read the finding files and register files of the working tree under *root*."""
+    files: dict[str, str] = {}
+    candidates = list((root / "docs" / "findings").glob("*.md"))
+    candidates += (root / "docs" / "findings" / "register").rglob("*.json")
+    for file in candidates:
+        files[file.relative_to(root).as_posix()] = file.read_text(encoding="utf-8")
+    return files
+
+
+def _git(root: Path, *args: str, stdin: bytes | None = None) -> bytes:
+    try:
+        result = subprocess.run(
+            ["git", *args], cwd=root, input=stdin, capture_output=True, check=False
+        )
+    except OSError as exc:
+        raise GitError(f"finding-lint: cannot run git: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        raise GitError(f"finding-lint: git {args[0]} failed: {detail}")
+    return result.stdout
+
+
+def _in_repository(root: Path) -> bool:
+    """Return whether *root* lies in a git repository."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise GitError(f"finding-lint: cannot run git: {exc}") from exc
+    if result.returncode == 0:
+        return True
+    detail = result.stderr.decode("utf-8", "replace").strip()
+    if "not a git repository" in detail:
+        return False
+    raise GitError(f"finding-lint: git rev-parse failed: {detail}")
+
+
+def _has_head(root: Path) -> bool:
+    """Return whether the repository has a commit at HEAD."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode in (0, 1):
+        return result.returncode == 0
+    detail = result.stderr.decode("utf-8", "replace").strip()
+    raise GitError(f"finding-lint: git rev-parse failed: {detail}")
+
+
+def _is_finding_or_register(path: str) -> bool:
+    return is_finding_path(path) or is_register_path(path)
+
+
+def _is_head_path(path: str) -> bool:
+    """HEAD also holds the old `.jsonl` registers, for the moved-line rule (FC-C25)."""
+    return _is_finding_or_register(path) or path in OLD_REGISTERS
+
+
+def _listed(output: bytes, accepts=_is_finding_or_register) -> list[str]:
+    paths = {name.decode("utf-8", "replace") for name in output.split(b"\0") if name}
+    return sorted(path for path in paths if "\n" not in path and accepts(path))
+
+
+def _read_objects(root: Path, prefix: str, paths: list[str]) -> dict[str, str]:
+    """Read the object `<prefix>./<path>` of each path with one cat-file call."""
+    if not paths:
+        return {}
+    request = "".join(f"{prefix}./{path}\n" for path in paths).encode("utf-8")
+    output = _git(root, "cat-file", "--batch", stdin=request)
+    texts: dict[str, str] = {}
+    position = 0
+    for path in paths:
+        end = output.index(b"\n", position)
+        header = output[position:end].split()
+        if len(header) != 3:
+            raise GitError(f"finding-lint: git cat-file cannot read {prefix}{path}")
+        size = int(header[2])
+        start = end + 1
+        texts[path] = output[start : start + size].decode("utf-8", "replace")
+        position = start + size + 1
+    return texts
+
+
+def read_head(root: Path) -> dict[str, str]:
+    """Read the HEAD version of the findings, or nothing without a commit."""
+    if not _in_repository(root) or not _has_head(root):
+        return {}
+    listed = _git(
+        root, "ls-tree", "-r", "-z", "--name-only", "HEAD", "--", "docs/findings"
+    )
+    return _read_objects(root, "HEAD:", _listed(listed, _is_head_path))
+
+
+def read_index(root: Path) -> dict[str, str]:
+    """Read the staged version of the findings."""
+    if not _in_repository(root):
+        raise GitError(
+            "finding-lint: --staged reads the index, and the current directory lies in no git repository"
+        )
+    listed = _git(root, "ls-files", "-z", "--cached", "--", "docs/findings")
+    return _read_objects(root, ":", _listed(listed))
+
+
+# --- The git check for in use (BR-088) -----------------------------------------
+
+IN_USE_CLASSES = ("code", "runtime", "security")
+ZERO_COMMIT = "0" * 40
+# The branches in the order of the contract's message table (DEC-50).
+BRANCHES = (
+    ("dev", "refs/heads/dev"),
+    ("main", "refs/heads/main"),
+    ("origin/dev", "refs/remotes/origin/dev"),
+    ("origin/main", "refs/remotes/origin/main"),
+)
+SETTINGS_PATH = "docs/factory-settings.yaml"
+SETTINGS_KEY = "release_tag_patterns"
+_EXAMPLE = 'such as ["v[0-9]*"], or [] for none.'
+INSTALLED_SOURCE = "packages/factory/"
+INSTALLED_COPY = ".agent-factory/factory"
+
+_PORCELAIN_HEADER = re.compile(
+    r"^(?P<commit>[0-9a-f]{40}) (?P<line>[0-9]+) [0-9]+(?: [0-9]+)?$"
+)
+_HEADING = re.compile(r"^(?P<marks>#{1,6})[ \t]+(?P<title>.*?)[ \t]*#*[ \t]*$")
+_FENCE = re.compile(r"^[ \t]{0,3}(```|~~~)")
+
+Identity = tuple[str, int, str]
+
+
+def parse_porcelain(output: str) -> list[Identity]:
+    """Return one line identity per line of `git blame --porcelain` output.
+
+    An identity is the introducing commit, the line number in that commit, and
+    the file name in that commit. Git prints the file name only with the first
+    line of a group, so a later line of the commit takes the last name given.
+    """
+    identities: list[Identity] = []
+    names: dict[str, str] = {}
+    commit, line = "", 0
+    for text in output.split("\n"):
+        if text.startswith("\t"):
+            identities.append((commit, line, names.get(commit, "")))
+            continue
+        header = _PORCELAIN_HEADER.match(text)
+        if header:
+            commit, line = header["commit"], int(header["line"])
+        elif text.startswith("filename "):
+            names[commit] = text[len("filename ") :]
+    return identities
+
+
+def holds_every_line(place: set[Identity], lines: list[Identity]) -> bool:
+    """Return whether *place* holds every line; a line no commit introduced never counts."""
+    return all(line[0] != ZERO_COMMIT and line in place for line in lines)
+
+
+class SettingsError(Exception):
+    """The release setting is missing or wrong; the text is the lint line."""
+
+
+_KEY_LINE = re.compile(rf"^{SETTINGS_KEY}[ \t]*:(?P<rest>.*)$")
+_PLAIN_START = "*&!|>[]{}'\"%@`,#?:-"
+
+
+def _pattern(item: str, plain: bool) -> str | None:
+    """Return the pattern an item holds, or None when it is no string."""
+    if len(item) >= 2 and item[0] == item[-1] and item[0] in "'\"":
+        return item[1:-1] or None
+    if plain and item and item[0] not in _PLAIN_START:
+        return item
+    return None
+
+
+def parse_release_tag_patterns(text: str) -> list[str]:
+    """Return the list under `release_tag_patterns` in the settings *text*.
+
+    It reads the flow list of quoted strings, the block list, and `[]`, and
+    ignores every other key. A missing key or a value that is no list of
+    strings raises SettingsError with the line the lint prints.
+    """
+    missing = SettingsError(
+        f"{SETTINGS_PATH}: key {SETTINGS_KEY} is missing. Add the list of git "
+        f"tag patterns that count as releases, {_EXAMPLE}"
+    )
+    wrong = SettingsError(
+        f"{SETTINGS_PATH}: key {SETTINGS_KEY} must hold a list of strings, {_EXAMPLE}"
+    )
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        match = _KEY_LINE.match(line)
+        if match is None:
+            continue
+        rest = _strip_comment(match["rest"])
+        if rest.startswith("["):
+            if not rest.endswith("]"):
+                raise wrong
+            try:
+                items = [_pattern(item, False) for item in _split_flow(rest[1:-1])]
+            except FrontmatterError:
+                raise wrong from None
+            if None in items:
+                raise wrong
+            return items  # type: ignore[return-value]
+        if rest:
+            raise wrong
+        patterns: list[str] = []
+        for later in lines[index + 1 :]:
+            stripped = _strip_comment(later)
+            if not stripped:
+                continue
+            if not stripped.startswith("-"):
+                if later[:1] in (" ", "\t"):
+                    raise wrong
+                break
+            pattern = _pattern(stripped[1:].strip(), True)
+            if pattern is None:
+                raise wrong
+            patterns.append(pattern)
+        if not patterns:
+            raise wrong
+        return patterns
+    raise missing
+
+
+def read_release_tag_patterns(root: Path) -> list[str]:
+    """Return the release tag patterns of the project under *root*."""
+    try:
+        text = (root / SETTINGS_PATH).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        text = ""
+    except (OSError, UnicodeDecodeError) as exc:
+        raise SettingsError(f"{SETTINGS_PATH}: cannot read the file: {exc}") from exc
+    return parse_release_tag_patterns(text)
+
+
+def _slug(title: str) -> str:
+    text = re.sub(r"[^\w\- ]", "", title.lower(), flags=re.UNICODE)
+    return text.replace(" ", "-")
+
+
+def section_range(text: str, anchor: str) -> tuple[int, int] | None:
+    """Return the first and last line of the section under the heading *anchor*.
+
+    The section runs down to the next heading of the same or a higher level.
+    A heading inside a code fence does not count.
+    """
+    headings: list[tuple[int, int, str]] = []
+    seen: dict[str, int] = {}
+    fenced = False
+    lines = text.splitlines()
+    for number, line in enumerate(lines, start=1):
+        if _FENCE.match(line):
+            fenced = not fenced
+            continue
+        match = None if fenced else _HEADING.match(line)
+        if match:
+            slug = _slug(match["title"])
+            count = seen.get(slug, 0)
+            seen[slug] = count + 1
+            headings.append(
+                (number, len(match["marks"]), slug if count == 0 else f"{slug}-{count}")
+            )
+    for index, (number, level, slug) in enumerate(headings):
+        if slug != anchor:
+            continue
+        end = next(
+            (later - 1 for later, other, _ in headings[index + 1 :] if other <= level),
+            len(lines),
+        )
+        return number, end
+    return None
+
+
+def _exists(root: Path, revision: str, path: str = "") -> bool:
+    """Return whether *revision*, or the path *path* in it, exists."""
+    name = f"{revision}:{path}" if path else revision
+    try:
+        result = subprocess.run(
+            ["git", "cat-file", "-e", name], cwd=root, capture_output=True, check=False
+        )
+    except OSError as exc:
+        raise GitError(f"finding-lint: cannot run git: {exc}") from exc
+    return result.returncode == 0
+
+
+class InUseCheck:
+    """Find the first place where every line of an artifact range exists unchanged."""
+
+    def __init__(
+        self, root: Path, tag_patterns: list[str] | None = None, staged: bool = False
+    ):
+        self.root = root
+        self.tag_patterns = tag_patterns or []
+        self.staged = staged
+        self.skipped: list[str] = []
+        self._tags: list[str] | None = None
+        self._branches: list[tuple[str, str]] | None = None
+        self._blames: dict[tuple[str, str], set[Identity]] = {}
+        self._sources: dict[str, dict[str, set[str]]] = {}
+
+    def branches(self) -> list[tuple[str, str]]:
+        """Return the branches the clone has, and name each one it lacks once."""
+        if self._branches is None:
+            self._branches = []
+            for name, ref in BRANCHES:
+                if _exists(self.root, f"{ref}^{{commit}}"):
+                    self._branches.append((name, ref))
+                else:
+                    self.skipped.append(f"skipped {name}: no such branch")
+        return self._branches
+
+    def tags(self) -> list[str]:
+        """Return each tag that `git tag --list '<pattern>'` lists for a pattern."""
+        if self._tags is None:
+            self._tags = []
+            for pattern in self.tag_patterns:
+                output = _git(self.root, "tag", "--list", "--", pattern)
+                for tag in output.decode("utf-8", "replace").splitlines():
+                    if tag and tag not in self._tags:
+                        self._tags.append(tag)
+        return self._tags
+
+    def _blame(self, *args: str, stdin: bytes | None = None) -> list[Identity]:
+        output = _git(self.root, "blame", "-M", "-C", "--porcelain", *args, stdin=stdin)
+        return parse_porcelain(output.decode("utf-8", "replace"))
+
+    def _staged_blob(self, path: str) -> bytes:
+        return _git(self.root, "cat-file", "blob", f":{path}")
+
+    def _reviewed_text(self, path: str) -> str | None:
+        """Return the index version with --staged, else the working tree, or None."""
+        if self.staged:
+            # An empty revision makes the object name `:path`, the index version.
+            if not _exists(self.root, "", path):
+                return None
+            return self._staged_blob(path).decode("utf-8", "replace")
+        file = self.root / path
+        if not file.is_file():
+            return None
+        return file.read_text(encoding="utf-8", errors="replace")
+
+    def _reviewed_lines(self, path: str, start: int, end: int) -> list[Identity]:
+        """Blame the range in the version that _reviewed_text reads."""
+        lines = ("-L", f"{start},{end}", "--", path)
+        if self.staged:
+            contents = ("--contents", "-")
+            return self._blame(*contents, *lines, stdin=self._staged_blob(path))
+        return self._blame(*lines)
+
+    def _range(self, artifact: str) -> tuple[str, int, int] | None:
+        match = _ARTIFACT.match(artifact)
+        if match is None:
+            return None
+        path = match["path"]
+        if not _exists(self.root, "HEAD", path):
+            return None
+        text = self._reviewed_text(path)
+        if text is None:
+            return None
+        if match["anchor"] is not None:
+            found = section_range(text, match["anchor"])
+            return None if found is None else (path, *found)
+        start = int(match["start"])
+        end = int(match["end"]) if match["end"] else start
+        return (path, start, end) if end <= len(text.splitlines()) else None
+
+    def _sources_of(self, ref: str, path: str) -> set[str]:
+        """Return the rename and copy sources that `git diff -M -C <ref>` names for *path*."""
+        if ref not in self._sources:
+            cached = ("--cached",) if self.staged else ()
+            output = _git(
+                self.root, "diff", "-M", "-C", "--name-status", "-z", *cached, ref
+            )
+            fields = [field.decode("utf-8", "replace") for field in output.split(b"\0")]
+            sources: dict[str, set[str]] = {}
+            index = 0
+            while index < len(fields) and fields[index]:
+                status = fields[index]
+                if status[0] in "RC":
+                    sources.setdefault(fields[index + 2], set()).add(fields[index + 1])
+                    index += 3
+                else:
+                    index += 2
+            self._sources[ref] = sources
+        return {path} | self._sources[ref].get(path, set())
+
+    def _on_branch(self, ref: str, path: str) -> set[Identity]:
+        found: set[Identity] = set()
+        for source in sorted(self._sources_of(ref, path)):
+            key = (ref, source)
+            if key not in self._blames:
+                exists = _exists(self.root, ref, source)
+                self._blames[key] = (
+                    set(self._blame(ref, "--", source)) if exists else set()
+                )
+            found |= self._blames[key]
+        return found
+
+    def _installed_file(self, path: str) -> Path | None:
+        if (
+            not path.startswith(INSTALLED_SOURCE)
+            or not (self.root / INSTALLED_SOURCE).is_dir()
+        ):
+            return None
+        local = self.root / INSTALLED_COPY / path[len(INSTALLED_SOURCE) :]
+        if local.is_file():
+            return local
+        # The helper lives beside this script; a lint copied without it
+        # still runs every check that needs no main checkout.
+        here = str(Path(__file__).resolve().parent)
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        from _main_checkout import installed_copy_in_main_checkout
+
+        copy = installed_copy_in_main_checkout(local)
+        return copy if copy is not None and copy.is_file() else None
+
+    def place_of(self, artifact: str) -> str | None:
+        """Return where the lines of *artifact* exist unchanged, or None."""
+        found = self._range(artifact)
+        if found is None:
+            return None
+        path, start, end = found
+        lines = self._reviewed_lines(path, start, end)
+        if not holds_every_line(set(lines), lines):
+            return None
+        for name, ref in self.branches():
+            if holds_every_line(self._on_branch(ref, path), lines):
+                return f"on {name}"
+        for tag in self.tags():
+            if holds_every_line(self._on_branch(f"refs/tags/{tag}", path), lines):
+                return f"at tag {tag}"
+        installed = self._installed_file(path)
+        if installed is not None:
+            copy = set(self._blame("--contents", str(installed), "--", path))
+            if holds_every_line(copy, lines):
+                return "in the installed copy"
+        return None
+
+
+def _record_of(path: str, text: str) -> Any:
+    """Return the parsed values of a finding file or a register file, or None."""
+    if is_finding_path(path):
+        return _meta(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def _same_values(record: dict, other: Any, keys: tuple[str, ...]) -> bool:
+    return isinstance(other, dict) and all(
+        other.get(key) == record.get(key) for key in keys
+    )
+
+
+def _moved_from_old_register(path: str, record: dict, head: dict[str, str]) -> bool:
+    """Return whether the old register of the class at HEAD holds this line (FC-C25)."""
+    folder = _register_folder(path)
+    if folder is None:
+        return False
+    for line in head.get(f"docs/findings/register/{folder}.jsonl", "").split("\n"):
+        try:
+            old = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if _same_values(record, old, ("id", "basis", "artifact")):
+            return True
+    return False
+
+
+def git_check_is_due(path: str, record: dict, head: dict[str, str]) -> bool:
+    """Return whether the file is new against HEAD or its basis or artifact changed.
+
+    The comparison uses parsed values, so key order and whitespace do not
+    count. A HEAD version that cannot be read counts as no version (BR-088).
+    """
+    if path in head:
+        earlier = _record_of(path, head[path])
+        return not _same_values(record, earlier, ("basis", "artifact"))
+    return not (is_register_path(path) and _moved_from_old_register(path, record, head))
+
+
+def _in_use_records(files: dict[str, str]) -> list[tuple[str, dict]]:
+    """Return each finding and register file that answers in_use false in a checked class."""
+    records: list[tuple[str, dict]] = []
+    for path in sorted(files):
+        if is_finding_path(path) and not carries_review_class(files[path]):
+            continue
+        record = _record_of(path, files[path])
+        if (
+            not isinstance(record, dict)
+            or record.get("review_class") not in IN_USE_CLASSES
+        ):
+            continue
+        basis = record.get("basis")
+        if (
+            isinstance(basis, dict)
+            and basis.get("in_use") is False
+            and isinstance(record.get("artifact"), str)
+        ):
+            records.append((path, record))
+    return records
+
+
+def check_in_use(
+    root: Path, files: dict[str, str], head: dict[str, str], staged: bool = False
+) -> tuple[list[str], list[str]]:
+    """Run the git check of BR-088 and return the violations and the skipped branches."""
+    records = [
+        (path, record)
+        for path, record in _in_use_records(files)
+        if git_check_is_due(path, record, head)
+    ]
+    if not records or not _in_repository(root) or not _has_head(root):
+        return [], []
+    try:
+        patterns = read_release_tag_patterns(root)
+    except SettingsError as exc:
+        return [str(exc)], []
+    check = InUseCheck(root, patterns, staged)
+    out: list[str] = []
+    for path, record in records:
+        place = check.place_of(record["artifact"])
+        if place is not None:
+            out.append(
+                _message(
+                    path, "BR-088 in use", f"artifact lines exist unchanged {place}"
+                )
+            )
+    return out, check.skipped
+
+
+def check_tree(
+    root: Path, schemas: dict, staged: bool = False
+) -> tuple[list[str], list[str]]:
+    """Return the violations and the skipped branches of the findings under *root*."""
+    files = read_index(root) if staged else read_worktree(root)
+    head = read_head(root)
+    in_use, skipped = check_in_use(root, files, head, staged)
+    return lint_files(files, head, schemas) + in_use, skipped
+
+
+def lint_tree(root: Path, schemas: dict, staged: bool = False) -> list[str]:
+    """Check the working tree under *root*, or the index with *staged*, against HEAD."""
+    return check_tree(root, schemas, staged)[0]
+
+
+def main(argv: list[str]) -> int:
+    if argv not in ([], ["--staged"]):
+        print("usage: finding-lint [--staged]", file=sys.stderr)
+        return 2
+    try:
+        schemas = load_schemas(FACTORY_ROOT)
+    except SetupError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    try:
+        messages, skipped = check_tree(Path.cwd(), schemas, staged=argv == ["--staged"])
+    except GitError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    for line in skipped + messages:
+        print(line)
+    return 1 if messages else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -19,6 +19,7 @@ Help the user identify the first point at which information, control, or an assu
 The skill reads one of these:
 
 - a finding file, `docs/findings/<TAG>-NNNN.md`
+- the stop notice that `dispatch` or `premerge-check` prints, which names each stopping finding
 - a review report, `docs/reviews/*.md`
 - a PR comment that the user pastes
 - the output of a failing test

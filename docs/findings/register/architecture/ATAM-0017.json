@@ -1,0 +1,19 @@
+{
+  "id": "ATAM-0017",
+  "source": "atam-review",
+  "review_class": "architecture",
+  "category": "risk",
+  "type": "risk",
+  "severity": "minor",
+  "artifact": "docs/arc42/06_runtime_view.md:964-969",
+  "story": "counter-ids-fitting",
+  "finding": "A move cut off after a successful push and before the setting is removed leaves C on origin. Until the next session start, a clone of the new origin on another machine can claim there, so origin moves on to a claim commit other than C. The second move then reads OriginHoldsOther and reports a collision, although the move went through; the marker and the setting stay, and every local claim fails until a human acts (CIF-G03). Let the collision message print the key=value lines of both claim commits, so a human sees whether every line on origin is at or above the line of C, and state that check in 6.16.1 and BR-102.",
+  "basis": {
+    "importance": "medium",
+    "exposure": "uncertain",
+    "in_use": false
+  },
+  "why_this_severity": "The outcome is a false collision, which QS-23 (priority 2) covers, so importance is medium; it hands out no ID twice, because the marker keeps every local claim away from C; whether other clones claim inside the window is unknown, so exposure is uncertain.",
+  "commit": "54f1678dcf209f6c7f9fccb09b11e8ee722223ee",
+  "status": "open"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0068",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/counter-ids-fitting-gaps.md#other-gaps",
+  "story": null,
+  "finding": "Three Factory files write T IDs into docs/spec/work/todos.md, not todo.md: playbooks/architecture-review.md appends T-$(date +%s)-001 entries, agents/coaching-agent.md files T-NNN entries, and playbooks/brownfield-onboarding.md documents debt there. BR-107 makes only todo.md writers T producers, and BR-099 does not read todos.md. So these files keep numbering T outside next-id. T-0008 tracks the merge of the two lists. Name todos.md and its writers as out of scope with a reference to T-0008, or add them to the scope.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The IDs in todos.md use other forms than T-NNNN, so they do not collide with the counter in this project (no to fails_purpose); a planner cannot tell from the specification whether these files are forgotten or left out on purpose (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

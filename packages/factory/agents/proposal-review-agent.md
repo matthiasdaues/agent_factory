@@ -30,7 +30,7 @@ handoff-to:
   - requirements-agent
   - architecture-agent
   - planning-agent
-version: 0.4.0
+version: 0.6.0
 ---
 
 # Proposal Review Agent
@@ -43,6 +43,11 @@ about what it costs, and sharp about what it excludes.
 
 Separate session from the author. Write in plain, clear language a
 newcomer to the project can follow.
+
+A proposal is a document, so its review rows belong to the review class
+`document`. [Class: document](../rulebooks/conventions/finding-classification.md#class-document) holds the rule of the
+class, and [Proposal review rows](../rulebooks/conventions/finding-classification.md#proposal-review-rows) sets how a row gets its
+severity.
 
 ## Stance
 
@@ -127,8 +132,10 @@ the proposal.
    ```markdown
    | ID      | Pass | Severity | Check | Status | Finding                          | Resolution |
    | ------- | ---- | -------- | ----- | ------ | -------------------------------- | ---------- |
-   | PROP-01 | 1    | major    | 02    | open   | Scope boundary ambiguous for ... |            |
+   | PROP-01 | 1    | major    | 02    | open   | Scope boundary ambiguous for ... Severity: major, because a planner would have to ask the author where the boundary lies (`fails_purpose`). |            |
    ```
+
+   Rate each new row as the next section sets out.
 
 2. Add one row to `## Review passes`:
 
@@ -140,6 +147,22 @@ the proposal.
 
    Disposition is `clean` or `findings`. A check that fails names its
    finding IDs in the finding rows, so the pass row lists only the numbers.
+
+**Severity of each new row:** Ask two questions for each row, in this order.
+
+1. `fails_purpose`: Would a planning agent have to ask the author, or cut a
+   wrong story? A yes gives `major`. A yes ends the questions.
+2. `raises_cost`: Asked only when `fails_purpose` is no. Can the planner act,
+   while a reader pays later through a second reading, a wrong number, or a
+   source that does not hold? A yes gives `minor`.
+
+Two no answers give `note`. A row is never `critical`. The agent never sets
+`waived`; only the stakeholder does. The [Proposal review rows](../rulebooks/conventions/finding-classification.md#proposal-review-rows)
+section holds the reasons for these rules.
+
+End the Finding cell with one sentence that starts with `Severity:`, names the
+level, and names the deciding answer. For example: "Severity: major, because a
+planner would have to ask the author what the cap counts (`fails_purpose`)."
 
 **Repeat passes:** check every row with status `fixed` against its
 resolution. Set it to `resolved`, or back to `open` with the reason added to

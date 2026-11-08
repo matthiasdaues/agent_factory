@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0100",
+  "source": "diagnosis",
+  "review_class": "code",
+  "category": "defect",
+  "type": "function",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/architecture-agent.md:93",
+  "story": null,
+  "finding": "architecture-agent.md:76 requires System Context, Container, Component and Deployment views in the first pass. The brownfield playbook defers components to the component-resolution pass (brownfield-onboarding.md:88, :197). Fix: Let the first pass require Component views only outside brownfield Stage 1, or follow the playbook.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "`architecture-agent.md` line 93 requires Component views in the first pass, and the brownfield playbook defers them, so the first pass of a brownfield project does extra work. The pass still delivers the structural skeleton (no to fails_purpose).",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

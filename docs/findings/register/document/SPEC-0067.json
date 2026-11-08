@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0067",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/counter-ids-fitting-gaps.md#ambiguous-wording",
+  "story": null,
+  "finding": "--plan-seed reads the IDs on each branch. The commit that fixes a minor finding deletes its register line (glossary, Register Line). When that line held the highest ID of a prefix, no branch tip holds it, and the seed hands the number out again. State whether the mode reads the branch tips or the history of docs/findings/register/, or record the reuse as an accepted limit next to CIF-G10.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The case needs a fixed minor finding with the highest ID of its prefix before the first seed, which is rare (no to fails_purpose); a reused ID then points to two findings in old review reports, and a reader has to tell them apart (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

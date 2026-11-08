@@ -63,7 +63,7 @@ Look for:
 Check for open findings found during reconciliation:
 
 ```bash
-grep -l "status: open" docs/findings/*.md
+grep -l "^status: open" docs/findings/*.md
 ```
 
 **If open findings** → Go to Step 1.4 (fix code first)
@@ -142,7 +142,7 @@ Go to Step 2.
 Check findings:
 
 ```bash
-grep -l "status: open" docs/findings/SPEC-*.md
+grep -l "^status: open" docs/findings/SPEC-*.md
 ```
 
 **If findings** → Address and loop
@@ -159,11 +159,19 @@ grep -l "status: open" docs/findings/SPEC-*.md
 Check findings:
 
 ```bash
-grep -l "status: open" docs/findings/ATAM-*.md
+grep -l "^status: open" docs/findings/ATAM-*.md
 ```
 
 **If findings** → Address via architecture-agent
 **If clean** → Go to DONE
+
+## Stop notice
+
+When `dispatch` or `premerge-check` exits `1` and prints a notice that starts with `STOP:`, run no further step. In an interactive session, explain each stopping finding with `explain-review-finding` and wait; only the stakeholder confirms a stop ([finding-format.md § Confirming a stop](../rulebooks/conventions/finding-format.md#confirming-a-stop)). A headless run does not wait. It ends with the notice in its final summary.
+
+## New minor findings
+
+The final summary lists each new register file with its `why_this_severity` sentence. A headless run lists them only after the loop ends, so a wrong downgrade can still reach implementation, and the summary says so ([finding-format.md § Pause point](../rulebooks/conventions/finding-format.md#pause-point)).
 
 ## DONE
 

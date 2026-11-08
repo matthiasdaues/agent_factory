@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0007",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/rulebooks/rules.md:101",
+  "story": "ST-0373",
+  "finding": "rules.md:101, branching-policy.md:41, and planning-agent.md:110 say that the prefixes next-id serves are listed in finding-format.md § File location and name. That list holds only the nine finding tags; ST, T, and ADR are missing, although next-id serves them (BR-068). Link BR-068 in validation-rules.md, or name all twelve prefixes in one place and link it.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Each producer file names its own prefix (create-backlog: ST, todo-format: T, write-adr: ADR), so an agent still claims those IDs (no to fails_purpose); a reader who follows the link sees an incomplete list and must search for the rest (raises_cost).",
+  "commit": "3da01aa8dc31e48f1986b0cfd6e0b1f6516aa6f7",
+  "status": "open"
+}

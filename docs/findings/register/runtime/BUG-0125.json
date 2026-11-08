@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0125",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "usability",
+  "severity": "minor",
+  "artifact": "packages/factory/config/hooks/guard-human-fields:521-538",
+  "story": "ST-0400",
+  "finding": "guard-human-fields refuses a Write of a finding file when the body quotes a human field at the start of a line, for example a fenced YAML block that holds `override_by: human`. The YAML_LINE pattern scans the whole text, not only the frontmatter, so _yaml_values reads a body line as a field. An agent that files a finding about a waiver gets the message that it sets a human field. Reproduced with a Write payload whose frontmatter is clean and whose body holds the fenced block: exit 2, expected exit 0. Fix: in _yaml_values, read only the lines between the two frontmatter delimiters.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The guard still refuses every real write of a human field, and an agent can quote the field inline or indented to file the finding (no to fails_purpose). The refusal message is false for this call, so the agent must find out why it was refused.",
+  "commit": "107bd1dee469710ef3eac740bdfbfd56d55e2520",
+  "status": "open"
+}

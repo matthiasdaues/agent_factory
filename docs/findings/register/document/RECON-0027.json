@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0027",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incorrect",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:491",
+  "story": "ST-0370",
+  "finding": "BR-076 bounds a claim with ten stale leases at twenty git calls of 30 seconds each and nine waits. next-id limits every git call of a claim: git init, then fetch, rev-parse, show, mktree, commit-tree, and push per try, so the worst case is 61 calls. Count all 61, or state the bound for the twenty calls that reach the remote.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Each call still stops at 30 seconds, so a claim always ends with a named cause, as QS-20 requires (no to fails_purpose); a reader who plans a timeout from the stated bound gets a third of the real worst case (raises_cost).",
+  "commit": "d0a78a5c40327c1f7e4c9a204ab5e766a7e0c44b",
+  "status": "open"
+}

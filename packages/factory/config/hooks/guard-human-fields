@@ -1,0 +1,593 @@
+#!/usr/bin/env python3
+"""guard-human-fields: refuse an agent's call that sets a human field (BR-092).
+
+A human field is a non-null `override_by`, `override_reason`,
+`stop_confirmed_by`, or `stop_confirmed_reason`, the status `waived` in a
+finding file or a register file, or `waived` in the Status cell of a
+proposal review row. Only the stakeholder writes these values, in an editor
+or with a `!` command, which runs outside the tool hooks.
+
+Guarded paths, relative to the git top level of the target file:
+
+  docs/findings/<name>.md                finding files
+  docs/findings/register/**/<name>.json  register files
+  docs/proposals/<name>.md               the tables under `# Appendix`
+
+Input: the tool call on standard input, in the format of its CLI:
+
+  Claude Code, Codex   `tool_name` and `tool_input` (PreToolUse)
+  Copilot CLI          `toolName` and `toolArgs`, an object or a JSON string
+  Pi extension         `toolName` and `input`
+  OpenCode plugin      `toolName` and `input`, with the arguments of the
+                       OpenCode tool as it names them (`filePath`, `oldString`,
+                       `newString`, `patchText`, `command`, `code`)
+
+Guarded tools: Edit, MultiEdit, Write, NotebookEdit, and Bash, and the
+lowercase names edit, write, write_file, create, bash, and apply_patch, and
+the OpenCode names patch (a patch call), shell (a shell call), and execute.
+
+"Sets" means a value appears that was not there before. Edit and MultiEdit
+apply each edit to the current file and compare the values before and after;
+when the file is missing or an old_string is not in it, the guard compares
+old_string with new_string. Write and NotebookEdit compare the new content
+with the current file. Bash is checked only when it writes into a guarded
+path: a redirect, tee, sed -i, perl -i, or an interpreter that names the
+path. Then any human value in the command text refuses it. An OpenCode
+`execute` call carries JavaScript: the guard reads it as the text of a script,
+so any guarded path that the code names is a write target. The guard follows
+each literal `cd <dir>` of the command line; a `cd` inside parentheses ends
+with the subshell.
+
+apply_patch: the guard reads the paths and the removed and added lines from
+the patch text. Each hunk of `*** Update File:` is checked as an edit, each
+`*** Add File:` as a write. A patch the guard cannot parse is refused when
+its raw text names a guarded path.
+
+Exit 0 lets the call through. Exit 2 refuses it, with a message on standard
+error that names the file and the field. The guard writes no file.
+
+Blind spot (DEC-42): the guard checks the text of each call. An agent that
+hides the field name passes it, such as with a field name built from pieces
+in a script, a `cp` of a prepared file, or `git checkout <ref> -- <file>`.
+A `cd` to a variable, such as `cd "$DIR"`, is part of the blind spot.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+HUMAN_FIELDS = ("override_by", "override_reason", "stop_confirmed_by", "stop_confirmed_reason")
+NULL_VALUES = {"", "null", "~", "''", '""'}
+BLOCK_SCALARS = {"|", ">", "|-", ">-", "|+", ">+"}
+
+_FIELD_NAMES = "|".join(HUMAN_FIELDS + ("status",))
+# A YAML line of a finding file, such as `stop_confirmed_by: human  # note`.
+YAML_LINE = re.compile(rf"^[ \t]*({_FIELD_NAMES})[ \t]*:(.*)$", re.MULTILINE)
+# A JSON key of a register file, such as `"status": "waived"`.
+JSON_KEY = re.compile(
+    rf'"({_FIELD_NAMES})"\s*:\s*("(?:[^"\\]|\\.)*"|[^,}}\s]+)'
+)
+# A field anywhere in a shell command, such as `s/status: open/status: waived/`.
+SHELL_FIELD = re.compile(
+    rf"""\b({_FIELD_NAMES})["']?\s*:\s*["']?([^\s"',/}}]*)"""
+)
+WAIVED_WORD = re.compile(r"\bwaived\b")
+HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
+# Words that lead a command without being the command: `then sed -i ...`.
+WRAPPERS = {"{", "then", "do", "else", "!", "env", "command", "time", "sudo"}
+INTERPRETERS = {"python", "python3", "perl", "ruby", "node", "awk", "gawk"}
+SHELLS = {"sh", "bash", "zsh", "dash"}
+SEPARATORS = {";", "&&", "||", "|", "&", "(", ")"}
+REDIRECTS = {">", ">>", ">|", "&>", "&>>", "1>", "1>>", "2>", "2>>"}
+WRITE_TOOLS = {"write", "write_file", "create"}
+SHELL_TOOLS = {"bash", "shell"}
+PATCH_TOOLS = {"apply_patch", "patch"}
+SCRIPT_TOOLS = {"execute"}
+PATCH_FILE = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+)$")
+PATH_WORD = re.compile(r"[\w./*-]+")
+
+
+def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(__doc__)
+        return 0
+    try:
+        payload = json.loads(sys.stdin.read() or "{}")
+    except json.JSONDecodeError:
+        return 0
+    if not isinstance(payload, dict):
+        return 0
+    refusal = check_call(payload)
+    if refusal is None:
+        return 0
+    print(refusal, file=sys.stderr)
+    return 2
+
+
+def check_call(payload: dict) -> str | None:
+    """Return the refusal message for a call that sets a human field, else None."""
+    tool, args = _tool_call(payload)
+    if args is None:
+        return None
+    cwd = Path(payload.get("cwd") or os.getcwd())
+    name = tool.lower()
+
+    if name in SHELL_TOOLS:
+        return check_shell(_command_text(args.get("command") or args.get("cmd")), cwd)
+    if name in SCRIPT_TOOLS:
+        code = _first_text(args, ("code", "javascript", "script", "command"))
+        return check_shell(code, cwd, script=True)
+    if name in PATCH_TOOLS:
+        return check_patch(_patch_text(args), cwd)
+
+    raw_path = _first_text(args, ("notebook_path", "file_path", "filePath", "path"))
+    if not raw_path:
+        return None
+    path = _absolute(raw_path, cwd)
+    rel, kind = guarded(path)
+    if kind is None:
+        return None
+    current = _read(path)
+
+    if name in WRITE_TOOLS:
+        return _compare(rel, kind, current or "", _first_text(args, ("content", "file_text")))
+    if tool == "NotebookEdit":
+        return _compare(rel, kind, current or "", str(args.get("new_source") or ""))
+    if name == "edit":
+        edits = args.get("edits")
+        return check_edits(rel, kind, current, edits if isinstance(edits, list) else [args])
+    if tool == "MultiEdit":
+        edits = args.get("edits")
+        return check_edits(rel, kind, current, edits if isinstance(edits, list) else [])
+    return None
+
+
+def _tool_call(payload: dict) -> tuple[str, dict | None]:
+    """The tool name and its arguments, whichever CLI format the payload has."""
+    tool = str(payload.get("tool_name") or payload.get("toolName") or "")
+    args = next(
+        (payload[key] for key in ("tool_input", "toolArgs", "input") if key in payload),
+        None,
+    )
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except json.JSONDecodeError:
+            args = {"patch": args} if tool.lower() in PATCH_TOOLS else None
+    return tool, args if isinstance(args, dict) else None
+
+
+def _first_text(args: dict, keys: tuple[str, ...]) -> str:
+    for key in keys:
+        value = args.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def _command_text(command: object) -> str:
+    """A shell command as text; Codex may pass it as an argument list."""
+    if isinstance(command, list):
+        return shlex.join(str(word) for word in command)
+    return str(command or "")
+
+
+def _patch_text(args: dict) -> str:
+    """The patch text of an apply_patch call; Codex may pass an argument list."""
+    for key in ("patch", "patchText", "input", "command"):
+        value = args.get(key)
+        if isinstance(value, list):
+            value = next((v for v in reversed(value) if isinstance(v, str)), "")
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
+def check_edits(rel: str, kind: str, current: str | None, edits: list) -> str | None:
+    """Apply the edits in order to the current file and compare before with after.
+
+    An edit that cannot be applied is checked on its own old_string and
+    new_string."""
+    text = current
+    for edit in edits:
+        if not isinstance(edit, dict):
+            continue
+        old = str(edit.get("old_string") or edit.get("old_str") or edit.get("oldString") or edit.get("oldText") or "")
+        new = str(edit.get("new_string") or edit.get("new_str") or edit.get("newString") or edit.get("newText") or "")
+        if text is not None and old and old in text:
+            after = text.replace(old, new) if edit.get("replace_all") or edit.get("replaceAll") else text.replace(old, new, 1)
+            refusal = _compare(rel, kind, text, after)
+            text = after
+        else:
+            refusal = _compare(rel, kind, old, new)
+        if refusal:
+            return refusal
+    return None
+
+
+def check_patch(text: str, cwd: Path) -> str | None:
+    """Refuse a patch that sets a human field, or that cannot be parsed and names a guarded path."""
+    files = parse_patch(text)
+    if files is None:
+        return check_unparsable(text, cwd)
+    for op, raw_path, body in files:
+        if op == "Delete":
+            continue
+        path = _absolute(raw_path, cwd)
+        rel, kind = guarded(path)
+        if kind is None:
+            continue
+        current = _read(path)
+        if op == "Add":
+            refusal = _compare(rel, kind, current or "", "\n".join(body))
+        else:
+            refusal = check_edits(rel, kind, current, _hunk_edits(body))
+        if refusal:
+            return refusal
+    return None
+
+
+def parse_patch(text: str) -> list[tuple[str, str, list[str]]] | None:
+    """The file sections of an apply_patch text, as (operation, path, body lines).
+
+    A `*** Move to:` line becomes an Update section of its own with the same
+    hunks. Returns None when the text breaks the patch format."""
+    lines = text.strip("\n").split("\n")
+    if len(lines) < 2 or lines[0].strip() != "*** Begin Patch" or lines[-1].strip() != "*** End Patch":
+        return None
+    files: list[tuple[str, str, list[str]]] = []
+    for line in lines[1:-1]:
+        header = PATCH_FILE.match(line)
+        if header:
+            files.append((header.group(1), header.group(2).strip(), []))
+            continue
+        if not files:
+            return None
+        op, _, body = files[-1]
+        if op == "Update" and line.startswith("*** Move to: "):
+            files.append(("Update", line[len("*** Move to: "):].strip(), body))
+        elif line == "*** End of File":
+            continue
+        elif op == "Add" and line.startswith("+"):
+            body.append(line[1:])
+        elif op == "Update" and (line.startswith(("@@", " ", "-", "+")) or line == ""):
+            body.append(line)
+        else:
+            return None
+    return files or None
+
+
+def _hunk_edits(body: list[str]) -> list[dict]:
+    """One edit per hunk: old text from the context and `-` lines, new text from the context and `+` lines."""
+    hunks: list[list[str]] = [[]]
+    for line in body:
+        if line.startswith("@@"):
+            hunks.append([])
+        else:
+            hunks[-1].append(line)
+    edits = []
+    for hunk in hunks:
+        old = [line[1:] for line in hunk if not line.startswith("+")]
+        new = [line[1:] for line in hunk if not line.startswith("-")]
+        if hunk:
+            edits.append({"old_string": "\n".join(old), "new_string": "\n".join(new)})
+    return edits
+
+
+def check_unparsable(text: str, cwd: Path) -> str | None:
+    for word in PATH_WORD.findall(text):
+        if not (_matches(word, ".md") or _matches(word, ".json")):
+            continue
+        rel, kind = guarded(_absolute(word, cwd))
+        if kind is not None:
+            return (
+                f"guard-human-fields: refused. The guard cannot parse the patch, and its "
+                f"text names {rel}. Only the stakeholder writes a human field there, in an "
+                "editor or with a `!` command (BR-092). Send the change as a well-formed "
+                "patch, an edit, or a write, so the guard can check it."
+            )
+    return None
+
+
+def check_shell(command: str, cwd: Path, script: bool = False) -> str | None:
+    """Refuse a shell command that writes into a guarded path and assigns a human value.
+
+    With `script`, the text is code, such as the JavaScript of an OpenCode
+    `execute` call: every path-like word of it counts as a write target."""
+    if script:
+        targets = [_absolute(word, cwd) for word in PATH_WORD.findall(command)]
+    else:
+        targets = shell_write_targets(command, cwd)
+    for path in targets:
+        rel, kind = guarded(path)
+        if kind is None:
+            continue
+        if kind == "proposal":
+            if WAIVED_WORD.search(command):
+                return _message(rel, "Status")
+            continue
+        for field, value in SHELL_FIELD.findall(command):
+            if _is_human(field, value):
+                return _message(rel, field)
+    return None
+
+
+def shell_write_targets(command: str, cwd: Path) -> list[Path]:
+    """Name the paths a shell command writes into, as far as its text shows."""
+    targets: list[Path] = []
+    try:
+        # Each line is a command of its own, except after a line continuation.
+        stripped, heredocs = _split_heredocs(command)
+        text = stripped.replace("\\\n", " ").replace("\n", " ; ")
+        lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()<>")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        words = list(lexer)
+    except ValueError:
+        # Unbalanced quotes: treat every path-like word of the text as a target.
+        return [_absolute(word, cwd) for word in re.findall(r"[\w./*-]+", command)]
+
+    # The body of a heredoc fed to an interpreter or a shell is its script.
+    for line, body in heredocs:
+        targets.extend(_heredoc_script_targets(line, body, cwd))
+
+    # Follow each literal `cd` in order; a subshell restores the directory (BUG-0120).
+    subshells: list[Path] = []
+    simple: list[str] = []
+    for word in words + [";"]:
+        if word not in SEPARATORS:
+            simple.append(word)
+            continue
+        if simple and simple[0] == "cd":
+            cwd = _changed_directory(simple[1:], cwd)
+        elif simple:
+            targets.extend(_absolute(w, cwd) for w in _simple_targets(simple, cwd))
+        simple = []
+        if word == "(":
+            subshells.append(cwd)
+        elif word == ")" and subshells:
+            cwd = subshells.pop()
+    return targets
+
+
+def _changed_directory(args: list[str], cwd: Path) -> Path:
+    """The directory after `cd <args>`; a variable or a missing argument keeps cwd."""
+    args = [a for a in args if a not in ("--", "-P", "-L")]
+    if len(args) != 1 or re.search(r"[$`~*?\[]", args[0]) or args[0] == "-":
+        return cwd
+    return _absolute(args[0], cwd)
+
+
+def _simple_targets(words: list[str], cwd: Path) -> list[str]:
+    targets = [words[i + 1] for i, w in enumerate(words[:-1]) if w in REDIRECTS]
+    args = [w for w in words if w not in REDIRECTS]
+    while args and (re.match(r"^\w+=", args[0]) or args[0] in WRAPPERS):
+        args = args[1:]
+    if not args:
+        return targets
+    name = os.path.basename(args[0])
+    rest = args[1:]
+    in_place = name in ("sed", "perl") and any(
+        w.startswith("-i") or w == "--in-place" for w in rest
+    )
+    if name == "tee" or in_place:
+        targets.extend(w for w in rest if not w.startswith("-"))
+    elif name in INTERPRETERS:
+        # A script can write any path that its text names.
+        targets.extend(re.findall(r"[\w./*-]+", " ".join(rest)))
+    elif name in SHELLS:
+        # `-c`, or a flag group that ends in c, such as Codex's `bash -lc`.
+        flag = next((i for i, w in enumerate(rest) if re.match(r"^-\w*c$", w)), None)
+        script = rest[flag + 1] if flag is not None and flag + 1 < len(rest) else ""
+        targets.extend(str(p) for p in shell_write_targets(script, cwd))
+    return targets
+
+
+def _split_heredocs(command: str) -> tuple[str, list[tuple[str, str]]]:
+    """Drop the body lines of each heredoc, so the lexer sees only the commands.
+
+    Also return each heredoc as its command line and its body."""
+    lines = command.split("\n")
+    kept: list[str] = []
+    heredocs: list[tuple[str, str]] = []
+    terminator: str | None = None
+    body: list[str] = []
+    opener = ""
+    for line in lines:
+        if terminator is not None:
+            if line.strip() == terminator:
+                heredocs.append((opener, "\n".join(body)))
+                terminator = None
+            else:
+                body.append(line)
+            continue
+        kept.append(line)
+        match = HEREDOC.search(line)
+        if match:
+            terminator = match.group(2)
+            opener = line
+            body = []
+    return "\n".join(kept), heredocs
+
+
+def _heredoc_script_targets(line: str, body: str, cwd: Path) -> list[Path]:
+    """The paths a heredoc body writes, when its command runs the body as a script."""
+    try:
+        lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|()<>")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        words = list(lexer)
+    except ValueError:
+        return []
+    simple: list[str] = []
+    for word in words + [";"]:
+        if word not in SEPARATORS:
+            simple.append(word)
+            continue
+        if any(w.startswith("<<") for w in simple):
+            args = [w for w in simple if w not in REDIRECTS]
+            while args and (re.match(r"^\w+=", args[0]) or args[0] in WRAPPERS):
+                args = args[1:]
+            name = os.path.basename(args[0]) if args else ""
+            if name in INTERPRETERS:
+                return [_absolute(w, cwd) for w in PATH_WORD.findall(body)]
+            if name in SHELLS:
+                return shell_write_targets(body, cwd)
+        simple = []
+    return []
+
+
+def guarded(path: Path) -> tuple[str, str | None]:
+    """Return the path relative to its project root and its kind, or None when unguarded."""
+    root = _project_root(path)
+    try:
+        rel = path.relative_to(root).as_posix()
+    except ValueError:
+        return str(path), None
+    parts = rel.split("/")
+    if parts[:2] == ["docs", "findings"]:
+        if len(parts) == 3 and _matches(parts[2], ".md"):
+            return rel, "finding"
+        if len(parts) >= 4 and parts[2] == "register" and _matches(parts[-1], ".json"):
+            return rel, "register"
+    if parts[:2] == ["docs", "proposals"] and len(parts) == 3 and _matches(parts[2], ".md"):
+        return rel, "proposal"
+    return rel, None
+
+
+def _matches(name: str, suffix: str) -> bool:
+    """A file name with the suffix, or a glob that can match one."""
+    return name.endswith((suffix, "*"))
+
+
+def _project_root(path: Path) -> Path:
+    directory = path.parent
+    while not directory.exists() and directory != directory.parent:
+        directory = directory.parent
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(directory), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        out = None
+    if out is not None and out.returncode == 0 and out.stdout.strip():
+        return Path(out.stdout.strip()).resolve()
+    return Path(os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()).resolve()
+
+
+def _absolute(raw: str, cwd: Path) -> Path:
+    path = Path(raw)
+    if not path.is_absolute():
+        path = cwd / path
+    return path.resolve()
+
+
+def _read(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def _compare(rel: str, kind: str, before: str, after: str) -> str | None:
+    added = human_values(kind, after) - human_values(kind, before)
+    if not added:
+        return None
+    field = min(added)[0]
+    return _message(rel, field)
+
+
+def human_values(kind: str, text: str) -> set[tuple[str, str]]:
+    """The human values a text holds, as (field, value) pairs."""
+    if kind == "finding":
+        return _yaml_values(text)
+    if kind == "register":
+        return {
+            (field, value)
+            for field, raw in JSON_KEY.findall(text)
+            if _is_human(field, value := _unquote(raw))
+        }
+    if kind == "proposal":
+        return _appendix_waived_rows(text)
+    return set()
+
+
+def _yaml_values(text: str) -> set[tuple[str, str]]:
+    values: set[tuple[str, str]] = set()
+    lines = text.split("\n")
+    for match in YAML_LINE.finditer(text):
+        field, raw = match.group(1), _strip_comment(match.group(2)).strip()
+        if raw in BLOCK_SCALARS:
+            line_no = text.count("\n", 0, match.start())
+            indent = len(lines[line_no]) - len(lines[line_no].lstrip())
+            body = []
+            for line in lines[line_no + 1:]:
+                if line.strip() and len(line) - len(line.lstrip()) <= indent:
+                    break
+                body.append(line.strip())
+            raw = " ".join(b for b in body if b) or ""
+        value = _unquote(raw)
+        if _is_human(field, value):
+            values.add((field, value))
+    return values
+
+
+def _appendix_waived_rows(text: str) -> set[tuple[str, str]]:
+    """The rows of the Appendix tables whose Status cell holds `waived`, keyed by their first cell."""
+    rows: set[tuple[str, str]] = set()
+    in_appendix = False
+    status_index: int | None = None
+    for line in text.split("\n"):
+        if re.match(r"^#\s", line):
+            in_appendix = line.strip() == "# Appendix"
+            status_index = None
+            continue
+        if not in_appendix or not line.lstrip().startswith("|"):
+            status_index = None
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if status_index is None:
+            status_index = cells.index("Status") if "Status" in cells else -1
+            continue
+        if 0 <= status_index < len(cells) and cells[status_index] == "waived":
+            rows.add(("Status", cells[0]))
+    return rows
+
+
+def _strip_comment(raw: str) -> str:
+    stripped = raw.strip()
+    if stripped[:1] in ("'", '"'):
+        return stripped
+    return re.split(r"\s#", raw, maxsplit=1)[0]
+
+
+def _unquote(raw: str) -> str:
+    raw = raw.strip()
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in ("'", '"'):
+        return raw[1:-1]
+    return raw
+
+
+def _is_human(field: str, value: str) -> bool:
+    if field == "status":
+        return value == "waived"
+    return value not in NULL_VALUES
+
+
+def _message(rel: str, field: str) -> str:
+    return (
+        f"guard-human-fields: refused. The call sets the human field `{field}` in {rel}. "
+        "Only the stakeholder writes this field, in an editor or with a `!` command "
+        "(BR-092). Leave the field as it is and tell the stakeholder."
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

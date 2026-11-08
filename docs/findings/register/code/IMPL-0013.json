@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0013",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/config/session-menu.md:23-24",
+  "story": "DEC-16",
+  "finding": "After DEC-16, a refused move keeps the marker, so every ID claim fails by BR-097 until a move succeeds. The claim message says that origin holds the counter, which is false when the push failed. The Collision and Another failure outcomes of the counter check tell VIRGIL to name the next session start as the next chance, but not that no story, finding, todo entry, or ADR can be numbered until then. Add one sentence to both outcomes: ID claims fail until the move succeeds, and VIRGIL can offer the move again in the same session once the cause is fixed.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The move and the claims behave as BR-097 and BR-102 define, and no number goes out twice (no to fails_purpose); an agent that meets the failing claim must work out the cause from a message that names origin as the holder (raises_cost).",
+  "commit": "55ac9467b2ffa928991b070d979f6cf1f6182f6d",
+  "status": "open"
+}
