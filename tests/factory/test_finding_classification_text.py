@@ -515,3 +515,35 @@ def test_st_0398_finding_format_names_the_editor_and_bang_command():
 def test_st_0398_finding_format_holds_the_waiver():
     section = _flat(_section(_text(FINDING_FORMAT), "Waiving a finding"))
     assert "`status: waived` with `override_by` and `override_reason`" in section
+
+
+# ST-0399: the pause point shows each new minor finding with its sentence.
+@pytest.mark.spec("FC-15-LN-01")
+def test_st_0399_finding_format_shows_each_new_minor_finding_before_any_file():
+    section = _flat(_section(_text(FINDING_FORMAT), "Pause point"))
+    assert "renders each new register file as text" in section
+    assert "ID, class, artifact, and the `why_this_severity` sentence" in section
+    assert "before any file is written" in section
+    assert "shows no `fails_purpose` sentence" in section
+    assert "A headless run lists the new register files" in section
+    assert "after the loop ends" in section
+    assert "a wrong downgrade can still reach implementation" in section
+
+
+@pytest.mark.spec("FC-15-LN-01")
+@pytest.mark.parametrize("name", LOOP_PLAYBOOKS)
+def test_st_0399_playbook_lists_new_register_files_in_the_final_summary(name):
+    section = _flat(_section(_text(PLAYBOOKS / f"{name}.md"), "New minor findings"))
+    assert "lists each new register file" in section
+    assert "its `why_this_severity` sentence" in section
+    assert "final summary" in section
+    assert "a wrong downgrade can still reach implementation" in section
+    assert "finding-format.md#pause-point" in section
+
+
+@pytest.mark.spec("FC-15-LN-02")
+def test_st_0399_finding_format_names_the_raise_before_and_after_the_file():
+    section = _flat(_section(_text(FINDING_FORMAT), "Pause point"))
+    assert "raises a `minor` finding by changing an answer at the pause point" in section
+    assert "After the register file is written" in section
+    assert "replacing it with a finding file of the same ID" in section

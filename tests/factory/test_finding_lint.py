@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -1124,3 +1125,278 @@ def test_st_0391_a_missing_schema_or_validator_exits_2(tmp_path, missing):
     )
     assert result.returncode == 2
     assert missing.rsplit("/", 1)[1] in result.stderr
+
+
+# --- Lowering and removal against HEAD (ST-0392) ------------------------------
+
+FAGAN_PATH = "docs/findings/FAGAN-0042.md"
+BUG_PATH = "docs/findings/BUG-0037.md"
+REGISTER_PATH = "docs/findings/register/code/FAGAN-0032.json"
+OVERRIDE = {"override_by": "human", "override_reason": "The gate still works."}
+CONFIRMED = {
+    "stop_confirmed_by": "human",
+    "stop_confirmed_reason": "No dispatch run merged since the copy was updated.",
+}
+
+
+def _major_bug(**overrides) -> dict:
+    """BUG-0037 lowered to major: harms_downstream false, no confirmation fields."""
+    fields = _critical_fields(basis=_tree(True, False, True, False), severity="major")
+    fields.update(overrides)
+    return fields
+
+
+def _compare(files: dict, head: dict) -> list[str]:
+    return lint.compare_with_head(
+        {path: _as_text(content) for path, content in files.items()},
+        {path: _as_text(content) for path, content in head.items()},
+    )
+
+
+def _as_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    return json.dumps(content, indent=2)
+
+
+@pytest.mark.spec("FC-10-CT-06")
+def test_st_0392_a_lowering_without_the_override_fields_fails():
+    head = {FAGAN_PATH: _finding_text(_finding_fields())}
+    files = {FAGAN_PATH: _finding_text(_finding_fields(severity="minor"))}
+    messages = _compare(files, head)
+    _assert_rule(messages, FAGAN_PATH, "BR-109 lowering")
+    assert "FAGAN-0042" in messages[0].split(": ", 2)[2]
+
+
+@pytest.mark.spec("FC-10-CT-06")
+@pytest.mark.parametrize(
+    "override",
+    [
+        {"override_by": "human"},
+        {"override_reason": "Accepted."},
+        {"override_by": "human", "override_reason": "  "},
+    ],
+    ids=["no-reason", "no-by", "blank-reason"],
+)
+def test_st_0392_a_lowering_with_one_override_field_fails(override):
+    head = {BUG_PATH: _finding_text(_critical_fields(**CONFIRMED), damage=True)}
+    files = {BUG_PATH: _finding_text(_major_bug(**override))}
+    _assert_rule(_compare(files, head), BUG_PATH, "BR-109 lowering")
+
+
+@pytest.mark.spec("FC-10-CT-06")
+def test_st_0392_a_raise_needs_no_override_fields():
+    head = {FAGAN_PATH: _finding_text(_finding_fields())}
+    raised = _finding_fields(severity="critical", basis=_tree(True, True, True, False))
+    files = {FAGAN_PATH: _finding_text(raised, damage=True)}
+    assert _compare(files, head) == []
+
+
+@pytest.mark.spec("FC-10-CT-06")
+def test_st_0392_an_unchanged_severity_needs_no_override_fields():
+    text = _finding_text(_finding_fields())
+    assert _compare({FAGAN_PATH: text}, {FAGAN_PATH: text}) == []
+
+
+@pytest.mark.spec("FC-10-CT-06")
+def test_st_0392_the_stakeholder_lowers_a_confirmed_critical_finding():
+    head = {BUG_PATH: _finding_text(_critical_fields(**CONFIRMED), damage=True)}
+    files = {BUG_PATH: _finding_text(_major_bug(**OVERRIDE))}
+    assert _compare(files, head) == []
+
+
+@pytest.mark.spec("FC-10-CT-06")
+@pytest.mark.parametrize(
+    "head_fields",
+    [{}, {"stop_confirmed_by": "human"}],
+    ids=["unconfirmed", "no-reason"],
+)
+def test_st_0392_a_critical_finding_is_lowered_only_after_its_stop_is_confirmed_at_head(
+    head_fields,
+):
+    head = {BUG_PATH: _finding_text(_critical_fields(**head_fields), damage=True)}
+    files = {BUG_PATH: _finding_text(_major_bug(**OVERRIDE))}
+    messages = _compare(files, head)
+    _assert_rule(messages, BUG_PATH, "BR-109 lowering")
+    assert any("BUG-0037" in message for message in messages)
+
+
+@pytest.mark.spec("FC-10-CT-06")
+def test_st_0392_a_lowering_cannot_confirm_the_stop_in_the_same_commit():
+    head = {BUG_PATH: _finding_text(_critical_fields(), damage=True)}
+    files = {BUG_PATH: _finding_text(_major_bug(**OVERRIDE, **CONFIRMED))}
+    _assert_rule(_compare(files, head), BUG_PATH, "BR-109 lowering")
+
+
+@pytest.mark.spec("FC-10-CT-06")
+def test_st_0392_a_finding_lowered_to_major_drops_its_confirmation_fields():
+    head = {BUG_PATH: _finding_text(_critical_fields(**CONFIRMED), damage=True)}
+    files = {BUG_PATH: _finding_text(_major_bug(**OVERRIDE))}
+    assert lint.lint_files(files, head, SCHEMAS) == []
+    kept = {BUG_PATH: _finding_text(_major_bug(**OVERRIDE, **CONFIRMED))}
+    _assert_rule(lint.lint_files(kept, head, SCHEMAS), BUG_PATH, "BR-086 confirmation")
+
+
+@pytest.mark.spec("FC-10-CT-07")
+def test_st_0392_a_removed_finding_file_without_a_register_file_fails():
+    head = {FAGAN_PATH: _finding_text(_finding_fields(status="resolved"))}
+    messages = _compare({}, head)
+    _assert_rule(messages, FAGAN_PATH, "BR-109 removal")
+    assert "FAGAN-0042" in messages[0].split(": ", 2)[2]
+
+
+@pytest.mark.spec("FC-10-CT-07")
+def test_st_0392_the_stakeholder_moves_a_filed_finding_into_the_register():
+    head = {FAGAN_PATH: _finding_text(_finding_fields())}
+    files = {_register_path(name="FAGAN-0042"): _register(id="FAGAN-0042", **OVERRIDE)}
+    assert _compare(files, head) == []
+
+
+@pytest.mark.spec("FC-10-CT-07")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {},
+        {"override_by": "human"},
+        {"override_by": "human", "override_reason": ""},
+        {**OVERRIDE, "status": "resolved"},
+    ],
+    ids=["no-keys", "no-reason", "empty-reason", "resolved"],
+)
+def test_st_0392_an_agent_cannot_move_a_filed_finding_into_the_register(change):
+    head = {FAGAN_PATH: _finding_text(_finding_fields())}
+    files = {_register_path(name="FAGAN-0042"): _register(id="FAGAN-0042", **change)}
+    _assert_rule(_compare(files, head), FAGAN_PATH, "BR-109 removal")
+
+
+@pytest.mark.spec("FC-10-CT-07")
+def test_st_0392_a_move_of_an_unconfirmed_critical_finding_fails():
+    head = {BUG_PATH: _finding_text(_critical_fields(), damage=True)}
+    files = {_register_path(name="BUG-0037"): _register(id="BUG-0037", **OVERRIDE)}
+    _assert_rule(_compare(files, head), BUG_PATH, "BR-109 lowering")
+
+
+@pytest.mark.spec("FC-10-CT-07")
+@pytest.mark.parametrize(
+    "line", ["", "review_class: document\n"], ids=["deleted", "changed"]
+)
+def test_st_0392_a_version_keeps_the_review_class_of_its_head_version(line):
+    head = {BUG_PATH: _finding_text(_critical_fields(), damage=True)}
+    changed = _finding_text(_critical_fields(status="resolved"), damage=True)
+    files = {BUG_PATH: changed.replace("review_class: code\n", line)}
+    messages = _compare(files, head)
+    _assert_rule(messages, BUG_PATH, "BR-109 review class")
+    assert any("BUG-0037" in message for message in messages)
+
+
+@pytest.mark.spec("FC-10-CT-07")
+def test_st_0392_a_file_that_drops_review_class_is_still_checked():
+    head = {BUG_PATH: _finding_text(_critical_fields(), damage=True)}
+    changed = _finding_text(_critical_fields(status="resolved"), damage=True)
+    files = {BUG_PATH: changed.replace("review_class: code\n", "")}
+    messages = lint.lint_files(files, head, SCHEMAS)
+    _assert_rule(messages, BUG_PATH, "BR-109 review class")
+    _assert_rule(messages, BUG_PATH, "BR-086 confirmation")
+
+
+@pytest.mark.spec("FC-10-CT-07")
+def test_st_0392_the_migration_moves_a_file_without_review_class_into_the_register():
+    head = {
+        "docs/findings/BUG-0067.md": "---\nid: BUG-0067\nseverity: Minor\nstatus: open\n---\n"
+    }
+    files = {_register_path(name="BUG-0067"): _register(id="BUG-0067")}
+    assert _compare(files, head) == []
+
+
+@pytest.mark.spec("FC-10-CT-09")
+def test_st_0392_a_removed_register_file_without_a_finding_file_fails():
+    messages = _compare({}, {REGISTER_PATH: _register()})
+    _assert_rule(messages, REGISTER_PATH, "BR-110 removal")
+    assert "FAGAN-0032" in messages[0].split(": ", 2)[2]
+
+
+@pytest.mark.spec("FC-10-CT-09")
+def test_st_0392_a_register_file_raised_to_a_finding_file_passes():
+    raised = _finding_fields(id="FAGAN-0032")
+    files = {"docs/findings/FAGAN-0032.md": _finding_text(raised)}
+    assert _compare(files, {REGISTER_PATH: _register()}) == []
+
+
+@pytest.mark.spec("FC-10-CT-09")
+def test_st_0392_a_finding_file_without_review_class_replaces_no_register_file():
+    files = {"docs/findings/FAGAN-0032.md": "---\nid: FAGAN-0032\nstatus: open\n---\n"}
+    _assert_rule(
+        _compare(files, {REGISTER_PATH: _register()}), REGISTER_PATH, "BR-110 removal"
+    )
+
+
+@pytest.mark.spec("FC-10-CT-09")
+def test_st_0392_a_register_file_that_stays_resolved_passes():
+    head = {REGISTER_PATH: _register()}
+    assert _compare({REGISTER_PATH: _register(status="resolved")}, head) == []
+
+
+@pytest.mark.spec("FC-10-CT-09")
+def test_st_0392_the_removal_of_an_old_jsonl_register_is_no_removal():
+    head = {"docs/findings/register/code.jsonl": '{"id": "FAGAN-0032"}\n'}
+    assert _compare({}, head) == []
+
+
+def _git_env(tmp_path) -> dict:
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    env = {
+        key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+    }
+    env.update(HOME=str(home), GIT_CONFIG_NOSYSTEM="1")
+    return env
+
+
+def _git(root, env, *args) -> None:
+    subprocess.run(["git", *args], cwd=root, env=env, check=True, capture_output=True)
+
+
+def _repo(tmp_path):
+    """Return a git repository in tmp_path with the test setup of the QA strategy."""
+    root = tmp_path / "repo"
+    root.mkdir()
+    env = _git_env(tmp_path)
+    _git(root, env, "init", "-b", "main")
+    _git(root, env, "config", "user.name", "Test")
+    _git(root, env, "config", "user.email", "test@example.com")
+    _git(root, env, "config", "commit.gpgsign", "false")
+    return root, env
+
+
+def _commit(root, env, message: str = "commit") -> None:
+    _git(root, env, "add", "-A")
+    _git(root, env, "commit", "-m", message)
+
+
+def _run_in(root, env, *args):
+    return subprocess.run(
+        [sys.executable, str(LINT), *args],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.spec("FC-15-IT-01")
+def test_st_0392_the_stakeholder_raises_fagan_0032_to_a_finding_file(tmp_path):
+    root, env = _repo(tmp_path)
+    _clean_set(root)
+    _commit(root, env)
+    _write(
+        root,
+        "docs/findings/FAGAN-0032.md",
+        _finding_text(_finding_fields(id="FAGAN-0032")),
+    )
+    result = _run_in(root, env)
+    assert result.returncode == 1
+    assert "BR-090 one ID" in result.stdout
+    (root / REGISTER_PATH).unlink()
+    result = _run_in(root, env)
+    assert (result.returncode, result.stdout) == (0, "")
