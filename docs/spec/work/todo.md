@@ -258,6 +258,9 @@ the command text, so a call after `cd … &&` or through another interpreter
 passes, while a harmless line in a heredoc that starts with the runner's name
 is blocked.
 
+The retrospective of 2026-11-06 adds the action: parse the command, not its
+text, so a heredoc line is never matched and a runner after `cd … &&` is.
+
 ## T-0018 — Three feature files do not parse as Gherkin
 
 - status: open
@@ -384,3 +387,45 @@ exp", "Reco", and "it is not". The damage predates ST-0385, which added its
 
 **Action:** restore the paragraph from git history, find the commit that cut
 it, and check whether the same tool damaged other skill files.
+
+## T-0405 — Developer briefs hold the session's working rules only in the dispatcher's head
+
+- status: open
+- source: [retro-2026-11-06.md](../../reviews/retro-2026-11-06.md) (2026-11-06)
+
+The counter-ids builds needed the same rules in every brief: stage paths by
+name and never with `git add -A`; run tests only through the hook, and only
+for the red and the green step; restore rewritten `docs/assets/images/*.svg`;
+never print this project's remote URL or git config; use only made-up tokens.
+Each rule came from a failure: ST-0374 committed 29 SVG files, three parallel
+agents with two suite runs each nearly stalled the machine, and IMPL-0010
+showed VIRGIL the token.
+
+**Action:** write these rules into `developer-agent.md` or
+`dispatch-contract.md` § Brief File, so every dispatcher passes them on.
+
+## T-0406 — A draft proposal can lack frontmatter that the suite requires
+
+- status: open
+- source: [retro-2026-11-06.md](../../reviews/retro-2026-11-06.md) (2026-11-06)
+
+`counter-ids-fitting.md` declared `scope` only under `impact:`. `scope-lint`
+requires a top-level `scope:`, but only the CAL-14 test checks it, so the gap
+showed first as a failing commit hook in ST-0376 and ST-0383.
+
+**Action:** run `scope-lint` on proposals as a commit gate, or make
+`draft-proposal` write the top-level `scope:` from the template.
+
+## T-0407 — `dispatch` cannot record a branch head moved outside `merge-story`
+
+- status: open
+- source: [retro-2026-11-06.md](../../reviews/retro-2026-11-06.md) (2026-11-06)
+
+After a manual merge into the invocation branch, such as `dev` or a fix
+branch, the ledger's `branch_head` stays behind, and `prepare-wave` fails with
+`BASE_STALE`. The dispatcher edited the ledger by hand three times. `dispatch init` run inside the feature worktree also wrote the ledger nested at
+`.current-work/feature/<branch>/.current-work/feature/<branch>/`.
+
+**Action:** add a `dispatch` command that records the current head of the
+invocation branch, and make `init` write the ledger where the default lookup
+finds it.
