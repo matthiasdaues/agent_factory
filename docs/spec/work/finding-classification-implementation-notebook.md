@@ -132,3 +132,61 @@ The spec review agent confirmed all six fixed spec rows and filed no BUG.
 
 All four stories merged. The `cd` row of ST-0400 stays `open` until ST-0401
 fixes BUG-0120.
+
+`close-wave 1` refused while the `cd` row of ST-0400 was `open`. The contract
+names `rejected` for a row whose code breaks an accepted requirement, with a
+`BUG` that carries the fix, so the row became `rejected` with a reference to
+BUG-0120 (`bcd19208`). Then `close-wave 1` recorded the wave. No QA finding
+was open.
+
+### 2026-11-07, Wave 2: dispatch
+
+`prepare-wave 2` prepared all five stories in parallel, but two pairs touch
+the same files: ST-0401 and ST-0402 (`init-factory`, `remove-factory`, the
+installer tests), and ST-0387 and ST-0389 (`INDEX.yaml`,
+`test_finding_classification_text.py`). The orchestrator runs them as serial
+chains: ST-0387 (sonnet), ST-0390 (sonnet), and ST-0401 (opus) first, then
+ST-0389 after ST-0387 and ST-0402 after ST-0401, each refreshed before it
+starts. ST-0401 gained `docs/findings/BUG-0120.md` in its `touches`
+(`62c41dfe`).
+
+- ST-0390 merged (`b8498217`) with its report "passed: no". The new rulebook
+  agreed on 18 of 20 findings and reached the target of 16, but the old rules
+  agreed on 20 of 20 by rating nearly everything blocking, so the condition
+  of DEC-23 failed. The runs split on SPEC-0012 and BUG-0006. On 2026-11-08
+  the stakeholder chose to sharpen the rulebook and re-measure on a fresh set.
+  The planning agent writes that story; it runs as a short second dispatch
+  after the 21 planned stories, because `dispatch plan` adds no story to a
+  running ledger.
+- ST-0401 merged (`2e5278fc`): Codex, Copilot CLI, the patch parser, and the
+  BUG-0120 fix (`cd` is followed). Suite: 3327 passed. One drift row for the
+  domain-modeling agent (payload keys per CLI). Manual check in real Codex
+  and Copilot CLI sessions still open (FC-QG23); Copilot CLI may need a JSON
+  deny decision instead of exit 2.
+- ST-0387 merged (`2926a1af`): 26 files, inside its scaled limit of 42. It
+  also rewrote three old filing rules and their assertions in
+  `test_core_artifact_ownership_text.py`, which encoded the rules this
+  feature replaces; the file joined its `touches` (`87219aae`). Suite: 3387
+  passed. Two drift rows for the domain-modeling agent.
+- Chain followers started: ST-0389 (haiku) after ST-0387, ST-0402 (sonnet)
+  after ST-0401.
+- ST-0407 planned (`d59905b2`): sharpen the `major`/`minor` line of the
+  document and runtime classes, then re-measure on 20 fresh findings. No
+  fresh security finding is eligible, so on 2026-11-08 the stakeholder chose
+  to keep 20 findings and give the three security slots to document and
+  runtime (8, 5, 5, 2, 0). It runs as wave 8.
+- ST-0402 merged (`44fd3005`): the Pi extension, fail closed. TypeScript
+  suite 37 of 37. Suite: 3390 passed. No drift.
+- ST-0389 merged (`1f9e70ba`): the `Consequence` column in the triage table.
+  Suite: 3391 passed. One drift row for the requirements agent (scope map);
+  its reviewer is the stakeholder, so it waits at `fixed` for the merge
+  report.
+
+Wave-2 drift: the domain-modeling agent fixes three rows (ST-0387, ST-0401),
+the requirements agent one row (ST-0389).
+The spec review agent confirmed the three domain rows and filed no BUG.
+
+### 2026-11-08, Wave 2: closed
+
+All five stories merged. The scope-map row of ST-0389 waits at `fixed` for
+the stakeholder.

@@ -1407,8 +1407,15 @@ class from [schemas/finding-basis.json](schemas/finding-basis.json).
 with the schema of its folder (FC-C27). The schemas use only the keywords that
 the validator of `schema-validate` supports, so they hold no `oneOf`. So the
 schema cannot tie `waived` to the override keys, and `finding-lint` checks that
-rule itself (BR-110). An
-implementation story writes them.
+rule itself (BR-110). The five schemas exist under `packages/factory/rulebooks/schemas/`.
+Each one holds a pattern for two keys only: `id` matches `^[A-Z]+-[0-9]{4}$`, and
+`commit` matches `^[0-9a-f]{40}$`. They hold no pattern for `artifact` or for
+`why_this_severity`, so the schema accepts any text there.
+
+A register file has no `owner` key, because only a finding file carries one. When
+a `minor` defect becomes a register file, the review report names the agent that
+acts on it. The glossary check of `inspect-spec` names `domain-modeling-agent`,
+and the dependency-rule check of `atam-review` names `architecture-agent`.
 
 Two branches that each add a register file add two different paths, so git
 merges them without a conflict and needs no merge driver. An ID is a finding
@@ -1541,7 +1548,7 @@ The implementation story picks the file extension, as for
 | Property   | Contract                                                                                                                                                                                                                                                                                         |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Hook       | Runs in every supported CLI, registered on the hook events of that CLI for edit, write, and shell calls, as the table below lists (DEC-51, DEC-61)                                                                                                                                               |
-| Reads      | The tool call as the CLI passes it, and for a write the current content of the target file                                                                                                                                                                                                       |
+| Reads      | The tool call as the CLI passes it, and for a write the current content of the target file. The payload keys of each CLI follow the payload table below                                                                                                                                          |
 | Guarded    | `docs/findings/*.md`, the register files `docs/findings/register/**/*.json` (BR-092), and the Appendix tables of `docs/proposals/*.md`. Templates, the rulebook, and test fixtures lie outside (DEC-45)                                                                                          |
 | Refuses    | A call that sets a human field, as [BR-092](validation-rules.md#stop-and-guard) defines                                                                                                                                                                                                          |
 | Patch      | A patch call names its paths inside the patch text: `apply_patch` in Codex, Copilot CLI, and Pi, and `patch` in OpenCode. The guard reads the paths and the removed and added lines from the patch, and refuses a patch it cannot parse when the raw text names a guarded path (BR-092)          |
@@ -1549,6 +1556,18 @@ The implementation story picks the file extension, as for
 | Exit code  | A hook script exits `0` to let the call through and `2` to refuse it, as `block-dangerous-git.sh` does. The Pi extension and the OpenCode plugin block the call through the API of their CLI, and block it also when the guard script is missing (DEC-61)                                        |
 | Message    | On refusal, standard error names the file, the field, and that the stakeholder writes it in an editor or with a `!` command                                                                                                                                                                      |
 | Blind spot | An agent that hides the field name passes the hook, such as with a field name built from pieces in a script, a `cp` of a prepared file, or `git checkout <ref> -- <file>` (DEC-42)                                                                                                               |
+
+The guard reads the tool name and the tool arguments from these payload keys.
+The extension of Pi sends `toolName` and `input`. A string value of the arguments is parsed as JSON. When it is
+not JSON and the tool is `apply_patch`, the string is the patch text. The column
+Confirmed says whether the keys come from a real session of the CLI.
+
+| CLI         | Tool name   | Arguments                                                                                                                   | Confirmed                                                          |
+| ----------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Claude Code | `tool_name` | `tool_input`                                                                                                                | Yes                                                                |
+| Codex       | `tool_name` | `tool_input`. `command` may be a list of words. The text of an `apply_patch` call sits in `tool_input.command`              | No, the format is not yet checked against a real session (FC-QG23) |
+| Copilot CLI | `toolName`  | `toolArgs`, as an object or as a JSON string                                                                                | No, the format is not yet checked against a real session (FC-QG23) |
+| Pi          | `toolName`  | `input`. The extension `packages/factory/config/extensions/guard-human-fields.ts` sends `toolName` and `input` to the guard | Yes, the extension and the guard agree                             |
 
 Each CLI registers the guard where the hook `step-guard` already sits for
 edit, write, and shell calls (DEC-61). `init-factory` writes the entries of
