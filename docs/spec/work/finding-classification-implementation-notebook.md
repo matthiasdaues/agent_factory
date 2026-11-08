@@ -299,3 +299,25 @@ check blames the working tree. The row is `rejected`, and ST-0395 fixes the BUG.
 ### 2026-11-08, Wave 4: closed
 
 All three stories merged.
+
+### 2026-11-08, Wave 5: dispatch
+
+ST-0394, ST-0395, and ST-0396 share `finding-lint` or its tests, so they run one
+after the other. ST-0394 (sonnet) started from `ead3d2ab`.
+
+- ST-0394 merged (`efc90337`): `release_tag_patterns` from
+  `docs/factory-settings.yaml`, fail closed when a git check is due. No drift.
+- ST-0395 started (opus) after ST-0394.
+- ST-0395 merged (`640e92e2`): the git check runs only on a new or changed
+  finding, and with `--staged` it reads the index (BUG-0121 fixed). `finding-lint`
+  now fails on this repository only for BUG-0116. One drift row (BR-089).
+- ST-0396 started (sonnet) after ST-0395.
+- ST-0396 merged (`9d815323`): the `finding-lint` pre-commit hook, its metadata
+  (`trade_off: none`, `availability: always`), and the `validate` gate. The
+  guardrail already denied `git commit -n`, so it stays unchanged. This
+  repository's own `.pre-commit-config.yaml` stays untouched until the stakeholder
+  runs `update-factory` (FCP-C12). Until then, two tests skip the new hook, and
+  both filters must go after `update-factory`:
+  `test_repo_config_factory_block_matches_template` in
+  `tests/factory/test_hook_missing_factory.py` and
+  `test_this_repository_needs_no_refresh` in `tests/factory/test_update_factory.py`.
