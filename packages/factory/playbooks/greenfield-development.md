@@ -79,7 +79,7 @@ records it in `docs/agent-context.md` right away.
 Check: `docs/findings/SPEC-*.md` files with `status: open`
 
 ```bash
-grep -l "status: open" docs/findings/SPEC-*.md
+grep -l "^status: open" docs/findings/SPEC-*.md
 ```
 
 **If open findings exist** → Go to Step 1.4
@@ -127,7 +127,7 @@ topology, a cloud provider — the architecture agent records it in
 Check: `docs/findings/ATAM-*.md` files with `status: open`
 
 ```bash
-grep -l "status: open" docs/findings/ATAM-*.md
+grep -l "^status: open" docs/findings/ATAM-*.md
 ```
 
 **If open findings exist** → Go to Step 2.4
@@ -227,7 +227,7 @@ infrastructure; there is no separate setup epic.
 Check: `docs/findings/IMPL-*.md` files with `status: open`
 
 ```bash
-grep -l "status: open" docs/findings/IMPL-*.md
+grep -l "^status: open" docs/findings/IMPL-*.md
 ```
 
 **If implementation defects exist** → Go to Step 4.4
@@ -257,7 +257,7 @@ Return to Step 4.2 (run code-review-agent again)
 Check: `docs/findings/*.md` files with `status: open`
 
 ```bash
-grep -l "status: open" docs/findings/*.md
+grep -l "^status: open" docs/findings/*.md
 ```
 
 **If open findings exist** → Go to Step 4.7
@@ -289,7 +289,7 @@ Return to Step 4.5 (run reconciliation-agent again)
 Check: Open defects in findings
 
 ```bash
-grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
+grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 ```
 
 **If open defects exist** → Go to Step 5.3
@@ -332,6 +332,10 @@ The playbook ends when the following terminal artifacts exist:
 
 After this playbook completes, **all feature work enters through the `feature-addition` playbook**. Each feature-addition slice produces a per-feature `.feature` file from one or more deferred Rules in the scope map. The scope map is the specification baseline that guides feature delivery.
 
+## Stop notice
+
+When `dispatch` or `premerge-check` exits `1` and prints a notice that starts with `STOP:`, run no further step. In an interactive session, explain each stopping finding with `explain-review-finding` and wait; only the stakeholder confirms a stop ([finding-format.md § Confirming a stop](../rulebooks/conventions/finding-format.md#confirming-a-stop)). A headless run does not wait. It ends with the notice in its final summary.
+
 ## Halt Conditions
 
 **Stop immediately if:**
@@ -358,5 +362,5 @@ Run ad-hoc at end of any session. The coaching-agent runs in the current session
 ## State Tracking
 
 **Current activity**: Track in session notes
-**Open findings**: `grep -r "status: open" docs/findings/`
+**Open findings**: `grep -l "^status: open" docs/findings/*.md`
 **Eligible agents**: Run `intent select` to see precondition status

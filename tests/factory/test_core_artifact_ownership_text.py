@@ -1429,7 +1429,7 @@ class TestSt0364ReviewLoopsSendFindingsToOwners:
 
     @pytest.mark.parametrize("path", REVIEW_LOOP_PLAYBOOKS, ids=lambda p: p.name)
     def test_st_0364_loop_reads_all_open_findings(self, path):
-        assert 'grep -l "status: open" docs/findings/*.md' in path.read_text(
+        assert 'grep -l "^status: open" docs/findings/*.md' in path.read_text(
             encoding="utf-8"
         )
 
