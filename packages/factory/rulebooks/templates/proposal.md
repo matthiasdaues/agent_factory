@@ -201,11 +201,14 @@ the finding, open question or grilling round that led to it. -->
 <!-- One cumulative table for all review passes. The reviewer adds new rows
 with status `open`. Whoever fixes a finding sets `fixed` and writes the
 resolution with its evidence. The next review pass checks each `fixed` row and
-sets `resolved`, or `open` again with the reason. -->
+sets `resolved`, or `open` again with the reason. Severity is `major`, `minor`,
+or `note`, never `critical`. The Finding cell ends with a sentence that starts
+with `Severity:`. Only the stakeholder sets `waived`, and only on a `major` row,
+with the reason in Resolution. The review agent never sets `waived`. -->
 
-| ID      | Pass | Severity | Check | Status | Finding                                | Resolution |
-| ------- | ---- | -------- | ----- | ------ | -------------------------------------- | ---------- |
-| PROP-01 | 1    | major    | 02    | open   | \<what is wrong, with line references> |            |
+| ID      | Pass | Severity | Check | Status | Finding                                                                                            | Resolution |
+| ------- | ---- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------- | ---------- |
+| PROP-01 | 1    | major    | 02    | open   | \<what is wrong, with line references> Severity: \<level>, because \<reason> (\<deciding answer>). |            |
 
 ## Review passes
 
