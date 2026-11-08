@@ -390,3 +390,16 @@ The stakeholder wrote the six confirmation fields.
 
 The owner agent reverted the three link repairs by mistake, because it took them
 for a side effect of `spec-lint`. The orchestrator restored them.
+
+### 2026-11-08, ST-0407: the second agreement check
+
+`dispatch init` opens no second ledger on a branch that has one, and the story is
+orchestrator work by its own text. So ST-0407 ran directly on the feature branch,
+without a story worktree.
+
+- Rulebook commit `86d239bd`: one deciding question each for the `major`/`minor`
+  line of the document and runtime classes, before the first run.
+- Fresh set: 8 document, 5 code, 5 runtime, 2 architecture, as the stakeholder
+  decided. The prompt wording is that of the first check.
+- Result: new rules 20 of 20, old rules 19 of 20. **Passed.** Report:
+  `docs/reviews/finding-classification-agreement-check-2-2026-11-08.md`.
