@@ -914,7 +914,8 @@ def _write(root, relative: str, content) -> None:
 
 
 def _clean_set(root) -> None:
-    """Write the Demo Data of ST-0391 under *root*."""
+    """Write the Demo Data of ST-0391 under *root*, and the release setting of ST-0394."""
+    _write(root, "docs/factory-settings.yaml", "release_tag_patterns: []\n")
     _write(root, "docs/findings/FAGAN-0042.md", _finding_text(_finding_fields()))
     _write(
         root,
@@ -1502,3 +1503,56 @@ def test_st_0393_a_heading_artifact_is_the_section_under_the_heading():
     assert lint.section_range(PLAYBOOK, "step-12--review") == (19, 21)
     assert lint.section_range(PLAYBOOK, "nested-check") == (11, 18)
     assert lint.section_range(PLAYBOOK, "not-a-heading") is None
+
+
+# --- The release setting (ST-0394, FC-11-CT-02) -------------------------------
+
+SETTINGS_FILE = "docs/factory-settings.yaml"
+
+
+@pytest.mark.spec("FC-11-CT-02")
+@pytest.mark.parametrize(
+    ("text", "patterns"),
+    [
+        ('release_tag_patterns: ["v[0-9]*"]\n', ["v[0-9]*"]),
+        ("release_tag_patterns: ['v[0-9]*', \"r*\"]  # releases\n", ["v[0-9]*", "r*"]),
+        ("release_tag_patterns: []\n", []),
+        ('release_tag_patterns:\n  - "v[0-9]*"\n  - r*  # plain\n', ["v[0-9]*", "r*"]),
+        ('release_tag_patterns:\n- "v[0-9]*"\nother: 1\n', ["v[0-9]*"]),
+        ('other: [1]\nrelease_tag_patterns: ["v*"]\n', ["v*"]),
+    ],
+)
+def test_st_0394_the_parser_accepts_flow_list_block_list_and_empty_list(text, patterns):
+    assert lint.parse_release_tag_patterns(text) == patterns
+
+
+@pytest.mark.spec("FC-11-CT-02")
+@pytest.mark.parametrize("text", ["", "other: 1\n", "# release_tag_patterns: []\n"])
+def test_st_0394_the_parser_reports_a_missing_key(text):
+    with pytest.raises(lint.SettingsError, match="key release_tag_patterns is missing"):
+        lint.parse_release_tag_patterns(text)
+
+
+@pytest.mark.spec("FC-11-CT-02")
+@pytest.mark.parametrize(
+    "text",
+    [
+        "release_tag_patterns: 3\n",
+        "release_tag_patterns: v*\n",
+        "release_tag_patterns:\n",
+        "release_tag_patterns: [1, 2]\n",
+        'release_tag_patterns: [v*]\n',
+        'release_tag_patterns: ["v*"\n',
+        'release_tag_patterns:\n  - ["v*"]\n',
+        "release_tag_patterns:\n  - \n",
+    ],
+)
+def test_st_0394_the_parser_reports_a_wrong_value(text):
+    with pytest.raises(lint.SettingsError, match=f"{SETTINGS_FILE}: key release_tag_patterns must hold a list of strings"):
+        lint.parse_release_tag_patterns(text)
+
+
+@pytest.mark.spec("FC-11-CT-02")
+def test_st_0394_a_missing_file_reads_as_a_missing_key(tmp_path):
+    with pytest.raises(lint.SettingsError, match="is missing"):
+        lint.read_release_tag_patterns(tmp_path)

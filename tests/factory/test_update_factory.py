@@ -846,6 +846,24 @@ class TestApplicationAndRollback:
         leftovers += list((target / ".agent-factory").glob(f"{uf.BACKUP_DIR_PREFIX}*"))
         assert leftovers == []
 
+    @pytest.mark.spec("FC-11-IT-21")
+    def test_st_0394_update_leaves_the_release_settings_absent(
+        self, tmp_path, monkeypatch
+    ):
+        target = tmp_path / "target"
+        target.mkdir()
+        self._install(target)
+        source = _make_candidate_source(tmp_path)
+        _write_manifest(
+            target, factory_version="1.0.0", source_selector="local",
+            factory_source=str(source),
+        )
+        monkeypatch.setattr(uf, "get_update_consent", lambda *a, **kw: True)
+        monkeypatch.setattr(uf, "_run_init", lambda src, tgt: 0)
+
+        assert uf.main(["--target", str(target)]) == 0
+        assert not (target / "docs" / "factory-settings.yaml").exists()
+
     def test_receipt_keeps_the_records_init_factory_wrote(
         self, tmp_path, capsys, monkeypatch
     ):

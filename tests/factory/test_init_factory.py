@@ -2461,3 +2461,12 @@ def test_st_0403_remove_factory_strips_the_opencode_plugin_link(tmp_path):
     assert removed.returncode == 0, removed.stderr
     assert not (target / ".opencode" / "plugins" / "agent-factory.ts").exists()
     assert not (target / ".opencode").exists()
+
+
+@pytest.mark.spec("FC-11-IT-21")
+def test_st_0394_init_factory_does_not_write_the_release_settings(tmp_path):
+    target = make_installed_1_3_3(tmp_path)
+    assert not (target / "docs" / "factory-settings.yaml").exists()
+    result = run_init(stage_source(tmp_path / "source-1.4.0", "1.4.0"), target)
+    assert result.returncode == 0, result.stderr
+    assert not (target / "docs" / "factory-settings.yaml").exists()
