@@ -7,7 +7,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 // BR-092, ADR-0035: refuse a call that sets a field only the stakeholder
 // writes. The guard script decides; this extension only passes the call to it.
 // Unlike step-guard.ts, a missing guard script blocks the call (fail closed).
-const GUARDED_TOOLS = new Set(["edit", "write", "apply_patch", "bash"]);
+const GUARDED_TOOLS = new Set(["edit", "write", "write_file", "create", "apply_patch", "bash"]);
 
 export default function (pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {

@@ -46,6 +46,8 @@ function project(code: number | null) {
 const GUARDED = [
   ["edit", { path: "docs/findings/FAGAN-0042.md" }],
   ["write", { path: "docs/findings/FAGAN-0042.md", content: "x" }],
+  ["write_file", { path: "docs/findings/FAGAN-0042.md", content: "x" }],
+  ["create", { path: "docs/findings/FAGAN-0042.md", content: "x" }],
   ["apply_patch", { patch: "*** Begin Patch\n*** End Patch" }],
   ["bash", { command: "sed -i s/a/b/ docs/findings/FAGAN-0042.md" }],
 ] as const;
