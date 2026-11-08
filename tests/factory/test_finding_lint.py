@@ -914,7 +914,8 @@ def _write(root, relative: str, content) -> None:
 
 
 def _clean_set(root) -> None:
-    """Write the Demo Data of ST-0391 under *root*."""
+    """Write the Demo Data of ST-0391 under *root*, and the release setting of ST-0394."""
+    _write(root, "docs/factory-settings.yaml", "release_tag_patterns: []\n")
     _write(root, "docs/findings/FAGAN-0042.md", _finding_text(_finding_fields()))
     _write(
         root,
@@ -1502,3 +1503,164 @@ def test_st_0393_a_heading_artifact_is_the_section_under_the_heading():
     assert lint.section_range(PLAYBOOK, "step-12--review") == (19, 21)
     assert lint.section_range(PLAYBOOK, "nested-check") == (11, 18)
     assert lint.section_range(PLAYBOOK, "not-a-heading") is None
+
+
+# --- The release setting (ST-0394, FC-11-CT-02) -------------------------------
+
+SETTINGS_FILE = "docs/factory-settings.yaml"
+
+
+@pytest.mark.spec("FC-11-CT-02")
+@pytest.mark.parametrize(
+    ("text", "patterns"),
+    [
+        ('release_tag_patterns: ["v[0-9]*"]\n', ["v[0-9]*"]),
+        ("release_tag_patterns: ['v[0-9]*', \"r*\"]  # releases\n", ["v[0-9]*", "r*"]),
+        ("release_tag_patterns: []\n", []),
+        ('release_tag_patterns:\n  - "v[0-9]*"\n  - r*  # plain\n', ["v[0-9]*", "r*"]),
+        ('release_tag_patterns:\n- "v[0-9]*"\nother: 1\n', ["v[0-9]*"]),
+        ('other: [1]\nrelease_tag_patterns: ["v*"]\n', ["v*"]),
+    ],
+)
+def test_st_0394_the_parser_accepts_flow_list_block_list_and_empty_list(text, patterns):
+    assert lint.parse_release_tag_patterns(text) == patterns
+
+
+@pytest.mark.spec("FC-11-CT-02")
+@pytest.mark.parametrize("text", ["", "other: 1\n", "# release_tag_patterns: []\n"])
+def test_st_0394_the_parser_reports_a_missing_key(text):
+    with pytest.raises(lint.SettingsError, match="key release_tag_patterns is missing"):
+        lint.parse_release_tag_patterns(text)
+
+
+@pytest.mark.spec("FC-11-CT-02")
+@pytest.mark.parametrize(
+    "text",
+    [
+        "release_tag_patterns: 3\n",
+        "release_tag_patterns: v*\n",
+        "release_tag_patterns:\n",
+        "release_tag_patterns: [1, 2]\n",
+        'release_tag_patterns: [v*]\n',
+        'release_tag_patterns: ["v*"\n',
+        'release_tag_patterns:\n  - ["v*"]\n',
+        "release_tag_patterns:\n  - \n",
+    ],
+)
+def test_st_0394_the_parser_reports_a_wrong_value(text):
+    with pytest.raises(lint.SettingsError, match=f"{SETTINGS_FILE}: key release_tag_patterns must hold a list of strings"):
+        lint.parse_release_tag_patterns(text)
+
+
+@pytest.mark.spec("FC-11-CT-02")
+def test_st_0394_a_missing_file_reads_as_a_missing_key(tmp_path):
+    with pytest.raises(lint.SettingsError, match="is missing"):
+        lint.read_release_tag_patterns(tmp_path)
+
+
+# --- When the git check is due (ST-0395) ---------------------------------------
+
+TRIGGER_FIELDS = {
+    "basis": _tree(False, False, True, False),
+    "artifact": "packages/factory/scripts/dispatch:120",
+}
+OLD_CODE_REGISTER = "docs/findings/register/code.jsonl"
+
+
+def _trigger_text(**overrides) -> str:
+    return _finding_text(_finding_fields(**{**TRIGGER_FIELDS, **overrides}))
+
+
+def _trigger_due(head: dict, **overrides) -> bool:
+    record = lint.parse_finding(_trigger_text(**overrides))[0]
+    return lint.git_check_is_due(FAGAN_PATH, record, head)
+
+
+@pytest.mark.spec("FC-11-CT-03")
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"basis": _tree(False, False, True, True)},
+        {"artifact": "packages/factory/scripts/dispatch:121"},
+    ],
+    ids=["basis", "artifact"],
+)
+def test_st_0395_a_changed_basis_or_artifact_makes_the_check_due(change):
+    assert _trigger_due({FAGAN_PATH: _trigger_text()}, **change)
+
+
+@pytest.mark.spec("FC-11-CT-03")
+def test_st_0395_a_file_without_a_head_version_makes_the_check_due():
+    assert _trigger_due({})
+
+
+@pytest.mark.spec("FC-11-CT-03")
+def test_st_0395_an_unreadable_head_version_makes_the_check_due():
+    assert _trigger_due({FAGAN_PATH: "---\nbasis: {broken\n---\n"})
+
+
+@pytest.mark.spec("FC-11-CT-03")
+@pytest.mark.parametrize(
+    "change",
+    [{"status": "waived", **OVERRIDE}, {"status": "resolved"}, CONFIRMED],
+    ids=["waived", "resolved", "confirmation"],
+)
+def test_st_0395_a_status_or_override_change_makes_no_check_due(change):
+    assert not _trigger_due({FAGAN_PATH: _trigger_text()}, **change)
+
+
+@pytest.mark.spec("FC-11-CT-03")
+def test_st_0395_a_change_of_the_body_text_makes_no_check_due():
+    head = _trigger_text().replace("Refuse an empty story", "Refuse the story")
+    assert not _trigger_due({FAGAN_PATH: head})
+
+
+@pytest.mark.spec("FC-11-CT-03")
+def test_st_0395_another_order_of_the_basis_keys_counts_as_unchanged():
+    basis = dict(reversed(TRIGGER_FIELDS["basis"].items()))
+    assert not _trigger_due({FAGAN_PATH: _trigger_text(basis=basis)})
+
+
+@pytest.mark.spec("FC-11-CT-03")
+def test_st_0395_a_committed_register_file_with_a_new_status_makes_no_check_due():
+    path = _register_path()
+    head = {path: json.dumps(_register())}
+    assert not lint.git_check_is_due(path, _register(status="resolved"), head)
+
+
+def _old_line(**overrides) -> str:
+    return json.dumps({**_register(), **overrides})
+
+
+@pytest.mark.spec("FC-20-CT-01")
+def test_st_0395_a_moved_line_with_the_same_values_keeps_its_earlier_check():
+    basis = dict(reversed(REGISTER_BASIS["code"].items()))
+    head = {OLD_CODE_REGISTER: "not json\n\n" + _old_line(basis=basis) + "\n"}
+    assert not lint.git_check_is_due(_register_path(), _register(), head)
+
+
+@pytest.mark.spec("FC-20-CT-01")
+@pytest.mark.parametrize(
+    "line",
+    [
+        {"artifact": "packages/factory/scripts/dispatch:121"},
+        {"basis": _tree(True, False, False, False)},
+        {"id": "FAGAN-0033"},
+    ],
+    ids=["artifact", "basis", "no-line-with-the-id"],
+)
+def test_st_0395_a_moved_line_with_other_values_gets_the_check(line):
+    head = {OLD_CODE_REGISTER: _old_line(**line) + "\n"}
+    assert lint.git_check_is_due(_register_path(), _register(), head)
+
+
+@pytest.mark.spec("FC-20-CT-01")
+def test_st_0395_only_the_old_register_of_the_same_class_counts():
+    head = {"docs/findings/register/runtime.jsonl": _old_line() + "\n"}
+    assert lint.git_check_is_due(_register_path(), _register(), head)
+
+
+@pytest.mark.spec("FC-20-CT-01")
+def test_st_0395_a_new_finding_file_ignores_the_old_register():
+    line = json.dumps({"id": "FAGAN-0042", **TRIGGER_FIELDS})
+    assert _trigger_due({OLD_CODE_REGISTER: line + "\n"})

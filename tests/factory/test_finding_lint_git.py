@@ -4,11 +4,14 @@ Each test builds its own repository in tmp_path. The ST-0392 tests commit the
 findings and then change, stage, or remove them; the lint compares the working
 tree, or the index with --staged, with HEAD (BR-109, BR-110). The ST-0393
 tests commit a script on main and dev and change it on a feature branch; the
-lint checks in_use against the line identities of git blame (BR-088).
+lint checks in_use against the line identities of git blame (BR-088). The
+ST-0395 tests commit a finding first and check when the git check is due, and
+which version of the artifact it blames.
 """
 
 from __future__ import annotations
 
+import json
 import subprocess
 
 import pytest
@@ -216,6 +219,7 @@ SCRIPT = "packages/factory/scripts/premerge-check"
 DISPATCH = "packages/factory/scripts/dispatch"
 PLAYBOOK_PATH = "packages/factory/playbooks/feature-addition.md"
 INSTALLED = ".agent-factory/factory/scripts/premerge-check"
+SETTINGS = "docs/factory-settings.yaml"
 ON_DEV = f"{FAGAN_PATH}: BR-088 in use: artifact lines exist unchanged on dev"
 IN_USE_FALSE = {
     "document": _tree(False, False, True, False),
@@ -247,6 +251,8 @@ def _file_finding(root, review_class: str, artifact: str, **overrides) -> None:
     )
     fields.update(overrides)
     _write(root, FAGAN_PATH, _finding_text(fields))
+    if not (root / SETTINGS).exists():
+        _write(root, SETTINGS, "release_tag_patterns: []\n")
 
 
 def _base(tmp_path):
@@ -433,6 +439,7 @@ def test_st_0393_in_use_true_passes_without_a_match(demo):
         "code", basis=_tree(True, False, True, False), artifact=f"{SCRIPT}:100-119"
     )
     _write(root, FAGAN_PATH, _finding_text(fields, why=why))
+    _write(root, SETTINGS, "release_tag_patterns: []\n")
     _assert_passes(_run_in(root, env))
 
 
@@ -580,3 +587,365 @@ def test_st_0393_the_demo_scenario_of_the_story(demo):
     assert not (worktree / ".agent-factory").exists()
     _install(root, (worktree / SCRIPT).read_text())
     _assert_found(_run_in(worktree, env), "in the installed copy")
+
+
+# --- The release tags and the setting (ST-0394) --------------------------------
+
+MISSING_KEY = (
+    "docs/factory-settings.yaml: key release_tag_patterns is missing. Add the "
+    "list of git tag patterns that count as releases, such as "
+    '["v[0-9]*"], or [] for none.'
+)
+V_PATTERN = 'release_tag_patterns: ["v[0-9]*"]\n'
+RELEASE_LINES = f"{SCRIPT}:100-119"
+
+
+def _tagged(tmp_path, tag: str):
+    """The Demo Data of ST-0393 plus *tag* on the commit that introduced the lines.
+
+    The 20 inserted checks exist on the feature branch and at the tag only,
+    because dev and main do not hold them.
+    """
+    root, env = _base(tmp_path)
+    _feature(root, env)
+    _git(root, env, "tag", tag)
+    with (root / SCRIPT).open("a") as script:
+        script.write("a later step\n")
+    _commit(root, env, "a later step")
+    return root, env
+
+
+@pytest.mark.spec("FC-11-IT-12")
+@pytest.mark.parametrize(
+    ("tag", "code"),
+    [("v1.0.0", 1), ("v1.1.0-rc", 1), ("1.1.0", 0), ("orchestrator-v0.1.0", 0)],
+)
+def test_st_0394_only_a_tag_that_matches_a_pattern_counts(tmp_path, tag, code):
+    root, env = _tagged(tmp_path, tag)
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, V_PATTERN)
+    result = _run_in(root, env)
+    if code:
+        _assert_found(result, f"at tag {tag}")
+    else:
+        _assert_passes(result)
+
+
+@pytest.mark.spec("FC-11-IT-12")
+def test_st_0394_a_block_list_counts_the_same_tags(tmp_path):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, 'release_tag_patterns:\n  - "v[0-9]*"\n')
+    _assert_found(_run_in(root, env), "at tag v1.0.0")
+
+
+@pytest.mark.spec("FC-11-IT-13")
+@pytest.mark.parametrize(
+    "settings", [None, "other_key: 1\n"], ids=["no-file", "no-key"]
+)
+def test_st_0394_a_due_git_check_fails_closed_without_the_setting(
+    tmp_path, settings
+):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    (root / SETTINGS).unlink()
+    if settings:
+        _write(root, SETTINGS, settings)
+    result = _run_in(root, env)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.stdout.splitlines() == [MISSING_KEY]
+
+
+@pytest.mark.spec("FC-11-IT-13")
+def test_st_0394_a_value_that_is_no_list_of_strings_fails_naming_file_and_key(
+    tmp_path,
+):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, "release_tag_patterns: 3\n")
+    result = _run_in(root, env)
+    assert result.returncode == 1
+    assert result.stdout.startswith("docs/factory-settings.yaml: key release_tag_patterns")
+
+
+@pytest.mark.spec("FC-11-IT-14")
+def test_st_0394_an_empty_list_counts_no_tag_but_branches_still_count(tmp_path):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "code", RELEASE_LINES)
+    _write(root, SETTINGS, "release_tag_patterns: []\n")
+    _assert_passes(_run_in(root, env))
+    _file_finding(root, "code", f"{SCRIPT}:1-20")
+    _assert_found(_run_in(root, env), "on dev")
+
+
+@pytest.mark.spec("FC-11-IT-15")
+def test_st_0394_a_document_finding_needs_no_setting(tmp_path):
+    root, env = _tagged(tmp_path, "v1.0.0")
+    _file_finding(root, "document", RELEASE_LINES)
+    (root / SETTINGS).unlink()
+    result = _run_in(root, env)
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+    assert not (root / SETTINGS).exists()
+
+
+# --- When the git check is due (ST-0395) ---------------------------------------
+
+NEW_LINES = f"{SCRIPT}:100-119"
+OLD_LINES = f"{DISPATCH}:1383-1390"
+CHANGED_BASIS = {"basis": _tree(False, False, True, True)}
+NEW_REGISTER = _register_path(name="FAGAN-0050")
+OLD_REGISTER = "docs/findings/register/code.jsonl"
+MOVED_ARTIFACT = f"{DISPATCH}:1384-1390"
+REGISTERED = {"basis": _tree(False, False, False, True), "artifact": OLD_LINES}
+REGISTER_ON_DEV = (
+    f"{REGISTER_PATH}: BR-088 in use: artifact lines exist unchanged on dev"
+)
+
+
+def _assert_no_check_ran(result) -> None:
+    """Exit 0 and no output: a due check would print the branches the clone lacks."""
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+
+
+def _assert_register_on_dev(result) -> None:
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert _violations(result) == [REGISTER_ON_DEV]
+
+
+def _settings(root) -> None:
+    if not (root / SETTINGS).exists():
+        _write(root, SETTINGS, "release_tag_patterns: []\n")
+
+
+def _merge_into_dev(root, env) -> None:
+    _git(root, env, "checkout", "-q", "dev")
+    _git(root, env, "merge", "-q", "--no-edit", "feature/demo")
+
+
+@pytest.fixture
+def filed(demo):
+    """The demo repository whose HEAD holds FAGAN-0042 on lines unchanged on dev."""
+    root, env = demo
+    _file_finding(root, "code", OLD_LINES)
+    _commit(root, env, "file the finding")
+    return root, env
+
+
+@pytest.mark.spec("FC-11-IT-16")
+def test_st_0395_a_waived_finding_whose_branch_merged_into_dev_passes(demo):
+    root, env = demo
+    _file_finding(root, "code", NEW_LINES)
+    _commit(root, env, "file the finding")
+    _merge_into_dev(root, env)
+    _file_finding(root, "code", NEW_LINES, status="waived", **OVERRIDE)
+    _assert_no_check_ran(_run_in(root, env))
+
+
+@pytest.mark.spec("FC-11-IT-17")
+def test_st_0395_a_new_uncommitted_finding_gets_the_check_without_staged(demo):
+    root, env = demo
+    _file_finding(root, "code", OLD_LINES)
+    _assert_found(_run_in(root, env), "on dev")
+    _assert_no_check_ran(_run_in(root, env, "--staged"))
+
+
+@pytest.mark.spec("FC-11-IT-18")
+def test_st_0395_a_staged_basis_gets_the_check_while_the_working_tree_equals_head(
+    filed,
+):
+    root, env = filed
+    _file_finding(root, "code", OLD_LINES, **CHANGED_BASIS)
+    _git(root, env, "add", FAGAN_PATH)
+    _file_finding(root, "code", OLD_LINES)
+    _assert_found(_run_in(root, env, "--staged"), "on dev")
+    _assert_no_check_ran(_run_in(root, env))
+
+
+@pytest.mark.spec("FC-11-IT-18")
+def test_st_0395_a_basis_change_that_is_not_staged_gets_no_check_with_staged(filed):
+    root, env = filed
+    _file_finding(root, "code", OLD_LINES, **CHANGED_BASIS)
+    _assert_no_check_ran(_run_in(root, env, "--staged"))
+    _assert_found(_run_in(root, env), "on dev")
+
+
+@pytest.mark.spec("FC-11-IT-18")
+def test_st_0395_a_changed_artifact_gets_the_check(filed):
+    root, env = filed
+    _file_finding(root, "code", MOVED_ARTIFACT)
+    _assert_found(_run_in(root, env), "on dev")
+
+
+@pytest.mark.spec("FC-11-IT-26")
+def test_st_0395_a_new_register_file_gets_the_check(demo):
+    root, env = demo
+    _settings(root)
+    _write(root, NEW_REGISTER, _register(id="FAGAN-0050", **REGISTERED))
+    result = _run_in(root, env)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert _violations(result) == [
+        f"{NEW_REGISTER}: BR-088 in use: artifact lines exist unchanged on dev"
+    ]
+
+
+@pytest.fixture
+def registered(demo):
+    """The demo repository whose HEAD holds FAGAN-0032 as a register file."""
+    root, env = demo
+    _settings(root)
+    _write(root, REGISTER_PATH, _register(**REGISTERED))
+    _commit(root, env, "register the finding")
+    return root, env
+
+
+@pytest.mark.spec("FC-11-IT-27")
+def test_st_0395_a_committed_register_file_with_a_new_status_gets_no_check(registered):
+    root, env = registered
+    _write(root, REGISTER_PATH, _register(status="resolved", **REGISTERED))
+    _git(root, env, "add", REGISTER_PATH)
+    _assert_no_check_ran(_run_in(root, env, "--staged"))
+
+
+@pytest.mark.spec("FC-11-IT-27")
+def test_st_0395_a_committed_register_file_with_a_new_basis_gets_the_check(registered):
+    root, env = registered
+    _write(
+        root,
+        REGISTER_PATH,
+        _register(artifact=OLD_LINES, basis=_tree(False, False, False, False)),
+    )
+    _git(root, env, "add", REGISTER_PATH)
+    result = _run_in(root, env, "--staged")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert REGISTER_ON_DEV in result.stdout
+
+
+def _old_register(root, env) -> None:
+    """Commit the line of FAGAN-0032 in the old register, as the Demo Data holds it."""
+    _settings(root)
+    _write(root, OLD_REGISTER, json.dumps(_register(**REGISTERED)) + "\n")
+    _commit(root, env, "the old register")
+
+
+def _stage_move(root, env, **overrides) -> None:
+    """Stage the removal of the old register and the register file of FAGAN-0032."""
+    _git(root, env, "rm", "-q", OLD_REGISTER)
+    data = _register(**{**REGISTERED, **overrides})
+    _write(root, REGISTER_PATH, json.dumps(dict(reversed(list(data.items())))))
+    _git(root, env, "add", REGISTER_PATH)
+
+
+@pytest.mark.spec("FC-20-IT-02")
+def test_st_0395_a_moved_line_keeps_its_earlier_check(demo):
+    root, env = demo
+    _old_register(root, env)
+    _stage_move(root, env)
+    _assert_no_check_ran(_run_in(root, env, "--staged"))
+
+
+@pytest.mark.spec("FC-20-IT-02")
+def test_st_0395_a_moved_line_with_a_changed_artifact_gets_the_check(demo):
+    root, env = demo
+    _old_register(root, env)
+    _stage_move(root, env, artifact=MOVED_ARTIFACT)
+    _assert_register_on_dev(_run_in(root, env, "--staged"))
+
+
+@pytest.mark.spec("FC-20-IT-02")
+def test_st_0395_the_demo_scenario_of_the_story(demo):
+    root, env = demo
+    _write(root, SETTINGS, V_PATTERN)
+    _file_finding(root, "code", NEW_LINES)
+    _commit(root, env, "file the finding")
+    _merge_into_dev(root, env)
+    _file_finding(root, "code", NEW_LINES, status="waived", **OVERRIDE)
+    _assert_no_check_ran(_run_in(root, env))
+    _commit(root, env, "waive the finding")
+
+    other = "docs/findings/FAGAN-0043.md"
+    fields = _finding_fields(
+        "code", id="FAGAN-0043", basis=dict(IN_USE_FALSE["code"]), artifact=OLD_LINES
+    )
+    _write(root, other, _finding_text(fields))
+    result = _run_in(root, env)
+    assert result.returncode == 1
+    assert f"{other}: BR-088 in use: artifact lines exist unchanged on dev" in (
+        result.stdout
+    )
+    (root / other).unlink()
+
+    _old_register(root, env)
+    _stage_move(root, env)
+    _assert_no_check_ran(_run_in(root, env, "--staged"))
+    _commit(root, env, "move the line")
+    _git(root, env, "checkout", "-q", "HEAD~1", "--", OLD_REGISTER)
+    _git(root, env, "rm", "-q", "-f", REGISTER_PATH)
+    _commit(root, env, "restore the line")
+    _stage_move(root, env, artifact=MOVED_ARTIFACT)
+    _assert_register_on_dev(_run_in(root, env, "--staged"))
+
+
+# --- The version the git check blames with --staged (BUG-0121) -----------------
+
+
+def _edit_line(root, line: int, text: str) -> None:
+    lines = (root / SCRIPT).read_text().splitlines()
+    lines[line - 1] = text
+    (root / SCRIPT).write_text("\n".join(lines) + "\n")
+
+
+@pytest.fixture
+def staged_finding(tmp_path):
+    """A branch that leaves the script as on dev, with a staged finding on its lines."""
+    root, env = _base(tmp_path)
+    _git(root, env, "checkout", "-q", "-b", "feature/demo")
+    _file_finding(root, "code", f"{SCRIPT}:10-20")
+    _git(root, env, "add", FAGAN_PATH, SETTINGS)
+    return root, env
+
+
+@pytest.mark.spec("FC-11-IT-18")
+def test_bug_0121_an_unstaged_edit_does_not_hide_lines_unchanged_in_the_index(
+    staged_finding,
+):
+    root, env = staged_finding
+    _edit_line(root, 15, "an unstaged edit inside the range")
+    _assert_found(_run_in(root, env, "--staged"), "on dev")
+    _assert_passes(_run_in(root, env))
+
+
+@pytest.mark.spec("FC-11-IT-18")
+def test_bug_0121_an_unstaged_revert_causes_no_false_rejection(staged_finding):
+    root, env = staged_finding
+    original = (root / SCRIPT).read_text()
+    _edit_line(root, 15, "a staged edit inside the range")
+    _git(root, env, "add", SCRIPT)
+    (root / SCRIPT).write_text(original)
+    _assert_passes(_run_in(root, env, "--staged"))
+    _assert_found(_run_in(root, env), "on dev")
+
+
+@pytest.mark.spec("FC-11-IT-18")
+def test_bug_0121_the_range_comes_from_the_index(staged_finding):
+    root, env = staged_finding
+    lines = (root / SCRIPT).read_text().splitlines()
+    (root / SCRIPT).write_text("\n".join(lines[:5]) + "\n")
+    _assert_found(_run_in(root, env, "--staged"), "on dev")
+    _assert_passes(_run_in(root, env))
+
+
+@pytest.mark.spec("FC-11-IT-18")
+def test_bug_0121_a_rename_counts_from_the_index_when_the_file_is_gone(tmp_path):
+    root, env = _repo(tmp_path)
+    _write(root, "factory/scripts/dispatch", _dispatch())
+    _commit(root, env, "dispatch")
+    _git(root, env, "branch", "dev")
+    _git(root, env, "checkout", "-q", "-b", "feature/demo")
+    (root / "packages").mkdir()
+    _git(root, env, "mv", "factory", "packages/factory")
+    _commit(root, env, "move the factory")
+    _file_finding(root, "code", f"{DISPATCH}:5-10")
+    _git(root, env, "add", FAGAN_PATH, SETTINGS)
+    (root / DISPATCH).unlink()
+    _assert_found(_run_in(root, env, "--staged"), "on dev")
+    _assert_passes(_run_in(root, env))
