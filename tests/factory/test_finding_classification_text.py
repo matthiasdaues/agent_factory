@@ -345,3 +345,30 @@ def test_st_0387_finding_format_resolves_a_register_file_and_names_two_removals(
     assert "The migration moves a `minor` finding" in removal
     assert "The stakeholder lowers a blocking finding" in removal
     assert "Each one leaves a register file under the same ID" in removal
+
+
+# ST-0389: the QA triage table states the consequence, not a severity.
+
+QA_TEMPLATE = RULEBOOKS / "templates" / "qa-strategy.md"
+TRIAGE_CONSEQUENCES = ("harm if in use", "fails purpose", "raises cost")
+
+
+def _table_header_and_rows(section: str) -> tuple[list[str], list[list[str]]]:
+    """Return the header cells and the body rows of the first table in a section."""
+    lines = [line for line in section.splitlines() if line.startswith("|")]
+    assert len(lines) >= 3, "the section holds no table"
+
+    def cells(line: str) -> list[str]:
+        return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+    return cells(lines[0]), [cells(line) for line in lines[2:]]
+
+
+@pytest.mark.spec("FC-19-LN-01")
+def test_st_0389_triage_table_has_a_consequence_column_and_no_severity_column():
+    header, rows = _table_header_and_rows(_section(_text(QA_TEMPLATE), "Defect Severity Triage"))
+    assert "Consequence" in header
+    assert not [cell for cell in header if cell.lower().startswith("severity")], header
+    column = header.index("Consequence")
+    consequences = [row[column].strip('"') for row in rows]
+    assert consequences == list(TRIAGE_CONSEQUENCES)

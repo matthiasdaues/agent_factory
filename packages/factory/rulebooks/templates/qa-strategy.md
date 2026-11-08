@@ -82,14 +82,19 @@ Record all gap findings emitted during Steps 1 and 3 here. Include:
 
 ## Defect Severity Triage
 
-| Impact on this feature | Severity | Expected action |
-| ---------------------- | -------- | --------------- |
-| Data loss, privilege breach, broken safety/security boundary | blocking | stop release, fix before merge |
-| Broken primary actor-goal path or contract-owner failure | fix-in-same-story | repair in current story or QA loop |
-| Minor copy, low-risk observability gap, non-blocking overlap cleanup | defer | file finding or backlog follow-up |
+The `Consequence` column names what a defect does if it stays in place. The
+reviewer derives the severity from that answer with the consequence tree in
+[finding-classification.md](../conventions/finding-classification.md#the-consequence-tree).
+This table defines no severity. It gives the action for each consequence.
 
-Tailor the table to this feature's real risk profile. Keep the severity names
-feature-specific in meaning, not generic in prose.
+| Impact on this feature | Consequence | Expected action |
+| ---------------------- | ----------- | --------------- |
+| Data loss, privilege breach, broken safety/security boundary | "harm if in use" | stops the run |
+| Broken primary actor-goal path or contract-owner failure | "fails purpose" | fix in the same story; blocks |
+| Minor copy, low-risk observability gap, non-blocking overlap cleanup | "raises cost" | register file; does not block |
+
+Tailor the Impact column to this feature's real risk profile. Keep the three
+Consequence values as they are.
 
 ## Test Retention Policy
 
