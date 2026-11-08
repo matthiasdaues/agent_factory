@@ -347,3 +347,46 @@ ST-0406 runs in two phases. Phase 1 classifies the 47 open findings without
 `.current-work/`. No tracked file changes. The stakeholder sees every result and
 writes both confirmation fields of each `critical` result. Phase 2 writes the
 files and makes the one migration commit.
+
+**Phase 1 result.** 47 open findings without `review_class`: 2 `critical`
+(BUG-0086, BUG-0105), 7 `major`, 14 `minor`, 20 `note`, and 4 without an artifact
+(RETRO-0001 to RETRO-0004). The git check raised no surprise count (FC-QG20).
+FAGAN-0032 gets the rulebook's sentence, because BR-087 requires the marker.
+
+**The pause.** The work stopped at the pause point on 2026-11-08. A machine
+restart wiped `/tmp`, so briefs and migration files now live under
+`.current-work/feature/finding-classification/`. The stakeholder decided that
+BUG-0116 is a backwards correction: its basis computes `critical` under BR-081,
+so it is raised and stays `resolved`.
+
+**Phase 2.** The developer agent wrote the migration into the story worktree and
+stopped before the commit. The lint failed on exactly the three missing
+confirmations, as the brief required.
+
+**Damage checks.** The stakeholder asked the orchestrator to run the mechanical
+checks. Scripts and results are under `migration/damage-checks/`.
+
+- BUG-0116: on `dev` from 11:07 to 14:17 on 2026-11-06, fixed before `v1.6.0`. No
+  refused run appears in the transcripts.
+- BUG-0086: 74 story merges replayed in six ledgers, 35 overlapping pairs, no lost
+  line. One conflict, ST-0327, kept both sides.
+- BUG-0105: no `run-step` dispatch of the requirements agent in the transcripts.
+  `gigacron` before 2026-09-07 and `opstool` have no transcripts, so the
+  stakeholder confirmed those from memory.
+
+The stakeholder wrote the six confirmation fields.
+
+### 2026-11-08, Wave 7: closed
+
+- ST-0406 needed its concrete paths in `touches`, because the file-count limit is
+  twice the number of entries (97 files, 80 entries, limit 160).
+- Migration commit `95fd98a3` on the story branch, merged by `dispatch merge-story`.
+  Suite: 3799 passed.
+- Four drift rows. BR-095 and BR-086 name the two exceptions of the migration
+  (`confirmed`), the old-register count is 26 in the QA strategy (`fixed`) and in
+  FC-C28 (`confirmed`).
+- `backlog/ST-0301.md`, `ST-0305.md`, and `ST-0307.md` link to the register files
+  of BUG-0067 and BUG-0079 now.
+
+The owner agent reverted the three link repairs by mistake, because it took them
+for a side effect of `spec-lint`. The orchestrator restored them.
