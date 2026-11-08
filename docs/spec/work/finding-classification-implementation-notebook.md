@@ -403,3 +403,19 @@ without a story worktree.
   decided. The prompt wording is that of the first check.
 - Result: new rules 20 of 20, old rules 19 of 20. **Passed.** Report:
   `docs/reviews/finding-classification-agreement-check-2-2026-11-08.md`.
+
+### 2026-11-08, Code review, reconciliation, and QA
+
+- Code review: three `major` findings. IMPL-0015 and IMPL-0016 fixed by a developer
+  agent, and a second narrow pass found nothing blocking.
+- IMPL-0014: the stakeholder decided that the commit hook must catch a deliberate
+  deletion, that an `open` finding is never deleted, and that a `resolved` or
+  `waived` finding may be deleted (DEC-65). Fixed in `0cef8c3d`.
+- Reconciliation: nothing blocking. All 21 Rules are `implemented` in the scope map.
+- QA: BUG-0123 (the guard missed the `edits` list of a Pi call) and BUG-0124 (a
+  marker from before a stop let a direct merge through). Both fixed. BUG-0124 also
+  closes IMPL-0017. BUG-0123 was retested with the QA payload, and tests cover BUG-0124.
+- `ST-0407` and the fixes after the last wave ran on the feature branch without a
+  story worktree, because `dispatch` opens no second ledger on one branch.
+
+The feature branch is ready for the stakeholder's merge into `dev`.
