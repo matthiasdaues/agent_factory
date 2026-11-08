@@ -333,3 +333,17 @@ All three stories merged. Suite: 3795 passed.
 ### 2026-11-08, Wave 6: dispatch
 
 ST-0405 (name this repository's release tags) starts alone from the wave-5 head.
+
+- ST-0405 merged (`72c30ef3`): `docs/factory-settings.yaml` with
+  `release_tag_patterns: ["v[0-9]*"]`, which matches 16 tags, the two release
+  candidates among them. Suite: 3795 passed. No drift.
+
+### 2026-11-08, Wave 6: closed
+
+### 2026-11-08, Wave 7: the migration, phase 1
+
+ST-0406 runs in two phases. Phase 1 classifies the 47 open findings without
+`review_class` and the old register lines, and writes one pause report under
+`.current-work/`. No tracked file changes. The stakeholder sees every result and
+writes both confirmation fields of each `critical` result. Phase 2 writes the
+files and makes the one migration commit.
