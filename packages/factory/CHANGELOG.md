@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.7.0 — 2026-11-08
+
+This release replaces the reviewer's judgment of severity with one rule per
+review class (finding-classification, ST-0386 to ST-0407). A reviewer records
+facts, and the rule computes the severity. Only a `defect` or `risk` at
+`critical` or `major` blocks a review. A `critical` finding stops the run
+until a person confirms the damage check. Run `update-factory` to receive it.
+Findings filed before this release carry no `review_class`, and the lint skips
+them until they are classified.
+
+### Features
+
+- **One rule per review class.** The rulebook
+  `rulebooks/conventions/finding-classification.md` holds the shared scale of
+  `critical`, `major`, `minor`, and `note`, and a rule for the document, code,
+  security, architecture, and runtime classes. Each class has calibration
+  examples. Every review agent and playbook uses it.
+- **`finding-lint` checks every finding.** The script computes the severity
+  again from the recorded basis, checks `in_use` of code against git, and
+  rejects an agent's lowering of a filed finding. A pre-commit hook runs it on
+  every commit. `docs/factory-settings.yaml` names the release tags that count
+  as in use (`release_tag_patterns`).
+- **A `critical` finding stops the run.** `dispatch`, `premerge-check`, and the
+  merge gate refuse to go on while a `critical` finding is unconfirmed. The
+  stakeholder runs the checks of its `## Possible damage` section and writes
+  `stop_confirmed_by` and `stop_confirmed_reason`.
+- **Agents cannot write human fields.** The hook `guard-human-fields` refuses
+  an agent's edit, write, or shell call that sets an override or confirmation
+  field or the status `waived`. It runs in Claude Code, Codex, Copilot CLI, Pi,
+  and OpenCode. OpenCode gets its first Factory plugin for this.
+- **One register file per `minor` finding.** A `minor` finding is a file
+  `docs/findings/register/<class>/<ID>.json` and never blocks. Two branches
+  merge such files without a conflict. The `.jsonl` registers are gone.
+
+### Changes
+
+- **Open findings are never deleted.** A `resolved` or `waived` finding may be
+  deleted. An `open` finding leaves only by the lowering a person writes.
+- **A `note` stays in the review report.** It gets no finding file.
+
+### Fixes
+
+- **The guard reads more shell forms and every Pi edit.** A heredoc script, a
+  leading keyword or wrapper, and the `edits` list of a Pi `edit` call are all
+  checked now (IMPL-0015, IMPL-0016, BUG-0123).
+- **No merge during a stop.** A `premerge-check` marker from before a stop no
+  longer lets a direct `git merge` through (BUG-0124).
+
 ## 1.6.0 — 2026-11-06
 
 This release numbers every indexed artifact from one counter on the
