@@ -177,8 +177,14 @@ CLI_DOT_DIRS: dict[str, list[str]] = {
     "copilot": [".github"],
     "pi": [".pi"],
     "codex": [".codex"],
+    "opencode": [".opencode"],
 }
 KNOWN_CLIS = list(CLI_DOT_DIRS.keys())
+# The CLIs that "all" (no --cli) wires. OpenCode is wired only when named, and
+# only with its guard-only plugin until the OpenCode integration extends it.
+DEFAULT_CLIS = [c for c in KNOWN_CLIS if c != "opencode"]
+# dot-dirs that carry no factory content links and no orientation file
+GUARD_ONLY_DOT_DIRS = (".opencode",)
 
 # dot-dir -> this CLI's root orientation-file path, relative to --target
 ORIENTATION_FILE = {
@@ -467,6 +473,7 @@ CLI_LABELS = {
     "copilot": "GitHub Copilot CLI",
     "pi": "Stackblitz Pi",
     "codex": "OpenAI Codex CLI",
+    "opencode": "OpenCode",
 }
 
 
@@ -486,7 +493,9 @@ def detect_cli(target: Path) -> list[str]:
 
 
 def _wants(clis: list[str] | None, name: str) -> bool:
-    """True when the named CLI is in the active set (None = all)."""
+    """True when the named CLI is in the active set (None = all but OpenCode)."""
+    if name == "opencode":
+        return clis is not None and name in clis
     return clis is None or name in clis
 
 
@@ -934,6 +943,8 @@ def symlink_factory_content(target: Path, install: dict, report: list[str],
     factory = target / ".agent-factory" / "factory"
 
     for dot_dir in (dot_dirs if dot_dirs is not None else DOT_DIRS):
+        if dot_dir in GUARD_ONLY_DOT_DIRS:
+            continue
         base = target / dot_dir
 
         for name in FACTORY_CONTENT:
@@ -1411,7 +1422,7 @@ def install_guard_human_fields(target: Path, install: dict, report: list[str],
                                clis: list[str] | None = None) -> None:
     """Install guard-human-fields beside step-guard (BR-092, ADR-0035).
 
-    OpenCode follows in its own story."""
+    OpenCode gets the guard-only plugin (ST-0403)."""
     if _wants(clis, "claude"):
         _install_claude_guard_human_fields(target, install, report)
     if _wants(clis, "copilot"):
@@ -1420,6 +1431,8 @@ def install_guard_human_fields(target: Path, install: dict, report: list[str],
         _install_codex_guard_human_fields(target, install, report)
     if _wants(clis, "pi"):
         _install_pi_guard_human_fields(target, install, report)
+    if _wants(clis, "opencode"):
+        _install_opencode_guard_plugin(target, install, report)
 
 
 def install_freshness_check(target: Path, install: dict, report: list[str],
@@ -1890,6 +1903,19 @@ def _install_pi_guard_human_fields(target: Path, install: dict, report: list[str
     link = extensions_dir / "guard-human-fields.ts"
     dest = target / ".agent-factory" / "factory" / "config" / "extensions" / "guard-human-fields.ts"
     ensure_symlink(link, dest, report, install=install)
+
+
+def _install_opencode_guard_plugin(target: Path, install: dict, report: list[str]) -> None:
+    """Link the guard-only OpenCode plugin into .opencode/plugins/."""
+    plugins_dir = target / ".opencode" / "plugins"
+    if not plugins_dir.exists():
+        plugins_dir.mkdir(parents=True)
+        install["remove_paths"].append(".opencode/plugins")
+        log(report, ".opencode/plugins: created")
+    link = plugins_dir / "agent-factory.ts"
+    dest = target / ".agent-factory" / "factory" / "config" / "plugins" / "agent-factory.ts"
+    ensure_symlink(link, dest, report, install=install)
+    install["opencode_ignored_entries"].add(".opencode/plugins/agent-factory.ts")
 
 
 def install_pi_invocation_layer(target: Path, install: dict, report: list[str]) -> None:
@@ -3521,6 +3547,8 @@ def write_gitignore_block(target: Path, install: dict, report: list[str]) -> Non
         entries.append("/" + entry)
     for entry in sorted(install["codex_ignored_entries"]):
         entries.append("/" + entry)
+    for entry in sorted(install.get("opencode_ignored_entries", ())):
+        entries.append("/" + entry)
     for entry in sorted(install["agents_ignored_entries"]):
         entries.append("/" + entry)
 
@@ -3627,6 +3655,8 @@ def load_prior_manifest(target: Path, install: dict, report: list[str]) -> None:
             install["codex_ignored_entries"].add(p.lstrip("/"))
         elif p.startswith("/.agents/"):
             install["agents_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.opencode/"):
+            install["opencode_ignored_entries"].add(p.lstrip("/"))
 
     if "orientation_orig_final_newline" in prior:
         install["orientation_orig_final_newline"] = prior[
@@ -3973,6 +4003,8 @@ def _path_cli(rel: str) -> str | None:
         return "copilot"
     if rel.startswith(".pi/") or rel == ".pi":
         return "pi"
+    if rel.startswith(".opencode/") or rel == ".opencode":
+        return "opencode"
     if rel.startswith((".codex/", ".agents/")) or rel in (".codex", ".agents"):
         return "codex"
     return None
@@ -4286,7 +4318,7 @@ def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> in
 
     existing = prior.get("cli")
     if existing is None:
-        existing = list(KNOWN_CLIS)
+        existing = list(DEFAULT_CLIS)
 
     available = [c for c in KNOWN_CLIS if c not in existing]
     if not available:
@@ -4321,6 +4353,7 @@ def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> in
         "orientation": {},
         "github_ignored_entries": set(),
         "codex_ignored_entries": set(),
+        "opencode_ignored_entries": set(),
         "agents_ignored_entries": set(),
         "copilot_generated_agents": set(),
         "codex_generated_agents": set(),
@@ -4382,7 +4415,8 @@ def do_add(target: Path, source_factory: Path, add_args: list[str] | None) -> in
         _out.quiet = False
 
         for dd in dot_dirs:
-            _link_orientation(target, dd, factory, install, report)
+            if dd not in GUARD_ONLY_DOT_DIRS:
+                _link_orientation(target, dd, factory, install, report)
 
         if "pi" in chosen:
             install_pi_invocation_layer(target, install, report)
@@ -4426,7 +4460,7 @@ def do_remove(target: Path, remove_args: list[str] | None) -> int:
 
     existing = prior.get("cli")
     if existing is None:
-        existing = list(KNOWN_CLIS)
+        existing = list(DEFAULT_CLIS)
 
     if not existing:
         print("init-factory --remove: no CLIs installed")
@@ -4574,6 +4608,7 @@ def do_remove(target: Path, remove_args: list[str] | None) -> int:
         "cli": remaining if remaining else [],
         "github_ignored_entries": set(),
         "codex_ignored_entries": set(),
+        "opencode_ignored_entries": set(),
         "agents_ignored_entries": set(),
         "copilot_generated_agents": set(),
         "codex_generated_agents": set(),
@@ -4609,6 +4644,8 @@ def do_remove(target: Path, remove_args: list[str] | None) -> int:
             install["codex_ignored_entries"].add(p.lstrip("/"))
         elif p.startswith("/.agents/") and "codex" in remaining:
             install["agents_ignored_entries"].add(p.lstrip("/"))
+        elif p.startswith("/.opencode/") and "opencode" in remaining:
+            install["opencode_ignored_entries"].add(p.lstrip("/"))
 
     if "copilot" in remaining:
         install["copilot_generated_agents"] = set(
@@ -4807,6 +4844,7 @@ def main(argv: list[str] | None = None) -> int:
         "orientation": {},
         "github_ignored_entries": set(),
         "codex_ignored_entries": set(),
+        "opencode_ignored_entries": set(),
         "agents_ignored_entries": set(),
         "copilot_generated_agents": set(),
         "codex_generated_agents": set(),

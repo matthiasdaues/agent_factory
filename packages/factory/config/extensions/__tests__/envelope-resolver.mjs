@@ -22,12 +22,20 @@ const apiStub = `
 export const ExtensionAPI = class {};
 `;
 
+// OpenCode plugin API (ST-0403): Plugin.define returns its definition as it is.
+const opencodePluginStub = `
+export const Plugin = { define: (definition) => definition };
+`;
+
 export async function resolve(specifier, context, nextResolve) {
   if (specifier === "typebox") {
     return { url: "data:text/javascript," + encodeURIComponent(typeboxStub), shortCircuit: true };
   }
   if (specifier === "@earendil-works/pi-coding-agent") {
     return { url: "data:text/javascript," + encodeURIComponent(apiStub), shortCircuit: true };
+  }
+  if (specifier === "@opencode-ai/plugin") {
+    return { url: "data:text/javascript," + encodeURIComponent(opencodePluginStub), shortCircuit: true };
   }
   if (specifier.endsWith("pi-usage.ts") || specifier === "./pi-usage.ts") {
     return { url: "data:text/javascript," + encodeURIComponent(piUsageStub), shortCircuit: true };
