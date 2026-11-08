@@ -247,3 +247,55 @@ test-strategy agent set FC-18-IT-15, FC-18-IT-17, and FC-18-CT-02 to
 ### 2026-11-08, Wave 3: closed
 
 All four stories merged.
+
+### 2026-11-08, Wave 4: dispatch
+
+ST-0392 and ST-0393 share `finding-lint` and its tests, so ST-0393 follows
+ST-0392. ST-0392 (opus) and ST-0399 (sonnet) started from `c28b53f5`.
+
+- ST-0399 merged (`cb1b65b4`): the pause point and the headless summary
+  list each new register file with its sentence. Suite: 3648 passed. No drift.
+  Red was not observed, because the first run overlapped the edits.
+- ST-0392 merged (`9e39b219`): `finding-lint` compares each file with
+  `HEAD` and reads the index with `--staged` (BR-109, BR-110). Suite: 3688
+  passed. A repository without a commit counts every file as new. Three drift
+  rows for the domain-modeling agent.
+- ST-0393 started (opus) after ST-0392.
+
+The three drift rows of ST-0392 are fixed and confirmed: the `finding-lint`
+contract names its git state, and BR-110 says that a replacing finding file
+carries `review_class` and that a register file never moves between class
+folders.
+
+### 2026-11-08, Paused at the stakeholder's request
+
+ST-0393 is implemented in its worktree but not committed: the git check of
+BR-088 over `dev`, `main`, `origin/dev`, `origin/main`, and the installed copy.
+The suite has 3719 passed. Remaining: the commit, its spec-feedback report (four
+rows: missing or short artifacts pass, `--staged` blames the working tree, skip
+lines print once, the section range includes the heading), then verify, merge,
+drift rows, and `close-wave 4`. The lint now fails on seven resolved findings
+with `in_use: false` (FAGAN-0033, IMPL-0004, IMPL-0005, IMPL-0008 to IMPL-0010,
+SEC-0007) until ST-0395 limits the check to new or changed findings.
+
+### 2026-11-08, Resumed after a machine restart
+
+The stakeholder said to continue. The restart at 11:27 wiped `/tmp` and with it
+the session scratchpad: the pending notes and the agent briefs. The repository,
+the worktrees, and the ledger were intact. The notes above came back from the
+session transcript. The common developer brief now lives in
+`.current-work/feature/finding-classification/briefs/developer-common.md`, and
+log entries go straight into this notebook.
+
+- ST-0393 merged (`aba072b7`, report `88b3b5ab`): the git check of BR-088.
+  A fresh developer agent checked the diff, ran the suite, and committed the
+  paused work. Suite: 3719 passed. Four drift rows for the domain-modeling
+  agent.
+
+Drift of ST-0393: three rows fixed and confirmed in BR-088 and the `finding-lint`
+contract. The fourth became BUG-0121 (`code`, `major`): with `--staged`, the git
+check blames the working tree. The row is `rejected`, and ST-0395 fixes the BUG.
+
+### 2026-11-08, Wave 4: closed
+
+All three stories merged.
