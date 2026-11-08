@@ -321,3 +321,15 @@ after the other. ST-0394 (sonnet) started from `ead3d2ab`.
   `test_repo_config_factory_block_matches_template` in
   `tests/factory/test_hook_missing_factory.py` and
   `test_this_repository_needs_no_refresh` in `tests/factory/test_update_factory.py`.
+
+The drift row of ST-0395 is fixed and confirmed: BR-089 says the lint reads the
+working-tree settings file, also with `--staged`, because the setting configures
+the check and is not part of the finding under check.
+
+### 2026-11-08, Wave 5: closed
+
+All three stories merged. Suite: 3795 passed.
+
+### 2026-11-08, Wave 6: dispatch
+
+ST-0405 (name this repository's release tags) starts alone from the wave-5 head.
