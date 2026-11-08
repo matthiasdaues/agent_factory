@@ -7,9 +7,16 @@
 #       classification rule: the vocabulary of the class, the shape of the
 #       basis, the severity that the rule of the class computes, the status,
 #       the artifact form, the body sections, and the register rules
-#       (validation-rules.md BR-079 to BR-087, BR-090, BR-110).
-# When: In the validate skill, and later in the pre-commit hook.
-# By:   `.agent-factory/factory/scripts/finding-lint` from the project root.
+#       (validation-rules.md BR-079 to BR-087, BR-090, BR-110). It compares
+#       each file with its HEAD version and rejects a lowering or a removal
+#       without the override fields, a dropped review_class, and a removed
+#       register file without a finding file of the same ID (BR-109, BR-110).
+#       A repository without a commit, or a directory outside any repository,
+#       has no HEAD version, so the lint checks every file as new.
+# When: In the validate skill without --staged (the working tree), and in the
+#       pre-commit hook with --staged (the index).
+# By:   `.agent-factory/factory/scripts/finding-lint [--staged]` from the
+#       project root.
 #
 # The lint uses the Python standard library only. It runs the register schema
 # check through `validate` of schema-validate, which sits in the same folder,
@@ -18,13 +25,15 @@
 # Exit code:
 #   0  every checked file passes
 #   1  a checked file breaks a rule (one line per violation on stdout)
-#   2  usage error, or a register schema or schema-validate is missing
+#   2  usage error, a register schema or schema-validate is missing, or a
+#      git call fails (also --staged outside a git repository)
 
 from __future__ import annotations
 
 import importlib.util
 import json
 import re
+import subprocess
 import sys
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
@@ -730,14 +739,22 @@ def _check_rating(path: str, meta: dict) -> list[str]:
     ]
 
 
-def check_finding_file(path: str, text: str, schemas: dict) -> list[str]:
-    """Check one finding file. A file without review_class is skipped."""
-    if not carries_review_class(text):
+def check_finding_file(
+    path: str, text: str, schemas: dict, force: bool = False
+) -> list[str]:
+    """Check one finding file.
+
+    A file without review_class is skipped, unless *force* is set because its
+    HEAD version carries review_class (BR-109).
+    """
+    if not force and not carries_review_class(text):
         return []
     try:
         meta, body = parse_finding(text)
     except FrontmatterError as exc:
         return [_message(path, "frontmatter", f"the frontmatter cannot be read: {exc}")]
+    if meta is None:
+        return [_message(path, "frontmatter", "the file has no frontmatter")]
     out, basis_ok = check_classification(path, meta, schemas)
     if basis_ok:
         out += _check_rating(path, meta)
@@ -825,7 +842,7 @@ def check_register_file(path: str, data: Any, schemas: dict) -> list[str]:
     return out
 
 
-# --- The set of findings -------------------------------------------------------
+# --- The IDs of the findings --------------------------------------------------
 
 
 def _check_ids(
@@ -853,44 +870,334 @@ def _check_ids(
     return out
 
 
-def lint_tree(root: Path, schemas: dict) -> list[str]:
-    """Check every finding file with review_class and every register file under *root*."""
+# --- The comparison with HEAD (BR-109, BR-110) ---------------------------------
+
+
+def is_finding_path(path: str) -> bool:
+    """Return whether *path* is a finding file `docs/findings/<ID>.md`."""
+    parts = path.split("/")
+    return (
+        len(parts) == 3 and parts[:2] == ["docs", "findings"] and path.endswith(".md")
+    )
+
+
+def is_register_path(path: str) -> bool:
+    """Return whether *path* is a register file under `docs/findings/register/`."""
+    return path.startswith("docs/findings/register/") and path.endswith(".json")
+
+
+def _finding_id(path: str) -> str:
+    return path.rsplit("/", 1)[1].rsplit(".", 1)[0]
+
+
+def _meta(text: str) -> dict | None:
+    """Return the frontmatter of a finding file, or None when it cannot be read."""
+    try:
+        meta, _ = parse_finding(text)
+    except FrontmatterError:
+        return None
+    return meta
+
+
+def _both(record: dict, first: str, second: str) -> bool:
+    return _has_text(record.get(first)) and _has_text(record.get(second))
+
+
+def _unconfirmed_critical(path: str, head_meta: dict) -> list[str]:
+    """A critical finding is lowered only when HEAD holds its confirmation (BR-109)."""
+    if head_meta.get("severity") != "critical" or _both(
+        head_meta, "stop_confirmed_by", "stop_confirmed_reason"
+    ):
+        return []
+    return [
+        _message(
+            path,
+            "BR-109 lowering",
+            f"{_finding_id(path)} is lowered from critical, but its HEAD version holds no text in stop_confirmed_by and stop_confirmed_reason",
+        )
+    ]
+
+
+def _check_kept_class(path: str, head_meta: dict, text: str) -> list[str]:
+    """A version keeps the review_class of its HEAD version (BR-109)."""
+    if carries_review_class(text):
+        meta = _meta(text)
+        if meta is None:
+            return []
+        review_class = meta.get("review_class")
+    else:
+        review_class = None
+    if review_class == head_meta.get("review_class"):
+        return []
+    return [
+        _message(
+            path,
+            "BR-109 review class",
+            f"{_finding_id(path)} keeps the review_class {head_meta.get('review_class')!r} of its HEAD version, not {review_class!r}",
+        )
+    ]
+
+
+def _check_lowering(path: str, head_meta: dict, text: str) -> list[str]:
+    """A severity below the HEAD severity needs the override fields (BR-109)."""
+    meta = _meta(text)
+    if meta is None:
+        return []
+    old, new = head_meta.get("severity"), meta.get("severity")
+    if old not in SEVERITY_ORDER or new not in SEVERITY_ORDER:
+        return []
+    if SEVERITY_ORDER.index(new) >= SEVERITY_ORDER.index(old):
+        return []
+    out: list[str] = []
+    if not _both(meta, "override_by", "override_reason"):
+        out.append(
+            _message(
+                path,
+                "BR-109 lowering",
+                f"{_finding_id(path)} is lowered from {old} to {new} without text in override_by and override_reason",
+            )
+        )
+    return out + _unconfirmed_critical(path, head_meta)
+
+
+def _check_removed_finding(
+    path: str, head_meta: dict, registers: dict[str, list[Any]]
+) -> list[str]:
+    """A removed finding file needs a register file that lowers it (BR-109)."""
+    finding_id = _finding_id(path)
+    replaced = any(
+        isinstance(data, dict)
+        and _both(data, "override_by", "override_reason")
+        and data.get("status") == "open"
+        for data in registers.get(finding_id, [])
+    )
+    if replaced:
+        return _unconfirmed_critical(path, head_meta)
+    return [
+        _message(
+            path,
+            "BR-109 removal",
+            f"{finding_id} is removed without a register file of the same ID that holds text in override_by and override_reason and the status open",
+        )
+    ]
+
+
+def _parsed_registers(files: dict[str, str]) -> dict[str, list[Any]]:
+    registers: dict[str, list[Any]] = {}
+    for path, text in files.items():
+        if not is_register_path(path):
+            continue
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            data = None
+        registers.setdefault(_finding_id(path), []).append(data)
+    return registers
+
+
+def compare_with_head(files: dict[str, str], head: dict[str, str]) -> list[str]:
+    """Compare the checked version of the findings with their HEAD version.
+
+    *files* and *head* map each path to its text. A finding file whose HEAD
+    version carries no review_class is not compared (BR-109). A register file
+    that HEAD holds is removed only when a finding file with review_class and
+    the same ID replaces it (BR-110).
+    """
+    out: list[str] = []
+    registers = _parsed_registers(files)
+    for path in sorted(head):
+        if is_finding_path(path) and carries_review_class(head[path]):
+            head_meta = _meta(head[path])
+            if head_meta is None:
+                continue
+            if path in files:
+                out += _check_kept_class(path, head_meta, files[path])
+                out += _check_lowering(path, head_meta, files[path])
+            else:
+                out += _check_removed_finding(path, head_meta, registers)
+        elif is_register_path(path) and path not in files:
+            finding_id = _finding_id(path)
+            replacement = files.get(f"docs/findings/{finding_id}.md")
+            if replacement is None or not carries_review_class(replacement):
+                out.append(
+                    _message(
+                        path,
+                        "BR-110 removal",
+                        f"{finding_id} is removed without a finding file docs/findings/{finding_id}.md with review_class that replaces it",
+                    )
+                )
+    return out
+
+
+# --- The set of findings -------------------------------------------------------
+
+
+def lint_files(files: dict[str, str], head: dict[str, str], schemas: dict) -> list[str]:
+    """Check the findings of one version, given as path to text, against *head*.
+
+    A finding file is checked when it carries review_class or when its HEAD
+    version carries it (BR-109).
+    """
     out: list[str] = []
     finding_ids: dict[str, str] = {}
-    for file in sorted((root / "docs" / "findings").glob("*.md")):
-        text = file.read_text(encoding="utf-8")
-        if not carries_review_class(text):
-            continue
-        path = file.relative_to(root).as_posix()
-        finding_ids[file.stem] = path
-        out += check_finding_file(path, text, schemas)
     register_ids: dict[str, list[str]] = {}
-    for file in sorted((root / "docs" / "findings" / "register").rglob("*.json")):
-        path = file.relative_to(root).as_posix()
-        register_ids.setdefault(file.stem, []).append(path)
-        try:
-            data = json.loads(file.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            out.append(
-                _message(
-                    path, "BR-090 register file", f"the file is not valid JSON: {exc}"
+    for path in sorted(files):
+        text = files[path]
+        if is_finding_path(path):
+            classed = carries_review_class(text)
+            if classed:
+                finding_ids[_finding_id(path)] = path
+            if classed or (path in head and carries_review_class(head[path])):
+                out += check_finding_file(path, text, schemas, force=True)
+        elif is_register_path(path):
+            register_ids.setdefault(_finding_id(path), []).append(path)
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError as exc:
+                out.append(
+                    _message(
+                        path,
+                        "BR-090 register file",
+                        f"the file is not valid JSON: {exc}",
+                    )
                 )
-            )
-            continue
-        out += check_register_file(path, data, schemas)
-    return out + _check_ids(finding_ids, register_ids)
+                continue
+            out += check_register_file(path, data, schemas)
+    return out + _check_ids(finding_ids, register_ids) + compare_with_head(files, head)
+
+
+# --- Reading the versions ------------------------------------------------------
+
+
+class GitError(Exception):
+    """A git call failed."""
+
+
+def read_worktree(root: Path) -> dict[str, str]:
+    """Read the finding files and register files of the working tree under *root*."""
+    files: dict[str, str] = {}
+    candidates = list((root / "docs" / "findings").glob("*.md"))
+    candidates += (root / "docs" / "findings" / "register").rglob("*.json")
+    for file in candidates:
+        files[file.relative_to(root).as_posix()] = file.read_text(encoding="utf-8")
+    return files
+
+
+def _git(root: Path, *args: str, stdin: bytes | None = None) -> bytes:
+    try:
+        result = subprocess.run(
+            ["git", *args], cwd=root, input=stdin, capture_output=True, check=False
+        )
+    except OSError as exc:
+        raise GitError(f"finding-lint: cannot run git: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        raise GitError(f"finding-lint: git {args[0]} failed: {detail}")
+    return result.stdout
+
+
+def _in_repository(root: Path) -> bool:
+    """Return whether *root* lies in a git repository."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise GitError(f"finding-lint: cannot run git: {exc}") from exc
+    if result.returncode == 0:
+        return True
+    detail = result.stderr.decode("utf-8", "replace").strip()
+    if "not a git repository" in detail:
+        return False
+    raise GitError(f"finding-lint: git rev-parse failed: {detail}")
+
+
+def _has_head(root: Path) -> bool:
+    """Return whether the repository has a commit at HEAD."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode in (0, 1):
+        return result.returncode == 0
+    detail = result.stderr.decode("utf-8", "replace").strip()
+    raise GitError(f"finding-lint: git rev-parse failed: {detail}")
+
+
+def _listed(output: bytes) -> list[str]:
+    paths = {name.decode("utf-8", "replace") for name in output.split(b"\0") if name}
+    return sorted(
+        path
+        for path in paths
+        if "\n" not in path and (is_finding_path(path) or is_register_path(path))
+    )
+
+
+def _read_objects(root: Path, prefix: str, paths: list[str]) -> dict[str, str]:
+    """Read the object `<prefix>./<path>` of each path with one cat-file call."""
+    if not paths:
+        return {}
+    request = "".join(f"{prefix}./{path}\n" for path in paths).encode("utf-8")
+    output = _git(root, "cat-file", "--batch", stdin=request)
+    texts: dict[str, str] = {}
+    position = 0
+    for path in paths:
+        end = output.index(b"\n", position)
+        header = output[position:end].split()
+        if len(header) != 3:
+            raise GitError(f"finding-lint: git cat-file cannot read {prefix}{path}")
+        size = int(header[2])
+        start = end + 1
+        texts[path] = output[start : start + size].decode("utf-8", "replace")
+        position = start + size + 1
+    return texts
+
+
+def read_head(root: Path) -> dict[str, str]:
+    """Read the HEAD version of the findings, or nothing without a commit."""
+    if not _in_repository(root) or not _has_head(root):
+        return {}
+    listed = _git(
+        root, "ls-tree", "-r", "-z", "--name-only", "HEAD", "--", "docs/findings"
+    )
+    return _read_objects(root, "HEAD:", _listed(listed))
+
+
+def read_index(root: Path) -> dict[str, str]:
+    """Read the staged version of the findings."""
+    if not _in_repository(root):
+        raise GitError(
+            "finding-lint: --staged reads the index, and the current directory lies in no git repository"
+        )
+    listed = _git(root, "ls-files", "-z", "--cached", "--", "docs/findings")
+    return _read_objects(root, ":", _listed(listed))
+
+
+def lint_tree(root: Path, schemas: dict, staged: bool = False) -> list[str]:
+    """Check the working tree under *root*, or the index with *staged*, against HEAD."""
+    files = read_index(root) if staged else read_worktree(root)
+    return lint_files(files, read_head(root), schemas)
 
 
 def main(argv: list[str]) -> int:
-    if argv:
-        print("usage: finding-lint", file=sys.stderr)
+    if argv not in ([], ["--staged"]):
+        print("usage: finding-lint [--staged]", file=sys.stderr)
         return 2
     try:
         schemas = load_schemas(FACTORY_ROOT)
     except SetupError as exc:
         print(exc, file=sys.stderr)
         return 2
-    messages = lint_tree(Path.cwd(), schemas)
+    try:
+        messages = lint_tree(Path.cwd(), schemas, staged=argv == ["--staged"])
+    except GitError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     for message in messages:
         print(message)
     return 1 if messages else 0
