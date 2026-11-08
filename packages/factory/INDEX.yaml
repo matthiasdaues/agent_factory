@@ -364,8 +364,8 @@ agents:
     tier: strong
     description: Review a feature proposal for clarity, feasibility, and planning readiness — consultative on drafts, adversarial on open proposals. Runs in a separate session from the proposal author.
     path: agents/proposal-review-agent.md
-    tokens: 1814
-    total_tokens: 3685
+    tokens: 2069
+    total_tokens: 3940
     inputs:
       required:
         - type: proposal

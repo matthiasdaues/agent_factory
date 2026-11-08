@@ -372,3 +372,35 @@ def test_st_0389_triage_table_has_a_consequence_column_and_no_severity_column():
     column = header.index("Consequence")
     consequences = [row[column].strip('"') for row in rows]
     assert consequences == list(TRIAGE_CONSEQUENCES)
+
+
+# ST-0388: the proposal-review agent rates each Appendix row with two questions.
+
+PROPOSAL_AGENT = FACTORY / "agents" / "proposal-review-agent.md"
+PROPOSAL_TEMPLATE = RULEBOOKS / "templates" / "proposal.md"
+
+
+@pytest.mark.spec("FC-08-LN-01")
+def test_st_0388_agent_asks_two_questions_and_writes_the_severity_sentence():
+    text = _flat(_text(PROPOSAL_AGENT))
+    order = [text.index(f"`{q}`") for q in ("fails_purpose", "raises_cost")]
+    assert order == sorted(order)
+    assert "A yes gives `major`" in text
+    assert "A yes gives `minor`" in text
+    assert "Two no answers give `note`" in text
+    assert "A row is never `critical`" in text
+    assert "`Severity:`" in text
+
+
+@pytest.mark.spec("FC-08-LN-01")
+def test_st_0388_agent_never_sets_waived():
+    text = _flat(_text(PROPOSAL_AGENT))
+    assert "The agent never sets `waived`" in text
+
+
+@pytest.mark.spec("FC-08-LN-01")
+def test_st_0388_template_lists_waived_as_stakeholder_only_on_a_major_row():
+    section = _flat(_section(_text(PROPOSAL_TEMPLATE), "Review findings"))
+    assert "Only the stakeholder sets `waived`, and only on a `major` row" in section
+    assert "with the reason in Resolution" in section
+    assert "never `critical`" in section
