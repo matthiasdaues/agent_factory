@@ -231,6 +231,57 @@ class TestBashRefused:
         assert result.returncode == 2, result.stderr
 
 
+class TestShellFormsRefused:
+    """IMPL-0015: a heredoc script, a keyword, or a wrapper does not hide the write."""
+
+    SED = "sed -i 's/status: open/status: waived/' docs/findings/IMPL-0004.md"
+
+    @pytest.mark.spec("FC-18-IT-02")
+    @pytest.mark.parametrize("command", [
+        (
+            "python3 - <<'PY'\n"
+            "open('docs/findings/IMPL-0004.md','w').write('status: waived')\n"
+            "PY"
+        ),
+        f"bash <<'EOF'\n{SED}\nEOF",
+        f"if true; then {SED}; fi",
+        f"{{ {SED}; }}",
+        f"env X=1 {SED}",
+        f"cat <<< 'x'\n{SED}",
+        f"command {SED}",
+        f"sudo {SED}",
+        f"time {SED}",
+        f"for f in a; do {SED}; done",
+        f"! {SED}",
+    ], ids=[
+        "python-heredoc", "bash-heredoc", "then", "brace", "env",
+        "here-string", "command", "sudo", "time", "do", "bang",
+    ])
+    def test_impl_0015_hidden_shell_write_is_refused(self, project, command):
+        result = run_guard(project, "Bash", {"command": command})
+
+        assert result.returncode == 2, result.stderr
+        assert "docs/findings/IMPL-0004.md" in result.stderr
+
+    @pytest.mark.spec("FC-18-IT-05")
+    def test_impl_0015_python_heredoc_that_writes_a_fixture_passes(self, project):
+        command = (
+            "python3 - <<'PY'\n"
+            "open('tests/fixtures/waived.md','w').write('status: waived')\n"
+            "PY"
+        )
+
+        result = run_guard(project, "Bash", {"command": command})
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("FC-18-IT-05")
+    def test_impl_0015_here_string_to_read_only_command_passes(self, project):
+        result = run_guard(project, "Bash", {"command": "grep waived <<< 'status: waived'"})
+
+        assert result.returncode == 0, result.stderr
+
+
 class TestWriteRefused:
     @pytest.mark.spec("FC-18-IT-04")
     def test_st_0400_write_of_an_existing_finding_that_confirms_the_stop_is_refused(self, project):

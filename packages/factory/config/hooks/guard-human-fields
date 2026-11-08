@@ -78,7 +78,9 @@ SHELL_FIELD = re.compile(
     rf"""\b({_FIELD_NAMES})["']?\s*:\s*["']?([^\s"',/}}]*)"""
 )
 WAIVED_WORD = re.compile(r"\bwaived\b")
-HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1")
+HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)(\w+)\1")
+# Words that lead a command without being the command: `then sed -i ...`.
+WRAPPERS = {"{", "then", "do", "else", "!", "env", "command", "time", "sudo"}
 INTERPRETERS = {"python", "python3", "perl", "ruby", "node", "awk", "gawk"}
 SHELLS = {"sh", "bash", "zsh", "dash"}
 SEPARATORS = {";", "&&", "||", "|", "&", "(", ")"}
@@ -320,7 +322,8 @@ def shell_write_targets(command: str, cwd: Path) -> list[Path]:
     targets: list[Path] = []
     try:
         # Each line is a command of its own, except after a line continuation.
-        text = _strip_heredoc_bodies(command).replace("\\\n", " ").replace("\n", " ; ")
+        stripped, heredocs = _split_heredocs(command)
+        text = stripped.replace("\\\n", " ").replace("\n", " ; ")
         lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()<>")
         lexer.whitespace_split = True
         lexer.commenters = ""
@@ -328,6 +331,10 @@ def shell_write_targets(command: str, cwd: Path) -> list[Path]:
     except ValueError:
         # Unbalanced quotes: treat every path-like word of the text as a target.
         return [_absolute(word, cwd) for word in re.findall(r"[\w./*-]+", command)]
+
+    # The body of a heredoc fed to an interpreter or a shell is its script.
+    for line, body in heredocs:
+        targets.extend(_heredoc_script_targets(line, body, cwd))
 
     # Follow each literal `cd` in order; a subshell restores the directory (BUG-0120).
     subshells: list[Path] = []
@@ -359,7 +366,7 @@ def _changed_directory(args: list[str], cwd: Path) -> Path:
 def _simple_targets(words: list[str], cwd: Path) -> list[str]:
     targets = [words[i + 1] for i, w in enumerate(words[:-1]) if w in REDIRECTS]
     args = [w for w in words if w not in REDIRECTS]
-    while args and re.match(r"^\w+=", args[0]):
+    while args and (re.match(r"^\w+=", args[0]) or args[0] in WRAPPERS):
         args = args[1:]
     if not args:
         return targets
@@ -381,21 +388,58 @@ def _simple_targets(words: list[str], cwd: Path) -> list[str]:
     return targets
 
 
-def _strip_heredoc_bodies(command: str) -> str:
-    """Drop the body lines of each heredoc, so the lexer sees only the commands."""
+def _split_heredocs(command: str) -> tuple[str, list[tuple[str, str]]]:
+    """Drop the body lines of each heredoc, so the lexer sees only the commands.
+
+    Also return each heredoc as its command line and its body."""
     lines = command.split("\n")
     kept: list[str] = []
+    heredocs: list[tuple[str, str]] = []
     terminator: str | None = None
+    body: list[str] = []
+    opener = ""
     for line in lines:
         if terminator is not None:
             if line.strip() == terminator:
+                heredocs.append((opener, "\n".join(body)))
                 terminator = None
+            else:
+                body.append(line)
             continue
         kept.append(line)
         match = HEREDOC.search(line)
         if match:
             terminator = match.group(2)
-    return "\n".join(kept)
+            opener = line
+            body = []
+    return "\n".join(kept), heredocs
+
+
+def _heredoc_script_targets(line: str, body: str, cwd: Path) -> list[Path]:
+    """The paths a heredoc body writes, when its command runs the body as a script."""
+    try:
+        lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|()<>")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        words = list(lexer)
+    except ValueError:
+        return []
+    simple: list[str] = []
+    for word in words + [";"]:
+        if word not in SEPARATORS:
+            simple.append(word)
+            continue
+        if any(w.startswith("<<") for w in simple):
+            args = [w for w in simple if w not in REDIRECTS]
+            while args and (re.match(r"^\w+=", args[0]) or args[0] in WRAPPERS):
+                args = args[1:]
+            name = os.path.basename(args[0]) if args else ""
+            if name in INTERPRETERS:
+                return [_absolute(w, cwd) for w in PATH_WORD.findall(body)]
+            if name in SHELLS:
+                return shell_write_targets(body, cwd)
+        simple = []
+    return []
 
 
 def guarded(path: Path) -> tuple[str, str | None]:
