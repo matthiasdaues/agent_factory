@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0069",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/features/counter-ids-fitting.feature:472",
+  "story": null,
+  "finding": "The glossary lists tag under Avoid for ID Prefix. The CIF-16 Scenario 'finding-format.md keeps the review of each tag, with a row for RECON' and its step 'its table of finding tags' use the word, and BR-108 says 'one row per finding tag'. Use ID prefix, or define Finding Tag in the glossary if it names a different concept. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The reader can tell from the context that tag means the ID prefix of a finding (no to fails_purpose); the glossary tells the reader to avoid the word, so the reader stops to check whether a second concept exists (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0070",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md#counter-ids-vocabulary",
+  "story": null,
+  "finding": "The feature file and the structure files use project terms that the glossary does not define: Fitting, Fitting Key (fitting.counter_seeded is 'the sixth fitting key'), Orientation File (the four AGENTS.*.md files), Text Test for ID producers, and the entity names Seed Plan and Seed Pair, which the feature file calls the seed command and its pairs. Define each term, or replace Seed Plan with seed command in the entity model so one concept has one name. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The feature file explains each term where it first appears, so a planner can act (no to fails_purpose); a reader of a structure file alone meets Seed Plan and Fitting Key without a definition (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

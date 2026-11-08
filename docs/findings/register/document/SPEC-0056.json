@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0056",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/features/counter-ids.feature:70-75",
+  "story": null,
+  "finding": "BR-069 and the seed error table now refuse 9999 and a second pair for one prefix. The Scenario Outline \"A seed with a wrong argument fails before it reaches the remote\" has neither case. Its examples are 10000, abc, 1000 XX=5, and 1000 ST=x. The proposal, § The script next-id step 1 and its seed error table, says 0 to 9999. The specification narrows the range by one value to keep the first claim at four digits. The gaps report records no choice for this change, so a reader who compares the spec with the proposal finds a silent deviation. Fix: Add two rows to the Outline: 9999 names the argument 9999, and 1000 ST=5 ST=7 names ST. Add a choice row to counter-ids-gaps.md that states the narrower range, its reason, and BR-069. Tell the stakeholder, so the proposal's step 1 can follow at its next revision.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The Outline has no row for `9999` or `1000 ST=5 ST=7`, and `counter-ids-gaps.md` records no choice for the narrower range, so a reader who compares the spec with the proposal finds an unexplained deviation. BR-069 and the QA strategy state the range, so an implementer can act (no to fails_purpose). No story or code is built from the two missing rows.",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

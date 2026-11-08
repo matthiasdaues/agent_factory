@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0117",
+  "source": "reconcile-spec",
+  "review_class": "code",
+  "category": "defect",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/next-id:276",
+  "story": "ST-0368",
+  "finding": "DEC-11, ADR-0031, architecture.dsl, arc42 5.11, and 6.15 give the counter port the operations claim and seed and put the retry and the wait in the git-ref adapter. In next-id, the protocol Counter has read and push, claim_loop in the script core runs the retry and the wait (next-id:347), and seed reaches git without the port (next-id:386). Move the loop and the seed behind a port with claim and seed, or have the architecture agent describe the port as built.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every behaviour of BR-071 to BR-073 holds and the tests drive claim_loop through the protocol (no to fails_purpose); a second backend, which ADR-0031 expects, must bring its own seed and fit a lease-shaped read and push instead of implementing claim and seed (raises_cost).",
+  "commit": "d0a78a5c40327c1f7e4c9a204ab5e766a7e0c44b",
+  "status": "open"
+}

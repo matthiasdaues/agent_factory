@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0063",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:576",
+  "story": null,
+  "finding": "BR-102 says the move exits non-zero when the push fails, and in the same rule says gap CIF-G08 asks for the exit codes. The contract of next-id --move-to-origin and the REFUSED state of the Move Lifecycle also take non-zero. The gaps report (CIF-G08, CIF-C07) and the QA strategy (CIF-11-IT-01, CIF-11-IT-02) treat the code as open and leave it unasserted. Decide in one place: either non-zero follows from the Failure row of next-id and CIF-G08 closes, or the three structure files mark the code as open. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every reading leads to a non-zero exit, so an implementer can act (no to fails_purpose); the test writer leaves the code unasserted although three files state it (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

@@ -384,3 +384,39 @@ exp", "Reco", and "it is not". The damage predates ST-0385, which added its
 
 **Action:** restore the paragraph from git history, find the commit that cut
 it, and check whether the same tool damaged other skill files.
+
+## T-0408 — No registry of Factory environment variables
+
+- status: open
+- source: RETRO-0001 (migration of open findings, ST-0406)
+
+`AF_SESSION_LOG` was declared and documented, but no mechanism provisioned it until late in the session of 2026-07-13. No file lists the environment variables of the Factory.
+
+**Action:** create `packages/factory/docs/env-vars.md` with each variable's name, purpose, provider, reader, and default.
+
+## T-0409 — `block-dangerous-git.sh` blocks git when it holds conflict markers
+
+- status: open
+- source: RETRO-0002 (migration of open findings, ST-0406)
+
+A rebase left `<<<<<<<` markers inside the hook, and the corrupted hook then blocked every git command, including the commands needed to repair it. The hook still has no self-check.
+
+**Action:** add a check at the top of `packages/factory/config/hooks/block-dangerous-git.sh`: when the script holds `<<<<<<<`, warn on stderr and exit 0.
+
+## T-0410 — No check for a redundant branch before a merge or rebase
+
+- status: open
+- source: RETRO-0003 (migration of open findings, ST-0406)
+
+A rebase of `feat/guardrail-in-init-factory` cost about 15 minutes and corrupted the safety hook, although dev already held the content of that branch.
+
+**Action:** add to `packages/factory/rulebooks/conventions/branching-policy.md` the comparison of `git log --oneline dev..<branch>` with `git log --oneline <branch>..dev` before a merge or rebase.
+
+## T-0411 — Rule for hooks of a subproject is not written down
+
+- status: open
+- source: RETRO-0004 (migration of open findings, ST-0406)
+
+The hooks of the orchestrator subproject used `uv run --project orchestrator`, which caused a build failure and three hook rewrites. The orchestrator subproject no longer exists, so decide first whether the rule is still needed.
+
+**Action:** decide whether a rule is needed; if so, state in `packages/factory/docs/factory-guide.md` that a subproject hook uses the wrappers in `.agent-factory/factory/scripts/`.

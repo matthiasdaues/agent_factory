@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0099",
+  "source": "diagnosis",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/rulebooks/templates/story.md:1",
+  "story": null,
+  "finding": "No template or skill tells an author to write a scope declaration in a new spec, feature or DSL file, so new files fail scope-lint once it runs. Fix: Add the declaration to the templates and name it in the skills that create these files.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Only the proposal template asks for a `scope:` line, and `scope-lint` also governs stories, epics, feature files, and the DSL, so an author must remember the declaration. The artifacts work and an author can add the line by hand (no to fails_purpose).",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

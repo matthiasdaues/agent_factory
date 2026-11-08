@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0058",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md:1119",
+  "story": null,
+  "finding": "The claim error table has the rows \"fetch refused by the remote\" and \"push refused for another reason\". The seed error table has one row, \"access refused by the remote\". A seed that a pre-receive hook refuses is a refused push, not a refused access, so a reader cannot tell which seed row covers it. All three rows name the same message, the remote and git's error message, so only the wording differs. Fix: Use one name per case in both tables. For example, rename the seed row to \"push refused by the remote\", if a seed only pushes. Add a \"fetch refused by the remote\" row only if a seed also reads the remote.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The seed error table says `access refused by the remote`, where the claim table says `fetch refused` and `push refused`, so a reader cannot tell which seed row covers a hook refusal. All three rows print the same message, so an implementer can act (no to fails_purpose). No code encodes the row names.",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

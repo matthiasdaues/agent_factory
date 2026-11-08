@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0106",
+  "source": "code-review",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/index-lint:180",
+  "story": null,
+  "finding": "- any_of: {type: a, path_pattern: x} is valid YAML, and the engine accepts it. index-lint reads it as a string and reports \"must be a non-empty list of alternatives\". Source: brownfield onboarding run(../reviews/brownfield-onboarding-run-2026-10-16.md), review of ST-0313. Fix: Parse the flow form, or name the block form in the error.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "`index-lint` reads the valid line `- any_of: [...]` as a string and reports `must be a non-empty list of alternatives`, which sends the author to the wrong cause. The block form works, so an author can still declare alternatives (no to fails_purpose).",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

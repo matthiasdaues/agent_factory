@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0066",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:570",
+  "story": null,
+  "finding": "BR-099 counts only the strict names backlog/ST-NNNN.md and docs/findings/<PREFIX>-NNNN.md and a heading ## T-NNNN. BR-100 counts any name that starts with a prefix, a hyphen, and digits, such as SPEC-011-title.md. By BR-100, the ADR files docs/adr/NNNN-*.md start with digits and do not count. The todo headings of this project carry a title, such as ## T-0020 — A claim can still open a credential dialog. Let BR-099 name the three locations and BR-100 the match for backlog and findings, state that ADR files match NNNN-*.md, and state that a todo heading counts when it starts with ## T-NNNN. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The Scenarios of CIF-05 and CIF-06 show the intended match, so an implementer can act (no to fails_purpose); a reader must combine two rules that each read as the whole match (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}
