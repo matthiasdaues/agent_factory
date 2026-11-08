@@ -1766,6 +1766,12 @@ class TestRefreshPrecommitHooks:
         """This repo's own config already carries the template block, so
         an update here asks nothing and loses none of its local lines."""
         factory = _factory_with_merge_tooling(tmp_path)
+        # ST-0396: the repository gets finding-lint when the human runs
+        # update-factory after the feature merges (FCP-C12), so the template
+        # is the one before that hook. Drop this line then.
+        (factory / "config" / "pre-commit-config.yaml").write_text(
+            _template_without_finding_lint(), encoding="utf-8"
+        )
         (tmp_path / ".pre-commit-config.yaml").write_text(
             (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
         )
@@ -2163,6 +2169,52 @@ class TestHookBlockFollowsTheTemplate:
         ]
         assert len(lines) == 1, run.stdout + run.stderr
         assert not lines[0].endswith("Skipped"), run.stdout + run.stderr
+
+
+# ST-0396: the update adds the finding-lint hook to an earlier install.
+
+
+def _template_without_finding_lint() -> str:
+    """The hook template as a release before ST-0396 wrote it."""
+    text = (SOURCE_FACTORY / "config" / "pre-commit-config.yaml").read_text(encoding="utf-8")
+    start = text.index("      # Check the recorded values of every finding")
+    end = text.index("      # Regenerate INDEX.yaml")
+    earlier = text[:start] + text[end:]
+    assert "finding-lint" not in earlier
+    return earlier
+
+
+@pytest.mark.spec("FC-12-IT-02")
+def test_st_0396_update_adds_the_finding_lint_hook_to_an_earlier_install(tmp_path):
+    import yaml
+
+    factory = _factory_with_merge_tooling(tmp_path)
+    earlier = _template_without_finding_lint()
+    assert "agent_factory_hook-finding-lint" not in earlier
+    config = tmp_path / ".pre-commit-config.yaml"
+    # The earlier block: the template of that release, then the project's own hook.
+    config.write_text(
+        _block_of(earlier) + "\n" + PROJECT_HOOK, encoding="utf-8"
+    )
+    assert "agent_factory_hook-finding-lint" not in config.read_text(encoding="utf-8")
+
+    changed = uf.refresh_precommit_hooks(tmp_path, factory, input_func=lambda _: "yes")
+
+    assert changed is True
+    hooks = {
+        h["id"]: h
+        for r in yaml.safe_load(config.read_text(encoding="utf-8"))["repos"]
+        for h in r["hooks"]
+    }
+    hook = hooks["agent_factory_hook-finding-lint"]
+    assert hook["files"] == "^docs/findings/"
+    assert hook["pass_filenames"] is False
+    assert "trailing-whitespace" in hooks
+
+
+def _block_of(template_text: str) -> str:
+    """The `repos:` body of a template, ready to prefix with `repos:`."""
+    return "repos:\n" + template_text.split("repos:\n", 1)[1]
 
 
 # ST-0400: update-factory adds guard-human-fields to an earlier install.

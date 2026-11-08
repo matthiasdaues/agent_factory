@@ -59,7 +59,7 @@ def _run_entry(entry: str, repo: Path) -> subprocess.CompletedProcess:
 
 
 def test_template_has_every_factory_hook():
-    assert len(TEMPLATE_ENTRIES) == 10
+    assert len(TEMPLATE_ENTRIES) == 11
 
 
 @pytest.mark.parametrize("hook_id,entry", TEMPLATE_ENTRIES, ids=[i for i, _ in TEMPLATE_ENTRIES])
@@ -98,7 +98,12 @@ def test_key_set_to_false_counts_as_not_installed(hook_id, entry, bare_clone):
 def test_repo_config_factory_block_matches_template():
     """This repo's own factory block carries the same entries, so a
     refresh by update-factory (BUG-0110) changes none of them."""
-    assert _factory_entries(REPO_CONFIG) == TEMPLATE_ENTRIES
+    # ST-0396: the repository gets finding-lint when the human runs
+    # update-factory after the feature merges (FCP-C12). Drop this filter then.
+    pending = {"agent_factory_hook-finding-lint"}
+    assert _factory_entries(REPO_CONFIG) == [
+        entry for entry in TEMPLATE_ENTRIES if entry[0] not in pending
+    ]
 
 
 def test_guide_documents_the_key():

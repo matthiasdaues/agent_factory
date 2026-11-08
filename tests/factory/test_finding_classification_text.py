@@ -547,3 +547,23 @@ def test_st_0399_finding_format_names_the_raise_before_and_after_the_file():
     assert "raises a `minor` finding by changing an answer at the pause point" in section
     assert "After the register file is written" in section
     assert "replacing it with a finding file of the same ID" in section
+
+
+VALIDATE = REPO_ROOT / "packages" / "factory" / "skills" / "validate" / "SKILL.md"
+
+
+# ST-0396: the validate gate table lists finding-lint.
+@pytest.mark.spec("FC-12-LN-01")
+def test_st_0396_validate_lists_finding_lint_without_staged():
+    rows = [
+        [cell.strip() for cell in line.strip().strip("|").split("|")]
+        for line in _text(VALIDATE).splitlines()
+        if line.startswith("|") and "finding-lint" in line
+    ]
+
+    assert len(rows) == 1
+    number, gate, condition, command = rows[0]
+    assert gate == "finding-lint"
+    assert condition == "`docs/findings/` exists"
+    assert command == "`.agent-factory/factory/scripts/finding-lint`"
+    assert "--staged" not in command
