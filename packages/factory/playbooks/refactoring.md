@@ -134,7 +134,7 @@ npm test
 Check for defects:
 
 ```bash
-grep -l "status: open" docs/findings/{FAGAN,BUG}-*.md
+grep -l "^status: open" docs/findings/{FAGAN,BUG}-*.md
 ```
 
 **If defects found** → Return to Step 3.1 (fix and refactor again)
@@ -166,6 +166,10 @@ Compare before/after metrics:
 
 **If metrics didn't improve** → Consider reverting, refactoring didn't achieve goal
 **If metrics improved** → Go to DONE
+
+## Stop notice
+
+When `dispatch` or `premerge-check` exits `1` and prints a notice that starts with `STOP:`, run no further step. In an interactive session, explain each stopping finding with `explain-review-finding` and wait; only the stakeholder confirms a stop ([finding-format.md § Confirming a stop](../rulebooks/conventions/finding-format.md#confirming-a-stop)). A headless run does not wait. It ends with the notice in its final summary.
 
 ## DONE
 

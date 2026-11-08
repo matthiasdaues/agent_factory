@@ -357,7 +357,7 @@ After the feature file exists, two more agents write their own files, each in a 
 Check for open `SPEC-*` findings:
 
 ```bash
-grep -l "status: open" docs/findings/SPEC-*.md
+grep -l "^status: open" docs/findings/SPEC-*.md
 ```
 
 **If open** → Return to the requirements-agent to address findings, then
@@ -446,7 +446,7 @@ continuing.
 Check for open `ATAM-*` findings:
 
 ```bash
-grep -l "status: open" docs/findings/ATAM-*.md
+grep -l "^status: open" docs/findings/ATAM-*.md
 ```
 
 **If open** → Return to the architecture-agent to address findings, then
@@ -516,7 +516,7 @@ deferred scope, and applies the declared governance and risk domains.
 Check for implementation defects:
 
 ```bash
-grep -l "status: open" docs/findings/IMPL-*.md
+grep -l "^status: open" docs/findings/IMPL-*.md
 ```
 
 **If defects** → Return to the implementation-agent to address findings, then
@@ -536,7 +536,7 @@ re-run the code-review-agent.
 Check for open findings:
 
 ```bash
-grep -l "status: open" docs/findings/*.md
+grep -l "^status: open" docs/findings/*.md
 ```
 
 **If open findings** → Send each open finding to the agent in its `owner:`
@@ -560,12 +560,16 @@ named in each row.
 Check for open defects:
 
 ```bash
-grep -l "status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
+grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 ```
 
 **If defects** → Return to the implementation-agent to address findings, then
 re-run the qa-agent.
 **If clean** → DONE
+
+## Stop notice
+
+When `dispatch` or `premerge-check` exits `1` and prints a notice that starts with `STOP:`, run no further step. In an interactive session, explain each stopping finding with `explain-review-finding` and wait; only the stakeholder confirms a stop ([finding-format.md § Confirming a stop](../rulebooks/conventions/finding-format.md#confirming-a-stop)). A headless run does not wait. It ends with the notice in its final summary.
 
 ## DONE
 

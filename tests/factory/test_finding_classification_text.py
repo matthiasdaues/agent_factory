@@ -95,7 +95,10 @@ def test_st_0386_rulebook_holds_values_scale_tree_and_class_sections():
     for level in LEVELS:
         assert f"`{level}`" in scale
     tree = _flat(_section(text, "The consequence tree"))
-    order = [tree.index(f"`{q}`") for q in ("harms_downstream", "fails_purpose", "raises_cost")]
+    order = [
+        tree.index(f"`{q}`")
+        for q in ("harms_downstream", "fails_purpose", "raises_cost")
+    ]
     assert order == sorted(order)
 
 
@@ -109,10 +112,16 @@ def test_st_0386_each_level_has_two_or_three_real_examples_or_one_invented(class
         real = [row for row in level_rows if "Invented" not in row[1]]
         invented = [row for row in level_rows if "Invented" in row[1]]
         if real:
-            assert 2 <= len(real) <= 3, f"{class_name}/{level}: {len(real)} real examples"
-            assert not invented, f"{class_name}/{level} mixes real and invented examples"
+            assert 2 <= len(real) <= 3, (
+                f"{class_name}/{level}: {len(real)} real examples"
+            )
+            assert not invented, (
+                f"{class_name}/{level} mixes real and invented examples"
+            )
         else:
-            assert len(invented) == 1, f"{class_name}/{level}: needs one invented example"
+            assert len(invented) == 1, (
+                f"{class_name}/{level}: needs one invented example"
+            )
         for row in real:
             ids = FINDING_ID.findall(row[1])
             assert ids, f"{class_name}/{level}: a real example names no ID"
@@ -156,7 +165,11 @@ def test_st_0386_an_attack_that_needs_the_capability_it_gains_is_not_a_finding()
 
 
 @pytest.mark.spec("FC-09-LN-01")
-@pytest.mark.parametrize("path", [REPORT_FORMAT, INTERFACE_CONTRACTS], ids=["report-format", "interface-contracts"])
+@pytest.mark.parametrize(
+    "path",
+    [REPORT_FORMAT, INTERFACE_CONTRACTS],
+    ids=["report-format", "interface-contracts"],
+)
 def test_st_0386_envelope_example_carries_four_keys(path):
     counts = re.findall(r'"finding_counts":\s*(\{[^}]*\})', _text(path))
     assert counts, f"{path.name} has no finding_counts example"
@@ -204,7 +217,13 @@ LEVEL_DEFINITION = re.compile(
         (OWASP, None),
         (RULES, "Findings"),
     ],
-    ids=["report-format-category", "report-format-severity", "finding-format", "owasp", "rules"],
+    ids=[
+        "report-format-category",
+        "report-format-severity",
+        "finding-format",
+        "owasp",
+        "rules",
+    ],
 )
 def test_st_0386_older_rulebooks_link_the_rulebook_and_define_no_level(path, heading):
     text = _text(path)
@@ -234,13 +253,21 @@ REVIEW_FILES = {
     "agents/qa-agent.md": ("code", "security", "runtime"),
 }
 REVIEW_SKILLS = {
-    path: classes[0] for path, classes in REVIEW_FILES.items() if path.startswith("skills/")
+    path: classes[0]
+    for path, classes in REVIEW_FILES.items()
+    if path.startswith("skills/")
 }
 # A table row that starts with a level names that level and gives its meaning.
 LEVEL_ROW = re.compile(
-    r"^\|\s*`?(critical|major|minor|note|high|medium|low)`?\s*\|", re.IGNORECASE | re.MULTILINE
+    r"^\|\s*`?(critical|major|minor|note|high|medium|low)`?\s*\|",
+    re.IGNORECASE | re.MULTILINE,
 )
-HUMAN_FIELDS = ("override_by", "override_reason", "stop_confirmed_by", "stop_confirmed_reason")
+HUMAN_FIELDS = (
+    "override_by",
+    "override_reason",
+    "stop_confirmed_by",
+    "stop_confirmed_reason",
+)
 TEMPLATE_FIELDS = (
     "id",
     "source",
@@ -263,7 +290,9 @@ TEMPLATE_FIELDS = (
 def test_st_0387_review_file_links_its_class_section_and_defines_no_severity(relative):
     text = _text(FACTORY / relative)
     for class_name in REVIEW_FILES[relative]:
-        assert f"{RULEBOOK_LINK}{class_name})" in text, f"{relative} lacks the link to Class: {class_name}"
+        assert f"{RULEBOOK_LINK}{class_name})" in text, (
+            f"{relative} lacks the link to Class: {class_name}"
+        )
     assert not LEVEL_DEFINITION.search(text), LEVEL_DEFINITION.search(text)
     assert not LEVEL_ROW.search(text), LEVEL_ROW.search(text)
 
@@ -279,8 +308,13 @@ def test_st_0387_fagan_review_names_the_class_code():
 def test_st_0387_a_non_risk_names_its_assumptions():
     architecture = _flat(_section(_text(RULEBOOK), "Class: architecture"))
     assert "each non-risk names its assumptions" in architecture
-    for relative in ("skills/atam-review/SKILL.md", "agents/architecture-review-agent.md"):
-        assert "A non-risk names the assumptions it rests on" in _flat(_text(FACTORY / relative))
+    for relative in (
+        "skills/atam-review/SKILL.md",
+        "agents/architecture-review-agent.md",
+    ):
+        assert "A non-risk names the assumptions it rests on" in _flat(
+            _text(FACTORY / relative)
+        )
 
 
 def _template_frontmatter_keys() -> list[str]:
@@ -299,7 +333,9 @@ def test_st_0387_template_holds_the_sixteen_frontmatter_fields():
 def test_st_0387_template_leaves_the_human_fields_null():
     block = _section(_text(TEMPLATE), "Frontmatter")
     for field in HUMAN_FIELDS:
-        assert re.search(rf"^{field}:[ \t]*(#.*)?$", block, re.MULTILINE), f"{field} must carry no value"
+        assert re.search(rf"^{field}:[ \t]*(#.*)?$", block, re.MULTILINE), (
+            f"{field} must carry no value"
+        )
 
 
 @pytest.mark.spec("FC-06-LN-01")
@@ -307,9 +343,16 @@ def test_st_0387_template_holds_the_body_lines_and_the_possible_damage_section()
     text = _text(TEMPLATE)
     for line in ("**What is wrong:**", "**Why this severity:**", "**Fix:**"):
         assert line in text
-    assert text.index("**What is wrong:**") < text.index("**Why this severity:**") < text.index("**Fix:**")
+    assert (
+        text.index("**What is wrong:**")
+        < text.index("**Why this severity:**")
+        < text.index("**Fix:**")
+    )
     assert "## Possible damage" in text
-    assert "A `critical` finding ends with this section. No other severity holds it." in _flat(text)
+    assert (
+        "A `critical` finding ends with this section. No other severity holds it."
+        in _flat(text)
+    )
     assert "— check:" in text
 
 
@@ -326,12 +369,16 @@ def test_st_0387_template_lists_the_status_values_and_who_sets_them():
 
 @pytest.mark.spec("FC-07-LN-01")
 @pytest.mark.parametrize(("relative", "class_name"), sorted(REVIEW_SKILLS.items()))
-def test_st_0387_review_skill_writes_a_minor_finding_as_a_register_file(relative, class_name):
+def test_st_0387_review_skill_writes_a_minor_finding_as_a_register_file(
+    relative, class_name
+):
     text = _flat(_text(FACTORY / relative))
     assert f"`docs/findings/register/{class_name}/<ID>.json`" in text
     assert "`status: open`" in text
     assert "no finding file" in text
-    assert re.search(r"sets (?:`status` of the register file|its `status`) to `resolved`", text)
+    assert re.search(
+        r"sets (?:`status` of the register file|its `status`) to `resolved`", text
+    )
 
 
 @pytest.mark.spec("FC-07-LN-01")
@@ -366,7 +413,9 @@ def _table_header_and_rows(section: str) -> tuple[list[str], list[list[str]]]:
 
 @pytest.mark.spec("FC-19-LN-01")
 def test_st_0389_triage_table_has_a_consequence_column_and_no_severity_column():
-    header, rows = _table_header_and_rows(_section(_text(QA_TEMPLATE), "Defect Severity Triage"))
+    header, rows = _table_header_and_rows(
+        _section(_text(QA_TEMPLATE), "Defect Severity Triage")
+    )
     assert "Consequence" in header
     assert not [cell for cell in header if cell.lower().startswith("severity")], header
     column = header.index("Consequence")
@@ -404,3 +453,65 @@ def test_st_0388_template_lists_waived_as_stakeholder_only_on_a_major_row():
     assert "Only the stakeholder sets `waived`, and only on a `major` row" in section
     assert "with the reason in Resolution" in section
     assert "never `critical`" in section
+
+
+# ST-0398: the loop, the stop notice, the confirmation, and the waiver.
+PLAYBOOKS = REPO_ROOT / "packages" / "factory" / "playbooks"
+SKILLS = REPO_ROOT / "packages" / "factory" / "skills"
+LOOP_PLAYBOOKS = (
+    "feature-addition",
+    "refactoring",
+    "documentation-update",
+    "architecture-review",
+    "bug-fix",
+    "greenfield-development",
+)
+
+
+@pytest.mark.spec("FC-13-LN-01")
+def test_st_0398_confirmed_critical_finding_loops_back_and_keeps_severity():
+    text = _flat(_text(FINDING_FORMAT))
+    assert (
+        "A confirmed `critical` finding loops back to its owner like a `major` one"
+        in text
+    )
+    assert "it keeps severity `critical`" in text
+
+
+@pytest.mark.spec("FC-14-LN-01")
+@pytest.mark.parametrize("name", LOOP_PLAYBOOKS)
+def test_st_0398_playbook_explains_the_stop_and_ends_a_headless_run(name):
+    text = _flat(_text(PLAYBOOKS / f"{name}.md"))
+    assert "`dispatch` or `premerge-check` exits `1`" in text
+    assert "explain each stopping finding with `explain-review-finding`" in text
+    assert (
+        "A headless run does not wait. It ends with the notice in its final summary"
+        in text
+    )
+
+
+@pytest.mark.spec("FC-14-LN-01")
+@pytest.mark.parametrize("skill", ("explain-review-finding", "run-step"))
+def test_st_0398_skill_names_the_stop_notice_as_an_input(skill):
+    assert "stop notice" in _flat(_text(SKILLS / skill / "SKILL.md"))
+
+
+@pytest.mark.spec("FC-16-LN-01")
+def test_st_0398_finding_format_holds_the_confirmation_step():
+    section = _flat(_section(_text(FINDING_FORMAT), "Confirming a stop"))
+    assert "Run each check under `## Possible damage`" in section
+    assert "Write `stop_confirmed_by` and `stop_confirmed_reason`" in section
+    assert "says what was checked and found" in section
+
+
+@pytest.mark.spec("FC-18-LN-01")
+def test_st_0398_finding_format_names_the_editor_and_bang_command():
+    text = _flat(_text(FINDING_FORMAT))
+    assert (
+        "in an editor or with a `!` command, which runs outside the tool hooks" in text
+    )
+
+
+def test_st_0398_finding_format_holds_the_waiver():
+    section = _flat(_section(_text(FINDING_FORMAT), "Waiving a finding"))
+    assert "`status: waived` with `override_by` and `override_reason`" in section

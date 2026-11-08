@@ -72,7 +72,26 @@ A finding about a proposal under `docs/proposals/` names `virgil`, who revises t
 
 ## How the orchestrator reads findings
 
-The finding files are the contract. When run under the orchestrator, the review loop reads every `docs/findings/*.md` whose `status` is `open`. Those are the findings the phase must still address. The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase. It sends an open finding without `owner:` to the producer of the artifact it names, read from the output declarations (`outputs:` in the agent definitions). The loop repeats until no open finding remains. The loop skips register files, because they are JSON files outside `docs/findings/*.md`. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
+The finding files are the contract. When run under the orchestrator, the review loop reads every `docs/findings/*.md` whose frontmatter line is `status: open`. Those are the findings the phase must still address. The loop greps are anchored, `grep -l "^status: open"`, so a waived finding whose body quotes "status: open" is not listed. The orchestrator sends each open finding to the agent in `owner:`, not to the author of the reviewed phase. It sends an open finding without `owner:` to the producer of the artifact it names, read from the output declarations (`outputs:` in the agent definitions). The loop repeats until no open finding remains. The loop skips register files, because they are JSON files outside `docs/findings/*.md`. You do not emit any machine-readable block; filing the files, and setting `status: resolved` on a repeat pass once a fix is verified, is all the loop needs. This works the same whether the review ran headless or in an interactive session.
+
+## Confirming a stop
+
+A `critical` finding stops the run until the stakeholder confirms the stop. `dispatch` and `premerge-check` print the stop notice. The stakeholder confirms in these steps:
+
+1. Run each check under `## Possible damage` in the finding.
+2. Write `stop_confirmed_by` and `stop_confirmed_reason`. The reason says what was checked and found.
+
+The stakeholder writes the human fields in an editor or with a `!` command, which runs outside the tool hooks. An agent that writes one is refused by `guard-human-fields`.
+
+A confirmed `critical` finding loops back to its owner like a `major` one, and it keeps severity `critical`. The confirmation lifts the stop. It does not close the finding.
+
+## Waiving a finding
+
+The stakeholder waives a blocking finding in an editor or with a `!` command. The waiver sets `status: waived` with `override_by` and `override_reason`. A waived finding drops out of the loop.
+
+## Orchestrator and the stop notice
+
+When a script prints the stop notice, the orchestrator explains each stopping finding with `explain-review-finding` in an interactive session and waits. A headless run does not wait. It ends with the notice in its final summary, because it cannot confirm its own stop.
 
 ## Pause point
 
