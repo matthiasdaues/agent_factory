@@ -164,11 +164,11 @@ The types are `incorrect`, `ambiguous`, `incomplete`, `inconsistent`,
 checked or traced alone. Reconciliation adds its four kinds: `code-defect`,
 `spec-stale`, `undocumented`, and `speculative`.
 
-| Question           | What "yes" means for a document                                                                                                                                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `harms_downstream` | The statement contradicts an accepted ADR, an interface contract, or an accepted specification, or it states a rule that makes the implementation wrong, and stories or code outside the run already encode it. |
-| `fails_purpose`    | A planner or implementer cannot act on the statement without asking the author. Two statements in the reviewed artifact contradict each other. A requirement has no check.                                      |
-| `raises_cost`      | The reader can act, but only after a second reading. Examples are an unclear sentence, a missing cross-link, or two terms for one concept.                                                                      |
+| Question           | What "yes" means for a document                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `harms_downstream` | The statement contradicts an accepted ADR, an interface contract, or an accepted specification, or it states a rule that makes the implementation wrong, and stories or code outside the run already encode it.                                                                                                                                                                |
+| `fails_purpose`    | A planner or implementer cannot act on the statement without asking the author. Two statements in the reviewed artifact contradict each other. A requirement has no check. Deciding question: does a person or tool that follows the statement as written reach a wrong result or report a false one? A "yes" answers `fails_purpose`, also when a later check would catch it. |
+| `raises_cost`      | The reader can act and reaches the right result, but only after a second reading. Examples are an unclear sentence, a missing cross-link, or two terms for one concept.                                                                                                                                                                                                        |
 
 `finding-lint` does not check `in_use` of a document against git. So the
 `**Why this severity:**` line names the story or code that encodes the
@@ -378,11 +378,11 @@ The runtime class covers `bug-hunt` and the exploratory testing of the
 `wrong-result`, `data-loss`, `security`, `performance`, `usability`, and
 `cosmetic`.
 
-| Question           | What "yes" means for observed behavior                                                                                                                               |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `harms_downstream` | Data is lost or corrupted, a security boundary breaks, the system crashes or hangs, or the primary actor-goal path fails with no workaround, and the code is in use. |
-| `fails_purpose`    | The primary actor-goal path fails but has a workaround, or any path returns a wrong result.                                                                          |
-| `raises_cost`      | A secondary path degrades and has a workaround, a message misleads, or an observability gap hides a failure from the operator.                                       |
+| Question           | What "yes" means for observed behavior                                                                                                                                                                                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `harms_downstream` | Data is lost or corrupted, a security boundary breaks, the system crashes or hangs, or the primary actor-goal path fails with no workaround, and the code is in use.                                                                                                                                    |
+| `fails_purpose`    | The primary actor-goal path fails but has a workaround, or any path returns a wrong result. Deciding question: does a consumer that uses the output as its contract states get a false value or draw a false conclusion, also when each single record looks plausible? A "yes" answers `fails_purpose`. |
+| `raises_cost`      | A secondary path degrades and has a workaround, a message misleads, or an observability gap hides a failure from the operator. The output that the path exists to produce stays correct.                                                                                                                |
 
 The QA strategy of a feature keeps a triage table. The table states the
 consequence, not the severity: its `Consequence` column holds "harm if in
