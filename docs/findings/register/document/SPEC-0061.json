@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0061",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md#next-id---move-to-origin",
+  "story": null,
+  "finding": "The case table of next-id --move-to-origin starts from a set agent-factory.counterRemote, a present origin, and a local claim commit. It names no result when the setting is missing, origin is missing, the local repository holds no refs/ids/counters, or the local counter already holds a marker commit. The second case is real: a User who declines the seed keeps the setting (CIF-G06), adds origin later, and VIRGIL offers the move by BR-106. Add one row per case with its exit code and message, and the matching event to the Move Lifecycle. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every case can end with a non-zero exit and a message that changes nothing, which an implementer can pick from the Failure row (no to fails_purpose); the implementer and the test writer must still invent the four messages, and the Move Lifecycle has no event for them (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

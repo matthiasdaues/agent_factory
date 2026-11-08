@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0012",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_next_id_move.py:579",
+  "story": "IMPL-0009",
+  "finding": "test_impl_0009_a_refused_push_finishes_when_origin_holds_c pushes exactly C to origin after the check. git then treats the move's push of C as up to date and accepts it, so the move finishes on the normal path and never reaches the branch `on_origin == move.sha` in `_after_refusal`. Make the push fail first, for example by wrapping `push_to_origin` to push C and then raise CalledProcessError, and assert that the branch ran.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The branch is a few lines and the code reads correctly, and the resume collision of IMPL-0009 has a test that reaches `_after_refusal` (no to fails_purpose); a later change can break the finish-after-refusal branch with every test green (raises_cost).",
+  "commit": "23d1c6e54e596f286eda4cda8ef5354126183a17",
+  "status": "open"
+}

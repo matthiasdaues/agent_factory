@@ -1,0 +1,19 @@
+{
+  "id": "ATAM-0016",
+  "source": "atam-review",
+  "review_class": "architecture",
+  "category": "risk",
+  "type": "risk",
+  "severity": "minor",
+  "artifact": "docs/arc42/08_crosscutting_concepts.md:484-493",
+  "story": "counter-ids-fitting",
+  "finding": "Only a claim and --plan-seed recognise the marker commit (BR-097). The read of the move has no outcome for a marker or a missing counter, although both occur: two sessions in two worktrees both offer the move at the session start (BR-106 checks only the setting and origin), so the second move reads the first one's marker; and a User who declines the seed keeps the setting without a counter (CIF-G06). init-factory also counts a marker as a seeded counter (BR-105), so fitting.counter_seeded is true while every claim fails. Define the outcome of a move that reads a marker or no counter, and state whether the fitting key treats a marker as seeded.",
+  "basis": {
+    "importance": "medium",
+    "exposure": "uncertain",
+    "in_use": false
+  },
+  "why_this_severity": "The affected scenario, QS-23, has priority 2, so importance is medium; every ordering checked fails loudly and hands out no ID twice, and only the message and the fitting key may mislead, so exposure is uncertain.",
+  "commit": "09f776da8911153ece75dff4d4439103a07d35c8",
+  "status": "open"
+}

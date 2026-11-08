@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0032",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "spec-stale",
+  "severity": "minor",
+  "artifact": "docs/spec/work/counter-ids-fitting-qa-strategy.md:71-118",
+  "story": "counter-ids-fitting",
+  "finding": "33 contract rows still say planned, although all ten stories are done. For 28 of them a test with the row's spec marker exists in tests/factory/. The other five, CIF-08-IT-03 and CIF-13-CT-01 to CIF-13-IT-03, name only a test file, and their tests carry no CIF marker: test_st_0370_clone_without_origin_names_origin_remote_and_seed and the four test_st_0378 tests in tests/factory/test_init_factory_counter.py:123 to :231. The note at line 120 still says CIF-09-LN-01 is blocked, while its row says implemented. Set the 33 rows to implemented, name the five test functions, and drop the note.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every contract has a test, and the run command of each row still finds it (no to fails_purpose); a reader who plans test work from the strategy sees 33 open contracts that are done (raises_cost).",
+  "commit": "4988f93cdba9c87bae4a3585a46dd1592685f533",
+  "status": "open"
+}

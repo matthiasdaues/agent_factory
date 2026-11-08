@@ -1,0 +1,19 @@
+{
+  "id": "ATAM-0015",
+  "source": "atam-review",
+  "review_class": "architecture",
+  "category": "risk",
+  "type": "risk",
+  "severity": "minor",
+  "artifact": "docs/arc42/05_building_block_view.md:396-401",
+  "story": "counter-ids-fitting",
+  "finding": "VIRGIL runs the seed and the move in an agent shell (DEC-03, DEC-09), but BR-076 keeps git's prompts for the seed 'because a person runs it', and no rule sets prompts, a time limit, or a retry bound for the move; a stale lease restarts the move with no limit. A move that waits on a credential prompt for a new origin can be killed between the marker and the push. Apply the no-prompt mode and the 30-second limit of BR-076 to every git call of the seed and the move, bound the restarts of the move as BR-072 bounds a claim, and add the move to QS-20 or a sibling scenario.",
+  "basis": {
+    "importance": "medium",
+    "exposure": "uncertain",
+    "in_use": false
+  },
+  "why_this_severity": "The nearest scenario, QS-20, has priority 2, so importance is medium; whether the agent shell hangs or fails on a prompt depends on the credential setup, which nobody has checked, so exposure is uncertain. A hang does not by itself hand out an ID twice; ATAM-0014 covers that consequence.",
+  "commit": "09f776da8911153ece75dff4d4439103a07d35c8",
+  "status": "open"
+}

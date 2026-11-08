@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0064",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md:1086",
+  "story": null,
+  "finding": "The Writes row of next-id still says that a claim leaves the clone unchanged (BR-075). BR-075 now says that a claim on the local counter of BR-096 pushes its claim commit into the clone's own repository. Name that write in the row, for example: a claim on a local counter writes refs/ids/counters into the project's own .git. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "BR-075 states the write, so an implementer can act (no to fails_purpose); a reader of the contract table alone sees a rule that the local counter breaks (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

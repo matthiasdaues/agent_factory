@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0062",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/counter-ids-fitting-gaps.md#other-gaps",
+  "story": null,
+  "finding": "BR-102 and the Move Lifecycle restart the move after every stale lease on C and state no limit. The claim stops after ten stale leases (BR-072). Only the QA strategy raises the question (CIF-QG01); the gaps report has no gap for it. Record the open limit as a gap of the gaps report, so the planner asks the stakeholder, and cite it in BR-102.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Claims on a local counter are rare while a person runs the move, so the move ends in practice (no to fails_purpose); a reader of BR-102 sees no open question, and the planner finds it only in the QA strategy (raises_cost).",
+  "commit": "38eba9ce28d006a1bf87b53d427757699c574ee9",
+  "status": "open"
+}

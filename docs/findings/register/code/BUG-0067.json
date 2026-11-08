@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0067",
+  "source": "bug-hunt",
+  "review_class": "code",
+  "category": "defect",
+  "type": "function",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/init-factory:3870",
+  "story": null,
+  "finding": "init-factory creates .agent-factory/usage/records/. Capture writes its records directly into .agent-factory/usage/, and the analysis reads only that level, so records/ stays empty. Source: bug-hunt report § Found while fixing(../reviews/bug-hunt-2026-10-15.md#found-while-fixing). Fix: Either write records into records/ and read them from there, or stop creating the directory. Pick the option that keeps existing records readable.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "`init-factory` creates `.agent-factory/usage/records/`, and capture writes one level above it, so the directory stays empty and a reader looks in the wrong place. Capture and analysis work without the directory (no to fails_purpose).",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

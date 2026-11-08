@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0057",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md:121-125",
+  "story": null,
+  "finding": "The glossary term ID Claim names \"Claim, without the qualifier\" in its Avoid column. The counter-ids sections of the structure files still use the noun \"claim\" alone throughout: - validation-rules.md, BR-068 to BR-075: \"A claim for any other prefix\", \"A claim raises the line\", \"the claim fails\". - state-machines.md, Claim Lifecycle: \"the next claim sees the number\", \"ends the claim after one push\", \"the claim error table\". - interface-contracts.md, next-id: \"Claim usage\", \"Claim output\", \"A claim fails in these cases\". - entity-model.md, Counter IDs Entities: \"is replaced on every claim\", \"no two claims share a SHA\". The glossary entry Stale Lease says \"a claim push\" and \"another caller\". \"Caller\" has no glossary entry. The feature file avoids both words. This finding does not block. The blocking glossary gate stays deferred. Fix: Write \"ID claim\" where these files mean an ID claim, and keep \"claim commit\" as it is. In Stale Lease, write \"the rejection of the push of an ID claim because another ID claim replaced the claim commit first\". Or, if the stakeholder prefers the short form inside the counter-ids sections, narrow the Avoid entry to the feature file.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The counter-ids files write \"claim\" alone where the glossary says to avoid it, and **Stale Lease** uses the undefined word \"caller\". A reader still understands each rule after a second look at the glossary (no to fails_purpose). No story or code encodes the wording.",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

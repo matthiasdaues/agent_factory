@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0098",
+  "source": "diagnosis",
+  "review_class": "code",
+  "category": "defect",
+  "type": "build",
+  "severity": "minor",
+  "artifact": "packages/factory/config/pre-commit-config.yaml:139",
+  "story": null,
+  "finding": "scope-lint:10 calls itself a pre-commit hook, but no hook, validate script or skill runs it. This repository holds 46 scope errors that nothing reports. Fix: Add scope-lint to the factory hooks and to the validate skill, after the existing errors are fixed or baselined.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "No hook or `validate` gate runs `scope-lint`, although its header names a pre-commit hook, so 77 scope errors go unreported. The contract in `interface-contracts.md` requires no hook, and a person can run the script by hand (no to fails_purpose).",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}

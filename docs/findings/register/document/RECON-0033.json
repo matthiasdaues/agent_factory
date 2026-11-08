@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0033",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "spec-stale",
+  "severity": "minor",
+  "artifact": "docs/spec/entity-model.md:943-948",
+  "story": "ST-0376",
+  "finding": "The entity ID_IN_USE gives branch as 'a local branch or a remote-tracking branch'. Since the ST-0376 drift row, BR-099 and the contract of next-id --plan-seed also count the working tree of the current worktree, and _working_tree in packages/factory/scripts/next-id:633 reads it, so a story that no commit holds yet raises the seed. Add the working tree to the attribute, and cite BR-099 in the ID_IN_USE note.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "BR-099 and the contract state the working tree, so an implementer who reads the rule still builds it (no to fails_purpose); a reader of the entity model alone misses one source of IDs in use and must look it up in the rule (raises_cost).",
+  "commit": "4988f93cdba9c87bae4a3585a46dd1592685f533",
+  "status": "open"
+}

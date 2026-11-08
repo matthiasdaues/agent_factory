@@ -1,15 +1,29 @@
 ---
 id: RECON-cycle-retirement
 source: reconcile-spec
-severity: major
+review_class: document
 category: defect
-artifact: docs/ and packages/factory/
-status: open
-traces: [ST-0276, ST-0277, ST-0262, ST-0263, ST-0278]
+type: spec-stale
+severity: note
+basis:
+  in_use: false
+  harms_downstream: false
+  fails_purpose: false
+  raises_cost: false
+rating:
+override_by:
+override_reason:
+stop_confirmed_by:
+stop_confirmed_reason:
+artifact: docs/arc42/05_building_block_view.md:14
+status: resolved
 owner: virgil
+traces: [ST-0276, ST-0277, ST-0262, ST-0263, ST-0278]
 ---
 
 # Stale Cycle-Orchestration References — Complete Inventory
+
+**Why this severity:** None of the 142 items whose file still exists carries its stale phrase today, and the other 3 items name files that are gone. A search for `cycle gate`, `cycle-model`, `delivery.yaml`, `session-bindings`, and `.current-work/cycles` finds no stale reference, so nothing remains to change, and no story or code encodes the old text.
 
 Compiled: 2026-09-21
 

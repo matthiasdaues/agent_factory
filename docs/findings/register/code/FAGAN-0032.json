@@ -1,0 +1,20 @@
+{
+  "id": "FAGAN-0032",
+  "source": "fagan-review",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:1588",
+  "story": "BUG-0115",
+  "finding": "verify-story passes the abbreviated SHA to `git rev-parse --verify <sha>^{commit}`. Git resolves a ref name before an object prefix, so a branch or tag named like 4 to 40 hex characters (for example `cafe`) wins, and the ledger records that ref's tip as commit_sha. Pass `--disambiguate=<sha>` first, or check that the expanded SHA starts with the argument.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The wrong commit lands in the ledger only when a ref is named like a hex prefix, which the repository's naming does not produce (no to fails_purpose). The operator must then find and correct a recorded SHA.",
+  "commit": "80bdb99a1f2edac6ea829393cd619797d772d211",
+  "status": "open"
+}

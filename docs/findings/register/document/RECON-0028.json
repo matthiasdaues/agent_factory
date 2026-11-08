@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0028",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "spec-stale",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md:1078",
+  "story": "ST-0368",
+  "finding": "The rows Writes and Seed output of the next-id contract call CID-G06 and CID-G03 open. The code answers both: seed runs in a throwaway repository (next-id:390), and its output holds the start and pair lines without the token (next-id:402). State both answers, or ask the stakeholder first.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Both answers are the safe reading of the proposal, and a caller can use the seed either way (no to fails_purpose); a test writer reads the two rows as open and skips the checks, as the QA strategy does for CID-01-IT-06 (raises_cost).",
+  "commit": "d0a78a5c40327c1f7e4c9a204ab5e766a7e0c44b",
+  "status": "open"
+}

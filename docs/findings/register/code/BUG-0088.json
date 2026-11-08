@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0088",
+  "source": "code-review",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/playbooks/feature-addition.md:376",
+  "story": null,
+  "finding": "Step 1.4 of feature-addition.md runs module-graph-check and reads its result. Since the fix for BUG-0055 the script exits 2 when it cannot read the DSL or the interface contracts. The playbook says nothing about exit 2, so a run that hits it stops with no route forward. The review of story ST-0297 found this. Fix: Add one line to Step 1.4: on exit 2, keep impact.architecture_change as declared and ask the human.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Step 1.4 names no route for exit 2 of `module-graph-check`, so a run that cannot read the DSL stops without a next step. Exit 0 and exit 1 still route the run, and the agent can ask the human (no to fails_purpose).",
+  "commit": "40a03a470fc4500e1b325d34b2f6e4b76f0056e2",
+  "status": "open"
+}
