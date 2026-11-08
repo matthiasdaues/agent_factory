@@ -97,6 +97,12 @@ When a script prints the stop notice, the orchestrator explains each stopping fi
 
 Present the findings to the user before writing any files. The user decides which findings warrant a filed finding. Then write the files and save the review report.
 
+The pause point renders each new register file as text: ID, class, artifact, and the `why_this_severity` sentence. In the consequence classes that sentence is the one for the `no` to `fails_purpose`. The agent shows it before any file is written, because a finding rated too low escapes later review. A security finding of level Low shows its sentence for each precondition and shows no `fails_purpose` sentence.
+
+The stakeholder raises a `minor` finding by changing an answer at the pause point. The rule then computes `major`, and the agent files a finding file and no register file. After the register file is written, the stakeholder raises the finding by replacing it with a finding file of the same ID.
+
+A headless run lists the new register files only after the loop ends, so a wrong downgrade can still reach implementation. Its final summary lists each new register file with its sentence, and says so.
+
 ## Referenced from
 
 - [finding-classification.md § Shared severity scale and blocking rule](finding-classification.md#shared-severity-scale-and-blocking-rule)
