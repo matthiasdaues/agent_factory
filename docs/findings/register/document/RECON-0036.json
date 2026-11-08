@@ -1,0 +1,20 @@
+{
+  "id": "RECON-0036",
+  "source": "reconcile-spec",
+  "review_class": "document",
+  "category": "defect",
+  "type": "spec-stale",
+  "severity": "minor",
+  "artifact": "docs/spec/work/finding-classification-qa-strategy.md#contract-owners",
+  "story": null,
+  "finding": "The State column of 108 of the 111 contract rows still says planned, although all 22 stories are done and every Test ID of the table appears in the test code. Fix: set these rows to implemented.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "No story or code outside this run encodes the column, so in_use is false. The tests exist and the suite runs them, so the column leaves no contract untested (no to fails_purpose). A reader who wants the open work must compare 111 rows with the tests by hand.",
+  "commit": "0cef8c3db7ed62e29dd5ccc9dbb85aec0ad42bfc",
+  "status": "open"
+}
