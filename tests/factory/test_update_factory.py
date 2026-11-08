@@ -1766,12 +1766,6 @@ class TestRefreshPrecommitHooks:
         """This repo's own config already carries the template block, so
         an update here asks nothing and loses none of its local lines."""
         factory = _factory_with_merge_tooling(tmp_path)
-        # ST-0396: the repository gets finding-lint when the human runs
-        # update-factory after the feature merges (FCP-C12), so the template
-        # is the one before that hook. Drop this line then.
-        (factory / "config" / "pre-commit-config.yaml").write_text(
-            _template_without_finding_lint(), encoding="utf-8"
-        )
         (tmp_path / ".pre-commit-config.yaml").write_text(
             (REPO_ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
         )
