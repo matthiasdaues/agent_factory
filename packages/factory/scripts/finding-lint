@@ -1,0 +1,900 @@
+#!/usr/bin/env python3
+# finding-lint — check the recorded values of every classified finding.
+#
+# What: Reads every finding file docs/findings/*.md that carries review_class
+#       and every register file docs/findings/register/**/*.json under the
+#       current directory. It rejects each recorded value that breaks a
+#       classification rule: the vocabulary of the class, the shape of the
+#       basis, the severity that the rule of the class computes, the status,
+#       the artifact form, the body sections, and the register rules
+#       (validation-rules.md BR-079 to BR-087, BR-090, BR-110).
+# When: In the validate skill, and later in the pre-commit hook.
+# By:   `.agent-factory/factory/scripts/finding-lint` from the project root.
+#
+# The lint uses the Python standard library only. It runs the register schema
+# check through `validate` of schema-validate, which sits in the same folder,
+# and reads the register schemas under the Factory root it runs from.
+#
+# Exit code:
+#   0  every checked file passes
+#   1  a checked file breaks a rule (one line per violation on stdout)
+#   2  usage error, or a register schema or schema-validate is missing
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import re
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+from typing import Any
+
+SEVERITY_ORDER = ("note", "minor", "major", "critical")
+
+# --- Severity rules (BR-081 to BR-084) -----------------------------------------
+
+# The bug bar levels from low to high, and the starting level of each effect
+# class (BR-082). `hardening` has no level.
+BAR_LEVELS = ("Low", "Medium", "High", "Critical")
+BAR_START = {
+    "execution": "Critical",
+    "secrets": "Critical",
+    "gate-bypass": "High",
+    "tampering": "High",
+    "disclosure": "High",
+    "limited": "Medium",
+    "leak": "Low",
+}
+BAR_PRECONDITIONS = ("second_breach", "trusted_access", "non_default", "user_action")
+
+# The matrix of BR-083: importance and exposure give the severity.
+MATRIX = {
+    ("high", "fails"): "major",
+    ("high", "uncertain"): "major",
+    ("medium", "fails"): "major",
+    ("medium", "uncertain"): "minor",
+    ("low", "fails"): "minor",
+    ("low", "uncertain"): "note",
+}
+NOTE_TYPES = ("non-risk", "sensitivity-point", "tradeoff-point")
+
+TREE_CLASSES = ("document", "code", "runtime")
+
+
+def tree_severity(basis: dict) -> str:
+    """Return the severity of the first yes answer of the consequence tree (BR-081)."""
+    if basis["harms_downstream"]:
+        return "critical"
+    if basis["fails_purpose"]:
+        return "major"
+    if basis["raises_cost"]:
+        return "minor"
+    return "note"
+
+
+def bug_bar_level(basis: dict) -> str | None:
+    """Return the bug bar level of a security basis, or None for hardening (BR-082)."""
+    start = BAR_START.get(basis["effect"])
+    if start is None:
+        return None
+    lowered = sum(1 for flag in BAR_PRECONDITIONS if basis[flag])
+    return BAR_LEVELS[max(BAR_LEVELS.index(start) - lowered, 0)]
+
+
+def bug_bar_severity(basis: dict) -> str:
+    """Map the bug bar level onto the shared scale (BR-082)."""
+    level = bug_bar_level(basis)
+    if level is None:
+        return "note"
+    if level == "Critical":
+        if basis["in_use"] and basis["confidence"] == "proven":
+            return "critical"
+        return "major"
+    if level == "Low":
+        return "minor"
+    return "major"
+
+
+def matrix_severity(basis: dict, type_name: str) -> str:
+    """Return the severity of an architecture finding from the matrix (BR-083)."""
+    if type_name in NOTE_TYPES:
+        return "note"
+    severity = MATRIX[(basis["importance"], basis["exposure"])]
+    if severity == "major" and basis["in_use"]:
+        return "critical"
+    return severity
+
+
+def computed_severity(
+    review_class: str, category: str, type_name: str, basis: dict
+) -> str:
+    """Return the severity that the rule of the class computes from the basis.
+
+    A suggestion of the security or architecture class is at most minor (BR-084).
+    """
+    if review_class == "security":
+        severity = bug_bar_severity(basis)
+    elif review_class == "architecture":
+        severity = matrix_severity(basis, type_name)
+    else:
+        severity = tree_severity(basis)
+    capped = category == "suggestion" and review_class in ("security", "architecture")
+    if capped and SEVERITY_ORDER.index(severity) > SEVERITY_ORDER.index("minor"):
+        return "minor"
+    return severity
+
+
+# --- Vocabulary (BR-079) and artifact form (BR-086) ---------------------------
+
+CLASSES = ("document", "code", "security", "architecture", "runtime")
+CATEGORIES = ("defect", "risk", "suggestion")
+TYPES = {
+    "document": (
+        "incorrect",
+        "ambiguous",
+        "incomplete",
+        "inconsistent",
+        "unverifiable",
+        "infeasible",
+        "untraced",
+        "unnecessary",
+        "compound",
+        "code-defect",
+        "spec-stale",
+        "undocumented",
+        "speculative",
+    ),
+    "code": (
+        "function",
+        "interface",
+        "checking",
+        "assignment",
+        "timing",
+        "algorithm",
+        "build",
+        "documentation",
+        "structure",
+        "test",
+    ),
+    "architecture": ("risk", "non-risk", "sensitivity-point", "tradeoff-point"),
+    "runtime": (
+        "crash",
+        "hang",
+        "wrong-result",
+        "data-loss",
+        "security",
+        "performance",
+        "usability",
+        "cosmetic",
+    ),
+}
+SECURITY_TYPE = re.compile(r"^A(0[1-9]|10)$")
+SEVERITY_RULE = {"security": "BR-082", "architecture": "BR-083"}
+FINDING_STATUSES = ("open", "resolved", "deferred", "waived")
+MARKER = "no to fails_purpose"
+
+_ARTIFACT = re.compile(
+    r"^(?P<path>[^\s:#][^:#]*)(?::(?P<start>[0-9]+)(?:-(?P<end>[0-9]+))?|#(?P<anchor>\S.*))$"
+)
+
+
+def artifact_is_valid(artifact: Any) -> bool:
+    """Return whether *artifact* is `path:line`, `path:start-end`, or `path#anchor` (BR-086)."""
+    if not isinstance(artifact, str):
+        return False
+    match = _ARTIFACT.match(artifact)
+    if match is None:
+        return False
+    if match["start"] is None:
+        return True
+    start = int(match["start"])
+    end = int(match["end"]) if match["end"] else start
+    return 1 <= start <= end
+
+
+def _has_text(value: Any) -> bool:
+    return value is not None and str(value).strip() != ""
+
+
+def _type_is_valid(review_class: str, type_name: Any) -> bool:
+    if review_class == "security":
+        return isinstance(type_name, str) and SECURITY_TYPE.match(type_name) is not None
+    return type_name in TYPES[review_class]
+
+
+# --- Schemas -------------------------------------------------------------------
+
+FACTORY_ROOT = Path(__file__).resolve().parent.parent
+
+
+class SetupError(Exception):
+    """A register schema or schema-validate is missing under the Factory root."""
+
+
+def _schema_validator(factory_root: Path):
+    path = factory_root / "scripts" / "schema-validate"
+    if not path.is_file():
+        raise SetupError(f"finding-lint: {path} is missing")
+    loader = SourceFileLoader("schema_validate", str(path))
+    spec = importlib.util.spec_from_loader("schema_validate", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module.validate
+
+
+def load_schemas(factory_root: Path) -> dict[str, Any]:
+    """Read the five register schemas and the validator of schema-validate (BR-090)."""
+    schemas: dict[str, Any] = {"validate": _schema_validator(factory_root)}
+    for review_class in CLASSES:
+        path = (
+            factory_root
+            / "rulebooks"
+            / "schemas"
+            / f"finding-register-{review_class}.schema.json"
+        )
+        try:
+            schemas[review_class] = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SetupError(
+                f"finding-lint: cannot read the register schema {path}: {exc}"
+            ) from exc
+    return schemas
+
+
+# --- Frontmatter ---------------------------------------------------------------
+
+
+class FrontmatterError(ValueError):
+    """A frontmatter line that the parser of finding-lint cannot read."""
+
+
+def _strip_comment(text: str) -> str:
+    quote = None
+    for index, char in enumerate(text):
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+        elif char == "#" and (index == 0 or text[index - 1] in " \t"):
+            return text[:index].strip()
+    return text.strip()
+
+
+def _split_flow(inner: str) -> list[str]:
+    items: list[str] = []
+    current = ""
+    quote = None
+    for char in inner:
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+        elif char == ",":
+            items.append(current.strip())
+            current = ""
+            continue
+        current += char
+    if quote:
+        raise FrontmatterError(f"unclosed quote in [{inner}]")
+    if current.strip():
+        items.append(current.strip())
+    return items
+
+
+def _scalar(text: str) -> Any:
+    text = _strip_comment(text)
+    if text in ("", "null", "~"):
+        return None
+    if text == "true":
+        return True
+    if text == "false":
+        return False
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in "'\"":
+        return text[1:-1]
+    if text.startswith("["):
+        if not text.endswith("]"):
+            raise FrontmatterError(f"unclosed flow list: {text}")
+        return [_scalar(item) for item in _split_flow(text[1:-1])]
+    if text[0] in "{|>&*!":
+        raise FrontmatterError(f"unsupported value: {text}")
+    return text
+
+
+def _key_value(line: str) -> tuple[str, str]:
+    key, colon, rest = line.partition(":")
+    key = key.strip()
+    if not colon or not key or " " in key:
+        raise FrontmatterError(f"not a key and a value: {line.strip()}")
+    return key, rest
+
+
+def _nested(meta: dict, key: str | None, line: str) -> None:
+    """Add one indented line to the block list or the mapping of *key*."""
+    if key is None:
+        raise FrontmatterError(f"indented line without a parent key: {line}")
+    if line.startswith("- "):
+        if meta[key] is None:
+            meta[key] = []
+        if not isinstance(meta[key], list):
+            raise FrontmatterError(f"list item under a key that holds no list: {line}")
+        meta[key].append(_scalar(line[2:]))
+        return
+    if meta[key] is None:
+        meta[key] = {}
+    if not isinstance(meta[key], dict):
+        raise FrontmatterError(
+            f"mapping entry under a key that holds no mapping: {line}"
+        )
+    sub, rest = _key_value(line)
+    meta[key][sub] = _scalar(rest)
+
+
+def parse_finding(text: str) -> tuple[dict | None, str]:
+    """Split a finding file into its frontmatter mapping and its body.
+
+    The parser reads the YAML subset of a finding file: scalars, null,
+    booleans, flow lists, block lists, and one nested mapping such as
+    `basis`. It returns None for the mapping when the file has no
+    frontmatter, and raises FrontmatterError on a line it cannot read.
+    """
+    lines = text.split("\n")
+    if lines[0].strip() != "---":
+        return None, text
+    end = next(
+        (index for index in range(1, len(lines)) if lines[index].strip() == "---"), None
+    )
+    if end is None:
+        raise FrontmatterError("the frontmatter has no closing ---")
+    meta: dict[str, Any] = {}
+    key = None
+    for line in lines[1:end]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line[0].isspace():
+            _nested(meta, key, line.strip())
+            continue
+        key, rest = _key_value(line)
+        meta[key] = _scalar(rest)
+    return meta, "\n".join(lines[end + 1 :])
+
+
+def carries_review_class(text: str) -> bool:
+    """Return whether the frontmatter of a finding file holds the key review_class."""
+    lines = text.split("\n")
+    if lines[0].strip() != "---":
+        return False
+    for line in lines[1:]:
+        if line.strip() == "---":
+            return False
+        if re.match(r"review_class\s*:", line):
+            return True
+    return False
+
+
+# --- Body sections (BR-086, BR-087) --------------------------------------------
+
+
+def _why_paragraph(body: str) -> str | None:
+    """Return the Why this severity paragraph up to the next blank line, or None."""
+    match = re.search(
+        r"^\*\*Why this severity:\*\*(?P<rest>.*(?:\n[ \t]*\S.*)*)", body, re.MULTILINE
+    )
+    return None if match is None else match["rest"]
+
+
+def _damage_items(body: str) -> list[str] | None:
+    """Return the items of `## Possible damage`, or None without the section."""
+    lines = body.split("\n")
+    start = next(
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.strip() == "## Possible damage"
+        ),
+        None,
+    )
+    if start is None:
+        return None
+    items: list[str] = []
+    for line in lines[start + 1 :]:
+        if line.startswith("#"):
+            break
+        if line.startswith(("- ", "* ")):
+            items.append(line[2:].strip())
+        elif line.strip() and items:
+            items[-1] += " " + line.strip()
+    return items
+
+
+# --- Checks of one file --------------------------------------------------------
+
+
+def _message(path: str, rule: str, detail: str) -> str:
+    return f"{path}: {rule}: {detail}"
+
+
+def _check_vocabulary(path: str, record: dict) -> list[str]:
+    review_class = record["review_class"]
+    category = record.get("category")
+    type_name = record.get("type")
+    out: list[str] = []
+    if category == "question":
+        out.append(
+            _message(
+                path,
+                "BR-085 question",
+                "a question goes into docs/spec/work/todo.md, never into a file",
+            )
+        )
+    elif category not in CATEGORIES:
+        out.append(
+            _message(
+                path,
+                "BR-079 category",
+                f"category {category!r} is not one of {', '.join(CATEGORIES)}",
+            )
+        )
+    elif category == "risk" and review_class != "architecture":
+        out.append(
+            _message(
+                path,
+                "BR-079 category",
+                f"the category risk belongs to the architecture class only, not {review_class}",
+            )
+        )
+    if not _type_is_valid(review_class, type_name):
+        out.append(
+            _message(
+                path,
+                "BR-079 type",
+                f"type {type_name!r} is not in the vocabulary of the {review_class} class",
+            )
+        )
+    artifact = record.get("artifact")
+    if not artifact_is_valid(artifact):
+        out.append(
+            _message(
+                path,
+                "BR-086 artifact",
+                f"artifact {artifact!r} is not path:line, path:start-end, or path#anchor",
+            )
+        )
+    return out
+
+
+def _check_answers(path: str, record: dict, basis: dict) -> list[str]:
+    review_class = record["review_class"]
+    category = record.get("category")
+    out: list[str] = []
+    if review_class in TREE_CLASSES:
+        if basis["harms_downstream"] and not basis["in_use"]:
+            out.append(
+                _message(
+                    path,
+                    "BR-081 in use",
+                    "harms_downstream is true only when in_use is true",
+                )
+            )
+        if category == "suggestion" and (
+            basis["harms_downstream"] or basis["fails_purpose"]
+        ):
+            out.append(
+                _message(
+                    path,
+                    "BR-084 suggestion",
+                    "a suggestion describes material that works, so it answers false to harms_downstream and fails_purpose",
+                )
+            )
+    if (
+        review_class == "security"
+        and basis["effect"] == "hardening"
+        and category != "suggestion"
+    ):
+        out.append(
+            _message(
+                path,
+                "BR-082 hardening",
+                "a finding with the effect hardening is a suggestion",
+            )
+        )
+    return out
+
+
+def _check_severity(path: str, record: dict, basis: dict) -> list[str]:
+    review_class = record["review_class"]
+    type_name = record.get("type")
+    severity = computed_severity(review_class, record.get("category"), type_name, basis)
+    recorded = record.get("severity")
+    if recorded == severity:
+        return []
+    rule = SEVERITY_RULE.get(review_class, "BR-081")
+    if computed_severity(review_class, "defect", type_name, basis) != severity:
+        rule = "BR-084"
+    return [
+        _message(
+            path,
+            f"{rule} severity",
+            f"severity {recorded!r} differs from {severity}, which the basis gives",
+        )
+    ]
+
+
+def check_classification(
+    path: str, record: dict, schemas: dict
+) -> tuple[list[str], bool]:
+    """Check the values that a finding file and a register file share.
+
+    Returns the violations and whether the basis has the shape of its class.
+    """
+    review_class = record.get("review_class")
+    if review_class not in CLASSES:
+        return [
+            _message(
+                path,
+                "BR-079 review class",
+                f"review_class {review_class!r} is not one of {', '.join(CLASSES)}",
+            )
+        ], False
+    out = _check_vocabulary(path, record)
+    basis = record.get("basis")
+    errors = schemas["validate"](
+        basis, schemas[review_class]["properties"]["basis"], "$.basis"
+    )
+    if errors:
+        out += [
+            _message(
+                path,
+                "BR-080 basis",
+                f"the basis lacks the shape of the {review_class} class: {error}",
+            )
+            for error in errors
+        ]
+        return out, False
+    out += _check_answers(path, record, basis)
+    out += _check_severity(path, record, basis)
+    return out, True
+
+
+def _check_finding_status(path: str, meta: dict) -> list[str]:
+    out: list[str] = []
+    status = meta.get("status")
+    severity = meta.get("severity")
+    if status == "deferred":
+        out.append(
+            _message(
+                path,
+                "BR-086 status",
+                "a file that carries review_class is never deferred (DEC-55)",
+            )
+        )
+    elif status not in FINDING_STATUSES:
+        out.append(
+            _message(
+                path,
+                "BR-086 status",
+                f"status {status!r} is not one of {', '.join(FINDING_STATUSES)}",
+            )
+        )
+    if status == "open" and severity not in ("critical", "major"):
+        out.append(
+            _message(
+                path,
+                "BR-086 status",
+                f"an open finding file is critical or major, not {severity!r}",
+            )
+        )
+    if status == "waived":
+        if not (
+            _has_text(meta.get("override_by"))
+            and _has_text(meta.get("override_reason"))
+        ):
+            out.append(
+                _message(
+                    path,
+                    "BR-086 waived",
+                    "a waived finding needs text in override_by and override_reason",
+                )
+            )
+        if severity not in ("critical", "major"):
+            out.append(
+                _message(
+                    path,
+                    "BR-086 waived",
+                    f"a waived finding file is critical or major, not {severity!r}",
+                )
+            )
+    return out
+
+
+def _check_confirmation(path: str, meta: dict) -> list[str]:
+    out: list[str] = []
+    status = meta.get("status")
+    severity = meta.get("severity")
+    confirmed_by = _has_text(meta.get("stop_confirmed_by"))
+    confirmed = confirmed_by and _has_text(meta.get("stop_confirmed_reason"))
+    if status in ("waived", "resolved") and severity == "critical" and not confirmed:
+        out.append(
+            _message(
+                path,
+                "BR-086 confirmation",
+                f"a {status} critical finding needs text in stop_confirmed_by and stop_confirmed_reason",
+            )
+        )
+    if confirmed_by and not confirmed:
+        out.append(
+            _message(
+                path,
+                "BR-086 confirmation",
+                "stop_confirmed_by needs text in stop_confirmed_reason",
+            )
+        )
+    if confirmed_by and severity != "critical":
+        out.append(
+            _message(
+                path,
+                "BR-086 confirmation",
+                "stop_confirmed_by is set only on a critical finding",
+            )
+        )
+    return out
+
+
+def _check_damage(path: str, severity: Any, body: str) -> list[str]:
+    items = _damage_items(body)
+    if severity != "critical":
+        if items is None:
+            return []
+        return [
+            _message(
+                path,
+                "BR-086 possible damage",
+                f'only a critical finding holds "## Possible damage", not {severity!r}',
+            )
+        ]
+    if items is None:
+        return [
+            _message(
+                path,
+                "BR-086 possible damage",
+                'a critical finding ends with the section "## Possible damage"',
+            )
+        ]
+    if not items:
+        return [
+            _message(
+                path, "BR-086 possible damage", '"## Possible damage" holds no item'
+            )
+        ]
+    out: list[str] = []
+    for item in items:
+        thing, separator, check = item.partition("— check:")
+        if not separator or not thing.strip() or not check.strip():
+            out.append(
+                _message(
+                    path,
+                    "BR-086 possible damage",
+                    f'the item {item!r} needs a thing, then "— check:" and a check',
+                )
+            )
+    return out
+
+
+def _check_body(path: str, meta: dict, body: str) -> list[str]:
+    out: list[str] = []
+    why = _why_paragraph(body)
+    if why is None:
+        out.append(
+            _message(
+                path, "BR-086 why", 'the body lacks the line "**Why this severity:**"'
+            )
+        )
+    if (
+        meta.get("severity") == "minor"
+        and meta.get("review_class") in TREE_CLASSES
+        and MARKER not in (why or "")
+    ):
+        out.append(
+            _message(
+                path,
+                "BR-087 marker",
+                f'a minor finding gives its reason in the Why line with "{MARKER}"',
+            )
+        )
+    return out + _check_damage(path, meta.get("severity"), body)
+
+
+def _check_rating(path: str, meta: dict) -> list[str]:
+    rating = meta.get("rating")
+    if meta["review_class"] != "security":
+        if rating is None:
+            return []
+        return [
+            _message(
+                path,
+                "BR-082 rating",
+                f"rating is null outside the security class, not {rating!r}",
+            )
+        ]
+    level = bug_bar_level(meta["basis"])
+    if rating == level:
+        return []
+    return [
+        _message(
+            path,
+            "BR-082 rating",
+            f"rating {rating!r} differs from the bug bar level {level}",
+        )
+    ]
+
+
+def check_finding_file(path: str, text: str, schemas: dict) -> list[str]:
+    """Check one finding file. A file without review_class is skipped."""
+    if not carries_review_class(text):
+        return []
+    try:
+        meta, body = parse_finding(text)
+    except FrontmatterError as exc:
+        return [_message(path, "frontmatter", f"the frontmatter cannot be read: {exc}")]
+    out, basis_ok = check_classification(path, meta, schemas)
+    if basis_ok:
+        out += _check_rating(path, meta)
+    out += _check_finding_status(path, meta)
+    out += _check_confirmation(path, meta)
+    return out + _check_body(path, meta, body)
+
+
+def _register_folder(path: str) -> str | None:
+    """Return the class of the folder `docs/findings/register/<class>/`, or None."""
+    parts = path.split("/")
+    if (
+        len(parts) != 5
+        or parts[:3] != ["docs", "findings", "register"]
+        or parts[3] not in CLASSES
+    ):
+        return None
+    return parts[3]
+
+
+def check_register_file(path: str, data: Any, schemas: dict) -> list[str]:
+    """Check one parsed register file at *path* (BR-087, BR-090, BR-110)."""
+    folder = _register_folder(path)
+    if folder is None:
+        return [
+            _message(
+                path,
+                "BR-090 register folder",
+                f"a register file lies in docs/findings/register/<class>/, where <class> is one of {', '.join(CLASSES)}",
+            )
+        ]
+    if not isinstance(data, dict):
+        return [
+            _message(
+                path, "BR-090 register file", "a register file holds one JSON object"
+            )
+        ]
+    out = [
+        _message(
+            path,
+            "BR-090 schema-validate",
+            f"{error} (finding-register-{folder}.schema.json)",
+        )
+        for error in schemas["validate"](data, schemas[folder])
+    ]
+    if data.get("review_class") != folder:
+        out.append(
+            _message(
+                path,
+                "BR-090 register folder",
+                f"review_class {data.get('review_class')!r} differs from the folder {folder}",
+            )
+        )
+    name = path.rsplit("/", 1)[1]
+    if name != f"{data.get('id')}.json":
+        out.append(
+            _message(
+                path,
+                "BR-090 file name",
+                f"the file name {name} differs from the id {data.get('id')!r} with .json",
+            )
+        )
+    classification, _ = check_classification(path, data, schemas)
+    out += classification
+    if data.get("status") == "waived" and not (
+        _has_text(data.get("override_by")) and _has_text(data.get("override_reason"))
+    ):
+        out.append(
+            _message(
+                path,
+                "BR-110 waived",
+                "a waived register file needs text in override_by and override_reason",
+            )
+        )
+    if data.get("severity") == "minor" and data.get("review_class") in TREE_CLASSES:
+        why = data.get("why_this_severity")
+        if not isinstance(why, str) or MARKER not in why:
+            out.append(
+                _message(
+                    path,
+                    "BR-087 marker",
+                    f'a minor register file gives its reason in why_this_severity with "{MARKER}"',
+                )
+            )
+    return out
+
+
+# --- The set of findings -------------------------------------------------------
+
+
+def _check_ids(
+    finding_ids: dict[str, str], register_ids: dict[str, list[str]]
+) -> list[str]:
+    """An ID names a finding file or one register file, never more (BR-090, DEC-53)."""
+    out: list[str] = []
+    for finding_id, paths in sorted(register_ids.items()):
+        if len(paths) > 1:
+            out.append(
+                _message(
+                    paths[0],
+                    "BR-090 one ID",
+                    f"the ID {finding_id} also names {', '.join(paths[1:])}",
+                )
+            )
+        if finding_id in finding_ids:
+            out.append(
+                _message(
+                    finding_ids[finding_id],
+                    "BR-090 one ID",
+                    f"the ID {finding_id} also names the register file {paths[0]}",
+                )
+            )
+    return out
+
+
+def lint_tree(root: Path, schemas: dict) -> list[str]:
+    """Check every finding file with review_class and every register file under *root*."""
+    out: list[str] = []
+    finding_ids: dict[str, str] = {}
+    for file in sorted((root / "docs" / "findings").glob("*.md")):
+        text = file.read_text(encoding="utf-8")
+        if not carries_review_class(text):
+            continue
+        path = file.relative_to(root).as_posix()
+        finding_ids[file.stem] = path
+        out += check_finding_file(path, text, schemas)
+    register_ids: dict[str, list[str]] = {}
+    for file in sorted((root / "docs" / "findings" / "register").rglob("*.json")):
+        path = file.relative_to(root).as_posix()
+        register_ids.setdefault(file.stem, []).append(path)
+        try:
+            data = json.loads(file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            out.append(
+                _message(
+                    path, "BR-090 register file", f"the file is not valid JSON: {exc}"
+                )
+            )
+            continue
+        out += check_register_file(path, data, schemas)
+    return out + _check_ids(finding_ids, register_ids)
+
+
+def main(argv: list[str]) -> int:
+    if argv:
+        print("usage: finding-lint", file=sys.stderr)
+        return 2
+    try:
+        schemas = load_schemas(FACTORY_ROOT)
+    except SetupError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    messages = lint_tree(Path.cwd(), schemas)
+    for message in messages:
+        print(message)
+    return 1 if messages else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
