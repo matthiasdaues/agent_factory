@@ -192,3 +192,58 @@ All five stories merged. The scope-map row of ST-0389 waits at `fixed` for
 the stakeholder.
 
 The stakeholder confirmed the scope-map row of ST-0389 on 2026-11-08.
+
+`close-wave 2` waited for the stakeholder, because the scope map is a core
+artifact. The stakeholder confirmed the row, and the wave closed (`9f429723`).
+
+### 2026-11-08, Wave 3: dispatch
+
+ST-0388 and ST-0398 share `INDEX.yaml` and
+`test_finding_classification_text.py`, so ST-0398 follows ST-0388. ST-0391
+(opus), ST-0403 (sonnet), and ST-0388 (haiku) started from `9f429723`.
+
+ST-0388 stopped before Green, because `block-dangerous-git.sh` denies every
+test-runner call except the exact `test_command` of `docs/testing.yaml`. That
+is the intended route. Earlier developer agents ran single test files behind
+a `cd … &&` prefix, which slips past the start-of-line pattern; that was not
+the intended route, and the stakeholder should know. A subagent's shell starts in the
+main checkout on each call, so the exact command alone would test `dev`. The
+common developer brief now allows one form, `cd <own worktree> &&` followed
+by the exact `test_command`, and forbids any other test form behind the
+prefix. Follow-up for the stakeholder: the hook should accept that form
+explicitly, or subagents should start inside their worktree. Also observed: the
+guardrail source already denies `git commit -n` (line 148), so the ST-0396
+decision to extend it may need no change.
+
+- ST-0388 merged (`5c6362fa`): two questions and a `Severity:` sentence per
+  proposal review row. Suite: 3394 passed. No spec feedback written.
+- ST-0403 merged (`9683bbc8`): the guard-only OpenCode plugin and
+  `init-factory --cli opencode`. TypeScript suite 53 of 53. Suite: 3406
+  passed. The OpenCode plugin API (`execute.before`, blocking by a thrown
+  error, `ctx.directory`) is assumed, not checked against a real session
+  (FC-QG24). Three drift rows: two for the domain-modeling agent (OpenCode
+  payload row, the `--cli` default), one for the test-strategy agent (the
+  three blocked QA rows can be unblocked).
+- ST-0398 started (sonnet) after ST-0388.
+- ST-0391 merged (`4c71232d`): `finding-lint`. Suite: 3609 passed. Run on
+  this repository, it exits `1` on two files: BUG-0116 (`major` where the
+  basis gives `critical`, left for the migration ST-0406) and BUG-0120,
+  which the orchestrator had filed with `type: logic`, a type the code class
+  does not name. BUG-0120 now carries `checking` (`56b647be`). Three drift
+  rows for the domain-modeling agent.
+- ST-0398 merged (`0c4c901c`): the anchored loop grep `^status: open`, the
+  stop notice section in every playbook, and the human steps in
+  `finding-format.md`. Its ST-0364 assertion in
+  `test_core_artifact_ownership_text.py` required the unanchored grep, so the
+  file joined its `touches`. Suite: 3640 passed.
+
+Wave-3 drift: the domain-modeling agent fixes five rows (ST-0391, ST-0403),
+the test-strategy agent one row (ST-0403, unblocking three QA rows).
+
+The spec review agent confirmed the five domain rows and filed no BUG. The
+test-strategy agent set FC-18-IT-15, FC-18-IT-17, and FC-18-CT-02 to
+`implemented`; the real-session check of FC-QG24 stays open.
+
+### 2026-11-08, Wave 3: closed
+
+All four stories merged.
