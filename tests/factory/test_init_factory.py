@@ -2405,3 +2405,59 @@ def test_st_0402_remove_factory_strips_the_pi_guard_extension(tmp_path):
 
     assert removed.returncode == 0, removed.stderr
     assert not (target / ".pi" / "extensions" / "guard-human-fields.ts").exists()
+
+
+# ST-0403: init-factory links the guard-only OpenCode plugin.
+
+@pytest.mark.spec("FC-18-IT-15")
+def test_st_0403_init_links_the_opencode_plugin_on_a_project_without_opencode(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert not (target / ".opencode").exists()
+
+    result = run_init(source, target, "--cli", "opencode", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    link = target / ".opencode" / "plugins" / "agent-factory.ts"
+    assert link.is_symlink()
+    assert link.resolve() == (
+        target / ".agent-factory" / "factory" / "config" / "plugins" / "agent-factory.ts"
+    ).resolve()
+    assert link.resolve().is_file()
+    # The guard-only plugin writes no orientation file, INDEX, or agent file.
+    assert sorted(p.name for p in (target / ".opencode").iterdir()) == ["plugins"]
+    assert not (target / "AGENTS.md").exists()
+
+
+@pytest.mark.spec("FC-18-IT-15")
+def test_st_0403_the_other_clis_create_no_opencode_directory(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+
+    result = run_init(source, target, "--cli", "claude", "pi", "--project-name", "demo")
+
+    assert result.returncode == 0, result.stderr
+    assert not (target / ".opencode").exists()
+
+
+@pytest.mark.spec("FC-18-IT-15")
+def test_st_0403_remove_factory_strips_the_opencode_plugin_link(tmp_path):
+    from test_migrate_spec_layout import make_project
+
+    target = make_project(tmp_path / "guard-demo", {"README.md": "# demo\n"})
+    source = stage_source(tmp_path / "source", "1.5.0")
+    assert run_init(source, target, "--cli", "opencode", "--project-name", "demo").returncode == 0
+
+    removed = subprocess.run(
+        [sys.executable, str(source / "packages" / "factory" / "scripts" / "remove-factory"),
+         "--target", str(target)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert removed.returncode == 0, removed.stderr
+    assert not (target / ".opencode" / "plugins" / "agent-factory.ts").exists()
+    assert not (target / ".opencode").exists()

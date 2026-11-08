@@ -18,9 +18,13 @@ Input: the tool call on standard input, in the format of its CLI:
   Claude Code, Codex   `tool_name` and `tool_input` (PreToolUse)
   Copilot CLI          `toolName` and `toolArgs`, an object or a JSON string
   Pi extension         `toolName` and `input`
+  OpenCode plugin      `toolName` and `input`, with the arguments of the
+                       OpenCode tool as it names them (`filePath`, `oldString`,
+                       `newString`, `patchText`, `command`, `code`)
 
 Guarded tools: Edit, MultiEdit, Write, NotebookEdit, and Bash, and the
-lowercase names edit, write, write_file, create, bash, and apply_patch.
+lowercase names edit, write, write_file, create, bash, and apply_patch, and
+the OpenCode names patch (a patch call), shell (a shell call), and execute.
 
 "Sets" means a value appears that was not there before. Edit and MultiEdit
 apply each edit to the current file and compare the values before and after;
@@ -28,7 +32,9 @@ when the file is missing or an old_string is not in it, the guard compares
 old_string with new_string. Write and NotebookEdit compare the new content
 with the current file. Bash is checked only when it writes into a guarded
 path: a redirect, tee, sed -i, perl -i, or an interpreter that names the
-path. Then any human value in the command text refuses it. The guard follows
+path. Then any human value in the command text refuses it. An OpenCode
+`execute` call carries JavaScript: the guard reads it as the text of a script,
+so any guarded path that the code names is a write target. The guard follows
 each literal `cd <dir>` of the command line; a `cd` inside parentheses ends
 with the subshell.
 
@@ -78,6 +84,9 @@ SHELLS = {"sh", "bash", "zsh", "dash"}
 SEPARATORS = {";", "&&", "||", "|", "&", "(", ")"}
 REDIRECTS = {">", ">>", ">|", "&>", "&>>", "1>", "1>>", "2>", "2>>"}
 WRITE_TOOLS = {"write", "write_file", "create"}
+SHELL_TOOLS = {"bash", "shell"}
+PATCH_TOOLS = {"apply_patch", "patch"}
+SCRIPT_TOOLS = {"execute"}
 PATCH_FILE = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+)$")
 PATH_WORD = re.compile(r"[\w./*-]+")
 
@@ -107,9 +116,12 @@ def check_call(payload: dict) -> str | None:
     cwd = Path(payload.get("cwd") or os.getcwd())
     name = tool.lower()
 
-    if name == "bash":
+    if name in SHELL_TOOLS:
         return check_shell(_command_text(args.get("command") or args.get("cmd")), cwd)
-    if name == "apply_patch":
+    if name in SCRIPT_TOOLS:
+        code = _first_text(args, ("code", "javascript", "script", "command"))
+        return check_shell(code, cwd, script=True)
+    if name in PATCH_TOOLS:
         return check_patch(_patch_text(args), cwd)
 
     raw_path = _first_text(args, ("notebook_path", "file_path", "filePath", "path"))
@@ -144,7 +156,7 @@ def _tool_call(payload: dict) -> tuple[str, dict | None]:
         try:
             args = json.loads(args)
         except json.JSONDecodeError:
-            args = {"patch": args} if tool.lower() == "apply_patch" else None
+            args = {"patch": args} if tool.lower() in PATCH_TOOLS else None
     return tool, args if isinstance(args, dict) else None
 
 
@@ -165,7 +177,7 @@ def _command_text(command: object) -> str:
 
 def _patch_text(args: dict) -> str:
     """The patch text of an apply_patch call; Codex may pass an argument list."""
-    for key in ("patch", "input", "command"):
+    for key in ("patch", "patchText", "input", "command"):
         value = args.get(key)
         if isinstance(value, list):
             value = next((v for v in reversed(value) if isinstance(v, str)), "")
@@ -183,10 +195,10 @@ def check_edits(rel: str, kind: str, current: str | None, edits: list) -> str | 
     for edit in edits:
         if not isinstance(edit, dict):
             continue
-        old = str(edit.get("old_string") or edit.get("old_str") or "")
-        new = str(edit.get("new_string") or edit.get("new_str") or "")
+        old = str(edit.get("old_string") or edit.get("old_str") or edit.get("oldString") or "")
+        new = str(edit.get("new_string") or edit.get("new_str") or edit.get("newString") or "")
         if text is not None and old and old in text:
-            after = text.replace(old, new) if edit.get("replace_all") else text.replace(old, new, 1)
+            after = text.replace(old, new) if edit.get("replace_all") or edit.get("replaceAll") else text.replace(old, new, 1)
             refusal = _compare(rel, kind, text, after)
             text = after
         else:
@@ -280,9 +292,16 @@ def check_unparsable(text: str, cwd: Path) -> str | None:
     return None
 
 
-def check_shell(command: str, cwd: Path) -> str | None:
-    """Refuse a shell command that writes into a guarded path and assigns a human value."""
-    for path in shell_write_targets(command, cwd):
+def check_shell(command: str, cwd: Path, script: bool = False) -> str | None:
+    """Refuse a shell command that writes into a guarded path and assigns a human value.
+
+    With `script`, the text is code, such as the JavaScript of an OpenCode
+    `execute` call: every path-like word of it counts as a write target."""
+    if script:
+        targets = [_absolute(word, cwd) for word in PATH_WORD.findall(command)]
+    else:
+        targets = shell_write_targets(command, cwd)
+    for path in targets:
         rel, kind = guarded(path)
         if kind is None:
             continue
