@@ -1,0 +1,6 @@
+---
+# Project settings read by the Factory scripts.
+# release_tag_patterns: git tag patterns that count as releases. A tag counts
+# when `git tag --list '<pattern>'` lists it. finding-lint uses them to check
+# whether lines of a finding exist unchanged at a release.
+release_tag_patterns: ["v[0-9]*"]
