@@ -13,10 +13,15 @@
 #       register file without a finding file of the same ID (BR-109, BR-110).
 #       A repository without a commit, or a directory outside any repository,
 #       has no HEAD version, so the lint checks every file as new.
-#       For a code, runtime, or security finding with in_use false, it blames
-#       the artifact range and rejects the answer when every line identity
-#       exists unchanged on dev, main, origin/dev, origin/main, or in the
-#       installed copy (BR-088). It prints one line per branch the clone lacks.
+#       For a code, runtime, or security finding with in_use false that is
+#       new against HEAD, or whose basis or artifact differs from HEAD, it
+#       blames the artifact range and rejects the answer when every line
+#       identity exists unchanged on dev, main, origin/dev, origin/main, or in
+#       the installed copy (BR-088). A register file written from a line of the
+#       old .jsonl register of its class at HEAD keeps that line's earlier check
+#       when the id, basis, and artifact match. With --staged, the check reads
+#       and blames the artifact from the index. It prints one line per branch
+#       the clone lacks.
 # When: In the validate skill without --staged (the working tree), and in the
 #       pre-commit hook with --staged (the index).
 # By:   `.agent-factory/factory/scripts/finding-lint [--staged]` from the
@@ -890,6 +895,9 @@ def is_register_path(path: str) -> bool:
     return path.startswith("docs/findings/register/") and path.endswith(".json")
 
 
+OLD_REGISTERS = {f"docs/findings/register/{name}.jsonl" for name in CLASSES}
+
+
 def _finding_id(path: str) -> str:
     return path.rsplit("/", 1)[1].rsplit(".", 1)[0]
 
@@ -1133,13 +1141,18 @@ def _has_head(root: Path) -> bool:
     raise GitError(f"finding-lint: git rev-parse failed: {detail}")
 
 
-def _listed(output: bytes) -> list[str]:
+def _is_finding_or_register(path: str) -> bool:
+    return is_finding_path(path) or is_register_path(path)
+
+
+def _is_head_path(path: str) -> bool:
+    """HEAD also holds the old `.jsonl` registers, for the moved-line rule (FC-C25)."""
+    return _is_finding_or_register(path) or path in OLD_REGISTERS
+
+
+def _listed(output: bytes, accepts=_is_finding_or_register) -> list[str]:
     paths = {name.decode("utf-8", "replace") for name in output.split(b"\0") if name}
-    return sorted(
-        path
-        for path in paths
-        if "\n" not in path and (is_finding_path(path) or is_register_path(path))
-    )
+    return sorted(path for path in paths if "\n" not in path and accepts(path))
 
 
 def _read_objects(root: Path, prefix: str, paths: list[str]) -> dict[str, str]:
@@ -1169,7 +1182,7 @@ def read_head(root: Path) -> dict[str, str]:
     listed = _git(
         root, "ls-tree", "-r", "-z", "--name-only", "HEAD", "--", "docs/findings"
     )
-    return _read_objects(root, "HEAD:", _listed(listed))
+    return _read_objects(root, "HEAD:", _listed(listed, _is_head_path))
 
 
 def read_index(root: Path) -> dict[str, str]:
@@ -1367,9 +1380,12 @@ def _exists(root: Path, revision: str, path: str = "") -> bool:
 class InUseCheck:
     """Find the first place where every line of an artifact range exists unchanged."""
 
-    def __init__(self, root: Path, tag_patterns: list[str] | None = None):
+    def __init__(
+        self, root: Path, tag_patterns: list[str] | None = None, staged: bool = False
+    ):
         self.root = root
         self.tag_patterns = tag_patterns or []
+        self.staged = staged
         self.skipped: list[str] = []
         self._tags: list[str] | None = None
         self._branches: list[tuple[str, str]] | None = None
@@ -1398,19 +1414,43 @@ class InUseCheck:
                         self._tags.append(tag)
         return self._tags
 
-    def _blame(self, *args: str) -> list[Identity]:
-        output = _git(self.root, "blame", "-M", "-C", "--porcelain", *args)
+    def _blame(self, *args: str, stdin: bytes | None = None) -> list[Identity]:
+        output = _git(self.root, "blame", "-M", "-C", "--porcelain", *args, stdin=stdin)
         return parse_porcelain(output.decode("utf-8", "replace"))
+
+    def _staged_blob(self, path: str) -> bytes:
+        return _git(self.root, "cat-file", "blob", f":{path}")
+
+    def _reviewed_text(self, path: str) -> str | None:
+        """Return the index version with --staged, else the working tree, or None."""
+        if self.staged:
+            # An empty revision makes the object name `:path`, the index version.
+            if not _exists(self.root, "", path):
+                return None
+            return self._staged_blob(path).decode("utf-8", "replace")
+        file = self.root / path
+        if not file.is_file():
+            return None
+        return file.read_text(encoding="utf-8", errors="replace")
+
+    def _reviewed_lines(self, path: str, start: int, end: int) -> list[Identity]:
+        """Blame the range in the version that _reviewed_text reads."""
+        lines = ("-L", f"{start},{end}", "--", path)
+        if self.staged:
+            contents = ("--contents", "-")
+            return self._blame(*contents, *lines, stdin=self._staged_blob(path))
+        return self._blame(*lines)
 
     def _range(self, artifact: str) -> tuple[str, int, int] | None:
         match = _ARTIFACT.match(artifact)
         if match is None:
             return None
         path = match["path"]
-        file = self.root / path
-        if not file.is_file() or not _exists(self.root, "HEAD", path):
+        if not _exists(self.root, "HEAD", path):
             return None
-        text = file.read_text(encoding="utf-8", errors="replace")
+        text = self._reviewed_text(path)
+        if text is None:
+            return None
         if match["anchor"] is not None:
             found = section_range(text, match["anchor"])
             return None if found is None else (path, *found)
@@ -1421,7 +1461,10 @@ class InUseCheck:
     def _sources_of(self, ref: str, path: str) -> set[str]:
         """Return the rename and copy sources that `git diff -M -C <ref>` names for *path*."""
         if ref not in self._sources:
-            output = _git(self.root, "diff", "-M", "-C", "--name-status", "-z", ref)
+            cached = ("--cached",) if self.staged else ()
+            output = _git(
+                self.root, "diff", "-M", "-C", "--name-status", "-z", *cached, ref
+            )
             fields = [field.decode("utf-8", "replace") for field in output.split(b"\0")]
             sources: dict[str, set[str]] = {}
             index = 0
@@ -1472,7 +1515,7 @@ class InUseCheck:
         if found is None:
             return None
         path, start, end = found
-        lines = self._blame("-L", f"{start},{end}", "--", path)
+        lines = self._reviewed_lines(path, start, end)
         if not holds_every_line(set(lines), lines):
             return None
         for name, ref in self.branches():
@@ -1489,18 +1532,56 @@ class InUseCheck:
         return None
 
 
+def _record_of(path: str, text: str) -> Any:
+    """Return the parsed values of a finding file or a register file, or None."""
+    if is_finding_path(path):
+        return _meta(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def _same_values(record: dict, other: Any, keys: tuple[str, ...]) -> bool:
+    return isinstance(other, dict) and all(
+        other.get(key) == record.get(key) for key in keys
+    )
+
+
+def _moved_from_old_register(path: str, record: dict, head: dict[str, str]) -> bool:
+    """Return whether the old register of the class at HEAD holds this line (FC-C25)."""
+    folder = _register_folder(path)
+    if folder is None:
+        return False
+    for line in head.get(f"docs/findings/register/{folder}.jsonl", "").split("\n"):
+        try:
+            old = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if _same_values(record, old, ("id", "basis", "artifact")):
+            return True
+    return False
+
+
+def git_check_is_due(path: str, record: dict, head: dict[str, str]) -> bool:
+    """Return whether the file is new against HEAD or its basis or artifact changed.
+
+    The comparison uses parsed values, so key order and whitespace do not
+    count. A HEAD version that cannot be read counts as no version (BR-088).
+    """
+    if path in head:
+        earlier = _record_of(path, head[path])
+        return not _same_values(record, earlier, ("basis", "artifact"))
+    return not (is_register_path(path) and _moved_from_old_register(path, record, head))
+
+
 def _in_use_records(files: dict[str, str]) -> list[tuple[str, dict]]:
     """Return each finding and register file that answers in_use false in a checked class."""
     records: list[tuple[str, dict]] = []
     for path in sorted(files):
-        record: Any = None
-        if is_finding_path(path) and carries_review_class(files[path]):
-            record = _meta(files[path])
-        elif is_register_path(path):
-            try:
-                record = json.loads(files[path])
-            except json.JSONDecodeError:
-                continue
+        if is_finding_path(path) and not carries_review_class(files[path]):
+            continue
+        record = _record_of(path, files[path])
         if (
             not isinstance(record, dict)
             or record.get("review_class") not in IN_USE_CLASSES
@@ -1516,16 +1597,22 @@ def _in_use_records(files: dict[str, str]) -> list[tuple[str, dict]]:
     return records
 
 
-def check_in_use(root: Path, files: dict[str, str]) -> tuple[list[str], list[str]]:
+def check_in_use(
+    root: Path, files: dict[str, str], head: dict[str, str], staged: bool = False
+) -> tuple[list[str], list[str]]:
     """Run the git check of BR-088 and return the violations and the skipped branches."""
-    records = _in_use_records(files)
+    records = [
+        (path, record)
+        for path, record in _in_use_records(files)
+        if git_check_is_due(path, record, head)
+    ]
     if not records or not _in_repository(root) or not _has_head(root):
         return [], []
     try:
         patterns = read_release_tag_patterns(root)
     except SettingsError as exc:
         return [str(exc)], []
-    check = InUseCheck(root, patterns)
+    check = InUseCheck(root, patterns, staged)
     out: list[str] = []
     for path, record in records:
         place = check.place_of(record["artifact"])
@@ -1543,8 +1630,9 @@ def check_tree(
 ) -> tuple[list[str], list[str]]:
     """Return the violations and the skipped branches of the findings under *root*."""
     files = read_index(root) if staged else read_worktree(root)
-    in_use, skipped = check_in_use(root, files)
-    return lint_files(files, read_head(root), schemas) + in_use, skipped
+    head = read_head(root)
+    in_use, skipped = check_in_use(root, files, head, staged)
+    return lint_files(files, head, schemas) + in_use, skipped
 
 
 def lint_tree(root: Path, schemas: dict, staged: bool = False) -> list[str]:
