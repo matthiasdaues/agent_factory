@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0018",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch_lib.py:1760-1899",
+  "story": "ST-0397",
+  "finding": "finding-lint and dispatch_lib each parse the frontmatter and the section ## Possible damage, and the two parsers disagree. A critical finding whose damage item starts with '* ' passes finding-lint, and the stop notice then prints no damage item. The value Null of stop_confirmed_by is text in finding-lint and null in dispatch_lib. The review reproduced both with the functions of the branch head. Move the parsing into one module beside both scripts and let both import it, and add a test that feeds one fixture to both.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "mdformat writes every bullet as '- ' and the template writes the human fields as null, so real files give the same result in both parsers (no to fails_purpose). Each later change of the finding format must be made in two places that already disagree, which is a duplicated rule.",
+  "commit": "b2bd24a1ac5f05eef935135d5c957ec318c452e3",
+  "status": "open"
+}
