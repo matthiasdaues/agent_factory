@@ -190,3 +190,5 @@ The spec review agent confirmed the three domain rows and filed no BUG.
 
 All five stories merged. The scope-map row of ST-0389 waits at `fixed` for
 the stakeholder.
+
+The stakeholder confirmed the scope-map row of ST-0389 on 2026-11-08.
