@@ -28,7 +28,7 @@ impact:
     - packages/factory/rulebooks/templates/proposal.md
     - packages/factory/rulebooks/conventions/review-loop-discipline.md
     - docs/proposals/finding-classification.md
-    - docs/proposals/manual-mode-gates.md
+    - docs/proposals/story-workflow.md
 
 governance:
   assurance: elevated
@@ -72,7 +72,7 @@ Every review loop stops after three passes (DEC-01). If a blocking finding is st
 
 A review loop runs a reviewer on an artifact, sends the open findings back to the author, and runs the reviewer again. It ends only when no finding is open. Only the gate-check loop in [implementation-agent.md § Gate-Check Loop](../../packages/factory/agents/implementation-agent.md#gate-check-loop) has a cap. It stops after three iterations and escalates. The other loops have no cap, as entry BAD-04 of [review-scrapbook.md](../../poc/workflow/review-scrapbook.md) records.
 
-A repeat pass must run the full inspection again ([review-loop-discipline.md](../../packages/factory/rulebooks/conventions/review-loop-discipline.md)). So each fix can produce new findings, and the loop has no point where it stops by design. Late passes then spend tokens and time on edge cases that an earlier fix created. In manual mode, `story-gates` blocks on open findings for the story ([manual-mode-gates.md](manual-mode-gates.md)), so an uncapped code review keeps a story from closing.
+A repeat pass must run the full inspection again ([review-loop-discipline.md](../../packages/factory/rulebooks/conventions/review-loop-discipline.md)). So each fix can produce new findings, and the loop has no point where it stops by design. Late passes then spend tokens and time on edge cases that an earlier fix created. In manual mode, `story-gates` blocks on open findings for the story ([story-workflow.md](story-workflow.md)), so an uncapped code review keeps a story from closing.
 
 ## Core Principles
 
@@ -157,7 +157,7 @@ A new script, `packages/factory/scripts/review-pass-check`, reads one review doc
 - One review document per loop and unit, with the passes table, in `report-format.md` and the review-report template. Every reviewer in the table writes it.
 - The `Kind` and `Number` columns in the `## Review passes` table of the proposal template.
 - The script `review-pass-check`, the check before each pass in every agent that starts a reviewer, and the `review-pass-check` pre-commit hook.
-- The `story-gates` open-findings check of [manual-mode-gates.md](manual-mode-gates.md) counts only blocking findings.
+- The `story-gates` open-findings check of [story-workflow.md](story-workflow.md) counts only blocking findings.
 
 **Explicitly deferred (do NOT plan stories for these):**
 

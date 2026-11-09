@@ -220,7 +220,7 @@ derived from `architecture.dsl` and the accepted proposals.
 ## T-0016 — No rule decides which review findings must be fixed
 
 - status: open
-- source: [review-scrapbook.md](../../../poc/workflow/review-scrapbook.md) BAD-04, and [manual-mode-gates.md](../../proposals/manual-mode-gates.md) DEC-06 (2026-11-03)
+- source: [review-scrapbook.md](../../../poc/workflow/review-scrapbook.md) BAD-04, and [story-workflow.md](../../proposals/story-workflow.md) DEC-06 (2026-11-03)
 
 Every review loop files each finding and loops back until none is open. No
 loop has a threshold below which a finding is recorded and left unfixed. So
