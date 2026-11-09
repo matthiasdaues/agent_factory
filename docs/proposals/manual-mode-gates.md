@@ -99,26 +99,17 @@ Which findings must be fixed and which may stay unfixed is the subject of a sepa
 
 ### Fast gates as pre-commit hooks
 
-Two new hooks join the Factory hook block in `packages/factory/config/pre-commit-config.yaml`:
+One new hook joins the Factory hook block in `packages/factory/config/pre-commit-config.yaml`:
 
-| Hook               | Runs on             | Needs                                                                    |
-| ------------------ | ------------------- | ------------------------------------------------------------------------ |
-| `dependency-check` | staged source files | `docs/spec/dependency-rules.dsl`                                         |
-| `crap-score`       | staged source files | a coverage file from the test run, and the threshold from `testing.yaml` |
-
-`crap-score` reads coverage. So the `run-tests` hook writes its coverage report to a fixed path, and the `crap-score` hook runs after it and reads that file. Both hooks skip when `testing.yaml` disables their gate. The `run-tests` hook runs only when a commit touches its `files` paths. On other commits the `crap-score` hook has no fresh coverage and skips, so `story-gates` runs `crap-score` again as the check that always holds (DEC-12).
+| Hook               | Runs on             | Needs                            |
+| ------------------ | ------------------- | -------------------------------- |
+| `dependency-check` | staged source files | `docs/spec/dependency-rules.dsl` |
 
 The hooks run in both modes. In automated mode they also run on the developer agent's commit, before the dispatcher's gate-check loop runs the same gates again.
 
 ### Slow gates in a story-close check
 
-A new script, `packages/factory/scripts/story-gates`, runs the slow gates for one story: `crap-score`, mutation testing through the project's command in `gates.mutation_testing.command`, and `test-design-verify` against the story file. It also checks that no finding for the story is open. Mutation testing runs for every story, limited to the source files the story branch changes against dev (DEC-11). `story-gates` passes that file list to the mutation command, so the cost grows with the size of the diff. It prints each gate's result and exits non-zero when a gate fails. It writes no marker of its own.
-
-`story-gates` is the one place that runs a story's semantic gates, in both modes (DEC-14). It resolves the gate list as the gate-check loop in [implementation-agent.md § Gate-Check Loop](../../packages/factory/agents/implementation-agent.md#gate-check-loop) does today: the story's `quality-gates` field, then `testing.yaml`, then the Factory default. The gate-check loop calls `story-gates` instead of each gate script, so a new gate is added in one place. The gate scripts keep writing their reports to `.current-work/<gate-name>/<story-id>.json`, which the loop and `premerge-check` read.
-
-A new hook, `story-done-gate`, watches staged story files. When a commit sets a story's `status` to `done`, the hook runs `story-gates` for that story. If `story-gates` fails, the hook refuses the commit and shows its output. So the slow gates run exactly where the story closes, and no earlier result has to be trusted (DEC-13). The cost is one slow commit per story. The developer agent runs `story-gates` once before that commit, so the closing commit rarely fails.
-
-The hook applies only while no dispatch ledger exists, the same check the guardrail uses (DEC-09). In automated mode, `merge-story` sets `status: done` after the dispatcher's gate-check loop has passed, and the hook stays out of the way. How a later step can trust a gate result without rerunning it is the subject of [gate-evidence.md](gate-evidence.md).
+The script `story-gates` and the hook `story-done-gate` are defined in [crap-gate-setup.md](crap-gate-setup.md) (DEC-15). This proposal adds one check to `story-gates`: while a finding for the story has `status: open`, the script fails and names the finding.
 
 ### Relation to the ownership proposal
 
@@ -128,13 +119,12 @@ This proposal replaces DEC-23's "the developer agent runs them before it hands a
 
 **In the first release:**
 
-- The hooks `dependency-check` and `crap-score`, and the coverage report of `run-tests`.
-- The script `story-gates`, and the gate-check loop calling it instead of each gate script.
-- The hook `story-done-gate`, which runs `story-gates` in manual mode.
+- The hook `dependency-check`.
+- The open-findings check in `story-gates`. The script and its `story-done-gate` hook belong to [crap-gate-setup.md](crap-gate-setup.md).
 - The manual-mode story flow in the implementation agent and the developer agent, with commits on the story branch and the handback contents.
 - The manual-mode section of the branching policy: one branch per story from dev, cut by the human or by the implementation agent under the name the human gives.
 - The split of the git guardrail into checks that always apply and dispatch-workflow checks that apply while a dispatch ledger exists.
-- The `story` field in finding files, and the open-findings check in `story-gates`.
+- The `story` field in finding files.
 - The dispatch contract states that manual mode runs the same gates.
 
 **Explicitly deferred (do NOT plan stories for these):**
@@ -154,14 +144,7 @@ None.
 
 ## Completion Criteria
 
-- A commit in manual mode that adds a function above the CRAP threshold fails in the `crap-score` hook.
-- The time that coverage adds to the `run-tests` hook is measured and stated in `testing.yaml` before the `crap-score` hook ships.
 - A commit that breaks a rule of `dependency-rules.dsl` fails in the `dependency-check` hook.
-- With no dispatch ledger, a commit that sets a story to `done` while one of its mutants survives fails in the `story-done-gate` hook and shows the `story-gates` output.
-- With a dispatch ledger, the `story-done-gate` hook does not run `story-gates`.
-- `story-gates <story-id>` runs `crap-score`, mutation testing, and `test-design-verify`, exits zero only when all three pass and no finding for the story is open, and writes no marker of its own.
-- The gate-check loop in `implementation-agent.md` runs the semantic gates through `story-gates` and calls no gate script directly.
-- `story-gates <story-id>` mutates only the source files that the story branch changes against dev.
 - `story-gates <story-id>` fails and names the finding when a finding with `story: <story-id>` has `status: open`.
 - In manual mode, the developer agent hands back a story branch whose last commit sets the story to `done`, and the handback names the branch head, the findings, and the gate results.
 - With no dispatch ledger under `.current-work/`, the guardrail allows `git checkout -b <branch> dev` in the primary checkout. With a ledger, it denies the same command.
@@ -189,6 +172,8 @@ None.
 | DEC-12 | 2026-11-03 | decision   | stakeholder | `crap-score` runs both as a hook and in `story-gates`. The suite already runs per commit in about 86 seconds, so the hook adds only the coverage cost.                                                                                   | hook speed question                                                    |
 | DEC-13 | 2026-11-04 | decision   | stakeholder | Provisional, replaces DEC-03: `story-done-gate` reruns `story-gates` instead of trusting a marker, because an untracked marker can be forged and reviewers cannot see it. [gate-evidence.md](gate-evidence.md) settles the general rule. | open item on the marker commit                                         |
 | DEC-14 | 2026-11-04 | decision   | stakeholder | The automated gate-check loop calls `story-gates`, so both modes run the semantic gates through one script.                                                                                                                              | open question on the gate-check loop                                   |
+| DEC-15 | 2026-11-09 | decision   | stakeholder | `story-gates` and `story-done-gate` move to crap-gate-setup.md. This proposal keeps the open-findings check, the manual-mode story flow, and the split of the guardrail.                                                                 | Grilling of crap-gate-setup.md                                         |
+| DEC-16 | 2026-11-09 | decision   | stakeholder | The `crap-score` commit hook and its coverage report leave this proposal. They are project-owned, as crap-gate-setup.md describes.                                                                                                       | Grilling of crap-gate-setup.md                                         |
 
 ## Review findings
 
