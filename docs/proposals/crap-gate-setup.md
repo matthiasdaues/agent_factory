@@ -209,7 +209,7 @@ In an orchestrated run, the implementation agent does not call the gate scripts 
 
 ### The verdict and the report
 
-The verdict is the exit code of `crap-score`. No stored result decides the CRAP gate. On a story branch with the gate enabled, `premerge-check` calls `crap-score` in place of reading its result file, so every merge rests on a run against the branch head, and the marker `premerge-check-ok` still means that the gate passed. `premerge-check` keeps reading the result files of `dependency-check` and `test-design-verify` as it does today.
+The verdict is the exit code of `crap-score`. No stored result decides the CRAP gate. On a story branch with the gate enabled, `premerge-check` calls `crap-score` in place of reading its result file, so every merge rests on a run against the branch head, and the marker `premerge-check-ok` still means that the gate passed. The other gates follow [story-workflow.md](story-workflow.md#checks-at-the-merge).
 
 `crap-score` also writes its rows as one JSON array to `.current-work/crap-score/<story-id>.json`, which is not tracked. A person reads this report, and the proof compares two of them. A row holds the [measurement fields](#the-crap-gate) plus `crap_score` and `pass_fail`. The value of `pass_fail` is `pass`, `fail`, or `accepted`, and `accepted` counts as a pass.
 
@@ -293,7 +293,6 @@ None.
 - When a `ready` command fails, `dispatch init` refuses to start and names the measure and the command.
 - In this repository, a function in a script that starts with `uv run --script` either shows measured coverage or makes the gate exit 2.
 - `premerge-check` reads no `crap-score` result file. On a story branch with a failing function, it refuses the merge even when a passing result file exists under `.current-work/`.
-- `premerge-check` still requires the result files of `dependency-check` and `test-design-verify` as it does today.
 - A story with `quality-gates: []` in a project with an enabled gate still runs that gate when it changes code.
 - A commit that changes no file matching a gate's `files` patterns starts no worktree, no test run, and no tool for that gate, and the gate counts as passed.
 - In a project with no `gates` section, a merge runs no `crap-score`, and `premerge-check` prints which gates are not set up.

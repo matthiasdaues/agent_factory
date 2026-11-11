@@ -5,7 +5,7 @@ title: Story Workflow
 status: draft
 owner: agent-factory
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-11
 supersedes:
 
 impact:
@@ -22,6 +22,8 @@ impact:
     - packages/factory/rulebooks/conventions/finding-format.md
     - packages/factory/config/hooks/block-dangerous-git.sh
     - packages/factory/scripts/dependency-check
+    - packages/factory/scripts/premerge-check
+    - packages/factory/rulebooks/conventions/report-format.md
     - docs/spec/areas/mechanized-dispatch.md
     - docs/proposals/core-artifact-ownership.md
     - docs/proposals/counter-ids.md
@@ -65,6 +67,7 @@ An orchestrated story gets no review until the end of the feature. A defect then
 - **Review story by story.** A story's diff is small enough to read in full, and a defect is cheapest to fix before another story builds on it.
 - **The agent commits.** Both paths produce commits on a story branch, so review and gates always see committed work.
 - **Fast on every commit, slow once per story.** A gate that takes minutes does not run on every commit.
+- **Check the result, not the order.** A script reads the state of the branch head at the merge. It does not follow which steps ran in which order.
 
 ## Design
 
@@ -100,22 +103,36 @@ The gates are `dependency-check`, `test-design-verify` when the story has a Test
 
 ### Two ways to drive it
 
-| Point                      | Orchestrated                               | By hand                                      |
-| -------------------------- | ------------------------------------------ | -------------------------------------------- |
-| Who starts a story         | The implementation agent, wave by wave.    | The human, story by story.                   |
-| How stories run            | In parallel where they do not overlap.     | One at a time.                               |
-| Where a story runs         | In its own worktree.                       | In the primary checkout.                     |
-| Where the branch starts    | The invocation branch.                     | `dev`.                                       |
-| Run record                 | A dispatch ledger under `.current-work/`.  | None.                                        |
-| Sets `status: done`        | `dispatch merge-story`.                    | The agent, in the last commit of the branch. |
-| Merge                      | The agent, through `dispatch merge-story`. | The human, after reviewing the branch.       |
-| What stops a failing story | `premerge-check` refuses the merge.        | The human, who sees it in the handback.      |
+| Point                      | Orchestrated                               | By hand                                                             |
+| -------------------------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| Who starts a story         | The implementation agent, wave by wave.    | The human, story by story.                                          |
+| How stories run            | In parallel where they do not overlap.     | One at a time.                                                      |
+| Where a story runs         | In its own worktree.                       | In the primary checkout.                                            |
+| Where the branch starts    | The invocation branch.                     | `dev`.                                                              |
+| Run record                 | A dispatch ledger under `.current-work/`.  | None.                                                               |
+| Sets `status: done`        | `dispatch merge-story`.                    | The agent, in the last commit of the branch.                        |
+| Merge                      | The agent, through `dispatch merge-story`. | The human, after reviewing the branch.                              |
+| What stops a failing story | `premerge-check` refuses the merge.        | The human, who sees the output of `premerge-check` in the handback. |
 
 A human who drives by hand names the story branch. Either the human cuts it, or the implementation agent cuts it under that name. The agent never chooses the name or cuts a branch without one. The human checks the name in the handback, because the guardrail cannot read the human's prompt. [branching-policy.md](../../packages/factory/rulebooks/conventions/branching-policy.md) states this rule in its own section.
 
-The handback names the branch, its head commit, the findings and their resolution, and the output of each gate. No hook forces the gates by hand. The project's commit hooks have already judged every commit, and the human sees in the handback whether the gates ran.
+The handback names the branch, its head commit, the findings and their resolution, and the output of `premerge-check`. The agent runs `premerge-check` as the last act before the handback, and the human can run it again before the merge.
 
 The story is done when step 5 succeeds, not when the developer agent stops writing code.
+
+### Checks at the merge
+
+Every story passes one point, the merge, and `premerge-check` checks the branch head there. In an orchestrated run, `dispatch merge-story` runs it, and the git guardrail refuses a merge without a passing marker for the branch's current head. By hand, the agent runs the same command before the handback. Today `premerge-check` checks the base, the size of the diff, and the scope. It gains three checks:
+
+| Step                | What `premerge-check` checks at the branch head                                                                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code review ran     | A code-review report on the branch has `story` set to the story's ID, and its `branch_head` is an ancestor of the branch head. Both fields exist in [report-format.md](../../packages/factory/rulebooks/conventions/report-format.md). |
+| Findings are closed | No file under `docs/findings/` has `story` set to the story's ID and `status: open`.                                                                                                                                                   |
+| Gates pass          | `premerge-check` runs `dependency-check`, `test-design-verify` when the story has a Test Design or Prior Tests section, and every enabled test guardrail, on the branch head. It reads no stored result of these gates.                |
+
+Each failed check names the story and the cause. `mutation-testing` keeps its stored result until [mutation-gate.md](mutation-gate.md) settles how it runs.
+
+A script cannot judge whether a review was good, only that it ran and that its findings are closed. Code that changes after the last review, such as a gate fix, is not reviewed again. A gate fix is usually small, and another review would cost a full agent run.
 
 ### The git guardrail by path
 
@@ -156,6 +173,7 @@ The instruction in [core-artifact-ownership.md](core-artifact-ownership.md) that
 
 - The story workflow in the implementation agent and the developer agent, as one description with two ways to drive it.
 - A code review per story in orchestrated runs, before the gate-check step.
+- Three checks in `premerge-check`: a code-review report for the story, no open finding for the story, and a rerun of the gates on the branch head.
 - Commits by the developer agent when a human drives by hand, which replaces the human committing each change.
 - The handback contents.
 - The section of the branching policy for stories driven by hand: one branch per story from dev, cut by the human or by the implementation agent under the name the human gives.
@@ -188,6 +206,10 @@ None.
 - In an orchestrated run, each story gets a code review of its branch diff before the gate-check step, and the merge waits until no finding for the story is open.
 - When a human drives by hand, the developer agent commits on the story branch, and the gates of the Gate-Check Loop run after the last review fix and before the final commit.
 - When a human drives by hand, the developer agent hands back a story branch whose last commit sets the story to `done`, and the handback names the branch head, the findings with their status, and the output of each gate.
+- `premerge-check` refuses a story branch with no code-review report whose `story` is the story's ID and whose `branch_head` is an ancestor of the branch head.
+- `premerge-check` refuses a story branch while a finding with `story: <story-id>` has `status: open` at the branch head, and names the finding.
+- `premerge-check` refuses a story branch whose head fails `dependency-check`, even when a passing result file for that gate exists under `.current-work/`.
+- When a human drives by hand, the handback contains the output of `premerge-check` for the branch head.
 - A commit that breaks a rule of `dependency-rules.dsl` fails in the `dependency-check` hook.
 - With no dispatch ledger under `.current-work/`, the guardrail allows `git checkout -b <branch> dev` in the primary checkout. With a ledger, it denies the same command.
 - With or without a ledger, the guardrail denies `git push`, `git reset --hard`, and `git commit --no-verify`.
