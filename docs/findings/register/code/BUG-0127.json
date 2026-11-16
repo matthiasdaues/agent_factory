@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0127",
+  "source": "diagnosis",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/handoff-lint:27-39",
+  "story": null,
+  "finding": "handoff-lint checks the phase format, but handoff-format.md v3.0.0 defines the activity format. The script requires the title `# Phase Handoff` and the fields `Outgoing phase` and `Incoming phase`, and it accepts only seven fixed phase transitions in `Boundary`. A valid v3.0.0 handoff between two agents therefore fails the lint. Fix: require `# Handoff`, `Outgoing activity`, and `Incoming activity`, and check that `Boundary` reads `<outgoing> -> <incoming>` for the two declared activities.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The defect touches only the `## Boundary` metadata, and the incoming agent reads the decisions, artifacts, and next action whatever the lint reports. No hook or gate calls `handoff-lint`, so nothing is blocked (no to fails_purpose). An author who follows the handoff skill must still work around findings that cannot be fixed.",
+  "commit": "9e2eb0e4cb5f312358faca180b6a854ee5576b6e",
+  "status": "resolved"
+}

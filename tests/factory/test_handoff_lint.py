@@ -43,15 +43,23 @@ def _repository(tmp_path: Path) -> tuple[Path, str]:
     return repo, head
 
 
-def _handoff(repo: Path, head: str, boundary: str) -> Path:
+def _handoff(
+    repo: Path,
+    head: str,
+    boundary: str = "architecture-agent -> architecture-review-agent",
+    *,
+    title: str = "# Handoff",
+    outgoing: str = "Outgoing activity: architecture-agent",
+    incoming: str = "Incoming activity: architecture-review-agent",
+) -> Path:
     handoff = repo / "handoff.md"
     handoff.write_text(
-        f"""# Phase Handoff
+        f"""{title}
 
 ## Boundary
 
-Outgoing phase: proposal intake
-Incoming phase: requirements
+{outgoing}
+{incoming}
 Boundary: {boundary}
 
 ## Repository state
@@ -82,7 +90,7 @@ Verification: accepted proposal inspected
 
 ## Next action
 
-Derive the requirements artifacts from proposal.md.
+Review the architecture against proposal.md.
 
 ## Semantic review
 
@@ -104,17 +112,60 @@ def _run(repo: Path, handoff: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_proposal_intake_to_requirements_boundary_is_accepted(tmp_path: Path) -> None:
+def test_activity_handoff_between_agents_is_accepted(tmp_path: Path) -> None:
     repo, head = _repository(tmp_path)
-    result = _run(repo, _handoff(repo, head, "proposal intake -> requirements"))
+    result = _run(repo, _handoff(repo, head))
 
     assert result.returncode == 0, result.stderr
     assert "structurally valid" in result.stdout
 
 
-def test_unregistered_boundary_remains_rejected(tmp_path: Path) -> None:
+def test_unicode_arrow_and_case_in_boundary_are_accepted(tmp_path: Path) -> None:
     repo, head = _repository(tmp_path)
-    result = _run(repo, _handoff(repo, head, "proposal intake -> deployment"))
+    result = _run(
+        repo, _handoff(repo, head, "Architecture-Agent → architecture-review-agent")
+    )
 
-    assert result.returncode != 0
+    assert result.returncode == 0, result.stderr
+
+
+def test_boundary_that_differs_from_declared_activities_is_rejected(
+    tmp_path: Path,
+) -> None:
+    repo, head = _repository(tmp_path)
+    result = _run(repo, _handoff(repo, head, "architecture-agent -> planning-agent"))
+
+    assert result.returncode == 1
     assert "HO-BOUNDARY" in result.stderr
+
+
+def test_boundary_without_arrow_is_rejected(tmp_path: Path) -> None:
+    repo, head = _repository(tmp_path)
+    result = _run(repo, _handoff(repo, head, "architecture-agent to reviewer"))
+
+    assert result.returncode == 1
+    assert "HO-BOUNDARY" in result.stderr
+
+
+def test_phase_handoff_title_is_rejected(tmp_path: Path) -> None:
+    repo, head = _repository(tmp_path)
+    result = _run(repo, _handoff(repo, head, title="# Phase Handoff"))
+
+    assert result.returncode == 1
+    assert "HO-TITLE" in result.stderr
+
+
+def test_phase_fields_are_rejected(tmp_path: Path) -> None:
+    repo, head = _repository(tmp_path)
+    handoff = _handoff(
+        repo,
+        head,
+        "proposal intake -> requirements",
+        outgoing="Outgoing phase: proposal intake",
+        incoming="Incoming phase: requirements",
+    )
+    result = _run(repo, handoff)
+
+    assert result.returncode == 1
+    assert "missing declared field in Boundary: Outgoing activity" in result.stderr
+    assert "missing declared field in Boundary: Incoming activity" in result.stderr

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the mechanically observable phase-handoff contract.
+"""Validate the mechanically observable handoff contract.
 
 The validator is deliberately structural. It checks the canonical Markdown
 shape, declared values, repository facts, and artifact paths, while leaving
@@ -24,19 +24,10 @@ SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 FIELD_PATTERN = re.compile(r"^([^:#]+):\s*(.*)$")
 SECTION_PATTERN = re.compile(r"^##\s+(.+?)\s*$")
 PLACEHOLDERS = {"", "...", "n/a", "tbd", "todo", "unknown", "<none>"}
-VALID_BOUNDARIES = {
-    "proposal intake -> requirements",
-    "requirements -> review",
-    "review -> architecture",
-    "architecture -> review",
-    "review -> remedies",
-    "remedies -> planning",
-    "planning -> implementation",
-}
 VALID_SEMANTIC_STATUSES = {"pending", "passed", "failed"}
 
 REQUIRED_FIELDS = {
-    "Boundary": ("Outgoing phase", "Incoming phase", "Boundary"),
+    "Boundary": ("Outgoing activity", "Incoming activity", "Boundary"),
     "Repository state": (
         "Checkout",
         "Branch",
@@ -109,7 +100,7 @@ def _parse(text: str) -> Handoff:
             if match:
                 declared[match.group(1).strip()] = match.group(2).strip()
         fields[section] = declared
-    has_title = any(line.strip() == "# Phase Handoff" for line in text.splitlines())
+    has_title = any(line.strip() == "# Handoff" for line in text.splitlines())
     return Handoff(has_title, sections, fields, tuple(duplicates))
 
 
@@ -133,7 +124,7 @@ def _required_shape(handoff: Handoff) -> list[Finding]:
     """Check canonical sections, fields, placeholders, and list content."""
     findings: list[Finding] = []
     if not handoff.has_title:
-        findings.append(Finding("HO-TITLE", "missing required Phase Handoff title"))
+        findings.append(Finding("HO-TITLE", "missing required Handoff title"))
     for duplicate in handoff.duplicates:
         findings.append(Finding("HO-DUPLICATE", f"duplicate section: {duplicate}"))
     for section in REQUIRED_SECTIONS:
@@ -172,11 +163,7 @@ def _required_shape(handoff: Handoff) -> list[Finding]:
     if "Next action" in handoff.sections and _placeholder(next_action):
         findings.append(Finding("HO-NEXT", "Next action is missing or a placeholder"))
 
-    boundary = handoff.fields.get("Boundary", {}).get("Boundary")
-    if boundary and not _placeholder(boundary):
-        normalized_boundary = boundary.replace("→", "->").casefold()
-        if normalized_boundary not in VALID_BOUNDARIES:
-            findings.append(Finding("HO-BOUNDARY", f"malformed boundary: {boundary}"))
+    findings.extend(_boundary(handoff.fields.get("Boundary", {})))
 
     semantic_status = handoff.fields.get("Semantic review", {}).get("Status")
     if (
@@ -191,6 +178,27 @@ def _required_shape(handoff: Handoff) -> list[Finding]:
             )
         )
     return findings
+
+
+def _boundary(fields: dict[str, str]) -> list[Finding]:
+    """Check that Boundary reads `<outgoing> -> <incoming>` for the declared pair."""
+    boundary = fields.get("Boundary")
+    if not boundary or _placeholder(boundary):
+        return []
+    sides = [side.strip() for side in boundary.replace("→", "->").split("->")]
+    if len(sides) != 2 or not all(sides):
+        return [Finding("HO-BOUNDARY", f"malformed boundary: {boundary}")]
+    declared = (fields.get("Outgoing activity"), fields.get("Incoming activity"))
+    if None in declared or any(_placeholder(value) for value in declared):
+        return []
+    if [side.casefold() for side in sides] != [v.casefold() for v in declared]:
+        return [
+            Finding(
+                "HO-BOUNDARY",
+                f"boundary does not match declared activities: {boundary}",
+            )
+        ]
+    return []
 
 
 def _integer_field(
@@ -339,7 +347,7 @@ def validate(text: str, repo: Path) -> list[Finding]:
 def _parser() -> argparse.ArgumentParser:
     """Build the public handoff-lint command-line parser."""
     parser = argparse.ArgumentParser(
-        description="Validate a phase handoff's observable structure and references."
+        description="Validate a handoff's observable structure and references."
     )
     parser.add_argument("handoff_path", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -370,7 +378,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(
         "Handoff is structurally valid. This does not certify semantic completeness; "
-        "independent semantic review remains required before phase closure."
+        "independent semantic review remains required before handoff closure."
     )
     return 0
 
