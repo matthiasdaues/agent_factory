@@ -104,7 +104,7 @@ Every project that wants this gate has to solve the same problems alone.
 | Setup skill  | an agent        | once per project      | Choose tools, write the commands into `docs/testing.yaml`, run the proof. |
 | Gate scripts | `dispatch`, Git | at commits and merges | Run the commands, apply the rule, write the verdict.                      |
 
-`dispatch` is the Factory script that runs and merges stories in an orchestrated run. When a human drives by hand, the developer agent works on a story branch and the human reviews and merges it.
+`dispatch` is the Factory script that carries a run from its start to its close, as [run-lifecycle.md](run-lifecycle.md) describes. In an orchestrated run the implementation agent runs its commands. In a run by hand the human runs the commands that need a person, such as the merge of a story.
 
 ### Setup skill
 
@@ -146,7 +146,7 @@ gates:
         ready: "docker compose ps --status running --services | grep -qx app"
 ```
 
-Each command runs from the root of the story's checkout. That is the story's worktree in an orchestrated run, the primary checkout when a human drives by hand, and the temporary worktree during the proof. `premerge-check` itself runs in the invocation worktree, where the story branch is not checked out, so it starts `crap-score` in the story's worktree. The measuring command prepares whatever else it needs in that folder, such as dependencies.
+Each command runs from the root of the story's checkout. That is the story's worktree in an orchestrated run, the primary checkout when a human drives by hand, and the temporary worktree during the proof. In an orchestrated run, `premerge-check` itself runs in the worktree of the feature branch, where the story branch is not checked out, so it starts `crap-score` in the story's worktree. The measuring command prepares whatever else it needs in that folder, such as dependencies.
 
 Each command writes one JSON array to the path in the environment variable `GATE_OUTPUT`:
 
@@ -197,15 +197,13 @@ Every gate with `enabled: true` in `docs/testing.yaml` applies to every story. A
 
 A gate runs only when there is code for it to judge. The gate compares the changed files with its `files` patterns and exclusions. If none remain, it starts nothing: no worktree, no test run, and no tool. It prints one line that says no code matched, and the gate counts as passed.
 
-| Point                                                | What runs    | Scope            | Purpose                                                                                  |
-| ---------------------------------------------------- | ------------ | ---------------- | ---------------------------------------------------------------------------------------- |
-| Pre-commit hook                                      | `crap-score` | staged functions | Fast feedback at the commit.                                                             |
-| `premerge-check`, during `dispatch merge-story`      | `crap-score` | branch diff      | The authority for an automated merge.                                                    |
-| Gate-check step of the story workflow, on both paths | `crap-score` | branch diff      | Feedback while the story can still be fixed. By hand, the output goes into the handback. |
+| Point                                               | What runs    | Scope            | Purpose                                                                                     |
+| --------------------------------------------------- | ------------ | ---------------- | ------------------------------------------------------------------------------------------- |
+| Pre-commit hook                                     | `crap-score` | staged functions | Fast feedback at the commit.                                                                |
+| `premerge-check`, during `dispatch merge-story`     | `crap-score` | branch diff      | The authority for an automated merge.                                                       |
+| Gate-check step of the story workflow, on both ways | `crap-score` | branch diff      | Feedback while the story can still be fixed. The implementation agent runs it on both ways. |
 
-`crap-score` is one of the gates of the [story workflow](run-lifecycle.md#the-story-workflow), so it runs at the same point on both paths. An agent merges an orchestrated story, through `dispatch merge-story` and `premerge-check`, and a human merges a story driven by hand after reviewing the branch. No hook forces the gate-check step by hand. The commit hook has already judged every commit, and the handback shows the human whether the step ran.
-
-In an orchestrated run, the implementation agent does not call the gate scripts one by one. It starts `merge-story` and reads the result.
+`crap-score` is one of the gates of the [story workflow](run-lifecycle.md#the-story-workflow), so it runs at the same point on both ways. The implementation agent runs it in the gate-check step. Every story then merges through `dispatch merge-story`, which runs `premerge-check` and with it `crap-score` again. In an orchestrated run the implementation agent runs `dispatch merge-story`, and in a run by hand the human runs it.
 
 ### The verdict and the report
 
