@@ -1,4 +1,5 @@
 ---
+scope: global
 schema_version: 2
 title: Jira Server to Cloud Migration
 status: draft
