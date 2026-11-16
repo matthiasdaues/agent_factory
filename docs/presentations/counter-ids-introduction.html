@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Counter IDs Introduction</title>
+<meta charset="utf-8">
+<style>
+body { font-family: sans-serif; }
+.remark-slide-content { font-size: 32px; line-height: 1.34; padding: 48px 84px; color: #1a2630; }
+.remark-slide-content h1 { font-size: 52px; line-height: 1.14; margin: 0 0 30px; font-weight: 700; }
+.remark-slide-content p { margin: 16px 0; }
+.remark-slide-content a { color: #0b5f8a; }
+.remark-inline-code { font-size: .86em; color: #0b5f8a; }
+.remark-slide-content.middle { vertical-align: middle; }
+.remark-slide-content.title h1 { font-size: 84px; margin-bottom: 20px; }
+.remark-slide-content.dense { font-size: 28px; }
+table { border-collapse: collapse; width: 100%; font-size: 27px; line-height: 1.26; }
+th { text-align: left; color: #566773; border-bottom: 2px solid #1a2630; padding: 4px 18px 6px 0; }
+td { border-bottom: 1px solid #c6d0d7; padding: 9px 18px 9px 0; vertical-align: top; }
+.command, .result, .stop { font-family: monospace; font-weight: bold; font-size: .86em; padding: 2px 11px; color: #fff; white-space: nowrap; }
+.command { background: #0b5f8a; }
+.result { background: #3f6f35; }
+.stop { background: #b3261e; }
+</style>
+</head>
+<body>
+<textarea id="source">
+
+class: title, middle
+
+# Counter IDs
+
+An introduction for developers who use the factory.
+
+---
+
+# Indexed artifacts need unique IDs
+
+Stories, findings, todo entries, and architecture decisions have IDs such as `ST-0042`, `BUG-0017`, and `ADR-0006`.
+
+Several agents can create these artifacts at the same time, on different branches or in different clones.
+
+Scanning one branch for the highest number is not enough. Another branch may already be using the same number.
+
+The factory therefore keeps one shared **counter** for the whole project.
+
+---
+
+# Claim the ID before creating the artifact
+
+An agent that needs a story ID runs:
+
+.command[.agent-factory/factory/scripts/next-id ST]
+
+On success, the script prints exactly one ID:
+
+.result[ST-0043]
+
+The agent uses that exact ID in the new artifact. It does not choose a number, scan a directory, or add one by hand.
+
+---
+
+class: dense
+
+# One counter holds a sequence for each prefix
+
+The counter lives in the Git ref `refs/ids/counters`. Its current claim records the highest number used for every prefix.
+
+| Prefix | Artifact | Example next ID |
+| --- | --- | --- |
+| `ST` | Backlog story | `ST-0043` |
+| `BUG` | Bug finding | `BUG-0018` |
+| `ADR` | Architecture decision | `ADR-0007` |
+| `T` | Todo entry | `T-0021` |
+
+Each prefix has its own sequence, but every sequence is stored in the same counter. All branches and clones therefore see one source of numbers.
+
+---
+
+class: dense
+
+# A Git lease prevents duplicate IDs
+
+Suppose two agents read `ST=0042` at the same time. Both try to claim `ST-0043`.
+
+| Step | First agent | Second agent |
+| --- | --- | --- |
+| Read | Sees `ST=0042` | Sees `ST=0042` |
+| Push with lease | Succeeds and stores `ST=0043` | Fails because the counter changed |
+| Retry | Done | Reads again and claims `ST-0044` |
+
+The lease allows only one update from the old counter state. A losing claim waits briefly, reads the new state, and retries.
+
+---
+
+# The project creates the counter once
+
+During project fitting, `next-id --plan-seed` finds the IDs already in use and prepares the seed command.
+
+After the user confirms, the seed creates the counter without renaming existing artifacts. A second seed cannot overwrite a counter that is already in use.
+
+The counter normally lives on `origin`. A project without `origin` can use one Local Counter until an origin exists.
+
+---
+
+# A failed claim creates no ID
+
+If the counter is missing, the remote is unreachable, access is refused, or repeated races do not settle, `next-id` exits with an error.
+
+It prints the reason on standard error and prints no ID on standard output.
+
+.stop[No printed ID means: stop.]
+
+The agent reports the failure. It never invents a replacement number and never edits or pushes the counter by hand.
+
+---
+
+class: dense
+
+# The rule during a development run is simple
+
+1. Reach the step that creates an indexed artifact.
+2. Run `next-id` with that artifact's supported prefix.
+3. Read the ID from standard output.
+4. Create the artifact with that exact ID.
+5. If the command fails, stop and report its message.
+
+`next-id` may push the counter ref even in manual mode. This claim is the one allowed exception to the rule that the human owns pushes.
+
+The supported prefixes are listed in [id-prefixes.md](../../packages/factory/rulebooks/conventions/id-prefixes.md). The full mechanism is described in [ID Allocation](../arc42/08_crosscutting_concepts.md#818-id-allocation).
+
+</textarea>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/remark/0.14.0/remark.min.js"></script>
+<script>
+  var slideshow = remark.create({
+    ratio: '16:9',
+    navigation: { scroll: false, click: false }
+  });
+</script>
+</body>
+</html>
