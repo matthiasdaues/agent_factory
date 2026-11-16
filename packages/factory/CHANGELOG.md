@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.7.1 — 2026-11-16
+
+This release fixes `handoff-lint` so that it checks the handoff format the
+rulebook defines. Run `update-factory` to receive it.
+
+### Fixes
+
+- **`handoff-lint` checks the activity format.** The script checked the old
+  phase format and accepted only seven fixed phase transitions. So a handoff
+  between two agents outside that list could not pass the lint. The script
+  now follows `handoff-format.md` v3.0.0: the title `# Handoff`, the fields
+  `Outgoing activity` and `Incoming activity`, and a `Boundary` of the form
+  `<outgoing> -> <incoming>` that names the two declared activities. A handoff
+  in the old phase format now fails the lint (BUG-0127).
+
 ## 1.7.0 — 2026-11-08
 
 This release replaces the reviewer's judgment of severity with one rule per
