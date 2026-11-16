@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Finding Classification Introduction</title>
+<meta charset="utf-8">
+<style>
+body { font-family: sans-serif; }
+.remark-slide-content { font-size: 32px; line-height: 1.34; padding: 48px 84px; color: #1a2630; }
+.remark-slide-content h1 { font-size: 52px; line-height: 1.14; margin: 0 0 30px; font-weight: 700; }
+.remark-slide-content p { margin: 16px 0; }
+.remark-slide-content a { color: #0b5f8a; }
+.remark-inline-code { font-size: .86em; color: #0b5f8a; }
+.remark-slide-content.middle { vertical-align: middle; }
+.remark-slide-content.title h1 { font-size: 84px; margin-bottom: 20px; }
+.remark-slide-content.dense { font-size: 28px; }
+table { border-collapse: collapse; width: 100%; font-size: 27px; line-height: 1.26; }
+th { text-align: left; color: #566773; border-bottom: 2px solid #1a2630; padding: 4px 18px 6px 0; }
+td { border-bottom: 1px solid #c6d0d7; padding: 9px 18px 9px 0; vertical-align: top; }
+.crit, .major, .minor, .note { font-family: monospace; font-weight: bold; font-size: .86em; padding: 2px 11px; color: #fff; white-space: nowrap; }
+.crit { background: #b3261e; }
+.major { background: #b85a00; }
+.minor { background: #7a6a00; }
+.note { background: #4f6470; }
+</style>
+</head>
+<body>
+<textarea id="source">
+
+class: title, middle
+
+# Finding Classification
+
+An introduction for developers who use the factory.
+
+---
+
+# AI agents check the work and report problems
+
+In the factory, AI agents write the code, and other AI agents review it.
+
+A **run** is one piece of work, from the plan to the merged code.
+
+When a reviewer sees a problem, it writes a **finding**. A finding is a short file that says what is wrong and how to fix it.
+
+Every finding also says how serious the problem is. We call this its **severity**.
+
+---
+
+class: dense
+
+# Every finding has one of four severities
+
+| Severity | What it means | What the run does | What you do |
+| --- | --- | --- | --- |
+| .crit[critical] | The problem is in work that is already in use, so it may have caused damage. | The run stops. | You check the damage and confirm the stop. |
+| .major[major] | The work does not do its job. | The agent that wrote the work has to fix it. | You wait for the fix. |
+| .minor[minor] | The work does its job, but later changes will cost more. | The run continues. | You read the reason in the final summary. |
+| .note[note] | Nothing needs to change. | The run continues. | You do nothing. |
+
+---
+
+# The reviewer answers fixed questions
+
+Reviewers used to choose a word such as "significant". Two reviews of the same work could then give different results.
+
+Now the reviewer answers fixed questions about the problem, and the answers are saved in the finding.
+
+A fixed rule then turns the answers into the severity. The same answers always give the same severity.
+
+---
+
+class: dense
+
+# Most findings use three questions
+
+Suppose a review finds that your new command prints the wrong total. Your change exists only on your feature branch.
+
+| The reviewer asks | "Yes" gives | In this case |
+| --- | --- | --- |
+| Does the problem cause harm in work that is already in use? | .crit[critical] | No. Only your branch has this code. |
+| Does the work fail its own purpose? | .major[major] | Yes. The total must be right. |
+| Does it only make later work harder? | .minor[minor] | No. |
+
+The first "yes" sets the severity, so this finding is .major[major]. Three "no" answers give .note[note].
+
+---
+
+# Security and architecture use other questions
+
+For a security problem, the reviewer asks what an attacker can gain and what the attacker must already have. The reviewer also records whether the attack is proven.
+
+For an architecture problem, the reviewer asks how important the threatened quality goal is. The reviewer also records whether the design fails that goal or whether nobody has checked.
+
+These findings end on the same four severities.
+
+---
+
+class: dense
+
+# You can check every severity
+
+At each commit, the script `finding-lint` calculates the severity again from the saved answers. If the result does not match, the commit fails.
+
+The script cannot tell whether an answer is right, and an AI reviewer can answer wrongly. So please open a finding and read its answers.
+
+Only a person can accept a .major[major] or .crit[critical] finding without a fix. An AI agent cannot do this.
+
+You can read the full rules in [finding-classification.md](../../packages/factory/rulebooks/conventions/finding-classification.md).
+
+</textarea>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/remark/0.14.0/remark.min.js"></script>
+<script>
+  var slideshow = remark.create({
+    ratio: '16:9',
+    navigation: { scroll: false, click: false }
+  });
+</script>
+</body>
+</html>
