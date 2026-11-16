@@ -2,7 +2,7 @@
 schema_version: 2
 scope: global
 title: Story Workflow
-status: open
+status: superseded
 owner: agent-factory
 created: 2026-11-09
 updated: 2026-11-15
@@ -44,6 +44,8 @@ estimate:
 ---
 
 # Feature Request: Story Workflow
+
+[run-lifecycle.md](run-lifecycle.md) replaces this proposal. The story workflow is one section of it.
 
 ## Primer
 

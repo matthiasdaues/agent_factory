@@ -20,7 +20,7 @@ impact:
     - packages/factory/config/pre-commit-config.yaml
     - packages/factory/config/hook-metadata.yaml
     - packages/factory/config/hooks/guard-human-fields
-    - docs/proposals/story-workflow.md
+    - docs/proposals/run-lifecycle.md
     - packages/factory/skills
     - packages/factory/agents/test-strategy-agent.md
     - packages/factory/agents/implementation-agent.md
@@ -203,13 +203,13 @@ A gate runs only when there is code for it to judge. The gate compares the chang
 | `premerge-check`, during `dispatch merge-story`      | `crap-score` | branch diff      | The authority for an automated merge.                                                    |
 | Gate-check step of the story workflow, on both paths | `crap-score` | branch diff      | Feedback while the story can still be fixed. By hand, the output goes into the handback. |
 
-`crap-score` is one of the gates of the [story workflow](story-workflow.md), so it runs at the same point on both paths. An agent merges an orchestrated story, through `dispatch merge-story` and `premerge-check`, and a human merges a story driven by hand after reviewing the branch. No hook forces the gate-check step by hand. The commit hook has already judged every commit, and the handback shows the human whether the step ran.
+`crap-score` is one of the gates of the [story workflow](run-lifecycle.md#the-story-workflow), so it runs at the same point on both paths. An agent merges an orchestrated story, through `dispatch merge-story` and `premerge-check`, and a human merges a story driven by hand after reviewing the branch. No hook forces the gate-check step by hand. The commit hook has already judged every commit, and the handback shows the human whether the step ran.
 
 In an orchestrated run, the implementation agent does not call the gate scripts one by one. It starts `merge-story` and reads the result.
 
 ### The verdict and the report
 
-The verdict is the exit code of `crap-score`. No stored result decides the CRAP gate. On a story branch with the gate enabled, `premerge-check` calls `crap-score` in place of reading its result file, so every merge rests on a run against the branch head, and the marker `premerge-check-ok` still means that the gate passed. The other gates follow [story-workflow.md](story-workflow.md#checks-at-the-merge).
+The verdict is the exit code of `crap-score`. No stored result decides the CRAP gate. On a story branch with the gate enabled, `premerge-check` calls `crap-score` in place of reading its result file, so every merge rests on a run against the branch head, and the marker `premerge-check-ok` still means that the gate passed. The other gates follow [run-lifecycle.md](run-lifecycle.md#checks-at-the-merge).
 
 `crap-score` also writes its rows as one JSON array to `.current-work/crap-score/<story-id>.json`, which is not tracked. A person reads this report, and the proof compares two of them. A row holds the [measurement fields](#the-crap-gate) plus `crap_score` and `pass_fail`. The value of `pass_fail` is `pass`, `fail`, or `accepted`, and `accepted` counts as a pass.
 
@@ -247,7 +247,7 @@ The setup skill writes the planted code for the project's language, and the scri
 - **The mutation gate.** Nobody has measured survivors, equivalent mutants, or run times on real stories. [mutation-gate.md](mutation-gate.md) starts with that trial. That proposal defines its own section of the exceptions register.
 - **Running the gates in CI.** `.agent-factory/config/project-context.json` lists no CI for this repository. Pre-commit and merge come first.
 - **Evidence of a gate run that outlives the run.** A merge reruns the gates and reads no stored result. [gate-evidence.md](gate-evidence.md) owns any evidence beyond that.
-- **The story workflow and the split of the git guardrail.** [story-workflow.md](story-workflow.md) owns them, and `crap-score` is one of its gates.
+- **The story workflow and the split of the git guardrail.** [run-lifecycle.md](run-lifecycle.md) owns them, and `crap-score` is one of its gates.
 - **Tried tools for languages other than Python and TypeScript.** The agent finds such tools at setup, and the proof checks them.
 - **Migrating Gigacron.** The team can run the setup skill there once it exists.
 - **Keeping some hooks and gates after the Factory is removed.** It is an idea for later, and the first release keeps only the project's own files.
