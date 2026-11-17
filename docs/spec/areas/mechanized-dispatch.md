@@ -954,9 +954,13 @@ Feature: Evidence-Gated Escalation
   dispatch escalate promotes a story to the next tier. The conditions below
   must all hold. One escalation per story. Every story of a wave that
   uses up its attempts may escalate. A story uses up its attempts when it
-  has gates.attempts impl attempts on its tier, as docs/testing.yaml sets.
-  A failing gate records the failure class acceptance_unmet. A story on
-  the tier strong does not escalate. It becomes failed after its attempts.
+  has gates.attempts counted impl attempts on its tier, as docs/testing.yaml
+  sets. Only an attempt with the failure class acceptance_unmet or
+  contradictory_evidence counts, because only such a failure can a stronger
+  model help with. An attempt of any other class keeps its re-dispatch
+  rule and does not count. A failing gate records the failure class
+  acceptance_unmet. A story on the tier strong does not escalate. It
+  becomes failed after its attempts.
 
   Scenario: All conditions met grants escalation
     Given docs/testing.yaml sets gates.attempts to 3
@@ -973,6 +977,14 @@ Feature: Evidence-Gated Escalation
   Scenario: Fewer attempts than gates.attempts block escalation
     Given docs/testing.yaml sets gates.attempts to 3
     And a story has two impl attempts on its tier, each with failure class acceptance_unmet
+    When the user runs dispatch escalate <story-id>
+    Then dispatch exits non-zero
+    And the ledger is unchanged
+
+  Scenario: An attempt of another class does not count toward gates.attempts
+    Given docs/testing.yaml sets gates.attempts to 3
+    And a story has three impl attempts on its tier
+    And their failure classes are acceptance_unmet, spend_death, and acceptance_unmet
     When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
     And the ledger is unchanged

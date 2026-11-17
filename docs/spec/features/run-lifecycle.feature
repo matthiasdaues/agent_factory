@@ -283,6 +283,18 @@ Feature: Run Lifecycle
       Then the ledger records ST-0350 on the tier strong
       # @packages/factory/scripts/dispatch::cmd_escalate
 
+    Scenario: An attempt of another failure class does not count toward gates.attempts
+      Given docs/testing.yaml sets gates.attempts to 3
+      And ST-0350 runs on the tier standard
+      And the first attempt of ST-0350 failed with the failure class acceptance_unmet
+      And the second attempt died on the spend limit with the failure class spend_death
+      And the third attempt failed with the failure class acceptance_unmet
+      When the implementation agent runs dispatch escalate ST-0350
+      Then dispatch exits non-zero
+      And the ledger records ST-0350 on the tier standard
+      And the next attempt of ST-0350 runs on the tier standard as the third counted attempt
+      # @packages/factory/scripts/dispatch::cmd_escalate
+
     Scenario: A story on the tier strong does not escalate and fails after its attempts
       Given docs/testing.yaml sets neither gates.attempts nor gates.attempts_escalated
       And ST-0350 runs on the tier strong
