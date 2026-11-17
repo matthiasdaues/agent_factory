@@ -1,16 +1,24 @@
 # Changelog
 
-## Unreleased
+## 1.8.0 — 2026-11-17
 
-This release makes the concept histories of a survey checkable. A survey that
-asks which concepts went through several rounds of formulation and criticism
-used to tell each history in prose. Two validation passes of the knowledge
-graph survey failed on the same error: the report claimed a step, a cause, or
-a count that its source record did not show. Run `update-factory` to receive
-the change.
+This release adds two things. A survey's concept histories are now checked by
+script. A survey that asks which concepts went through several rounds of
+formulation and criticism used to tell each history in prose. Two validation
+passes of the knowledge graph survey failed on the same error: the report
+claimed a step, a cause, or a count that its source record did not show
+(BUG-0128). The new `remark-grid-deck` skill builds presentation decks. Run
+`update-factory` to receive both.
 
 ### Features
 
+- **`remark-grid-deck`.** The skill builds a remark.js deck on a monospace
+  grid that fills the 16:9 slide: one source line is one row, one character is
+  one cell. The `remark-deck` script creates a deck, checks it against the
+  grid, and writes `<date>_<topic>.html`. The `remark-grid` theme bundles the
+  fonts, remark, and their licences, so a deck runs offline. The source is
+  `slides.txt`, because the mdformat hook rewrites slide separators in a `.md`
+  file.
 - **`concept-history-check`.** A survey records each concept history as
   `histories/<concept>.json` against the new
   `research-concept-history.schema.json`. The script checks that every quote
