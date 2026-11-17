@@ -27,7 +27,7 @@ Heavier than [poc-spike](poc-spike.md) — real dependencies are expected, multi
 
 ## Step 1 — Frame One Story per Candidate
 
-For the question itself, or for each candidate approach being compared, write a short plain-markdown story (no backlog frontmatter needed yet — this isn't tracked work, it's an experiment). Store under `poc/spike/<name>.md` or similar. Each story states:
+For the question itself, or for each candidate approach being compared, write a short plain-markdown story (no backlog frontmatter needed yet — this isn't tracked work, it's an experiment). Store the stories and the prototype code under `poc/<name>/`. The name `spikes` is taken: `poc/spikes/` holds the kept results of [poc-spike](poc-spike.md). Each story states:
 
 - **Goal** — the one thing this prototype must prove.
 - **Why this is a candidate** — the tradeoff that makes it worth trying, and the specific risk being tested. Reference an existing ADR or open question if one already names this risk; don't invent a new framing for a risk that's already documented.
@@ -70,6 +70,6 @@ Then decide whether the decision itself is ADR-worthy, using this repo's usual b
 
 - [ ] Every candidate/question has a Definition-of-Done check and a comparison note
 - [ ] A decision was recorded (ADR) or explicitly deferred with a stated reason — not left implicit
-- [ ] Prototype code stays clearly marked as spike code (e.g. under `poc/`) — nothing here was silently promoted into the real codebase
+- [ ] Prototype code stays under `poc/<name>/` — nothing here was silently promoted into the real codebase. The gates skip `poc/`.
 
 **Next**: if the decision means the system is worth building for real, hand off to [feature-addition](feature-addition.md) or the full chain — same rule as [poc-spike](poc-spike.md): re-derive requirements properly, don't carry prototype code forward as a foundation just because it happened to run.

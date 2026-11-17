@@ -40,7 +40,7 @@ Open items:
 ## Artifacts
 
 - [docs/proposals/factory-orchestration.md](../proposals/factory-orchestration.md)
-- [docs/spikes/orchestration-envelope-poc.md](../spikes/orchestration-envelope-poc.md)
+- [poc/spikes/orchestration-envelope/brief.md](../../poc/spikes/orchestration-envelope/brief.md)
 - [backlog/ST-0279.md](../../backlog/ST-0279.md)
 - [packages/factory/rulebooks/rules.md](../../packages/factory/rulebooks/rules.md)
 - [packages/factory/rulebooks/conventions/report-format.md](../../packages/factory/rulebooks/conventions/report-format.md)
