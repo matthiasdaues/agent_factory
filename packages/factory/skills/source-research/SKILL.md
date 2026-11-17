@@ -29,3 +29,25 @@ Each source record must document:
 The skill produces source-record artifacts validated against [`.agent-factory/factory/rulebooks/schemas/research-source-record.schema.json`](../../rulebooks/schemas/research-source-record.schema.json).
 
 Refer to [`.agent-factory/factory/rulebooks/templates/research-source-record.md`](../../rulebooks/templates/research-source-record.md) for the template structure.
+
+## Record file
+
+Write one source per file, so each record can be checked and cited on its own:
+
+- Name the file by its record ID and a short slug, such as
+  `sources/area-2/A2-SR-05-rdf-star-report.md`, or `sources/SR-0005.md` in a
+  survey without areas. The assignment's output names the folder and the ID
+  prefix.
+- Start with a heading, then one fenced `json` block with exactly the ten
+  schema fields. `publication_date` is an ISO 8601 date-time; where only a
+  year or month is known, use the first day and say so in `limitations`.
+- `source_family` starts with "Primary" or "Secondary" and then names the
+  lineage. `concept-history-check` reads that first word.
+- Follow with an `Evidence` section that holds the quotes and their exact
+  locations. Put the source's own words in straight double quotes, and keep
+  your notes outside them. Mark a quote that came through a summarizing fetch
+  tool as a paraphrase. A later concept history may anchor only on words that
+  stand inside double quotes in this section.
+
+Run `.agent-factory/factory/scripts/source-record-check <your folder>` and fix
+every `FAIL` line before you report.

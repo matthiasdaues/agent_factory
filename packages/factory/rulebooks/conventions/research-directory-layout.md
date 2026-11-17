@@ -1,6 +1,6 @@
 ---
 title: Research Directory Layout
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Research Directory Layout
@@ -18,7 +18,9 @@ overlapping research.
   (e.g. `opencode-cli-integration`, `agent-zero`).
 - **MUST** keep the same internal structure within each slug directory:
   `research-brief.json`, `research-brief.md`, `research-survey-plan.md`,
-  `sources/*.md`, `survey-report.md` (survey mode) or `claims/*.md`,
+  `sources/**/<ID>-SR-<n>*.md` (one record per file), `histories/*.json`
+  (only when the brief asks for concept histories), `survey-report.md`
+  (survey mode) or `claims/*.md`,
   `reviews/*.md`, `votes/*.md`, `claim-register.md`, `final-report.md`
   (falsification mode).
 - **MUST** pass the slug directory as the working root to every research

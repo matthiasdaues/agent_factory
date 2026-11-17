@@ -13,6 +13,8 @@ inputs:
     - .agent-factory/factory/rulebooks/conventions/research-role-separation.md
     - .agent-factory/factory/rulebooks/conventions/research-claim-admission-policy.md
     - .agent-factory/factory/rulebooks/schemas/research-*.schema.json
+    - .agent-factory/factory/scripts/source-record-check
+    - .agent-factory/factory/scripts/concept-history-check
 outputs:
   minimum_changed: 1
   declarations:
@@ -43,7 +45,7 @@ handoff-to:
   - researcher
   - claim-reviewer
   - research-report-writer
-version: 0.2.1
+version: 0.3.0
 ---
 
 # Research Orchestrator
@@ -99,9 +101,13 @@ These boundaries come from [role-separation.md](../rulebooks/conventions/researc
     `independent_session` before mapping the request to the active CLI.
 05. **Advance the selected gates** — require schema, policy where applicable,
     and semantic review of every artifact before progression.
-06. **Validate a survey report** — resolve every finding's
-    `source_record_refs` to recorded sources and reject "survived refutation",
-    "admitted", and "validated claim" status language before release.
+06. **Validate a survey report** — rerun `source-record-check` on `sources/`
+    and, where histories exist, `concept-history-check`; both must exit 0.
+    Resolve every finding's `source_record_refs` to recorded sources and
+    reject "survived refutation", "admitted", and "validated claim" status
+    language before release. Leave counts and ranks of concept histories to
+    the script; the semantic review judges only whether each quote shows what
+    its step claims.
 07. **Assign independent falsification research** — ensure each
     conclusion-critical question receives independent researchers per its plan.
 08. **Request another falsification round** — route refuted, unresolved, or

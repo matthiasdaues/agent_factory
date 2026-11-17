@@ -42,8 +42,17 @@ Refer to [`.agent-factory/factory/rulebooks/templates/research-plan.md`](../../r
 
 For a `survey` brief, create a bounded source-search plan containing research
 questions, search angles, source targets, assignments, and stop conditions.
-Assignments identify the source search to perform and its output path. Do not
-add conjectures or a review protocol to this artifact.
+Assignments identify the source search to perform and its output. The output
+of a source search is a folder with one record file per source, such as
+`sources/area-2/` with the ID prefix `A2-SR-`, as
+[source-research](../source-research/SKILL.md#record-file) defines. An
+assignment may also own one area index beside its folder. Do not add
+conjectures or a review protocol to this artifact.
+
+When the brief asks which concepts went through several rounds of
+formulation and criticism, ask each source search to record a source for
+every formulation and every criticism in its area. The report writer later
+builds the concept histories from those records.
 
 ## Review Protocol
 

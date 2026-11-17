@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Concept History",
+  "description": "The documented history of one concept in a survey: each formulation and the criticism recorded against it, every entry anchored by a quote to a source record. concept-history-check validates the anchors, the dates, and the entry rule, and computes the rank.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["concept", "area", "current_formulation", "steps"],
+  "properties": {
+    "concept": {
+      "type": "string",
+      "description": "Name of the concept, as the report uses it."
+    },
+    "area": {
+      "type": "string",
+      "description": "The scope area of the brief that owns the concept."
+    },
+    "current_formulation": {
+      "type": "string",
+      "description": "One sentence on the latest formulation the records show."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Formulations in date order. Each step is one new formulation, never a criticism, comparison, evaluation, or application.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["formulation", "date", "record", "quote", "criticism"],
+        "properties": {
+          "formulation": {
+            "type": "string",
+            "description": "What this formulation proposed, in one or two sentences."
+          },
+          "date": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "description": "Date of the formulation: the publication_date of its record, or its relevant_event_date when the record describes an earlier event."
+          },
+          "record": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$",
+            "description": "ID of the source record that documents the formulation, such as A2-SR-05."
+          },
+          "quote": {
+            "type": "string",
+            "description": "A contiguous passage copied word for word from one double-quoted passage of the record's Evidence section. No ellipsis."
+          },
+          "criticism": {
+            "type": ["object", "null"],
+            "description": "The criticism recorded against this formulation, or null when no record documents one.",
+            "additionalProperties": false,
+            "required": ["record", "date", "quote", "drove_next"],
+            "properties": {
+              "record": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$",
+                "description": "ID of the source record that documents the criticism."
+              },
+              "date": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+                "description": "Date of the criticism: the publication_date of its record, or its relevant_event_date when the record describes an earlier event."
+              },
+              "quote": {
+                "type": "string",
+                "description": "A contiguous passage copied word for word from one double-quoted passage of the record's Evidence section. No ellipsis."
+              },
+              "drove_next": {
+                "type": "boolean",
+                "description": "True when the report claims this criticism led to the next formulation. The check then requires the criticism to be dated no later than the next step."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

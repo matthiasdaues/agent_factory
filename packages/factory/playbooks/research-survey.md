@@ -3,7 +3,7 @@ title: Research Survey Playbook
 category: orchestration
 type: runbook
 scenario: research-survey
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Research Survey Playbook
@@ -35,7 +35,11 @@ invocation receives this directory as its working root. See
 
 - `research-survey-plan.md` — bounded questions, search angles, source targets,
   assignments, and stop conditions.
-- `sources/*.md` — source records with provenance and limitations.
+- `sources/**/<ID>-SR-<n>-<slug>.md` — one source record per file, with
+  provenance and limitations. An assignment may add an area index beside its
+  record folder.
+- `histories/*.json` — one concept history per file, only when the brief asks
+  which concepts went through several rounds of formulation and criticism.
 - `survey-report.md` — cited findings, uncertainties, evidence gaps,
   limitations, and candidates for deeper study.
 
@@ -95,9 +99,13 @@ must pass. Failure blocks progression to Step 3.
 Dispatch the plan's logical assignments under the portable contract above.
 Record every material source against `research-source-record.schema.json`,
 including provenance, precise evidence location, method, and limitations.
+Each record is its own file, named by its record ID, with the schema fields in
+one `json` block ([source-research](../skills/source-research/SKILL.md#record-file)).
 
-**Gate**: every source record must pass schema validation, applicable source
-policy, then semantic review. Failure blocks progression to Step 4.
+**Gate**: `.agent-factory/factory/scripts/source-record-check sources/` exits
+0, applicable source policy passes, then semantic review passes. Each
+researcher runs the check on its own folder before it reports. Failure blocks
+progression to Step 4.
 
 ### Step 4 — Synthesise the Findings
 
@@ -111,8 +119,16 @@ Build findings only from the recorded sources. Every finding declares
 limitations, and `candidates_for_deeper_falsification_study`. Validate its
 shape against `research-survey-report.schema.json`.
 
-**Gate**: schema validation, policy where applicable, then semantic review
-must pass. Failure blocks progression to Step 5.
+When the brief asks for concept histories, the writer records each history as
+`histories/<concept>.json` against `research-concept-history.schema.json`.
+`.agent-factory/factory/scripts/concept-history-check` checks every quote,
+date, and entry rule and computes the rank. The report copies the table that
+`concept-history-check --table` prints and never states a count or a rank of
+its own ([research-synthesis](../skills/research-synthesis/SKILL.md#concept-histories)).
+
+**Gate**: schema validation, `concept-history-check` where histories exist,
+policy where applicable, then semantic review must pass. Failure blocks
+progression to Step 5.
 
 ### Step 5 — Validate the Report
 
@@ -120,10 +136,18 @@ must pass. Failure blocks progression to Step 5.
 **Input**: `survey-report.md`, `sources/*.md`\
 **Output**: validation result
 
-First validate the report against `research-survey-report.schema.json`. Then
-resolve every finding's `source_record_refs` to a recorded source from this
-survey and confirm that the cited records support the finding within their
-stated bounds. Reject invented references and unsupported synthesis.
+First validate the report against `research-survey-report.schema.json`, and
+rerun `source-record-check` and, where histories exist,
+`concept-history-check`. Then resolve every finding's `source_record_refs` to
+a recorded source from this survey and confirm that the cited records support
+the finding within their stated bounds. Reject invented references and
+unsupported synthesis.
+
+For a concept history, the script has already settled quotes, dates, counts,
+and ranks. The semantic review judges only what a script cannot: whether each
+quote shows what its step claims, whether a step is a new formulation, and
+whether a criticism marked `drove_next` is one the source presents as leading
+to the next formulation. The report table must match the script output.
 
 The semantic review also rejects falsification-only status language. A survey
 finding must not be described as having "survived refutation", been "admitted",
