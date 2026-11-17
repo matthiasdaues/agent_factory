@@ -951,6 +951,11 @@ skills:
     description: Process a meeting transcript into two markdown artifacts — a verbatim protocol and a comparison against the current repository state. Use when the user provides a transcript, mentions "process transcript", or wants to compare a discussion against the spec.
     path: skills/process-transcript/SKILL.md
     tokens: 1478
+  - name: remark-grid-deck
+    category: utility
+    description: Build a remark.js presentation deck on a monospace character grid that fills the 16:9 slide — one source line per row, one character per cell, images placed on whole cells. Use when someone asks for a presentation, slide deck, slides, or a remark deck, or wants slides in a monospace, terminal or ASCII-diagram look.
+    path: skills/remark-grid-deck/SKILL.md
+    tokens: 887
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.

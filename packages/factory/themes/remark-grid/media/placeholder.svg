@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <rect width="1200" height="1200" fill="#E8E8E8"/>
+  <path d="M0 0L1200 1200M1200 0L0 1200" stroke="#BDBDBD" stroke-width="4"/>
+  <text x="600" y="620" font-family="monospace" font-size="64" text-anchor="middle" fill="#747373">IMAGE</text>
+</svg>
