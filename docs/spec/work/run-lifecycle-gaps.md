@@ -1,0 +1,161 @@
+# Gaps Report: run-lifecycle
+
+Generated: 2026-11-18
+Source: [run-lifecycle.md](../../proposals/run-lifecycle.md)
+
+This pass ran unattended, without the stakeholder. Each point where the requirements agent would have asked the stakeholder is in [Choices made without the stakeholder](#choices-made-without-the-stakeholder), with its reason. Each behaviour that the proposal leaves undecided is in [Open items](#open-items). This pass decided none of them.
+
+## Actor-Goal Matrix
+
+The User is the person who drives the Factory, as the [glossary](../glossary.md) defines. The proposal calls this person "the human". A Reviewer Agent is any agent or skill that files findings, as the glossary defines. The Factory maintainer is the actor of the existing core-artifact-ownership Rules. The feature file defines run, feature branch, story branch, wave, unit of work, gate-check step, drift session, and primary checkout in its description.
+
+| ID    | Actor                | Goal                                                              | Rule                                                                                                | Status    |
+| ----- | -------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------- |
+| RL-01 | User                 | Start a run in either way of driving it                           | Rule: User starts a run on a feature branch in either way of driving it                             | specified |
+| RL-02 | Implementation agent | Run every story through one story workflow                        | Rule: Implementation agent runs every story through the same story workflow on both ways            | specified |
+| RL-03 | User                 | Approve each step that needs a person in a run by hand            | Rule: User approves each step that needs a person in a run driven by hand                           | specified |
+| RL-04 | Reviewer agent       | File reviews and findings that name their story or run            | Rule: Reviewer agent files reviews and findings that name their story or run                        | specified |
+| RL-05 | Implementation agent | Retry a failing gate within the configured attempts               | Rule: Implementation agent retries a failing gate within the configured attempts                    | specified |
+| RL-06 | User                 | Decide how a stopped story continues                              | Rule: User decides how a stopped story continues                                                    | specified |
+| RL-07 | Implementation agent | Start a story only when its dependencies in the run are done      | Rule: Implementation agent starts a story only when its dependencies inside the run are done        | specified |
+| RL-08 | Implementation agent | Merge a unit of work only when `premerge-check` passes            | Rule: Implementation agent merges a unit of work only when premerge-check passes at its branch head | specified |
+| RL-09 | Test-strategy agent  | Set the gates of every story in `docs/testing.yaml`               | Rule: Test-strategy agent sets the gates of every story in docs/testing.yaml                        | specified |
+| RL-10 | Developer agent      | Learn at commit time that an import breaks a dependency rule      | Rule: Developer agent learns at commit time that its imports break a dependency rule                | specified |
+| RL-11 | Implementation agent | Start the next wave only after the wave close                     | Rule: Implementation agent starts the next wave only after the wave close                           | specified |
+| RL-12 | Implementation agent | Run a blocking finding from the feature checks as a unit of work  | Rule: Implementation agent runs a blocking finding from the feature checks as a unit of work        | specified |
+| RL-13 | User                 | Merge the feature branch into `dev` after the feature merge check | Rule: User merges the feature branch into dev only after the feature merge check passes             | specified |
+| RL-14 | User                 | End a run and leave no run state behind                           | Rule: User ends a run and leaves no run state behind                                                | specified |
+| RL-15 | User                 | Clean up what no active run owns                                  | Rule: User cleans up the runs that no active run owns                                               | specified |
+| RL-16 | User                 | Keep agents from destroying work in every agent tool              | Rule: User keeps agents from destroying work in every agent tool                                    | specified |
+| RL-17 | Factory maintainer   | Find exactly the ledger's fields in the dispatch contract         | Rule: Factory maintainer finds in the dispatch contract exactly the fields the ledger holds         | specified |
+| RL-18 | Factory maintainer   | Run the tests against the source                                  | Rule: Factory maintainer runs the tests against the source, not the installed copy                  | specified |
+| RL-19 | Factory maintainer   | Read one vocabulary in every Factory document                     | Rule: Factory maintainer reads one vocabulary in every Factory document                             | specified |
+
+## Completion Criteria Trace
+
+Each completion criterion of the proposal traces to a Rule or to an open item.
+
+| Completion criterion (short form)                                                           | Rule or item  |
+| ------------------------------------------------------------------------------------------- | ------------- |
+| `init --mode by-hand` cuts the feature branch, creates no worktree, writes `mode: by-hand`  | RL-01         |
+| An orchestrated run starts beside another one; a second run by hand is refused              | RL-01         |
+| On `dev` with a ledger of another branch, the guardrail allows what it refuses inside a run | RL-16, RL-G12 |
+| The guardrail refuses `return-story` and `close --drop` in all five agent tools             | RL-16         |
+| `block-dangerous-git.ts` holds no rule of its own                                           | RL-16         |
+| `git merge` needs a `premerge-check-ok` marker for the current head                         | RL-16         |
+| In an orchestrated run, `merge-story` runs without a refusal                                | RL-16         |
+| By hand, the implementation agent stops before each decision point                          | RL-03         |
+| By hand, a story reaches `dispatched` and merges after the User's go                        | RL-02, RL-03  |
+| No `mark-done`; only `merge-story` sets `done`                                              | RL-02         |
+| Two stories reviewed on one day merge without a conflict on their reports                   | RL-04         |
+| `premerge-check` runs a gate that the script does not name                                  | RL-09         |
+| `quality-gates` adds a gate and keeps `crap-score`                                          | RL-09         |
+| No matching review report refuses the story branch                                          | RL-08         |
+| An open blocking finding at the branch head refuses the merge and is named                  | RL-08         |
+| A stored passing result does not hide a failing `dependency-check`                          | RL-08         |
+| The rerun leaves the primary checkout unchanged and makes no stash                          | RL-08         |
+| An untracked test file takes no part in the rerun and is back afterwards                    | RL-08         |
+| Review reports and finding files do not count toward the file limit                         | RL-08         |
+| The semantic gates run on `story/BUG-0090` as on `story/ST-0350`                            | RL-08         |
+| `premerge-check dev` refuses a stopped story, an open wave, or a missing report             | RL-13, RL-G06 |
+| `premerge-check dev` refuses an open finding of the run and ignores one of another run      | RL-13         |
+| With the defaults, three attempts on each tier, then `failed`; `0` turns escalation off     | RL-05, RL-G01 |
+| Two stories of one wave both escalate                                                       | RL-05         |
+| A red test suite moves the feature branch back and blocks the story                         | RL-06         |
+| `return-story` sets a stopped story to `pending` in the ledger and the backlog              | RL-06         |
+| `return-story BUG-0090` changes only the ledger entry; the feature merge still refuses      | RL-12         |
+| `add BUG-0090` after a return reuses the entry; `add` refuses a `dispatched` ID             | RL-12         |
+| `init` refuses a story whose dependency outside the run is not done                         | RL-01         |
+| After ST-0350 is returned, its dependants do not start, and other stories do                | RL-07         |
+| `prepare-story` refuses a story whose second dependency is not `done`                       | RL-07         |
+| `add BUG-0090` adds the finding; its merge sets `status: resolved`                          | RL-12         |
+| After `close-wave`, QA findings go to the next wave or to the test-strategy agent           | RL-12, RL-G11 |
+| `prepare-wave 2` refuses without a wave record for wave 1                                   | RL-11         |
+| `close-wave` refuses an open row or a fixed core-list row and lists the owners              | RL-11         |
+| `close` refuses a stopped story and accepts `done` or `pending`                             | RL-14         |
+| After `close`, the run's state is gone and the unmerged branches are listed                 | RL-14         |
+| An untracked file in a story worktree is in a named stash after `close`                     | RL-14         |
+| `--orphans` removes a merged worktree and lists an unmerged one                             | RL-15, RL-G10 |
+| `--orphans` removes a done ledger without a branch, also nested, and lists the others       | RL-15         |
+| After `--orphans` in this repository, only the `core-artifact-layout` ledger is left        | RL-15         |
+| A commit that breaks `dependency-rules.dsl` fails in the hook                               | RL-10         |
+| Fitting leaves the hook out without a rules file                                            | RL-10         |
+| Without the rules file, the installed hook passes with a notice; the script still exits 2   | RL-10         |
+| `hook-metadata.yaml` has the hook entry, and `test_every_hook_has_metadata` passes          | RL-10         |
+| The ledger fields are renamed and reduced; the dispatch contract lists exactly them         | RL-17         |
+| `merge-story` leaves `.agent-factory/factory` unchanged; the tests read no installed copy   | RL-18         |
+| No Markdown file under `packages/factory/` or `docs/spec/` uses a replaced term             | RL-19, RL-G14 |
+| `index-lint --check` passes                                                                 | RL-19         |
+
+## Missing Rules
+
+None. Every actor-goal pair has a Rule.
+
+## Rules Without Scenarios
+
+None. The feature file holds 19 Rules and 102 Scenarios, counting each Scenario Outline once. The parser `gherkin-official` reads the file without an error and counts the same numbers.
+
+## Ambiguous Wording
+
+| ID     | Location                                         | Text                                                                          | Issue                                                                                                                                                                                                                                                                                                                                                                                         | Suggested fix                                                                                 |
+| ------ | ------------------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| RL-G11 | Proposal, Findings as units of work              | "A finding with `owner: test-strategy-agent` goes to the test-strategy agent" | The proposal does not say how the finding gets there: whether the implementation agent spawns the test-strategy agent at the wave close, or only reports the finding. It also does not say whether the next wave waits for that agent. The Scenario says only "goes to the test-strategy agent".                                                                                              | State who spawns the test-strategy agent and whether the next wave waits for it.              |
+| RL-G12 | Proposal, Completion Criteria; The git guardrail | "the guardrail allows the commands that it refuses inside a run"              | The guardrail section says the guardrail "applies one set of checks in every session". The criterion speaks of commands that it refuses only inside a run, but names none. Only the commit on a story branch, which needs a ledger that lists the branch, depends on the run in today's script. The Scenario "A ledger of another branch does not count on dev" keeps the proposal's wording. | Name the commands that the guardrail refuses only inside a run, so the Scenario can name one. |
+
+## Open Items
+
+These behaviours are undecided in the proposal. Each needs a decision before planning cuts the story that holds it.
+
+| ID     | Open item                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RL-G01 | `dispatch escalate` today requires exactly one prior attempt with the failure class `acceptance_unmet` or `contradictory_evidence`. The proposal gives a story `gates.attempts` attempts before it escalates and drops only the limit per wave. It does not say how `escalate` counts the attempts, which failure class a failing gate records, or what happens to a story that already runs on the tier `strong`. The area spec marks the escalation Scenario with this ID. |
+| RL-G02 | The proposal does not say what `dispatch init` does without `--mode`: refuse, or use a default.                                                                                                                                                                                                                                                                                                                                                                              |
+| RL-G03 | By hand, the proposal says what `prepare-story` and `merge-story` check out in the primary checkout. It does not say whether `dispatch init` checks out the feature branch there. It also does not say where `prepare-story` writes the step manifest and the handoff contract by hand. Today both lie under the story's worktree folder `.current-work/<feature-branch>/<story-branch>/`.                                                                                   |
+| RL-G04 | Today `dispatch init` on a feature branch whose ledger lists the same stories is a no-op that exits `0`. The proposal says `init` refuses "a feature branch that already has a ledger". It does not say whether the no-op stays. The Scenario uses a ledger with other stories, which both readings refuse.                                                                                                                                                                  |
+| RL-G05 | `dispatch close` has the precondition that the User has merged the feature branch into `dev`. The proposal does not say whether `close` checks this, or what it does when the feature branch is not merged and `--drop` is not given.                                                                                                                                                                                                                                        |
+| RL-G06 | The feature merge check needs the code-review report of the whole feature and the Fagan, security and bug-hunt reports of the QA agent. The proposal gives the name of the feature review report only. It does not say how `premerge-check` finds the three QA reports: by name, or by a field that names the run.                                                                                                                                                           |
+| RL-G07 | The proposal defines `dispatch add` for a finding ID. It does not say whether `add` takes a story ID, or what it does with a finding that is not open or not blocking.                                                                                                                                                                                                                                                                                                       |
+| RL-G08 | By hand, "each story opens a wave of its own". The proposal does not say which command writes the wave number of a story into the ledger by hand, since `dispatch plan` writes the waves of an orchestrated run.                                                                                                                                                                                                                                                             |
+| RL-G09 | A story's `quality-gates` field can only add gates. The proposal does not say what happens when the field names a gate that has no entry or no command in `docs/testing.yaml`.                                                                                                                                                                                                                                                                                               |
+| RL-G10 | `dispatch close --orphans` removes "each worktree whose branch is merged". The proposal does not name the branch that it must be merged into, such as `dev` or the feature branch of a ledger.                                                                                                                                                                                                                                                                               |
+| RL-G13 | The feature merge check runs the full test suite on the feature branch head. The proposal does not say whether it runs in a temporary worktree, as the story check does.                                                                                                                                                                                                                                                                                                     |
+| RL-G14 | The vocabulary criterion covers every Markdown file under `docs/spec/`. Seventeen files there still use one of the seven replaced terms. Most are records of earlier passes, such as gaps reports, QA strategies, spec-feedback reports, and `todo.md`. The proposal does not say whether such records count as living documents. This pass changed only the area spec, which now uses none of the terms.                                                                    |
+| RL-G15 | `dispatch close` stashes the untracked files of a worktree before it removes it. The proposal does not say what it does with changed tracked files that are not committed in that worktree.                                                                                                                                                                                                                                                                                  |
+
+## Proposal Statements Without a Scenario
+
+These statements change documents outside the specification, or describe a cost or a limit. No Scenario checks them. The owner of each document makes the change:
+
+- ADR-0012 and ADR-0029, and arc42 chapters 5 and 6: the architecture agent.
+- `rules.md`, `branching-policy.md`, `dispatch-contract.md`, `finding-format.md`, `report-format.md`, the finding template, the playbooks, and the instructions of the implementation, developer, code-review and QA agents: the stories that planning cuts from the proposal. The feature file holds the behaviour these documents describe, such as RL-02 and RL-17.
+- The costs, the bypass of `git commit --no-verify` by a human, the limits of review coverage, and the gate result files under `.current-work/<gate>/` in Design Details. RL-14 checks that `dispatch close` removes the gate result files.
+- The security scanner, a limit on repeat reviews, trusted gate results, gates for documents, and mutation testing at the merge. The proposal defers them.
+
+## Handover to the Domain-Modeling Agent
+
+The domain-modeling agent owns `docs/spec/validation-rules.md`, `docs/spec/interface-contracts.md`, `docs/spec/state-machines.md`, the entity model, and the glossary. The proposal changes these parts of them:
+
+- The ledger in `validation-rules.md` § Dispatch ledger: the `mode` values `orchestrated` and `by-hand`, `feature_branch` in place of `invocation_branch`, no `closed`, no `gate_results`, and the transitions from `failed` and `blocked` to `pending`.
+- The `dispatch` contract in `interface-contracts.md`: `init --mode`, `add`, `return-story`, `close`, `close --drop` and `close --orphans`, without `mark-done`.
+- The `premerge-check` contract: the branch pattern `story/<id>`, the gates from `docs/testing.yaml`, the review and finding checks at the branch head, the temporary worktree, and the feature merge check.
+- The `gates` section of `docs/testing.yaml`: `gates.attempts`, `gates.attempts_escalated`, and gate entries with a command.
+- The finding fields `story` and `run`, and the review report fields `story` and `branch_head`.
+- The four rows of `docs/spec/work/term-candidates.md`: Dispatch Run, orchestrated, by hand, and unit of work. The proposal says the glossary keeps Playbook Run as an entry, but the glossary has no such entry today.
+- The replaced terms: `validation-rules.md` uses them 3 times, `interface-contracts.md` 4 times, and `state-machines.md` once.
+
+The area spec keeps its own story state machine, because `state-machines.md` holds none. The domain-modeling agent decides whether it moves there.
+
+## Choices made without the stakeholder
+
+| ID     | Choice                                                                                                                                                                      | Reason                                                                                                                                                                                                 |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RL-C01 | Step 1d updated the existing area spec `docs/spec/areas/mechanized-dispatch.md` and wrote no new one.                                                                       | The brief orders it, and the proposal's Documents that change assigns the spec changes. The file name stays, because the proposal keeps file names.                                                    |
+| RL-C02 | This pass did not edit `validation-rules.md` or `interface-contracts.md`.                                                                                                   | Both are files of the domain-modeling agent, by its output declarations and `core-artifacts.yaml`. The changes are in [Handover to the Domain-Modeling Agent](#handover-to-the-domain-modeling-agent). |
+| RL-C03 | The scope map was not rebuilt with `reverse-map`. The 19 new rows link the feature file in the Sources column and leave Feature Link empty.                                 | `docs/spec/scope-map.md` exists, and the existing `specified` rows follow this form. The reconciliation agent fills Feature Link after implementation.                                                 |
+| RL-C04 | The area spec follows the code where the proposal changes nothing: `re-dispatch` keeps the story branch and its worktree, and `plan --dry-run` leaves the ledger unchanged. | The brief's rule. The proposal also says that `re-dispatch` keeps the branch.                                                                                                                          |
+| RL-C05 | The four term rows have the status `confirmed`.                                                                                                                             | The stakeholder accepted the proposal, which settles the terms in its Terms table. Only the domain-modeling agent moves them into the glossary.                                                        |
+| RL-C06 | The examples use `docs/reviews/code-review-ST-0350-2026-11-24.md` and the stash name of the proposal, and `gates.license-check` as a gate the script does not name.         | The proposal's own example dates and names keep the Scenarios consistent with it. `license-check` is an invented gate name, so no Scenario depends on an existing gate.                                |
+
+## Deferred Scope
+
+The proposal defers the security scanner, a limit on repeat reviews, trusted gate results, gates for documents, and mutation testing at the merge. This specification defines no Rule for them.

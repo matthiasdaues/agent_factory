@@ -1,8 +1,8 @@
-# Mechanized Dispatch and Step Isolation — Behavioral Specification
+# Dispatch and Step Isolation — Behavioral Specification
 
-Origin: [mechanized-dispatch-and-step-isolation.md](../../proposals/implemented/mechanized-dispatch-and-step-isolation.md) (accepted 2026-08-21)
+Origins: [mechanized-dispatch-and-step-isolation.md](../../proposals/implemented/mechanized-dispatch-and-step-isolation.md) and [run-lifecycle.md](../../proposals/run-lifecycle.md)
 
-This specification describes the behavioral contracts of the mechanized dispatch system as Gherkin scenarios organized by DDD bounded context. Each Feature covers one aggregate or service boundary. Scenarios within a Feature are disjoint; the set of all Features covers the proposal's scope completely.
+This specification describes the behavioral contracts of the `dispatch` script and the step guards as Gherkin scenarios organized by DDD bounded context. The run as a whole has its own feature file, [run-lifecycle.feature](../features/run-lifecycle.feature). It holds the two ways of driving a run, the story workflow, the checks at the merges, `dispatch add`, `dispatch return-story`, `dispatch close`, and the git guardrail. This area spec holds the detail of each `dispatch` subcommand and the step guards. Each Feature covers one aggregate or service boundary. Scenarios within a Feature are disjoint; the set of all Features covers the proposal's scope completely.
 
 **Phase annotations.** Each Feature belongs to a primary phase (1, 2, or 3). When individual scenarios within a Feature belong to a different phase, they are marked with a `# Phase N` comment. Unmarked scenarios belong to the Feature's primary phase.
 
@@ -10,24 +10,24 @@ This specification describes the behavioral contracts of the mechanized dispatch
 
 ### Ubiquitous Language
 
-| Term                   | Definition                                                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Dispatch               | A coordinated run of one or more stories through the implementation pipeline                                                   |
-| Ledger                 | The single YAML file recording every story's lifecycle state within a dispatch                                                 |
-| Wave                   | An ordered batch of stories prepared and executed together; wave N gates on wave N−1 completion                                |
-| Story Entry            | One story's record in the ledger: status, branch, worktree, base SHA, tier, reason, gate results, attempts, escalation-granted |
-| Attempt                | One execution of a story by a subagent: session type, tier, failure class, evidence, SHA, normalized total, tokens             |
-| Step Manifest          | A per-worktree YAML file declaring what a step agent may read, write, and how much it may consume                              |
-| Step Guard             | A hook-enforced boundary that reads the manifest and allows or denies tool calls                                               |
-| Tier                   | Model capability level: economy < standard < strong                                                                            |
-| Escalation             | Promoting a story to the next tier after a qualifying failure                                                                  |
-| Seams-First            | A two-session strategy: first session writes tests, second session makes them pass                                             |
-| Handoff Contract       | The seven-part prompt generated for each subagent                                                                              |
-| Normalized Token       | Approximate token count estimated as file size in bytes divided by 4                                                           |
-| Re-Dispatch            | Returning a failed or blocked story to prepared state for a new attempt                                                        |
-| Safety-Critical Paths  | Glob patterns in `config/project.json` whose match triggers a strong tier suggestion                                           |
-| Seam Outputs           | The subset of a seams-first story's outputs that the seam session writes (test files)                                          |
-| Implementation Outputs | The subset of a seams-first story's outputs that the implementation session writes (source files)                              |
+| Term                   | Definition                                                                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dispatch Run           | Everything the Factory does for one feature branch, from `dispatch init` to `dispatch close`, shortened to run. "Dispatch" alone names only the script `dispatch` |
+| Ledger                 | The single YAML file recording every story's lifecycle state while its run is active. `dispatch close` removes it                                                 |
+| Wave                   | A set of stories that start together. Wave N starts only after wave N−1 has a wave record. By hand, each story is a wave of its own                               |
+| Story Entry            | One record of a unit of work in the ledger: status, branch, worktree, base SHA, tier, reason, attempts, escalation-granted                                        |
+| Attempt                | One execution of a story by a subagent: session type, tier, failure class, evidence, SHA, normalized total, tokens                                                |
+| Step Manifest          | A per-worktree YAML file declaring what a step agent may read, write, and how much it may consume                                                                 |
+| Step Guard             | A hook-enforced boundary that reads the manifest and allows or denies tool calls                                                                                  |
+| Tier                   | Model capability level: economy < standard < strong                                                                                                               |
+| Escalation             | Promoting a story to the next tier after a qualifying failure                                                                                                     |
+| Seams-First            | A two-session strategy: first session writes tests, second session makes them pass                                                                                |
+| Handoff Contract       | The seven-part prompt generated for each subagent                                                                                                                 |
+| Normalized Token       | Approximate token count estimated as file size in bytes divided by 4                                                                                              |
+| Re-Dispatch            | Setting a failed or blocked story back to prepared for a new attempt on its existing branch                                                                       |
+| Safety-Critical Paths  | Glob patterns in `config/project.json` whose match triggers a strong tier suggestion                                                                              |
+| Seam Outputs           | The subset of a seams-first story's outputs that the seam session writes (test files)                                                                             |
+| Implementation Outputs | The subset of a seams-first story's outputs that the implementation session writes (source files)                                                                 |
 
 ### Aggregates
 
@@ -87,11 +87,17 @@ State: FAILED
 On ReDispatch:
   ChangeState(PREPARED)
   # re-dispatch creates a new attempt and re-prepares the story
+On Return:
+  ChangeState(PENDING)
+  # dispatch return-story: the User returns the story to the backlog
 
 State: BLOCKED
 On ReDispatch:
   ChangeState(PREPARED)
   # user-initiated recovery after resolving the blocking condition
+On Return:
+  ChangeState(PENDING)
+  # dispatch return-story: the User returns the story to the backlog
 ```
 
 ```mermaid
@@ -108,7 +114,9 @@ stateDiagram-v2
     DISPATCHED --> BLOCKED : Block
     DISPATCHED --> FAILED : Fail
     FAILED --> PREPARED : ReDispatch
+    FAILED --> PENDING : Return
     BLOCKED --> PREPARED : ReDispatch
+    BLOCKED --> PENDING : Return
     DONE --> [*]
 ```
 
@@ -122,7 +130,9 @@ ______________________________________________________________________
 Feature: Wave Planning
   Phase: 1 (tier suggestion scenario is Phase 3)
   dispatch plan reads stories, builds the dependency graph, computes
-  file-overlap sets, and outputs a wave plan as YAML. No state changes.
+  file-overlap sets, prints a wave plan as YAML, and writes each story's
+  wave into the ledger. With --dry-run, it prints the plan and leaves the
+  ledger unchanged.
 
   Scenario: Stories with no dependencies or overlaps are assigned to wave 1
     Given stories ST-001 and ST-002 have no declared dependencies
@@ -166,6 +176,16 @@ Feature: Wave Planning
     Then each story carries a suggested tier derived from the rubric
     And the suggestion is included in the wave plan YAML
 
+  Scenario: The plan writes each story's wave into the ledger
+    Given the ledger lists ST-001 and ST-002, and ST-002 depends on ST-001
+    When the user runs dispatch plan
+    Then the ledger records wave 1 for ST-001 and wave 2 for ST-002
+
+  Scenario: Dry-run prints the plan and leaves the ledger unchanged
+    When the user runs dispatch plan --dry-run
+    Then the wave plan is printed
+    And the ledger is unchanged
+
   Scenario: The plan includes serial chains and parallel sets per wave
     Given wave 1 contains three stories, two parallel-safe and one serial with a third
     When the user runs dispatch plan
@@ -177,16 +197,19 @@ Feature: Wave Planning
 ```gherkin
 Feature: Dispatch Initialization
   Phase: 1 (tier mismatch scenarios are Phase 3)
-  dispatch init creates the feature branch, worktree, and ledger.
-  It is the entry point for a new dispatch run.
+  dispatch init creates the feature branch and the ledger, and in an
+  orchestrated run a worktree for the feature branch. It is the entry
+  point of a run. The refusal rules of --mode, of a second run, and of
+  dependencies outside the run are in run-lifecycle.feature.
 
   Scenario: Atomic creation of feature branch, worktree, and ledger
     Given the base branch exists and is clean
-    And config/project.json contains a valid test_command
-    When the user runs dispatch init --base dev --stories ST-001,ST-002
+    And docs/testing.yaml names a test command
+    When the user runs dispatch init --mode orchestrated --base dev --stories ST-001,ST-002
     Then a feature branch is created from the base branch tip
     And a worktree is created for the feature branch
     And a dispatch ledger is initialized at .current-work/<feature-branch>/dispatch-ledger.yaml
+    And the ledger's branch_root is the tip of the feature branch
     And all named stories are recorded as pending
 
   Scenario: Existing ledger for the target branch blocks initialization
@@ -215,10 +238,11 @@ Feature: Dispatch Initialization
     And prompts for interactive confirmation before proceeding
     And exits non-zero if confirmation is denied
 
-  Scenario: Missing test_command blocks initialization
-    Given config/project.json does not contain a test_command key
+  Scenario: Missing test command blocks initialization
+    Given docs/testing.yaml names no test command
     When the user runs dispatch init
     Then dispatch exits non-zero
+    And the message names docs/testing.yaml
 
   # Phase 3
   Scenario: Strong tier suggestion against lower declared tier blocks init
@@ -237,7 +261,7 @@ Feature: Dispatch Initialization
   Scenario: Existing feature branch is adopted without creating a new one
     Given a branch named feature/my-work exists
     And its tip is reachable from the base branch
-    And config/project.json contains a valid test_command
+    And docs/testing.yaml names a test command
     When the user runs dispatch init --base main --feature-branch feature/my-work --stories ST-001,ST-002
     Then no new branch is created
     And the dispatch ledger is initialized at .current-work/feature/my-work/dispatch-ledger.yaml
@@ -265,9 +289,10 @@ Feature: Dispatch Initialization
 ```gherkin
 Feature: Wave Lifecycle
   Phase: 1
-  dispatch prepare-wave gates on prior-wave completion, prepares all
-  parallel-safe stories and serial chain heads. dispatch close-wave
-  gates on all stories being terminal.
+  dispatch prepare-wave starts only after the prior wave has a wave
+  record, and prepares all parallel-safe stories and serial chain heads.
+  dispatch close-wave writes the wave record after every story of the
+  wave has stopped and every drift row of the wave is handled.
 
   Scenario: Wave 1 can be prepared without a prior-wave check
     Given the dispatch has just been initialized with no prior waves
@@ -275,14 +300,15 @@ Feature: Wave Lifecycle
     Then the prior-wave gate is satisfied vacuously
     And wave 1 stories are prepared normally
 
-  Scenario: Prior wave must be fully terminal before preparing the next
+  Scenario: Prior wave must have a wave record before the next is prepared
     Given wave 1 has stories ST-001 (done) and ST-002 (dispatched)
+    And the ledger holds no wave record for wave 1
     When the user runs dispatch prepare-wave 2
     Then dispatch exits non-zero
-    And reports ST-002 as non-terminal
+    And no story of wave 2 is prepared
 
   Scenario: Parallel-safe stories each get a branch, worktree, and manifest
-    Given wave 1 is fully terminal
+    Given the ledger holds a wave record for wave 1
     And wave 2 contains parallel-safe stories ST-003 and ST-004
     When the user runs dispatch prepare-wave 2
     Then each story gets a story branch from the feature branch tip
@@ -304,10 +330,19 @@ Feature: Wave Lifecycle
     Then the manifest exists at .current-work/<feature-branch>/<story-branch>/current-step.yml
     And it contains the story's inputs, outputs, and max_input_tokens
 
-  Scenario: All stories terminal allows wave closure
+  Scenario: Stopped stories and handled drift rows allow wave closure
     Given wave 1 has stories ST-001 (done) and ST-002 (blocked)
+    And no spec-feedback report of wave 1 has an open row or a fixed row about a core-list artifact
     When the user runs dispatch close-wave 1
     Then dispatch exits zero
+    And the ledger holds a wave record for wave 1
+
+  Scenario: An unhandled drift row blocks wave closure
+    Given every story of wave 1 has stopped
+    And docs/spec/work/spec-feedback-ST-001.md has a row with status open
+    When the user runs dispatch close-wave 1
+    Then dispatch exits non-zero
+    And lists the row with its owner
 
   Scenario: Non-terminal story blocks wave closure
     Given wave 1 has ST-001 (done) and ST-002 (dispatched)
@@ -320,8 +355,9 @@ Feature: Wave Lifecycle
 ```gherkin
 Feature: Story Lifecycle
   Phase: 1 (re-dispatch class constraints and failure-class scenarios are Phase 3)
-  The full lifecycle of one story within a dispatch: prepare, dispatch,
-  verify, merge, block, fail, or re-dispatch.
+  The full lifecycle of one unit of work within a run: prepare, dispatch,
+  verify, merge, block, fail, re-dispatch, or return. dispatch add and
+  dispatch return-story are in run-lifecycle.feature.
 
   # --- prepare-story (serial chain links) ---
 
@@ -350,9 +386,9 @@ Feature: Story Lifecycle
     Then dispatch exits non-zero
     And reports that mark-dispatching requires a prepared story
 
-  Scenario: Dispatching story transitions to dispatched on spawn confirmation
+  Scenario: Dispatching story transitions to dispatched after the developer agent commits
     Given ST-003 is in dispatching state
-    And the subagent spawn returned an acknowledgment
+    And the developer agent has committed on ST-003's story branch
     When the user runs dispatch mark-dispatched ST-003
     Then the ledger records ST-003 as dispatched
 
@@ -411,12 +447,12 @@ Feature: Story Lifecycle
     Then the merge is aborted via git merge --abort
     And ST-003 is marked blocked with reason "merge conflict"
 
-  Scenario: Red test suite reverts the merge and marks blocked
+  Scenario: Red test suite moves the feature branch back and marks blocked
     Given ST-003's story branch merges cleanly
     But the test suite fails after the merge commit
     When dispatch merge-story runs the test suite
-    Then the merge commit is reverted on the feature branch
-    And the feature branch is restored to its pre-merge state
+    Then the feature branch is moved back to its pre-merge commit
+    And the feature branch holds no revert commit
     And ST-003 is marked blocked with reason "post-merge test failure"
     And dispatch exits non-zero
 
@@ -491,14 +527,11 @@ Feature: Story Lifecycle
     Then dispatch exits non-zero
     And reports that re-dispatch requires a failed or blocked story
 
-  Scenario: Re-dispatch cleans up old branch and worktree before re-preparing
+  Scenario: Re-dispatch keeps the story branch and worktree
     Given ST-003 is failed and its story branch and worktree still exist
     When the user runs dispatch re-dispatch ST-003
-    Then the old story worktree is removed
-    And the old story branch is deleted
-    And a fresh story branch is cut from the current feature branch tip
-    And a fresh story worktree is created for the new branch
-    And verify-base passes against the feature branch tip
+    Then the story branch and its worktree still exist
+    And the next attempt builds on the earlier commits of the story branch
     And ST-003 transitions from failed to prepared
 
   # Phase 3
@@ -865,7 +898,7 @@ Feature: Subagent Handoff Contract
     And Part 2 contains Workspace: worktree path, story branch
     And Part 3 contains Allowed writes: story output globs, verbatim
     And Part 4 contains Forbidden actions: merge, push, branch creation, ledger writes, hook bypass
-    And Part 5 contains Required checks: test_command from config/project.json
+    And Part 5 contains Required checks: the test command from docs/testing.yaml
     And Part 6 contains Stop conditions: ambiguous criterion, missing input, out-of-scope write needed, suspect test
     And Part 7 contains Return envelope: status, commit_sha, files_changed, checks, blockers, failure_class
 
@@ -890,20 +923,23 @@ Feature: Subagent Handoff Contract
 ```gherkin
 Feature: Evidence-Gated Escalation
   Phase: 3
-  dispatch escalate promotes a story to the next tier. Six conditions
-  must all hold. One escalation per story, one per wave.
+  dispatch escalate promotes a story to the next tier. The conditions below
+  must all hold. One escalation per story. Every story of a wave that
+  uses up its attempts may escalate.
 
-  Scenario: All six conditions met grants escalation
+  Scenario: All conditions met grants escalation
     Given a story has exactly one prior impl attempt
     And the attempt's failure class is acceptance_unmet
     And the attempt records the commit SHA and normalized total
     And verify-base passes for the story's branch
     And no scope violation exists
     And the story is not already at strong tier
-    And no other story in the wave has escalated
     When the user runs dispatch escalate <story-id>
     Then the escalation is granted
     And the ledger records the new tier (one level above previous)
+    # Open: the proposal gives a story gates.attempts attempts before it
+    # escalates, and this condition counts one. See RL-G01 in
+    # docs/spec/work/run-lifecycle-gaps.md.
 
   Scenario: contradictory_evidence also qualifies for escalation
     Given a story has exactly one prior impl attempt
@@ -928,12 +964,11 @@ Feature: Evidence-Gated Escalation
     When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
 
-  Scenario: Wave escalation slot already taken blocks escalation
+  Scenario: Another story's escalation in the same wave does not block escalation
     Given another story in the same wave has escalation_granted: true in its ledger entry
+    And all other escalation conditions are met
     When the user runs dispatch escalate <story-id>
-    Then dispatch exits non-zero
-    # The wave escalation predicate scans all story entries in the wave
-    # for escalation_granted: true. No separate wave-level counter.
+    Then the escalation is granted
 
   Scenario: Second escalation for the same story blocks
     Given a story already escalated once
@@ -946,16 +981,6 @@ Feature: Evidence-Gated Escalation
     Then dispatch exits non-zero
     And the ledger is unchanged
 
-  Scenario: Second qualifying failure in wave after escalation slot is taken
-    Given another story in the same wave already escalated
-    And a story fails with acceptance_unmet
-    When the user attempts to escalate this story
-    Then escalation is denied
-    And the story is marked blocked with reason "wave_escalation_exhausted"
-    And the story is eligible for escalation in a later wave of this or a subsequent dispatch
-    # The wave escalation slot resets at wave boundaries. If the story's own
-    # one-escalation-per-story limit is not consumed, it may escalate when
-    # next prepared in a wave where the slot is free.
 ```
 
 ### Feature: Seams-First Strategy
@@ -1098,7 +1123,7 @@ Feature: Interruption Safety
     Then ST-003 is recognized as already prepared
     And ST-004 is prepared from scratch
 
-  Scenario: merge-story interrupted between merge commit and test suite reverts
+  Scenario: merge-story interrupted between merge commit and test suite resumes the existing merge
     Given dispatch merge-story ST-003 created the merge commit
     And was interrupted before the test suite completed
     When the user runs dispatch merge-story ST-003 again
@@ -1151,7 +1176,7 @@ Feature: Verification Immutability
 
   Scenario: Escalation precondition check does not mutate state
     Given a story with a prior failed attempt
-    When dispatch escalate evaluates the six conditions
+    When dispatch escalate evaluates its conditions
     Then the working tree, index, and HEAD are unchanged after evaluation
 ```
 
@@ -1161,25 +1186,25 @@ ______________________________________________________________________
 
 Each decision below resolves an open finding from the adversarial review of the proposal. The resolution is embedded in the relevant scenarios above; this section traces each finding to its resolution.
 
-| Finding   | Summary                                                         | Resolution                                                                                                                                                                                                                            | Scenario                                                                |
-| --------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| PROP-0005 | Phantom dependency on `.agent-factory/factory/scripts/validate` | Part 5 of the handoff contract references only `test_command`. The validate skill is the agent's own responsibility per its agent definition, not a script-enforced check.                                                            | Subagent Handoff Contract: "Seven-part contract is generated"           |
-| PROP-0006 | Write guard allows `.current-work/` too broadly                 | Write guard allows only gate markers (`verify-base-ok`, `premerge-check-ok`) and `docs/findings/*`. Denies `dispatch-ledger.yaml` and `current-step.yml` explicitly.                                                                  | Write Guard: "Dispatch ledger is always denied"                         |
-| PROP-0007 | Post-merge test failure leaves branch polluted                  | `merge-story` reverts the merge commit on red suite before marking blocked. Feature branch is restored to pre-merge state.                                                                                                            | Story Lifecycle: "Red test suite reverts the merge"                     |
-| PROP-0008 | One-escalation-per-wave, no disposition for second              | Second qualifying failure in the same wave is marked blocked with reason `wave_escalation_exhausted`. Wave escalation slot resets at wave boundaries; story may escalate in a later wave if its own one-escalation limit is unused.   | Evidence-Gated Escalation: "Second qualifying failure in wave"          |
-| PROP-0009 | File-overlap algorithm unspecified                              | Expand output globs against the working tree to concrete file sets and intersect. Zero-match globs fall back to their literal directory prefix (conservative).                                                                        | Wave Planning: "File overlap is computed by expanding globs"            |
-| PROP-0010 | Glob vs. prefix mismatch in premerge-check                      | `premerge-check` gains `--scope-glob` using the same gitignore-style matching as `step-guard`. `merge-story` passes raw output globs.                                                                                                 | Glob Matching Consistency: "`premerge-check` accepts `--scope-glob`"    |
-| PROP-0011 | Crash recovery flags not assigned to a subcommand               | New subcommand `dispatch clear-manifest --force --worktree <path>` removes a stale manifest, logs a warning, and records recovery in the ledger.                                                                                      | Step Manifest Lifecycle: "Stale manifest is cleared"                    |
-| PROP-0012 | Seams-first test file ownership ambiguous                       | Stories with `seams-first` declare `seam_outputs` and `impl_outputs` as disjoint subsets of `outputs`. Each session's manifest uses only its own subset.                                                                              | Seams-First Strategy: "Seam session receives only seam_outputs"         |
-| PROP-0013 | Spec introduces DISPATCHING state not in proposal               | Reintroduced DISPATCHING so `mark-dispatching` can record the in-flight spawn state before `mark-dispatched` confirms it. `prepared` transitions to `dispatching`; `dispatching` transitions to `dispatched`, `failed`, or `blocked`. | Story Lifecycle: "mark-dispatching"/"mark-dispatched" and state machine |
-| PROP-0014 | Phase 3 behavior bleeds into Phase 1 subcommands                | Phase annotations added to every Feature and to individual scenarios that belong to a different phase than their Feature's primary phase.                                                                                             | All Features (Phase: N in description)                                  |
-| PROP-0015 | `--baseline-commit` mutates shared branch silently              | `--baseline-commit` now requires `--yes` or interactive confirmation before committing to the base branch.                                                                                                                            | Dispatch Initialization: "Baseline commit requires confirmation"        |
-| PROP-0016 | Wave escalation blocks with no recovery path                    | Wave escalation slot resets at wave boundaries. Blocked stories may escalate in a later wave of the same dispatch if their one-escalation limit is unused.                                                                            | Evidence-Gated Escalation: "Second qualifying failure in wave"          |
-| PROP-0017 | Spec adds re-dispatch subcommand not in proposal                | `dispatch re-dispatch` added to the proposal with phased behavior: Phase 1 basic (any failed/blocked story), Phase 3 class-aware constraints.                                                                                         | Story Lifecycle: "re-dispatch" scenarios                                |
-| PROP-0018 | Spec adds clear-manifest subcommand not in proposal             | `dispatch clear-manifest --force --worktree <path>` added to the proposal under Phase 2 scope.                                                                                                                                        | Step Manifest Lifecycle: "Stale manifest is cleared"                    |
-| PROP-0019 | `safety_critical_paths` config key unspecified                  | `safety_critical_paths` added to proposal as a list of gitignore-style globs in `config/project.json`, under Phase 3 scope.                                                                                                           | Tier Rubric: "Safety-critical output paths produce strong"              |
-| PROP-0020 | Re-dispatch vs. retry distinction unclear                       | Proposal distinguishes: re-dispatch (new attempt, full lifecycle restart, in scope) vs. retry/resume (automatic re-run from interrupted point, deferred).                                                                             | Proposal: Design Details and Explicitly Deferred sections               |
-| PROP-0021 | `--feature-branch` can hijack an active dispatch                | `dispatch init` rejects initialization when a dispatch ledger already exists for the target branch under `.current-work/`. Applies to both `--feature-branch` and auto-generated branch paths.                                        | Dispatch Initialization: "Existing ledger blocks initialization"        |
+| Finding   | Summary                                                         | Resolution                                                                                                                                                                                                                            | Scenario                                                                                           |
+| --------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| PROP-0005 | Phantom dependency on `.agent-factory/factory/scripts/validate` | Part 5 of the handoff contract references only `test_command`. The validate skill is the agent's own responsibility per its agent definition, not a script-enforced check.                                                            | Subagent Handoff Contract: "Seven-part contract is generated"                                      |
+| PROP-0006 | Write guard allows `.current-work/` too broadly                 | Write guard allows only gate markers (`verify-base-ok`, `premerge-check-ok`) and `docs/findings/*`. Denies `dispatch-ledger.yaml` and `current-step.yml` explicitly.                                                                  | Write Guard: "Dispatch ledger is always denied"                                                    |
+| PROP-0007 | Post-merge test failure leaves branch polluted                  | `merge-story` moves the feature branch back to its pre-merge commit on a red suite before marking blocked. A revert commit would make git treat the story as merged, so a second attempt would bring in nothing.                      | Story Lifecycle: "Red test suite moves the feature branch back"                                    |
+| PROP-0008 | One-escalation-per-wave, no disposition for second              | [run-lifecycle.md](../../proposals/run-lifecycle.md) drops the limit of one escalation per wave. Every story that uses up its attempts escalates.                                                                                     | Evidence-Gated Escalation: "Another story's escalation in the same wave does not block escalation" |
+| PROP-0009 | File-overlap algorithm unspecified                              | Expand output globs against the working tree to concrete file sets and intersect. Zero-match globs fall back to their literal directory prefix (conservative).                                                                        | Wave Planning: "File overlap is computed by expanding globs"                                       |
+| PROP-0010 | Glob vs. prefix mismatch in premerge-check                      | `premerge-check` gains `--scope-glob` using the same gitignore-style matching as `step-guard`. `merge-story` passes raw output globs.                                                                                                 | Glob Matching Consistency: "`premerge-check` accepts `--scope-glob`"                               |
+| PROP-0011 | Crash recovery flags not assigned to a subcommand               | New subcommand `dispatch clear-manifest --force --worktree <path>` removes a stale manifest, logs a warning, and records recovery in the ledger.                                                                                      | Step Manifest Lifecycle: "Stale manifest is cleared"                                               |
+| PROP-0012 | Seams-first test file ownership ambiguous                       | Stories with `seams-first` declare `seam_outputs` and `impl_outputs` as disjoint subsets of `outputs`. Each session's manifest uses only its own subset.                                                                              | Seams-First Strategy: "Seam session receives only seam_outputs"                                    |
+| PROP-0013 | Spec introduces DISPATCHING state not in proposal               | Reintroduced DISPATCHING so `mark-dispatching` can record the in-flight spawn state before `mark-dispatched` confirms it. `prepared` transitions to `dispatching`; `dispatching` transitions to `dispatched`, `failed`, or `blocked`. | Story Lifecycle: "mark-dispatching"/"mark-dispatched" and state machine                            |
+| PROP-0014 | Phase 3 behavior bleeds into Phase 1 subcommands                | Phase annotations added to every Feature and to individual scenarios that belong to a different phase than their Feature's primary phase.                                                                                             | All Features (Phase: N in description)                                                             |
+| PROP-0015 | `--baseline-commit` mutates shared branch silently              | `--baseline-commit` now requires `--yes` or interactive confirmation before committing to the base branch.                                                                                                                            | Dispatch Initialization: "Baseline commit requires confirmation"                                   |
+| PROP-0016 | Wave escalation blocks with no recovery path                    | [run-lifecycle.md](../../proposals/run-lifecycle.md) drops the limit of one escalation per wave, so no story waits for a free slot.                                                                                                   | Evidence-Gated Escalation: "Another story's escalation in the same wave does not block escalation" |
+| PROP-0017 | Spec adds re-dispatch subcommand not in proposal                | `dispatch re-dispatch` added to the proposal with phased behavior: Phase 1 basic (any failed/blocked story), Phase 3 class-aware constraints.                                                                                         | Story Lifecycle: "re-dispatch" scenarios                                                           |
+| PROP-0018 | Spec adds clear-manifest subcommand not in proposal             | `dispatch clear-manifest --force --worktree <path>` added to the proposal under Phase 2 scope.                                                                                                                                        | Step Manifest Lifecycle: "Stale manifest is cleared"                                               |
+| PROP-0019 | `safety_critical_paths` config key unspecified                  | `safety_critical_paths` added to proposal as a list of gitignore-style globs in `config/project.json`, under Phase 3 scope.                                                                                                           | Tier Rubric: "Safety-critical output paths produce strong"                                         |
+| PROP-0020 | Re-dispatch vs. retry distinction unclear                       | Proposal distinguishes: re-dispatch (new attempt, full lifecycle restart, in scope) vs. retry/resume (automatic re-run from interrupted point, deferred).                                                                             | Proposal: Design Details and Explicitly Deferred sections                                          |
+| PROP-0021 | `--feature-branch` can hijack an active dispatch                | `dispatch init` rejects initialization when a dispatch ledger already exists for the target branch under `.current-work/`. Applies to both `--feature-branch` and auto-generated branch paths.                                        | Dispatch Initialization: "Existing ledger blocks initialization"                                   |
 
 ## Traceability — Proposal Sections to Features
 
@@ -1208,3 +1233,7 @@ Each decision below resolves an open finding from the adversarial review of the 
 | Design Details — Plan/init tier                  | Tier Rubric, Dispatch Initialization                                                            |
 | Design Details — Re-dispatch vs retry            | Story Lifecycle (re-dispatch scenarios)                                                         |
 | Design Details — Scripts validate, LLM sequences | Story Lifecycle (all dispatch subcommands)                                                      |
+| run-lifecycle — The run                          | Dispatch Initialization, Wave Planning, Wave Lifecycle; run-lifecycle.feature                   |
+| run-lifecycle — Attempts and stops               | Story Lifecycle (state machine, red test suite), Evidence-Gated Escalation                      |
+| run-lifecycle — Wave close                       | Wave Lifecycle                                                                                  |
+| run-lifecycle — every other section              | run-lifecycle.feature                                                                           |
