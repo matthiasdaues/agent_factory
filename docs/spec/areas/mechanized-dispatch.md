@@ -212,11 +212,24 @@ Feature: Dispatch Initialization
     And the ledger's branch_root is the tip of the feature branch
     And all named stories are recorded as pending
 
-  Scenario: Existing ledger for the target branch blocks initialization
+  Scenario: Existing ledger with other stories blocks initialization
     Given a dispatch ledger exists at .current-work/<target-branch>/dispatch-ledger.yaml
-    When the user runs dispatch init whose target branch resolves to <target-branch>
+    And it lists ST-001
+    When the user runs dispatch init --stories ST-002 whose target branch resolves to <target-branch>
     Then dispatch exits non-zero
     And reports that a dispatch is already active for this branch
+
+  Scenario: Existing ledger with the same stories is a no-op
+    Given a dispatch ledger at .current-work/<target-branch>/dispatch-ledger.yaml lists ST-001 and ST-002
+    When the user runs dispatch init --stories ST-001,ST-002 whose target branch resolves to <target-branch>
+    Then dispatch exits 0
+    And the ledger is unchanged
+    # An interrupted start resumes this way.
+
+  Scenario: Initialization without --mode starts an orchestrated run
+    When the user runs dispatch init --base dev --stories ST-001
+    Then the ledger has mode orchestrated
+    And a worktree is created for the feature branch
 
   Scenario: Untracked target directories block initialization
     Given the base branch has untracked files in a directory a story's outputs touch
@@ -372,6 +385,21 @@ Feature: Story Lifecycle
     Given ST-005 is dispatched (not done)
     When the user runs dispatch prepare-story ST-006
     Then dispatch exits non-zero
+
+  Scenario: By hand, prepare-story writes the manifest and the contract without a worktree
+    Given a run by hand is active on feature/login
+    When the implementation agent runs dispatch prepare-story ST-0350
+    Then the primary checkout has story/ST-0350 checked out
+    And no worktree holds story/ST-0350
+    And .current-work/feature/login/story/ST-0350/current-step.yml exists in the primary checkout
+    And .current-work/feature/login/story/ST-0350/handoff-contract.md exists in the primary checkout
+
+  Scenario: By hand, prepare-story records the next free wave number
+    Given a run by hand is active on feature/login
+    And the ledger records ST-0350 in wave 1 and holds a wave record for wave 1
+    And no story of the ledger has wave 2
+    When the implementation agent runs dispatch prepare-story ST-0351
+    Then the ledger records ST-0351 in wave 2
 
   # --- mark-dispatched ---
 
@@ -925,26 +953,34 @@ Feature: Evidence-Gated Escalation
   Phase: 3
   dispatch escalate promotes a story to the next tier. The conditions below
   must all hold. One escalation per story. Every story of a wave that
-  uses up its attempts may escalate.
+  uses up its attempts may escalate. A story uses up its attempts when it
+  has gates.attempts impl attempts on its tier, as docs/testing.yaml sets.
+  A failing gate records the failure class acceptance_unmet. A story on
+  the tier strong does not escalate. It becomes failed after its attempts.
 
   Scenario: All conditions met grants escalation
-    Given a story has exactly one prior impl attempt
-    And the attempt's failure class is acceptance_unmet
-    And the attempt records the commit SHA and normalized total
+    Given docs/testing.yaml sets gates.attempts to 3
+    And a story has three impl attempts on its tier
+    And each attempt's failure class is acceptance_unmet
+    And each attempt records the commit SHA and normalized total
     And verify-base passes for the story's branch
     And no scope violation exists
     And the story is not already at strong tier
     When the user runs dispatch escalate <story-id>
     Then the escalation is granted
     And the ledger records the new tier (one level above previous)
-    # Open: the proposal gives a story gates.attempts attempts before it
-    # escalates, and this condition counts one. See RL-G01 in
-    # docs/spec/work/run-lifecycle-gaps.md.
+
+  Scenario: Fewer attempts than gates.attempts block escalation
+    Given docs/testing.yaml sets gates.attempts to 3
+    And a story has two impl attempts on its tier, each with failure class acceptance_unmet
+    When the user runs dispatch escalate <story-id>
+    Then dispatch exits non-zero
+    And the ledger is unchanged
 
   Scenario: contradictory_evidence also qualifies for escalation
-    Given a story has exactly one prior impl attempt
-    And the attempt's failure class is contradictory_evidence
-    And the attempt records the commit SHA and normalized total
+    Given a story has gates.attempts impl attempts on its tier
+    And each attempt's failure class is contradictory_evidence
+    And each attempt records the commit SHA and normalized total
     And all other escalation conditions are met
     When the user runs dispatch escalate <story-id>
     Then the escalation is granted
