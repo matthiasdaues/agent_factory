@@ -938,7 +938,7 @@ The remote release base exposes `<base>/latest`,
 | Repository without `HEAD` | Creates a plain sandbox at the same path pattern                                                                       |
 | Execution                 | Runs the `poc-spike` workflow only inside the sandbox                                                                  |
 | Result                    | Shows inspectable output, check results, and removal instructions                                                      |
-| Retention                 | Copies separately confirmed artifacts to a named `docs/spikes/` path                                                   |
+| Retention                 | Copies separately confirmed artifacts to a named `poc/spikes/` path                                                    |
 | Production handoff        | Requires approval for a normal workstream; never promotes the sandbox                                                  |
 | Ready-host budget         | Inspectable result within ten minutes and five decisions after installation approval                                   |
 

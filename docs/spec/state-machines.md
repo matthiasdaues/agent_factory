@@ -556,7 +556,7 @@ On ChooseOutcome:
     Remove sandbox and verify absence
     ChangeState(REMOVED)
   else if reference retention is confirmed
-    Copy selected artifacts to docs/spikes/
+    Copy selected artifacts to poc/spikes/
     ChangeState(RETAINED_REFERENCE)
   else if production work is approved
     Leave sandbox outside production work
@@ -586,7 +586,7 @@ stateDiagram-v2
     READY --> RUNNING : RunPocSpike
     RUNNING --> COMPLETED : FinishTask / Record result or failure evidence
     COMPLETED --> REMOVED : ChooseOutcome (discard) / Remove sandbox and verify absence
-    COMPLETED --> RETAINED_REFERENCE : ChooseOutcome (retain) / Copy selected artifacts to docs/spikes/
+    COMPLETED --> RETAINED_REFERENCE : ChooseOutcome (retain) / Copy selected artifacts to poc/spikes/
     COMPLETED --> HANDED_OFF : ChooseOutcome (production) / Leave sandbox outside production work
     CANCELLED --> [*]
     REMOVED --> [*]

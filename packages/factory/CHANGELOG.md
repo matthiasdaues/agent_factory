@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.9.0 — 2026-11-18
+
+This release moves the last spike path to `poc/`. Onboarding keeps retained
+artifacts under `poc/spikes/<name>/`, and Virgil writes spike briefs there.
+Run `update-factory` to receive it.
+
+### Changes
+
+- **Onboarding retains to `poc/spikes/<name>/`.** `retain_artifacts` used to
+  copy confirmed artifacts to `docs/spikes/<name>/`. It now copies them to
+  `poc/spikes/<name>/`, next to the spikes the
+  [poc-spike](playbooks/poc-spike.md) playbook keeps. The spec follows: the
+  state machine, VFO-036, the interface contract, the entity model, the
+  feature file, `architecture.dsl`, and the runtime view.
+- **Virgil writes PoC briefs into `poc/`.** A spike brief goes to
+  `poc/spikes/<name>/brief.md`, a technical PoC brief to `poc/<name>/brief.md`.
+  It used to go to `docs/spikes/<name>.md`.
+- **`docs/spikes/` stays exempt from the gates.** A project may still hold
+  artifacts retained by an earlier version there. Move them to `poc/spikes/`
+  by hand when convenient; nothing reads the old path any more.
+
 ## 1.8.1 — 2026-11-17
 
 This release gives proofs of concept one place and keeps the gates out of it.

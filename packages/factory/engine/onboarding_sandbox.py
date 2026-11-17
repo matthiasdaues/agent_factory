@@ -27,7 +27,7 @@ from pathlib import Path
 from engine.workstream import create_workstream, load_workstream
 
 DEFAULT_SANDBOX_BASE = ".current-work/onboarding-spike"
-DEFAULT_SPIKES_BASE = "docs/spikes"
+DEFAULT_SPIKES_BASE = "poc/spikes"
 DEFAULT_WORKSTREAM_BASE = ".agent-factory/workstreams"
 
 

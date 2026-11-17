@@ -727,7 +727,7 @@ erDiagram
 - **INSTRUCTION_HEADER** identifies one marker-delimited Factory block in an existing instruction file. The manifest stores enough state to update or remove only that block.
 - **ONBOARDING_SESSION** separates observed project evidence from the recommended action. The initial scan does not change project files.
 - **FIRST_TASK_SANDBOX** uses a detached worktree when `HEAD` exists. It uses a plain directory otherwise. The sandbox never becomes production work.
-- **RETAINED_SPIKE_ARTIFACT** is created only after separate confirmation and always targets a named path below `docs/spikes/`.
+- **RETAINED_SPIKE_ARTIFACT** is created only after separate confirmation and always targets a named path below `poc/spikes/`.
 - **OPENCODE_CATALOG** is the OpenCode-visible catalog surface. Agents live under `.opencode/agents/`. Skills live under `.agents/skills/`, which OpenCode discovers natively. The catalog is linked from `.opencode/INDEX.yaml`.
 - **OPENCODE_AGENT_DEF** carries a `model` field derived from the agent's tier mapping in `model.conf`. This is a workaround for the model inheritance bug (OpenCode issue #49765). Each generated definition has explicit model, mode, and permission fields.
 - **MODEL_MATRIX_ENTRY.cli** gains the value `opencode` alongside the existing `copilot`, `codex`, and `pi`. Claude Code resolves its model outside `model.conf`.

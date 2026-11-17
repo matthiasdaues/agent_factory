@@ -238,7 +238,7 @@ An isolated, low-stakes task assigned during onboarding to help the participant 
 
 ### Task Outcome
 
-The participant's choice after completing the first task: (1) Discard the sandbox, (2) Save selected artifacts to `docs/spikes/` for reference, or (3) Promote to real work by creating a feature branch.
+The participant's choice after completing the first task: (1) Discard the sandbox, (2) Save selected artifacts to `poc/spikes/` for reference, or (3) Promote to real work by creating a feature branch.
 
 ### Moderator / Quality Researcher
 

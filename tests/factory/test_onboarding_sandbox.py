@@ -178,7 +178,7 @@ class TestDiscardSandbox:
 
 class TestRetainSelectedArtifacts:
     """VFO-08-IT-03: retention copies only confirmed artifacts to
-    docs/spikes/<name>/ and removes the sandbox afterwards."""
+    poc/spikes/<name>/ and removes the sandbox afterwards."""
 
     def test_retains_only_confirmed_artifact(self, repo: Path) -> None:
         sandbox = create_sandbox(repo)
@@ -189,7 +189,7 @@ class TestRetainSelectedArtifacts:
             repo, sandbox, artifact_names=["keep.txt"], retain_name="my-spike"
         )
 
-        assert target == repo / "docs" / "spikes" / "my-spike"
+        assert target == repo / "poc" / "spikes" / "my-spike"
         assert (target / "keep.txt").read_text() == "keep me\n"
         assert not (target / "skip.txt").exists()
 
@@ -212,7 +212,7 @@ class TestRetainSelectedArtifacts:
             retain_artifacts(repo, sandbox, artifact_names=[], retain_name="my-spike")
 
         assert sandbox.exists()
-        assert not (repo / "docs" / "spikes").exists()
+        assert not (repo / "poc" / "spikes").exists()
 
     def test_missing_artifact_raises(self, repo: Path) -> None:
         sandbox = create_sandbox(repo)
@@ -352,7 +352,7 @@ class TestRetainSelectedArtifactsPlainSandbox:
             retain_name="my-spike",
         )
 
-        assert target == repo_without_head / "docs" / "spikes" / "my-spike"
+        assert target == repo_without_head / "poc" / "spikes" / "my-spike"
         assert (target / "keep.txt").read_text() == "keep me\n"
         assert not (target / "skip.txt").exists()
         assert not sandbox.exists()
@@ -433,8 +433,8 @@ class TestFirstTaskPreviewDocumented:
         handoff_idx = self.section.index("Production handoff")
         assert discard_idx < retain_idx < handoff_idx
 
-    def test_retention_targets_docs_spikes(self) -> None:
-        assert "docs/spikes/<name>/" in self.section
+    def test_retention_targets_poc_spikes(self) -> None:
+        assert "poc/spikes/<name>/" in self.section
 
     def test_production_handoff_does_not_promote_sandbox(self) -> None:
         assert "never promoted to production work" in self.section
