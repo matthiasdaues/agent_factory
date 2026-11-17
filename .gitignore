@@ -116,6 +116,7 @@ models/
 /.agents/skills/qa-strategy-from-spec
 /.agents/skills/reconcile-spec
 /.agents/skills/refutation-design
+/.agents/skills/remark-grid-deck
 /.agents/skills/research-planning
 /.agents/skills/research-reporting
 /.agents/skills/research-synthesis
