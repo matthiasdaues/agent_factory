@@ -1,0 +1,353 @@
+#!/usr/bin/env python3
+# concept-history-check — deterministic check and ranking of survey concept
+# histories.
+#
+# What: Reads every `histories/*.json` file of a survey, validates it against
+#       research-concept-history.schema.json, and checks each anchor against
+#       the source records under `sources/`:
+#         - every record ID resolves to exactly one record file;
+#         - every quote occurs word for word in its record file (whitespace,
+#           typographic quotes, and dashes are normalised; an ellipsis is
+#           rejected, and a quote needs at least four words);
+#         - every quote lies inside one double-quoted passage of the record's
+#           Evidence section, so a researcher's own note never passes as the
+#           source's words;
+#         - every date equals the publication_date or the
+#           relevant_event_date of its record;
+#         - formulation dates never go backwards;
+#         - a criticism is not dated before the formulation it criticises;
+#         - a criticism marked `drove_next` is dated no later than the next
+#           formulation, and the last formulation has no such criticism.
+#       It then applies the entry rule (at least three formulations and at
+#       least two recorded criticisms) and computes the rank of every concept
+#       from recorded facts only: the share of anchors that rest on a primary
+#       record (from the record's `source_family`), then the share of
+#       formulations followed by a recorded criticism, then the number of
+#       formulations, then the name.
+# When: Step 4 and Step 5 of the research-survey playbook, whenever the brief
+#       asks for concept histories. The report writer fills the histories; this
+#       script decides counts and ranks, so no reviewer argues over them.
+# By:   `.agent-factory/factory/scripts/concept-history-check <survey-root>`
+#       `.agent-factory/factory/scripts/concept-history-check --table <survey-root>`
+#
+# Python 3.8+ stdlib only.
+#
+# Exit code:
+#   0  every history passes; the ranking is printed
+#   1  at least one violation (each printed as a `FAIL` line)
+#   2  operational error — missing directory, no histories, unreadable JSON
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+import unicodedata
+from dataclasses import dataclass, field
+from fractions import Fraction
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCHEMA_PATH = SCRIPT_DIR.parent / "rulebooks" / "schemas" / "research-concept-history.schema.json"
+MIN_QUOTE_WORDS = 4
+MIN_ROUNDS = 3
+MIN_CRITICISMS = 2
+
+
+def _load_schema_validate():
+    loader = SourceFileLoader("schema_validate", str(SCRIPT_DIR / "schema-validate"))
+    spec = spec_from_loader("schema_validate", loader)
+    module = module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+_TRANSLATE = str.maketrans(
+    {
+        "‘": "'",
+        "’": "'",
+        "“": '"',
+        "”": '"',
+        "–": "-",
+        "—": "-",
+        " ": " ",
+    }
+)
+
+
+def normalise(text: str) -> str:
+    """Fold the differences a copy through markdown may introduce."""
+    text = unicodedata.normalize("NFKC", text).translate(_TRANSLATE)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+_JSON_BLOCK = re.compile(r"```json\n(.*?)```", re.S)
+_EVIDENCE = re.compile(r"^## Evidence[ \t]*\n(.*?)(?=^## |\Z)", re.S | re.M)
+_QUOTED = re.compile(r'"([^"]+)"')
+
+
+def quoted_passages(text: str) -> tuple[str, ...]:
+    """The double-quoted passages of the Evidence section, normalised."""
+    match = _EVIDENCE.search(text)
+    if not match:
+        return ()
+    return tuple(_QUOTED.findall(normalise(match.group(1))))
+
+
+def _strip_marks(quote: str) -> str:
+    return normalise(quote).strip("\"' ")
+
+
+@dataclass
+class Record:
+    record_id: str
+    path: Path
+    text: str
+    primary: bool
+    dates: tuple[str, ...] = ()
+    quoted: tuple[str, ...] = ()
+
+
+def resolve(record_id: str, files: list[Path]) -> list[Path]:
+    return [
+        f for f in files if f.stem == record_id or f.stem.startswith(record_id + "-")
+    ]
+
+
+def load_record(record_id: str, path: Path) -> tuple[Record | None, str | None]:
+    text = path.read_text(encoding="utf-8")
+    match = _JSON_BLOCK.search(text)
+    if not match:
+        return None, f"record {record_id} ({path.name}) has no json block"
+    try:
+        data = json.loads(match.group(1))
+    except json.JSONDecodeError as exc:
+        return None, f"record {record_id} ({path.name}) has invalid json: {exc}"
+    family = str(data.get("source_family", "")).strip().lower()
+    dates = tuple(
+        str(data.get(key, ""))[:10] for key in ("publication_date", "relevant_event_date")
+    )
+    record = Record(
+        record_id, path, normalise(text), family.startswith("primary"), dates, quoted_passages(text)
+    )
+    return record, None
+
+
+@dataclass
+class Result:
+    concept: str
+    area: str
+    rounds: int
+    criticisms: int
+    primary_share: Fraction
+    coverage: Fraction
+    records: list[str] = field(default_factory=list)
+
+    @property
+    def eligible(self) -> bool:
+        return self.rounds >= MIN_ROUNDS and self.criticisms >= MIN_CRITICISMS
+
+    def sort_key(self):
+        return (not self.eligible, -self.primary_share, -self.coverage, -self.rounds, self.concept)
+
+
+def check_quote(label: str, quote: str, record: Record) -> str | None:
+    if "..." in quote or "…" in quote:
+        return f"{label}: quote contains an ellipsis; anchor one contiguous passage"
+    if len(quote.split()) < MIN_QUOTE_WORDS:
+        return f"{label}: quote has fewer than {MIN_QUOTE_WORDS} words"
+    if normalise(quote) not in record.text:
+        return f"{label}: quote does not occur word for word in {record.path.name}"
+    bare = _strip_marks(quote)
+    if not any(bare in passage for passage in record.quoted):
+        return (
+            f"{label}: quote lies outside every quoted passage of the Evidence "
+            f"section of {record.path.name}; anchor the source's words, not a note"
+        )
+    return None
+
+
+class Checker:
+    def __init__(self, root: Path):
+        self.root = root
+        self.files = sorted((root / "sources").rglob("*.md"))
+        self.cache: dict[str, Record | None] = {}
+        self.failures: list[str] = []
+
+    def record(self, label: str, record_id: str) -> Record | None:
+        if record_id in self.cache:
+            return self.cache[record_id]
+        matches = resolve(record_id, self.files)
+        record = None
+        if not matches:
+            self.failures.append(f"{label}: record {record_id} matches no file under sources/")
+        elif len(matches) > 1:
+            names = ", ".join(m.name for m in matches)
+            self.failures.append(f"{label}: record {record_id} matches several files: {names}")
+        else:
+            record, problem = load_record(record_id, matches[0])
+            if problem:
+                self.failures.append(f"{label}: {problem}")
+        self.cache[record_id] = record
+        return record
+
+    def anchor(self, label: str, record_id: str, quote: str, date: str) -> Record | None:
+        record = self.record(label, record_id)
+        if record is not None:
+            problem = check_quote(label, quote, record)
+            if problem:
+                self.failures.append(problem)
+            if date not in record.dates:
+                self.failures.append(
+                    f"{label}: date {date} matches neither publication_date nor "
+                    f"relevant_event_date of {record_id} ({', '.join(record.dates)})"
+                )
+        return record
+
+    def history(self, path: Path, data: dict) -> Result:
+        name = path.name
+        steps = data["steps"]
+        anchors: list[Record | None] = []
+        records: list[str] = []
+        criticised = 0
+        for index, step in enumerate(steps, start=1):
+            label = f"{name} step {index}"
+            anchors.append(self.anchor(label, step["record"], step["quote"], step["date"]))
+            records.append(step["record"])
+            if index > 1 and step["date"] < steps[index - 2]["date"]:
+                self.failures.append(
+                    f"{label}: dated {step['date']}, before step {index - 1} ({steps[index - 2]['date']})"
+                )
+            crit = step["criticism"]
+            if crit is None:
+                continue
+            clabel = f"{label} criticism"
+            anchors.append(self.anchor(clabel, crit["record"], crit["quote"], crit["date"]))
+            records.append(crit["record"])
+            if index < len(steps):
+                criticised += 1
+            if crit["date"] < step["date"]:
+                self.failures.append(
+                    f"{clabel}: dated {crit['date']}, before the formulation it criticises ({step['date']})"
+                )
+            if crit["drove_next"]:
+                if index == len(steps):
+                    self.failures.append(
+                        f"{clabel}: drove_next is true, but no later formulation exists"
+                    )
+                elif crit["date"] > steps[index]["date"]:
+                    self.failures.append(
+                        f"{clabel}: drove_next is true, but it is dated {crit['date']}, "
+                        f"after step {index + 1} ({steps[index]['date']})"
+                    )
+        known = [a for a in anchors if a is not None]
+        primary = Fraction(sum(a.primary for a in known), len(anchors)) if anchors else Fraction(0)
+        coverage = Fraction(criticised, len(steps) - 1) if len(steps) > 1 else Fraction(0)
+        criticisms = sum(1 for s in steps if s["criticism"] is not None)
+        unique = list(dict.fromkeys(records))
+        return Result(data["concept"], data["area"], len(steps), criticisms, primary, coverage, unique)
+
+
+def _pct(value: Fraction) -> str:
+    return f"{round(float(value) * 100)}%"
+
+
+HEADER = (
+    "Rank",
+    "Concept",
+    "Area",
+    "Rounds",
+    "Criticisms",
+    "Primary anchors",
+    "Criticism coverage",
+    "Records",
+)
+
+
+def _table(rows: list[tuple[str, ...]]) -> str:
+    """A pipe table padded the way mdformat writes it, so formatting the
+    report leaves the table byte for byte unchanged."""
+    cells = [HEADER, *rows]
+    widths = [max(3, *(len(row[i]) for row in cells)) for i in range(len(HEADER))]
+
+    def line(row):
+        return "| " + " | ".join(c.ljust(w) for c, w in zip(row, widths)) + " |"
+
+    rule = "| " + " | ".join("-" * w for w in widths) + " |"
+    return "\n".join([line(HEADER), rule, *(line(r) for r in rows)])
+
+
+def _row(rank: str, r: Result) -> tuple[str, ...]:
+    return (
+        rank,
+        r.concept,
+        r.area,
+        str(r.rounds),
+        str(r.criticisms),
+        _pct(r.primary_share),
+        _pct(r.coverage),
+        ", ".join(r.records),
+    )
+
+
+def render(results: list[Result]) -> str:
+    ranked = sorted(results, key=Result.sort_key)
+    eligible = [r for r in ranked if r.eligible]
+    below = [r for r in ranked if not r.eligible]
+    out = _table([_row(str(rank), r) for rank, r in enumerate(eligible, start=1)])
+    if below:
+        out += (
+            f"\n\nBelow the entry rule (at least {MIN_ROUNDS} formulations and "
+            f"{MIN_CRITICISMS} recorded criticisms):\n\n"
+            + _table([_row("-", r) for r in below])
+        )
+    return out
+
+
+def main(argv: list[str]) -> int:
+    table_only = False
+    if argv and argv[0] == "--table":
+        table_only, argv = True, argv[1:]
+    if len(argv) != 1:
+        print("usage: concept-history-check [--table] <survey-root>", file=sys.stderr)
+        return 2
+    root = Path(argv[0])
+    histories = sorted((root / "histories").glob("*.json"))
+    if not histories:
+        print(f"concept-history-check: no histories/*.json under {root}", file=sys.stderr)
+        return 2
+    try:
+        schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"concept-history-check: cannot read schema: {exc}", file=sys.stderr)
+        return 2
+    validator = _load_schema_validate()
+    checker = Checker(root)
+    results: list[Result] = []
+    for path in histories:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"concept-history-check: cannot read {path}: {exc}", file=sys.stderr)
+            return 2
+        errors = validator.validate(data, schema)
+        if errors:
+            checker.failures.extend(f"{path.name}: schema: {e}" for e in errors)
+            continue
+        results.append(checker.history(path, data))
+    stream = sys.stderr if table_only else sys.stdout
+    for failure in checker.failures:
+        print(f"FAIL {failure}", file=stream)
+    if checker.failures:
+        print(f"concept-history-check: {len(checker.failures)} violation(s)", file=stream)
+        return 1
+    if not table_only:
+        print(f"concept-history-check: {len(results)} histories pass\n")
+    print(render(results))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

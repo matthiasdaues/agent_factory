@@ -17,6 +17,8 @@ inputs:
     - .agent-factory/factory/rulebooks/schemas/research-final-report.schema.json
     - .agent-factory/factory/rulebooks/templates/research-survey-report.md
     - .agent-factory/factory/rulebooks/schemas/research-survey-report.schema.json
+    - .agent-factory/factory/rulebooks/schemas/research-concept-history.schema.json
+    - .agent-factory/factory/scripts/concept-history-check
 outputs:
   minimum_changed: 1
   declarations:
@@ -26,13 +28,16 @@ outputs:
     - path_pattern: docs/research/*/survey-report.md
       validator:
       required: false
+    - path_pattern: docs/research/*/histories/*.json
+      validator:
+      required: false
 triggers:
   - "write the research report"
   - "build the final report"
   - "synthesize survey sources"
   - "write the survey report"
 handoff-to: []
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Research Report Writer
@@ -109,7 +114,12 @@ ______________________________________________________________________
    more support than the sources provide.
 4. Write candidates for deeper falsification study where the survey surfaces
    questions that need separate investigation.
-5. Validate the report against
+5. When the brief asks for concept histories, record each one as
+   `histories/<concept>.json` and run `concept-history-check`, as
+   [research-synthesis](../skills/research-synthesis/SKILL.md#concept-histories)
+   describes. Copy its `--table` output into the report. Never state a count,
+   a rank, or an order of steps that the table does not show.
+6. Validate the report against
    [research-survey-report.schema.json](../rulebooks/schemas/research-survey-report.schema.json)
    before handoff.
 
@@ -118,3 +128,5 @@ ______________________________________________________________________
 - Every finding cites one or more recorded source records.
 - Uncertainties, evidence gaps, and limitations are explicit.
 - The report conforms to the survey-report schema.
+- Where histories exist, `concept-history-check` exits 0 and the report table
+  equals its `--table` output.

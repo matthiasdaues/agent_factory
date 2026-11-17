@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0128",
+  "source": "research-survey validation (knowledge-graph-state-of-the-art, passes 1 and 2)",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/playbooks/research-survey.md#step-4",
+  "story": null,
+  "finding": "The research-survey playbook lets the report writer tell each concept history in prose, and no script checks it. Two validation passes of the knowledge graph survey failed on the same error: the report claimed a step, a date, a cause, or a count that its source record did not show, and the rank rested on the writer's own counting. Fix: record each history as histories/<concept>.json against a schema; add concept-history-check, which checks every quote against a double-quoted passage of the record's Evidence section, every date against the record, the date order, and the entry rule, and computes the ranking table the report copies; add source-record-check for the Step 3 gate.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The Step 5 semantic review caught every unsupported history before release, so no report shipped with one (no to harms_downstream) and the survey still reached its purpose (no to fails_purpose). Each catch cost a full validation pass and a rewrite.",
+  "commit": "49d4640eca5e902c4bbea576967d337ef4096210",
+  "status": "resolved"
+}
