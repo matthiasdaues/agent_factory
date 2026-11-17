@@ -329,7 +329,7 @@ Consent-gated mutation applies to the onboarding and lifecycle scripts listed be
 | Gate demonstration     | `hook-demo`               | Affirmative consent before demonstration      | Newcomer is offered the one-minute gate demonstration                   |
 | Context capture        | `capture-context` (skill) | Affirmative consent before scanning           | Repository scan and file creation during first session                  |
 | Sandbox creation       | Virgil (session agent)    | First-task preview with affirmative consent   | Detached worktree or plain sandbox at `.current-work/onboarding-spike/` |
-| Artifact retention     | Virgil (session agent)    | Per-artifact separate consent                 | Copying confirmed artifacts from sandbox to `docs/spikes/`              |
+| Artifact retention     | Virgil (session agent)    | Per-artifact separate consent                 | Copying confirmed artifacts from sandbox to `poc/spikes/`               |
 | Production handoff     | Virgil (session agent)    | Workstream creation confirmation              | Creating or selecting a production workstream and binding the session   |
 
 The consent pattern is orthogonal to exit-code enforcement. Consent gates protect the human decision boundary; exit-code gates protect the mechanical trust boundary. See [ADR-0023](../adr/0023-update-transaction-with-approval-staging-and-rollback.md) for the update transaction design.

@@ -495,7 +495,7 @@ sequenceDiagram
         Note over V: No artifacts retained
     else Newcomer retains reference artifacts
         N->>V: Confirms retention of selected artifacts
-        V->>PF: Copies confirmed artifacts to docs/spikes/
+        V->>PF: Copies confirmed artifacts to poc/spikes/
     else Newcomer begins real work
         V->>WS: Creates or selects production workstream
         V->>SB: Creates session binding for production workstream
@@ -510,14 +510,14 @@ sequenceDiagram
 
 **Component ownership:**
 
-| Behavior                        | Owner                                                                                                                         |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| First-task preview and approval | Virgil presents goal, duration, artifacts, decisions, and cleanup; blank or declined approval creates no sandbox              |
-| Sandbox creation                | Virgil creates a detached worktree via Git (HEAD exists) or a plain sandbox directory under `.current-work/` (no HEAD)        |
-| Task execution and checking     | Dispatcher resolves and dispatches `poc-spike` playbook inside the sandbox                                                    |
-| Discard and cleanup             | Virgil removes the sandbox via Git (worktree) or filesystem and verifies the sandbox path no longer exists                    |
-| Reference-artifact retention    | Newcomer confirms retention of selected artifacts; Virgil copies confirmed artifacts to `docs/spikes/` before sandbox removal |
-| Production-workstream handoff   | Virgil creates or selects a workstream identity and binds the session to it; the sandbox is never promoted                    |
+| Behavior                        | Owner                                                                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| First-task preview and approval | Virgil presents goal, duration, artifacts, decisions, and cleanup; blank or declined approval creates no sandbox             |
+| Sandbox creation                | Virgil creates a detached worktree via Git (HEAD exists) or a plain sandbox directory under `.current-work/` (no HEAD)       |
+| Task execution and checking     | Dispatcher resolves and dispatches `poc-spike` playbook inside the sandbox                                                   |
+| Discard and cleanup             | Virgil removes the sandbox via Git (worktree) or filesystem and verifies the sandbox path no longer exists                   |
+| Reference-artifact retention    | Newcomer confirms retention of selected artifacts; Virgil copies confirmed artifacts to `poc/spikes/` before sandbox removal |
+| Production-workstream handoff   | Virgil creates or selects a workstream identity and binds the session to it; the sandbox is never promoted                   |
 
 **Key Points:**
 

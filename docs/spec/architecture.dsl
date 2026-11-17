@@ -299,7 +299,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent -> sessionBindings "Creates session binding for production workstream"
         cliAgent -> newcomer "Presents evidence, previews, and results during onboarding"
         cliAgent -> installManifest "Reads installation state during first session"
-        cliAgent -> projectFilesystem "Scans project files, copies retained artifacts to docs/spikes/, and runs capture-context --fold-context-map, which folds the context map into domain concerns of docs/agent-context.md"
+        cliAgent -> projectFilesystem "Scans project files, copies retained artifacts to poc/spikes/, and runs capture-context --fold-context-map, which folds the context map into domain concerns of docs/agent-context.md"
 
         # ================================================================
         # Relationships — Usage Analysis

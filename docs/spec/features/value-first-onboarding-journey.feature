@@ -295,7 +295,7 @@ Feature: Value-first onboarding journey
     Scenario: Newcomer retains selected reference artifacts
       Given the first task has completed
       When the newcomer separately confirms selected artifacts for retention
-      Then onboarding copies only those artifacts to a named docs/spikes/ path
+      Then onboarding copies only those artifacts to a named poc/spikes/ path
       And it does not preserve or promote the sandbox as production work
 
     Scenario: Newcomer begins real work explicitly

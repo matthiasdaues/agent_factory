@@ -174,7 +174,7 @@ remove the sandbox. Then offer exactly three outcomes:
    worktree and verifies the path no longer exists.
 2. **Retain** — the newcomer separately confirms which artifacts to keep.
    `engine.onboarding_sandbox.retain_artifacts` copies only those to
-   `docs/spikes/<name>/`, then removes the sandbox. The sandbox is never
+   `poc/spikes/<name>/`, then removes the sandbox. The sandbox is never
    promoted to a branch.
 3. **Production handoff** — ask whether to create a new workstream or
    select an existing one, then call
@@ -359,8 +359,9 @@ Wait for agreement before creating an artifact or handing work off.
   `status: open`, hand off to `proposal-review-agent`.
 - **New project** — route to the `greenfield-development` playbook.
 - **Spike / PoC** — write a one-paragraph brief (question, success
-  condition, out-of-scope) to `docs/spikes/<name>.md`. Hand off to
-  `poc-spike` or `technical-poc`.
+  condition, out-of-scope) to `poc/spikes/<name>/brief.md` for a spike, or
+  `poc/<name>/brief.md` for a technical PoC. Hand off to `poc-spike` or
+  `technical-poc`.
 - **Research question** — write a one-paragraph brief (question, why it
   matters, what kind of answer helps) to `docs/research/<name>/brief.md`.
   Hand off to `research-orchestrator`.

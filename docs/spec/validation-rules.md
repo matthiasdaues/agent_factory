@@ -449,7 +449,7 @@ Feature trace: [value-first-onboarding-journey.feature](features/value-first-onb
 - **VFO-033:** First-task approval is affirmative and follows a preview of the goal, duration, artifacts, decisions, and cleanup.
 - **VFO-034:** A repository with `HEAD` uses a detached worktree from that commit. A repository without `HEAD` uses a plain sandbox.
 - **VFO-035:** The sandbox path is `.current-work/onboarding-spike/<session-id>/`. The first task creates no branch or commit.
-- **VFO-036:** Retention copies only separately confirmed artifacts to a named path under `docs/spikes/`.
+- **VFO-036:** Retention copies only separately confirmed artifacts to a named path under `poc/spikes/`.
 - **VFO-037:** Discard verifies sandbox removal. Production handoff requires separate approval and never promotes the sandbox.
 
 ## Ownership and drift reports (core artifact ownership, BR-056…BR-066)
