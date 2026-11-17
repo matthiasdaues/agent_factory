@@ -29,6 +29,7 @@ repos:
           --number "$@"; rc=$?; git add "$@" 2>/dev/null; exit $rc' --
         language: system
         types: [markdown]
+        exclude: ^(docs/spikes/|poc/)
         stages: [pre-commit, pre-merge-commit]
 
       # Verify that relative links between markdown files resolve.
@@ -44,7 +45,7 @@ repos:
           "$AF"/factory/scripts/link-check "$@"' --
         language: system
         types: [markdown]
-        exclude: ^(\.agent-factory/factory/|docs/~archive/|docs/spikes/)
+        exclude: ^(\.agent-factory/factory/|docs/~archive/|docs/spikes/|poc/)
 
       # Flag raw semicolons inside Mermaid code fences.
       # Mermaid silently swallows them, producing broken diagrams.
@@ -59,6 +60,7 @@ repos:
           "$AF"/factory/scripts/mermaid-lint "$@"' --
         language: system
         types: [markdown]
+        exclude: ^(docs/spikes/|poc/)
 
       # Validate Gherkin feature files and supplementary specs in
       # docs/spec/ — required sections, cross-references between
@@ -207,6 +209,7 @@ repos:
         entry: bash -c 'packages/factory/scripts/mdformat --number "$@"; rc=$?; git add "$@" 2>/dev/null; exit $rc' --
         language: system
         types: [markdown]
+        exclude: ^(docs/spikes/|poc/)
         stages: [pre-commit, pre-merge-commit]
 
       - id: link-check
@@ -214,7 +217,7 @@ repos:
         entry: packages/factory/scripts/link-check
         language: system
         types: [markdown]
-        exclude: ^(\.agent-factory/factory/|packages/factory/|docs/~archive/|docs/spikes/)
+        exclude: ^(\.agent-factory/factory/|packages/factory/|docs/~archive/|docs/spikes/|poc/)
 
       - id: spec-lint
         name: spec-lint (specification consistency & traceability)

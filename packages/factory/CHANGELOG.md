@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.8.1 — 2026-11-17
+
+This release gives proofs of concept one place and keeps the gates out of it.
+Kept spikes go to `poc/spikes/<name>/`, technical PoCs to `poc/<name>/`. Run
+`update-factory` to receive it.
+
+### Fixes
+
+- **One place for proofs of concept.** The two playbooks named no fixed
+  directory: [poc-spike](playbooks/poc-spike.md) suggested `spikes/` or
+  `poc/`, [technical-poc](playbooks/technical-poc.md) `poc/spike/<name>.md`
+  "or similar". Now poc-spike keeps a spike under `poc/spikes/<name>/`, and
+  technical-poc keeps its stories and code under `poc/<name>/`. The name
+  `spikes` is reserved for the spikes.
+- **The gates skip `poc/`.** A kept PoC is not maintained or gated, but the
+  mdformat hook still rewrote its Markdown, and mermaid-lint and link-check
+  still checked it. The hooks for mdformat, link-check, and mermaid-lint now
+  skip `poc/` and `docs/spikes/`, and so do gates 1, 4, and 5 of the
+  [validate](skills/validate/SKILL.md) skill. `docs/spikes/` stays exempt
+  because onboarding still writes retained artifacts there.
+
 ## 1.8.0 — 2026-11-17
 
 This release adds two things. A survey's concept histories are now checked by
