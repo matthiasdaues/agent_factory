@@ -1,0 +1,44 @@
+# Reader questions
+
+Answer each question from the proposal text alone.
+
+- Q01: When a human drives a run by hand, from which branch is each story branch cut?
+- Q02: When does `dispatch init` refuse to start a run because another run exists?
+- Q03: Which step sets a story's status to `done`, and when?
+- Q04: In a by-hand run, who runs the command that starts a story?
+- Q05: In a by-hand run, who runs `dispatch merge-story` to merge a story into the feature branch?
+- Q06: Which commands does the git guardrail refuse to agents because of this design, and in which runs?
+- Q07: Does the design rely on Claude Code's "ask" hook answer, which shows the human a command and waits for approval?
+- Q08: How is the git guardrail implemented across the five agent tools?
+- Q09: By default, how many developer-agent attempts does a story get when its gates fail?
+- Q10: In which file and under which keys are those attempt counts configured?
+- Q11: Two stories in one wave both use up their attempts on their own tier. Does the second story also get its escalated attempts?
+- Q12: A story merges into the feature branch, and then the full test suite fails. What happens to the branch and the story?
+- Q13: When may wave 2 of a run start, and what counts as a wave in a by-hand run?
+- Q14: When do the sessions that fix rows of a story's spec-feedback report run?
+- Q15: Who runs the gates in a by-hand run?
+- Q16: At a story merge, does the merge check reuse the coverage file from the earlier gate run?
+- Q17: At the gate rerun before a story merge, what happens to untracked files in the story's checkout?
+- Q18: Does an open minor finding block a story merge?
+- Q19: What is the file name of a story's code-review report?
+- Q20: A story cannot be fixed and goes back to the backlog. Which status does it get?
+- Q21: After a story returns to the backlog, which other stories of the run may still start?
+- Q22: A story in the run depends on a story that is not part of the run. How is that dependency checked?
+- Q23: Which story states let `dispatch close` and the check before the merge into `dev` pass, and which make them refuse?
+- Q24: A story is `failed`, and its root cause can be fixed. How does it continue?
+- Q25: Which ledger fields are dropped, and how does a check tell that a run is active?
+- Q26: How does the check before the merge into `dev` know that a finding from the end-of-feature review belongs to this run?
+- Q27: How is a blocking finding from the end-of-feature review or QA fixed inside the run?
+- Q28: What does `dispatch close` remove, and does it keep a tracked record of the run?
+- Q29: How are the old ledgers of this repository handled whose feature branch no longer exists?
+- Q30: Does the new vocabulary also rename code identifiers, such as the ledger field `invocation_branch` and the mode value `automated`?
+- Q31: A story's `quality-gates` field names one gate. Does it add to the gates that `docs/testing.yaml` enables, or replace them?
+- Q32: Who merges a finished feature branch into `dev`?
+- Q33: Which work must be finished inside the run before the merge into `dev`, and what runs only after it?
+- Q34: After a run is closed, what is left for the human to handle?
+- Q35: In a by-hand run, what is the safeguard against an agent that merges a story too early?
+- Q36: What extra cost does the gate rerun at each story merge bring?
+- Q37: Does the first release build the security scanner pre-commit hook and its configuration?
+- Q38: What is the effort estimate for building this proposal?
+- Q39: In a by-hand run, is there a rule that keeps the human's own unrelated untracked files in the primary checkout out of the merge-check stash?
+- Q40: If the backlog later lives in Jira, how does returning a story reach Jira?

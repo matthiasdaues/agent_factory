@@ -1,0 +1,103 @@
+---
+name: draft-proposal
+description: >-
+  Crystallize an explored idea into a decision-complete feature proposal.
+  Called by VIRGIL (or directly) once the shape of a feature is clear.
+  Runs in the current session with the stakeholder present.
+category: requirements
+version: 0.4.0
+---
+
+# Draft Proposal
+
+Crystallization skill for `docs/proposals/<name>.md`. Takes an idea that
+already has shape — from a VIRGIL conversation, a grilling session, or
+the stakeholder's own notes — and pours it into the proposal template.
+
+This skill does not explore. If the idea is still forming, stay in the
+conversation that is forming it. Come here when you are ready to write
+things down.
+
+**Runs in the orchestrating session, never as a spawned subagent.** The
+stakeholder must be present to confirm what gets written.
+
+Read [factory-voice.md](../../rulebooks/conventions/factory-voice.md) now and hold every rule as a writing constraint. No prose reaches terminal output or a file until it passes all four gates and clears the final pass.
+
+## Procedure
+
+1. **Create** `docs/proposals/<name>.md` from the
+   [proposal template](../../rulebooks/templates/proposal.md). Pick a name
+   that a teammate would recognize without context — the slug, not a ticket
+   number.
+
+2. **Fill from conversation.** Walk the template not as an interview but as
+   a transcription — most sections already have answers from the preceding
+   conversation. Write them down. Where the conversation covered something
+   the template does not ask for, put it in Design Details. Where the
+   template asks for something the conversation did not cover, surface it
+   now as a question.
+
+3. **Frontmatter.** Fill `impact`, `governance`, and `estimate` from what
+   the conversation revealed. Use `unknown` rather than inventing
+   precision. Set `status: draft`.
+
+   Keep the two parts of the template apart. The proposal states the design
+   in the present tense. Each decision taken in the conversation gets a row
+   in the Appendix Decisions table, not a date or stamp in the text.
+
+4. **Sharpen.** Invoke `grilling` with the proposal as target to
+   pressure-test the written version. The grilling skill amends the
+   proposal in place as decisions settle.
+
+5. **Primer.** Spawn a fresh subagent with the
+   [write-primer](../write-primer/SKILL.md) skill and the proposal path. It
+   returns the primer; write it into the `## Primer` section below the
+   title, replacing any earlier one. The design is settled after the
+   grilling, and the lector changes wording, not meaning, so the primer
+   comes before the prose pass.
+
+6. **Prose.** Spawn the `lector-agent` in a fresh session for the whole
+   proposal, primer included: first the structural pass, whose plan the
+   stakeholder approves, then the sentence pass. The structural pass reads
+   the primer next to the Summary, so it can catch a Summary that retells
+   the primer. The author cannot see the faults in their own text, and the
+   review agents do not read for prose. Run it again after each round of
+   review fixes, before the proposal is accepted.
+
+7. **Gate.** Before setting `status: open`:
+
+   - Every section is filled or carries an explicit "does not apply because
+     …" note. No blank sections, no `TODO`.
+   - Completion Criteria are statements a reviewer could check without
+     asking the author what they meant.
+   - Scope lists are padding-resistant: "In" items trace to Completion
+     Criteria, "Deferred" items say why they are deferred.
+   - Open Questions are genuine — each must become a story acceptance
+     criterion, a recorded assumption, or an explicit deferral. Padding
+     gets removed, not resolved.
+   - Open Questions holds only open items. Every decision and assumption
+     has a row in the Appendix Decisions table, and the proposal part
+     carries no dates or "Decision:" stamps.
+   - The Primer section describes the proposal as it now stands. If the
+     gate changed the design, run steps 5 and 6 again. Write the primer
+     after the last change to the design.
+
+8. **Transition.** Set `status: open`, update `updated:`, commit.
+
+## Validation
+
+Run `.agent-factory/factory/scripts/mdformat --number docs/proposals/<name>.md` before
+committing.
+
+No dedicated lint script exists for proposals yet. The gate in Step 7 is
+manual.
+
+## Quality gate
+
+Compose every section with the factory voice active during readiness assessment. This gate assesses readiness only. The proposal lifecycle determines who may change its status.
+
+## Completion
+
+A single file at `docs/proposals/<name>.md` with `status: open`, every
+section filled or explicitly inapplicable, and `mdformat` clean. Ready for
+the proposal review agent.

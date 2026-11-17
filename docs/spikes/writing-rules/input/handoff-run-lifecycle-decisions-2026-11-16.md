@@ -1,0 +1,102 @@
+# Dispatch process: decisions so far (2026-11-15)
+
+1. A run driven by hand has the same frame as an orchestrated run: feature branch, ledger,
+   story branches cut from the feature branch, merge of each story into the feature branch
+   through premerge-check, and a defined end. The ways differ only in who starts a story,
+   whether stories run in parallel, and who merges a story. The human driving by hand
+   needs thorough guidance (stakeholder's words: "We would have to provide the user with
+   thorough guidance, but yes").
+   Consequence for story-workflow.md: stories by hand start from the feature branch, not dev.
+
+Inventory of the current process: subagent report in this session (lifecycle, state table,
+15 contradictions, gaps, terms). Key gaps: no end of a run; nobody owns the feature-to-dev
+merge; by hand has no merge step; docs and code disagree on ledger fields, who sets done,
+gate cap, who runs gates, red-suite handling, plan side effects.
+
+02. The human merges the feature branch into dev on both ways, after a check command passes (every story done, every wave closed, end-of-feature review ran with no open finding, full test suite passes). The agent's work ends at the feature branch.
+03. dispatch close removes everything of the run: ledger, worktrees, gate results, markers, briefs; deletes merged branches with `git branch -d`. No tracked run record; git history and story files hold the outcome.
+04. A run closes only when each story is done or returned to the backlog by the human (story file back to pending on the feature branch). A dropped feature: the human says so, every unfinished story returns to the backlog. dispatch close lists unmerged branches; the human deletes them (force delete is human-only).
+05. One run per feature branch. Each run has its ledger under .current-work/<branch>/; every "is a run active?" check reads only the ledger of the branch it works on. Runs by hand need the primary checkout, so one by-hand run at a time; orchestrated runs work in their own worktrees.
+06. The merge sets done, on both ways. dispatch merge-story writes done into the merge commit (as code does today). By hand, the human merges with dispatch merge-story, not git merge. The developer agent never sets done. done means merged into the feature branch. Drift-row rule stays at wave close.
+07. Gate fix cap, both ways: 3 rounds on the story's tier, then 3 with a stronger model, then failed (6 attempts max). The counts are configurable, 3+3 is the default. Later settled: `gates.fix_rounds` and `gates.fix_rounds_escalated` in `docs/testing.yaml` (0 escalated = no escalation). ADR-0012 changes to match. failed (gates not fixable) and blocked (conflict, red tests after merge) keep their names but are handled the same way: the human fixes or returns the story.
+08. Red tests after a story merge: the script moves the feature branch back to the commit before the merge (as code does); the story is blocked. The spec's "revert the merge commit" changes to match. Reason: feature branch is local; a revert would make a later re-merge bring in nothing.
+09. Wave N+1 starts only after dispatch close-wave N succeeded (ADR-0029); code changes to match. By hand, each story is a wave of its own, closed after each story — this reproduces today's by-hand drift rule.
+10. The implementation agent runs the gates on both ways (ADR-0012), starts fresh developer agents on failure, counts fix rounds. By hand it works in the primary checkout and reports to the human after each story. The developer agent never runs gate scripts (pre-commit hooks still give early feedback). The human keeps the person decisions: when to merge, what to do with a stopped story. developer-agent.md and the rules line on by-hand gate decisions change to match.
+11. Where a document and the code disagree with no design question behind it, the document changes to match the code (plan writes waves; test command from docs/testing.yaml; merge-story syncs installed copy; branch root = feature branch tip at init; ia:303 handoff line is stale, the playbook order holds).
+12. Inside one run, with their fix loops (stakeholder's words): "Development -> Test -> Code Review -> CRAP -> Mutation Testing -> QA". Reconciliation runs on dev after the merge, one feature at a time, outside the run (it edits shared docs; parallel runs would conflict). The dev-merge check requires the in-run steps finished with no open finding.
+13. Split: per story (story branch, before its merge): development with TDD, tests, code review of the story diff, crap-score, mutation testing, security scan. Per feature (feature branch, after the last wave closes): end-of-feature code review (stays), then QA; QA fixes run as stories. Mutation may move to feature level if the mutation-gate trial shows it is too slow per story.
+14. Security per story is a deterministic scanner gate: pre-commit hook on every commit, rerun at the merge like the other gates. Configurable per project and need (stakeholder's words: "the security scanning should be configurable per project and need"). A setup skill picks tools per language (e.g. Bandit/Semgrep, Gitleaks) in a separate proposal like crap-gate-setup.md. OWASP review stays in QA at feature level.
+15. Drift sessions run at wave close, not after each merge: close-wave starts owners and reviewers for all reports of the wave, waits for their commits, checks no row is open. By hand each story is a wave, so rows are handled after each story. ADR-0029 changes (no merge-story wait). (Stakeholder typed "BZ", read as B.)
+16. Every ledger field has a command that reads it. Drop gate_results (gates rerun), closed (ledger existence = run active), and the rules' audit requirement (ledger deleted at close). Wave records stay (prepare-wave reads them). dispatch-contract describes exactly the fields the code writes, under the code's names. Checked: after a merge, commit_sha holds the merge commit and prepare-story reads it as the base of a serial link; verify-story's scope check reads the story commit before the merge; merge resume uses the branch tip. So no reader needs the story's own commit after the merge.
+17. By hand, the implementation agent stops at each person decision (before a story starts, before it merges, when a story stops, before the dev merge), shows premerge-check output, findings with status, branch head, and prints the exact command. The human runs it (with ! in Claude Code, or in their own terminal). The agent then reads the ledger to confirm the step happened and carries on. The dev merge: the agent runs the check command and shows the result; the human runs git merge.
+18. The ledger records the mode (orchestrated | by-hand). In a by-hand run the git guardrail DENIES agents the person commands (dispatch merge-story, dispatch prepare-story, returning a story to the backlog). Must work for every supported agent tool (stakeholder: "This must either work for all CLIs or we must design it differently"), so no reliance on Claude Code's "ask". The git guardrail is installed for Claude Code, Codex, Copilot, pi; OpenCode gets only guard-human-fields today, so OpenCode gets the git guardrail as part of this work.
+19. Vocabulary: run (init to close for one feature branch); orchestrated; by hand; feature branch (cut from dev, replaces invocation branch); story branch (story/<story-id>, cut from the feature branch); gate-check step; spawn (one agent start); spec-feedback report; primary checkout. "dispatch" names only the script. Ledger mode values: orchestrated, by-hand.
+20. Leftovers: dispatch close also works on old runs; each leftover run closes with the same command (ST-0344 must be returned to the backlog first). dispatch close --orphans lists worktrees and branches without a ledger, removes worktrees whose branch is merged, leaves unmerged ones for the human. No one-time migration script.
+
+# Review of run-lifecycle.md, pass 1 (2026-11-16)
+
+Proposal-review-agent, adversarial, at commit bb71767817d75a4f8ad1fed7b8a3eabc3d3621a5. Result: 7 major, 9 minor, 3 note. None fixed yet. The stakeholder decides each point; next step is the majors one at a time, starting with 1.
+
+Checks: 01 criteria testable fail (2, 6, 7); 02 scope sharp fail (5); 03 decomposable fail (1, 3, 4, 14); 04 impact pass; 05 boundaries exist pass (16 lists missing ones); 06 open questions genuine fail (1-7 are open decisions; FC-QG24, the unchecked OpenCode plugin format, is open); 07 motivation pass (6 ledgers, 13 worktrees, 36,109 files, `closed` never set: verified); 08 estimate pass.
+
+Spot-checked by the main session and confirmed: the pi guard reads `docs/charter/testing.yaml`; all five ledgers under `.current-work/feature/` carry `mode: automated`; the branches of brownfield-onboarding, core-artifact-layout and bug-hunt-fixes are gone; `init-factory` `DEFAULT_CLIS` leaves out opencode; the shell guardrail refuses branch creation without a worktree in every session today.
+
+## Major findings, with the main session's recommendation
+
+1. The git guardrail and Guidance by hand. The by-hand set refuses only four `dispatch` command texts; other routes stay open. `premerge-check` writes the `premerge-check-ok` marker on a pass, so an agent can run it and then `git merge` itself. The proposal moves three always-on rules (branch creation only with a worktree, worktrees under `.current-work/`, `verify-base-ok` for worktree commits) into the orchestrated set. The ST-0214 check (ledger before a commit on a story branch) is in no set. An agent can edit `mode` in the ledger with its edit tool. Command-text matching misses `python3 .../dispatch merge-story` or `bash -c` (the DEC-42 blind spot). In an orchestrated run nothing refuses the agent `return-story` or the dev merge. Failure case: by hand, agent runs `dispatch merge-story ST-0350 --dry-run`, the check passes, then `git merge story/ST-0350` is allowed.
+   Recommendation: by hand, the guardrail also refuses agents `git merge` and every branch creation; `guard-human-fields` refuses agent edits to ledgers; `premerge-check` writes its marker only when `dispatch merge-story` calls it; the three worktree rules stay in the always set.
+2. "The git guardrail" is several programs. pi runs its own TypeScript copy, `config/extensions/block-dangerous-git.ts`, which has drifted (reads only `docs/charter/testing.yaml`, no ST-0214 check). The OpenCode plugin `config/plugins/agent-factory.ts` holds only guard-human-fields; its hook name `execute.before` and call format never ran in a real OpenCode session (FC-QG24). `init-factory` wires OpenCode only on request. The proposal does not say where the mode-aware logic lives. Failure case: Claude Code, Codex, Copilot refuse `dispatch merge-story`, pi allows it; the OpenCode test passes against a mock but never fires.
+   Recommendation: one script that all five tools call, as guard-human-fields works; pi's copy becomes a thin wrapper; a completion criterion checks OpenCode against a real session.
+3. The lifecycle is not mapped onto the existing ledger state machine and subcommands. `merge-story` requires `status: dispatched`; by hand nobody runs `mark-dispatching`/`mark-dispatched`. Unplaced subcommands: `verify-story`, `mark-failed`, `mark-blocked`, `re-dispatch`, `escalate`, `mark-done`, `refresh-story`. `re-dispatch` already returns a story to prepared, beside the new `return-story`. `VALID_TRANSITIONS` has no returned state, so close and the dev check cannot tell returned from never started. `init` requires `--stories` and creates a worktree at `.current-work/<fb>/invocation`; by hand this collides with checking out the feature branch in the primary checkout. `init` refuses while any non-terminal ledger exists anywhere, which contradicts parallel runs; not listed as a change.
+   Recommendation: new ledger state `returned`, reachable from `failed` and `blocked`; `return-story` replaces `re-dispatch`; a table placing each existing command on both ways; by hand, `init` declares no stories up front and creates no feature-branch worktree; `init` refuses only per branch.
+4. The feature merge check cannot find "blocking findings filed by those reports": no field links a finding file to its report, and a feature-level finding has an empty `story`. Feature findings are "fixed as stories of a new wave", but no author is named for those story files, and the ledger's story list is fixed at `init --stories`. Failure case: an unrelated open FAGAN finding on dev blocks the feature merge, or a feature-level finding is missed.
+   Recommendation: a finding filed at the feature level carries a new field `run` with the feature branch; the planning agent writes fix stories; `dispatch` adds them to the ledger.
+5. The security hook and scanner gate are in scope, but depend on "a scanner that docs/testing.yaml enables", whose key, command field and default are undefined; the setup skill is deferred. In and Deferred do not partition.
+   Recommendation: defer the scanner hook and gate together with the setup proposal; this proposal only reserves the gate's place in the run.
+6. Old runs: three of six ledgers have no branch left (brownfield-onboarding, core-artifact-layout, bug-hunt-fixes), so `dispatch close` cannot check "merged into dev". All ledgers carry `mode: automated` and `closed: false`, with no defined reading. The nested ledger `.current-work/feature/counter-ids-fitting/.current-work/feature/counter-ids-fitting/dispatch-ledger.yaml` is not found by a lookup by branch. No completion criterion covers an old run. `--drop` does not fit bug-hunt-fixes (14 stories done).
+   Recommendation: `dispatch close` treats a ledger whose branch is gone and whose stories are all done as finished; reads `automated` as `orchestrated`; finds the nested ledger; add a completion criterion for old runs.
+7. The vocabulary criterion "No Factory document uses the terms…" has no boundary. 46 files under `packages/factory`, `docs/spec`, `docs/arc42` use old terms, including accepted ADRs, superseded proposals, file names (`docs/spec/areas/mechanized-dispatch.md`) and code identifiers (`invocation_branch`, `_main_checkout.py`, mode value `"automated"`, "invocation branch" error messages).
+   Recommendation: limit to living documents under `packages/factory/` and `docs/spec/`; accepted ADRs, superseded proposals, file names and code identifiers stay.
+
+## Minor findings
+
+08. Motivation and Fix rounds: "ADR-0012 allows three, the agent six" does not hold; ADR-0012 line 106 also allows six spawns with escalation. Real mismatches: ADR-0012 marks the story `blocked`, the agent `failed`; the agent counts the original implementation as iteration 1 of 3. `gates.fix_rounds: 3` leaves open whether the original counts, and whether escalation still needs the six evidence conditions of `dispatch escalate`.
+09. Wave close: today QA findings route by owner (implementation-agent.md:137-141), e.g. `owner: planning-agent` waits for a story; the proposal sends all to the test-strategy agent. The implementation agent files QA findings, not a gate. Not listed under Documents that change.
+10. The gates: the story's `quality-gates` field replaces the testing.yaml pick in `premerge-check` (`_picked_guardrails`) and accepts only `crap-score` and `mutation-testing`; the proposal says it "can add a gate".
+11. Documents that change: `merge-story` copies `packages/factory` into `.agent-factory/factory` (dispatch:1954-1962). With several runs, every session's guardrail and scripts become the code of the run that merged last. Factory repository only.
+12. Checks at the merge: by hand, `git stash push --include-untracked` sweeps the human's unrelated untracked files (15 paths here, including `poc/findings-board/` and draft proposals) on every merge; if `pop` fails they stay in the stash. Touches the stakeholder's stash decision.
+13. Wave close: "close-wave has the implementation agent spawn the owner" gives a script an agent's action; how often the agent runs `close-wave`, what the first run prints, and who runs it by hand after each story are unstated.
+14. Terms: the glossary already uses "playbook run" (`docs/spec/glossary.md:148`); the proposal's "run" is narrower; the glossary is not a boundary.
+15. Hooks: `dependency-check` starts with `#!/usr/bin/env -S uv run --script`, so a project without `uv` fails the hook; "when a commit stages a source file" is undefined; the skip without a DSL file changes today's non-zero exit and is not named as a change.
+16. Missing boundaries: `config/hooks/guard-human-fields`, `config/hooks/block-dangerous-git.json`, `docs/spec/glossary.md`, `docs/spec/state-machines.md`, `scripts/verify-base`, and the gate scripts premerge-check will run (`crap-score`, `mutation-testing`, `test-design-verify`).
+
+## Notes
+
+17. The example CRAP 42 against threshold 30 disagrees with this project's threshold of 8 (disabled) in `docs/testing.yaml`.
+18. The estimate is all `unknown` on an elevated proposal with 30 boundaries and five tools; a rough figure or a split (guardrail per tool, cleanup of old runs) would help.
+19. After the change, result files `.current-work/<gate>/<story>.json` keep a reader only for `mutation-testing`, but the gate scripts still write the others on every commit.
+
+Claims the reviewer checked and found true: `merge-story` sets `status: done` in the merge commit; it moves the branch back after a red suite with a hard reset; no code sets `closed`; OpenCode has no git guardrail; register files require `story`; report-format.md defines `story` and `branch_head`; `dependency-check` reads Python imports only; `!` commands in Claude Code run outside the tool hooks.
+
+## Resume point (2026-11-17)
+
+Majors 1 and 2 are decided and applied to `docs/proposals/run-lifecycle.md` (uncommitted). Primer is at 500 words.
+
+1. Decided: smaller set than recommended. Stakeholder's reason: "If I run it by hand, I'm there to watch what's happening." By hand relies on the person watching. The guardrail has one set for every session: the old Always checks, the three worktree rules (kept there, as today), and a new refusal of `dispatch return-story` and `dispatch close --drop`, because both destroy work. No by-hand refusal set, no marker rule, no ledger edit guard, no matching the subcommand anywhere. `mode` is read by `dispatch` and the implementation agent, not the guardrail.
+2. Decided as recommended: all five tools call `config/hooks/block-dangerous-git.sh`; pi's `block-dangerous-git.ts` becomes a thin wrapper like `guard-human-fields.ts`; OpenCode's plugin calls the same script. Completion criteria check the wrapper and a real OpenCode session.
+
+Major 3 is in progress, nothing written yet. Settled so far:
+
+- No new ledger state. A failed or blocked story waits for the human. If the root cause can be fixed, the human fixes it and prompts the agent to continue; the agent runs `re-dispatch` and the story carries on in the same run. If it cannot be fixed, `return-story` sets it back to `pending`, in the ledger and in its story file.
+- Stakeholder: "All runs depending on this story MUST NOT be dispatched. Only work that is independent of this story can continue."
+
+Checked in code: `prepare-wave` already skips a story whose dependency is not `done` (`dispatch:1005`), but ignores a dependency that is not in the ledger (`dispatch:1008`). `prepare-story` checks only the first dependency (`dispatch:1174`).
+
+Open question put to the stakeholder, unanswered:
+
+- `return-story` sets the story to `pending`; the ledger gains `failed -> pending` and `blocked -> pending`.
+- A story starts only when every dependency is `done`; `prepare-wave` and `prepare-story` check every dependency and treat one outside the ledger as not done.
+- Independent stories continue.
+- At the end of the run, returned stories and the stories waiting on them are `pending`; `close` and the feature merge check accept them, and they stay in the backlog.
+
+Still to decide inside major 3: a table placing each existing `dispatch` subcommand on both ways (`mark-dispatching`, `mark-dispatched`, `verify-story`, `mark-failed`, `mark-blocked`, `re-dispatch`, `escalate`, `mark-done`, `refresh-story`; `merge-story` needs `dispatched`, which nobody sets by hand); by hand, `init` without `--stories` up front and without the feature-branch worktree; `init` refusing only per branch. Then majors 4 to 7, minors 8 to 16, notes 17 to 19, the lector pass, and review pass 2.

@@ -51,7 +51,7 @@ repos:
           "$AF"/factory/scripts/link-check "$@"' --
         language: system
         types: [markdown]
-        exclude: ^(\.agent-factory/factory/|docs/~archive/)
+        exclude: ^(\.agent-factory/factory/|docs/~archive/|docs/spikes/)
 
       # Flag raw semicolons inside Mermaid code fences.
       # Mermaid silently swallows them, producing broken diagrams.
