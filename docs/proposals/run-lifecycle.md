@@ -277,7 +277,7 @@ The findings are committed on the story branch. Their IDs come from the central 
 
 A blocking finding from the feature checks runs like a story. `dispatch add BUG-0090` adds the open finding to the ledger, in a new wave of the same run. It runs through the [story workflow](#the-story-workflow) on the branch `story/BUG-0090`, with a regression test for the fix. `dispatch merge-story` sets `status: resolved` in the finding file in the merge commit, as it sets `done` for a story. The finding's `artifact` serves the overlap planning in place of a story's file list. A finding has no dependencies and no model tier, so it runs on the default tier.
 
-A finding has no story file, so `dispatch` reads `backlog/<id>.md` only for a story. When a finding stops as `failed` or `blocked` and its cause cannot be fixed, `dispatch return-story BUG-0090` sets only its ledger entry to `pending`. The finding file stays `status: open`. It still carries `run: feature/login`, so it still blocks the feature merge: returning a finding does not change what it found. The human then fixes the cause and adds the finding again with `dispatch add`, waives the finding, or drops the run.
+A finding has no story file, so `dispatch` reads `backlog/<id>.md` only for a story. When a finding stops as `failed` or `blocked` and its cause cannot be fixed, `dispatch return-story BUG-0090` sets only its ledger entry to `pending`. The finding file stays `status: open`. It still carries `run: feature/login`, so it still blocks the feature merge: returning a finding does not change what it found. The human then fixes the cause and adds the finding again with `dispatch add`, waives the finding, or drops the run. `dispatch add` on an ID that the ledger holds as `pending` reuses that entry: it puts the entry into a new wave and resets its attempts to the first attempt on the default tier. The branch `story/BUG-0090` stays, so the new attempt builds on the earlier work, as `re-dispatch` does. `dispatch add` refuses an ID that the ledger holds in any other state, and names that state.
 
 The implementation agent files a `QA` finding when the gate-check step cannot resolve something, such as a surviving mutant. At the wave close, it routes the open `QA` findings of the wave by their `owner` field. A finding with `owner: test-strategy-agent` goes to the test-strategy agent. A finding with `owner: planning-agent` needs a missing test. The implementation agent adds it as a unit of work with `dispatch add QA-0012`, so it runs in the next wave with a test that kills the mutant.
 
@@ -462,6 +462,7 @@ None.
 - When the test suite fails after a story merge, the feature branch is back at the commit before the merge, and the story is `blocked`.
 - `dispatch return-story` sets a `failed` or `blocked` story to `pending`, in the ledger and in the backlog.
 - `dispatch return-story BUG-0090` sets the finding's ledger entry to `pending`, leaves the finding file at `status: open`, and reads no `backlog/BUG-0090.md`. `premerge-check dev feature/login` then still refuses.
+- After `dispatch return-story BUG-0090`, `dispatch add BUG-0090` puts the same ledger entry into a new wave with its attempts reset, and the next attempt runs on the existing branch `story/BUG-0090`. `dispatch add` refuses an ID that the ledger holds as `dispatched`, and names that state.
 - `dispatch init` refuses a story whose dependency outside the run is not done in the backlog, and names the dependency.
 - After ST-0350 is returned, `dispatch prepare-wave` and `dispatch prepare-story` refuse a story that depends on ST-0350, directly or through another story, and start a story that does not.
 - `dispatch prepare-story` refuses a story whose second dependency inside the run is not `done`.
@@ -475,7 +476,9 @@ None.
 - `dispatch close --orphans` removes a worktree whose branch is merged and lists a worktree whose branch is not.
 - `dispatch close --orphans` removes a ledger whose feature branch is gone and whose stories are all `done`, also when the ledger is nested inside a worktree, and lists a ledger whose branch is gone and which holds a story that is not `done`.
 - After `dispatch close --orphans` in this repository, the only ledger without a branch left is the one it listed, of `core-artifact-layout`.
-- A commit that breaks a rule of `dependency-rules.dsl` fails in the `dependency-check` hook. In a project without that file, the hook passes with a notice, also when `uv` is not installed. Called directly without the file, `dependency-check` still exits with 2.
+- A commit that breaks a rule of `dependency-rules.dsl` fails in the `dependency-check` hook.
+- Fitting a project without `dependency-rules.dsl` leaves the `dependency-check` hook out of its generated configuration.
+- In a project whose `dependency-rules.dsl` is removed after fitting, the installed hook passes with a notice, also when `uv` is not installed. Called directly without the file, `dependency-check` still exits with 2.
 - `hook-metadata.yaml` has an entry for `agent_factory_hook-dependency-check`, and `test_every_hook_has_metadata` passes.
 - The ledger has no `gate_results` and no `closed` field, has `feature_branch` in place of `invocation_branch` and `mode: orchestrated` in place of `mode: automated`, and the dispatch contract lists exactly the fields the code writes.
 - `dispatch merge-story` leaves `.agent-factory/factory` unchanged, and the test suite of this repository passes without reading this repository's installed copy.
