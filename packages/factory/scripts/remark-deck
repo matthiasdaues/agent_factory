@@ -1,0 +1,239 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+"""remark-deck — create, check and build a remark.js deck on a monospace grid.
+
+What: `new DIR` copies the remark-grid theme into DIR and writes a starter
+      slides.txt. `check DIR` checks DIR/slides.txt against the grid. `build DIR`
+      checks, then writes DIR/<date>_<topic>.html. The page runs offline.
+When: When someone wants a presentation deck in the monospace grid look.
+By:   the User, or an agent through the remark-grid-deck skill.
+
+slides.txt may start with header lines "% title:", "% topic:", "% date:" and
+"% lang:". The date defaults to today, the topic to the title as a slug.
+The checks are the same ones the page runs in the browser.
+
+Exit codes:
+  0  done; for check and build, no problem found
+  1  the grid check found a problem; build writes no page
+  2  a precondition failed: slides.txt exists on new, slides.txt is missing on
+     check or build, or the date header is not YYYY-MM-DD
+"""
+import argparse
+import datetime
+import html as htmllib
+import re
+import shutil
+import sys
+from pathlib import Path
+
+FACTORY = Path(__file__).resolve().parent.parent
+ASSETS = FACTORY / "themes" / "remark-grid"
+SAMPLE = FACTORY / "skills" / "remark-grid-deck" / "examples" / "sample.txt"
+GRID_OPEN = re.compile(r"^```grid(?:\s+(\d+)x(\d+))?$")
+MARKERS = ["**", "~~", "__", "!!", "%%"]
+MARKER_RE = re.compile(r"\*\*|~~|__|!!|%%")
+DIRECTIVE = re.compile(r"^@(\w+)\s*(.*)$")
+DEFAULT = (62, 14)
+
+STARTER = """```grid 40x10
+
+
+
+   **{title_upper}**
+```
+---
+```grid
+  **FIRST SLIDE**
+
+  One source line is one grid row.
+```
+"""
+
+
+def read_source(d):
+    if not (d / "slides.txt").is_file():
+        print(f"{d / 'slides.txt'} not found; run `remark-deck new {d}` first", file=sys.stderr)
+        sys.exit(2)
+    text = (d / "slides.txt").read_text(encoding="utf-8")
+    meta, body = {"title": d.name, "lang": "en"}, []
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines) and re.match(r"^%\s*(\w+):", lines[i]):
+        k, v = re.match(r"^%\s*(\w+):\s*(.*)$", lines[i]).groups()
+        meta[k] = v.strip()
+        i += 1
+    body = "\n".join(lines[i:]).strip("\n")
+    meta.setdefault("topic", slug(meta["title"]))
+    meta.setdefault("date", datetime.date.today().isoformat())
+    meta["topic"] = slug(meta["topic"])
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", meta["date"]):
+        print(f"% date: {meta['date']} is not YYYY-MM-DD", file=sys.stderr)
+        sys.exit(2)
+    return meta, body
+
+
+def slug(text):
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "deck"
+
+
+def page_name(meta):
+    return f"{meta['date']}_{meta['topic']}.html"
+
+
+def split_slides(src):
+    slides, cur, in_grid = [], [], False
+    for line in src.split("\n"):
+        t = line.strip()
+        if not in_grid and GRID_OPEN.match(t):
+            in_grid = True
+        elif in_grid and t == "```":
+            in_grid = False
+        if not in_grid and t == "---":
+            slides.append(cur)
+            cur = []
+            continue
+        cur.append(line)
+    slides.append(cur)
+    return slides
+
+
+def check_slide(lines, d):
+    errs, rows = [], []
+    cols, nrows = DEFAULT
+    in_grid = in_notes = False
+    for line in lines:
+        if in_notes:
+            continue
+        if in_grid:
+            if line.strip() == "```":
+                in_grid = False
+            else:
+                rows.append(line)
+            continue
+        g = GRID_OPEN.match(line.strip())
+        if g:
+            in_grid = True
+            if g.group(1):
+                cols, nrows = int(g.group(1)), int(g.group(2))
+                if cols < 1 or nrows < 1:
+                    errs.append(f"grid size {cols}x{nrows} is not valid")
+            continue
+        if line.strip() == "???":
+            in_notes = True
+            continue
+        m = DIRECTIVE.match(line)
+        if not m:
+            continue
+        name, args = m.group(1), m.group(2).split()
+        if name == "footer":
+            if not args:
+                errs.append("@footer needs its text")
+            continue
+        if name not in ("img", "blank", "cross"):
+            errs.append(f"unknown directive {line}")
+            continue
+        if name == "img":
+            if not args:
+                errs.append("@img needs PATH COL ROW W H")
+                continue
+            path, args = args[0], args[1:]
+            if len(args) == 5:
+                if args[4] != "cover":
+                    errs.append(f"@img: unknown option {args[4]}")
+                args = args[:4]
+            if not re.match(r"^[a-z]+:", path) and not (d / path).exists():
+                errs.append(f"@img: file not found {path}")
+        if len(args) != 4 or not all(a.isdigit() for a in args):
+            errs.append(f"@{name}: needs four whole numbers COL ROW W H ({line})")
+            continue
+        c, r, w, h = map(int, args)
+        if c + w > cols or r + h > nrows:
+            errs.append(f"@{name} leaves the grid: cols {c}-{c + w - 1}, rows {r}-{r + h - 1}")
+    if in_grid:
+        errs.append("grid block is not closed")
+    while rows and not rows[-1].strip():
+        rows.pop()
+    if len(rows) > nrows:
+        errs.append(f"{len(rows)} rows, the grid has {nrows}")
+    for i, raw in enumerate(rows):
+        w = len(MARKER_RE.sub("", raw).rstrip())
+        if w > cols:
+            errs.append(f"row {i} is {w} columns wide, the grid has {cols}")
+        if "\t" in raw:
+            errs.append(f"row {i} contains a tab; use spaces")
+        for mk in MARKERS:
+            if raw.count(mk) % 2:
+                errs.append(f"row {i}: unpaired {mk}")
+    return errs
+
+
+def check(d):
+    meta, body = read_source(d)
+    problems = 0
+    if "</script" in body.lower():
+        print("slides.txt contains </script>; that would end the deck source early")
+        problems += 1
+    slides = split_slides(body)
+    for n, lines in enumerate(slides, 1):
+        for e in check_slide(lines, d):
+            print(f"slide {n}: {e}")
+            problems += 1
+    print(f"{len(slides)} slides, {problems} problems")
+    return meta, body, problems
+
+
+def build(d):
+    meta, body, problems = check(d)
+    if problems:
+        sys.exit(1)
+    html = (ASSETS / "template.html").read_text(encoding="utf-8")
+    html = html.replace("%%TITLE%%", htmllib.escape(meta["title"])).replace("%%LANG%%", htmllib.escape(meta["lang"]))
+    html = html.replace("%%DECK%%", body)
+    out = d / page_name(meta)
+    out.write_text(html, encoding="utf-8")
+    print(f"wrote {out}")
+
+
+def new(d, title, topic, lang, sample):
+    if (d / "slides.txt").exists():
+        print(f"{d / 'slides.txt'} exists; new does not overwrite a deck", file=sys.stderr)
+        sys.exit(2)
+    d.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(ASSETS / "fonts", d / "fonts", dirs_exist_ok=True)
+    shutil.copytree(ASSETS / "media", d / "media", dirs_exist_ok=True)
+    shutil.copytree(ASSETS / "licenses", d / "licenses", dirs_exist_ok=True)
+    shutil.copy(ASSETS / "remark.min.js", d / "remark.min.js")
+    head = (f"% title: {title}\n% topic: {slug(topic or title)}\n"
+            f"% date: {datetime.date.today().isoformat()}\n% lang: {lang}\n")
+    if sample:
+        src = head + SAMPLE.read_text(encoding="utf-8")
+    else:
+        src = head + STARTER.format(title_upper=title.upper())
+    (d / "slides.txt").write_text(src, encoding="utf-8")
+    build(d)
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    n = sub.add_parser("new")
+    n.add_argument("dir", type=Path)
+    n.add_argument("--title", default="Presentation")
+    n.add_argument("--topic", help="slug for the file name; defaults to the title")
+    n.add_argument("--lang", default="en")
+    n.add_argument("--sample", action="store_true", help="start from the ten sample slides")
+    for name in ("check", "build"):
+        sub.add_parser(name).add_argument("dir", type=Path)
+    a = p.parse_args()
+    if a.cmd == "new":
+        new(a.dir, a.title, a.topic, a.lang, a.sample)
+    elif a.cmd == "check":
+        sys.exit(1 if check(a.dir)[2] else 0)
+    else:
+        build(a.dir)
+
+
+if __name__ == "__main__":
+    main()

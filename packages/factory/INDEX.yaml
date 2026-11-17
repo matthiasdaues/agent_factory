@@ -515,8 +515,8 @@ agents:
     tier: standard
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
-    tokens: 1276
-    total_tokens: 8917
+    tokens: 1364
+    total_tokens: 9005
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -525,6 +525,8 @@ agents:
         - .agent-factory/factory/rulebooks/conventions/research-role-separation.md
         - .agent-factory/factory/rulebooks/conventions/research-claim-admission-policy.md
         - .agent-factory/factory/rulebooks/schemas/research-*.schema.json
+        - .agent-factory/factory/scripts/source-record-check
+        - .agent-factory/factory/scripts/concept-history-check
     outputs:
       minimum_changed: 1
       declarations:
@@ -551,8 +553,8 @@ agents:
     tier: standard
     description: Writes a research report from completed research artifacts. In falsification mode, builds the final report from a frozen claim register. In survey mode, synthesizes recorded source records into a cited report. Never conducts new research or overstates what the evidence supports.
     path: agents/research-report-writer.md
-    tokens: 1014
-    total_tokens: 1740
+    tokens: 1188
+    total_tokens: 1914
     inputs:
       context:
         - .agent-factory/factory/rulebooks/conventions/research-report-policy.md
@@ -561,6 +563,8 @@ agents:
         - .agent-factory/factory/rulebooks/schemas/research-final-report.schema.json
         - .agent-factory/factory/rulebooks/templates/research-survey-report.md
         - .agent-factory/factory/rulebooks/schemas/research-survey-report.schema.json
+        - .agent-factory/factory/rulebooks/schemas/research-concept-history.schema.json
+        - .agent-factory/factory/scripts/concept-history-check
     outputs:
       minimum_changed: 1
       declarations:
@@ -568,6 +572,9 @@ agents:
           validator: ""
           required: true
         - path_pattern: docs/research/*/survey-report.md
+          validator: ""
+          required: false
+        - path_pattern: docs/research/*/histories/*.json
           validator: ""
           required: false
   - name: researcher
@@ -951,6 +958,11 @@ skills:
     description: Process a meeting transcript into two markdown artifacts — a verbatim protocol and a comparison against the current repository state. Use when the user provides a transcript, mentions "process transcript", or wants to compare a discussion against the spec.
     path: skills/process-transcript/SKILL.md
     tokens: 1478
+  - name: remark-grid-deck
+    category: utility
+    description: Build a remark.js presentation deck on a monospace character grid that fills the 16:9 slide — one source line per row, one character per cell, images placed on whole cells. Use when someone asks for a presentation, slide deck, slides, or a remark deck, or wants slides in a monospace, terminal or ASCII-diagram look.
+    path: skills/remark-grid-deck/SKILL.md
+    tokens: 887
   - name: retrospective
     category: utility
     description: Run a structured session retrospective across five categories. Produces a timestamped report in docs/reviews/.
@@ -995,7 +1007,7 @@ skills:
     category: research
     description: Turn a validated brief into the mode-appropriate survey or falsification research plan.
     path: skills/research-planning/SKILL.md
-    tokens: 741
+    tokens: 863
   - name: research-reporting
     category: research
     description: Build a final report from the frozen claim register without adding new findings, citing surviving claim IDs and preserving qualifications.
@@ -1005,12 +1017,12 @@ skills:
     category: research
     description: Build a cited survey report from recorded source records while preserving uncertainty and evidence bounds.
     path: skills/research-synthesis/SKILL.md
-    tokens: 374
+    tokens: 895
   - name: source-research
     category: research
     description: Find sources for one bounded assignment and record them against the source-record artifact.
     path: skills/source-research/SKILL.md
-    tokens: 388
+    tokens: 670
 
 playbooks:
   - name: architecture-review
@@ -1125,8 +1137,8 @@ playbooks:
       - researcher
       - research-report-writer
       - research-orchestrator
-    tokens: 1106
-    total_tokens: 13820
+    tokens: 1455
+    total_tokens: 14431
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -1147,7 +1159,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 18062
+    total_tokens: 18324
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -1238,7 +1250,7 @@ rulebooks:
   - name: research-directory-layout
     category: conventions
     path: rulebooks/conventions/research-directory-layout.md
-    tokens: 318
+    tokens: 351
   - name: research-evidence-policy
     category: conventions
     path: rulebooks/conventions/research-evidence-policy.md

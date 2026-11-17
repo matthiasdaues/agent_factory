@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+This release makes the concept histories of a survey checkable. A survey that
+asks which concepts went through several rounds of formulation and criticism
+used to tell each history in prose. Two validation passes of the knowledge
+graph survey failed on the same error: the report claimed a step, a cause, or
+a count that its source record did not show. Run `update-factory` to receive
+the change.
+
+### Features
+
+- **`concept-history-check`.** A survey records each concept history as
+  `histories/<concept>.json` against the new
+  `research-concept-history.schema.json`. The script checks that every quote
+  occurs word for word inside a quoted passage of its record's Evidence
+  section, so a researcher's note never passes as the source's words. It also
+  checks that each date comes from its record, that dates never go backwards, and that
+  a criticism said to drive the next formulation is not dated after it. It
+  applies the entry rule and computes the rank from the records, so the report
+  copies the table instead of arguing over counts.
+- **`source-record-check`.** The script validates every source record file in
+  a folder tree against `research-source-record.schema.json` and rejects
+  duplicate record IDs. It replaces a hand check in Step 3 of the survey
+  playbook.
+
+### Changes
+
+- `research-survey.md` 1.1.0 runs both scripts in its gates. The semantic
+  review of a history judges only what a script cannot: whether a quote shows
+  what its step claims.
+- `source-research`, `research-planning`, and `research-synthesis` define one
+  source record per file and the history format. `research-report-writer`
+  0.3.0 and `research-orchestrator` 0.3.0 run the scripts.
+- `research-directory-layout.md` 1.1.0 adds `histories/*.json`.
+
 ## 1.7.1 — 2026-11-16
 
 This release fixes `handoff-lint` so that it checks the handoff format the
