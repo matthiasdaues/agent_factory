@@ -1,0 +1,35 @@
+{
+  "concept": "Graph-based retrieval (GraphRAG)",
+  "area": "6",
+  "current_formulation": "LLM use deferred to query time, with noun-phrase extraction at index time (LazyGraphRAG, 2024).",
+  "steps": [
+    {
+      "formulation": "GraphRAG: global questions over a corpus treated as query-focused summarization, answered from an LLM-built entity graph with pregenerated community summaries.",
+      "date": "2024-04-24",
+      "record": "A6-SR-03",
+      "quote": "inherently a query-focused summarization (QFS) task, rather than an explicit retrieval task.",
+      "criticism": null
+    },
+    {
+      "formulation": "HippoRAG: LLM-extracted graph with Personalized PageRank for single-step retrieval.",
+      "date": "2024-05-23",
+      "record": "A6-SR-04",
+      "quote": "HippoRAG synergistically orchestrates LLMs, knowledge graphs, and the Personalized PageRank algorithm.",
+      "criticism": null
+    },
+    {
+      "formulation": "LightRAG: graph structures in text indexing, dual-level retrieval, incremental updates.",
+      "date": "2024-10-08",
+      "record": "A6-SR-05",
+      "quote": "incorporates graph structures into text indexing and retrieval processes",
+      "criticism": null
+    },
+    {
+      "formulation": "LazyGraphRAG: noun-phrase extraction at index time, LLM use deferred to query time.",
+      "date": "2024-11-25",
+      "record": "A6-SR-06",
+      "quote": "defers all LLM use until query time",
+      "criticism": null
+    }
+  ]
+}

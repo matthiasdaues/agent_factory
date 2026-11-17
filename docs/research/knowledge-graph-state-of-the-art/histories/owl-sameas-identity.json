@@ -1,0 +1,45 @@
+{
+  "concept": "Identity meaning of owl:sameAs",
+  "area": "5",
+  "current_formulation": "Keep owl:sameAs and give each link an error degree from the community structure of its identity cluster (2020).",
+  "steps": [
+    {
+      "formulation": "owl:sameAs states strict identity of two URI references.",
+      "date": "2004-02-10",
+      "record": "A5-SR-01",
+      "quote": "indicates that two URI references actually refer to the same thing",
+      "criticism": {
+        "record": "A5-SR-04",
+        "date": "2010-01-01",
+        "quote": "owl:sameAs can be viewed as encoding only one point on a scale of similarity, one that is often too strong for many of its current uses.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Identity as one point on a scale of similarity, systematised in a Similarity Ontology. The record date is a year-only placeholder.",
+      "date": "2010-01-01",
+      "record": "A5-SR-04",
+      "quote": "can be viewed as encoding only one point on a scale of similarity",
+      "criticism": {
+        "record": "A5-SR-04",
+        "date": "2010-01-01",
+        "quote": "the Similarity Ontology explores too large of a design space to be reliably deployed.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Consumers choose an interpretation per use: exclusive choice of one URI or a merge of descriptions.",
+      "date": "2010-04-26",
+      "record": "A5-SR-03",
+      "quote": "some URIs can be integrated in exclusive manner, i.e. such that only one should be chosen",
+      "criticism": null
+    },
+    {
+      "formulation": "Keep owl:sameAs and compute an error degree per link from the community structure of identity clusters.",
+      "date": "2020-01-01",
+      "record": "A5-SR-05",
+      "quote": "presented a scalable approach for automatically calculating an error degree for each identity statement",
+      "criticism": null
+    }
+  ]
+}

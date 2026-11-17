@@ -1,0 +1,21 @@
+{
+  "concept": "RDF-star to RDF 1.2 triple terms",
+  "area": "2",
+  "current_formulation": "Transparent triple terms in the object position of rdf:reifies, in the RDF 1.2 Concepts draft of 16 November 2026.",
+  "steps": [
+    {
+      "formulation": "RDF* embedded triples in subject or object position, backward compatible with standard reification.",
+      "date": "2014-06-13",
+      "record": "A2-SR-09",
+      "quote": "directly in the subject position or object position of (other) triples",
+      "criticism": null
+    },
+    {
+      "formulation": "RDF 1.2 triple terms: a reifier linked by rdf:reifies to a possibly unasserted, transparent triple term.",
+      "date": "2026-11-16",
+      "record": "A2-SR-17",
+      "quote": "For this reason, we say that triple terms are transparent.",
+      "criticism": null
+    }
+  ]
+}

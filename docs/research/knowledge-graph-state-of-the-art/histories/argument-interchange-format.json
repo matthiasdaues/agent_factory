@@ -1,0 +1,45 @@
+{
+  "concept": "Argument Interchange Format",
+  "area": "3",
+  "current_formulation": "A Description Logic ontology in OWL in which argument schemes are classes and scheme nodes are their instances (2011).",
+  "steps": [
+    {
+      "formulation": "Abstract AIF model with information nodes for claims and scheme nodes for inference, preference, and conflict.",
+      "date": "2006-12-01",
+      "record": "A3-SR-14",
+      "quote": "There are two types of node, namely information nodes (I-nodes) and scheme application nodes or scheme nodes (S-nodes for short).",
+      "criticism": {
+        "record": "A3-SR-16",
+        "date": "2008-01-01",
+        "quote": "in its 2006 form had not integrated modelling of dialogue",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "AIF extended with Walton's argumentation schemes and form nodes, written in RDF Schema (AIF-RDF, ArgDF).",
+      "date": "2007-07-01",
+      "record": "A3-SR-15",
+      "quote": "we extend the recently proposed Argument Interchange Format (AIF) to express arguments with a structure based on Walton's theory of argumentation schemes",
+      "criticism": {
+        "record": "A3-SR-17",
+        "date": "2011-01-01",
+        "quote": "ArgDF's reification of the AIF causes some redundancy at the instance level",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "AIF+ extends the 2006 model to dialogue: locutions map to information nodes, steps between locutions to scheme nodes.",
+      "date": "2008-01-01",
+      "record": "A3-SR-16",
+      "quote": "This paper extends the Argument Interchange Format to enable it to represent dialogic argumentation.",
+      "criticism": null
+    },
+    {
+      "formulation": "Description Logic ontology in OWL: schemes become classes and scheme nodes their instances.",
+      "date": "2011-01-01",
+      "record": "A3-SR-17",
+      "quote": "The AIF model is reified by interpreting schemes as classes and S-nodes as instances of those classes",
+      "criticism": null
+    }
+  ]
+}

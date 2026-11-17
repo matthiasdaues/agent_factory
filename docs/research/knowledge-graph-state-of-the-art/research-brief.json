@@ -1,0 +1,34 @@
+{
+  "mode": "survey",
+  "research_question": "What is the state of the art in knowledge graphs as of 2026, and which knowledge graph concepts have been hardened through several documented rounds of formulation, criticism, and reformulation?",
+  "intended_use": "Ground the design of a knowledge graph with provenance for the Agent Factory. The graph holds problems, conjectures, criticisms, tests, and decisions extracted from agent sessions, transcripts, and messages, each linked to its source. The survey informs a later falsification study and a feature proposal; it changes no factory code.",
+  "audience": "Agent Factory maintainers who know software engineering but not the knowledge graph literature, and who will choose a data model, standards, and store for this graph.",
+  "scope": "Six areas. (1) Data models: RDF and OWL, labeled property graphs, and hybrids, including the current status of RDF 1.2, SPARQL 1.2, ISO GQL, and SQL/PGQ. (2) Statements about statements: reification, n-ary relations, named graphs, singleton properties, RDF-star and RDF 1.2 triple terms, edge properties, and Wikidata's statement model with qualifiers, references, and ranks. (3) Provenance and claims: W3C PROV-O, nanopublications, micropublications, and argumentation models such as the Argument Interchange Format. (4) Validation and world assumptions: OWL open-world reasoning, SHACL, and ShEx. (5) Time and identity: temporal and bitemporal knowledge graphs, entity resolution, and the use and misuse of owl:sameAs. (6) Construction and use with language models: LLM-based extraction, GraphRAG and similar retrieval, agent memory graphs, and embedded or file-based stores. For each area, record the concepts that went through several documented rounds of proposal, criticism, and replacement, with the sequence of formulations and what criticism drove each change.",
+  "exclusions": [
+    "Implementing, installing, or benchmarking any store or tool",
+    "Vendor marketing material as evidence for a claim about capability or adoption",
+    "Knowledge graph embedding methods for link prediction, except as brief context",
+    "Domain ontologies for biomedicine, finance, or other fields, except where they document a general lesson",
+    "Pricing and licensing assessment"
+  ],
+  "freshness_requirements": [
+    "Standards status (W3C RDF 1.2, SPARQL 1.2, ISO GQL, SQL/PGQ) as of 2026, from the standards bodies' own pages",
+    "LLM-era systems and papers from 2023 onward",
+    "Older sources are acceptable and expected for the history of a concept, from the 1960s semantic networks onward"
+  ],
+  "source_requirements": [
+    "Primary sources first: W3C and ISO specifications, the original papers, and project documentation",
+    "Peer-reviewed surveys, such as Hogan et al., 'Knowledge Graphs', ACM Computing Surveys 2021, for the overview",
+    "Each history of a concept cites the source of each formulation and of each criticism",
+    "Secondary sources only where a primary source is unreachable, and then marked as secondary",
+    "Every source record states what the source shows and what it does not show"
+  ],
+  "cost_of_error": "Medium. A wrong survey finding steers the data model choice, which is expensive to change once the graph holds data. The later falsification study tests the design claims, so the survey must mark weak evidence rather than hide it.",
+  "completion_criteria": [
+    "Each of the six scope areas has findings backed by recorded sources",
+    "The report names at least five concepts with a documented history of several formulation and criticism rounds, with the sequence and the criticism that drove each change",
+    "The report states the current standards status of RDF 1.2, SPARQL 1.2, ISO GQL, and SQL/PGQ from the standards bodies' pages",
+    "The report lists candidates for the later falsification study, phrased as testable design claims for the Agent Factory graph",
+    "The report reports history as what the sources document; it does not claim that any concept survived refutation, because that verdict belongs to the falsification workflow"
+  ]
+}

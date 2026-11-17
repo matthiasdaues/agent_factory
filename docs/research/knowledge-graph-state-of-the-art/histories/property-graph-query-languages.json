@@ -1,0 +1,40 @@
+{
+  "concept": "Property graph query languages",
+  "area": "1",
+  "current_formulation": "PG-Schema (2023), a schema language proposed to inspire GQL, beside GPML, the pattern-matching core that SQL/PGQ and GQL share.",
+  "steps": [
+    {
+      "formulation": "G-CORE: a closed query language on property graphs, with paths as first-class citizens.",
+      "date": "2017-12-05",
+      "record": "A1-SR-17",
+      "quote": "a closed query language on Property Graphs",
+      "criticism": null
+    },
+    {
+      "formulation": "Cypher 9 under the openCypher Implementers Group, and the Cypher 10 proposal closed under table-graphs.",
+      "date": "2018-06-10",
+      "record": "A1-SR-16",
+      "quote": "a compositional language supporting graph projections and multiple named graphs",
+      "criticism": {
+        "record": "A1-SR-18",
+        "date": "2021-12-12",
+        "quote": "did not succeed on its own in establishing a standard.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "GPML, the pattern-matching sub-language shared by GQL and SQL/PGQ, described before either standard was published.",
+      "date": "2021-12-12",
+      "record": "A1-SR-18",
+      "quote": "the identical core of both PGQ and GQL is a graph pattern matching sub-language, here termed GPML.",
+      "criticism": null
+    },
+    {
+      "formulation": "PG-Schema, a schema language proposed to inspire GQL, written before the published GQL.",
+      "date": "2023-07-08",
+      "record": "A1-SR-19",
+      "quote": "aiming to inspire the development of GQL and enhance the capabilities of graph database systems",
+      "criticism": null
+    }
+  ]
+}

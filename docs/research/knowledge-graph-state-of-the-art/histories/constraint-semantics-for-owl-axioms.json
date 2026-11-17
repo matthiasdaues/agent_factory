@@ -1,0 +1,45 @@
+{
+  "concept": "Constraint semantics for OWL axioms",
+  "area": "4",
+  "current_formulation": "Core universal models for SHACL validation under a Horn description logic ontology (2026).",
+  "steps": [
+    {
+      "formulation": "OWL 1 standard semantics; the record shows the sublanguages and their guarantees, not the open-world assumption.",
+      "date": "2004-02-10",
+      "record": "A1-SR-10",
+      "quote": "OWL DL supports those users who want the maximum expressiveness while retaining computational completeness.",
+      "criticism": {
+        "record": "A4-SR-02",
+        "date": "2007-09-13",
+        "quote": "in OWL it is not possible to formalize integrity constraints that behave as checks",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "A second TBox whose axioms are read as checks, with satisfaction defined on minimal models.",
+      "date": "2007-09-13",
+      "record": "A4-SR-02",
+      "quote": "the integrity constraint TBox that contains axioms which are interpreted as checks",
+      "criticism": {
+        "record": "A4-SR-04",
+        "date": "2010-07-01",
+        "quote": "is still satisfied by the semantics of (Motik, Horrocks, and Sattler 2007)",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Closed-world integrity constraint semantics for OWL axioms, with checks reduced to SPARQL queries and a Pellet prototype. The 2010 paper (A4-SR-04) states the same reading, and no quoted passage shows what it adds, so it is not a step of its own.",
+      "date": "2009-10-23",
+      "record": "A4-SR-03",
+      "quote": "IC validation problem can be reduced to SPARQL query answering using off-the-shelf reasoner",
+      "criticism": null
+    },
+    {
+      "formulation": "Core universal models for SHACL validation under an ontology, with a rewriting to standard validation.",
+      "date": "2026-01-13",
+      "record": "A4-SR-14",
+      "quote": "we advocate a semantics for SHACL validation in the presence of ontologies based on core universal models",
+      "criticism": null
+    }
+  ]
+}

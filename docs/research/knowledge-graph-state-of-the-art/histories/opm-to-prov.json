@@ -1,0 +1,26 @@
+{
+  "concept": "Provenance interchange model, OPM to PROV",
+  "area": "3",
+  "current_formulation": "W3C PROV Recommendations of 30 April 2013.",
+  "steps": [
+    {
+      "formulation": "Open Provenance Model, versions 1.00 to 1.1. The date is the record's event date, the August 2007 workshop.",
+      "date": "2007-08-01",
+      "record": "A3-SR-01",
+      "quote": "a data model was crafted and released as the Open Provenance Model (v1.00)",
+      "criticism": {
+        "record": "A3-SR-02",
+        "date": "2010-12-08",
+        "quote": "cannot be used to represent",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "PROV family of documents, whose design stems from the Incubator recommendations.",
+      "date": "2013-04-30",
+      "record": "A3-SR-03",
+      "quote": "The design of PROV stems from the recommendations of the Provenance Incubator Group.",
+      "criticism": null
+    }
+  ]
+}

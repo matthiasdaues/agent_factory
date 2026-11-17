@@ -1,0 +1,50 @@
+{
+  "concept": "Shape languages for RDF validation",
+  "area": "4",
+  "current_formulation": "SHACL Recommendation (2017): shapes graphs for describing and validating RDF graphs.",
+  "steps": [
+    {
+      "formulation": "SPIN: constraints as SPARQL queries attached to class definitions.",
+      "date": "2011-02-22",
+      "record": "A4-SR-05",
+      "quote": "One of the basic ideas of SPIN is to link class definitions with SPARQL queries to capture constraints and rules.",
+      "criticism": {
+        "record": "A4-SR-06",
+        "date": "2013-09-10",
+        "quote": "participants agreed that SPARQL does not constitute a complete solution",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Resource Shape 2.0: a high-level RDF vocabulary for the shape of RDF resources, checked with SPARQL.",
+      "date": "2014-02-11",
+      "record": "A4-SR-07",
+      "quote": "This document defines a high-level RDF vocabulary for specifying the shape of RDF resources.",
+      "criticism": {
+        "record": "A4-SR-09",
+        "date": "2015-11-01",
+        "quote": "Neither of the member submissions included a precise definition of recursion.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Shape Expressions: a grammar for RDF shapes with a formal semantics by inference rules.",
+      "date": "2014-09-04",
+      "record": "A4-SR-08",
+      "quote": "a Shape Expression definition language which enables RDF validation through the declaration of constraints on the RDF model",
+      "criticism": null
+    },
+    {
+      "formulation": "SHACL Recommendation: shapes graphs for describing and validating RDF graphs.",
+      "date": "2017-07-20",
+      "record": "A4-SR-11",
+      "quote": "a language for describing and validating RDF graphs",
+      "criticism": {
+        "record": "A4-SR-13",
+        "date": "2024-11-01",
+        "quote": "the standard defines the semantics of non-recursive constraints only",
+        "drove_next": false
+      }
+    }
+  ]
+}

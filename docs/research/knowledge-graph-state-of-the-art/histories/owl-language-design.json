@@ -1,0 +1,19 @@
+{
+  "concept": "OWL language design",
+  "area": "1",
+  "current_formulation": "OWL 1 with the sublanguages Lite, DL, and Full (2004); no quoted passage anchors OWL 1.1 or OWL 2 as a step.",
+  "steps": [
+    {
+      "formulation": "OWL 1 with the sublanguages Lite, DL, and Full.",
+      "date": "2004-02-10",
+      "record": "A1-SR-10",
+      "quote": "OWL DL supports those users who want the maximum expressiveness while retaining computational completeness.",
+      "criticism": {
+        "record": "A1-SR-11",
+        "date": "2006-12-19",
+        "quote": "was conservative in several ways",
+        "drove_next": false
+      }
+    }
+  ]
+}

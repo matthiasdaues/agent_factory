@@ -1,0 +1,40 @@
+{
+  "concept": "Entity resolution methods",
+  "area": "5",
+  "current_formulation": "Prompted and fine-tuned generative language models, where the prompt must be tuned per model and dataset (2023 to 2024).",
+  "steps": [
+    {
+      "formulation": "Probabilistic model with attribute similarities as comparison vectors (Fellegi and Sunter 1969), known through a survey.",
+      "date": "1969-01-01",
+      "record": "A5-SR-11",
+      "quote": "The first probabilistic model for ER [63] used attribute similarities as the dimensions of comparison vectors",
+      "criticism": null
+    },
+    {
+      "formulation": "Deep learning matchers (DeepER, DeepMatcher) with word embeddings and an architecture template, as the 2020 survey reports them.",
+      "date": "2020-08-19",
+      "record": "A5-SR-11",
+      "quote": "DeepMatcher [122] extends DeepER by introducing an architecture template for deep learning ER methods",
+      "criticism": null
+    },
+    {
+      "formulation": "Ditto: fine-tuned pre-trained language models as a sequence-pair classifier.",
+      "date": "2020-09-02",
+      "record": "A5-SR-12",
+      "quote": "a straightforward application of language models such as BERT, DistilBERT, or RoBERTa pre-trained on large text corpora already significantly improves the matching quality",
+      "criticism": {
+        "record": "A5-SR-13",
+        "date": "2024-10-18",
+        "quote": "the fine-tuned models are not robust concerning out-of-distribution entities",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Generative LLMs for matching, where the prompt must be tuned for each model and dataset.",
+      "date": "2024-10-18",
+      "record": "A5-SR-13",
+      "quote": "there is no single best prompt but that the prompt needs to be tuned for each model/dataset combination",
+      "criticism": null
+    }
+  ]
+}

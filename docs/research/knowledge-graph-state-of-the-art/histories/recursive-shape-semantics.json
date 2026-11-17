@@ -1,0 +1,71 @@
+{
+  "concept": "Semantics of recursive shapes",
+  "area": "4",
+  "current_formulation": "Well-founded semantics for recursive SHACL (2024); the SHACL 1.2 Core draft of 2026 still leaves recursion undefined.",
+  "steps": [
+    {
+      "formulation": "Resource Shape 2.0 lets one shape refer to another; the record reads no rule for cycles in the text.",
+      "date": "2014-02-11",
+      "record": "A4-SR-07",
+      "quote": "may itself be described by another shape.",
+      "criticism": {
+        "record": "A4-SR-09",
+        "date": "2015-11-01",
+        "quote": "Neither of the member submissions included a precise definition of recursion.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "ShEx handles recursive references by adding the current type to the typing context.",
+      "date": "2014-09-04",
+      "record": "A4-SR-08",
+      "quote": "To avoid infinite loops, we add the current type to the context in the definition of matchShape.",
+      "criticism": null
+    },
+    {
+      "formulation": "A labelling procedure that defines recursion for Resource Shape 2.0 and terminates on a finite graph.",
+      "date": "2015-11-01",
+      "record": "A4-SR-09",
+      "quote": "This article provides a precise definition of the meaning of recursion as used in Resource Shape 2.0.",
+      "criticism": null
+    },
+    {
+      "formulation": "Well-defined ShEx schemas: shapes that appear negated may not lead to cyclic dependencies.",
+      "date": "2015-11-16",
+      "record": "A4-SR-10",
+      "quote": "requires that shape labels that appear negated do not lead to cyclic dependencies between shapes",
+      "criticism": null
+    },
+    {
+      "formulation": "Gap step: SHACL leaves validation with recursive shapes to implementations.",
+      "date": "2017-07-20",
+      "record": "A4-SR-11",
+      "quote": "The validation with recursive shapes is not defined in SHACL and is left to SHACL processor implementations.",
+      "criticism": {
+        "record": "A4-SR-12",
+        "date": "2020-04-19",
+        "quote": "The recommendation left open the semantics of recursive shapes",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Stable model semantics: each shape assignment must be justified by the input constraints.",
+      "date": "2020-04-19",
+      "record": "A4-SR-12",
+      "quote": "a stricter, more constructive semantics for SHACL, based on stable models",
+      "criticism": {
+        "record": "A4-SR-13",
+        "date": "2024-11-01",
+        "quote": "solves (b) but still has the problem (a): the intractability (specifically, NP-hardness) of validation.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Well-founded semantics for recursive SHACL, computationally tractable.",
+      "date": "2024-11-01",
+      "record": "A4-SR-13",
+      "quote": "This semantics is not only intuitive, but it is also computationally tractable, unlike the main previous proposals.",
+      "criticism": null
+    }
+  ]
+}

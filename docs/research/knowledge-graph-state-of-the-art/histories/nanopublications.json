@@ -1,0 +1,57 @@
+{
+  "concept": "Nanopublication structure and identity",
+  "area": "3",
+  "current_formulation": "Three named graphs (assertion, provenance, publication info) with trusty URIs as the integrity key.",
+  "steps": [
+    {
+      "formulation": "Richly annotated statements carry context and provenance and are the unit of publication.",
+      "date": "2009-10-26",
+      "record": "A3-SR-05",
+      "quote": "richly annotated RDF statements as carriers of unambiguous, meta-analyzed information in the form of traceable nano-publications",
+      "criticism": null
+    },
+    {
+      "formulation": "A nanopublication is a set of annotations on one uniquely identified statement, each statement its own named graph.",
+      "date": "2010-02-15",
+      "record": "A3-SR-06",
+      "quote": "Each statement is a separate Named Graph.",
+      "criticism": {
+        "record": "A3-SR-07",
+        "date": "2013-03-11",
+        "quote": "Requiring formal representations for scientific results seems to be unrealistic in many cases",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Informal assertions as English sentences in the AIDA scheme.",
+      "date": "2013-03-11",
+      "record": "A3-SR-07",
+      "quote": "we propose to allow authors to attach English sentences to nanopublications",
+      "criticism": {
+        "record": "A3-SR-08",
+        "date": "2014-05-28",
+        "quote": "Published nanopublications are supposed to be immutable, but the current web has no mechanism to enforce this",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Trusty URIs: a cryptographic hash of the content inside the URI.",
+      "date": "2014-05-28",
+      "record": "A3-SR-08",
+      "quote": "we propose a technique to include cryptographic hash values in URIs",
+      "criticism": {
+        "record": "A3-SR-13",
+        "date": "2014-07-04",
+        "quote": "model only the indicated statement",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Three-graph guidelines: assertion, provenance, publication info, with trusty URIs recommended. The page is undated; the record date is the retrieval date.",
+      "date": "2026-11-17",
+      "record": "A3-SR-10",
+      "quote": "MUST contain a link to the assertion graph identifier",
+      "criticism": null
+    }
+  ]
+}
