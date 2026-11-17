@@ -2,10 +2,10 @@
 schema_version: 2
 scope: global
 title: Run Lifecycle
-status: open
+status: accepted
 owner: agent-factory
 created: 2026-11-15
-updated: 2026-11-17
+updated: 2026-11-18
 supersedes: docs/proposals/story-workflow.md
 
 impact:
