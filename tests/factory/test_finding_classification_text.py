@@ -281,6 +281,8 @@ TEMPLATE_FIELDS = (
     "artifact",
     "status",
     "owner",
+    "story",
+    "run",
     "traces",
 )
 
@@ -325,7 +327,7 @@ def _template_frontmatter_keys() -> list[str]:
 
 
 @pytest.mark.spec("FC-06-LN-01")
-def test_st_0387_template_holds_the_sixteen_frontmatter_fields():
+def test_st_0387_template_holds_the_eighteen_frontmatter_fields():
     assert _template_frontmatter_keys() == list(TEMPLATE_FIELDS)
 
 
