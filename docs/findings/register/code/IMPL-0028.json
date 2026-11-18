@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0028",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "algorithm",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:1245-1262",
+  "story": "ST-0409",
+  "finding": "When a post-checkout hook fails, prepare-story by hand exits 1 and leaves the primary checkout on story/<id>, and the User sees an error with an empty git message. git switches the branch first and then returns the exit status of the hook. The error path passes None as the earlier branch to _undo_checkout_by_hand, so it never checks the earlier branch out again. Its git branch -D then fails on the checked-out branch, and the code ignores that exit status. The review checked this in a scratch repository with a post-checkout hook that exits 1: the command printed 'failed to check out', HEAD stayed on story/ST-0350, the branch stayed, and the entry stayed pending. The story's analysis promises that a failure checks the earlier branch out again, and the orchestrated path handles the same hook case (BUG-0084). So the behavior looks wrong. The smallest fix is in _prepare_story_by_hand: pass previous on the checkout error path too, since a checkout of the current branch changes nothing. Add an integration test with a failing post-checkout hook, as tests/factory/test_dispatch_run_blockers.py does for the orchestrated path.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every Scenario of RL-03 and RL-02 holds, and the path needs a failing post-checkout hook, which this project does not install (no to fails_purpose). If it happens, the User must find out without a message that the primary checkout moved, and check the earlier branch out by hand.",
+  "commit": "63a171063b29108901d8e789fb0c2c0675145319",
+  "status": "open"
+}
