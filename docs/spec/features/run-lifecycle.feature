@@ -202,13 +202,42 @@ Feature: Run Lifecycle
       And story/ST-0350 starts at the tip of feature/login
       # @packages/factory/scripts/dispatch::cmd_prepare_story
 
-    Scenario: merge-story checks out the feature branch before it merges
+    Scenario: merge-story runs premerge-check before it checks out the feature branch
       Given a run by hand is active on feature/login
       And the primary checkout has story/ST-0350 checked out
       And ST-0350 is dispatched
+      And every check of premerge-check passes at the head of story/ST-0350
       When the User gives the go and the implementation agent runs dispatch merge-story ST-0350
-      Then the primary checkout has feature/login checked out
+      Then merge-story runs premerge-check on story/ST-0350 while the primary checkout still has story/ST-0350 checked out
+      And merge-story checks out feature/login only after premerge-check exits 0
+      And the primary checkout has feature/login checked out
       And feature/login holds the merge commit of story/ST-0350
+
+    Scenario: A refused premerge-check leaves the primary checkout on the story branch
+      Given a run by hand is active on feature/login
+      And the primary checkout has story/ST-0350 checked out
+      And ST-0350 is dispatched
+      And the head of story/ST-0350 fails dependency-check
+      When the User gives the go and the implementation agent runs dispatch merge-story ST-0350
+      Then premerge-check exits non-zero
+      And the message names dependency-check
+      And the primary checkout still has story/ST-0350 checked out
+      And the files in the primary checkout are unchanged
+      And the tip of feature/login is the same commit as before the merge-story call
+
+    Scenario: A changed tracked file in the primary checkout does not hide a failing gate
+      Given a run by hand is active on feature/login
+      And the primary checkout has story/ST-0350 checked out
+      And ST-0350 is dispatched
+      And story/ST-0350 changed src/login.py
+      And the primary checkout holds an uncommitted change to src/login.py
+      And the head of story/ST-0350 fails dependency-check
+      When the User gives the go and the implementation agent runs dispatch merge-story ST-0350
+      Then premerge-check exits non-zero
+      And the message names dependency-check and no git checkout error
+      And the primary checkout still has story/ST-0350 checked out
+      And the uncommitted change to src/login.py is unchanged
+      And the tip of feature/login is the same commit as before the merge-story call
 
     Scenario: The User runs only three commands in a run by hand
       Given a run by hand is active on feature/login
@@ -574,6 +603,14 @@ Feature: Run Lifecycle
       And both files in the primary checkout are unchanged
       And git stash list shows no new stash
       And the temporary worktree under .current-work/feature/login/premerge/ is gone
+
+    Scenario: A worktree left by a crashed premerge-check does not block the next check
+      Given a crashed premerge-check left a worktree at .current-work/feature/login/premerge/ST-0350
+      And the gates pass at the head of story/ST-0350
+      When premerge-check runs on story/ST-0350
+      Then premerge-check removes the leftover worktree before it adds its own temporary worktree at that path
+      And premerge-check exits 0
+      And no worktree is left at .current-work/feature/login/premerge/ST-0350
 
     Scenario: An untracked test file in the story's checkout takes no part in the rerun
       Given the story's checkout holds an untracked test file
@@ -1229,6 +1266,19 @@ Feature: Run Lifecycle
       Then the plugin config/plugins/agent-factory.ts passes the command to config/hooks/block-dangerous-git.sh
       And the command is refused
       # @packages/factory/config/plugins/agent-factory.ts
+
+    Scenario Outline: OpenCode's git guardrail also checks the execute tool
+      Given an agent session in OpenCode
+      When the agent calls the execute tool with the JavaScript <code>
+      Then the plugin config/plugins/agent-factory.ts passes that JavaScript to config/hooks/block-dangerous-git.sh as the command text
+      And the guardrail refuses the call
+      # @packages/factory/config/plugins/agent-factory.ts
+      # The human-fields guard of the same plugin already treats execute as a shell channel.
+
+      Examples:
+        | code                                    |
+        | execSync("git push origin dev")         |
+        | execSync("dispatch close --drop")       |
 
   Rule: Factory maintainer finds in the dispatch contract exactly the fields the ledger holds
     # actor: Factory maintainer
