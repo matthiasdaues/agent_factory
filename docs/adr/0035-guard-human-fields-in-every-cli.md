@@ -102,6 +102,13 @@ every control, and it fails closed, as QS-7 asks. ADR-0019 keeps its status.
   guard covers all five tools, so the model choice does not matter.
 - A broken Pi or OpenCode install refuses every guarded edit until the guard
   script is back. The refusal names the missing script.
+- The Pi extension and the OpenCode plugin look for `guard-human-fields` in
+  the primary checkout, which `git rev-parse --git-common-dir` names. They
+  look for `block-dangerous-git.sh` the same way. The installed Factory lives
+  only in the primary checkout, so a story worktree has no `.agent-factory/`
+  of its own. The guard still gets the working directory of the call, so it
+  checks the paths of that worktree. When the script is missing in the
+  primary checkout, the call is blocked.
 - [5.12](../arc42/05_building_block_view.md#512-level-2-component-view----finding-classification)
   lists the entry points, [6.18](../arc42/06_runtime_view.md#618-the-guard-refuses-a-human-field)
   shows a refusal, and QS-25 in
