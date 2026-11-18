@@ -108,10 +108,10 @@ def _history(concept="Shapes", **changes):
     return data
 
 
-def _survey(tmp_path: Path, histories: dict[str, dict], secondary=()) -> Path:
+def _survey(tmp_path: Path, histories: dict[str, dict], secondary=(), bodies=None) -> Path:
     sources = tmp_path / "sources" / "area-1"
     sources.mkdir(parents=True)
-    for rid, body in BODIES.items():
+    for rid, body in {**BODIES, **(bodies or {})}.items():
         family = "Secondary survey" if rid in secondary else "Primary specification"
         date, event = DATES[rid]
         (sources / f"{rid}-test.md").write_text(
@@ -210,6 +210,51 @@ def test_typographic_quotes_and_line_wraps_are_normalised(tmp_path):
     data = _mutate(("steps", 0, "quote"), "“defines shapes\n   as plain constraints”")
     root = _survey(tmp_path, {"shapes": data})
     assert _run(root).returncode == 0
+
+
+# A source with quotation marks of its own, such as an RFC grammar rule.
+NESTED = 'Section 2: "adds recursive "shape" references with a typing context."'
+# A bullet with an odd number of marks; it must not shift the bullets after it.
+ODD = (
+    'Grammar: "ref = "@ shape" ends.\n'
+    "- A note: the second formulation brings a typing context to references.\n"
+    '- Section 2: "adds recursive shape references with a typing context."'
+)
+
+
+@pytest.mark.parametrize(
+    ("body", "quote"),
+    [
+        (NESTED, 'adds recursive "shape" references with a typing context'),
+        (
+            NESTED.replace('"shape"', "“shape”"),
+            "adds recursive “shape” references with a typing context",
+        ),
+        (ODD, "adds recursive shape references with a typing context"),
+    ],
+    ids=["inner-straight-marks", "inner-curly-marks", "odd-marks-in-an-earlier-bullet"],
+)
+def test_source_quotation_marks_do_not_hide_a_quote(tmp_path, body, quote):
+    data = _mutate(("steps", 1, "quote"), quote)
+    root = _survey(tmp_path, {"shapes": data}, bodies={"A1-SR-03": body})
+    result = _run(root)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    ("body", "quote"),
+    [
+        (ODD, "brings a typing context to references"),
+        (NESTED, '"shape" references with a typing'),
+    ],
+    ids=["note-after-odd-marks", "part-of-a-passage-with-inner-marks"],
+)
+def test_source_quotation_marks_do_not_admit_other_text(tmp_path, body, quote):
+    data = _mutate(("steps", 1, "quote"), quote)
+    root = _survey(tmp_path, {"shapes": data}, bodies={"A1-SR-03": body})
+    result = _run(root)
+    assert result.returncode == 1
+    assert "outside every quoted passage" in result.stdout
 
 
 def test_concept_below_entry_rule_is_listed_apart_and_unranked(tmp_path):

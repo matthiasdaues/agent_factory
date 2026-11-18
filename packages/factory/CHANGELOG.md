@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- **Source quotation marks no longer hide a quote (BUG-0129).**
+  `concept-history-check` paired the quotation marks of a record's whole
+  `Evidence` section in order. A source with marks of its own, such as an RFC
+  grammar rule, shifted every pair after it, so real quotes failed to anchor
+  and a note between two passages could pass. Marks now pair inside one bullet
+  or paragraph. A quote that holds marks of its own anchors when it is a whole
+  quoted passage.
+
 ## 1.9.0 — 2026-11-18
 
 This release moves the last spike path to `poc/`. Onboarding keeps retained

@@ -1017,7 +1017,7 @@ skills:
     category: research
     description: Build a cited survey report from recorded source records while preserving uncertainty and evidence bounds.
     path: skills/research-synthesis/SKILL.md
-    tokens: 895
+    tokens: 929
   - name: source-research
     category: research
     description: Find sources for one bounded assignment and record them against the source-record artifact.

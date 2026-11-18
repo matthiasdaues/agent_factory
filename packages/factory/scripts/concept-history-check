@@ -86,14 +86,45 @@ def normalise(text: str) -> str:
 _JSON_BLOCK = re.compile(r"```json\n(.*?)```", re.S)
 _EVIDENCE = re.compile(r"^## Evidence[ \t]*\n(.*?)(?=^## |\Z)", re.S | re.M)
 _QUOTED = re.compile(r'"([^"]+)"')
+_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s")
 
 
-def quoted_passages(text: str) -> tuple[str, ...]:
-    """The double-quoted passages of the Evidence section, normalised."""
+def evidence_units(text: str) -> tuple[str, ...]:
+    """The bullets and paragraphs of the Evidence section, normalised.
+
+    Quotation marks pair inside one unit only, so a source's own marks in one
+    bullet cannot shift the pairs of the bullets after it.
+    """
     match = _EVIDENCE.search(text)
     if not match:
         return ()
-    return tuple(_QUOTED.findall(normalise(match.group(1))))
+    units: list[list[str]] = []
+    current: list[str] = []
+    for line in match.group(1).splitlines():
+        if not line.strip() or (_ITEM.match(line) and current):
+            if current:
+                units.append(current)
+            current = []
+        if line.strip():
+            current.append(line)
+    if current:
+        units.append(current)
+    return tuple(normalise(" ".join(unit)) for unit in units)
+
+
+def anchored(bare: str, units: tuple[str, ...]) -> bool:
+    """Whether the quote lies inside a double-quoted passage of one unit.
+
+    A quote lies inside a passage that the unit's marks pair around it, or it
+    is a whole passage, from its opening mark to its closing mark, with at most
+    closing punctuation before that mark. The second form admits a source's own
+    quotation marks, such as an RFC grammar rule, inside the quote.
+    """
+    whole = re.compile('"' + re.escape(bare) + r'[.,;:!?]*"')
+    return any(
+        any(bare in passage for passage in _QUOTED.findall(unit)) or whole.search(unit)
+        for unit in units
+    )
 
 
 def _strip_marks(quote: str) -> str:
@@ -107,7 +138,7 @@ class Record:
     text: str
     primary: bool
     dates: tuple[str, ...] = ()
-    quoted: tuple[str, ...] = ()
+    evidence: tuple[str, ...] = ()
 
 
 def resolve(record_id: str, files: list[Path]) -> list[Path]:
@@ -130,7 +161,7 @@ def load_record(record_id: str, path: Path) -> tuple[Record | None, str | None]:
         str(data.get(key, ""))[:10] for key in ("publication_date", "relevant_event_date")
     )
     record = Record(
-        record_id, path, normalise(text), family.startswith("primary"), dates, quoted_passages(text)
+        record_id, path, normalise(text), family.startswith("primary"), dates, evidence_units(text)
     )
     return record, None
 
@@ -161,7 +192,7 @@ def check_quote(label: str, quote: str, record: Record) -> str | None:
     if normalise(quote) not in record.text:
         return f"{label}: quote does not occur word for word in {record.path.name}"
     bare = _strip_marks(quote)
-    if not any(bare in passage for passage in record.quoted):
+    if not anchored(bare, record.evidence):
         return (
             f"{label}: quote lies outside every quoted passage of the Evidence "
             f"section of {record.path.name}; anchor the source's words, not a note"

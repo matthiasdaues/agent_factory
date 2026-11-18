@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0129",
+  "source": "research-survey report (knowledge-across-sources, Step 4)",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/concept-history-check:88",
+  "story": null,
+  "finding": "concept-history-check paired the double quotation marks of a record's whole Evidence section in order. A source with quotation marks of its own, such as the RFC grammar in A3-SR-01 and A3-SR-05 or the inner marks in A4-SR-09, shifted every later pair. Real quotes then failed to anchor, so RFC 733, the RFC 5322 phrase rule, and one framing criticism dropped out of the knowledge-across-sources histories. The shift could also pair a note between two passages as a quote. Fix: pair marks inside one bullet or paragraph, and anchor a quote that holds marks of its own when it is a whole quoted passage.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The report writer noticed the dropped quotes and stated the gap in the report, so no wrong history shipped (no to harms_downstream), and the survey still answered its brief (no to fails_purpose). The histories need a second writer pass.",
+  "commit": "9d6bf90633362c659d374257a1f5064761413952",
+  "status": "resolved"
+}

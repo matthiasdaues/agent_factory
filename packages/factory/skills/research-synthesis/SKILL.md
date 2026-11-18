@@ -57,7 +57,9 @@ Write one file per concept, `histories/<concept-slug>.json`, against
   leading to the next formulation. A later assessment gets `false`.
 - A quote is one contiguous passage of at least four words, taken from inside
   one double-quoted passage of the record's `Evidence` section. A researcher's
-  note around the quotation marks is not the source's words and fails. An
+  note around the quotation marks is not the source's words and fails. When
+  the passage holds quotation marks of its own, such as a grammar rule, quote
+  the whole passage, from its opening mark to its closing mark. An
   ellipsis is rejected; anchor two quotes instead. When a record holds no
   quoted words for a step, send the record back to source research.
 
