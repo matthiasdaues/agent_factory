@@ -27,7 +27,11 @@ R2 into the rulebook and gave all 38 findings to raters on
 agreed on severity in 37 of 38 findings. Across the two models, they agreed
 in only 30 to 32 of 38, so the rulebook's claim fails for reviewers on
 different models. Most of the gap comes from one rule: when a story or code
-encodes the statement of a document. See [Cross-model run](#cross-model-run).
+encodes the statement of a document. Three more runs tested designs for that
+rule. A list of named cases, built from four stakeholder decisions, aligned
+both models on `in_use` for all 28 document findings. It is R3 in
+[Recommendations](#recommendations), and it is in the rulebook with R1 and
+R2. See [Cross-model run](#cross-model-run).
 
 The test files no finding in this repository. Every number below comes from
 the rater output files listed in [Data](#data).
@@ -253,6 +257,43 @@ R2 decides the class, not the category. Where a finding names a scenario
 without a priority, the category can be `question`, as
 [Candidates that failed](#candidates-that-failed) describes.
 
+### R3: Named cases decide whether a document is in use
+
+**Change.** Add to
+[§ In use](../../packages/factory/rulebooks/conventions/finding-classification.md#in-use)
+an ordered list of seven cases: `syntax`, `built`, `done-story`,
+`other-side`, `deferral`, `open-story`, and `none`. The reviewer takes the
+first case that applies and records it. When the Fix offers options, the
+statement is in use only when it is in use under every option. Add to
+[§ Class: document](../../packages/factory/rulebooks/conventions/finding-classification.md#class-document)
+that a `code-defect` finding whose Scenario is correct, and whose story is
+planned but not done, is a `suggestion` with severity `note`.
+
+**Case.** In the fifth run, Sonnet and Codex split on `in_use` for
+SPEC-0013, SPEC-0014, SPEC-0015, and RECON-0001. Codex counted a story that
+defers to the faulty text, and code that follows the other side of a
+contradiction, as encoding the statement. Sonnet did not. Three wordings of
+the principle failed in the sixth run. Each moved a split and removed none.
+The stakeholder then decided four policy points: a deferral does not count,
+a Fix with options counts only when every option is in use, code on the
+other side gives no harm, and a correct Scenario ahead of its planned story is
+a note.
+
+**Test and result.** The seventh run tested the cases on the six findings
+they were written for, and the eighth run on all 28 document findings, with
+two Sonnet and two Codex raters per batch. In the eighth run, all four raters
+agreed on `in_use` for 28 of 28 findings, against 23 of 27 in the fifth run.
+They agreed on severity and category for 26 of 28, against 21 of 27. The
+invented control SPEC-0027, a statement that delivered code implements, came
+out in use and `critical` from all four raters. The 22 findings that the
+cases were not written for all kept `in_use: false`.
+
+**Limit.** The seventh run found a wording defect: "the changed text" read as
+the text after the Fix. The eighth run used "the text that the Fix replaces,
+as that text stands now", and the defect did not recur. The 22 new findings
+were easy for `in_use`, so the eighth run shows that the cases do no harm, not
+that they decide a new hard case.
+
 ## Candidates that failed
 
 - **Harm needs the encoded statement to be wrong.** This candidate added to
@@ -384,6 +425,9 @@ the rules its own way, and the splits are not noise.
 
 The full table is in
 [run-5-results.md](../../poc/spikes/finding-classification/key/run-5-results.md).
+The runs that followed, and R3, are described in
+[R3](#r3-named-cases-decide-whether-a-document-is-in-use), with their data
+in `run-6/` to `run-8/`.
 
 ## Limits of the test
 
@@ -418,20 +462,26 @@ compares rater pairs.
 - `key/answer-key.tsv` and `key/retest-predictions.md`: the original ratings
   and the predictions written before the second run.
 - `run-5/`: the cross-model run, with its predictions and results in `key/`.
+- `run-6/` to `run-8/`: the designs for the `in_use` rule. Run 6 tested three
+  wordings, run 7 the case list, and run 8 the case list with corrected
+  wording on all 28 document findings.
 - `run-3/` and `run-4/`: the retests of the draft calibration rows and of the
   exposure candidate, with their predictions and results in `key/`.
 
 ## Next steps
 
-1. R1 and R2 are in
+1. R1, R2, and R3 are in
    [finding-classification.md](../../packages/factory/rulebooks/conventions/finding-classification.md).
-   Next, write a rule for when a story or code encodes a document statement.
-   Test it on SPEC-0013, SPEC-0014, SPEC-0015, and RECON-0001 with raters on
-   both models.
-2. Keep the draft calibration rows out of the rulebook until the first row
+   The next alignment target is the `fails_purpose` line for a document:
+   SPEC-0023 splits by model and SPEC-0024 within Codex. Name the cases with
+   the stakeholder, then test them on both models.
+2. The raters recorded the deciding case in a field `in_use_case`. The
+   finding format and `finding-lint` do not know that field yet. Adding it is
+   a separate change.
+3. Keep the draft calibration rows out of the rulebook until the first row
    holds on more raters. The next test needs a finding whose exposure is
    clearly `uncertain`, such as an unchecked assumption about a tool, and a row
    that names the category in its own column.
-3. Write a rule for the FAGAN-0003 gap and retest it, as the open-gap table
+4. Write a rule for the FAGAN-0003 gap and retest it, as the open-gap table
    describes. Build the blind set with the spike's `build-blind.py`, which
    removes the line "returns to major" from FAGAN-0003.

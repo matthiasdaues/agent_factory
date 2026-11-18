@@ -122,6 +122,30 @@ run reads that syntax, such as a Gherkin runner in CI. When ATAM review filed [A
 was accepted and on `dev`, but no migration code was built from it yet. So the
 gap was not in use.
 
+The reviewer decides `in_use` for a document by the first of these cases
+that applies, and records the case by its name:
+
+1. `syntax`: the defect is in the syntax of the text. It is in use only when
+   a tool outside the run reads that syntax.
+2. `built`: code on `dev`, `main`, a release tag, or an installed copy does
+   what the text says that the Fix replaces, as that text stands now, or a
+   test there asserts it. In use.
+3. `done-story`: a done story restates that text as the behavior it built.
+   In use.
+4. `other-side`: a story or code does what the other side of a
+   contradiction says, not what that text says. Not in use, and
+   `harms_downstream` is "no". The contradiction counts through
+   `fails_purpose` and `raises_cost`.
+5. `deferral`: a story links to the text, names it, or defers work to it,
+   also when it restates the content. Not in use, because deferred work is
+   not built.
+6. `open-story`: a story that is not done restates the text. Not in use.
+7. `none`: nothing outside the run refers to the text. Not in use.
+
+When the Fix offers options, the reviewer applies the cases to the text of
+each option. The statement is in use only when it is in use under every
+option.
+
 The reviewer checks "in use" as a fact, for example in the git state. The
 reviewer does not predict which later gate might catch the defect. For a code,
 runtime, or security finding, `finding-lint` checks the answer against git:
@@ -169,7 +193,10 @@ The types are `incorrect`, `ambiguous`, `incomplete`, `inconsistent`,
 `unverifiable`, `infeasible`, `untraced`, `unnecessary`, and `compound`. A
 `compound` statement bundles two requirements in one, so neither can be
 checked or traced alone. Reconciliation adds its four kinds: `code-defect`,
-`spec-stale`, `undocumented`, and `speculative`.
+`spec-stale`, `undocumented`, and `speculative`. A `code-defect` finding
+whose Scenario is correct, and whose implementing story is planned but not
+done, is a `suggestion` with severity `note`. The document is right, and the
+story owns the code.
 
 | Question           | What "yes" means for a document                                                                                                                                                                                                                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
