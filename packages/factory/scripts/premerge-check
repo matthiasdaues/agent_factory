@@ -41,14 +41,22 @@ Checks
          in the worktree.
        - `test-design-verify`: when the story has a Test Design or Prior
          Tests heading. Reruns in the worktree.
-       - Test guardrails `crap-score` and `mutation-testing`: picked by the
-         story's `quality-gates` field, else by the enabled entries of the
-         `gates` section of `docs/testing.yaml`, else `crap-score` alone.
-         No default picks `mutation-testing`. Both still read their result
-         in `.current-work/<gate>/<story-id>.json`.
-     A rerun gate runs from `.agent-factory/factory/scripts/` of the primary
-     checkout, or from the folder of premerge-check when that copy lacks the
-     script. The worktree is its source root, and `uv` builds the
+       - Every entry under `gates` in `docs/testing.yaml` with
+         `enabled: true`, plus each gate of the story's `quality-gates`
+         field. The field only adds gates. premerge-check builds the calls
+         of `crap-score` and `mutation-testing`; every other gate runs its
+         `command` through the shell. A gate without an entry or without a
+         command fails and is named. The old keys `crap_score`,
+         `mutation_testing`, and `test_design_verify` count as the entries
+         of their gates; with both forms, the key with hyphens wins with a
+         warning (BR-055). Without the field and without a `gates` section,
+         `crap-score` runs alone. No default picks `mutation-testing`.
+       - The test suite: `test_command` of `docs/testing.yaml`. A non-zero
+         exit fails and names the test suite. Without `test_command`,
+         premerge-check prints the skip.
+     A built-in gate runs from `.agent-factory/factory/scripts/` of the
+     primary checkout, or from the folder of premerge-check when that copy
+     lacks the script. The worktree is its source root, and `uv` builds the
      worktree's own environment (OI-10). No file of a checkout changes, and
      no stash is made.
      `default_quality_gates` in `docs/charter/house-rules.md` is no gate
@@ -260,48 +268,91 @@ def read_story_file(story_id: str, top: Path) -> dict | None:
         return None
 
 
-# Test guardrails the story field and the gates section may pick (CAO-G25).
-# dependency-check and test-design-verify run without a pick (BR-066).
-GUARDRAILS = ("crap-score", "mutation-testing")
-GATES_SECTION_KEYS = {"crap-score": "crap_score", "mutation-testing": "mutation_testing"}
-DEFAULT_GUARDRAILS = ["crap-score"]
+# Gates whose call premerge-check builds; every other gate needs a command.
+BUILT_IN_GATES = ("crap-score", "mutation-testing")
+# Gates that run by their own condition and have no entry to pick (BR-066).
+CONDITIONAL_GATES = ("dependency-check", "test-design-verify")
+# Old keys with underscores and the gate each one names (BR-055).
+OLD_GATE_KEYS = {
+    "crap_score": "crap-score",
+    "mutation_testing": "mutation-testing",
+    "test_design_verify": "test-design-verify",
+}
+DEFAULT_GATES = ["crap-score"]
 HOUSE_RULES = "docs/charter/house-rules.md"
 TEST_DESIGN_HEADING = re.compile(r"^#{1,6}\s+(Test Design|Prior Tests)\s*$", re.MULTILINE)
 DEPENDENCY_RULES = "docs/spec/dependency-rules.dsl"
-# Gates that rerun at the branch head. The others read their stored result.
-RERUN_GATES = ("dependency-check", "test-design-verify")
+TESTING_YAML = "docs/testing.yaml"
 INSTALLED_SCRIPTS = Path(".agent-factory") / "factory" / "scripts"
 # Variables that point uv at the caller's environment instead of the worktree's.
 FOREIGN_ENVIRONMENT = ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT")
 
 
-def _read_gates_section(top: Path) -> dict | None:
-    """Return the `gates` section of docs/testing.yaml, or None without one."""
-    path = top / "docs" / "testing.yaml"
+def _read_testing_yaml(top: Path) -> dict:
+    """Return docs/testing.yaml as a mapping, or an empty mapping without one."""
+    path = top / TESTING_YAML
     if not path.is_file():
-        return None
+        return {}
     try:
         data = _load_yaml(path.read_text())
     except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def gate_entries(top: Path) -> tuple[dict[str, dict] | None, list[str]]:
+    """Return the entries of the `gates` section by gate name, and the warnings.
+
+    An old key with underscores counts as the entry of its gate. With both
+    forms, the key with hyphens wins and a warning names the old key (BR-055).
+    A scalar such as `attempts` is no gate. Without a `gates` section, the
+    entries are None.
+    """
+    gates = _read_testing_yaml(top).get("gates")
+    if not isinstance(gates, dict):
+        return None, []
+    entries: dict[str, dict] = {}
+    warnings: list[str] = []
+    for key, value in gates.items():
+        if not isinstance(value, dict) or key in OLD_GATE_KEYS:
+            continue
+        entries[str(key)] = value
+    for old, name in OLD_GATE_KEYS.items():
+        value = gates.get(old)
+        if not isinstance(value, dict):
+            continue
+        if name in entries:
+            warnings.append(
+                f"WARN semantic-gates: {TESTING_YAML} has gates.{old} and gates.{name}; "
+                f"premerge-check uses gates.{name}, so delete gates.{old}"
+            )
+            continue
+        entries[name] = value
+    return entries, warnings
+
+
+def _quality_gates(story_data: dict | None) -> list[str] | None:
+    """Return the story's `quality-gates` field as a list, or None without one."""
+    if not story_data or story_data.get("quality-gates") is None:
         return None
-    gates = data.get("gates") if isinstance(data, dict) else None
-    return gates if isinstance(gates, dict) else None
+    field = story_data["quality-gates"]
+    return [str(g) for g in (field if isinstance(field, list) else [field])]
 
 
-def _picked_guardrails(story_data: dict | None, gates_section: dict | None) -> list[str]:
-    """Story field first, then the gates section, then the crap-score default."""
-    if story_data and story_data.get("quality-gates") is not None:
-        field = story_data["quality-gates"]
-        picked = set(field if isinstance(field, list) else [field])
-        return [g for g in GUARDRAILS if g in picked]
-    if gates_section is not None:
-        return [
-            g
-            for g in GUARDRAILS
-            if isinstance(gates_section.get(GATES_SECTION_KEYS[g]), dict)
-            and gates_section[GATES_SECTION_KEYS[g]].get("enabled") is True
-        ]
-    return list(DEFAULT_GUARDRAILS)
+def _picked_gates(story_data: dict | None, entries: dict[str, dict] | None) -> list[str]:
+    """Every enabled entry, then the gates the story's field adds (BR-066)."""
+    field = _quality_gates(story_data)
+    if field is None and entries is None:
+        return list(DEFAULT_GATES)
+    picked = [
+        name
+        for name, entry in (entries or {}).items()
+        if entry.get("enabled") is True and name not in CONDITIONAL_GATES
+    ]
+    for name in field or []:
+        if name not in picked and name not in CONDITIONAL_GATES:
+            picked.append(name)
+    return picked
 
 
 def _house_rules_warning(top: Path) -> list[str]:
@@ -318,9 +369,9 @@ def _house_rules_warning(top: Path) -> list[str]:
 
 
 def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
-    """Return the gates whose results the merge requires, and any warnings."""
-    story_data = read_story_file(story_id, top)
-    gates = _picked_guardrails(story_data, _read_gates_section(top))
+    """Return the gates the merge requires, and any warnings."""
+    entries, warnings = gate_entries(top)
+    gates = _picked_gates(read_story_file(story_id, top), entries)
     story_path = top / "backlog" / f"{story_id}.md"
     try:
         story_text = story_path.read_text() if story_path.is_file() else ""
@@ -330,7 +381,24 @@ def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
         gates.append("test-design-verify")
     if (top / DEPENDENCY_RULES).is_file():
         gates.append("dependency-check")
-    return gates, _house_rules_warning(top)
+    return gates, warnings + _house_rules_warning(top)
+
+
+def gate_refusal(gate: str, entries: dict[str, dict] | None) -> str | None:
+    """Name why docs/testing.yaml cannot run *gate*, or None when it can.
+
+    A built-in or conditional gate needs no command. Every other gate needs
+    an entry with a command (BR-066, RL-G09, OI-15).
+    """
+    if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
+        return None
+    entry = (entries or {}).get(gate)
+    if entry is None:
+        return f"no entry gates.{gate} in {TESTING_YAML}"
+    command = entry.get("command")
+    if not isinstance(command, str) or not command.strip():
+        return f"gates.{gate} in {TESTING_YAML} has no command"
+    return None
 
 
 def dependency_skip_notice(top: Path) -> list[str]:
@@ -405,7 +473,18 @@ def gate_script(primary: Path, gate: str) -> Path:
     return installed if installed.is_file() else SCRIPT_DIR / gate
 
 
-def gate_command(script: Path, gate: str, worktree: Path, story_id: str) -> list[str]:
+def _threshold(entries: dict[str, dict] | None) -> object:
+    return (entries or {}).get("crap-score", {}).get("threshold")
+
+
+def gate_command(
+    script: Path,
+    gate: str,
+    worktree: Path,
+    story_id: str,
+    entries: dict[str, dict] | None = None,
+) -> list[str]:
+    """Build the call of a gate that premerge-check names (BR-066, RL-G17)."""
     report_dir = worktree / ".current-work" / gate
     if gate == "dependency-check":
         return [
@@ -413,6 +492,23 @@ def gate_command(script: Path, gate: str, worktree: Path, story_id: str) -> list
             "--dsl-path", str(worktree / DEPENDENCY_RULES),
             "--source-root", str(worktree),
             "--story-id", story_id,
+            "--report-dir", str(report_dir),
+        ]
+    if gate == "crap-score":
+        threshold = _threshold(entries)
+        extra = ["--threshold", str(threshold)] if threshold is not None else []
+        return [
+            str(script),
+            "--source-root", str(worktree),
+            "--story-id", story_id,
+            "--report-dir", str(report_dir),
+            *extra,
+        ]
+    if gate == "mutation-testing":
+        return [
+            str(script),
+            "--story-id", story_id,
+            "--testing-yaml", str(worktree / TESTING_YAML),
             "--report-dir", str(report_dir),
         ]
     return [
@@ -427,55 +523,99 @@ def gate_command(script: Path, gate: str, worktree: Path, story_id: str) -> list
     ]
 
 
-def rerun_gate(primary: Path, gate: str, worktree: Path, story_id: str) -> tuple[bool, str]:
-    """Run *gate* in *worktree* and judge it by its exit code."""
-    script = gate_script(primary, gate)
-    env = {k: v for k, v in os.environ.items() if k not in FOREIGN_ENVIRONMENT}
-    try:
-        result = subprocess.run(
-            gate_command(script, gate, worktree, story_id),
-            cwd=worktree, env=env, capture_output=True, text=True, check=False,
-        )
-    except OSError as exc:
-        return False, f"cannot run {script}: {exc}"
-    if result.returncode == 0:
-        return True, "passed"
-    report = worktree / ".current-work" / gate / f"{story_id}.json"
-    if report.is_file():
+def _worktree_environment() -> dict[str, str]:
+    """The caller's environment without the variables that point uv elsewhere."""
+    return {k: v for k, v in os.environ.items() if k not in FOREIGN_ENVIRONMENT}
+
+
+def _failure_detail(result: subprocess.CompletedProcess, report: Path | None) -> str:
+    if report is not None and report.is_file():
         ok, detail = read_gate_result(report)
         if not ok and detail != "failed":
-            return False, detail
+            return detail
     lines = (result.stderr or result.stdout).strip().splitlines()
-    return False, f"exit {result.returncode}" + (f": {lines[-1]}" if lines else "")
+    return f"exit {result.returncode}" + (f": {lines[-1]}" if lines else "")
+
+
+def rerun_gate(
+    primary: Path,
+    gate: str,
+    worktree: Path,
+    story_id: str,
+    entries: dict[str, dict] | None = None,
+) -> tuple[bool, str]:
+    """Run *gate* in *worktree* and judge it by its exit code.
+
+    premerge-check builds the call of a gate it names. Every other gate runs
+    the `command` of its entry through the shell.
+    """
+    refusal = gate_refusal(gate, entries)
+    if refusal is not None:
+        return False, refusal
+    env = _worktree_environment()
+    if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
+        script = gate_script(primary, gate)
+        call: list[str] | str = gate_command(script, gate, worktree, story_id, entries)
+        shell = False
+        report: Path | None = worktree / ".current-work" / gate / f"{story_id}.json"
+    else:
+        call = str((entries or {})[gate]["command"])
+        shell = True
+        report = None
+    try:
+        result = subprocess.run(
+            call, shell=shell, cwd=worktree, env=env,
+            capture_output=True, text=True, check=False,
+        )
+    except OSError as exc:
+        return False, f"cannot run {call}: {exc}"
+    if result.returncode == 0:
+        return True, "passed"
+    return False, _failure_detail(result, report)
 
 
 def check_semantic_gates(
-    top: Path,
     gates: list[str],
     story_id: str,
-    worktree: Path | None = None,
-    primary: Path | None = None,
+    worktree: Path,
+    primary: Path,
 ) -> list[str]:
-    """Return one entry per gate that fails.
-
-    With a *worktree*, the gates of RERUN_GATES run there. Every other gate
-    reads its stored result under *top*.
-    """
+    """Run each gate in *worktree* and return one entry per gate that fails."""
+    entries, _ = gate_entries(worktree)
     failed_gates = []
     for gate in gates:
-        if worktree is not None and gate in RERUN_GATES:
-            ok, detail = rerun_gate(primary or top, gate, worktree, story_id)
-            if not ok:
-                failed_gates.append(f"{gate} ({detail})")
-            continue
-        result_file = top / ".current-work" / gate / f"{story_id}.json"
-        if not result_file.exists():
-            failed_gates.append(f"{gate} (result not found)")
-            continue
-        ok, detail = read_gate_result(result_file)
+        ok, detail = rerun_gate(primary, gate, worktree, story_id, entries)
         if not ok:
             failed_gates.append(f"{gate} ({detail})")
     return failed_gates
+
+
+def read_test_command(top: Path) -> str | None:
+    """Return `test_command` of docs/testing.yaml, or None without one."""
+    command = _read_testing_yaml(top).get("test_command")
+    return command.strip() if isinstance(command, str) and command.strip() else None
+
+
+def check_test_suite(worktree: Path, story_id: str) -> tuple[bool, str]:
+    """Run the test suite in *worktree* with its own uv environment (OI-10)."""
+    command = read_test_command(worktree)
+    if command is None:
+        return True, f"SKIP test-suite: {TESTING_YAML} has no test_command"
+    try:
+        result = subprocess.run(
+            command, shell=True, cwd=worktree, env=_worktree_environment(),
+            capture_output=True, text=True, check=False,
+        )
+    except OSError as exc:
+        return False, f"BLOCK test-suite: cannot run {command!r}: {exc}"
+    if result.returncode != 0:
+        lines = (result.stdout + result.stderr).strip().splitlines()
+        tail = f": {lines[-1]}" if lines else ""
+        return False, (
+            f"BLOCK test-suite: the test suite {command!r} exited "
+            f"{result.returncode} for {story_id}{tail}"
+        )
+    return True, f"PASS test-suite: the test suite {command!r} passed for {story_id}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -556,9 +696,8 @@ def main(argv: list[str] | None = None) -> int:
             gates, warnings = resolve_gates(worktree, story_id)
             for warning in warnings + dependency_skip_notice(worktree):
                 print(warning)
-            failed_gates = check_semantic_gates(
-                Path(top), gates, story_id, worktree=worktree, primary=primary
-            )
+            failed_gates = check_semantic_gates(gates, story_id, worktree, primary)
+            suite_ok, suite_line = check_test_suite(worktree, story_id)
         finally:
             remove_worktree(worktree)
         if failed_gates:
@@ -568,6 +707,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"PASS semantic-gates: no gate applies to {story_id}")
         findings.append(not failed_gates)
+        print(suite_line)
+        findings.append(suite_ok)
     else:
         # Non-story branches skip semantic gates
         print("SKIP semantic-gates: branch does not match story/ST-NNNN pattern")

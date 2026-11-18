@@ -243,3 +243,38 @@ def test_RL_17_LN_01_the_dispatch_contract_lists_exactly_the_written_fields(tmp_
     assert set(schema) == set(code)
     assert _story_keys(schema) == _story_keys(code)
     assert set(closeout["waves"][0]) == set(code["waves"][0])
+
+
+# --- ST-0415: the test-strategy agent writes gate keys with hyphens --------
+
+FACTORY = REPO_ROOT / "packages" / "factory"
+GATE_KEY_TEXTS = (
+    FACTORY / "agents" / "test-strategy-agent.md",
+    FACTORY / "skills" / "detect-test-regime" / "SKILL.md",
+    FACTORY / "skills" / "crap-score" / "SKILL.md",
+    FACTORY / "skills" / "mutation-testing" / "SKILL.md",
+)
+# The old gate keys of BR-055. A field key keeps its underscores, so
+# gates.attempts_escalated and gates.mutation-testing.timeout_minutes do not count.
+OLD_GATE_KEY = re.compile(r"\bgates\.(?:crap_score|mutation_testing|test_design_verify)\b")
+
+
+@pytest.mark.spec("RL-09-LN-01")
+@pytest.mark.parametrize("path", GATE_KEY_TEXTS, ids=lambda p: p.parent.name)
+def test_RL_09_LN_01_the_gate_texts_name_only_keys_with_hyphens(path: Path) -> None:
+    """Scenario: The test-strategy agent writes gate keys with hyphens."""
+    assert OLD_GATE_KEY.findall(path.read_text(encoding="utf-8")) == []
+
+
+@pytest.mark.spec("RL-09-LN-01")
+def test_RL_09_LN_01_the_test_strategy_agent_names_the_key_with_hyphens() -> None:
+    text = GATE_KEY_TEXTS[0].read_text(encoding="utf-8")
+    assert "`gates.crap-score.threshold`" in text
+
+
+@pytest.mark.spec("RL-09-LN-01")
+def test_RL_09_LN_01_the_check_finds_an_old_gate_key() -> None:
+    assert OLD_GATE_KEY.findall("set gates.crap_score.threshold") == ["gates.crap_score"]
+    assert OLD_GATE_KEY.findall("set gates.mutation-testing.timeout_minutes") == []
+    assert OLD_GATE_KEY.findall("gates.attempts_escalated") == []
+    assert OLD_GATE_KEY.findall("gates.test_design_verify") == ["gates.test_design_verify"]

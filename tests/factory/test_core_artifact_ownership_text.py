@@ -293,8 +293,8 @@ class TestSt0357TestStrategyAgentDefinition:
     def test_st_0357_mutation_testing_records_only_enabled_and_command(self):
         workflow = _flat(_section(TEST_STRATEGY_AGENT.read_text(encoding="utf-8"), "Workflow"))
         assert (
-            "only `gates.mutation_testing.enabled` and "
-            "`gates.mutation_testing.command`" in workflow
+            "only `gates.mutation-testing.enabled` and "
+            "`gates.mutation-testing.command`" in workflow
         )
         assert "writes no configuration file of the mutation tool" in workflow
 

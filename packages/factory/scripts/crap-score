@@ -98,51 +98,67 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def read_threshold_from_testing_yaml(source_root: Path) -> float | None:
-    """Read crap_score.threshold from testing.yaml gates section.
+GATE_KEY = "crap-score"
+# The old key with underscores still counts (BR-055).
+OLD_GATE_KEY = "crap_score"
 
-    Walks up the directory tree looking for docs/testing.yaml.
-    Parses the gates.crap_score.threshold value if present.
-    Returns None if gates section or crap_score.threshold is not found.
+
+def _gates_block(text: str) -> str | None:
+    """Return the text of the top-level `gates:` section, or None without one."""
+    match = re.search(r"^gates:\s*$", text, re.MULTILINE)
+    if not match:
+        return None
+    rest = text[match.end():]
+    next_top = re.search(r"^[^\s#][^\n]*:", rest, re.MULTILINE)
+    return rest[: next_top.start()] if next_top else rest
+
+
+def _entry_block(gates: str, key: str) -> str | None:
+    """Return the text of the entry *key* within the gates section, or None."""
+    match = re.search(r"^(\s+)" + re.escape(key) + r":\s*$", gates, re.MULTILINE)
+    if not match:
+        return None
+    indent = len(match.group(1))
+    lines = []
+    for line in gates[match.end():].splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            if len(line) - len(line.lstrip()) <= indent:
+                break
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def _entry_threshold(entry: str) -> float | None:
+    match = re.search(r"^\s+threshold:\s*(\d+(?:\.\d+)?)\s*$", entry, re.MULTILINE)
+    return float(match.group(1)) if match else None
+
+
+def read_threshold_from_testing_yaml(source_root: Path) -> float | None:
+    """Read the threshold of the gate crap-score from the gates section.
+
+    Walks up the directory tree looking for docs/testing.yaml. Reads
+    `gates.crap-score.threshold`, else the old key `gates.crap_score.threshold`.
+    With both entries, the key with hyphens wins and a warning names the old
+    key (BR-055). Returns None when no entry holds a threshold.
     """
     candidate = source_root
     for _ in range(10):
         testing_yaml = candidate / "docs" / "testing.yaml"
         if testing_yaml.is_file():
-            text = testing_yaml.read_text(encoding="utf-8")
-            # Minimal YAML parsing: look for gates: section and crap_score.threshold
-            # Pattern: "gates:" appears, then indented "crap_score:", then indented "threshold: VALUE"
-            gates_match = re.search(r"^gates:\s*$", text, re.MULTILINE)
-            if not gates_match:
+            gates = _gates_block(testing_yaml.read_text(encoding="utf-8"))
+            if gates is None:
                 return None
-
-            # Find crap_score section within gates
-            gates_pos = gates_match.start()
-            remaining = text[gates_pos:]
-            crap_match = re.search(r"^\s+crap_score:\s*$", remaining, re.MULTILINE)
-            if not crap_match:
-                return None
-
-            # Find threshold within crap_score, bounded to that section.
-            # A peer-level key (same indent as crap_score) marks the end.
-            crap_pos = crap_match.start()
-            crap_section = remaining[crap_pos:]
-            crap_indent = crap_match.group(0).split("crap_score")[0]
-            peer_pattern = re.compile(
-                r"^" + re.escape(crap_indent) + r"(?!crap_score)\w+:",
-                re.MULTILINE,
-            )
-            peer_match = peer_pattern.search(crap_section, crap_match.end() - crap_pos)
-            if peer_match:
-                crap_section = crap_section[: peer_match.start()]
-            threshold_match = re.search(
-                r"^\s{4,}threshold:\s*(\d+(?:\.\d+)?)\s*$",
-                crap_section,
-                re.MULTILINE,
-            )
-            if threshold_match:
-                return float(threshold_match.group(1))
-            return None
+            entry = _entry_block(gates, GATE_KEY)
+            old_entry = _entry_block(gates, OLD_GATE_KEY)
+            if entry is not None and old_entry is not None:
+                print(
+                    f"crap-score: warning: {testing_yaml} has gates.{OLD_GATE_KEY} and "
+                    f"gates.{GATE_KEY}; using gates.{GATE_KEY}, so delete gates.{OLD_GATE_KEY}",
+                    file=sys.stderr,
+                )
+            chosen = entry if entry is not None else old_entry
+            return _entry_threshold(chosen) if chosen is not None else None
         parent = candidate.parent
         if parent == candidate:
             break
