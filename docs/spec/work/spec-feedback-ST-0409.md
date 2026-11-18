@@ -1,0 +1,5 @@
+# Spec Feedback: ST-0409
+
+| Artifact                           | Drift                                                                                                                                                                                                                  | Evidence                                 | Owner                   | Status |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ----------------------- | ------ |
+| `docs/spec/interface-contracts.md` | The contract does not say whether `prepare-story` by hand refuses uncommitted changes in the primary checkout or carries them onto the story branch, so the code adds no rule and git's own checkout behavior applies. | `packages/factory/scripts/dispatch:1252` | `domain-modeling-agent` | `open` |
