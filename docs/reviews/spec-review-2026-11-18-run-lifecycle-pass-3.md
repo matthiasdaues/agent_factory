@@ -117,3 +117,15 @@ No finding. "drift report" is gone from the living spec files. It appears only i
 ## Next step
 
 Hand SPEC-0101, SPEC-0107 and SPEC-0108 to the domain-modeling agent. For SPEC-0107 the requirements agent then adds the commit of the finding to the RL-12 Scenario. For SPEC-0101 the requirements agent adds a Scenario in which `close-wave 1` passes. Each fix stays inside the settled decisions, so no stakeholder question is due. Then run the spec review again as pass 4.
+
+## Verification of the pass 3 fixes
+
+The stakeholder chose way A for SPEC-0101 and SPEC-0107, and the proposed fix for SPEC-0108. The owners applied the fixes in `f076f586`, `786ead54` and `36d4e2f3`. The stakeholder decided against a full pass 4, so this section checks only the three fixes against the fix proposals of this report. `spec-lint` reports 0 errors and 0 warnings, and `statemachine-lint` reports 0 errors.
+
+| ID        | Severity | Verdict  | What the review checked                                                                                                                                                                                                                                          |
+| --------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SPEC-0101 | major    | resolved | `escalate` writes `escalate refused: verify-base` or `escalate refused: scope` into `reason`. HasStopped, BR-115, BR-116 and the `close-wave` contract read that record and no branch. RL-14 has a Scenario in which `close-wave 1` passes with ST-0350 stopped. |
+| SPEC-0107 | major    | resolved | The gate-check step commits the `QA` finding on the story branch. The `merge-story` scope and the Scope row admit it through the `finding` field of a `mutants` entry, and BR-066 checks the file at the head of the story branch. The RL-12 Scenario agrees.    |
+| SPEC-0108 | major    | resolved | After a non-zero exit, BR-066, the Gates pass row and the gate result table need at least one `survived` entry. An empty list fails, and RL-12 has a Scenario for it.                                                                                            |
+
+The diff of the three commits shows no new problem that gives a wrong result. The gaps report counts 135 Scenarios, and the feature file holds 135. No finding of this spec review stays open, so the spec is ready for the architecture step.
