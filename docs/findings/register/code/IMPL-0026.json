@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0026",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:312-317",
+  "story": "ST-0413",
+  "finding": "An operator who runs premerge-check from a subfolder of the repository gets two wrong lines: BLOCK code-review says no report exists, and PASS open-findings says no blocking finding is open, although both files are at the head. files_at_head calls `git ls-tree -r --name-only <branch> -- docs/reviews/`, and git ls-tree reads the path relative to the current folder, so from packages/ it lists packages/docs/reviews/. The review checked this in a scratch repository with a report and an open BUG-0091 at the head. The overall exit stays 1, because the review check fails closed, so no branch merges by mistake. merge-story runs premerge-check from the project root and is not affected. The behavior looks unintended. The smallest fix is to add --full-tree to the ls-tree call in files_at_head.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The refusal still holds and merge-story always runs from the root (no to fails_purpose). An operator who runs the check by hand from a subfolder searches for a report that exists and misses a finding that is open.",
+  "commit": "3cdf55bf3b2aa1d745ebc50decc8484eb75b1226",
+  "status": "open"
+}
