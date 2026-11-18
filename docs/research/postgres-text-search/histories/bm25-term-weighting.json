@@ -1,0 +1,43 @@
+{
+  "concept": "BM25 term weighting",
+  "area": "Area 2: BM25 extensions and keyword with vector in one query",
+  "current_formulation": "BM25 mixes BM11 and BM15 through the parameter b and leaves k1 and b to be set by hand.",
+  "steps": [
+    {
+      "formulation": "BM1: the Robertson-Sparck Jones weight, with no term frequency or document length, used at TREC-1.",
+      "date": "1993-11-01",
+      "record": "A2-SR-16",
+      "quote": "For TREC-1 [1] the \"standard\" Robertson-Sparck Jones weighting function was used for all runs (equation 1, see also [5]).",
+      "criticism": {
+        "record": "A2-SR-14",
+        "date": "1994-11-02",
+        "quote": "This appears to be because the simple weighting scheme tends to favour long documents",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "BM11 and BM15: 2-Poisson term weights with document length normalisation or correction, at TREC-2.",
+      "date": "1993-11-01",
+      "record": "A2-SR-16",
+      "quote": "BM15: 2-Poisson termweights as equation 3 with document length correction as equation 5.",
+      "criticism": {
+        "record": "A2-SR-14",
+        "date": "1994-11-02",
+        "quote": "The basis for BM11 was one of two possible models of document length (the \"verbosity\" hypothesis, [4]) which might be expected to exaggerate the document length effect; this is the justification for considering the mix.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "BM25 combines BM11 and BM15 into one function through the parameter b, at TREC-3.",
+      "date": "1994-11-02",
+      "record": "A2-SR-14",
+      "quote": "we in effect combined BM11 and BM15 into a single function BM25",
+      "criticism": {
+        "record": "A2-SR-15",
+        "date": "2009-01-01",
+        "quote": "Concerning the internal parameters, the model provides no guidance on how these should be set.",
+        "drove_next": false
+      }
+    }
+  ]
+}

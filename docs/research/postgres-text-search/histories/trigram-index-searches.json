@@ -1,0 +1,45 @@
+{
+  "concept": "Trigram index searches",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "GIN and GiST trigram indexes serve similarity, LIKE, ILIKE, regular expressions, and equality.",
+  "steps": [
+    {
+      "formulation": "A trigram index class serves similarity searches.",
+      "date": "2004-05-31",
+      "record": "A1-SR-02",
+      "quote": "The pg_trgm contrib module provides functions and index classes for determining the similarity of text based on trigram matching.",
+      "criticism": null
+    },
+    {
+      "formulation": "Trigram indexes serve LIKE and ILIKE, also for patterns that are not left-anchored (commit of 2011-02-01).",
+      "date": "2004-05-31",
+      "record": "A1-SR-02",
+      "quote": "Support LIKE and ILIKE index searches via contrib/pg_trgm indexes.",
+      "criticism": {
+        "record": "A1-SR-02",
+        "date": "2004-05-31",
+        "quote": "The worst case, with no trigrams, degrades to a full-table scan",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Trigram indexes serve regular expressions by extracting trigrams from the expression (commit of 2013-04-09).",
+      "date": "2004-05-31",
+      "record": "A1-SR-02",
+      "quote": "This works by extracting trigrams from the given regular expression",
+      "criticism": {
+        "record": "A1-SR-02",
+        "date": "2004-05-31",
+        "quote": "Currently, only GIN indexes are supported. We might be able to make it work with GiST indexes later.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "GiST and GIN trigram indexes serve equality lookups (release 14).",
+      "date": "2026-10-09",
+      "record": "A1-SR-14",
+      "quote": "Allow GiST/GIN pg_trgm indexes to do equality lookups (Julien Rouhaud)",
+      "criticism": null
+    }
+  ]
+}

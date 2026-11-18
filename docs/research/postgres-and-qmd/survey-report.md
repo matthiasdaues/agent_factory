@@ -22,7 +22,7 @@ A `CHECK` constraint may not read other rows. So the manual points to triggers f
 
 pgvector stores vectors as columns of ordinary tables, and its indexes sit in the same write-ahead log (A1-SR-10). HNSW and IVFFlat are approximate. A filter runs after the index scan, so a selective filter can leave few rows; since 0.8.0, an iterative scan fetches more candidates (A1-SR-10, A1-SR-14). The PostgreSQL core, not the index, decides which rows a snapshot sees (A1-SR-07). HNSW links a new element into its graph during the `INSERT` (A1-SR-10). From these two facts the records infer that a transaction finds its own new vectors through HNSW. No source states this directly (A1-SR-10, A1-SR-15). HNSW and IVFFlat take no predicate locks, and issue #1055 reports two check-then-insert transactions that both commit under `SERIALIZABLE` (A1-SR-10, A1-SR-15).
 
-`NOTIFY` delivers at commit, in commit order, with a payload shorter than 8000 bytes in the default configuration (A1-SR-08). A notification reaches only sessions that listen at that moment, and the queue does not survive a server restart (A1-SR-08). The transactional outbox writes each event to a table in the same transaction, and a relay sends it on (A1-SR-16). pg_eventserv relays `NOTIFY` payloads to WebSocket clients. It keeps no buffer, and nobody has changed its code since 2023-07-14 (A1-SR-19). asyncpg runs a block of statements in one transaction and delivers notifications to a callback (A1-SR-20). aiosql turns SQL files into named Python methods and opens no transaction of its own (A1-SR-21).
+`NOTIFY` delivers at commit, in commit order, with a payload shorter than 8000 bytes in the default configuration (A1-SR-08). A notification reaches only sessions that listen at that moment, and the queue does not survive a server restart (A1-SR-08). The transactional outbox writes each event to a table in the same transaction, and a relay sends it on (A1-SR-16). pg_eventserv relays `NOTIFY` payloads to WebSocket clients. It keeps no buffer, and its main branch has had no commit since 2023-07-14 (A1-SR-19). asyncpg runs a block of statements in one transaction and delivers notifications to a callback (A1-SR-20). aiosql turns SQL files into named Python methods (A1-SR-21). It opens no transaction of its own (inferred, A1-SR-21).
 
 ### 2.2 qmd and its components
 
@@ -34,7 +34,7 @@ All index data sits in one SQLite database, by default `~/.cache/qmd/index.sqlit
 
 A re-index skips a file whose modification time and size match the last scan. It writes a new content row when the hash of a changed file differs (A2-SR-04). A vanished or emptied file gets `active = 0`, and a later cleanup hard-deletes such rows and the content that no row references (A2-SR-04). No code detects a rename. So a renamed file becomes a deactivated old path and a new path that reuses content and vectors through the hash (inferred, A2-SR-04). No file watcher exists, so the index changes only when `qmd update` runs (A2-SR-04).
 
-Below the file level, qmd records the chunk sequence number and character position (A2-SR-03). No table records links between documents, citations, or anchors (A2-SR-03). Processors turn non-markdown input into index documents, and table `processor_outputs` records which source file produced which document (A2-SR-07). The five MCP tools only read the index (A2-SR-12).
+Below the file level, qmd records the chunk sequence number and character position (A2-SR-03). No table records links between documents, citations, or anchors (A2-SR-03). Processors turn non-markdown input into index documents, and table `processor_outputs` records which source file produced which document (inferred, A2-SR-07). The five MCP tools only read the index (A2-SR-12).
 
 ## 3. Hardened concepts
 
@@ -60,7 +60,7 @@ The histories follow the stakeholder's frame of conjecture and criticism only to
 
 ### 3.1 pgvector index types and filtered search
 
-Release 0.1.0 of 2021 offered IVFFlat as the only approximate index (A1-SR-11). In issue #181, a user called search "very slow" and asked for HNSW. The maintainer announced release 0.5.0 with HNSW in the same thread (A1-SR-12). Issue #259 then reported that filtered HNSW queries return too few rows (A1-SR-13). In that thread, the maintainer planned iterative scans and named their drawback: results may come out of strict order (A1-SR-13). Release 0.8.0 shipped two modes, `strict_order` and `relaxed_order` (A1-SR-14). The drawback is not marked as driving the two modes, because A1-SR-14 does not link them. Steps 3 and 4 rest on one maintainer's statements.
+Release 0.1.0 of 2021 offered IVFFlat as the only approximate index (A1-SR-11). In issue #181, a user called search "very slow" and asked for HNSW. The maintainer announced release 0.5.0 with HNSW in the same thread (A1-SR-12). Issue #244 then reported that HNSW returns too few rows after updates and deletes, and issue #259 asked for filtered search (A1-SR-13). In that thread, the maintainer planned iterative scans and named their drawback: results may come out of strict order (A1-SR-13). Release 0.8.0 shipped two modes, `strict_order` and `relaxed_order` (A1-SR-14). The drawback is not marked as driving the two modes, because A1-SR-14 does not link them. Steps 3 and 4 rest on one maintainer's statements.
 
 ### 3.2 qmd unit and layout of vector storage
 
@@ -88,20 +88,20 @@ Release 0.6.0 typed the expansions, so each goes to its own backend "instead of 
 
 The table checks the twelve statements S1 to S12 from the [survey plan](research-survey-plan.md). Each statement describes PostgreSQL behaviour in the sketch.
 
-| No. | Statement                                                                     | Verdict                                          | Records                      |
-| --- | ----------------------------------------------------------------------------- | ------------------------------------------------ | ---------------------------- |
-| S1  | One server with pgvector holds graph and vectors; SQL is the only language.   | Supported                                        | A1-SR-05, A1-SR-10           |
-| S2  | A trigger rejects an edge with the wrong node kinds, beside a foreign key.    | Inferred, with limits                            | A1-SR-06                     |
-| S3  | Edges and decisions are append-only, and "as of date D" is a query.           | Inferred, with limits; no source for "as of"     | A1-SR-06                     |
-| S4  | Indexes on `(source_id, type)` and `(target_id, type)` serve both directions. | Inferred                                         | A1-SR-06                     |
-| S5  | One statement runs a filtered vector search, then a traversal with `CYCLE`.   | Inferred                                         | A1-SR-05, A1-SR-10           |
-| S6  | SQL functions and procedures hold such queries.                               | Supported                                        | A1-SR-07                     |
-| S7  | One transaction writes text, vector, and edges and sees its own writes.       | Inferred, with limits                            | A1-SR-07, A1-SR-10, A1-SR-15 |
-| S8  | `NOTIFY` fires only when its transaction commits.                             | Supported                                        | A1-SR-08                     |
-| S9  | A notification is lost without a listener; an outbox table keeps the events.  | Supported with limits; restart loss inferred     | A1-SR-08, A1-SR-16           |
-| S10 | pg_eventserv carries notifications to WebSocket clients.                      | Supported with limits                            | A1-SR-19                     |
-| S11 | If PostgreSQL ships SQL/PGQ, the same tables become a property graph.         | Not met                                          | A1-SR-09                     |
-| S12 | asyncpg with aiosql runs named queries, one transaction, and listeners.       | Supported with limits; transaction part inferred | A1-SR-20, A1-SR-21           |
+| No. | Statement                                                                     | Verdict                                                                      | Records                      |
+| --- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------- |
+| S1  | One server with pgvector holds graph and vectors; SQL is the only language.   | Supported                                                                    | A1-SR-05, A1-SR-10           |
+| S2  | A trigger rejects an edge with the wrong node kinds, beside a foreign key.    | Inferred, with limits                                                        | A1-SR-06                     |
+| S3  | Edges and decisions are append-only, and "as of date D" is a query.           | Inferred, with limits; no source for "as of"                                 | A1-SR-06                     |
+| S4  | Indexes on `(source_id, type)` and `(target_id, type)` serve both directions. | Inferred                                                                     | A1-SR-06                     |
+| S5  | One statement runs a filtered vector search, then a traversal with `CYCLE`.   | Inferred                                                                     | A1-SR-05, A1-SR-10           |
+| S6  | SQL functions and procedures hold such queries.                               | Supported                                                                    | A1-SR-07                     |
+| S7  | One transaction writes text, vector, and edges and sees its own writes.       | Inferred, with limits                                                        | A1-SR-07, A1-SR-10, A1-SR-15 |
+| S8  | `NOTIFY` fires only when its transaction commits.                             | Supported                                                                    | A1-SR-08                     |
+| S9  | A notification is lost without a listener; an outbox table keeps the events.  | Supported with limits; loss without a listener and across a restart inferred | A1-SR-08, A1-SR-16           |
+| S10 | pg_eventserv carries notifications to WebSocket clients.                      | Supported with limits                                                        | A1-SR-19                     |
+| S11 | If PostgreSQL ships SQL/PGQ, the same tables become a property graph.         | Not met                                                                      | A1-SR-09                     |
+| S12 | asyncpg with aiosql runs named queries, one transaction, and listeners.       | Supported with limits; transaction part inferred                             | A1-SR-20, A1-SR-21           |
 
 The records show these limits:
 
@@ -111,13 +111,13 @@ The records show these limits:
 
 **Own-write visibility through HNSW is inferred, and the result is approximate (S7).** HNSW returns at most `hnsw.ef_search` candidates, and dead or invisible rows use up candidates (A1-SR-10). So a search may miss a new vector even when the snapshot can see it (inferred, A1-SR-10). The maintainer adds that approximate results can differ between runs of the same query (A1-SR-15).
 
-**`SERIALIZABLE` does not protect a check-then-insert on vectors (S7).** HNSW and IVFFlat take no predicate locks (A1-SR-10). Issue #1055 reports two such transactions that both commit, and the maintainer referred it to PostgreSQL core (A1-SR-15).
+**Issue #1055 reports that `SERIALIZABLE` does not protect a check-then-insert on vectors (S7).** HNSW and IVFFlat take no predicate locks (A1-SR-10). Issue #1055 reports two such transactions that both commit, and the maintainer referred it to PostgreSQL core (A1-SR-15).
 
 **A filter after the index scan can return too few rows (S5).** With HNSW and the default `hnsw.ef_search` of 40, a filter that matches 10 percent of rows returns about four rows (A1-SR-10). Iterative scans fetch more, and the relaxed mode gives up strict distance order (A1-SR-14).
 
-**Notifications have no memory (S9, S10).** A new listener skips notifications that committed before it registered, and the queue does not survive a server restart (A1-SR-08). pg_eventserv starts to listen when the first WebSocket client opens a channel. It keeps no buffer, and its listen loop ends on a connection error with no reconnect in the code (inferred, A1-SR-19). Nobody has changed its code since 2023-07-14, and an open issue names archived dependencies (A1-SR-19).
+**Notifications have no memory (S9, S10).** A new listener skips notifications that committed before it registered, and the queue does not survive a server restart (A1-SR-08). pg_eventserv starts to listen when the first WebSocket client opens a channel. It keeps no buffer, and its listen loop ends on a connection error with no reconnect in the code (inferred, A1-SR-19). Its main branch has had no commit since 2023-07-14, and an open issue names archived dependencies (A1-SR-19).
 
-**One transaction needs one connection (S12).** aiosql opens no transaction of its own (A1-SR-21). Given a pool, aiosql runs each call on its own connection and in its own transaction (inferred, A1-SR-21). A listener needs its own connection, because a connection that returns to the pool loses its listeners (A1-SR-20).
+**One transaction needs one connection (S12).** aiosql opens no transaction of its own (inferred, A1-SR-21). Given a pool, aiosql runs each call on its own connection and in its own transaction (inferred, A1-SR-21). A listener needs its own connection, because a connection that returns to the pool loses its listeners (A1-SR-20).
 
 **SQL/PGQ is gone from release 19 (S11).** The March 2026 commit declared a property graph over existing tables, like a view. It was reverted on 2026-09-07, and no source gives a date for a new attempt (A1-SR-09).
 
@@ -128,9 +128,9 @@ The records show these limits:
 | Components                | One PostgreSQL server with pgvector; asyncpg and aiosql in Python; the embedding model in the caller; pg_eventserv as an optional relay (A1-SR-10, A1-SR-19 to A1-SR-21).                            | Node.js 22 or later; SQLite through better-sqlite3; FTS5; sqlite-vec 0.1.9; node-llama-cpp; three GGUF models; a YAML config file (A2-SR-02, A2-SR-03, A2-SR-12).                          |
 | Query languages           | SQL only, kept in `.sql` files by aiosql (A1-SR-05, A1-SR-21).                                                                                                                                       | Line-typed query documents with `lex`, `vec`, `hyde`, and `intent`; a JSON filter tree for metadata; SQL only inside the SQLite file (A2-SR-08).                                           |
 | Consistency boundaries    | One transaction covers rows, vectors, index entries, and `NOTIFY`. The model run, the relay, and the listeners sit outside it (A1-SR-07, A1-SR-08, A1-SR-10).                                        | Triggers keep the full-text index in step with `documents` inside SQLite. Vectors come from a separate `qmd embed` step. The index lags the files until `qmd update` (A2-SR-03, A2-SR-04). |
-| What must be kept in sync | Embeddings with their text and model version, because pgvector recomputes nothing. Outbox rows with the relay's read position (A1-SR-10, A1-SR-16).                                                  | Files on disk with the index; the YAML config with `store_collections`; vectors with their model, which each vector row records (A2-SR-03, A2-SR-04, A2-SR-10).                            |
+| What must be kept in sync | Embeddings with their text, because pgvector recomputes nothing (A1-SR-10). The model version of each embedding (inferred). Outbox rows with the relay's read position (inferred, A1-SR-16).         | Files on disk with the index; the YAML config with `store_collections`; vectors with their model, which each vector row records (A2-SR-03, A2-SR-04, A2-SR-10).                            |
 | Rebuildable derived data  | Vector indexes, with `REINDEX`. Embeddings from the text (inferred, A1-SR-10).                                                                                                                       | The index is derived from the files and the YAML config; a full rebuild is inferred, and no record names a rebuild command (A2-SR-03, A2-SR-04).                                           |
-| Release activity          | PostgreSQL: a major version about once a year. 2024-11-18 to 2026-11-18: pgvector seven patch releases, asyncpg two, aiosql ten, pg_eventserv none (A1-SR-09, A1-SR-11, A1-SR-19 to A1-SR-21).       | 17 npm versions from 0.9.0 (2026-02-15) to 2.9.0 (2026-11-18), with a three-month gap before 2.9.0 (A2-SR-01).                                                                             |
+| Release activity          | PostgreSQL: a major version about once a year. 2024-11-18 to 2026-11-18: pgvector seven patch releases, asyncpg two, aiosql ten, pg_eventserv none (A1-SR-09, A1-SR-11, A1-SR-19 to A1-SR-21).       | 17 npm versions from 0.9.0 to 2.9.0 (2026-11-18), with a three-month gap before 2.9.0 (A2-SR-01).                                                                                          |
 | Project health            | All open source, none archived. pgvector and aiosql each have one maintainer with over 95 percent of recent commits. asyncpg has 290 open issues and pull requests (A1-SR-11, A1-SR-19 to A1-SR-21). | MIT licence; the owner holds 557 of 809 commits; 17 authors since 2026-08-18; 134 open issues and 130 open pull requests; sqlite-vec is pre-v1 (A2-SR-01, A2-SR-13).                       |
 
 ### 5.1 What qmd would need to hold the three layers
@@ -166,10 +166,10 @@ The sketch, as written in the design position, names vector search and traversal
 1. Pilot test 1 rests on the inferred S5 and S7. It should test own-write visibility through HNSW. It should also test what happens when `hnsw.ef_search` or a filter leaves the new vector outside the candidates (A1-SR-10).
 2. Pilot test 2 should test a change of a node's kind after the edge exists, not only the insert (A1-SR-06).
 3. Pilot test 3 should run as an ordinary role and also try `TRUNCATE`. The owner's rights cannot be revoked, so the role design is part of the test (A1-SR-06).
-4. Pilot test 4 should restart the listener and pg_eventserv and then read the outbox. `NOTIFY` keeps nothing for an absent listener (A1-SR-08, A1-SR-19).
+4. Pilot test 4 should restart the listener and pg_eventserv and then read the outbox. `NOTIFY` keeps nothing for an absent listener (inferred, A1-SR-08, A1-SR-19).
 5. The extra check: a check-then-insert of similar vectors under `SERIALIZABLE`, because issue #1055 reports that both transactions commit (A1-SR-15). Similarity proposes the candidate edges, so a duplicate candidate is the failure to look for.
 
-**pg_eventserv is the weakest component.** It has had no code change since 2023, it has no releases, and its listen loop does not reconnect (A1-SR-19). asyncpg offers a listener and a callback for a lost connection inside the Python layer (A1-SR-20). Without pg_eventserv, the application would carry events to WebSocket clients itself.
+**pg_eventserv is the weakest component.** Its main branch has had no commit since 2023-07-14, and it has no releases (A1-SR-19). Its listen loop does not reconnect (inferred, A1-SR-19). asyncpg offers a listener and a callback for a lost connection inside the Python layer (A1-SR-20). Without pg_eventserv, the application would carry events to WebSocket clients itself.
 
 **SQL/PGQ should not shape the schema now.** It was reverted, and no new date exists (A1-SR-09). The sketch's plain tables work without it.
 
@@ -205,12 +205,12 @@ The sketch, as written in the design position, names vector search and traversal
     },
     {
       "title": "NOTIFY delivers at commit and keeps nothing for an absent listener",
-      "summary": "NOTIFY delivers only after commit, in commit order, with a payload under 8000 bytes by default. A new listener skips earlier notifications, and the queue does not survive a server restart; loss across a listener restart is inferred from async.c. The transactional outbox keeps events in a table written in the same transaction.",
+      "summary": "NOTIFY delivers only after commit, in commit order, with a payload under 8000 bytes by default. A new listener skips earlier notifications, and the queue does not survive a server restart; loss while no session listens and loss across a listener restart are inferred from async.c. The transactional outbox keeps events in a table written in the same transaction.",
       "source_record_refs": ["A1-SR-08", "A1-SR-16"]
     },
     {
       "title": "Relay and client layer",
-      "summary": "pg_eventserv relays NOTIFY payloads to WebSocket clients, keeps no buffer, and has had no code change since 2023-07-14. asyncpg runs statements in one transaction and delivers notifications to a callback on its own connection. aiosql names SQL queries and opens no transaction of its own; given a pool, each call runs in its own transaction (inferred from the adapter).",
+      "summary": "pg_eventserv relays NOTIFY payloads to WebSocket clients, keeps no buffer, and has had no commit on main since 2023-07-14. asyncpg runs statements in one transaction and delivers notifications to a callback on its own connection. aiosql names SQL queries and opens no transaction of its own (inferred from the adapter); given a pool, each call runs in its own transaction (inferred from the adapter).",
       "source_record_refs": ["A1-SR-19", "A1-SR-20", "A1-SR-21"]
     },
     {
@@ -240,7 +240,7 @@ The sketch, as written in the design position, names vector search and traversal
     },
     {
       "title": "Release activity and project health",
-      "summary": "PostgreSQL releases a major version about once a year. From 2024-11-18 to 2026-11-18, pgvector had seven patch releases, asyncpg two, aiosql ten, and pg_eventserv none; pgvector and aiosql each rest on one maintainer. qmd had 17 npm versions from 2026-02-15 to 2026-11-18, the owner holds 557 of 809 commits, and its vector extension sqlite-vec is pre-v1.",
+      "summary": "PostgreSQL releases a major version about once a year. From 2024-11-18 to 2026-11-18, pgvector had seven patch releases, asyncpg two, aiosql ten, and pg_eventserv none; pgvector and aiosql each rest on one maintainer. qmd had 17 npm versions from 0.9.0 to 2.9.0, the owner holds 557 of 809 commits, and its vector extension sqlite-vec is pre-v1.",
       "source_record_refs": ["A1-SR-09", "A1-SR-11", "A1-SR-19", "A1-SR-20", "A1-SR-21", "A2-SR-01", "A2-SR-13"]
     },
     {
@@ -251,7 +251,7 @@ The sketch, as written in the design position, names vector search and traversal
   ],
   "uncertainties": [
     "Statements S2, S3, S4, S5, and S7 are inferred from manual text and source code; no source states them whole.",
-    "The loss of notifications across a listener restart, pg_eventserv's missing reconnect, and aiosql's transaction behaviour under a pool are inferred from source code.",
+    "The loss of notifications while no session listens and across a listener restart, pg_eventserv's missing reconnect, and aiosql's transaction behaviour are inferred from source code.",
     "The sources conflict on whether sqlite-vec vec0 search is exhaustive: qmd's changelog says ANN candidate pool in 2.8.3 and brute-force scan in 2.9.0, and the sqlite-vec documentation says neither.",
     "The qmd README contradicts itself on the number of query expansions and lists two tables that the code drops.",
     "All design reasons for qmd come from the project's own changelog, README, and code comments; no independent review was found.",
@@ -292,7 +292,7 @@ The sketch, as written in the design position, names vector search and traversal
 
 ## 8. Uncertainties, evidence gaps, and limitations
 
-**Inferred statements.** Five statements of the sketch rest on inference: S2, S3, S4, S5, and S7 (section 4). The most important is S7. No pgvector document and no issue states that a transaction finds its own new vectors through HNSW. The records infer it from the PostgreSQL index interface and the HNSW insert code (A1-SR-07, A1-SR-10, A1-SR-15). Three more behaviours were read from code and are inferred. They are the loss of notifications across a listener restart (A1-SR-08), pg_eventserv's missing reconnect (A1-SR-19), and aiosql's transactions under a pool (A1-SR-21). On the qmd side, the rename outcome and everything qmd would need for the three layers are inferred from the schema (A2-SR-03, A2-SR-04, A2-SR-06).
+**Inferred statements.** Five statements of the sketch rest on inference: S2, S3, S4, S5, and S7 (section 4). The most important is S7. No pgvector document and no issue states that a transaction finds its own new vectors through HNSW. The records infer it from the PostgreSQL index interface and the HNSW insert code (A1-SR-07, A1-SR-10, A1-SR-15). Other behaviours were read from code and are inferred. The loss of notifications while no session listens and across a listener restart is inferred (A1-SR-08). So are pg_eventserv's missing reconnect (A1-SR-19), and aiosql's lack of its own transactions and its transactions under a pool (A1-SR-21). On the qmd side, the rename outcome, what `processor_outputs` records (A2-SR-07), and everything qmd would need for the three layers are inferred from the schema (A2-SR-03, A2-SR-04, A2-SR-06).
 
 **Sources that projects wrote about themselves.** All design reasons for qmd come from its own changelog, README, and code comments (A2-SR-09, A2-SR-10). No independent review of any qmd step was found. The pgvector README is the vendor's own text and serves for stated features only (A1-SR-10). Gunnar Morling led the tool he describes (A1-SR-17). The qmd README contradicts itself on the number of expansions and lists two tables that the code drops (A2-SR-02). The sources also conflict on whether sqlite-vec search is exhaustive, and the sqlite-vec documentation does not settle it (A2-SR-10, A2-SR-13).
 

@@ -66,28 +66,49 @@ A refutation is a statement about a statement, which needs provenance of its own
 
 ## The proposed store
 
-The stakeholder and the parent session proposed this sketch on 2026-11-18, after the [graph-and-embeddings](../graph-and-embeddings/survey-report.md) survey. That survey did not cover plain PostgreSQL with pgvector, so the sketch rests on the survey's store comparison and on the parent session's knowledge of PostgreSQL. Where it states how PostgreSQL behaves, the pilot must test it.
+The stakeholder and the parent session proposed this sketch on 2026-11-18, after the [graph-and-embeddings](../graph-and-embeddings/survey-report.md) survey. Two follow-up surveys checked it: [postgres-and-qmd](../postgres-and-qmd/survey-report.md) tested each statement about PostgreSQL behaviour against the documentation, and [postgres-text-search](../postgres-text-search/survey-report.md) added the search layer. Where a statement rests on inference, not on a source, the pilot must test it.
 
-The store is one PostgreSQL server with one extension, pgvector. The graph lives in ordinary tables, and SQL is the only query language.
+The store is one PostgreSQL server with pgvector and two contrib modules, `pg_trgm` and `unaccent`. The graph lives in ordinary tables, and SQL is the only query language.
 
-- `node`: one row per source, span, problem, conjecture, criticism, test, or decision, with its kind. Anything that can be criticised is a node. A claimed relation, such as "this outlet reframed that report", is a node with two plain edges, so a refutation always targets a node.
+- `node`: one row per source, span, problem, conjecture, criticism, test, or decision, with its kind and its language. Anything that can be criticised is a node. A claimed relation, such as "this outlet reframed that report", is a node with two plain edges, so a refutation always targets a node.
 - `edge`: `id`, `source_id`, `target_id`, `type`, `status`, `asserted_by`, `evidence_span_id`, `valid_from`, `valid_to`, `recorded_at`, and `meta`. `type` is a foreign key to `edge_type`, which names the node kinds allowed at each end. `status` is candidate or confirmed; similarity writes candidates only, and a check or a person confirms them. Every value a query filters on or a rule checks is a column; `meta` as `jsonb` holds the rest.
-- `embedding`: `node_id`, `model`, `model_version`, `vector`, with an HNSW index. A new model adds rows beside the old ones, and each vector carries the model version that produced it.
+- `embedding`: `node_id`, `model`, `model_version`, `vector`, with an HNSW index. A new model adds rows beside the old ones, and each vector carries the model version that produced it. A content hash on the text lets an import skip re-embedding unchanged text, an idea taken from qmd.
 
-The database enforces the rules. A trigger rejects an edge whose ends have the wrong node kinds, which is shape validation done with plain constraints. Edges and decisions are append-only: a change ends the old row and writes a new one, so "as of date D" is a query. Indexes on `(source_id, type)` and `(target_id, type)` serve traversal in both directions.
+The database enforces the rules. A trigger rejects an edge whose ends have the wrong node kinds, which is shape validation done with plain constraints. The trigger checks at insert, so a second trigger on `node` must reject a change of kind that would break an existing edge. Edges and decisions are append-only: a change ends the old row and writes a new one, so "as of date D" is a query. Withheld privileges and raising triggers enforce this for the application's role. The table owner keeps full rights, and row triggers do not fire on `TRUNCATE`, so the roles are part of the design. Indexes on `(source_id, type)` and `(target_id, type)` serve traversal in both directions.
 
-The key query is one statement: a vector search, then a recursive traversal over `edge`, with the `CYCLE` clause against loops. SQL functions and procedures hold such queries, so callers name an operation, not a recursive query. A slim Python layer with asyncpg and aiosql runs the named queries. It also computes the embeddings, so the model stays outside the database, and writes text, vector, and edges in one transaction.
+## The search layer
 
-New ideas raise events. `NOTIFY` fires only when its transaction commits, so a listener never hears of an idea that was rolled back. A notification is lost when nobody listens, so an outbox table holds the events and the notification only wakes the reader. A relay such as pg_eventserv can carry them to WebSocket clients.
+Search uses only what PostgreSQL ships, so the single transaction boundary holds:
 
-If PostgreSQL ships SQL/PGQ in a later release, the same tables can be declared as a property graph without moving data. Walks over many hops stay wordier in SQL than in Cypher; the functions hide that.
+- Full-text search over a stored generated `tsvector` column, which picks the `german` or `english` configuration from the node's language, with a GIN index. The built-in German configuration stems words but does not split compounds. Splitting needs Hunspell dictionary files on the server, outside the tables.
+- `pg_trgm` for typos and partial names, with a trigram index that also serves `LIKE` and regular expressions.
+- pgvector for similarity.
 
-Tests for the pilot:
+One statement fuses the keyword ranking and the vector ranking by reciprocal rank fusion, as the pgvector example shows, and weights them by query type, an idea taken from qmd. `ts_rank` uses no statistics across the whole collection, so it is not BM25. A BM25 extension enters only if the pilot shows that ranking is too weak. The records show each BM25 extension breaking or leaving unstated part of the transaction boundary: ParadeDB's free edition stops a standby when an index is created, and `pg_textsearch` keeps compaction output after a rollback. Reranking inside SQL has no record; a reranker would run in the Python layer.
 
-1. A vector search followed by a traversal runs as one statement in one transaction and sees that transaction's own writes.
-2. The type trigger rejects every edge whose ends have the wrong node kinds.
-3. No update or delete changes a confirmed edge or a decision; only a new row replaces it.
-4. An event reaches a listener for every committed idea, and for none that was rolled back, including after a listener restart.
+## Queries, layer, and events
+
+The key query is one statement: a search, then a recursive traversal over `edge`, with the `CYCLE` clause against loops. SQL functions and procedures hold such queries, so callers name an operation, not a recursive query. A slim Python layer with asyncpg and aiosql runs the named queries. It holds one connection inside a transaction for writes; a pool passed to aiosql would give each call its own transaction. It also computes the embeddings, so the model stays outside the database, and writes text, vector, and edges in one transaction.
+
+New ideas raise events. `NOTIFY` fires only when its transaction commits, so a listener never hears of an idea that was rolled back. A notification is lost when nobody listens, so an outbox table holds the events and the notification only wakes the reader. The Python layer listens with asyncpg, which also reports a lost connection, and carries the events onward. The stakeholder ruled out pg_eventserv on 2026-11-18; the postgres-and-qmd survey found no code change in it since 2023 and no reconnect in its listen loop.
+
+SQL/PGQ was committed to PostgreSQL and reverted before release 19, so it does not shape the schema. Walks over many hops stay wordier in SQL than in Cypher; the functions hide that.
+
+PostgreSQL 19 changes German and English stems. An upgrade must recompute every stored `tsvector`.
+
+## Tests for the pilot
+
+The surveys found no source for the behaviours these tests check, or found limits to them.
+
+1. A search followed by a traversal runs as one statement in one transaction. A row written earlier in that transaction is found through the HNSW index and through the GIN index. The test also covers a new vector that `hnsw.ef_search` or a filter leaves outside the candidates.
+2. After `ROLLBACK`, no keyword or vector query finds the rolled-back row.
+3. The type trigger rejects every edge whose ends have the wrong node kinds, also after a node's kind changes.
+4. No update, delete, or `TRUNCATE` by the application's role changes a confirmed edge or a decision; only a new row replaces it.
+5. An event reaches a listener for every committed idea and for none that was rolled back, also after the listener restarts and reads the outbox.
+6. Two transactions that each check for a similar vector and then insert, under `SERIALIZABLE`, do not both commit a duplicate candidate.
+7. Under `SERIALIZABLE`, serialization failures differ with the GIN `fastupdate` setting on and off, by an amount the test records.
+8. A German sample corpus shows which compound queries miss without Hunspell.
+9. A `pg_upgrade` from 18 to 19 shows which stored `tsvector` values change.
 
 ## Bolder options the stakeholder has not decided
 

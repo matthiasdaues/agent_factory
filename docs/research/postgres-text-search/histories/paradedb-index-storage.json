@@ -1,0 +1,38 @@
+{
+  "concept": "ParadeDB index storage and WAL",
+  "area": "Area 2: BM25 extensions and keyword with vector in one query",
+  "current_formulation": "The pg_search index lives in PostgreSQL block storage, and since 0.24.0 Community writes WAL for its buffers for crash recovery.",
+  "steps": [
+    {
+      "formulation": "pg_bm25 is renamed pg_search, and the index becomes a PostgreSQL index type (v0.6.0).",
+      "date": "2023-11-15",
+      "record": "A2-SR-05",
+      "quote": "pg_search stores the index inside Postgres as a new, Postgres-native index type",
+      "criticism": null
+    },
+    {
+      "formulation": "The index moves to PostgreSQL block storage; Enterprise gains WAL, physical replication, and recovery (0.14.0).",
+      "date": "2025-01-12",
+      "record": "A2-SR-04",
+      "quote": "`pg_search` is now on Postgres block storage",
+      "criticism": {
+        "record": "A2-SR-04",
+        "date": "2025-07-17",
+        "quote": "However, the Postgres FSM is not write-ahead logged.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Community writes WAL for its buffers, for crash recovery (0.24.0).",
+      "date": "2026-06-03",
+      "record": "A2-SR-18",
+      "quote": "`pg_search` will now write WAL entries for its buffers, allowing for crash recovery.",
+      "criticism": {
+        "record": "A2-SR-06",
+        "date": "2026-08-20",
+        "quote": "ParadeDB Community currently stops the entire PostgreSQL physical standby when WAL replay reaches the creation of a ParadeDB index.",
+        "drove_next": false
+      }
+    }
+  ]
+}

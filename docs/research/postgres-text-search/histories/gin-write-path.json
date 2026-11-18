@@ -1,0 +1,50 @@
+{
+  "concept": "GIN write path",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "GIN defers new entries to a WAL-logged pending list, bounded by gin_pending_list_limit and cleaned by vacuum, autoanalyze, a function call, or a foreground merge.",
+  "steps": [
+    {
+      "formulation": "GIN arrives as an index type in 8.2.",
+      "date": "2008-02-04",
+      "record": "A1-SR-14",
+      "quote": "Add GIN (Generalized Inverted iNdex)",
+      "criticism": {
+        "record": "A1-SR-12",
+        "date": "2009-03-24",
+        "quote": "This helps because bulk insert is (usually) significantly faster than retail insert for GIN.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "fastupdate puts new entries in a pending list that a later cleanup moves into the main index (8.4).",
+      "date": "2009-03-24",
+      "record": "A1-SR-12",
+      "quote": "Pending entries are stored in linear list of pages.",
+      "criticism": {
+        "record": "A1-SR-14",
+        "date": "2026-10-09",
+        "quote": "Previously the pending-list size was controlled by work_mem, which was awkward because appropriate values for work_mem are often much too large for this purpose.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "gin_pending_list_limit sets the pending-list size, globally or per index (9.5).",
+      "date": "2026-10-09",
+      "record": "A1-SR-14",
+      "quote": "Add configuration parameter gin_pending_list_limit to control the size of GIN pending lists",
+      "criticism": null
+    },
+    {
+      "formulation": "gin_clean_pending_list() lets a user start the cleanup by hand (9.6).",
+      "date": "2026-10-09",
+      "record": "A1-SR-14",
+      "quote": "Add gin_clean_pending_list() function to allow manual invocation of pending-list cleanup",
+      "criticism": {
+        "record": "A1-SR-11",
+        "date": "2026-11-12",
+        "quote": "The main disadvantage of this approach is that searches must scan the list of pending entries in addition to searching the regular index",
+        "drove_next": false
+      }
+    }
+  ]
+}
