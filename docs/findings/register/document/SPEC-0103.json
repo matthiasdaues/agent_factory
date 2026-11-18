@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0103",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/state-machines.md:1132",
+  "story": null,
+  "finding": "The event Prepare of PENDING checks only the dependencies inside the run and the wave record, so it accepts an entry with returned: true. The proposal says that a returned story stays pending until the end of the run, and BR-117 lets only dispatch add take a returned finding back. By hand, dispatch prepare-story ST-0351 for a returned ST-0351 in the closed wave 1 passes both checks and starts the story again that the User returned. Add a refusal for an entry with returned: true to Prepare, to BR-113 and to the prepare-story bullet of interface-contracts.md, and add a Scenario to RL-07. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "By hand the implementation agent starts a story only after the User's go, and prepare-wave prepares only the stories of its own wave, so a returned story does not start again without the User (no to fails_purpose); the implementer of prepare-story must work out from the proposal that a returned entry may not start (raises_cost).",
+  "commit": "c2d09f330160ac5ca7c55b53d82b84d85ff93e43",
+  "status": "open"
+}

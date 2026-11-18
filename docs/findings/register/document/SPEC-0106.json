@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0106",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/work/run-lifecycle-qa-strategy.md:5",
+  "story": null,
+  "finding": "The header of the QA strategy says that the feature file holds 143 Scenarios, 14 of them Scenario Outlines. Since commit 45860402 the file holds 128 Scenarios and 15 Scenario Outlines, 143 in all, as the gaps report says. The next line names the settled items RL-G01 to RL-G23 of the gaps report, while OI-17 of the same strategy cites RL-G24. Correct the count and the range. Owner: test-strategy-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "No row or test depends on the count, and OI-17 links RL-G24 (no to fails_purpose); a reader who compares the strategy with the gaps report meets two counts (raises_cost).",
+  "commit": "c2d09f330160ac5ca7c55b53d82b84d85ff93e43",
+  "status": "open"
+}

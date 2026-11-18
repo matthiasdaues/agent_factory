@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0105",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:468",
+  "story": null,
+  "finding": "The heading 'Ownership and drift reports (core artifact ownership, BR-056…BR-066)' uses 'drift report'. The glossary entry Spec-Feedback Report names that term in its Avoid cell, and the RL-19 Scenario 'No living Factory document uses a replaced term' forbids it in docs/spec/ outside docs/spec/work/. interface-contracts.md, core-artifact-ownership-gaps.md and core-artifact-ownership-qa-strategy.md link the anchor of the heading. Rename the heading, for example to 'Ownership and spec-feedback reports', and change the links in the same commit. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The heading names the right rules, so a reader finds them (no to fails_purpose); the text check RL-19-LN-01 fails on the heading, and a reader meets two terms for one concept (raises_cost).",
+  "commit": "c2d09f330160ac5ca7c55b53d82b84d85ff93e43",
+  "status": "open"
+}

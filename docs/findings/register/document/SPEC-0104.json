@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0104",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:886",
+  "story": null,
+  "finding": "The routing at the wave close covers a QA finding that the gate-check step filed. The core-artifact-ownership Outline 'The test-strategy agent resolves a QA finding in one of two ways' lets the test-strategy agent keep QA-0013 open and change its owner to planning-agent, because a test is missing. Wave 1 has closed when that spawn returns, and no Scenario says whether the implementation agent then runs dispatch add QA-0013 before dispatch prepare-wave 2. As written, QA-0013 stays open with run feature/login until premerge-check dev refuses the run. Add a step to the Scenario 'The next wave waits until every spawn of the test-strategy agent returns' that routes each returned finding by its new owner. Owner: requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "premerge-check dev refuses the run and names QA-0013, so nothing merges wrong, and the plain reading of 'routes the open QA findings by owner' lets the agent route QA-0013 again (no to fails_purpose); the writer of RL-12-IT-01 must decide the second routing without a Scenario (raises_cost).",
+  "commit": "c2d09f330160ac5ca7c55b53d82b84d85ff93e43",
+  "status": "open"
+}
