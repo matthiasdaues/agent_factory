@@ -26,6 +26,11 @@ and with the filed rating. It ran on 2026-11-18. The report is
   four raters (Q1 to Q4) on [rules-3.md](run-3/rules/rules-3.md), which adds R1,
   R2, and two draft calibration rows. The results are in
   [run-3-results.md](key/run-3-results.md).
+- [run-4/](run-4/) holds the fourth run: the same three findings, four raters
+  (E1 to E4) on [rules-4.md](run-4/rules/rules-4.md), which adds a candidate
+  rule for exposure. The raters got the handoff's scenario lists in
+  `run-4/scenarios/` instead of the handoff. The results are in
+  [run-4-results.md](key/run-4-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
