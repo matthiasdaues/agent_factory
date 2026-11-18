@@ -334,7 +334,8 @@ for a rerun in the checkout that holds the branch. See
 
 **ADR-0039** makes `block-dangerous-git.sh` the one git guardrail of Claude
 Code, Codex, Copilot CLI, pi, and OpenCode. pi's extension and OpenCode's
-plugin pass each shell command to the script and hold no rule of their own.
+plugin pass each shell command to the script, and OpenCode's plugin also the
+JavaScript of each `execute` call. Neither holds a rule of its own.
 It scored +6, against 0 for one rule set per tool and 0 for a shared rule file.
 See [6.25](06_runtime_view.md#625-the-git-guardrail-in-every-agent-tool).
 

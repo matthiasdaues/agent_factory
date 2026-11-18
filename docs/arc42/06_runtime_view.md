@@ -136,31 +136,33 @@ sequenceDiagram
     participant U as Human Operator
 
     IA->>DC: 1. Runs dependency-check on story/ST-0350
-    DC->>SF: 2. Writes a passing result to .current-work/dependency-check/ST-0350.json
-    IA->>CS: 3. Runs crap-score with gates.crap-score.threshold
-    CS->>SF: 4. Writes a failing row: login() has a CRAP score of 42
-    IA->>D: 5. Runs dispatch mark-failed ST-0350 --class acceptance_unmet, which counts toward gates.attempts
-    alt Counted attempts remain on the tier
-        IA->>D: 6. Runs dispatch re-dispatch ST-0350
-    else The attempts on the tier are used up
-        IA->>D: 6. Runs dispatch escalate ST-0350
+    DC->>SF: 2. Writes a passing result
+    IA->>CS: 3. Runs crap-score
+    CS->>SF: 4. Writes a failing row: login() scores 42
+    IA->>D: 5. Runs mark-failed ST-0350 --class acceptance_unmet
+    opt The attempts on the tier are used up
+        IA->>D: 6. Runs escalate ST-0350
     end
-    IA->>SF: 7. Reads the failing result of crap-score
-    IA->>DA: 8. Spawns a fresh developer agent with the output of crap-score
-    DA->>G: 9. Fixes login() and commits on story/ST-0350
-    IA->>CS: 10. Runs every gate again, and crap-score passes
-    IA->>MT: 11. Runs mutation-testing, and a mutant in src/login.py:42 survives
-    IA->>WO: 12. Files QA-0012 with run feature/login and owner planning-agent, and commits it on story/ST-0350
-    IA->>SF: 13. Writes the list mutants: the survivor has resolution_action file-qa-finding and finding QA-0012
+    IA->>D: 7. Runs re-dispatch ST-0350
+    IA->>SF: 8. Reads the failing result of crap-score
+    IA->>D: 9. Runs mark-dispatching ST-0350
+    IA->>DA: 10. Spawns a fresh developer agent with the output of crap-score
+    DA->>G: 11. Fixes login() and commits on story/ST-0350
+    IA->>D: 12. Runs mark-dispatched ST-0350
+    IA->>CS: 13. Runs every gate again, and crap-score passes
+    IA->>MT: 14. Runs mutation-testing, and a mutant in src/login.py:42 survives
+    IA->>WO: 15. Files QA-0012 with run feature/login and commits it on story/ST-0350
+    IA->>SF: 16. Writes the list mutants with finding QA-0012
     opt ST-0350 has stopped as failed or blocked
-        IA->>U: 14. Shows the cause and waits
+        IA->>U: 17. Shows the cause and waits, when ST-0350 has stopped
     end
 ```
 
 **Key Points:**
 
-- The gates of a unit of work are `dependency-check` when `docs/spec/dependency-rules.dsl` exists, `test-design-verify` when the story has a Test Design or a Prior Tests section, and every entry under `gates` in `docs/testing.yaml` with `enabled: true` and a command. A story's `quality-gates` field can only add gates ([5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)).
-- Each failed attempt spawns a fresh developer agent with only the gate's output and the affected files.
+- The gates of a unit of work are `dependency-check` when `docs/spec/dependency-rules.dsl` exists, `test-design-verify` when the story has a Test Design or a Prior Tests section, and every entry under `gates` in `docs/testing.yaml` with `enabled: true` and a command. A story's `quality-gates` field can only add gates ([5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-testing-dependency-check-test-design-verify)).
+- Each failed attempt spawns a fresh developer agent with only the gate's output and the affected files. The attempt moves the entry through the [Ledger Entry Lifecycle](../spec/state-machines.md#ledger-entry-lifecycle): `mark-failed` sets `failed`, `re-dispatch` sets `prepared`, `mark-dispatching` comes before the spawn, and `mark-dispatched` after the fix commit. So the entry is `dispatched` again when `merge-story` runs.
+- `escalate` raises the tier and leaves the entry `failed`. So `re-dispatch` follows it in every case.
 - A failing gate records the failure class `acceptance_unmet`, which counts. A unit of work gets `gates.attempts` counted attempts on its tier, the first included, and then `gates.attempts_escalated` attempts on the next tier. Both default to `3`, and `gates.attempts_escalated: 0` turns escalation off. `dispatch` enforces both limits (BR-114, BR-115).
 - When the attempts are used up and no promotion is left, the unit of work is `failed` and has stopped. It waits for the User, in both ways. The User fixes the cause and tells the implementation agent to continue, or runs `dispatch return-story` (BR-116).
 - A surviving mutant that the step cannot kill or remove as dead code becomes a `QA` finding with `run` set to the feature branch. It does not block the story merge. It blocks the merge of the feature branch into `dev` until it is resolved (BR-066).
@@ -1233,25 +1235,25 @@ sequenceDiagram
     participant PC as premerge-check
     participant RA as reconciliation-agent
 
-    U->>IA: 1. Asks for an orchestrated run of ST-0350 and ST-0351 on feature/login
-    IA->>D: 2. Runs dispatch init --mode orchestrated --stories ST-0350,ST-0351
+    U->>IA: 1. Asks for an orchestrated run of ST-0350 and ST-0351
+    IA->>D: 2. Runs init --mode orchestrated --stories ST-0350,ST-0351
     D->>G: 3. Cuts feature/login from dev
     D->>RW: 4. Creates the worktree of feature/login
-    D->>L: 5. Writes a ledger with mode orchestrated and both stories pending
-    L->>SF: 6. Saves .current-work/feature/login/dispatch-ledger.yaml
-    IA->>D: 7. Runs dispatch plan and dispatch prepare-wave 1
-    D->>RW: 8. Creates a story worktree for story/ST-0350 and one for story/ST-0351
-    IA->>DA: 9. Spawns one developer agent per story, and both stories run the story workflow in parallel
-    IA->>D: 10. Runs dispatch merge-story for each story whose workflow passed
-    IA->>D: 11. Runs dispatch close-wave 1 after the last story of wave 1 stops
-    S->>CRA: 12. Runs the review of the whole feature after the last wave closes
+    D->>L: 5. Writes a ledger with both stories pending
+    L->>SF: 6. Saves the ledger of feature/login
+    IA->>D: 7. Runs plan and prepare-wave 1
+    D->>RW: 8. Creates one story worktree per story
+    IA->>DA: 9. Spawns one developer agent per story, and both run the story workflow
+    IA->>D: 10. Runs merge-story for each story whose workflow passed
+    IA->>D: 11. Runs close-wave 1 after the last story of wave 1 stops
+    S->>CRA: 12. Runs the review of the whole feature
     S->>QA: 13. Runs QA on feature/login
     IA->>PC: 14. Runs premerge-check dev feature/login and shows the result
     U->>G: 15. Merges feature/login into dev
     U->>D: 16. Runs dispatch close
-    D->>RW: 17. Stashes the uncommitted files of each worktree under a name, then removes the worktree
-    D->>SF: 18. Removes the ledger, the gate result files, the markers, and the briefs of the run
-    D->>G: 19. Deletes the merged branches with git branch -d and lists each stash and each unmerged branch
+    D->>RW: 17. Stashes each worktree's uncommitted files under a name, then removes it
+    D->>SF: 18. Removes the state of the run
+    D->>G: 19. Deletes the merged branches and lists each stash and each unmerged branch
     S->>RA: 20. Runs the reconciliation on dev, outside the run
 ```
 
@@ -1275,37 +1277,42 @@ sequenceDiagram
     participant QA as qa-agent
     participant PC as premerge-check
 
-    U->>IA: 1. Asks for a run by hand of ST-0350 on feature/login
-    IA->>D: 2. Runs dispatch init --mode by-hand --stories ST-0350
+    U->>IA: 1. Asks for a run by hand of ST-0350
+    IA->>D: 2. Runs init --mode by-hand --stories ST-0350
     D->>G: 3. Cuts feature/login from dev and checks nothing out
-    D->>L: 4. Writes a ledger with mode by-hand, and init refuses while another run by hand is active
-    IA->>U: 5. Shows ST-0350, names dispatch prepare-story ST-0350, and waits
+    D->>L: 4. Writes a ledger with mode by-hand
+    IA->>U: 5. Names prepare-story ST-0350 and waits
     U->>IA: 6. Gives the go
-    IA->>D: 7. Runs dispatch prepare-story ST-0350
-    D->>PF: 8. Checks out story/ST-0350 in the primary checkout and records wave 1
-    IA->>DA: 9. Spawns the developer agent, and ST-0350 runs the story workflow in the primary checkout
-    IA->>U: 10. Shows the branch head, the findings with their status, and the output of premerge-check, then names dispatch merge-story ST-0350 and waits
-    U->>IA: 11. Gives the go
-    IA->>D: 12. Runs dispatch merge-story ST-0350
-    D->>PF: 13. Checks out feature/login in the primary checkout, then merges
-    IA->>D: 14. Runs dispatch close-wave 1 before the next story starts
-    S->>CRA: 15. Runs the review of the whole feature
-    S->>QA: 16. Runs QA on feature/login
-    IA->>PC: 17. Runs premerge-check dev feature/login
-    IA->>U: 18. Shows the result of the feature merge check and stops before the merge into dev
-    U->>G: 19. Merges feature/login into dev
-    U->>D: 20. Runs dispatch close with ! in Claude Code
+    IA->>D: 7. Runs prepare-story ST-0350
+    D->>PF: 8. Checks out story/ST-0350 in the primary checkout
+    IA->>DA: 9. Spawns the developer agent, and ST-0350 runs the story workflow
+    IA->>D: 10. Runs merge-story ST-0350 --dry-run, which merges nothing
+    D->>PC: 11. Runs premerge-check on story/ST-0350
+    IA->>U: 12. Shows the branch head, the findings, and the merge-check output, then names merge-story and waits
+    U->>IA: 13. Gives the go
+    IA->>D: 14. Runs merge-story ST-0350
+    D->>PC: 15. Runs premerge-check again, while story/ST-0350 stays checked out
+    D->>PF: 16. After exit 0, checks out feature/login and merges
+    IA->>D: 17. Runs close-wave 1 before the next story starts
+    S->>CRA: 18. Runs the review of the whole feature
+    S->>QA: 19. Runs QA on feature/login
+    IA->>PC: 20. Runs premerge-check dev feature/login
+    IA->>U: 21. Shows the result and stops before the merge into dev
+    U->>G: 22. Merges feature/login into dev
+    U->>D: 23. Runs dispatch close with ! in Claude Code
 ```
 
 **Key Points:**
 
 - One run may be active per feature branch, and several runs may be active at once. Only one run by hand may be active, because it needs the primary checkout (BR-112).
 - By hand, `init` creates no worktree. Git cannot check out a branch that another worktree holds, and the run works in the primary checkout.
+- Before the go for a merge, the implementation agent runs `dispatch merge-story --dry-run`. The dry run runs `premerge-check` and merges nothing, so the User sees the merge-check output before deciding.
+- By hand, `merge-story` runs `premerge-check` while the story branch is still checked out, and checks out the feature branch only after exit `0`. So a refused merge leaves the primary checkout on the story branch, and a changed tracked file cannot make the checkout fail before the check decides. [6.24.1](#6241-sequence-a-refused-story-merge) shows what follows a refusal.
 - The User runs only `dispatch return-story`, `dispatch close --drop`, and `dispatch close`, with `!` in Claude Code or in a terminal of their own. The guardrail refuses the first two to agents ([6.25](#625-the-git-guardrail-in-every-agent-tool)).
 - A run by hand needs no `refresh-story`, because only one story runs, so the feature branch does not move under it.
 - `dispatch close` refuses while a unit of work is `failed` or `blocked`, and while the feature branch is not merged into `dev`; then it names `--drop`. It stashes the untracked files and the uncommitted changes of each worktree in one named stash, such as `run feature/login ST-0350 2026-11-24`, and does not apply it. It lists each stash and each unmerged branch, because only the human deletes an unmerged branch (BR-119).
 - After the close, the record of the run is the merge commits in `dev` and the status in each story file. `dispatch close --orphans` cleans up worktrees, branches, and ledgers that no active run owns (BR-120).
-- Every `dispatch` command reads the ledger and the branch state before it acts, so a new session continues an interrupted run where it stopped (QS-5).
+- Every `dispatch` command reads the ledger and the branch state before it acts, so a new session continues an interrupted run where it stopped (QS-30).
 
 ## 6.23 The Story Workflow
 
@@ -1325,30 +1332,31 @@ sequenceDiagram
     participant PC as premerge-check
     participant L as Ledger
 
-    IA->>D: 1. Runs dispatch mark-dispatching ST-0350
+    IA->>D: 1. Runs mark-dispatching ST-0350
     IA->>DA: 2. Spawns the developer agent for ST-0350
-    DA->>G: 3. Implements ST-0350 test first and commits on story/ST-0350
-    IA->>D: 4. Runs dispatch mark-dispatched ST-0350
+    DA->>G: 3. Implements ST-0350 test first and commits
+    IA->>D: 4. Runs mark-dispatched ST-0350
     IA->>CRA: 5. Spawns the review of story/ST-0350
-    CRA->>WO: 6. Writes docs/reviews/code-review-ST-0350-2026-11-24.md with story ST-0350 and branch_head, and files IMPL-0091 with story ST-0350
-    DA->>G: 7. Commits the report and the finding on story/ST-0350
+    CRA->>WO: 6. Writes code-review-ST-0350-2026-11-24.md and files IMPL-0091
+    DA->>G: 7. Commits the report and the finding
     loop Until no blocking finding with story ST-0350 is open
-        IA->>DA: 8. Spawns a fresh developer agent for the blocking finding IMPL-0091
+        IA->>DA: 8. Spawns a fresh developer agent for IMPL-0091
         DA->>G: 9. Fixes IMPL-0091 and commits
         IA->>CRA: 10. Spawns a repeat review, which sets IMPL-0091 to resolved
     end
-    IA->>CS: 11. Runs the gate-check step: every gate of ST-0350 on story/ST-0350
-    IA->>D: 12. Runs dispatch merge-story ST-0350
-    D->>PC: 13. Runs premerge-check feature/login story/ST-0350 with the scope of ST-0350
-    D->>G: 14. Merges story/ST-0350 into feature/login and sets status done in backlog/ST-0350.md in the merge commit
-    D->>G: 15. Runs the test command of docs/testing.yaml and, on a red suite, moves feature/login back to the commit before the merge
-    D->>L: 16. Sets ST-0350 done with the merge commit in commit_sha, or blocked after a red suite
+    IA->>CS: 11. Runs the gate-check step: every gate of ST-0350
+    IA->>D: 12. Runs merge-story ST-0350
+    D->>PC: 13. Runs premerge-check feature/login story/ST-0350
+    D->>G: 14. Merges and sets status done in backlog/ST-0350.md in the merge commit
+    D->>G: 15. Runs the test suite and moves feature/login back on a red suite
+    D->>L: 16. Sets ST-0350 done, or blocked after a red suite
 ```
 
 **Key Points:**
 
 - The developer agent commits on both ways, so the review and the gates always see committed work. It never runs a gate script and never sets `status: done`. The pre-commit hooks give it early feedback on every commit.
 - A second review of the same story on the same day writes `-2` into the report name, and a third `-3`, so two stories reviewed on one day do not collide at the merge.
+- The review report of step 6 carries `story: ST-0350` and `branch_head`, and IMPL-0091 carries `story: ST-0350`.
 - Each finding of a story's review sets `story` to the story ID. A finding of the feature checks leaves `story` empty and sets `run` to the feature branch. `finding-lint` refuses a finding that sets both (BR-121).
 - Step 11 is the gate-check step of [6.4](#64-gate-check-step).
 - Only `merge-story` sets `done` for a story, or `resolved` for a finding, in the merge commit (BR-118). `dispatch` has no `mark-done` subcommand.
@@ -1370,20 +1378,25 @@ sequenceDiagram
     participant DC as dependency-check
     participant CS as crap-score
     participant SF as State Files
+    participant PF as Project Filesystem
 
-    D->>PC: 1. merge-story runs premerge-check feature/login story/ST-0350 with the scope of ST-0350
-    PC->>SC: 2. Calls the stop check before any other check
-    PC->>G: 3. Checks the base, the diff size, and the scope, then reads the review reports and the finding files at the head of story/ST-0350
-    PC->>RW: 4. Adds a detached worktree at the head of story/ST-0350 under .current-work/feature/login/premerge/ST-0350
-    PC->>DC: 5. Runs dependency-check from the installed copy, with the temporary worktree as source root
-    PC->>CS: 6. Runs crap-score with the test suite, so it reads fresh coverage
-    PC->>SF: 7. Reads the result file of mutation-testing, the one stored result it reads
-    PC->>RW: 8. Runs the test suite and every other gate command, then removes the temporary worktree
+    D->>PC: 1. merge-story runs premerge-check feature/login story/ST-0350
+    PC->>SC: 2. Calls the stop check first
+    PC->>G: 3. Checks the base, diff size, and scope, and reads reviews and findings at the head
+    PC->>RW: 4. Removes any worktree left at premerge/ST-0350, then prunes
+    PC->>RW: 5. Adds a detached worktree at the head of story/ST-0350
+    PC->>DC: 6. Reruns dependency-check in the worktree
+    PC->>CS: 7. Reruns crap-score with fresh coverage
+    PC->>SF: 8. Reads the mutation-testing result, the one stored result
+    PC->>RW: 9. Runs the test suite and the other gates, then removes the worktree
     alt Every check passes
-        PC->>SF: 9. Writes .current-work/premerge-check-ok for the head of story/ST-0350 and exits 0
-        D->>G: 10. Merges story/ST-0350 into feature/login
+        PC->>SF: 10. Writes premerge-check-ok for the head and exits 0
+        opt A run by hand
+            D->>PF: 11. By hand, checks out feature/login only now
+        end
+        D->>G: 12. Merges story/ST-0350 into feature/login
     else A check fails
-        PC-->>D: Exits 1 and names each failure, such as an open finding or a failing gate
+        PC-->>D: Exits 1 and names each failure, and 6.24.1 shows what follows
     end
 ```
 
@@ -1391,10 +1404,82 @@ sequenceDiagram
 
 - `premerge-check` reads the ID of the unit of work from the branch name `story/<id>`, which holds a story ID or a finding ID.
 - It reads the review reports, the finding files, and the register files from the branch head with git. A finding that is open only in the folder where the check runs does not count, and one that is open at the branch head does.
+- Step 4 removes a worktree that a crashed earlier check left at `.current-work/feature/login/premerge/ST-0350`, with `git worktree remove --force` and then `git worktree prune` (BR-123). The path belongs to one unit of work, so no other check uses it, and a retry after a crash does not fail on the leftover.
 - The temporary worktree is detached at the head commit, because the branch is checked out in the story worktree or the primary checkout already. Git ignores `.agent-factory/`, so the gate scripts come from the installed copy of the calling checkout (OI-10). The worktree builds its own `uv` environment, so the first rerun takes longer.
 - An untracked file of a checkout takes no part in the rerun.
 - `merge-story` declares the scope of a story: its declared outputs, its backlog file, its spec-feedback report, and its review reports, finding files, and register files. These files do not count toward the file limit. A finding declares no scope, and `--max-files` still limits its diff (RL-G20).
-- The merge of the feature branch into `dev` runs `premerge-check dev <feature-branch>`. It checks that every unit of work is `done` or `pending`, that every wave has a wave record, that the review of the whole feature and the three QA reports name the run and a current `branch_head`, and that no blocking finding of the run is open. It runs the full test suite in a temporary worktree at the head of the feature branch. The implementation agent shows the result, and the User merges.
+- The merge of the feature branch into `dev` runs `premerge-check dev <feature-branch>`. It checks that every unit of work is `done` or `pending`, that every wave has a wave record, that the review of the whole feature and the three QA reports name the run and a current `branch_head`, and that no blocking finding of the run is open. It runs the full test suite in a temporary worktree at the head of the feature branch, at `.current-work/<feature-branch>/premerge/feature`, such as `.current-work/feature/login/premerge/feature`. Story and finding checks keep `premerge/<id>`. The implementation agent shows the result, and the User merges.
+
+### 6.24.1 Sequence: A Refused Story Merge
+
+Derived from dynamic view `PremergeStoryRefused` in [`architecture.dsl`](../spec/architecture.dsl).
+
+A refused merge changes no state (BR-124). `merge-story` merges nothing, a failed `premerge-check` writes no marker, and the entry of the unit of work stays `dispatched`. By hand, the story branch also stays checked out in the primary checkout. The cause of the refusal decides the next step of the implementation agent:
+
+| Cause of the refusal                                                                                            | Next step of the implementation agent                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A gate or the test suite                                                                                        | Runs the gate-check step of [6.4](#64-gate-check-step) on the branch. When the gate fails there too, the attempt runs as in 6.4: `mark-failed`, `re-dispatch`, `mark-dispatching`, a fresh developer agent, `mark-dispatched`, and the gates again                                                                                                                          |
+| A gate that passes in the gate-check step and fails in the temporary worktree                                   | Stops and shows both outputs to the User. The difference lies in a file that the commit lacks, such as an untracked file of the checkout                                                                                                                                                                                                                                    |
+| An open blocking finding, or no code review of the current branch head                                          | Spawns a fresh developer agent for the finding and then a repeat review, as in the loop of [6.23](#623-the-story-workflow). Then it runs the gate-check step                                                                                                                                                                                                                |
+| The base, the diff size, or the scope                                                                           | Stops and shows the cause to the User, in both ways. A file outside the scope or a diff that is too large needs the User's decision                                                                                                                                                                                                                                         |
+| The stop of a critical finding                                                                                  | Stops. The run waits until the stakeholder confirms the damage checks ([6.17](#617-a-critical-finding-stops-the-run))                                                                                                                                                                                                                                                       |
+| No check fails, but git refuses the checkout of the feature branch over an uncommitted change to a tracked file | `merge-story` exits `1`, names the files and the checkout they sit in, and merges nothing. The entry stays `dispatched`, and the story branch stays checked out. The implementation agent shows the message to the User unchanged. In an orchestrated run the feature branch worktree never holds an uncommitted change, so the agent does not repair the worktree (BR-124) |
+
+Take ST-0350 in a run by hand. The last fix commit added an import that breaks a rule of `dependency-rules.dsl`.
+
+```mermaid
+sequenceDiagram
+    participant U as Human Operator
+    participant IA as implementation-agent
+    participant D as dispatch
+    participant PC as premerge-check
+    participant DC as dependency-check
+    participant RW as Run Worktrees
+    participant DA as developer-agent
+    participant G as Git / pre-commit
+
+    IA->>D: 1. Runs merge-story ST-0350 after the User's go
+    D->>PC: 2. Runs premerge-check while story/ST-0350 stays checked out
+    PC->>DC: 3. Reruns dependency-check in the temporary worktree, and it fails
+    PC->>RW: 4. Removes the temporary worktree and writes no marker
+    PC-->>D: Exits 1 and names dependency-check
+    D-->>IA: Exits non-zero and merges nothing
+    IA->>U: 5. Shows the failed check, and ST-0350 stays dispatched on story/ST-0350
+    IA->>DC: 6. Runs the gate-check step, and dependency-check fails there too
+    IA->>D: 7. Runs mark-failed ST-0350 and re-dispatch ST-0350
+    IA->>D: 8. Runs mark-dispatching ST-0350
+    IA->>DA: 9. Spawns a fresh developer agent with the output of dependency-check
+    DA->>G: 10. Fixes the import and commits on story/ST-0350
+    IA->>D: 11. Runs mark-dispatched ST-0350
+    IA->>DC: 12. Runs the gate-check step again, and every gate passes
+    IA->>U: 13. Names merge-story ST-0350 again and waits for the go
+```
+
+**Key Points:**
+
+- The Ledger Entry Lifecycle has no transition for a refused merge, because the entry keeps its state. A gate failure reaches `failed` through the gate-check step, where the state machine allows **Fail** from `dispatched`.
+- In an orchestrated run, the steps are the same without the stops for the User's go.
+
+The last row has a sequence of its own. Derived from dynamic view `MergeCheckoutRefused` in [`architecture.dsl`](../spec/architecture.dsl).
+
+Take ST-0350 in a run by hand again. Every check passes, but the User has an uncommitted change to `src/login.py`, which differs between `story/ST-0350` and `feature/login`.
+
+```mermaid
+sequenceDiagram
+    participant U as Human Operator
+    participant IA as implementation-agent
+    participant D as dispatch
+    participant PC as premerge-check
+    participant PF as Project Filesystem
+
+    IA->>D: 1. Runs merge-story ST-0350 after the User's go
+    D->>PC: 2. Runs premerge-check, and every check passes
+    D->>PF: 3. Checks out feature/login, and git refuses over the uncommitted change to src/login.py
+    D-->>IA: Exits 1, names src/login.py and the primary checkout, and merges nothing
+    IA->>U: 4. Shows the message unchanged: the files, the checkout, and that nothing merged
+```
+
+ST-0350 stays `dispatched`, and `story/ST-0350` stays checked out. The User commits or reverts the change and gives the go again, and `merge-story` reruns `premerge-check` (BR-124).
 
 ## 6.25 The Git Guardrail in Every Agent Tool
 
@@ -1409,21 +1494,26 @@ sequenceDiagram
     participant GO as git guardrail entry: OpenCode plugin
     participant BDG as block-dangerous-git.sh
 
-    A->>GP: 1. Pi: the bash call dispatch close --drop fires tool_call
-    GP->>BDG: 2. Passes the command to the script
+    A->>GP: 1. pi: the bash call dispatch close --drop fires tool_call
+    GP->>BDG: 2. Passes the command
     BDG-->>GP: Exit 2 and the reason
     GP->>A: 3. Blocks the call with the script's reason
     A->>GO: 4. OpenCode: the shell call dispatch close --drop fires execute.before
-    GO->>BDG: 5. Passes the command to the script
+    GO->>BDG: 5. Passes the command
     BDG-->>GO: Exit 2 and the reason
     GO->>A: 6. Blocks the call with the script's reason
-    A->>BDG: 7. Claude Code: the Bash call dispatch close --drop fires PreToolUse
-    BDG->>A: 8. Refuses with exit 2 and names the User as the one who drops a run
+    A->>GO: 7. OpenCode: an execute call whose JavaScript runs dispatch close --drop fires execute.before
+    GO->>BDG: 8. Passes the JavaScript as command text
+    BDG-->>GO: Exit 2 and the reason
+    GO->>A: 9. Blocks the call with the script's reason
+    A->>BDG: 10. Claude Code: the Bash call dispatch close --drop fires PreToolUse
+    BDG->>A: 11. Refuses with exit 2 and names the User as the one who drops a run
 ```
 
 **Key Points:**
 
 - Codex and Copilot CLI call the script from their native hook, as Claude Code does.
+- OpenCode's `execute` tool runs JavaScript, which can start a process, such as `execSync("dispatch close --drop")`. So the OpenCode entry passes that JavaScript to the script as command text, as the guard `guard-human-fields` does for the same tool. The real OpenCode session test, which the User starts through the manual pre-commit hook `run-opencode-session-test`, checks a `shell` call and an `execute` call.
 - The script refuses both commands in every form that names them in the command text: through any path to `dispatch`, after `&&` or `;`, and inside `bash -c`. It expands no variable, so a command built from variables passes (OI-11).
 - The script refuses no other `dispatch` subcommand. The User watches a run and can undo any other step: a story that started too early is returned, and a merge that came too early is undone by moving the feature branch back.
 - The script finds the run of a folder from the folder's branch. A feature branch has its ledger at `.current-work/<feature-branch>/`, and a story branch belongs to the run whose ledger lists it. On `dev`, a ledger of another branch changes nothing (RL-G12).
@@ -1431,6 +1521,6 @@ sequenceDiagram
 ## Referenced from
 
 - [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
-- [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
+- [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-testing-dependency-check-test-design-verify)
 - [08_crosscutting_concepts.md section 8.1](08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

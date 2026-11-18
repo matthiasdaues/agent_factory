@@ -24,19 +24,21 @@ Option B touches the files the human works on. By hand, the primary checkout may
 
 Option C.
 
-| Criterion                                                       | Weight | A: Stored results (baseline) | B: Rerun in the checkout | C: Rerun in a temporary worktree |
-| --------------------------------------------------------------- | ------ | ---------------------------- | ------------------------ | -------------------------------- |
-| Safety (QS-6): a stale or forged result cannot pass the merge   | 3      | 0                            | +1                       | +1                               |
-| Safety (QS-6): the gates measure exactly the commit that merges | 2      | 0                            | 0                        | +1                               |
-| Controllability (QS-2): no file of the human's checkout changes | 3      | 0                            | −1                       | 0                                |
-| Cost: time per merge                                            | 1      | 0                            | −1                       | −1                               |
-| Simplicity: state that the check creates and must remove        | 2      | 0                            | 0                        | −1                               |
-| **Weighted total**                                              |        | **0**                        | **−1**                   | **+2**                           |
+| Criterion                                                        | Weight | A: Stored results (baseline) | B: Rerun in the checkout | C: Rerun in a temporary worktree |
+| ---------------------------------------------------------------- | ------ | ---------------------------- | ------------------------ | -------------------------------- |
+| Safety (QS-28): a stale or forged result cannot pass the merge   | 3      | 0                            | +1                       | +1                               |
+| Safety (QS-28): the gates measure exactly the commit that merges | 2      | 0                            | 0                        | +1                               |
+| Controllability (QS-2): no file of the human's checkout changes  | 3      | 0                            | −1                       | 0                                |
+| Cost: time per merge                                             | 1      | 0                            | −1                       | −1                               |
+| Simplicity: state that the check creates and must remove         | 2      | 0                            | 0                        | −1                               |
+| **Weighted total**                                               |        | **0**                        | **−1**                   | **+2**                           |
 
 C wins by two points over the baseline. With a weight of 3 on simplicity, C still leads by one point.
 
 The rerun works as follows:
 
+- The worktree lies at `.current-work/<feature-branch>/premerge/<id>` for a story or a finding, and at `premerge/feature` for the feature merge. The path belongs to one unit of work, or to the feature merge, so no other check uses it.
+- Before `premerge-check` adds the worktree, it removes any worktree left at the same path with `git worktree remove --force` and then runs `git worktree prune` (BR-123). So a worktree that a crash left behind never blocks the next check.
 - The worktree is detached at the head commit, because git does not check out one branch in two worktrees, and the branch is checked out already.
 - Git ignores `.agent-factory/`, so the temporary worktree holds no installed copy. `premerge-check` runs each gate script from the installed copy of the checkout it was called from, with the temporary worktree as the source root (OI-10). The worktree builds its own `uv` environment.
 - `premerge-check` reads the review reports, the finding files, and the register files at the branch head with git, not from the folder it runs in.
@@ -49,7 +51,7 @@ This amends step 6 of the gate execution sequence of ADR-0012: the gate-check st
 
 - A slow gate runs twice per unit of work, once in the gate-check step and once at the merge. The first rerun in a worktree also builds the `uv` environment.
 - No file in the story's checkout or the primary checkout changes, and no stash is made.
-- A crash can leave a temporary worktree behind. `dispatch close` removes it with the other worktrees of the run.
+- A crash can leave a temporary worktree behind. The next check of the same unit of work removes it, and `dispatch close` removes any that remain with the other worktrees of the run (QS-30).
 - The gate result files stay, because the implementation agent hands a failing gate's output to the next developer agent. `dispatch close` removes them.
 - A trusted receipt that would let the merge skip a gate is the subject of [gate-evidence.md](../proposals/gate-evidence.md), not of this decision.
 - [6.24](../arc42/06_runtime_view.md#624-the-merge-check-of-a-story) shows the rerun.

@@ -76,7 +76,7 @@ References: [architecture.dsl](../spec/architecture.dsl), [section 8](08_crosscu
 | Response          | The gate script detects the violation and fails. The dispatcher spawns a fresh developer agent with the failure report. |
 | Response measure  | Exit code 1 from the gate. The developer agent that authored the code never validates its own work.                     |
 
-References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
+References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-testing-dependency-check-test-design-verify)
 
 ### QS-7: Plugin fails closed on control failure
 

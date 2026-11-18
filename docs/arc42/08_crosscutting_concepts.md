@@ -585,7 +585,7 @@ a shell. The design for that path is deferred to the gate-evidence proposal.
 
 - [foundational-principles.md](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md)
 - [05_building_block_view.md section 5.2.1](05_building_block_view.md#521-project-owned-test-gates-via-charter-declaration)
-- [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-analysis-dependency-check)
+- [05_building_block_view.md section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-testing-dependency-check-test-design-verify)
 - [05_building_block_view.md section 5.2.5](05_building_block_view.md#525-agent-context-validation-concern-lint)
 - [06_runtime_view.md section 6.2](06_runtime_view.md#62-agent-selection)
 - [06_runtime_view.md section 6.3](06_runtime_view.md#63-test-gate-presence)

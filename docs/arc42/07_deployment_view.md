@@ -84,7 +84,8 @@ removes it afterwards. The Run Worktrees container holds all of them, and
 The git guardrail runs in the process of each agent tool's hook. Claude Code,
 Codex, and Copilot CLI run `block-dangerous-git.sh` from their native hook.
 pi runs the extension `block-dangerous-git.ts`, and OpenCode runs the plugin
-`agent-factory.ts`. Both start the same script for each shell command.
+`agent-factory.ts`. Both start the same script for each shell command, and
+OpenCode also for the JavaScript of each `execute` call.
 
 This repository holds the Factory twice. `packages/factory/` is the source,
 and `.agent-factory/factory/` is the installed copy that the sessions of this

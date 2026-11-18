@@ -26,14 +26,14 @@ The accepted proposal [run-lifecycle.md](../proposals/run-lifecycle.md) settles 
 
 Option B. A run by hand works in the primary checkout, and an orchestrated run works in worktrees under `.current-work/`. Everything else is shared.
 
-| Criterion                                                                     | Weight | A: Two processes (baseline) | B: One lifecycle | C: One-story orchestrated run |
-| ----------------------------------------------------------------------------- | ------ | --------------------------- | ---------------- | ----------------------------- |
-| Safety (QS-6): a failing gate cannot merge on either way                      | 3      | 0                           | +1               | +1                            |
-| Resilience (QS-5): a new session continues an interrupted run from the ledger | 3      | 0                           | +1               | +1                            |
-| Controllability (QS-2): the human sees each step in the checkout they work in | 2      | 0                           | 0                | −1                            |
-| Clean Architecture: one code path and one rule set for both ways              | 2      | 0                           | +1               | +1                            |
-| Simplicity: the commands and state that a run by hand needs                   | 2      | 0                           | −1               | −1                            |
-| **Weighted total**                                                            |        | **0**                       | **+6**           | **+4**                        |
+| Criterion                                                                      | Weight | A: Two processes (baseline) | B: One lifecycle | C: One-story orchestrated run |
+| ------------------------------------------------------------------------------ | ------ | --------------------------- | ---------------- | ----------------------------- |
+| Safety (QS-28): a failing gate cannot merge on either way                      | 3      | 0                           | +1               | +1                            |
+| Resilience (QS-30): a new session continues an interrupted run from the ledger | 3      | 0                           | +1               | +1                            |
+| Controllability (QS-2): the human sees each step in the checkout they work in  | 2      | 0                           | 0                | −1                            |
+| Clean Architecture: one code path and one rule set for both ways               | 2      | 0                           | +1               | +1                            |
+| Simplicity: the commands and state that a run by hand needs                    | 2      | 0                           | −1               | −1                            |
+| **Weighted total**                                                             |        | **0**                       | **+6**           | **+4**                        |
 
 B wins by two points over C. The difference is the controllability criterion. A weight of 1 on it would leave B one point ahead.
 
@@ -44,7 +44,7 @@ The shared lifecycle has these parts:
 3. **One owner for `done`.** Only `dispatch merge-story` sets `done` for a story, or `resolved` for a finding, in the merge commit (BR-118).
 4. **A red test suite moves the branch back.** When the test suite fails after a merge, `merge-story` moves the feature branch back to the commit before the merge and sets the story `blocked`. A revert commit would make git treat the story's commits as merged, so a second attempt would bring in nothing. The feature branch is not shared yet, so nobody has built on the failed merge.
 5. **Drift sessions at the wave close.** This amends ADR-0029. The implementation agent spawns the owner and then the reviewer of each drift row at the wave close, not after each merge, and `merge-story` no longer waits for them. So a story merge and a drift session never commit on the feature branch at the same time. By hand, each story is a wave of its own, so its report is handled before the next story starts (BR-064).
-6. **Guidance by hand.** The implementation agent runs every `dispatch` command in both ways, except `return-story`, `close`, and `close --drop`, which the human runs. By hand, it stops before a story starts, before a story merges, when a story stops, and before the merge into `dev`, and it waits for the human's go.
+6. **Guidance by hand.** The implementation agent runs every `dispatch` command in both ways, except `return-story`, `close`, and `close --drop`, which the human runs. By hand, it stops before a story starts, before a story merges, when a story stops, and before the merge into `dev`, and it waits for the human's go. Before the go for a merge, it shows the output of `dispatch merge-story --dry-run`. By hand, `merge-story` runs `premerge-check` while the story branch is checked out and checks out the feature branch only after exit `0`. So a refused merge leaves the primary checkout on the story branch, and a changed file of the human cannot make the checkout fail before the check decides.
 
 ## Consequences
 
