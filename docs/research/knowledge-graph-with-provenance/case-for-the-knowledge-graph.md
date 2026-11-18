@@ -6,7 +6,7 @@ This document joins three settled inputs: the stakeholder's [design position](de
 
 People keep knowledge in news, email, chat, and conversation transcripts. Across those sources, a claim loses its origin, and an idea loses its link to the decisions that rest on it.
 
-The proposed system is a knowledge graph with provenance in three layers. The provenance layer keeps each source and the exact spans quoted from it. The knowledge layer keeps problems, conjectures, criticisms, and tests. The decision layer keeps each human decision in markdown in git. A refutation in the knowledge layer reopens the decisions that rest on the refuted conjecture.
+The proposed system is a knowledge graph with provenance in three layers. The provenance layer keeps each source and the exact spans quoted from it. The knowledge layer keeps problems, conjectures, criticisms, and tests. The decision layer keeps each human decision as a node in the same store, linked to the conjectures it rests on. A refutation in the knowledge layer reopens the decisions that rest on the refuted conjecture.
 
 The Agent Factory is the first tenant and the method that builds the system. Its own sessions and decisions are the first source family and the pilot.
 
@@ -25,7 +25,7 @@ Knowledge spread across documents, messages, and sessions loses its sources and 
 
 Other sources lose links in the same way. Mail software often wrote the reply header as free text ([A3-SR-06](../knowledge-across-sources/sources/area-3/A3-SR-06-jwz-message-threading-1997-2002.md)). A Slack export does not separate thread replies from channel messages ([A3-SR-13](../knowledge-across-sources/sources/area-3/A3-SR-13-slack-help-data-exports.md)). In one study, up to 75% of Dutch online news articles came from the news agency, much of it verbatim ([A4-SR-04](../knowledge-across-sources/sources/area-4/A4-SR-04-boumans-agency-copy-2018.md)). Without provenance, fifty copies of one report look like fifty sources that agree.
 
-Markdown files in git cannot hold this material ([design position](design-position.md#why-markdown-in-git-does-not-hold-the-ideas)). One meeting yields too many ideas for review in a pull request, and graph and similarity queries need a database.
+Files in git cannot hold this material ([design position](design-position.md#why-files-in-git-do-not-hold-the-knowledge)). One meeting yields too many ideas for review in a pull request, and graph and similarity queries need a database. A quote marked by quotation marks in prose also breaks when the source has quotation marks of its own; the factory's own quote check failed this way during the second survey.
 
 ## 3. The proposed system
 
@@ -35,9 +35,9 @@ Markdown files in git cannot hold this material ([design position](design-positi
 | ---------- | -------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------- |
 | Provenance | Sources and the exact spans quoted from them                         | Import scripts, never edited   | A store outside git, where a record can be deleted for good |
 | Knowledge  | Problems, conjectures, criticisms, tests, and their outcomes         | Agents propose, reviewers test | The same store, rebuildable from the sources                |
-| Decisions  | Do, won't do, defer, accept, each naming the conjectures it rests on | A person, always               | Markdown in git, behind review and gates                    |
+| Decisions  | Do, won't do, defer, accept, each naming the conjectures it rests on | A person, always               | The same store, as nodes linked to their conjectures        |
 
-The ideas carry the volume, and the decisions carry the authority, so only the decisions need git ([design position](design-position.md#three-layers)). Copyright and data protection are out of scope for now and for both surveys, so every source counts as storable.
+The ideas carry the volume, and the decisions carry the authority. That authority comes from the person who records a decision and from its history, not from git. The store never overwrites a decision; a new one replaces an old one and names it. A markdown view can serve review, but it is never the record ([design position](design-position.md#three-layers)). Copyright and data protection are out of scope for now and for both surveys, so every source counts as storable.
 
 ### 3.2 Claims, ideas, and decisions
 
@@ -62,7 +62,7 @@ The model uses Popper's terms: a problem, competing conjectures against it, crit
 
 ### 3.4 How a decision reopens
 
-A decision in this repository reads: "Won't do: one Git ref per ID, because leased pushes on many refs are too slow." When a test refutes the conjecture about speed, the graph flags the decision for review. Today nothing does that. A person then writes a new decision that names the old one as replaced. The flag is a query across layers, from the refuted conjecture in the store to every decision in git that names it.
+A decision in this repository reads: "Won't do: one Git ref per ID, because leased pushes on many refs are too slow." When a test refutes the conjecture about speed, the graph flags the decision for review. Today nothing does that. A person then writes a new decision that names the old one as replaced. The flag is one query inside the store, from the refuted conjecture to every decision that names it.
 
 ## 4. Sources and their anchors
 
@@ -253,9 +253,9 @@ Email is the recommended second family. Its anchors hold two of the top four ran
 
 ## 9. Limitations
 
-- The store lives outside git, so the deterministic gates cannot see it ([design position](design-position.md#costs)).
+- The factory's deterministic gates read files in git, so checks on the store must be written as queries ([design position](design-position.md#costs)).
 - Every command-line interface (CLI) the factory runs in needs the same query command.
-- A lost store must be rebuildable from the sources. The store needs its own approved proposal before a shipped agent may reference it.
+- The provenance and knowledge layers can be rebuilt from the sources. Decisions cannot, so the store needs a backup and an export of its decision history that nothing can rewrite. The store needs its own approved proposal before a shipped agent may reference it.
 - No record covers DuckDB as a graph store, and no record measures how accurately a current LLM extracts ideas.
 - The first survey was accepted without a sixth validation pass, and three notes stay open ([pass 5](../knowledge-graph-state-of-the-art/survey-validation-pass-5.md#notes-for-the-stakeholder)). Its word "hardened" can read as a verdict, and no concept has a recorded driver for every change. Many W3C and ISO quotes may be paraphrases, and critics are often the next authors.
 - The second survey passed its gate on [pass 3](../knowledge-across-sources/survey-validation-pass-3.md), which judged only changed sentences, by the stakeholder's order. Its correction P3-01 is not yet applied: the report names entailment as the sole automatic method at the level of meaning outside science. Section 5.2 names both methods.

@@ -1,0 +1,33 @@
+{
+  "concept": "Anisotropy as an explanation of poor similarity",
+  "area": "Area 3: embedding similarity for the system's tasks",
+  "current_formulation": "Contrastive training regularises the anisotropic space to be more uniform.",
+  "steps": [
+    {
+      "formulation": "Contextual word representations occupy a narrow cone in vector space.",
+      "date": "2019-09-02",
+      "record": "A3-SR-04",
+      "quote": "they are anisotropic, occupying a narrow cone in the vector space",
+      "criticism": null
+    },
+    {
+      "formulation": "Anisotropy of sentence embeddings is named as the cause of poor similarity and is corrected after training by a normalizing flow.",
+      "date": "2020-11-02",
+      "record": "A3-SR-05",
+      "quote": "We find that BERT always induces a non-smooth anisotropic semantic space of sentences, which harms its performance of semantic similarity.",
+      "criticism": {
+        "record": "A3-SR-06",
+        "date": "2021-04-01",
+        "quote": "Compared to post-processing methods in Li et al. (2020); Su et al. (2021), which only aim to encourage isotropic representations",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Uniformity is reached through the training objective.",
+      "date": "2021-04-01",
+      "record": "A3-SR-06",
+      "quote": "the contrastive learning objective regularizes pre-trained embeddings’ anisotropic space to be more uniform",
+      "criticism": null
+    }
+  ]
+}

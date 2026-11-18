@@ -1,0 +1,62 @@
+{
+  "concept": "Graph-based retrieval-augmented generation",
+  "area": "Area 1: architectures that combine graphs and embeddings",
+  "current_formulation": "Passage nodes join an LLM-extracted graph, and embedding similarity seeds a Personalized PageRank walk over it.",
+  "steps": [
+    {
+      "formulation": "Vector RAG: a generator reads text chunks retrieved from a dense vector index; the index is replaced as a whole to update knowledge.",
+      "date": "2020-05-22",
+      "record": "A1-SR-01",
+      "quote": "the non-parametric memory is a dense vector index of Wikipedia",
+      "criticism": {
+        "record": "A1-SR-02",
+        "date": "2024-04-24",
+        "quote": "RAG fails on global questions directed at an entire text corpus",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "GraphRAG: an LLM extracts an entity graph, communities of the graph are summarised in advance, and the summaries answer global questions.",
+      "date": "2024-04-24",
+      "record": "A1-SR-02",
+      "quote": "to pregenerate community summaries for all groups of closely related entities",
+      "criticism": {
+        "record": "A1-SR-04",
+        "date": "2024-10-08",
+        "quote": "GraphRAG must dismantle its existing community structure to incorporate new entities and relationships, followed by complete regeneration",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "LightRAG: short keys of entities and relations sit in a vector database; a vector match is followed by a one-hop graph expansion, and new documents are added by set union.",
+      "date": "2024-10-08",
+      "record": "A1-SR-04",
+      "quote": "The algorithm uses an efficient vector database to match local query keywords with candidate entities",
+      "criticism": {
+        "record": "A1-SR-06",
+        "date": "2025-02-20",
+        "quote": "their performance on more basic factual memory tasks drops considerably below standard RAG",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "LazyGraphRAG: the GraphRAG authors drop up-front summarisation and use text chunk embeddings to rank communities of a noun-phrase graph at query time.",
+      "date": "2024-11-25",
+      "record": "A1-SR-03",
+      "quote": "Uses text chunk embeddings and chunk-community relationships to first rank text chunks by similarity to the query",
+      "criticism": null
+    },
+    {
+      "formulation": "HippoRAG 2: passage nodes join the graph, and passage embedding similarity sets the reset probabilities of the PageRank walk.",
+      "date": "2025-02-20",
+      "record": "A1-SR-06",
+      "quote": "passage nodes receive scores proportional to their embedding similarity",
+      "criticism": {
+        "record": "A1-SR-10",
+        "date": "2025-06-06",
+        "quote": "GraphRAG frequently underperforms vanilla RAG on many real-world tasks",
+        "drove_next": false
+      }
+    }
+  ]
+}

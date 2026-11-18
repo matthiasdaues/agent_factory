@@ -1,0 +1,38 @@
+{
+  "concept": "Combining graph results and vector results",
+  "area": "Area 1: architectures that combine graphs and embeddings",
+  "current_formulation": "Passage similarity enters the graph walk as reset probabilities instead of being added to graph scores afterwards.",
+  "steps": [
+    {
+      "formulation": "HippoRAG: embedding similarity picks the seed nodes of a Personalized PageRank walk, and graph scores and embedding scores are combined afterwards.",
+      "date": "2024-05-23",
+      "record": "A1-SR-05",
+      "quote": "the previously defined query nodes are chosen as the set of nodes in N with the highest cosine similarity to the query named entities",
+      "criticism": {
+        "record": "A1-SR-06",
+        "date": "2025-02-20",
+        "quote": "which simply aggregates scores from graph search and embedding matching",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "HybridRAG: the contexts from a vector store and a knowledge graph are retrieved independently and concatenated.",
+      "date": "2024-08-09",
+      "record": "A1-SR-07",
+      "quote": "we concatenate these contexts to form a unified context utilizing both techniques",
+      "criticism": {
+        "record": "A1-SR-07",
+        "date": "2024-08-09",
+        "quote": "Context precision was highest for GraphRAG at 0.96, significantly surpassing VectorRAG (0.84) and HybridRAG (0.79).",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "HippoRAG 2: passage nodes join the graph, and passage similarity sets the reset probabilities of the walk.",
+      "date": "2025-02-20",
+      "record": "A1-SR-06",
+      "quote": "we enhance the KG by introducing passage nodes, enabling more seamless integration of contextual information",
+      "criticism": null
+    }
+  ]
+}

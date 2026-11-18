@@ -1,0 +1,62 @@
+{
+  "concept": "The benchmark for embedding similarity",
+  "area": "Area 3: embedding similarity for the system's tasks",
+  "current_formulation": "MMTEB evaluates embeddings on many tasks and languages and offers a zero-shot English benchmark without common training sets.",
+  "steps": [
+    {
+      "formulation": "STS shared tasks: annotators grade sentence pairs for semantic equivalence on a scale from 0 to 5.",
+      "date": "2012-01-01",
+      "record": "A3-SR-02",
+      "quote": "Semantic Textual Similarity (STS) assesses the degree to which two sentences are semantically equivalent to each other.",
+      "criticism": null
+    },
+    {
+      "formulation": "STS Benchmark: one shared English training and evaluation set selected from the shared task data of 2012 to 2017.",
+      "date": "2017-07-31",
+      "record": "A3-SR-02",
+      "quote": "the STS Benchmark is introduced as a new shared training and evaluation set",
+      "criticism": {
+        "record": "A3-SR-08",
+        "date": "2022-10-01",
+        "quote": "STS is known to poorly correlate with other real-world use cases",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "BEIR: zero-shot retrieval evaluation on datasets the models did not train on.",
+      "date": "2021-04-01",
+      "record": "A3-SR-07",
+      "quote": "re-ranking and late-interaction based models on average achieve the best zeroshot performances",
+      "criticism": {
+        "record": "A3-SR-07",
+        "date": "2021-04-01",
+        "quote": "Many BEIR datasets are found to be subject to a lexical bias",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "MTEB: many task types in one benchmark, so that embeddings are tested beyond STS.",
+      "date": "2022-10-01",
+      "record": "A3-SR-08",
+      "quote": "It is unclear whether state-of-the-art embeddings on semantic textual similarity (STS) can be equally well applied to other tasks like clustering or reranking.",
+      "criticism": {
+        "record": "A3-SR-09",
+        "date": "2025-02-01",
+        "quote": "Text embeddings are typically evaluated on a limited set of tasks, which are constrained by language, domain, and task diversity.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "MMTEB: a multilingual benchmark with a zero-shot English version that excludes common training sets.",
+      "date": "2025-02-01",
+      "record": "A3-SR-09",
+      "quote": "To prevent overfitting, we intend it as a zero-shot benchmark",
+      "criticism": {
+        "record": "A3-SR-09",
+        "date": "2025-02-01",
+        "quote": "the benchmark may inadvertently encourage model developers to favor English or translated content",
+        "drove_next": false
+      }
+    }
+  ]
+}

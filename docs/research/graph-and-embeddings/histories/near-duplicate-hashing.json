@@ -1,0 +1,42 @@
+{
+  "concept": "Near-duplicate detection by hashing",
+  "area": "Area 3: embedding similarity for the system's tasks",
+  "current_formulation": "Embedding clusters with a cosine threshold remove semantic duplicates that share few n-grams.",
+  "steps": [
+    {
+      "formulation": "Resemblance and containment over word shingles, estimated from min-wise samples.",
+      "date": "1997-01-01",
+      "record": "A3-SR-15",
+      "quote": "Given two documents A and B we define two mathematical notions",
+      "criticism": null
+    },
+    {
+      "formulation": "A random-hyperplane sketch estimates cosine similarity between vectors.",
+      "date": "2002-05-19",
+      "record": "A3-SR-16",
+      "quote": "This yields a sketching scheme for estimating the cosine similarity measure between two vectors",
+      "criticism": null
+    },
+    {
+      "formulation": "SimHash at web scale: 64-bit fingerprints of near-duplicates differ in few bit positions.",
+      "date": "2007-01-01",
+      "record": "A3-SR-17",
+      "quote": "fingerprints of near-duplicates differ in a small number of bit positions",
+      "criticism": null
+    },
+    {
+      "formulation": "MinHash candidates followed by an exact Jaccard and edit-similarity check.",
+      "date": "2021-07-01",
+      "record": "A3-SR-18",
+      "quote": "we identify two documents as duplicates if they are matched by the MinHash algorithm and their edit similarity is greater than 0.8",
+      "criticism": null
+    },
+    {
+      "formulation": "SemDeDup: embedding clusters with a cosine threshold remove semantic duplicates.",
+      "date": "2023-03-01",
+      "record": "A3-SR-19",
+      "quote": "Within each cluster, we compute all pairwise cosine similarities and set a threshold cosine similarity above which data pairs are considered semantic duplicates.",
+      "criticism": null
+    }
+  ]
+}

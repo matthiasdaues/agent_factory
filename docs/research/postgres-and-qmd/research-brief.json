@@ -1,0 +1,33 @@
+{
+  "mode": "survey",
+  "research_question": "How well do plain PostgreSQL with pgvector, and qmd, a local search tool for markdown documents, each support a knowledge graph with provenance and embeddings, measured on the same simplicity facts as the graph-and-embeddings survey, and what does each leave to the application?",
+  "intended_use": "Test the proposed store sketch in design-position.md (one PostgreSQL server, pgvector, graph in ordinary tables, rules in triggers, events through NOTIFY and an outbox) against the documentation, and compare it with qmd as a markdown-native alternative. The survey informs the store decision in the case document and the pilot tests; it changes no factory code.",
+  "audience": "Agent Factory maintainers who know the three earlier surveys and the store sketch, but not the details of PostgreSQL recursive queries, pgvector internals, or qmd.",
+  "scope": "Two areas. (1) Plain PostgreSQL with pgvector as a graph and vector store: graphs in ordinary tables (adjacency tables, recursive common table expressions, the SEARCH and CYCLE clauses), constraints and triggers that validate edges, append-only tables, how pgvector indexes (HNSW, IVFFlat) behave under PostgreSQL transactions and MVCC, including whether a transaction sees its own new vectors, filtered vector search and iterative index scans, LISTEN and NOTIFY semantics (delivery at commit, payload limit, loss without a listener), the transactional outbox pattern, relays such as pg_eventserv, and the client layer asyncpg with aiosql. Record the simplicity facts: components, query languages, consistency boundaries, what must be kept in sync, rebuildable derived data, release activity, and project health. (2) qmd: identify the tool the stakeholder means and confirm it from its repository. Record its purpose, data model, storage engine, indexing and search pipeline (full-text, vector, reranking), how it handles changed and deleted files, whether it records links, sources, or provenance below the file level, its interfaces (command line, MCP or other), the same simplicity facts, release activity, and project health. Record what qmd would need to hold edges, decisions, and append-only history. For each area, record concepts with a documented history of formulation, criticism, and reformulation where the sources show one.",
+  "exclusions": [
+    "Implementing, installing, or benchmarking any tool or store",
+    "Vendor marketing material as evidence for a claim about capability, performance, or adoption; documentation counts only for stated features and syntax",
+    "Stores already compared in the graph-and-embeddings survey, except as context",
+    "Pricing and licensing assessment, except whether a component is open source",
+    "Legal limits on storage, such as copyright and data protection"
+  ],
+  "freshness_requirements": [
+    "PostgreSQL, pgvector, pg_eventserv, asyncpg, aiosql, and qmd: current documentation, source, and release state as of November 2026",
+    "Older sources are acceptable for the history of a concept, such as recursive queries in SQL:1999"
+  ],
+  "source_requirements": [
+    "Primary sources first: the PostgreSQL manual, the pgvector repository and changelog, project repositories, release notes, and source code",
+    "Source code counts as primary evidence for a behaviour the documentation does not state, cited by file and commit",
+    "Secondary sources only where a primary source is unreachable, and then marked as secondary",
+    "Every source record states what the source shows and what it does not show, and puts the source's own words in double quotes in its Evidence section"
+  ],
+  "cost_of_error": "High. The store choice is expensive to change once it holds data. A wrong statement on transaction visibility or event delivery would break the decision layer. The survey must mark behaviour it inferred rather than read.",
+  "completion_criteria": [
+    "Each of the two scope areas has findings backed by recorded sources",
+    "The report compares plain PostgreSQL with pgvector and qmd on the simplicity facts, each fact backed by a record or marked not found",
+    "The report checks each statement of the store sketch in design-position.md that describes PostgreSQL behaviour, and says whether the records support it",
+    "The report states what qmd would need to hold the three layers of the design, and what it offers that the PostgreSQL sketch lacks",
+    "The report lists candidates for the later falsification study, phrased as testable design claims, including the four pilot tests of the store sketch",
+    "The report reports what the sources document; it does not claim that any concept survived refutation"
+  ]
+}

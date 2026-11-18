@@ -1,0 +1,38 @@
+{
+  "concept": "qmd fusion of ranked lists",
+  "area": "Area 2: qmd",
+  "current_formulation": "qmd weights each ranked list by query type before reciprocal rank fusion, so the original keyword and vector lists get the double weight.",
+  "steps": [
+    {
+      "formulation": "Release 0.1.0 (changelog date 2025-12-07) merges the BM25 and vector lists with plain reciprocal rank fusion (RRF).",
+      "date": "2025-12-07",
+      "record": "A2-SR-09",
+      "quote": "Reciprocal Rank Fusion to combine BM25 and vector results",
+      "criticism": {
+        "record": "A2-SR-09",
+        "date": "2026-11-17",
+        "quote": "since the user's actual words are a more reliable signal",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Release 0.2.0 (changelog date 2025-12-08) gives the original query twice the weight of the expanded queries.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "original query gets 2x weight relative to expanded queries",
+      "criticism": {
+        "record": "A2-SR-10",
+        "date": "2026-11-17",
+        "quote": "instead of accidentally boosting the first lexical expansion",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Release 2.5.0 (#591) weights the RRF lists by query type, so the original full-text and vector lists get the double weight.",
+      "date": "2026-11-17",
+      "record": "A2-SR-10",
+      "quote": "weight RRF lists by query type so original FTS and original vector evidence get the intended 2x boost",
+      "criticism": null
+    }
+  ]
+}
