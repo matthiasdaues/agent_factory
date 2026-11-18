@@ -836,7 +836,7 @@ Feature: Run Lifecycle
       And no temporary worktree of premerge-check is left under .current-work/feature/login/premerge/
 
     Scenario: A finding of another run does not block the feature merge
-      Given an open blocking finding has story ST-0400 and run feature/search
+      Given an open blocking finding has run feature/search
       And every other check of feature/login passes
       When the implementation agent runs premerge-check dev feature/login
       Then premerge-check exits 0
