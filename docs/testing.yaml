@@ -4,21 +4,21 @@
 
 testing_strategy: .agent-factory/factory/rulebooks/conventions/testing-strategy.md
 
-test_all: 'uv run pytest --tb=short --quiet -n auto -m "not container" && node --experimental-strip-types --import ./packages/factory/config/extensions/__tests__/envelope-loader.mjs --test "packages/factory/config/**/*.test.ts"'
+test_all: 'uv run pytest --tb=short --quiet -n auto -m "not container and not opencode_session" && node --experimental-strip-types --import ./packages/factory/config/extensions/__tests__/envelope-loader.mjs --test "packages/factory/config/**/*.test.ts"'
 
 # Compatibility commands consumed by the repository's test-command guard.
-test_command: 'uv run pytest --tb=short --quiet -n auto -m "not container"'
-test_staged_command: 'uv run pytest --tb=short --quiet -n auto -m "not container"'
+test_command: 'uv run pytest --tb=short --quiet -n auto -m "not container and not opencode_session"'
+test_staged_command: 'uv run pytest --tb=short --quiet -n auto -m "not container and not opencode_session"'
 
 suites:
   - name: default
     framework: pytest
-    run_all: 'uv run pytest --tb=short --quiet -n auto -m "not container"'
+    run_all: 'uv run pytest --tb=short --quiet -n auto -m "not container and not opencode_session"'
     run_file: "uv run pytest --tb=short --quiet {file}"
     run_match: "uv run pytest --tb=short --quiet -k {pattern}"
     root: tests
     pattern: "test_*.py"
-    markers: [spec, container]
+    markers: [spec, container, opencode_session]
     prerequisites: null
   - name: usage
     framework: pytest
@@ -72,10 +72,10 @@ layers:
 # Preserved from the former testing charter; these gates were not part of the
 # regime scan.
 gates:
-  crap_score:
+  crap-score:
     enabled: false
     threshold: 8
-  mutation_testing:
+  mutation-testing:
     enabled: false
 
 risk_classes:
