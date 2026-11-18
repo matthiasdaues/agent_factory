@@ -512,7 +512,13 @@ Feature: Core artifact ownership
       And docs/spec/dependency-rules.dsl exists
       When the implementation agent runs the gates after the story
       Then it runs crap-score, test-design-verify, dependency-check, and the command in gates.mutation_testing.command
-      And a non-zero exit of any of them blocks the merge
+      And a non-zero exit of crap-score, test-design-verify, or dependency-check blocks the merge
+      And a non-zero exit of the mutation command blocks the merge unless the result file of mutation-testing lists mutants with no unresolved entry and every file-qa-finding entry names an existing finding file
+      # BR-066 defines the result of the mutation gate (RL-G25 in
+      # run-lifecycle-gaps.md). run-lifecycle.feature, RL-12: "A story
+      # merges with its mutant filed, and the QA finding runs in the next
+      # wave on the story's code" and "An unresolved surviving mutant blocks
+      # the merge of its story".
 
     Scenario: An enabled mutation gate without a command fails and names its owner
       Given docs/testing.yaml enables mutation testing without gates.mutation_testing.command
