@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Finding Classification</title>
+<style>
+@font-face { font-family: "SCP"; font-weight: 200; src: url("fonts/SourceCodePro-ExtraLight.woff2") format("woff2"); }
+@font-face { font-family: "SCP"; font-weight: 500; src: url("fonts/SourceCodePro-Medium.woff2") format("woff2"); }
+@font-face { font-family: "CG"; font-weight: 300; src: url("fonts/CormorantGaramond-Light.woff2") format("woff2"); }
+
+/* Grid geometry. remark draws a 16:9 slide at 1210 x 681 px and scales it to the window.
+   Every grid fills the whole slide: cell width = 1210 / cols, row height = 681 / rows.
+   Source Code Pro advances 0.6 em per character, so the font size follows the cell width. */
+:root {
+  --ink: #24292E;
+  --dim: #747373;
+  --red: #FF0000;
+  --paper: #FFFFFF;
+}
+body { margin: 0; background: var(--paper); }
+.remark-slide-content {
+  padding: 0; background: var(--paper); color: var(--ink);
+  font-family: "SCP", monospace;
+}
+.remark-slide-number { display: none; }
+.grid {
+  --cw: calc(1210px / var(--cols));
+  --rh: calc(681px / var(--rows));
+  --fs: calc(var(--cw) / 0.6);
+  position: absolute; left: 0; top: 0; width: 1210px; height: 681px;
+}
+.row {
+  height: var(--rh); line-height: var(--rh);
+  font-size: var(--fs); font-weight: 200;
+  white-space: pre; font-kerning: none; font-variant-ligatures: none;
+}
+.row b { font-weight: 500; }
+.row .dim { color: var(--dim); }
+.row .red { color: var(--red); }
+/* Every character above U+00FF gets exactly one cell, even if a fallback font draws it. */
+.row .c { display: inline-block; width: var(--cw); text-align: center; vertical-align: top; overflow: visible; }
+/* Box characters with a vertical stroke span the font's line box (1.257 em).
+   Stretch them to the full row height so vertical lines join from row to row. */
+.row .v { transform: scaleY(calc(var(--rh) / (1.257 * var(--fs)))); }
+.cell { position: absolute;
+  left: calc(var(--c) * var(--cw)); top: calc(var(--r) * var(--rh));
+  width: calc(var(--w) * var(--cw)); height: calc(var(--h) * var(--rh)); }
+img.cell { object-fit: contain; }
+img.cell.cover { object-fit: cover; }
+div.cell.blank { background: var(--paper); }
+svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
+.footer {
+  position: absolute; right: 12px; bottom: 6px;
+  font: 300 17.6px "CG", serif; color: #A6A6A6;
+}
+
+/* Press "g" to show the grid. */
+.show-grid .grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 110, 255, .18) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 110, 255, .18) 1px, transparent 1px);
+  background-size: var(--cw) var(--rh);
+}
+.grid.bad { outline: 3px solid var(--red); outline-offset: -3px; }
+.grid-error {
+  position: absolute; left: 8px; bottom: 8px; max-width: 1190px;
+  font: 12px/1.3 sans-serif; color: var(--red); background: var(--paper); white-space: normal;
+}
+</style>
+</head>
+<body>
+<!--
+  Slide source format
+  -------------------
+  Slides are separated by a line "---". Remark slide properties (class:, name:)
+  and presenter notes (after "???") work as usual.
+
+  ```grid COLSxROWS ... ```  one source line = one grid row, one character = one cell.
+                             Without a size the grid is 62x14. Every size fills the slide.
+                             Proven sizes: 40x10 title, 62x14 text and split layouts,
+                             80x24 terminal, 99x25 diagram and wide split, 132x36 dense.
+  **text**                   bold          ~~text~~   grey
+  __text__                   underline     !!text!!   red
+  %%text%%                   italic
+  @img PATH COL ROW W H      image fitted into a cell rectangle (whole cells, 0-based)
+  @img PATH COL ROW W H cover  image fills the rectangle and is cropped
+  @blank COL ROW W H         paper-colored rectangle that hides the cells below it
+  @cross COL ROW W H         red cross over a cell rectangle
+  @footer TEXT               small serif line in the bottom right corner
+
+  Split layouts on 62x14: text in columns 2-28, image @img PATH 31 0 31 14 cover,
+  or mirrored: image @img PATH 0 0 31 14 cover, text from column 33.
+  Split layouts on 99x25: text in columns 4-45, image @img PATH 50 0 49 25 cover,
+  or mirrored: image @img PATH 0 0 49 25 cover, text from column 53.
+
+  Markup markers take no cells. The page checks every slide on load, marks a
+  slide with a red frame when it breaks the grid, and lists the problem on it.
+-->
+<script type="text/plain" id="deck-source">
+```grid 40x10
+
+
+   **FINDING**
+   **CLASSIFICATION**
+
+   %%an introduction for developers%%
+   %%who use the factory%%
+```
+---
+```grid 99x25
+
+
+
+    **AI AGENTS CHECK THE WORK AND REPORT PROBLEMS**
+
+    In the factory, AI agents write the code, and other AI agents review it.
+
+    A **run** is one piece of work, from the plan to the merged code.
+
+    When a reviewer sees a problem, it writes a **finding**. A finding is a short file that
+    says what is wrong and how to fix it.
+
+    Every finding also says how serious the problem is. We call this its **severity**.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **EVERY FINDING HAS ONE OF FOUR SEVERITIES**
+
+    **Severity**    **What it means**                     **What the run does**     **What you do**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    !!critical!!    The problem is in work that is    The run stops.        You check the damage
+                already in use, so it may have                          and confirm the stop.
+                caused damage.
+
+    **major**       The work does not do its job.     The agent that wrote  You wait for the fix.
+                                                  the work has to fix
+                                                  it.
+
+    **minor**       The work does its job, but later  The run continues.    You read the reason in
+                changes will cost more.                                 the final summary.
+
+    ~~note~~        Nothing needs to change.          The run continues.    You do nothing.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **THE REVIEWER ANSWERS FIXED QUESTIONS**
+
+    Reviewers used to choose a word such as "significant". Two reviews of the same work could
+    then give different results.
+
+    Now the reviewer answers fixed questions about the problem, and the answers are saved in
+    the finding.
+
+    A fixed rule then turns the answers into the severity. The same answers always give the
+    same severity.
+
+    Fixed questions alone are not enough. In a test, two AI models each answered the same
+    question in their own way. So where a question leaves room, the rules list **named cases**.
+    The reviewer picks the case that fits and records it in the finding.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **MOST FINDINGS USE THREE QUESTIONS**
+
+    Suppose a review finds that your new command prints the wrong total. Your change exists
+    only on your feature branch.
+
+    **The reviewer asks**                         **"Yes" gives**    **In this case**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    Does the problem cause harm in work that  !!critical!!       No. Only your branch has this
+    is already in use?                                       code.
+
+    Does the work fail its own purpose?       **major**          Yes. The total must be right.
+
+    Does it only make later work harder?      **minor**          No.
+
+    The first "yes" sets the severity, so this finding is **major**. Three "no" answers give
+    ~~note~~.
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **SECURITY AND ARCHITECTURE USE OTHER QUESTIONS**
+
+    For a security problem, the reviewer asks what an attacker can gain and what the attacker
+    must already have. The reviewer also records whether the attack is proven.
+
+    For an architecture problem, the reviewer asks how important the threatened quality goal
+    is. The reviewer also records whether the design fails that goal or whether nobody has
+    checked.
+
+    These findings end on the same four severities.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **YOU CAN CHECK EVERY SEVERITY**
+
+    At each commit, the script **finding-lint** calculates the severity again from the saved
+    answers. If the result does not match, the commit fails.
+
+    The script cannot tell whether an answer is right. An AI reviewer can answer wrongly, and
+    two AI reviewers can each answer in a steady way and still answer differently. So please
+    open a finding and read its answers and the case it names.
+
+    Only a person can accept a **major** or !!critical!! finding without a fix. An AI agent
+    cannot do this.
+
+    The full rules are in the rulebook:
+    ~~packages/factory/rulebooks/conventions/finding-classification.md~~
+
+```
+@footer finding classification
+</script>
+
+<script src="remark.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var DEFAULT_GRID = "62x14";
+  var COLS, ROWS;
+  var MARKERS = [["**", "b"], ["~~", "dim"], ["__", "u"], ["!!", "red"], ["%%", "i"]];
+  var VERTICAL = "│┌┐└┘├┤┬┴┼╭╮╰╯║╔╗╚╝╠╣╦╩╬";
+  var GRID_OPEN = /^```grid(?:\s+(\d+)x(\d+))?$/;
+  var report = [];
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function visible(raw) { return raw.replace(/\*\*|~~|__|!!|%%/g, ""); }
+
+  function renderRow(raw) {
+    var h = Array.from(raw).map(function (ch) {
+      var e = esc(ch);
+      if (ch.codePointAt(0) <= 0xFF) return e;
+      return '<span class="c' + (VERTICAL.indexOf(ch) >= 0 ? " v" : "") + '">' + e + "</span>";
+    }).join("");
+    h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+         .replace(/~~(.+?)~~/g, '<span class="dim">$1</span>')
+         .replace(/__(.+?)__/g, "<u>$1</u>")
+         .replace(/!!(.+?)!!/g, '<span class="red">$1</span>')
+         .replace(/%%(.+?)%%/g, "<i>$1</i>");
+    return '<div class="row">' + h + "</div>";
+  }
+
+  function rect(kind, args, errs, line) {
+    var n = args.map(Number);
+    if (n.length !== 4 || n.some(function (v) { return !Number.isInteger(v) || v < 0; })) {
+      errs.push(kind + ": needs four whole numbers COL ROW W H (" + line + ")");
+      return null;
+    }
+    if (n[0] + n[2] > COLS || n[1] + n[3] > ROWS) {
+      errs.push(kind + " leaves the grid: cols " + n[0] + "-" + (n[0] + n[2] - 1) +
+                ", rows " + n[1] + "-" + (n[1] + n[3] - 1));
+    }
+    return 'style="--c:' + n[0] + ";--r:" + n[1] + ";--w:" + n[2] + ";--h:" + n[3] + '"';
+  }
+
+  function buildSlide(text, index) {
+    var lines = text.split("\n");
+    var head = [], tail = [], rows = [], items = [], errs = [];
+    var inGrid = false, inNotes = false, footer = null, size = DEFAULT_GRID;
+
+    lines.forEach(function (line) {
+      if (inNotes) { tail.push(line); return; }
+      if (inGrid) {
+        if (line.trim() === "```") { inGrid = false; return; }
+        rows.push(line);
+        return;
+      }
+      var g = line.trim().match(GRID_OPEN);
+      if (g) {
+        inGrid = true;
+        if (g[1]) size = g[1] + "x" + g[2];
+        return;
+      }
+      if (line.trim() === "???") { inNotes = true; tail.push(line); return; }
+      var m = line.match(/^@(\w+)\s*(.*)$/);
+      if (m) {
+        var args = m[2].trim().split(/\s+/).filter(Boolean);
+        COLS = +size.split("x")[0]; ROWS = +size.split("x")[1];
+        if (m[1] === "img") {
+          var cover = args[5] === "cover";
+          var a = rect("@img", args.slice(1, 5), errs, line);
+          if (args.length > 6 || (args.length === 6 && !cover)) errs.push("@img: unknown option " + args.slice(5).join(" "));
+          if (a) items.push('<img class="cell' + (cover ? " cover" : "") + '" ' + a + ' src="' + esc(args[0]) + '" alt="">');
+        } else if (m[1] === "blank") {
+          var b = rect("@blank", args, errs, line);
+          if (b) items.push('<div class="cell blank" ' + b + "></div>");
+        } else if (m[1] === "cross") {
+          var c = rect("@cross", args, errs, line);
+          if (c) items.push('<svg class="cell" ' + c + ' viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">' +
+                            '<line x1="8" y1="8" x2="92" y2="92"/><line x1="92" y1="8" x2="8" y2="92"/></svg>');
+        } else if (m[1] === "footer") {
+          footer = m[2].trim();
+        } else {
+          errs.push("unknown directive " + line);
+        }
+        return;
+      }
+      if (line.trim() !== "") head.push(line);
+    });
+    if (inGrid) errs.push("grid block is not closed");
+    COLS = +size.split("x")[0]; ROWS = +size.split("x")[1];
+    if (!(COLS > 0 && ROWS > 0)) { errs.push("grid size " + size + " is not valid"); size = DEFAULT_GRID; COLS = 62; ROWS = 14; }
+
+    while (rows.length && rows[rows.length - 1].trim() === "") rows.pop();
+    if (rows.length > ROWS) errs.push(rows.length + " rows, the grid has " + ROWS);
+    rows.forEach(function (raw, r) {
+      var w = Array.from(visible(raw).replace(/\s+$/, "")).length;
+      if (w > COLS) errs.push("row " + r + " is " + w + " columns wide, the grid has " + COLS);
+      MARKERS.forEach(function (mk) {
+        if (raw.split(mk[0]).length % 2 === 0) errs.push("row " + r + ": unpaired " + mk[0]);
+      });
+    });
+
+    if (errs.length) report.push({ slide: index + 1, problems: errs });
+    var html = '<div class="grid' + (errs.length ? " bad" : "") + '" data-grid="' + size +
+      '" style="--cols:' + COLS + ";--rows:" + ROWS + '">' +
+      rows.map(renderRow).join("") + items.join("") +
+      (footer ? '<div class="footer">' + esc(footer) + "</div>" : "") +
+      (errs.length ? '<div class="grid-error">' + errs.map(esc).join(" · ") + "</div>" : "") +
+      "</div>";
+    return head.concat([html]).concat(tail).join("\n");
+  }
+
+  var src = document.getElementById("deck-source").textContent.replace(/^\n/, "");
+  var slides = [], cur = [], inGrid = false;
+  src.split("\n").forEach(function (line) {
+    var t = line.trim();
+    if (!inGrid && GRID_OPEN.test(t)) inGrid = true;
+    else if (inGrid && t === "```") inGrid = false;
+    if (!inGrid && t === "---") { slides.push(cur.join("\n")); cur = []; return; }
+    cur.push(line);
+  });
+  slides.push(cur.join("\n"));
+
+  var source = slides.map(buildSlide).join("\n---\n");
+  window.gridReport = report;
+  document.documentElement.setAttribute("data-grid-errors", String(report.length));
+  if (report.length) console.warn("Grid violations:", report);
+  else console.info("All " + slides.length + " slides fit their grids.");
+
+  remark.create({ source: source, ratio: "16:9", highlightLanguage: "no-highlight", navigation: { scroll: false } });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) document.body.classList.toggle("show-grid");
+  });
+})();
+</script>
+</body>
+</html>

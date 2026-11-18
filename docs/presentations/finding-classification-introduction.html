@@ -59,6 +59,8 @@ class: dense
 
 ---
 
+class: dense
+
 # The reviewer answers fixed questions
 
 Reviewers used to choose a word such as "significant". Two reviews of the same work could then give different results.
@@ -66,6 +68,8 @@ Reviewers used to choose a word such as "significant". Two reviews of the same w
 Now the reviewer answers fixed questions about the problem, and the answers are saved in the finding.
 
 A fixed rule then turns the answers into the severity. The same answers always give the same severity.
+
+Fixed questions alone are not enough. In a test, two AI models each answered the same question in their own way. So where a question leaves room, the rules list named cases. The reviewer picks the case that fits and records it in the finding.
 
 ---
 
@@ -101,7 +105,7 @@ class: dense
 
 At each commit, the script `finding-lint` calculates the severity again from the saved answers. If the result does not match, the commit fails.
 
-The script cannot tell whether an answer is right, and an AI reviewer can answer wrongly. So please open a finding and read its answers.
+The script cannot tell whether an answer is right. An AI reviewer can answer wrongly, and two AI reviewers can each answer in a steady way and still answer differently. So please open a finding and read its answers and the case it names.
 
 Only a person can accept a .major[major] or .crit[critical] finding without a fix. An AI agent cannot do this.
 

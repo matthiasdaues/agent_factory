@@ -1,0 +1,140 @@
+% title: Finding Classification
+% topic: finding-classification
+% date: 2026-11-18
+% lang: en
+```grid 40x10
+
+
+   **FINDING**
+   **CLASSIFICATION**
+
+   %%an introduction for developers%%
+   %%who use the factory%%
+```
+---
+```grid 99x25
+
+
+
+    **AI AGENTS CHECK THE WORK AND REPORT PROBLEMS**
+
+    In the factory, AI agents write the code, and other AI agents review it.
+
+    A **run** is one piece of work, from the plan to the merged code.
+
+    When a reviewer sees a problem, it writes a **finding**. A finding is a short file that
+    says what is wrong and how to fix it.
+
+    Every finding also says how serious the problem is. We call this its **severity**.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **EVERY FINDING HAS ONE OF FOUR SEVERITIES**
+
+    **Severity**    **What it means**                     **What the run does**     **What you do**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    !!critical!!    The problem is in work that is    The run stops.        You check the damage
+                already in use, so it may have                          and confirm the stop.
+                caused damage.
+
+    **major**       The work does not do its job.     The agent that wrote  You wait for the fix.
+                                                  the work has to fix
+                                                  it.
+
+    **minor**       The work does its job, but later  The run continues.    You read the reason in
+                changes will cost more.                                 the final summary.
+
+    ~~note~~        Nothing needs to change.          The run continues.    You do nothing.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **THE REVIEWER ANSWERS FIXED QUESTIONS**
+
+    Reviewers used to choose a word such as "significant". Two reviews of the same work could
+    then give different results.
+
+    Now the reviewer answers fixed questions about the problem, and the answers are saved in
+    the finding.
+
+    A fixed rule then turns the answers into the severity. The same answers always give the
+    same severity.
+
+    Fixed questions alone are not enough. In a test, two AI models each answered the same
+    question in their own way. So where a question leaves room, the rules list **named cases**.
+    The reviewer picks the case that fits and records it in the finding.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **MOST FINDINGS USE THREE QUESTIONS**
+
+    Suppose a review finds that your new command prints the wrong total. Your change exists
+    only on your feature branch.
+
+    **The reviewer asks**                         **"Yes" gives**    **In this case**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    Does the problem cause harm in work that  !!critical!!       No. Only your branch has this
+    is already in use?                                       code.
+
+    Does the work fail its own purpose?       **major**          Yes. The total must be right.
+
+    Does it only make later work harder?      **minor**          No.
+
+    The first "yes" sets the severity, so this finding is **major**. Three "no" answers give
+    ~~note~~.
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **SECURITY AND ARCHITECTURE USE OTHER QUESTIONS**
+
+    For a security problem, the reviewer asks what an attacker can gain and what the attacker
+    must already have. The reviewer also records whether the attack is proven.
+
+    For an architecture problem, the reviewer asks how important the threatened quality goal
+    is. The reviewer also records whether the design fails that goal or whether nobody has
+    checked.
+
+    These findings end on the same four severities.
+
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **YOU CAN CHECK EVERY SEVERITY**
+
+    At each commit, the script **finding-lint** calculates the severity again from the saved
+    answers. If the result does not match, the commit fails.
+
+    The script cannot tell whether an answer is right. An AI reviewer can answer wrongly, and
+    two AI reviewers can each answer in a steady way and still answer differently. So please
+    open a finding and read its answers and the case it names.
+
+    Only a person can accept a **major** or !!critical!! finding without a fix. An AI agent
+    cannot do this.
+
+    The full rules are in the rulebook:
+    ~~packages/factory/rulebooks/conventions/finding-classification.md~~
+
+```
+@footer finding classification
