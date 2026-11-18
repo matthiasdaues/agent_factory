@@ -1,14 +1,16 @@
 #!/bin/bash
-# Shared PreToolUse guardrail for Claude Code, Copilot CLI, and Codex.
-# Claude Code sends the shell command at .tool_input.command; Copilot CLI
-# sends it at .toolArgs.command; Codex unified exec sends it at
-# .tool_input.cmd. All three treat exit code 2 with a stderr reason as denial;
-# the stdout JSON below supplies Copilot's CLI-specific reason and is harmless
-# to the other consumers.
+# The one git guardrail of Claude Code, Codex, Copilot CLI, and pi (ADR-0039).
+# Claude Code sends the shell command at .tool_input.command; Codex unified
+# exec sends it at .tool_input.cmd; Copilot CLI sends it at .toolArgs.command,
+# where toolArgs is an object or a JSON string; pi's extension
+# config/extensions/block-dangerous-git.ts sends it at .input.command. All of
+# them treat exit code 2 with a stderr reason as denial; the stdout JSON below
+# supplies Copilot's CLI-specific reason and is harmless to the others.
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r \
-  '.tool_input.command // .toolArgs.command // .tool_input.cmd // empty')
+COMMAND=$(printf '%s' "$INPUT" | jq -r '
+  (.toolArgs | if type == "string" then (fromjson? // {}) else . end) as $args
+  | .tool_input.command // .tool_input.cmd // $args.command // .input.command // empty')
 
 deny() {
   echo "BLOCKED: $1" >&2
@@ -16,8 +18,47 @@ deny() {
   exit 2
 }
 
+# ST-0427 (ADR-0039, OI-11): dispatch return-story and dispatch close --drop
+# destroy work and are always the User's decision, so they are refused in every
+# session. The match finds dispatch at a command position: the start of a line,
+# or after ; & | ( or a backtick. Before dispatch it skips the words that lead a
+# command without being the command, as guard-human-fields does: the WRAPPERS
+# words, nohup and exec, an assignment NAME=value, an interpreter such as
+# python3, bash or uv run, and their options. dispatch may carry a path, and its
+# options, such as --ledger <path>, may stand before the subcommand. A quote may
+# surround each word. A quoted mention inside another command, such as a grep
+# pattern or a commit message, passes. The script reads only the text, so a
+# command built from variables passes too.
+SQ="'"
+Q="[\"$SQ]?"
+PLAIN="[^[:space:];&|()\`\"$SQ]"
+LEAD_NAME="(\\{|!|then|do|else|($PLAIN*/)?(env|command|time|sudo|nohup|exec|python[0-9.]*|bash|sh|zsh|dash|uv[[:space:]]+run))"
+LEAD_ASSIGN="[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|$SQ[^$SQ]*$SQ|$PLAIN*)"
+OPTION="$Q-$PLAIN*$Q([[:space:]]+$Q[^-[:space:];&|()\`\"$SQ]$PLAIN*$Q)?"
+LEAD="($LEAD_NAME|$LEAD_ASSIGN|$OPTION)[[:space:]]+"
+DISPATCH_AT="(^|[;&|(\`])[[:space:]]*($LEAD)*$Q($PLAIN*/)?dispatch$Q[[:space:]]+($OPTION[[:space:]]+)*$Q"
+DISPATCH_END="$Q([[:space:];&|)\`]|\$)"
+if printf '%s\n' "$COMMAND" | grep -qE "${DISPATCH_AT}return-story${DISPATCH_END}"; then
+  deny "'$COMMAND' runs dispatch return-story, which destroys the story's work. Only the User runs it."
+fi
+if printf '%s\n' "$COMMAND" | grep -qE "${DISPATCH_AT}close$Q[[:space:]]([^;&|\`\"$SQ]*[[:space:]])?$Q--drop${DISPATCH_END}"; then
+  deny "'$COMMAND' runs dispatch close --drop, which destroys the run's work. Only the User runs it."
+fi
+
 # retro-2026-07-12 T-07: mechanical verify-base / premerge-check enforcement.
 TOP=$(git rev-parse --show-toplevel 2>/dev/null)
+
+# ST-0427: true when a ledger under <root>/.current-work/ has an entry with
+# branch: <branch>. A ledger sits at .current-work/<feature-branch>/, so the
+# search stops at depth 4 and does not walk the story worktrees.
+ledger_lists_branch() {
+  local root="$1" branch="$2" ledger pattern
+  pattern="^[[:space:]]+branch:[[:space:]]*[\"']?$(printf '%s' "$branch" | sed 's/[.[\*^$]/\\&/g')[\"']?[[:space:]]*$"
+  while IFS= read -r ledger; do
+    grep -qE "$pattern" "$ledger" && return 0
+  done < <(find "$root/.current-work" -maxdepth 4 -name dispatch-ledger.yaml 2>/dev/null)
+  return 1
+}
 
 # BR-024 (ST-0150): Allow agent test commands declared in the project's
 # testing.yaml, instead of a single hardcoded command.
@@ -65,16 +106,13 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
     if [ -z "$MARKER_HEAD" ] || ! git merge-base --is-ancestor "$MARKER_HEAD" HEAD 2>/dev/null; then
       deny "git commit in a worktree whose verify-base-ok marker does not match its base (marker head is not an ancestor of HEAD). Re-run $MAIN_ROOT/.agent-factory/factory/scripts/verify-base <target> [--expect-base <SHA>]."
     fi
-    # ST-0214: story branches require a dispatch ledger in the main checkout.
+    # ST-0214, ST-0427: a story branch belongs to the run whose ledger lists
+    # it. A ledger of another branch never counts.
     BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
     case "$BRANCH" in
       story/*)
-        COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
-        if [ -n "$COMMON_DIR" ]; then
-          MAIN_ROOT=$(cd "$COMMON_DIR" && cd .. && pwd)
-          if ! find "$MAIN_ROOT/.current-work" -name dispatch-ledger.yaml -print -quit 2>/dev/null | grep -q .; then
-            deny "git commit on $BRANCH with no dispatch ledger. No .current-work/*/dispatch-ledger.yaml found in the main checkout ($MAIN_ROOT). Run $MAIN_ROOT/.agent-factory/factory/scripts/dispatch init first."
-          fi
+        if ! ledger_lists_branch "$MAIN_ROOT" "$BRANCH"; then
+          deny "git commit on $BRANCH with no dispatch ledger that lists $BRANCH. No .current-work/<feature-branch>/dispatch-ledger.yaml in the main checkout ($MAIN_ROOT) has an entry with branch: $BRANCH. Run $MAIN_ROOT/.agent-factory/factory/scripts/dispatch init on the feature branch and dispatch the story first."
         fi
         ;;
     esac
@@ -88,7 +126,7 @@ fi
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+switch[[:space:]]+([^|&;]*[[:space:]])?-[cC]([[:space:]]|$)' \
    || echo "$COMMAND" | grep -qE '^git[[:space:]]+checkout[[:space:]]+([^|&;]*[[:space:]])?-[bB]([[:space:]]|$)' \
    || echo "$COMMAND" | grep -qE '^git[[:space:]]+branch[[:space:]]+(--track[[:space:]]+|--copy[[:space:]]+|-c[[:space:]]+|-C[[:space:]]+)?[^-[:space:]][^[:space:]|&;]*([[:space:]]+[^[:space:]|&;]+)?([[:space:]]*[|&;]|[[:space:]]*$)'; then
-  deny "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .current-work/<branch> <base>."
+  deny "standalone branch creation is forbidden. Create the branch and its linked worktree atomically with: git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>."
 fi
 
 # Worktrees must live under .current-work/.  Deny `git worktree add`
@@ -108,7 +146,7 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+worktree[[:space:]]+add[[:space:]
   if [ -n "$WT_PATH" ]; then
     case "$WT_PATH" in
       .current-work/*) ;; # allowed
-      *) deny "worktrees must be created under .current-work/. Got: $WT_PATH" ;;
+      *) deny "worktrees must be created under .current-work/<feature-branch>/. Got: $WT_PATH" ;;
     esac
   fi
 fi
