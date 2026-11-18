@@ -30,11 +30,15 @@ stop_confirmed_reason:       # human field, null when written by an agent
 artifact: packages/factory/scripts/premerge-check:120   # path:line, path:start-end, or path#anchor
 status: open                 # open | resolved | deferred | waived
 owner: developer-agent       # the agent that acts on the finding next (default: producer of the artifact)
-traces: [ST-0351]            # requirement / use-case / ADR IDs the finding relates to (optional)
+story: ST-0350               # the story whose review filed the finding; empty for the feature checks and outside any run
+run:                         # the feature branch whose feature checks filed the finding, such as feature/login; empty for a story's review and outside any run
+traces: [ST-0351]            # requirement / use-case / ADR IDs the finding relates to (optional); does not count at the merges
 ---
 ```
 
 The four human fields are `null` in every finding that an agent writes. No agent changes them later.
+
+`story` and `run` name the review that filed the finding, as [finding-format.md § Story and run](../conventions/finding-format.md#story-and-run) defines. A finding of a story's review sets `story` and leaves `run` empty. A finding of the feature checks leaves `story` empty and sets `run`. A finding of a review outside any run leaves both empty. `finding-lint` refuses a file that sets both.
 
 Status values:
 
