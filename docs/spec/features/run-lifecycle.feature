@@ -467,6 +467,7 @@ Feature: Run Lifecycle
       Given ST-0350 is <state> in the run on feature/login
       When the User runs dispatch return-story ST-0350
       Then the ledger records ST-0350 as pending
+      And the entry of ST-0350 has returned true
       And backlog/ST-0350.md has status pending
 
       Examples:
@@ -749,6 +750,7 @@ Feature: Run Lifecycle
       And ST-0352 depends on neither ST-0350 nor ST-0351
       And ST-0350 is done
       And the User has returned ST-0351, so the ledger records ST-0351 as pending
+      And the entry of ST-0351 has returned true
       And no spec-feedback report of wave 1 has an open row or a fixed row about an artifact on the core list
       When the implementation agent runs dispatch close-wave 1
       Then dispatch exits 0
@@ -761,7 +763,9 @@ Feature: Run Lifecycle
       And wave 1 holds the serial chain ST-0350, ST-0351, ST-0352
       And ST-0351 depends on ST-0350, and ST-0352 depends on ST-0351
       And the User has returned ST-0350
+      And the entry of ST-0350 has returned true
       And ST-0351 and ST-0352 are pending and have never been prepared
+      And the entries of ST-0351 and ST-0352 have returned false
       And no spec-feedback report of wave 1 has an open row or a fixed row about an artifact on the core list
       When the implementation agent runs dispatch close-wave 1
       Then dispatch exits 0
@@ -781,7 +785,7 @@ Feature: Run Lifecycle
         | state                                                                                 |
         | is dispatched                                                                         |
         | is failed after its first counted attempt on the tier standard, with gates.attempts 3 |
-        | is pending, has never been returned, and has no returned dependency                   |
+        | is pending with returned false and has no returned dependency                         |
 
     Scenario: The next wave waits for the wave record
       Given the ledger holds no wave record for wave 1
@@ -814,14 +818,17 @@ Feature: Run Lifecycle
       Given BUG-0090 is failed in the run on feature/login
       When the User runs dispatch return-story BUG-0090
       Then the ledger records BUG-0090 as pending
+      And the entry of BUG-0090 has returned true
       And docs/findings/BUG-0090.md keeps status open and run feature/login
       And dispatch reads no backlog/BUG-0090.md
       And premerge-check dev feature/login still exits non-zero
 
     Scenario: Adding a returned finding again reuses its entry
       Given the ledger holds BUG-0090 as pending after a return
+      And the entry of BUG-0090 has returned true
       When the implementation agent runs dispatch add BUG-0090
       Then the same ledger entry is in a new wave
+      And the entry of BUG-0090 has returned false
       And its attempts restart at the first attempt on the default tier
       And the next attempt runs on the existing branch story/BUG-0090
 

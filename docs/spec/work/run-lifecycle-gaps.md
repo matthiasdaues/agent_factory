@@ -145,6 +145,7 @@ These statements change documents outside the specification, or describe a cost 
 
 - ADR-0012 and ADR-0029, and arc42 chapters 5 and 6: the architecture agent.
 - `rules.md`, `branching-policy.md`, `dispatch-contract.md`, `finding-format.md`, `report-format.md`, the finding template, the playbooks, and the instructions of the implementation, developer, code-review and QA agents: the stories that planning cuts from the proposal. The feature file holds the behaviour these documents describe, such as RL-02 and RL-17.
+- The ledger schema in `dispatch-contract.md` does not list the entry field `returned` yet. The implementation stories add the field to the schema together with the code that writes it (BR-116, BR-117).
 - The costs, the bypass of `git commit --no-verify` by a human, the limits of review coverage, and the gate result files under `.current-work/<gate>/` in Design Details. RL-14 checks that `dispatch close` removes the gate result files.
 - The security scanner, a limit on repeat reviews, trusted gate results, gates for documents, and mutation testing at the merge. The proposal defers them.
 

@@ -10,24 +10,24 @@ This specification describes the behavioral contracts of the `dispatch` script a
 
 ### Ubiquitous Language
 
-| Term                   | Definition                                                                                                                                                        |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dispatch Run           | Everything the Factory does for one feature branch, from `dispatch init` to `dispatch close`, shortened to run. "Dispatch" alone names only the script `dispatch` |
-| Ledger                 | The single YAML file recording every story's lifecycle state while its run is active. `dispatch close` removes it                                                 |
-| Wave                   | A set of stories that start together. Wave N starts only after wave N−1 has a wave record. By hand, each story is a wave of its own                               |
-| Story Entry            | One record of a unit of work in the ledger: status, branch, worktree, base SHA, tier, reason, attempts, escalation-granted                                        |
-| Attempt                | One execution of a story by a subagent: session type, tier, failure class, evidence, SHA, normalized total, tokens                                                |
-| Step Manifest          | A per-worktree YAML file declaring what a step agent may read, write, and how much it may consume                                                                 |
-| Step Guard             | A hook-enforced boundary that reads the manifest and allows or denies tool calls                                                                                  |
-| Tier                   | Model capability level: economy < standard < strong                                                                                                               |
-| Escalation             | Promoting a story to the next tier after a qualifying failure                                                                                                     |
-| Seams-First            | A two-session strategy: first session writes tests, second session makes them pass                                                                                |
-| Handoff Contract       | The seven-part prompt generated for each subagent                                                                                                                 |
-| Normalized Token       | Approximate token count estimated as file size in bytes divided by 4                                                                                              |
-| Re-Dispatch            | Setting a failed or blocked story back to prepared for a new attempt on its existing branch                                                                       |
-| Safety-Critical Paths  | Glob patterns in `config/project.json` whose match triggers a strong tier suggestion                                                                              |
-| Seam Outputs           | The subset of a seams-first story's outputs that the seam session writes (test files)                                                                             |
-| Implementation Outputs | The subset of a seams-first story's outputs that the implementation session writes (source files)                                                                 |
+| Term                   | Definition                                                                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dispatch Run           | Everything the Factory does for one feature branch, from `dispatch init` to `dispatch close`, shortened to run. "Dispatch" alone names only the script `dispatch`                                                             |
+| Ledger                 | The single YAML file recording every story's lifecycle state while its run is active. `dispatch close` removes it                                                                                                             |
+| Wave                   | A set of stories that start together. Wave N starts only after wave N−1 has a wave record. By hand, each story is a wave of its own                                                                                           |
+| Story Entry            | One record of a unit of work in the ledger: status, branch, worktree, base SHA, tier, reason, attempts, escalation-granted, returned. `dispatch return-story` sets returned to true, and `dispatch add` sets it back to false |
+| Attempt                | One execution of a story by a subagent: session type, tier, failure class, evidence, SHA, normalized total, tokens                                                                                                            |
+| Step Manifest          | A per-worktree YAML file declaring what a step agent may read, write, and how much it may consume                                                                                                                             |
+| Step Guard             | A hook-enforced boundary that reads the manifest and allows or denies tool calls                                                                                                                                              |
+| Tier                   | Model capability level: economy < standard < strong                                                                                                                                                                           |
+| Escalation             | Promoting a story to the next tier after a qualifying failure                                                                                                                                                                 |
+| Seams-First            | A two-session strategy: first session writes tests, second session makes them pass                                                                                                                                            |
+| Handoff Contract       | The seven-part prompt generated for each subagent                                                                                                                                                                             |
+| Normalized Token       | Approximate token count estimated as file size in bytes divided by 4                                                                                                                                                          |
+| Re-Dispatch            | Setting a failed or blocked story back to prepared for a new attempt on its existing branch                                                                                                                                   |
+| Safety-Critical Paths  | Glob patterns in `config/project.json` whose match triggers a strong tier suggestion                                                                                                                                          |
+| Seam Outputs           | The subset of a seams-first story's outputs that the seam session writes (test files)                                                                                                                                         |
+| Implementation Outputs | The subset of a seams-first story's outputs that the implementation session writes (source files)                                                                                                                             |
 
 ### Aggregates
 
@@ -291,6 +291,7 @@ Feature: Wave Lifecycle
 
   Scenario: Done, stopped, and returned stories and handled drift rows allow wave closure
     Given wave 1 has stories ST-001 (done), ST-002 (blocked), ST-003 (failed and stopped on the tier strong), and ST-004 (pending after a return)
+    And the entry of ST-004 has returned true
     And no spec-feedback report of wave 1 has an open row or a fixed row about a core-list artifact
     When the user runs dispatch close-wave 1
     Then dispatch exits zero
@@ -310,17 +311,19 @@ Feature: Wave Lifecycle
     And the message names ST-002
 
     Examples:
-      | state                                                       |
-      | dispatched                                                  |
-      | failed with a counted attempt left on the tier standard     |
-      | pending, never returned, as the next link of a serial chain |
+      | state                                                           |
+      | dispatched                                                      |
+      | failed with a counted attempt left on the tier standard         |
+      | pending with returned false, as the next link of a serial chain |
   # In each row, ST-001 is done, so ST-002 has no returned dependency.
 
   Scenario: A chain held back by its returned head allows wave closure
     Given wave 1 has the serial chain ST-005, ST-006, ST-007
     And ST-006 depends on ST-005, and ST-007 depends on ST-006
     And the user has returned ST-005
+    And the entry of ST-005 has returned true
     And ST-006 and ST-007 are pending and have never been prepared
+    And the entries of ST-006 and ST-007 have returned false
     And no spec-feedback report of wave 1 has an open row or a fixed row about a core-list artifact
     When the user runs dispatch close-wave 1
     Then dispatch exits zero
