@@ -1179,9 +1179,11 @@ State: FAILED
 On ReDispatch:
   if the entry has two contract_violation attempts
     RejectCommand("dispatch: the story is terminal after two contract_violation failures")
-  else if the counted attempts on the tier reached the limit of the tier
+  else if the counted attempts on the tier reached the limit and dispatch escalate can promote the entry
     RejectCommand("dispatch: the story requires escalation before re-dispatch")
   else
+    # with the attempts used up and no promotion left, the User fixed the cause first,
+    # and re-dispatch grants gates.attempts new counted attempts on the current tier
     ChangeState(PREPARED)
 On Return:
   # dispatch return-story, run by the User; the guardrail refuses it to agents
@@ -1224,5 +1226,5 @@ stateDiagram-v2
 - **PENDING** is also where a returned unit of work ends a run. `dispatch close` accepts it, and a returned story stays in the backlog with `status: pending` (BR-116, BR-119).
 - **Added** applies only to a finding. `dispatch add` refuses an ID in any state other than **PENDING** and names that state (BR-117).
 - **Escalate** is no edge. `dispatch escalate` changes the tier of the entry and leaves its state. After a failed attempt, the next **ReDispatch** runs on the new tier (BR-115).
-- **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Whether it grants new attempts once the attempts of the last tier are used up and the User fixed the cause is open item RL-G19 in [run-lifecycle-gaps.md § Open Items](work/run-lifecycle-gaps.md#open-items).
+- **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Once the attempts are used up and no promotion is left, the User fixes the cause, and **ReDispatch** grants `gates.attempts` new counted attempts on the current tier (BR-116, RL-G19).
 - **FAILED** and **BLOCKED** wait for the User. Both block `dispatch close` and the merge of the feature branch into `dev` until the entry is **DONE** or **PENDING** (BR-119).
