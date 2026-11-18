@@ -1179,11 +1179,12 @@ State: FAILED
 On ReDispatch:
   if the entry has two contract_violation attempts
     RejectCommand("dispatch: the story is terminal after two contract_violation failures")
-  else if the counted attempts on the tier reached the limit and dispatch escalate can promote the entry
+  else if the counted attempts on the tier reached the limit and the tier is not strong and the entry has not escalated and gates.attempts_escalated is above 0
     RejectCommand("dispatch: the story requires escalation before re-dispatch")
   else
-    # with the attempts used up and no promotion left, the User fixed the cause first,
-    # and re-dispatch grants gates.attempts new counted attempts on the current tier
+    # with the attempts used up and no promotion left, re-dispatch grants
+    # gates.attempts new counted attempts on the current tier; it takes no flag,
+    # so an agent can start this retry without the User (accepted limit, BR-116)
     ChangeState(PREPARED)
 On Return:
   # dispatch return-story, run by the User; the guardrail refuses it to agents
@@ -1226,5 +1227,5 @@ stateDiagram-v2
 - **PENDING** is also where a returned unit of work ends a run. `dispatch close` accepts it, and a returned story stays in the backlog with `status: pending` (BR-116, BR-119).
 - **Added** applies only to a finding. `dispatch add` refuses an ID in any state other than **PENDING** and names that state (BR-117).
 - **Escalate** is no edge. `dispatch escalate` changes the tier of the entry and leaves its state. After a failed attempt, the next **ReDispatch** runs on the new tier (BR-115).
-- **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Once the attempts are used up and no promotion is left, the User fixes the cause, and **ReDispatch** grants `gates.attempts` new counted attempts on the current tier (BR-116, RL-G19).
+- **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Once the attempts are used up, **ReDispatch** refuses while the entry can still escalate. With no promotion left, because the tier is `strong`, the entry has escalated, or `gates.attempts_escalated` is `0`, the User fixes the cause, and **ReDispatch** grants `gates.attempts` new counted attempts on the current tier (BR-116, RL-G19). No flag guards this grant. So on the last tier an agent can start a retry that the User did not ask for, and the User watches the run.
 - **FAILED** and **BLOCKED** wait for the User. Both block `dispatch close` and the merge of the feature branch into `dev` until the entry is **DONE** or **PENDING** (BR-119).

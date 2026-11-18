@@ -197,7 +197,7 @@ erDiagram
 - **PRIOR_TESTS_SECTION** is a markdown section (`#### Prior Tests`) for non-owning stories. The developer-agent runs these tests first and must keep them green.
 - **WAIVER** is a blockquote line within the `#### Test Design` section: `> Waiver: DOM-01 — owned by tests/test_domain.py::test_entity_uniqueness`. The `test-design-verify` gate parses these and validates the named test module exists.
 - **GATE_CONFIG** is a new section in `docs/testing.yaml` that centralizes gate configuration. It does not define gate execution ordering — [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
-- **GATE_ENTRY** configures an individual gate. Its key is the gate's name with hyphens, the same name as in a story's `quality-gates` field (OI-02). `test-design-verify` is implicitly enabled when test-design output exists in the story and skipped otherwise.
+- **GATE_ENTRY** configures an individual gate. Its key is the gate's name with hyphens, the same name as in a story's `quality-gates` field (OI-02). `premerge-check`, `crap-score`, and `mutation-testing` also read the old keys with underscores, such as `crap_score` (BR-055). `test-design-verify` is implicitly enabled when test-design output exists in the story and skipped otherwise.
 
 ## Agent Context Entities
 
