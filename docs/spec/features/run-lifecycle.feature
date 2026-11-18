@@ -859,12 +859,19 @@ Feature: Run Lifecycle
       And dispatch prints the stop notice
       And the ledger holds no entry for BUG-0090
 
-    Scenario: The gate-check step files a blocking QA finding for a mutant it cannot resolve
+    Scenario Outline: The gate-check step files a blocking QA finding for a mutant it cannot resolve
       Given an orchestrated run is active on feature/login
       And mutation-testing leaves a surviving mutant in plan_moves on story/ST-0350
-      And the gate-check step can neither kill the mutant with a new test nor remove it as dead code
+      And the gate-check step can neither kill the mutant nor remove it as dead code, because <cause>
       When the implementation agent files the mutant
-      Then docs/findings/QA-0012.md has severity major, status open, owner planning-agent, and run feature/login
+      Then docs/findings/QA-0012.md has severity major, status open, owner <owner>, and run feature/login
+      # The wave close routes the finding by its owner: Scenario "The wave
+      # close routes the open QA findings by owner".
+
+      Examples:
+        | cause                                                                                      | owner               |
+        | the mutant needs a test that the step could not write within its attempts                  | planning-agent      |
+        | the mutant does not change behaviour or a gate setting is wrong, so no test should kill it | test-strategy-agent |
 
     Scenario: The wave close routes the open QA findings by owner
       Given an orchestrated run is active on feature/login

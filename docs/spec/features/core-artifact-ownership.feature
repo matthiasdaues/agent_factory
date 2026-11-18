@@ -562,10 +562,10 @@ Feature: Core artifact ownership
     # actor: Test-strategy agent
     # @packages/factory/skills/mutation-testing/SKILL.md
 
-    Scenario: mutation-testing files an unresolved mutant as a QA finding for the test-strategy agent
-      Given the gate-check step cannot resolve a surviving mutant in plan_moves
-      When the implementation agent files the mutant through the mutation-testing skill
-      Then docs/findings/ has a new QA finding with owner: test-strategy-agent
+    # The gate-check step files a mutant that it cannot resolve as a QA
+    # finding, and the owner follows the cause: run-lifecycle.feature,
+    # Scenario Outline "The gate-check step files a blocking QA finding for
+    # a mutant it cannot resolve".
 
     Scenario: The implementation agent dispatches the test-strategy agent for each open QA finding
       Given ST-0318 has merged and QA-0003 is open with owner: test-strategy-agent
@@ -643,11 +643,16 @@ Feature: Core artifact ownership
     # @packages/factory/scripts/dispatch::cmd_close_wave
     # @packages/factory/rulebooks/conventions/dispatch-contract.md
 
-    Scenario: After a merge the implementation agent dispatches each row's owner and then the reviewer
-      Given ST-0318 has merged and its report has an open row for validation-rules.md owned by the domain-modeling agent
-      When the implementation agent handles the merged story
+    Scenario: At the wave close the implementation agent dispatches each listed row's owner and then the reviewer
+      Given wave 2 holds ST-0318
+      And spec-feedback-ST-0318.md has an open row for validation-rules.md owned by the domain-modeling agent
+      And dispatch close-wave 2 failed and listed the row
+      When the implementation agent handles the listed row
       Then it dispatches the domain-modeling agent for the row
       And after the row is fixed it dispatches the spec-review agent for the row
+      # The drift sessions run at the wave close, not after each merge:
+      # run-lifecycle.feature, Scenario "The implementation agent runs the
+      # drift sessions and closes the wave".
 
     Scenario Outline: close-wave checks the status of each row in the wave's reports
       Given wave 2 holds ST-0318
