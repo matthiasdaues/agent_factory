@@ -947,6 +947,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             dispatchCli -> projectFilesystem "Checks out feature/login, and git refuses over the uncommitted change to src/login.py"
             implementationAgent -> humanOperator "Shows the message unchanged: the files, the checkout, and that nothing merged"
             implementationAgent -> dispatchCli "Orchestrated: runs merge-story ST-0351 in the worktree of feature/login"
+            dispatchCli -> premergeCheck "Runs premerge-check first, and it exits 0"
             dispatchCli -> runWorktrees "Finds an uncommitted change to a tracked file, names the files and the worktree, and merges nothing"
             implementationAgent -> humanOperator "Reports the message unchanged and does not repair the worktree"
         }

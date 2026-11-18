@@ -68,13 +68,13 @@ References: [architecture.dsl](../spec/architecture.dsl), [section 8](08_crosscu
 
 ### QS-6: Deterministic validation
 
-| Field             | Description                                                                                                             |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Safety                                                                                                                  |
-| Stimulus          | An agent commits code that violates dependency rules or exceeds CRAP score thresholds.                                  |
-| Environment       | The implementation-agent dispatcher runs `crap-score` and `dependency-check` after each developer commit.               |
-| Response          | The gate script detects the violation and fails. The dispatcher spawns a fresh developer agent with the failure report. |
-| Response measure  | Exit code 1 from the gate. The developer agent that authored the code never validates its own work.                     |
+| Field             | Description                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety                                                                                                                            |
+| Stimulus          | An agent commits code that violates dependency rules or exceeds CRAP score thresholds.                                            |
+| Environment       | The implementation agent runs `crap-score` and `dependency-check` in the gate-check step, after the review of a story.            |
+| Response          | The gate script detects the violation and fails. The implementation agent spawns a fresh developer agent with the failure report. |
+| Response measure  | Exit code 1 from the gate. The developer agent that authored the code never validates its own work.                               |
 
 References: [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md), [section 5.2.3](05_building_block_view.md#523-semantic-quality-gates-crap-score-mutation-testing-dependency-check-test-design-verify)
 
@@ -356,15 +356,27 @@ References: [6.24](06_runtime_view.md#624-the-merge-check-of-a-story), [ADR-0038
 
 ### QS-29: No agent destroys work in any agent tool
 
-| Field             | Description                                                                                                                                                                      |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Controllability (human authority)                                                                                                                                                |
-| Stimulus          | An agent issues `dispatch return-story ST-0350` or `dispatch close --drop`, as a bare command, through a path to `dispatch`, after `&&` or `;`, or inside `bash -c`.             |
-| Environment       | A session in Claude Code, Codex, Copilot CLI, pi, or OpenCode, inside or outside a run.                                                                                          |
-| Response          | The tool's entry hands the command to `block-dangerous-git.sh`, which refuses it.                                                                                                |
-| Response measure  | In each of the five tools, the command does not run, and the refusal names the reason. Every other `dispatch` subcommand passes. For OpenCode, a real session shows the refusal. |
+| Field             | Description                                                                                                                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Controllability (human authority)                                                                                                                                                                                           |
+| Stimulus          | An agent issues `dispatch return-story ST-0350` or `dispatch close --drop`, as a bare command, through a path to `dispatch`, after `&&` or `;`, inside `bash -c`, or in OpenCode as the JavaScript of an `execute` call.    |
+| Environment       | A session in Claude Code, Codex, Copilot CLI, pi, or OpenCode, inside or outside a run.                                                                                                                                     |
+| Response          | The tool's entry hands the command to `block-dangerous-git.sh`, which refuses it.                                                                                                                                           |
+| Response measure  | In each of the five tools, the command does not run, and the refusal names the reason. Every other `dispatch` subcommand passes. For OpenCode, a real session shows the refusal of a `shell` call and of an `execute` call. |
 
 References: [6.25](06_runtime_view.md#625-the-git-guardrail-in-every-agent-tool), [ADR-0039](../adr/0039-one-git-guardrail-script-for-all-five-agent-tools.md)
+
+### QS-30: A new session continues an interrupted run
+
+| Field             | Description                                                                                                                                                                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Resilience (run resume)                                                                                                                                                                                                                               |
+| Stimulus          | The session dies while `premerge-check` runs `crap-score` for ST-0350 in `.current-work/feature/login/premerge/ST-0350`.                                                                                                                              |
+| Environment       | An orchestrated run on `feature/login`. ST-0350 is `dispatched`, and the temporary worktree of the dead check is still registered with git.                                                                                                           |
+| Response          | A new session reads the ledger and the branch state and runs `dispatch merge-story ST-0350` again. `premerge-check` removes the leftover worktree, adds a new one, and checks the branch head.                                                        |
+| Response measure  | The second `merge-story` reaches the result that an uninterrupted call would reach at the same branch head, and nobody removes a worktree by hand. The new session reads no state but the ledger, the branch state, and the files at the branch head. |
+
+References: [6.22](06_runtime_view.md#622-a-run-from-init-to-close), [6.24](06_runtime_view.md#624-the-merge-check-of-a-story), [ADR-0037](../adr/0037-one-lifecycle-for-runs-orchestrated-and-by-hand.md), [ADR-0038](../adr/0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md)
 
 ## 10.2 Quality Attribute Priority
 
@@ -399,6 +411,7 @@ References: [6.25](06_runtime_view.md#625-the-git-guardrail-in-every-agent-tool)
 | 2        | Safety (deterministic validation)        | QS-27     |
 | 1        | Safety (deterministic validation)        | QS-28     |
 | 1        | Controllability (human authority)        | QS-29     |
+| 1        | Resilience (run resume)                  | QS-30     |
 
 ## Referenced from
 
