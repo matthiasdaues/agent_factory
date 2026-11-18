@@ -51,6 +51,7 @@ ALL_HOOK_IDS = [
     "agent_factory_hook-mermaid-lint",
     "agent_factory_hook-spec-lint",
     "agent_factory_hook-arch-lint",
+    "agent_factory_hook-dependency-check",
     "agent_factory_hook-backlog-lint",
     "agent_factory_hook-concern-lint",
     "agent_factory_hook-matrix-lint",
@@ -68,6 +69,7 @@ def fully_available_root(tmp_path: Path) -> Path:
     (tmp_path / "docs" / "arc42").mkdir(parents=True)
     (tmp_path / "backlog").mkdir(parents=True)
     (tmp_path / "docs" / "agent-context.md").write_text("# context\n")
+    (tmp_path / "docs" / "spec" / "dependency-rules.dsl").write_text("")
     return tmp_path
 
 
@@ -601,3 +603,64 @@ def test_st_0396_commit_of_a_broken_finding_exits_1_through_the_hook(tmp_path):
     fixed = run_git(project, "commit", "-qm", "record BUG-0037")
 
     assert fixed.returncode == 0, fixed.stdout + fixed.stderr
+
+
+# ---------------------------------------------------------------------------
+# ST-0417: the dependency-check hook (RL-10-CT-01, RL-10-CT-02).
+# ---------------------------------------------------------------------------
+
+DEPENDENCY_CHECK_ID = "agent_factory_hook-dependency-check"
+
+
+def _dependency_check_hook() -> dict:
+    import yaml
+
+    hooks = {
+        hook["id"]: hook
+        for repo in yaml.safe_load(PRE_COMMIT_TEXT)["repos"]
+        for hook in repo["hooks"]
+    }
+    return hooks[DEPENDENCY_CHECK_ID]
+
+
+@pytest.mark.spec("RL-10-CT-01")
+@pytest.mark.parametrize(
+    ("path", "runs"),
+    [
+        ("domain/order.py", True),
+        ("app.py", True),
+        ("src/app/web/views.py", True),
+        ("README.md", False),
+        ("docs/spec/dependency-rules.dsl", False),
+        ("domain/order.pyc", False),
+        ("domain/notes.py.md", False),
+    ],
+)
+def test_st_0417_hook_runs_only_for_a_staged_python_file(path: str, runs: bool):
+    hook = _dependency_check_hook()
+
+    assert hook["pass_filenames"] is False
+    assert hook["language"] == "system"
+    assert "always_run" not in hook
+    assert "types" not in hook
+    assert bool(re.search(hook["files"], path)) is runs
+
+
+@pytest.mark.spec("RL-10-CT-01")
+def test_st_0417_hook_checks_the_rules_file_before_the_script():
+    entry = _dependency_check_hook()["entry"]
+
+    check = entry.index("[ -f docs/spec/dependency-rules.dsl ]")
+    assert entry.index("agent-factory.installed") < check
+    assert check < entry.index("factory/scripts/dependency-check")
+    assert "dependency-check: no docs/spec/dependency-rules.dsl, skipped" in entry
+
+
+@pytest.mark.spec("RL-10-CT-02")
+def test_st_0417_metadata_needs_the_rules_file():
+    meta = hs.load_hook_metadata(METADATA_TEXT)[DEPENDENCY_CHECK_ID]
+
+    assert meta.outcome == "Architecture rules"
+    assert meta.trade_off == "none"
+    assert meta.availability == "requires-path:docs/spec/dependency-rules.dsl"
+    assert meta.description

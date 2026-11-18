@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0023",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "interface",
+  "severity": "minor",
+  "artifact": "packages/factory/config/pre-commit-config.yaml:114-127",
+  "story": "ST-0417",
+  "finding": "A developer whose project has the hook but no docs/spec/dependency-rules.dsl never sees the skip notice. The entry echoes the notice and exits 0, but pre-commit shows the output of a passing hook only when the hook sets verbose: true, so the commit shows only 'Passed'. The review checked this with pre-commit on a local hook that echoes the notice and exits 0: the run printed 'dc....Passed' and no notice. The tests of RL-10-IT-02 run the entry from a plain .git/hooks/pre-commit script, so they see the notice and miss the gap. The behavior looks undocumented, not intended: BR-066 and the proposal say the hook prints the notice and do not say for whom. The smallest fix needs a decision by the owner of BR-066, the domain-modeling agent. Either set verbose: true on the hook, which also prints the JSON report of dependency-check on every passing commit, or state in BR-066 that the notice shows only under pre-commit run --verbose.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The hook passes without uv and without the script, which is what the scenario needs, and fitting leaves the hook out of a project without the rules file, so the case arises only when a project removes the file later (no to fails_purpose). A developer in that project sees 'Passed' and does not learn that the gate no longer runs.",
+  "commit": "0fa67ed5db29ca30cc89c65b00f3bb287c39179b",
+  "status": "open"
+}
