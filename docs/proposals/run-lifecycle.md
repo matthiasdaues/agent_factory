@@ -59,12 +59,20 @@ governance:
     - operations
 
 estimate:
-  as_of: 2026-11-15
-  basis: judgment
-  confidence: low
-  human_review_hours: unknown
-  normalized_tokens: unknown
-  estimated_consumption: unknown
+  as_of: 2026-11-18
+  basis: decomposition
+  confidence: medium
+  human_review_hours:
+    min: 6.0
+    max: 12.0
+  normalized_tokens:
+    min: 200000
+    max: 400000
+  estimated_consumption:
+    min: 3000000
+    max: 6000000
+    overhead_multiplier: 15
+    playbook: feature-addition
 ---
 
 # Feature Request: Run Lifecycle
