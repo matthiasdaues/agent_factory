@@ -17,8 +17,7 @@ split: a wrong result in code that only unusual API input reaches came out
 `minor` from one pair and `major` from the other. Review class and basis
 agreed less often than severity. Two rule changes decided the cases where
 raters split, and they survived a second test. They are listed in
-[Recommendations](#recommendations). Four other candidates failed and are
-removed. One of them, a default importance for an unranked quality scenario,
+[Recommendations](#recommendations). Five other candidates failed and are removed. One of them, a default importance for an unranked quality scenario,
 passed its test but was wrong: the current rules already make such a finding a
 `question` when the ranking decides its severity, and no rater saw that.
 
@@ -291,32 +290,54 @@ without a priority, the category can be `question`, as
   and `fails`. Those who chose `uncertain` should have filed a `question`.
   None did.
 
+- **A traced path needs a stimulus that the scenario names.** This candidate
+  aimed at the exposure split on ATAM-0003 and ATAM-0007. It said that a path
+  shows a failure only when the scenario's own stimulus starts it, and that a
+  path that also needs an event the scenario does not name gives
+  `uncertain`. I wrote it after reading the findings and predicted
+  `uncertain` for ATAM-0003. In the fourth run, E1 and E4 gave `uncertain`,
+  and E2 and E3 gave `fails`. Without the candidate, in the third run, all four
+  raters had given `fails`. The candidate turned agreement into a split that
+  decides whether the finding blocks, so it is removed. All four raters named
+  the same cause: the rule cannot say whether a boundary tick inside a
+  publication belongs to scenario 7. The stakeholder judged ATAM-0003 a badly written finding about an edge case,
+  so no rule follows from it.
+
 ## Draft calibration examples
 
 These two rows are drafts for the calibration table of
 [§ Class: architecture](../../packages/factory/rulebooks/conventions/finding-classification.md#calibration-examples-3).
 They add no rule. They show how the current rules apply to a scenario without
-a priority. No rater has used them yet, so they are not recommendations.
+a priority. They are not recommendations, because the row for `uncertain` has
+not held.
 
-| Severity         | Finding                                                    | Basis                                                   | Why this severity                                                                                                                                                                                                                                                                          |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| none, `question` | Invented: a missing lock threatens a scenario from a brief | importance open, `exposure: uncertain`, `in_use: false` | The scenario has no priority in § 10.2. The matrix gives `major` at priority 1 and `minor` at priority 2, so the severity needs the stakeholder's ranking. The reviewer files a `question` in `docs/spec/work/todo.md` that names the scenario and both outcomes.                          |
-| `major`          | Invented: the same lock, shown to fail                     | importance open, `exposure: fails`, `in_use: false`     | The scenario has no priority, and the project ranks on two levels. Exposure `fails` gives `major` at priority 1 and at priority 2, so the ranking changes nothing. The finding is a `risk`. A project that ranks on three levels has a `low` row, and there the same case is a `question`. |
+The third and fourth runs used them
+([run-3-results.md](../../poc/spikes/finding-classification/key/run-3-results.md),
+[run-4-results.md](../../poc/spikes/finding-classification/key/run-4-results.md)).
+Twenty-two ratings gave exposure `fails`, and each one is a `major` risk, as the
+second row says. That row follows from the matrix, so this is weak evidence.
+Two ratings gave `uncertain`. E4 filed a `question`. E1 removed the severity
+and the blocking but kept category `risk`. So the first row did not carry the
+category for one of two raters. Two raters are too few to judge the row.
+
+| Severity         | Finding                                                                    | Basis                                                   | Why this severity                                                                                                                                                                                                                                                                                                              |
+| ---------------- | -------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| none, `question` | Invented: a cache decision threatens a response-time scenario from a brief | importance open, `exposure: uncertain`, `in_use: false` | The scenario has no priority in § 10.2. The matrix gives `major` at priority 1 and `minor` at priority 2, so the severity needs the stakeholder's ranking. The reviewer files a `question` in `docs/spec/work/todo.md` that names the scenario and both outcomes.                                                              |
+| `major`          | Invented: the same cache decision, shown to fail                           | importance open, `exposure: fails`, `in_use: false`     | The scenario has no priority. Without a ranking of its own, the project uses the two levels of § 10.2. Exposure `fails` gives `major` at priority 1 and at priority 2, so the ranking changes nothing. The finding is a `risk`. A project that ranks on three levels has a `low` row, and there the same case is a `question`. |
 
 ## Open gaps without a recommendation
 
 These gaps are real in the rule text, but no candidate rule has been tested
 for them yet.
 
-| Gap                                                                                            | Finding              | Observed effect                                                                                                                 | Next step                                                                                               |
-| ---------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Code class: a wrong result that only unusual input to a public API reaches, against FAGAN-0032 | FAGAN-0003           | Severity split, two `minor` and two `major`. Blocking flips.                                                                    | Write a rule that decides the case, then retest with four raters on FAGAN-0003 as filed and FAGAN-0032. |
-| Document `fails_purpose`: does a parser that refuses the whole file give a "wrong result"?     | SPEC-0007            | None. All raters gave `major`.                                                                                                  | None until a case splits.                                                                               |
-| Security: effects `secrets` and `disclosure` both fit an arbitrary file read                   | FAGAN-0002           | None. Both raters chose `secrets` and `critical`.                                                                               | None until a case splits.                                                                               |
-| Class table lists code under both the code and the security class                              | FAGAN-0002           | None. Both raters chose security.                                                                                               | None until a case splits.                                                                               |
-| No calibration for a specification that runs ahead of planned code                             | RECON-0001           | None. Both raters gave `note`.                                                                                                  | None until a case splits.                                                                               |
-| Contradiction with a row that describes an open proposal                                       | SPEC-0026            | None. Both raters gave `major`, with low confidence.                                                                            | None until a case splits.                                                                               |
-| Architecture exposure: `uncertain` against `fails` for a missing lock                          | ATAM-0003, ATAM-0007 | K1 and K2 split. With an unranked scenario, the split decides between `risk` and `question`, and so whether the finding blocks. | Write a rule that decides the exposure, then retest on both findings.                                   |
+| Gap                                                                                            | Finding    | Observed effect                                              | Next step                                                                                               |
+| ---------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Code class: a wrong result that only unusual input to a public API reaches, against FAGAN-0032 | FAGAN-0003 | Severity split, two `minor` and two `major`. Blocking flips. | Write a rule that decides the case, then retest with four raters on FAGAN-0003 as filed and FAGAN-0032. |
+| Document `fails_purpose`: does a parser that refuses the whole file give a "wrong result"?     | SPEC-0007  | None. All raters gave `major`.                               | None until a case splits.                                                                               |
+| Security: effects `secrets` and `disclosure` both fit an arbitrary file read                   | FAGAN-0002 | None. Both raters chose `secrets` and `critical`.            | None until a case splits.                                                                               |
+| Class table lists code under both the code and the security class                              | FAGAN-0002 | None. Both raters chose security.                            | None until a case splits.                                                                               |
+| No calibration for a specification that runs ahead of planned code                             | RECON-0001 | None. Both raters gave `note`.                               | None until a case splits.                                                                               |
+| Contradiction with a row that describes an open proposal                                       | SPEC-0026  | None. Both raters gave `major`, with low confidence.         | None until a case splits.                                                                               |
 
 ## Limits of the test
 
@@ -326,8 +347,9 @@ for them yet.
 - Each pair rated a batch once. The second run repeated only ten findings, so
   the effects of R1 and R2 rest on few cases: one split in `in_use` and four
   class decisions.
-- Agreement does not show that the answer is right. All raters who chose
-  exposure `uncertain` for an unranked scenario rated a `major` risk, where
+- Agreement does not show that the answer is right. In the first two runs,
+  all raters who chose exposure `uncertain` for an unranked scenario rated a
+  `major` risk, where
   the rules give a `question`. The test compared raters with each other and
   with the original rating, and both comparisons missed this.
 - ATAM-0006 has no valid rating, so the line between a question and a risk
@@ -349,15 +371,17 @@ compares rater pairs.
 - `run-2/rules/rules-2.md`: the changed rulebook as tested.
 - `key/answer-key.tsv` and `key/retest-predictions.md`: the original ratings
   and the predictions written before the second run.
+- `run-3/` and `run-4/`: the retests of the draft calibration rows and of the
+  exposure candidate, with their predictions and results in `key/`.
 
 ## Next steps
 
 1. The stakeholder decides on R1 and R2. An accepted change goes into
    `packages/factory/rulebooks/conventions/finding-classification.md`.
-2. The stakeholder reviews the draft calibration examples in
-   [Draft calibration examples](#draft-calibration-examples). They are not
-   tested. A retest on ATAM-0003 and ATAM-0007 would show whether raters file
-   a `question` with them.
+2. Keep the draft calibration rows out of the rulebook until the first row
+   holds on more raters. The next test needs a finding whose exposure is
+   clearly `uncertain`, such as an unchecked assumption about a tool, and a row
+   that names the category in its own column.
 3. Write a rule for the FAGAN-0003 gap and retest it, as the open-gap table
    describes. Build the blind set with the spike's `build-blind.py`, which
    removes the line "returns to major" from FAGAN-0003.

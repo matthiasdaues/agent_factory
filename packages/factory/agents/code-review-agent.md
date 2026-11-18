@@ -84,10 +84,33 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    three review gates (international team, junior clarity, senior respect).
    Rewrite the finding until it does.
 
-5. **Report** — Save `docs/reviews/code-review-YYYY-MM-DD.md` per
-   [report-format.md](../rulebooks/conventions/report-format.md). File
-   findings with tag `IMPL` per
-   [finding-format.md](../rulebooks/conventions/finding-format.md).
+5. **Report** — Save the report per
+   [report-format.md § Story and run](../rulebooks/conventions/report-format.md#story-and-run).
+
+   - The review of a story writes
+     `docs/reviews/code-review-<story-id>-YYYY-MM-DD.md`, such as
+     `docs/reviews/code-review-ST-0350-2026-11-24.md`. Its frontmatter sets
+     `story` to the story ID and `branch_head` to the head of the story branch
+     you reviewed. When a report of the same story and day already exists, add
+     `-2` to the name, and `-3` for a third review that day. You add the
+     number yourself; no script does.
+   - The review of the whole feature writes
+     `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md` with the slash
+     of the branch name replaced by a hyphen, such as
+     `docs/reviews/code-review-feature-login-2026-11-24.md`. Its frontmatter
+     sets `run` to the feature branch and `branch_head` to the head of the
+     feature branch you reviewed.
+   - The developer agent commits the report of a story's review on the story
+     branch, also when the review files no finding.
+
+   File findings with tag `IMPL` per
+   [finding-format.md](../rulebooks/conventions/finding-format.md). Each
+   finding names the review that filed it
+   ([finding-format.md § Story and run](../rulebooks/conventions/finding-format.md#story-and-run)).
+   A finding of a story's review sets `story` to the story ID and leaves `run`
+   empty. A finding of the review of the whole feature leaves `story` empty and
+   sets `run` to the feature branch. A finding of a review outside any run
+   leaves both empty. A register file sets its required `story` field.
    This agent classifies findings of the review class `code`, by [Class: code](../rulebooks/conventions/finding-classification.md#class-code). The rule of the class computes each severity from the recorded basis. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file. A `minor` finding becomes the register file `docs/findings/register/code/<ID>.json` with `status: open`, and the commit that fixes it sets `status` to `resolved`. A `note` stays a row of the report, and a `question` becomes an entry of `docs/spec/work/todo.md`. Run `.agent-factory/factory/scripts/next-id IMPL` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand.
 
 6. **Verify prior findings** (repeat passes) — Per

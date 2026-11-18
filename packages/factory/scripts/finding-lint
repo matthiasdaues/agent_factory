@@ -11,6 +11,8 @@
 #       each file with its HEAD version and rejects a lowering or a removal
 #       without the override fields, a dropped review_class, and a removed
 #       register file without a finding file of the same ID (BR-109, BR-110).
+#       It rejects every finding file, also one without review_class, that
+#       sets both story and run (BR-121).
 #       A repository without a commit, or a directory outside any repository,
 #       has no HEAD version, so the lint checks every file as new.
 #       For a code, runtime, or security finding with in_use false that is
@@ -1057,6 +1059,31 @@ def compare_with_head(files: dict[str, str], head: dict[str, str]) -> list[str]:
     return out
 
 
+# --- The filing review (BR-121) ------------------------------------------------
+
+
+def check_story_and_run(path: str, text: str) -> list[str]:
+    """A finding names the story or the run whose review filed it, never both.
+
+    The check covers every finding file, also one without review_class
+    (BR-121, OI-14). A file whose frontmatter cannot be read gets no message
+    here; the classification checks report it when the file carries
+    review_class.
+    """
+    meta = _meta(text)
+    if meta is None or not _both(meta, "story", "run"):
+        return []
+    return [
+        _message(
+            path,
+            "BR-121 story and run",
+            f"{_finding_id(path)} sets both story ({meta['story']}) and run "
+            f"({meta['run']}); a story's review sets only story, the feature "
+            "checks set only run",
+        )
+    ]
+
+
 # --- The set of findings -------------------------------------------------------
 
 
@@ -1064,7 +1091,8 @@ def lint_files(files: dict[str, str], head: dict[str, str], schemas: dict) -> li
     """Check the findings of one version, given as path to text, against *head*.
 
     A finding file is checked when it carries review_class or when its HEAD
-    version carries it (BR-109).
+    version carries it (BR-109). The check of story and run covers every
+    finding file (BR-121).
     """
     out: list[str] = []
     finding_ids: dict[str, str] = {}
@@ -1072,6 +1100,7 @@ def lint_files(files: dict[str, str], head: dict[str, str], schemas: dict) -> li
     for path in sorted(files):
         text = files[path]
         if is_finding_path(path):
+            out += check_story_and_run(path, text)
             classed = carries_review_class(text)
             if classed:
                 finding_ids[_finding_id(path)] = path

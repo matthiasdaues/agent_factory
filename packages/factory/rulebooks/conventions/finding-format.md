@@ -36,11 +36,27 @@ Canonical statement: [rules.md § Findings](../rules.md#findings).
 
 ## Format
 
-Frontmatter and body skeleton: [finding.md template](../templates/finding.md). The frontmatter holds sixteen fields: `id`, `source`, `review_class`, `category`, `type`, `severity`, `basis`, `rating`, `override_by`, `override_reason`, `stop_confirmed_by`, `stop_confirmed_reason`, `artifact`, `status`, `owner`, and `traces`. The contract of each field is in [interface-contracts.md § finding file](../../../../docs/spec/interface-contracts.md#docsfindingsidmd--finding-file).
+Frontmatter and body skeleton: [finding.md template](../templates/finding.md). The frontmatter holds eighteen fields: `id`, `source`, `review_class`, `category`, `type`, `severity`, `basis`, `rating`, `override_by`, `override_reason`, `stop_confirmed_by`, `stop_confirmed_reason`, `artifact`, `status`, `owner`, `story`, `run`, and `traces`. The contract of each field is in [interface-contracts.md § finding file](../../../../docs/spec/interface-contracts.md#docsfindingsidmd--finding-file).
 
 The reviewer writes the four human fields `override_by`, `override_reason`, `stop_confirmed_by`, and `stop_confirmed_reason` as `null`. Only the stakeholder fills them.
 
 Canonical statement: [rules.md § Findings](../rules.md#findings) — no "this looks off" without a fix direction.
+
+## Story and run
+
+Two fields name the review that filed a finding: `story` and `run`. Only these two fields count at the merge of a story and at the merge of the feature branch (BR-121).
+
+| Filed by                                                | `story`                 | `run`                               |
+| ------------------------------------------------------- | ----------------------- | ----------------------------------- |
+| The review of a story, such as the code review          | the story ID: `ST-0350` | empty                               |
+| The feature checks: the review of the whole feature, QA | empty                   | the feature branch: `feature/login` |
+| A review outside any run                                | empty                   | empty                               |
+
+A finding never sets both fields. `finding-lint` refuses a finding file that sets both, and names the finding ID and both fields. The check covers every file in `docs/findings/*.md`, also a file without `review_class`.
+
+`traces` lists the spec items and stories that the finding concerns. It does not count at the merges, so a finding about ST-0351 that the review of ST-0350 filed sets `story: ST-0350` and `traces: [ST-0351]`.
+
+A register file has its own required `story` field, which its schema defines.
 
 ## Register files
 

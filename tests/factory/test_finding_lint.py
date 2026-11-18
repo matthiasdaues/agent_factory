@@ -1677,3 +1677,91 @@ def test_st_0395_only_the_old_register_of_the_same_class_counts():
 def test_st_0395_a_new_finding_file_ignores_the_old_register():
     line = json.dumps({"id": "FAGAN-0042", **TRIGGER_FIELDS})
     assert _trigger_due({OLD_CODE_REGISTER: line + "\n"})
+
+
+# --- The filing review: story and run (BR-121) ---------------------------------
+
+UNCLASSIFIED = """---
+id: BUG-0095
+source: bug-hunt
+status: resolved
+owner: developer-agent
+{fields}
+---
+
+# A finding from before the migration
+"""
+STORY_AND_RUN_CASES = {
+    "story only": ({"story": "ST-0350", "run": None}, False),
+    "run only": ({"story": None, "run": "feature/login"}, False),
+    "neither": ({"story": None, "run": None}, False),
+    "both": ({"story": "ST-0350", "run": "feature/login"}, True),
+}
+
+
+def _story_and_run_text(classed: bool, values: dict) -> str:
+    if classed:
+        return _finding_text(_finding_fields(id="BUG-0095", **values))
+    fields = "\n".join(
+        f"{key}: {_yaml_value(value)}".rstrip() for key, value in values.items()
+    )
+    return UNCLASSIFIED.format(fields=fields)
+
+
+@pytest.mark.spec("RL-04-CT-01")
+@pytest.mark.parametrize(
+    "classed", [True, False], ids=["review_class", "no review_class"]
+)
+@pytest.mark.parametrize("case", list(STORY_AND_RUN_CASES))
+def test_st_0412_finding_lint_refuses_a_finding_that_names_both_a_story_and_a_run(
+    classed, case
+):
+    """Scenario: finding-lint refuses a finding that names both a story and a run."""
+    values, refused = STORY_AND_RUN_CASES[case]
+    path = "docs/findings/BUG-0095.md"
+    messages = lint.lint_files(
+        {path: _story_and_run_text(classed, values)}, {}, SCHEMAS
+    )
+    both = [message for message in messages if "BR-121" in message]
+    if refused:
+        assert len(both) == 1, messages
+        assert both[0].startswith(f"{path}: ")
+        assert "BUG-0095" in both[0]
+        assert "story" in both[0] and "run" in both[0]
+    else:
+        assert both == []
+    if classed and not refused:
+        assert messages == []
+
+
+@pytest.mark.spec("RL-04-CT-01")
+def test_st_0412_an_empty_string_counts_as_an_empty_field():
+    """A quoted empty value leaves the field empty, as a blank value does."""
+    text = UNCLASSIFIED.format(fields='story: ST-0350\nrun: ""')
+    assert lint.lint_files({"docs/findings/BUG-0095.md": text}, {}, SCHEMAS) == []
+
+
+@pytest.mark.spec("RL-04-CT-01")
+def test_st_0412_finding_lint_exits_1_on_the_demo_finding_bug_0092(tmp_path):
+    """Demo Scenario 3: a hand-edited BUG-0092 with story and run fails the lint."""
+    _write(tmp_path, "docs/factory-settings.yaml", "release_tag_patterns: []\n")
+    _write(
+        tmp_path,
+        "docs/findings/BUG-0091.md",
+        _finding_text(_finding_fields(id="BUG-0091", story="ST-0350")),
+    )
+    _write(
+        tmp_path,
+        "docs/findings/BUG-0092.md",
+        _finding_text(
+            _finding_fields(id="BUG-0092", story="ST-0350", run="feature/login")
+        ),
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    lines = [line for line in result.stdout.splitlines() if "BR-121" in line]
+    assert len(lines) == 1, result.stdout
+    assert lines[0].startswith("docs/findings/BUG-0092.md: ")
+    assert "BUG-0092" in lines[0] and "story" in lines[0] and "run" in lines[0]
