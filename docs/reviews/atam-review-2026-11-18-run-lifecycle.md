@@ -2,7 +2,7 @@
 type: atam-review
 title: ATAM review of the run lifecycle architecture
 date: 2026-11-18
-status: defects
+status: pass
 reviewer: architecture-review-agent
 findings_filed: 6
 story: run-lifecycle
@@ -125,6 +125,53 @@ The three `major` risks are finding files under `docs/findings/`. The three `min
 | Tests against the source, or copy at the merge             | Source (ADR-0040) | A merged script reaches the sessions only after `update-factory` |
 | Retry without a flag on the last tier                      | No flag (BR-116)  | An agent can start a retry the User did not ask for              |
 
+## Verification of the fixes
+
+Pass 2 checks the fixes of ATAM-0021 to ATAM-0026. It is a narrow check of the fixes, not a new review pass. It covers the architecture commits `5c41c1d6` and `92775baa`, the contract commits `37f779d9`, `b7041766`, and `5a68f29d`, and the feature file commits `6842e07b`, `5cfc3278`, and `4e5b34f7`. `arch-lint --docs-dir docs/arc42` again found 0 errors and the dismissed ARCH-PARSE warning, and exited `0`.
+
+| ID        | Status   | Evidence                                                                                                                                                                                                                                                                                                                   |
+| --------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ATAM-0021 | resolved | By hand, `merge-story` runs `premerge-check` while the story branch is checked out and checks out the feature branch only after exit `0`. The `merge-story` contract, BR-124, the DSL relationship from `dispatch` to Project Filesystem, RunByHand, PremergeStoryCheck, 5.13, and 6.24 say so, and two Scenarios check it |
+| ATAM-0022 | resolved | The OpenCode entry passes each `shell` command and the JavaScript of each `execute` call to `block-dangerous-git.sh`. ADR-0039, the DSL component, GitGuardrailOneScript, 5.13, 6.25, chapters 7 and 9, the guardrail contract, and a Scenario Outline name both tools                                                     |
+| ATAM-0023 | resolved | `premerge-check` runs `git worktree remove --force` on its own path and then `git worktree prune` before it adds the worktree (BR-123). The paths are `premerge/<id>` and `premerge/feature` in the contract, ADR-0038, the DSL, 5.1, 5.13, 6.24, and the Scenarios                                                        |
+| ATAM-0024 | resolved | GateCheckStep and 6.4.1 run `mark-dispatching` before the spawn and `mark-dispatched` after the fix commit, and `re-dispatch` follows `escalate` in every case                                                                                                                                                             |
+| ATAM-0025 | resolved | 6.24.1 routes each cause of a refused merge, and the views PremergeStoryRefused and MergeCheckoutRefused show two of them. RunByHand names `merge-story --dry-run`, and the contract defines the dry run                                                                                                                   |
+| ATAM-0026 | resolved | Each changed DSL description is one sentence of 102 to 176 characters. RunLifecycleComponents is split into RunLifecycleDispatch, RunLifecycleMergeCheck, and RunLifecycleGuardrail in 5.13. The renders of RunLifecycleDispatch and MergeCheckoutRefused show legible names and labels                                    |
+
+### The stakeholder decisions of 2026-11-18
+
+The contracts and the architecture match each decision:
+
+- By hand, `merge-story` runs `premerge-check` first and checks out the feature branch only after exit `0`.
+- The OpenCode guardrail checks the JavaScript of every `execute` call, and no document records a residual risk.
+- `premerge-check` removes a leftover worktree at `premerge/<id>` or `premerge/feature` first.
+- A refused checkout or merge exits `1`, names the files and the checkout, merges nothing, and leaves the entry `dispatched` (BR-124). In an orchestrated run, `merge-story` refuses on an uncommitted tracked change in the worktree of the feature branch. `dispatch.refuse_dirty_feature_worktree` in `docs/testing.yaml` turns the refusal off and defaults to `true`.
+- A gate that passes in the story worktree and fails in the temporary worktree gets no rule. The gate row of 6.24.1 ends with the attempt limit (HasStopped).
+
+The order of the worktree check is open in the text: the contract and BR-124 say only "before it merges", and only the DSL relationship, the 6.24.1 row "no check fails", and the Scenario step "premerge-check exits 0" imply that it runs after `premerge-check`.
+
+### Backing of the refusal routes in 6.24.1
+
+- A failing gate goes back to the gate-check step. The Scenario "A refused premerge-check sends a story in an orchestrated run back to the gate-check step" and BR-116 back this route.
+- An open blocking finding, or no code review of the current branch head, gets a fresh developer agent and a repeat review. The refusal itself is backed by the Scenarios "An open blocking finding at the branch head is refused and named" and "A story branch without a matching review report is refused". The loop is backed by "A repeat review follows each fix of a blocking finding". No rule or Scenario sends a refused merge into that loop, so the link from the refusal to the loop has no backing.
+- A failed base, diff size, or scope check stops for the User. No rule or Scenario backs this route. BR-115 and HasStopped stop a unit of work for its scope only when `dispatch escalate` refuses it. After a refused merge check the entry stays `dispatched`, so HasStopped does not hold, and the decision-point Scenario Outline lists no refused merge check.
+
+### Rows of the spec-feedback report
+
+- The row for `docs/spec/interface-contracts.md` is `confirmed`. The `merge-story` contract defines `--dry-run`: it runs `premerge-check` with the same scope and `--max-files`, merges nothing, changes no ledger entry, and by hand runs while the story branch is checked out.
+- The row for `run-lifecycle.feature` is `rejected`. Commit `4e5b34f7` adds a Scenario for the gate route only. The routes for an open blocking finding and for a failed base, diff size, or scope check still have no Scenario, as the section above shows. The stakeholder settled the case of the gate that passes only in the story worktree, so that part of the row needs no Scenario.
+
+### Notes of this pass
+
+These notes go to the architecture agent. None of them blocks planning, so this pass files no finding.
+
+- Chapter 10 has no QS-30. ADR-0037 scores QS-30 as a Pugh criterion with weight 3, and ADR-0038 and 6.22 cite it. The resolution of ATAM-0023 names QS-30 as added, but commit `5c41c1d6` changes chapter 10 only in one link of QS-6. The criterion has no measure until chapter 10 and its priority table hold QS-30.
+- The stimulus of QS-29 names only shell forms. An `execute` call in OpenCode is missing from it, although ADR-0039 and the Scenarios cover the call.
+- In MergeCheckoutRefused, the orchestrated steps 5 to 7 show no `premerge-check` call before the worktree check.
+- QS-6 still says that the gates run "after each developer commit", as Pass 1 noted.
+
 ## Readiness
 
-The architecture is not ready for planning. ATAM-0021, ATAM-0022, and ATAM-0023 block it. Next, the architecture agent addresses the three blocking risks and routes the two contract changes to the domain-modeling agent. Then this review runs a repeat pass.
+The architecture is ready for planning. All six findings are resolved, and no new defect or risk blocks planning. Next, run the planning agent.
+
+Two gaps stay open beside planning. The stakeholder decides whether the requirements agent adds Scenarios for the two unbacked refusal routes before the story of the implementation agent is cut. The architecture agent adds QS-30 to chapter 10.

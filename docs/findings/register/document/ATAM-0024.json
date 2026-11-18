@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The Ledger Entry Lifecycle and StoryWorkflow show the missing edges, and the Ledger refuses a wrong transition and names it, so an implementer reaches the right sequence (no to fails_purpose); a reader of 6.4 must compare it with the state machine to find the gap (raises_cost).",
   "commit": "8b246fc263d73cb7d13a33c3b801c0d18dff4ecd",
-  "status": "open"
+  "status": "resolved"
 }

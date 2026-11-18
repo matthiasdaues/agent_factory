@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The existing edges cover a gate failure once the implementation agent reruns the gate-check step, so an implementer can act (no to fails_purpose); the author of the implementation agent definition must still work out each refusal case alone (raises_cost).",
   "commit": "8b246fc263d73cb7d13a33c3b801c0d18dff4ecd",
-  "status": "open"
+  "status": "resolved"
 }

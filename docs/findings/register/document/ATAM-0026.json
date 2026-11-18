@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Chapters 5.13 and 6 carry the same content as tables and Mermaid sequences, so a reader can act without the images (no to fails_purpose); a reader who opens a diagram cannot tell which element is which (raises_cost).",
   "commit": "8b246fc263d73cb7d13a33c3b801c0d18dff4ecd",
-  "status": "open"
+  "status": "resolved"
 }
