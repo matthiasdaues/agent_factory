@@ -30,16 +30,27 @@ Checks
   3. Out-of-scope paths (only if `--scope` given): every changed file must
      fall under at least one declared `--scope` prefix.
   4. Semantic gates (story branches only): if `<branch>` matches the pattern
-     `story/ST-NNNN`, requires a passing result in
-     `.current-work/<gate>/<story-id>.json` for every gate below (BR-066).
-     Each gate is a hard gate — failure of any one blocks the merge.
-       - `dependency-check`: always.
+     `story/ST-NNNN`, premerge-check adds a detached worktree at the branch
+     head under `.current-work/<target>/premerge/<story-id>` of the primary
+     checkout and removes it afterwards (BR-123, ADR-0038). Before the add,
+     it removes a worktree that a crashed run left at that path. The gate
+     list comes from the story file at the branch head (BR-066). Each gate
+     is a hard gate — failure of any one blocks the merge.
+       - `dependency-check`: when `docs/spec/dependency-rules.dsl` exists at
+         the branch head; otherwise premerge-check prints the skip. Reruns
+         in the worktree.
        - `test-design-verify`: when the story has a Test Design or Prior
-         Tests heading.
+         Tests heading. Reruns in the worktree.
        - Test guardrails `crap-score` and `mutation-testing`: picked by the
          story's `quality-gates` field, else by the enabled entries of the
          `gates` section of `docs/testing.yaml`, else `crap-score` alone.
-         No default picks `mutation-testing`.
+         No default picks `mutation-testing`. Both still read their result
+         in `.current-work/<gate>/<story-id>.json`.
+     A rerun gate runs from `.agent-factory/factory/scripts/` of the primary
+     checkout, or from the folder of premerge-check when that copy lacks the
+     script. The worktree is its source root, and `uv` builds the
+     worktree's own environment (OI-10). No file of a checkout changes, and
+     no stash is made.
      `default_quality_gates` in `docs/charter/house-rules.md` is no gate
      source; when found, premerge-check prints a warning that names the file.
 
@@ -63,6 +74,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -255,6 +267,12 @@ GATES_SECTION_KEYS = {"crap-score": "crap_score", "mutation-testing": "mutation_
 DEFAULT_GUARDRAILS = ["crap-score"]
 HOUSE_RULES = "docs/charter/house-rules.md"
 TEST_DESIGN_HEADING = re.compile(r"^#{1,6}\s+(Test Design|Prior Tests)\s*$", re.MULTILINE)
+DEPENDENCY_RULES = "docs/spec/dependency-rules.dsl"
+# Gates that rerun at the branch head. The others read their stored result.
+RERUN_GATES = ("dependency-check", "test-design-verify")
+INSTALLED_SCRIPTS = Path(".agent-factory") / "factory" / "scripts"
+# Variables that point uv at the caller's environment instead of the worktree's.
+FOREIGN_ENVIRONMENT = ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT")
 
 
 def _read_gates_section(top: Path) -> dict | None:
@@ -310,8 +328,16 @@ def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
         story_text = ""
     if TEST_DESIGN_HEADING.search(story_text):
         gates.append("test-design-verify")
-    gates.append("dependency-check")
+    if (top / DEPENDENCY_RULES).is_file():
+        gates.append("dependency-check")
     return gates, _house_rules_warning(top)
+
+
+def dependency_skip_notice(top: Path) -> list[str]:
+    """Name the skip of dependency-check when *top* has no rules file (BR-066)."""
+    if (top / DEPENDENCY_RULES).is_file():
+        return []
+    return [f"SKIP dependency-check: {DEPENDENCY_RULES} does not exist"]
 
 
 def _describe_row(row: dict) -> str:
@@ -343,10 +369,105 @@ def read_gate_result(path: Path) -> tuple[bool, str]:
     return False, "invalid result"
 
 
-def check_semantic_gates(top: Path, gates: list[str], story_id: str) -> list[str]:
-    """Return one entry per gate whose result is missing or not passing."""
+def primary_checkout() -> Path | None:
+    """Return the top folder of the primary checkout, also from a linked worktree."""
+    code, common, _ = run_git(["rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if code != 0:
+        return None
+    common_dir = Path(common)
+    if common_dir.name == ".git":
+        return common_dir.parent
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    return Path(top) if code == 0 else None
+
+
+def premerge_path(primary: Path, feature_branch: str, unit_id: str) -> Path:
+    """Path of the temporary worktree of one unit of work (BR-123)."""
+    return primary / ".current-work" / feature_branch / "premerge" / unit_id
+
+
+def remove_worktree(path: Path) -> None:
+    """Remove the worktree at *path*, if any, and prune its record (BR-123)."""
+    run_git(["worktree", "remove", "--force", str(path)])
+    run_git(["worktree", "prune"])
+
+
+def add_worktree(path: Path, branch: str) -> tuple[bool, str]:
+    """Remove a leftover at *path*, then add a detached worktree at *branch*'s head."""
+    remove_worktree(path)
+    code, _, err = run_git(["worktree", "add", "--detach", str(path), branch])
+    return code == 0, err
+
+
+def gate_script(primary: Path, gate: str) -> Path:
+    """The installed copy of the primary checkout, else the folder of this script."""
+    installed = primary / INSTALLED_SCRIPTS / gate
+    return installed if installed.is_file() else SCRIPT_DIR / gate
+
+
+def gate_command(script: Path, gate: str, worktree: Path, story_id: str) -> list[str]:
+    report_dir = worktree / ".current-work" / gate
+    if gate == "dependency-check":
+        return [
+            str(script),
+            "--dsl-path", str(worktree / DEPENDENCY_RULES),
+            "--source-root", str(worktree),
+            "--story-id", story_id,
+            "--report-dir", str(report_dir),
+        ]
+    return [
+        str(script),
+        "--story", str(worktree / "backlog" / f"{story_id}.md"),
+        "--story-id", story_id,
+        "--scope-map", str(worktree / "docs" / "spec" / "scope-map.md"),
+        "--spec-dir", str(worktree / "docs" / "spec" / "features"),
+        "--repo-root", str(worktree),
+        "--epics", str(worktree / "backlog" / "epics.md"),
+        "--report-dir", str(report_dir),
+    ]
+
+
+def rerun_gate(primary: Path, gate: str, worktree: Path, story_id: str) -> tuple[bool, str]:
+    """Run *gate* in *worktree* and judge it by its exit code."""
+    script = gate_script(primary, gate)
+    env = {k: v for k, v in os.environ.items() if k not in FOREIGN_ENVIRONMENT}
+    try:
+        result = subprocess.run(
+            gate_command(script, gate, worktree, story_id),
+            cwd=worktree, env=env, capture_output=True, text=True, check=False,
+        )
+    except OSError as exc:
+        return False, f"cannot run {script}: {exc}"
+    if result.returncode == 0:
+        return True, "passed"
+    report = worktree / ".current-work" / gate / f"{story_id}.json"
+    if report.is_file():
+        ok, detail = read_gate_result(report)
+        if not ok and detail != "failed":
+            return False, detail
+    lines = (result.stderr or result.stdout).strip().splitlines()
+    return False, f"exit {result.returncode}" + (f": {lines[-1]}" if lines else "")
+
+
+def check_semantic_gates(
+    top: Path,
+    gates: list[str],
+    story_id: str,
+    worktree: Path | None = None,
+    primary: Path | None = None,
+) -> list[str]:
+    """Return one entry per gate that fails.
+
+    With a *worktree*, the gates of RERUN_GATES run there. Every other gate
+    reads its stored result under *top*.
+    """
     failed_gates = []
     for gate in gates:
+        if worktree is not None and gate in RERUN_GATES:
+            ok, detail = rerun_gate(primary or top, gate, worktree, story_id)
+            if not ok:
+                failed_gates.append(f"{gate} ({detail})")
+            continue
         result_file = top / ".current-work" / gate / f"{story_id}.json"
         if not result_file.exists():
             failed_gates.append(f"{gate} (result not found)")
@@ -424,14 +545,28 @@ def main(argv: list[str] | None = None) -> int:
         if code != 0:
             print(f"premerge-check: {err}", file=sys.stderr)
             return 2
-        gates, warnings = resolve_gates(Path(top), story_id)
-        for warning in warnings:
-            print(warning)
-        failed_gates = check_semantic_gates(Path(top), gates, story_id)
+        primary = primary_checkout() or Path(top)
+        worktree = premerge_path(primary, args.target, story_id)
+        added, err = add_worktree(worktree, args.branch)
+        if not added:
+            remove_worktree(worktree)
+            print(f"premerge-check: cannot add worktree {worktree}: {err}", file=sys.stderr)
+            return 2
+        try:
+            gates, warnings = resolve_gates(worktree, story_id)
+            for warning in warnings + dependency_skip_notice(worktree):
+                print(warning)
+            failed_gates = check_semantic_gates(
+                Path(top), gates, story_id, worktree=worktree, primary=primary
+            )
+        finally:
+            remove_worktree(worktree)
         if failed_gates:
             print(f"BLOCK semantic-gates: {', '.join(failed_gates)} for {story_id}")
-        else:
+        elif gates:
             print(f"PASS semantic-gates: {', '.join(gates)} passed for {story_id}")
+        else:
+            print(f"PASS semantic-gates: no gate applies to {story_id}")
         findings.append(not failed_gates)
     else:
         # Non-story branches skip semantic gates

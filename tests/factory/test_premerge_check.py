@@ -126,6 +126,8 @@ CRAP_FAIL = [
 DEPENDENCY_PASS = [
     {"rule_name": "domain-free-of-io", "pass_fail": "pass", "violating_import": None}
 ]
+DEPENDENCY_RULES = "docs/spec/dependency-rules.dsl"
+DEPENDENCY_RULE = "domain must_not_depend_on infra\n"
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -144,6 +146,7 @@ def _build_repo(
     testing_yaml: str | None,
     results: dict[str, object],
     house_rules: str | None = None,
+    extra: dict[str, str] | None = None,
 ) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -162,6 +165,9 @@ def _build_repo(
     if house_rules is not None:
         (repo / "docs" / "charter").mkdir(parents=True, exist_ok=True)
         (repo / "docs" / "charter" / "house-rules.md").write_text(house_rules)
+    for rel, text in (extra or {}).items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "story")
     for gate, payload in results.items():
@@ -203,7 +209,8 @@ class TestSt0359DemoFixtures:
             tmp_path,
             story=_story(None),
             testing_yaml=GATES_CRAP_ONLY,
-            results={"crap-score": CRAP_PASS, "dependency-check": DEPENDENCY_PASS},
+            results={"crap-score": CRAP_PASS},
+            extra={DEPENDENCY_RULES: DEPENDENCY_RULE},
         )
         proc = _run(repo)
         assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -216,14 +223,16 @@ class TestSt0359DemoFixtures:
             story=_story(None),
             testing_yaml=GATES_CRAP_ONLY,
             house_rules="# House rules\n\ndefault_quality_gates: [mutation-testing]\n",
-            results={"crap-score": CRAP_PASS, "dependency-check": DEPENDENCY_PASS},
+            results={"crap-score": CRAP_PASS},
         )
         proc = _run(repo)
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert "WARN" in proc.stdout
         assert "docs/charter/house-rules.md" in proc.stdout
 
-    def test_st_0359_no_gates_requires_crap_and_dependency_without_mutation(self, tmp_path):
+    def test_st_0359_no_gates_requires_crap_and_skips_dependency_without_rules(
+        self, tmp_path
+    ):
         repo = _build_repo(
             tmp_path,
             story=_story(None),
@@ -232,19 +241,22 @@ class TestSt0359DemoFixtures:
         )
         proc = _run(repo)
         assert proc.returncode == 0, proc.stdout + proc.stderr
-        assert "crap-score, dependency-check" in proc.stdout
+        assert "PASS semantic-gates: crap-score passed" in proc.stdout
+        assert f"SKIP dependency-check: {DEPENDENCY_RULES} does not exist" in proc.stdout
         assert "mutation-testing" not in proc.stdout
 
-    def test_st_0359_missing_dependency_result_blocks(self, tmp_path):
+    def test_st_0359_dependency_check_reruns_without_a_stored_result(self, tmp_path):
         repo = _build_repo(
             tmp_path,
             story=_story("[]"),
             testing_yaml=GATES_CRAP_ONLY,
             results={},
+            extra={DEPENDENCY_RULES: DEPENDENCY_RULE, "domain/model.py": "import infra\n"},
         )
         proc = _run(repo)
         assert proc.returncode == 1, proc.stdout + proc.stderr
-        assert "dependency-check (result not found)" in proc.stdout
+        assert "BLOCK semantic-gates: dependency-check" in proc.stdout
+        assert "result not found" not in proc.stdout
 
 
 def _write(top: Path, rel: str, text: str) -> None:
@@ -264,30 +276,30 @@ class TestSt0359ResolveGates:
     @pytest.mark.parametrize(
         ("field", "body", "testing_yaml", "expected"),
         [
-            ("[crap-score]", "", GATES_BOTH, ["crap-score", "dependency-check"]),
+            ("[crap-score]", "", GATES_BOTH, ["crap-score"]),
             (
                 "[crap-score]",
                 TEST_DESIGN_BODY,
                 GATES_BOTH,
-                ["crap-score", "test-design-verify", "dependency-check"],
+                ["crap-score", "test-design-verify"],
             ),
-            (None, "", GATES_BOTH, ["crap-score", "mutation-testing", "dependency-check"]),
-            (None, "", GATES_MUTATION_ONLY, ["mutation-testing", "dependency-check"]),
-            (None, "", NO_GATES, ["crap-score", "dependency-check"]),
-            (None, "", None, ["crap-score", "dependency-check"]),
-            (None, "", GATES_CRAP_ONLY, ["crap-score", "dependency-check"]),
+            (None, "", GATES_BOTH, ["crap-score", "mutation-testing"]),
+            (None, "", GATES_MUTATION_ONLY, ["mutation-testing"]),
+            (None, "", NO_GATES, ["crap-score"]),
+            (None, "", None, ["crap-score"]),
+            (None, "", GATES_CRAP_ONLY, ["crap-score"]),
             (
                 None,
                 PRIOR_TESTS_BODY,
                 None,
-                ["crap-score", "test-design-verify", "dependency-check"],
+                ["crap-score", "test-design-verify"],
             ),
-            ("[]", "", GATES_BOTH, ["dependency-check"]),
+            ("[]", "", GATES_BOTH, []),
             (
                 "[crap-score, mutation-testing, dependency-check]",
                 "",
                 None,
-                ["crap-score", "mutation-testing", "dependency-check"],
+                ["crap-score", "mutation-testing"],
             ),
         ],
     )
@@ -295,6 +307,17 @@ class TestSt0359ResolveGates:
         _write(tmp_path, f"backlog/{STORY_ID}.md", _story(field, body))
         if testing_yaml is not None:
             _write(tmp_path, "docs/testing.yaml", testing_yaml)
+        gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
+        assert gates == expected
+        assert warnings == []
+
+    @pytest.mark.parametrize(("field", "expected"), [
+        ("[crap-score]", ["crap-score", "dependency-check"]),
+        ("[]", ["dependency-check"]),
+    ])
+    def test_st_0359_gate_list_with_a_rules_file(self, tmp_path, field, expected):
+        _write(tmp_path, f"backlog/{STORY_ID}.md", _story(field))
+        _write(tmp_path, DEPENDENCY_RULES, DEPENDENCY_RULE)
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == expected
         assert warnings == []
@@ -308,7 +331,7 @@ class TestSt0359ResolveGates:
             "default_quality_gates: [mutation-testing]\n",
         )
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
-        assert gates == ["crap-score", "dependency-check"]
+        assert gates == ["crap-score"]
         assert len(warnings) == 1
         assert "docs/charter/house-rules.md" in warnings[0]
 
