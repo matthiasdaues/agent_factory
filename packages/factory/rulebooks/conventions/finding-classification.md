@@ -72,6 +72,11 @@ document, so the finding belongs to the document class, with type
 `incomplete`. It carries `source: atam-review` and `review_class: document`
 together.
 
+An ATAM finding belongs to the architecture class when it names a quality
+scenario and shows how a decision threatens that scenario's response. Every
+other ATAM finding belongs to the document class. A Scenario of a `.feature`
+file is a requirement, not a quality scenario.
+
 An observation that names no artifact is not a finding. It becomes an action
 item of its retrospective or an entry in `docs/spec/work/todo.md`.
 
@@ -111,7 +116,9 @@ the run's own workspace. Every finding records the answer in the field
 
 A document is in use only when stories or code outside the run encode its
 statement. Being merged on `dev` is not enough, because a document does harm
-only through what is built from it. When ATAM review filed [ATAM-0004](../../../../docs/findings/ATAM-0004.md), ADR-0026
+only through what is built from it. The statement is the text that the
+`**Fix:**` line changes. A syntax defect is in use only when a tool outside the
+run reads that syntax, such as a Gherkin runner in CI. When ATAM review filed [ATAM-0004](../../../../docs/findings/ATAM-0004.md), ADR-0026
 was accepted and on `dev`, but no migration code was built from it yet. So the
 gap was not in use.
 
