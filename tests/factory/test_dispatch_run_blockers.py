@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 from test_dispatch_merge_safety import (
     STORY,
     _dispatch,
@@ -442,6 +442,7 @@ def _commit_story_work(
     for rel in (f"src/{story_id}.txt", *extra_paths):
         (story / rel).parent.mkdir(parents=True, exist_ok=True)
         (story / rel).write_text("work\n")
+    write_review_report(story, story_id)
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "story work")
     sha = _git(story, "rev-parse", "HEAD")

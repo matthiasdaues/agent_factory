@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import SOURCE_SCRIPTS_DIR, load_script
+from conftest import SOURCE_SCRIPTS_DIR, load_script, write_review_report
 
 pm = load_script("premerge-check")
 cs = load_script("crap-score")
@@ -204,6 +204,8 @@ def _build_repo(
     for rel, text in (extra or {}).items():
         (repo / rel).parent.mkdir(parents=True, exist_ok=True)
         (repo / rel).write_text(text)
+    # A review of the commit before the story's work passes the review check (BR-122).
+    write_review_report(repo, STORY_ID)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "story")
     for gate, (payload, code) in (stubs or {}).items():
@@ -682,3 +684,120 @@ class TestSt0415EnabledEntryWithoutCommand:
         refusal = pm.gate_refusal("license-check", {"license-check": {"enabled": True}})
         assert refusal is not None
         assert "license-check" in refusal
+
+
+# --- ST-0413: the review check, the finding check, and the story's own files ---
+
+
+@pytest.mark.spec("RL-08-IT-03")
+@pytest.mark.parametrize(
+    ("category", "severity", "blocks"),
+    [
+        ("defect", "critical", True),
+        ("defect", "major", True),
+        ("risk", "major", True),
+        ("defect", "minor", False),
+        ("risk", "note", False),
+        ("suggestion", "major", False),
+        ("question", "critical", False),
+        (None, None, False),
+    ],
+)
+def test_st_0413_the_blocking_rule_of_br_085(category, severity, blocks):
+    """A finding blocks when its category is defect or risk and its severity
+    is critical or major (BR-085, finding-classification.md)."""
+    assert pm.is_blocking({"category": category, "severity": severity}) is blocks
+
+
+def _owned_repo(tmp_path: Path, monkeypatch, files: dict[str, str]) -> Path:
+    """A repository whose story branch commits *files*; the test runs in it."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.com")
+    _git(repo, "config", "user.name", "Fixture")
+    (repo / "README.md").write_text("fixture\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "init")
+    _git(repo, "checkout", "-q", "-b", BRANCH)
+    for rel, text in files.items():
+        _write(repo, rel, text)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "story")
+    monkeypatch.chdir(repo)
+    return repo
+
+
+@pytest.mark.spec("RL-08-IT-07")
+def test_st_0413_a_file_belongs_to_the_story_by_its_name_or_its_story_field(
+    tmp_path, monkeypatch
+):
+    files = {
+        f"docs/reviews/code-review-{STORY_ID}-2026-11-18.md": "no frontmatter\n",
+        "docs/findings/BUG-0091.md": f"---\nid: BUG-0091\nstory: {STORY_ID}\n---\n",
+        "docs/findings/BUG-0092.md": "---\nid: BUG-0092\nstory: ST-0002\n---\n",
+        "docs/findings/register/code/IMPL-0093.json": json.dumps({"story": STORY_ID}),
+        "docs/findings/register/code/IMPL-0094.json": json.dumps({"story": "ST-0002"}),
+        f"src/{STORY_ID}.py": "X = 1\n",
+    }
+    _owned_repo(tmp_path, monkeypatch, files)
+
+    owned = pm.story_owned_files(BRANCH, STORY_ID, [*files, "docs/findings/BUG-0099.md"])
+
+    assert owned == [
+        f"docs/reviews/code-review-{STORY_ID}-2026-11-18.md",
+        "docs/findings/BUG-0091.md",
+        "docs/findings/register/code/IMPL-0093.json",
+    ]
+
+
+@pytest.mark.spec("RL-08-IT-07")
+def test_st_0413_the_storys_own_files_do_not_count_toward_the_limit():
+    files = [f"src/f{n}.py" for n in range(20)] + ["docs/findings/BUG-0091.md"]
+    ok, line = pm.check_blowout(files, 20, ["docs/findings/BUG-0091.md"])
+    assert ok, line
+    assert "20 files changed, not counting 1 review or finding file(s)" in line
+    ok, line = pm.check_blowout(files, 20)
+    assert not ok
+    assert "21 files changed" in line
+
+
+@pytest.mark.spec("RL-08-IT-01")
+def test_st_0413_a_report_of_the_story_at_an_ancestor_passes(tmp_path, monkeypatch):
+    repo = _owned_repo(tmp_path, monkeypatch, {"src/a.py": "X = 1\n"})
+    write_review_report(repo, STORY_ID)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "review")
+
+    ok, line = pm.check_code_review(BRANCH, STORY_ID)
+
+    assert ok, line
+    assert f"docs/reviews/code-review-{STORY_ID}-2026-11-18.md" in line
+
+
+@pytest.mark.spec("RL-08-IT-02")
+def test_st_0413_open_blocking_findings_of_the_story_are_named(tmp_path, monkeypatch):
+    finding = "---\nid: {id}\ncategory: defect\nseverity: major\nstatus: {status}\nstory: {story}\n---\n"
+    _owned_repo(
+        tmp_path,
+        monkeypatch,
+        {
+            "docs/findings/BUG-0091.md": finding.format(id="BUG-0091", status="open", story=STORY_ID),
+            "docs/findings/BUG-0092.md": finding.format(id="BUG-0092", status="open", story=STORY_ID),
+            "docs/findings/BUG-0093.md": finding.format(id="BUG-0093", status="waived", story=STORY_ID),
+            "docs/findings/BUG-0094.md": finding.format(id="BUG-0094", status="open", story="ST-0002"),
+            "docs/findings/BUG-0095.md": f"---\nstory: {STORY_ID}\nnot: [closed\n---\n",
+        },
+    )
+
+    ok, line = pm.check_open_findings(BRANCH, STORY_ID)
+
+    assert not ok
+    assert f"BUG-0091, BUG-0092 of {STORY_ID} are open and blocking" in line
+
+
+@pytest.mark.spec("RL-08-IT-02")
+def test_st_0413_a_path_git_cannot_read_raises_and_names_it(tmp_path, monkeypatch):
+    _owned_repo(tmp_path, monkeypatch, {"README.md": "changed\n"})
+    with pytest.raises(pm.GitReadError, match="docs/findings/BUG-0099.md missing"):
+        pm.read_at_head(BRANCH, ["README.md", "docs/findings/BUG-0099.md"])

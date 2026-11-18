@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 from test_dispatch_merge_safety import _dispatch, _git, dispatched  # noqa: F401
 
 import dispatch_lib as lib
@@ -279,6 +279,7 @@ def _commit_report_only(story: Path, story_id: str) -> str:
     path = story / _report_path(story_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_report((CORE, "open")))
+    write_review_report(story, "ST-0001")
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "spec feedback")
     return _git(story, "rev-parse", "HEAD")

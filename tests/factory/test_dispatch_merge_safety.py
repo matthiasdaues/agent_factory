@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 
 DISPATCH = SOURCE_SCRIPTS_DIR / "dispatch"
 STORY = """---
@@ -97,6 +97,7 @@ def dispatched(tmp_path: Path) -> dict[str, Path]:
 
 def _commit_story_work(story: Path) -> str:
     (story / "src" / "ST-0001.txt").write_text("work\n")
+    write_review_report(story, "ST-0001")
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "story work")
     return _git(story, "rev-parse", "HEAD")
