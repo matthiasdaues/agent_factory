@@ -329,3 +329,15 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [manual]
+
+      # Run the real OpenCode session tests of the git guardrail before each
+      # release (RL-16-E2-01, RL-16-E2-02). They use the free tier models
+      # that OpenCode configured on its own:
+      #   pre-commit run run-opencode-session-test --hook-stage manual
+      - id: run-opencode-session-test
+        name: run-opencode-session-test
+        entry: uv run pytest --tb=short --quiet -m opencode_session
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
