@@ -509,6 +509,7 @@ Feature: Core artifact ownership
     Scenario: The implementation agent runs the project's mutation command as a gate
       Given docs/testing.yaml enables crap-score and mutation testing with gates.mutation_testing.command set
       And the story has a Test Design section and no quality-gates field
+      And docs/spec/dependency-rules.dsl exists
       When the implementation agent runs the gates after the story
       Then it runs crap-score, test-design-verify, dependency-check, and the command in gates.mutation_testing.command
       And a non-zero exit of any of them blocks the merge
@@ -537,6 +538,7 @@ Feature: Core artifact ownership
     Scenario Outline: The test guardrails come from the story first, then from testing.yaml, then from the default
       Given a story with <story field> and <test design>
       And docs/testing.yaml <gates section>
+      And docs/spec/dependency-rules.dsl exists
       When the implementation agent picks the gates for the story
       Then it runs <gates run>
 
@@ -547,6 +549,11 @@ Feature: Core artifact ownership
         | no quality-gates field      | no Test Design section | enables crap-score and mutation testing with a command | crap-score, dependency-check, and the mutation command                     |
         | no quality-gates field      | no Test Design section | enables only mutation testing with a command           | dependency-check and the mutation command                                  |
         | no quality-gates field      | no Test Design section | has no gates section                                   | crap-score and dependency-check                                            |
+
+    # Without docs/spec/dependency-rules.dsl, the gate-check step and
+    # premerge-check skip dependency-check and name the skip (BR-066):
+    # run-lifecycle.feature, Scenario "Without dependency rules,
+    # premerge-check skips dependency-check and names the skip".
 
     # The implementation agent runs the gates on both ways of driving a run,
     # and the developer agent runs none: run-lifecycle.feature, Scenario

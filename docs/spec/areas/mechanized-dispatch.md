@@ -621,8 +621,10 @@ Feature: Story Lifecycle
     Then ST-003 transitions from failed to prepared on the tier strong
     And ST-003 has three new counted attempts on the tier strong
     # re-dispatch grants new attempts only to a story that can no longer
-    # escalate: it runs on the tier strong, has already escalated, or
-    # gates.attempts_escalated is 0 (RL-G22 in run-lifecycle-gaps.md).
+    # escalate, because dispatch escalate refuses it for any reason of
+    # BR-115: the tier is strong, the story has escalated,
+    # gates.attempts_escalated is 0, verify-base fails, or the diff leaves
+    # the scope (RL-G22 and SPEC-0101 in run-lifecycle-gaps.md).
 
   # Phase 3
   Scenario: After the User's fix, re-dispatch grants new attempts when escalation is off
@@ -983,8 +985,11 @@ Feature: Evidence-Gated Escalation
   contradictory_evidence counts, because only such a failure can a stronger
   model help with. An attempt of any other class keeps its re-dispatch
   rule and does not count. A failing gate records the failure class
-  acceptance_unmet. A story on the tier strong does not escalate. It
-  becomes failed after its attempts and has stopped.
+  acceptance_unmet. A story cannot escalate any more when dispatch
+  escalate refuses it for any reason of BR-115: the tier is strong, the
+  story has escalated, gates.attempts_escalated is 0, verify-base fails,
+  or the diff leaves the scope. Such a story becomes failed after its
+  attempts and has stopped.
 
   Scenario: All conditions met grants escalation
     Given docs/testing.yaml sets gates.attempts to 3

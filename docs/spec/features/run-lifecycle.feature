@@ -26,10 +26,12 @@ Feature: Run Lifecycle
   of work has stopped. A failed unit of work has stopped in two cases
   only: its counted attempts on its tier are used up and it cannot
   escalate any more, or two of its attempts have the failure class
-  contract_violation. A unit of work cannot escalate any more when it
-  runs on the tier strong, has already escalated, or gates.attempts_escalated
-  is 0. Every other failed unit of work still has a retry, so the
-  implementation agent runs it again without the User.
+  contract_violation. A unit of work cannot escalate any more when
+  dispatch escalate refuses it for any reason of BR-115: it runs on the
+  tier strong, it has already escalated, gates.attempts_escalated is 0,
+  verify-base fails, or its diff leaves its scope. Every other failed unit
+  of work still has a retry, so the implementation agent runs it again
+  without the User.
 
   The User is the person who drives the Factory, as the glossary defines.
   The examples use the feature branch feature/login, the stories ST-0350,
@@ -411,6 +413,18 @@ Feature: Run Lifecycle
         | dispatch merge-story meets a merge conflict                                  | blocked |
         | dispatch merge-story meets a conflict in the refresh                         | blocked |
         | the test suite fails after the merge of story/ST-0350                        | blocked |
+
+    Scenario: A story whose diff leaves its scope stops when dispatch escalate refuses it
+      Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 3
+      And ST-0350 runs on the tier standard and has not escalated
+      And three attempts of ST-0350 failed with the failure class acceptance_unmet
+      And the diff of story/ST-0350 changes a file outside the declared outputs of ST-0350
+      When the implementation agent runs dispatch escalate ST-0350
+      Then dispatch exits non-zero
+      And the ledger records ST-0350 as failed on the tier standard
+      And ST-0350 has stopped
+      And the run waits for the User
+      # @packages/factory/scripts/dispatch::cmd_escalate
 
     Scenario: A red test suite after a merge moves the feature branch back
       Given feature/login is at commit A
@@ -866,12 +880,35 @@ Feature: Run Lifecycle
       When the implementation agent files the mutant
       Then docs/findings/QA-0012.md has severity major, status open, owner <owner>, and run feature/login
       # The wave close routes the finding by its owner: Scenario "The wave
-      # close routes the open QA findings by owner".
+      # close routes the open QA findings by owner". A filed mutant counts
+      # as resolved for the story merge and blocks the feature merge (RL-G25).
 
       Examples:
         | cause                                                                                      | owner               |
         | the mutant needs a test that the step could not write within its attempts                  | planning-agent      |
         | the mutant does not change behaviour or a gate setting is wrong, so no test should kill it | test-strategy-agent |
+
+    Scenario: A story merges with its mutant filed, and the QA finding runs in the next wave on the story's code
+      Given an orchestrated run is active on feature/login
+      And the gate-check step resolved each surviving mutant on story/ST-0350 by one of the three actions of the mutation-testing skill
+      And it filed the surviving mutant in plan_moves as docs/findings/QA-0012.md with owner planning-agent and run feature/login
+      And every other check of story/ST-0350 passes
+      When the implementation agent runs dispatch merge-story ST-0350, dispatch close-wave 1, and dispatch add QA-0012
+      Then the ledger records ST-0350 as done in wave 1
+      And docs/findings/QA-0012.md keeps status open and run feature/login
+      And QA-0012 is a unit of work of wave 2
+      And story/QA-0012 is cut from feature/login after the merge of ST-0350
+      And plan_moves on story/QA-0012 holds the code that ST-0350 merged
+      And premerge-check dev feature/login exits non-zero and names QA-0012
+
+    Scenario: An unresolved surviving mutant blocks the merge of its story
+      Given mutation-testing leaves a surviving mutant in plan_moves on story/ST-0350
+      And the gate-check step gave the mutant none of the three actions of the mutation-testing skill, so the mutant is unresolved
+      And every other check of story/ST-0350 passes
+      When dispatch merge-story ST-0350 runs premerge-check
+      Then premerge-check exits non-zero
+      And the message names mutation-testing
+      And story/ST-0350 is not merged
 
     Scenario: The wave close routes the open QA findings by owner
       Given an orchestrated run is active on feature/login
@@ -890,6 +927,14 @@ Feature: Run Lifecycle
       When the implementation agent decides the next step
       Then the implementation agent does not run dispatch prepare-wave 2
       And it runs dispatch prepare-wave 2 after the test-strategy agent for QA-0014 returns
+
+    Scenario: A QA finding that the test-strategy agent hands to the planning agent runs in the next wave
+      Given wave 1 filed QA-0013 with owner test-strategy-agent and run feature/login
+      And dispatch close-wave 1 passed
+      And the test-strategy agent for QA-0013 returned with QA-0013 open and owner planning-agent, because a test is missing
+      When the implementation agent decides the next step
+      Then the implementation agent runs dispatch add QA-0013 before dispatch prepare-wave 2
+      And QA-0013 is a unit of work of wave 2
 
   Rule: User merges the feature branch into dev only after the feature merge check passes
     # actor: User
