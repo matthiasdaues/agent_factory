@@ -408,6 +408,18 @@ def dependency_skip_notice(top: Path) -> list[str]:
     return [f"SKIP dependency-check: {DEPENDENCY_RULES} does not exist"]
 
 
+def changed_python_files(top: Path, files: list[str]) -> list[str]:
+    """The `.py` files of the story's diff that still exist in *top* (BR-066)."""
+    return [f for f in files if f.endswith(".py") and (top / f).is_file()]
+
+
+def crap_score_skip_notice(gates: list[str], py_files: list[str], story_id: str) -> list[str]:
+    """Name the empty run of crap-score when the story changed no `.py` file."""
+    if "crap-score" not in gates or py_files:
+        return []
+    return [f"PASS crap-score: {story_id} changed no .py file, so it scored nothing"]
+
+
 def _describe_row(row: dict) -> str:
     name = row.get("function") or row.get("rule_name") or row.get("file") or "?"
     if "crap_score" in row:
@@ -483,8 +495,12 @@ def gate_command(
     worktree: Path,
     story_id: str,
     entries: dict[str, dict] | None = None,
+    py_files: list[str] | None = None,
 ) -> list[str]:
-    """Build the call of a gate that premerge-check names (BR-066, RL-G17)."""
+    """Build the call of a gate that premerge-check names (BR-066, RL-G17).
+
+    crap-score scores only *py_files*, the `.py` files of the story's diff.
+    """
     report_dir = worktree / ".current-work" / gate
     if gate == "dependency-check":
         return [
@@ -503,6 +519,8 @@ def gate_command(
             "--story-id", story_id,
             "--report-dir", str(report_dir),
             *extra,
+            "--",
+            *(str(worktree / f) for f in py_files or []),
         ]
     if gate == "mutation-testing":
         return [
@@ -543,6 +561,7 @@ def rerun_gate(
     worktree: Path,
     story_id: str,
     entries: dict[str, dict] | None = None,
+    py_files: list[str] | None = None,
 ) -> tuple[bool, str]:
     """Run *gate* in *worktree* and judge it by its exit code.
 
@@ -552,10 +571,14 @@ def rerun_gate(
     refusal = gate_refusal(gate, entries)
     if refusal is not None:
         return False, refusal
+    if gate == "crap-score" and not py_files:
+        return True, "scored nothing"
     env = _worktree_environment()
     if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
         script = gate_script(primary, gate)
-        call: list[str] | str = gate_command(script, gate, worktree, story_id, entries)
+        call: list[str] | str = gate_command(
+            script, gate, worktree, story_id, entries, py_files
+        )
         shell = False
         report: Path | None = worktree / ".current-work" / gate / f"{story_id}.json"
     else:
@@ -579,12 +602,13 @@ def check_semantic_gates(
     story_id: str,
     worktree: Path,
     primary: Path,
+    py_files: list[str] | None = None,
 ) -> list[str]:
     """Run each gate in *worktree* and return one entry per gate that fails."""
     entries, _ = gate_entries(worktree)
     failed_gates = []
     for gate in gates:
-        ok, detail = rerun_gate(primary, gate, worktree, story_id, entries)
+        ok, detail = rerun_gate(primary, gate, worktree, story_id, entries, py_files)
         if not ok:
             failed_gates.append(f"{gate} ({detail})")
     return failed_gates
@@ -694,9 +718,14 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             gates, warnings = resolve_gates(worktree, story_id)
-            for warning in warnings + dependency_skip_notice(worktree):
+            py_files = changed_python_files(worktree, files)
+            notices = dependency_skip_notice(worktree)
+            notices += crap_score_skip_notice(gates, py_files, story_id)
+            for warning in warnings + notices:
                 print(warning)
-            failed_gates = check_semantic_gates(gates, story_id, worktree, primary)
+            failed_gates = check_semantic_gates(
+                gates, story_id, worktree, primary, py_files
+            )
             suite_ok, suite_line = check_test_suite(worktree, story_id)
         finally:
             remove_worktree(worktree)

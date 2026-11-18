@@ -98,3 +98,23 @@ class TestSt0415ThresholdKeys:
         rows = json.loads((reports / "ST-0350.json").read_text(encoding="utf-8"))
         assert code == 1
         assert {r["function"]: r["pass_fail"] for r in rows} == {"greet": "fail", "helper": "pass"}
+
+
+@pytest.mark.spec("RL-09-CT-03")
+def test_st_0415_named_files_replace_the_walk_of_the_source_root(tmp_path):
+    """IMPL-0024: crap-score scores the named files and no other file."""
+    (tmp_path / "named.py").write_text("def named():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "module.py").write_text(SOURCE, encoding="utf-8")
+    reports = tmp_path / "reports"
+    code = cs.main(
+        [
+            "--source-root", str(tmp_path),
+            "--report-dir", str(reports),
+            "--story-id", "ST-0415",
+            "--threshold", "2",
+            "--", str(tmp_path / "named.py"),
+        ]
+    )
+    rows = json.loads((reports / "ST-0415.json").read_text(encoding="utf-8"))
+    assert code == 0
+    assert [(r["file"], r["function"]) for r in rows] == [("named.py", "named")]

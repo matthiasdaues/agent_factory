@@ -21,6 +21,11 @@ Output
   function field reads "<parse error: ...>", and the other files are
   still scored.
 
+Files
+  Named files are scored, and only those. Without a named file, every
+  .py file under --source-root is scored. premerge-check names the .py
+  files of the story's diff (BR-066).
+
 Coverage lookup
   coverage.json keys are resolved to absolute paths, first against the
   current directory, then against the directory holding coverage.json,
@@ -69,6 +74,11 @@ class FunctionCrap:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help="Python files to score; without any, every .py file under --source-root",
+    )
     parser.add_argument(
         "--source-root",
         default=".",
@@ -183,6 +193,21 @@ def iter_python_files(source_root: Path) -> list[Path]:
             continue
         files.append(path)
     return sorted(files)
+
+
+def scored_files(files: list[str], source_root: Path) -> list[Path]:
+    """The named files, else every `.py` file under *source_root*."""
+    if not files:
+        return iter_python_files(source_root)
+    return sorted({Path(f).resolve() for f in files})
+
+
+def relative_name(file_path: Path, source_root: Path) -> str:
+    """*file_path* relative to *source_root*, else as given."""
+    try:
+        return str(file_path.relative_to(source_root))
+    except ValueError:
+        return str(file_path)
 
 
 def load_coverage(coverage_json_path: Path, source_root: Path) -> dict:
@@ -304,8 +329,8 @@ def main(argv: list[str] | None = None) -> int:
     threshold = resolve_threshold(args.threshold, source_root)
     results: list[FunctionCrap] = []
 
-    for file_path in iter_python_files(source_root):
-        relative = str(file_path.relative_to(source_root))
+    for file_path in scored_files(args.files, source_root):
+        relative = relative_name(file_path, source_root)
         try:
             # tokenize.open honours a PEP 263 coding line, as Python does.
             with tokenize.open(file_path) as handle:
