@@ -422,6 +422,7 @@ Feature: Run Lifecycle
       When the implementation agent runs dispatch escalate ST-0350
       Then dispatch exits non-zero
       And the ledger records ST-0350 as failed on the tier standard
+      And the entry of ST-0350 has reason "escalate refused: scope"
       And ST-0350 has stopped
       And the run waits for the User
       # @packages/factory/scripts/dispatch::cmd_escalate
@@ -795,6 +796,19 @@ Feature: Run Lifecycle
       And the ledger holds a wave record for wave 1
       And the ledger still records ST-0350, ST-0351 and ST-0352 as pending in wave 1
 
+    Scenario: A wave closes when dispatch escalate refused a failed story for its scope
+      Given wave 1 holds ST-0350 and ST-0351, and ST-0351 is done
+      And docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 3
+      And ST-0350 failed three counted attempts on the tier standard and has not escalated
+      And dispatch escalate refused ST-0350, because the diff of story/ST-0350 changes a file outside the declared outputs of ST-0350
+      And the entry of ST-0350 has reason "escalate refused: scope"
+      And no spec-feedback report of wave 1 has an open row or a fixed row about an artifact on the core list
+      When the implementation agent runs dispatch close-wave 1
+      Then dispatch exits 0
+      And the ledger holds a wave record for wave 1
+      And the ledger still records ST-0350 as failed on the tier standard
+      # @packages/factory/scripts/dispatch::cmd_close_wave
+
     Scenario Outline: close-wave refuses while a unit of work of the wave can still go on
       Given wave 1 holds ST-0350 and ST-0351
       And ST-0350 is done
@@ -901,9 +915,12 @@ Feature: Run Lifecycle
       Given an orchestrated run is active on feature/login
       And the gate-check step resolved each surviving mutant on story/ST-0350 by one of the three actions of the mutation-testing skill
       And it filed the surviving mutant in plan_moves as docs/findings/QA-0012.md with owner planning-agent and run feature/login
+      And the gate-check step committed docs/findings/QA-0012.md on story/ST-0350
+      And the entry of that mutant in the list mutants of the mutation-testing result of ST-0350 names QA-0012 in its field finding
       And every other check of story/ST-0350 passes
       When the implementation agent runs dispatch merge-story ST-0350, dispatch close-wave 1, and dispatch add QA-0012
-      Then the ledger records ST-0350 as done in wave 1
+      Then the scope check of premerge-check admits docs/findings/QA-0012.md on story/ST-0350, because the entry in mutants names it
+      And the ledger records ST-0350 as done in wave 1
       And docs/findings/QA-0012.md keeps status open and run feature/login
       And QA-0012 is a unit of work of wave 2
       And story/QA-0012 is cut from feature/login after the merge of ST-0350
@@ -913,6 +930,15 @@ Feature: Run Lifecycle
     Scenario: An unresolved surviving mutant blocks the merge of its story
       Given mutation-testing leaves a surviving mutant in plan_moves on story/ST-0350
       And the gate-check step gave the mutant none of the three actions of the mutation-testing skill, so the mutant is unresolved
+      And every other check of story/ST-0350 passes
+      When dispatch merge-story ST-0350 runs premerge-check
+      Then premerge-check exits non-zero
+      And the message names mutation-testing
+      And story/ST-0350 is not merged
+
+    Scenario: A non-zero mutation run with an empty mutants list blocks the merge of its story
+      Given the mutation command exits non-zero on story/ST-0350 within its time limit
+      And the mutation-testing result of ST-0350 holds an empty list mutants
       And every other check of story/ST-0350 passes
       When dispatch merge-story ST-0350 runs premerge-check
       Then premerge-check exits non-zero

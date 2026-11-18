@@ -513,7 +513,7 @@ Feature: Core artifact ownership
       When the implementation agent runs the gates after the story
       Then it runs crap-score, test-design-verify, dependency-check, and the command in gates.mutation_testing.command
       And a non-zero exit of crap-score, test-design-verify, or dependency-check blocks the merge
-      And a non-zero exit of the mutation command blocks the merge unless the result file of mutation-testing lists mutants with no unresolved entry and every file-qa-finding entry names an existing finding file
+      And a non-zero exit of the mutation command blocks the merge unless the result file of mutation-testing lists at least one survivor in mutants, no entry is unresolved, and every file-qa-finding entry names an existing finding file
       # BR-066 defines the result of the mutation gate (RL-G25 in
       # run-lifecycle-gaps.md). run-lifecycle.feature, RL-12: "A story
       # merges with its mutant filed, and the QA finding runs in the next
