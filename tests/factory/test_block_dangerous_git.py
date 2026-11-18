@@ -42,8 +42,15 @@ def _run_hook(
     )
 
 
-def _init_repo(path: Path) -> None:
-    subprocess.run(["git", "init", str(path)], capture_output=True, check=True)
+def _init_repo(path: Path, branch: str = "main") -> None:
+    subprocess.run(
+        ["git", "init", "-b", branch, str(path)], capture_output=True, check=True
+    )
+    subprocess.run(
+        ["git", "-C", str(path), "config", "commit.gpgsign", "false"],
+        capture_output=True,
+        check=True,
+    )
     subprocess.run(
         ["git", "-C", str(path), "config", "user.email", "test@test"],
         capture_output=True,
@@ -85,11 +92,31 @@ def _place_verify_base_marker(wt_path: Path) -> None:
     (marker_dir / "verify-base-ok").write_text(f"head={head_sha}\n")
 
 
-def _place_ledger(main: Path, feature_name: str = "feature-test") -> Path:
+def _place_ledger(
+    main: Path,
+    feature_name: str = "feature-test",
+    branches: list[str] | None = None,
+    mode: str = "orchestrated",
+) -> Path:
+    """Write a ledger whose entries name the given story branches."""
     ledger_dir = main / ".current-work" / feature_name
     ledger_dir.mkdir(parents=True, exist_ok=True)
     ledger = ledger_dir / "dispatch-ledger.yaml"
-    ledger.write_text("---\nstories: {}\n")
+    lines = ["---", f"mode: {mode}", f"feature_branch: {feature_name}"]
+    if branches:
+        lines.append("stories:")
+    else:
+        lines.append("stories: {}")
+    for branch in branches or []:
+        story_id = branch.rsplit("/", 1)[-1]
+        lines += [
+            f"  {story_id}:",
+            f"    id: {story_id}",
+            "    status: dispatched",
+            f"    branch: {branch}",
+            f"    feature_branch: {feature_name}",
+        ]
+    ledger.write_text("\n".join(lines) + "\n")
     return ledger
 
 
@@ -110,13 +137,14 @@ class TestLedgerGateOnStoryBranch:
             or "dispatch" in result.stderr.lower()
         )
 
+    @pytest.mark.spec("RL-16-IT-05")
     def test_story_branch_with_ledger_is_allowed(self, tmp_path):
         main = tmp_path / "main"
         wt = tmp_path / "wt"
         _init_repo(main)
         _create_worktree(main, "story/ST-9999", wt)
         _place_verify_base_marker(wt)
-        _place_ledger(main)
+        _place_ledger(main, branches=["story/ST-9999"])
 
         result = _run_hook("git commit -m test", cwd=wt)
         assert result.returncode == 0
@@ -259,5 +287,294 @@ class TestNoVerifyForms:
     )
     def test_st_0396_a_harmless_grep_for_the_flag_passes(self, command):
         result = _run_hook(command)
+
+        assert result.returncode == 0, result.stderr
+
+
+# --- ST-0427: the two refusals of the run lifecycle and the run lookup by branch ---
+
+RETURN_STORY = "dispatch return-story ST-0350"
+CLOSE_DROP = "dispatch close --drop"
+REFUSED = [RETURN_STORY, CLOSE_DROP]
+
+
+@pytest.fixture
+def isolated_git(tmp_path, monkeypatch):
+    """An empty HOME and no system config, so no user setting reaches git."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+    return tmp_path
+
+
+def _run_payload(payload: dict, cwd: Path) -> subprocess.CompletedProcess:
+    run_env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    run_env["GIT_CONFIG_NOSYSTEM"] = "1"
+    return subprocess.run(
+        ["bash", str(HOOK_PATH)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env=run_env,
+    )
+
+
+def _claude_code(command: str, cwd: Path) -> dict:
+    return {
+        "session_id": "test",
+        "hook_event_name": "PreToolUse",
+        "cwd": str(cwd),
+        "tool_name": "Bash",
+        "tool_input": {"command": command},
+    }
+
+
+def _codex(command: str, cwd: Path) -> dict:
+    return {
+        "session_id": "test",
+        "hook_event_name": "PreToolUse",
+        "cwd": str(cwd),
+        "tool_name": "exec_command",
+        "tool_input": {"cmd": command},
+    }
+
+
+def _copilot(command: str, cwd: Path) -> dict:
+    """Copilot CLI sends toolArgs as a JSON string."""
+    return {
+        "timestamp": 1762500000000,
+        "cwd": str(cwd),
+        "toolName": "bash",
+        "toolArgs": json.dumps({"command": command}),
+    }
+
+
+def _pi(command: str, cwd: Path) -> dict:
+    """The payload that pi's block-dangerous-git.ts passes for a bash tool_call."""
+    return {"toolName": "bash", "input": {"command": command}}
+
+
+PAYLOADS = {"Claude Code": _claude_code, "Codex": _codex, "Copilot": _copilot, "pi": _pi}
+
+
+def _assert_refused(result: subprocess.CompletedProcess, names: str) -> None:
+    assert result.returncode == 2, result.stderr
+    assert names in result.stderr
+    assert json.loads(result.stdout)["permissionDecision"] == "deny"
+
+
+def _head(path: Path, rev: str = "HEAD") -> str:
+    return subprocess.run(
+        ["git", "-C", str(path), "rev-parse", rev],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def _git(path: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(path), *args], capture_output=True, check=True)
+
+
+class TestTheTwoCommandsAreRefusedInEverySession:
+    """RL-16-IT-01: both commands are refused with or without a run."""
+
+    @pytest.mark.spec("RL-16-IT-01")
+    @pytest.mark.parametrize("command", REFUSED)
+    def test_st_0427_refused_in_a_repository_without_a_ledger(self, command, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+
+        _assert_refused(_run_hook(command, cwd=main), command)
+
+    @pytest.mark.spec("RL-16-IT-01")
+    @pytest.mark.parametrize("command", REFUSED)
+    def test_st_0427_refused_on_dev_beside_the_ledger_of_a_run(self, command, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+        _place_ledger(main, "feature/login", ["story/ST-0350"])
+
+        _assert_refused(_run_hook(command, cwd=main), command)
+
+    @pytest.mark.spec("RL-16-IT-01")
+    @pytest.mark.parametrize("command", REFUSED)
+    def test_st_0427_refused_in_the_worktree_of_a_story(self, command, isolated_git):
+        main = isolated_git / "main"
+        wt = isolated_git / "wt"
+        _init_repo(main, "dev")
+        _create_worktree(main, "story/ST-0350", wt)
+        _place_verify_base_marker(wt)
+        _place_ledger(main, "feature/login", ["story/ST-0350"])
+
+        _assert_refused(_run_hook(command, cwd=wt), command)
+
+
+class TestEveryToolPayloadReachesTheRefusal:
+    """RL-16-IT-02: the payloads of Claude Code, Codex, Copilot and pi."""
+
+    @pytest.mark.spec("RL-16-IT-02")
+    @pytest.mark.parametrize("command", REFUSED)
+    @pytest.mark.parametrize("tool", sorted(PAYLOADS))
+    def test_st_0427_each_tool_payload_is_refused(self, tool, command, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+
+        result = _run_payload(PAYLOADS[tool](command, main), main)
+
+        _assert_refused(result, command)
+
+    @pytest.mark.spec("RL-16-IT-02")
+    @pytest.mark.parametrize("tool", sorted(PAYLOADS))
+    def test_st_0427_each_tool_payload_passes_a_harmless_command(self, tool, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+
+        result = _run_payload(PAYLOADS[tool]("git status", main), main)
+
+        assert result.returncode == 0, result.stderr
+
+
+class TestEveryFormIsRefused:
+    """RL-16-IT-07: a path, a chain, and bash -c (OI-11)."""
+
+    @pytest.mark.spec("RL-16-IT-07")
+    @pytest.mark.parametrize(
+        ("form", "names"),
+        [
+            (".agent-factory/factory/scripts/dispatch return-story ST-0350", "dispatch return-story"),
+            ("./.agent-factory/factory/scripts/dispatch close --drop", "dispatch close --drop"),
+            ("packages/factory/scripts/dispatch close --drop", "dispatch close --drop"),
+            ("git status && dispatch close --drop", "dispatch close --drop"),
+            ("git status; dispatch return-story ST-0350", "dispatch return-story"),
+            ('bash -c "dispatch close --drop"', "dispatch close --drop"),
+            ('bash -c "git status && dispatch return-story ST-0350"', "dispatch return-story"),
+        ],
+    )
+    def test_st_0427_every_form_is_refused(self, form, names, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+
+        _assert_refused(_run_hook(form, cwd=main), names)
+
+
+class TestNoOtherDispatchCommandIsRefused:
+    """RL-16-IT-03: merge-story and the other subcommands pass in both ways."""
+
+    @pytest.mark.spec("RL-16-IT-03")
+    @pytest.mark.parametrize("mode", ["by-hand", "orchestrated"])
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "dispatch merge-story ST-0350",
+            ".agent-factory/factory/scripts/dispatch merge-story ST-0350",
+            "dispatch status",
+            "dispatch close",
+            "dispatch close --orphans",
+        ],
+    )
+    def test_st_0427_other_dispatch_commands_pass(self, command, mode, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+        _git(main, "branch", "story/ST-0350")
+        _place_ledger(main, "feature/login", ["story/ST-0350"], mode=mode)
+        marker = main / ".current-work" / "premerge-check-ok"
+        marker.write_text(f"branch=story/ST-0350\nhead={_head(main, 'story/ST-0350')}\n")
+
+        result = _run_hook(command, cwd=main)
+
+        assert result.returncode == 0, result.stderr
+
+
+class TestMergeNeedsAMarkerForTheCurrentHead:
+    """RL-16-IT-04: the marker names the branch at its current head."""
+
+    def _repo(self, root: Path) -> Path:
+        main = root / "main"
+        _init_repo(main, "dev")
+        _git(main, "branch", "story/ST-0350")
+        (main / ".current-work").mkdir()
+        return main
+
+    def _marker(self, main: Path, branch: str, head: str) -> None:
+        (main / ".current-work" / "premerge-check-ok").write_text(
+            f"branch={branch}\nhead={head}\n"
+        )
+
+    @pytest.mark.spec("RL-16-IT-04")
+    def test_st_0427_marker_for_the_current_head_passes(self, isolated_git):
+        main = self._repo(isolated_git)
+        self._marker(main, "story/ST-0350", _head(main, "story/ST-0350"))
+
+        result = _run_hook("git merge story/ST-0350", cwd=main)
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("RL-16-IT-04")
+    def test_st_0427_marker_for_an_older_head_is_refused(self, isolated_git):
+        main = self._repo(isolated_git)
+        old_head = _head(main, "story/ST-0350")
+        new_head = subprocess.run(
+            ["git", "-C", str(main), "commit-tree", "-m", "change", "-p", old_head, "HEAD^{tree}"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        _git(main, "update-ref", "refs/heads/story/ST-0350", new_head)
+        self._marker(main, "story/ST-0350", old_head)
+
+        _assert_refused(_run_hook("git merge story/ST-0350", cwd=main), "premerge-check-ok")
+
+    @pytest.mark.spec("RL-16-IT-04")
+    def test_st_0427_marker_for_another_branch_is_refused(self, isolated_git):
+        main = self._repo(isolated_git)
+        self._marker(main, "story/ST-0351", _head(main, "story/ST-0350"))
+
+        _assert_refused(_run_hook("git merge story/ST-0350", cwd=main), "premerge-check-ok")
+
+
+class TestTheRunIsFoundFromTheBranch:
+    """RL-16-IT-05: a story branch belongs to the run whose ledger lists it."""
+
+    @pytest.mark.spec("RL-16-IT-05")
+    def test_st_0427_ledger_of_another_run_does_not_count(self, isolated_git):
+        main = isolated_git / "main"
+        wt = isolated_git / "wt"
+        _init_repo(main, "dev")
+        _create_worktree(main, "story/ST-0350", wt)
+        _place_verify_base_marker(wt)
+        _place_ledger(main, "feature/search", ["story/ST-0351"])
+
+        result = _run_hook("git commit -m test", cwd=wt)
+
+        _assert_refused(result, "story/ST-0350")
+        assert "ledger" in result.stderr
+
+    @pytest.mark.spec("RL-16-IT-05")
+    def test_st_0427_ledger_that_lists_the_branch_counts(self, isolated_git):
+        main = isolated_git / "main"
+        wt = isolated_git / "wt"
+        _init_repo(main, "dev")
+        _create_worktree(main, "story/ST-0350", wt)
+        _place_verify_base_marker(wt)
+        _place_ledger(main, "feature/search", ["story/ST-0351"])
+        _place_ledger(main, "feature/login", ["story/ST-0350"])
+
+        result = _run_hook("git commit -m test", cwd=wt)
+
+        assert result.returncode == 0, result.stderr
+
+
+class TestALedgerOfAnotherBranchDoesNotCountOnDev:
+    """RL-16-IT-06: a commit in the primary checkout on dev passes."""
+
+    @pytest.mark.spec("RL-16-IT-06")
+    def test_st_0427_commit_on_dev_passes_beside_a_ledger(self, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+        _place_ledger(main, "feature/login", ["story/ST-0350"])
+
+        result = _run_hook("git commit -m test", cwd=main)
 
         assert result.returncode == 0, result.stderr
