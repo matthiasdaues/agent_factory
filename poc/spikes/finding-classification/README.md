@@ -35,6 +35,13 @@ and with the filed rating. It ran on 2026-11-18. The report is
   `build-blind.py`, rated on the rulebook with R1 and R2 by six raters on
   `claude-sonnet-5-5` and six on `gpt-5.6-sol` through `codex exec`. The
   results are in [run-5-results.md](key/run-5-results.md).
+- [run-6/](run-6/) holds the sixth run: three designs for the in-use rule
+  (`rules-a.md` to `rules-c.md`) on six findings, one of them the invented
+  control SPEC-0027, each with two Sonnet and two Codex raters. The results
+  are in [run-6-results.md](key/run-6-results.md).
+- [run-7/](run-7/) holds the seventh run: design d, a list of named cases
+  for `in_use` built from the stakeholder's decisions after run 6, on the six
+  findings of run 6. The results are in [run-7-results.md](key/run-7-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
