@@ -248,6 +248,12 @@ Feature: Run Lifecycle
       When a reviewer agent files a finding outside any run
       Then the finding file has an empty story and an empty run
 
+    Scenario: finding-lint refuses a finding that names both a story and a run
+      Given docs/findings/BUG-0095.md has story ST-0350 and run feature/login
+      When finding-lint checks docs/findings/BUG-0095.md
+      Then finding-lint exits non-zero
+      And the message names BUG-0095 and the fields story and run
+
   Rule: Implementation agent retries a failing gate within the configured attempts
     # actor: Implementation agent
     # @packages/factory/scripts/dispatch::cmd_escalate
@@ -317,6 +323,33 @@ Feature: Run Lifecycle
       Then no attempt of ST-0350 ran with a stronger model
       And the ledger records ST-0350 as failed
 
+    Scenario: dispatch escalate refuses when gates.attempts_escalated is 0
+      Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 0
+      And ST-0350 runs on the tier standard
+      And three attempts of ST-0350 failed with the failure class acceptance_unmet
+      When the implementation agent runs dispatch escalate ST-0350
+      Then dispatch exits non-zero
+      And the ledger records ST-0350 on the tier standard
+      # @packages/factory/scripts/dispatch::cmd_escalate
+
+    Scenario: dispatch re-dispatch refuses when the attempts on the tier are used up
+      Given docs/testing.yaml sets gates.attempts to 3
+      And ST-0350 runs on the tier standard and has not escalated
+      And three attempts of ST-0350 failed with the failure class acceptance_unmet
+      When the implementation agent runs dispatch re-dispatch ST-0350
+      Then dispatch exits non-zero
+      And the message says that ST-0350 requires escalation before re-dispatch
+      And the ledger records ST-0350 as failed on the tier standard
+      # @packages/factory/scripts/dispatch::cmd_re_dispatch
+
+    Scenario: dispatch re-dispatch keeps the tier while attempts on it remain
+      Given docs/testing.yaml sets gates.attempts to 3
+      And ST-0350 runs on the tier standard
+      And two attempts of ST-0350 failed with the failure class acceptance_unmet
+      When the implementation agent runs dispatch re-dispatch ST-0350
+      Then the ledger records ST-0350 as prepared on the tier standard
+      # @packages/factory/scripts/dispatch::cmd_re_dispatch
+
     Scenario: Two stories of one wave both escalate
       Given ST-0350 and ST-0351 run in wave 1 of feature/login
       And both use up their attempts on their own tier
@@ -361,6 +394,18 @@ Feature: Run Lifecycle
       And the User has fixed the cause
       When the User tells the implementation agent to continue
       Then the implementation agent runs dispatch re-dispatch ST-0350
+      And ST-0350 continues in the run on feature/login
+      # @packages/factory/scripts/dispatch::cmd_re_dispatch
+
+    Scenario: After the User's fix, re-dispatch grants new attempts to a failed story whose attempts are used up
+      Given docs/testing.yaml sets neither gates.attempts nor gates.attempts_escalated
+      And ST-0350 failed three counted attempts on the tier standard and three on the tier strong
+      And the ledger records ST-0350 as failed on the tier strong
+      And the User has fixed the shared test fixture that made every attempt fail
+      When the User tells the implementation agent to continue
+      Then the implementation agent runs dispatch re-dispatch ST-0350
+      And the ledger records ST-0350 as prepared on the tier strong
+      And ST-0350 has three new counted attempts on the tier strong
       And ST-0350 continues in the run on feature/login
       # @packages/factory/scripts/dispatch::cmd_re_dispatch
 
@@ -449,6 +494,14 @@ Feature: Run Lifecycle
       Then the gates run without that test file
       And the untracked test file is back in the story's checkout afterwards
 
+    Scenario: The rerun takes the gate scripts from the installed copy of the calling checkout
+      Given the primary checkout holds the installed copy .agent-factory/factory
+      And the temporary worktree at the head of story/ST-0350 holds no .agent-factory/
+      When premerge-check, called from the primary checkout, reruns the gates of ST-0350
+      Then each gate script runs from .agent-factory/factory of the primary checkout
+      And each gate script reads the temporary worktree as its source root
+      And the temporary worktree builds its own uv environment
+
     Scenario: The story's review reports and findings do not count toward the file limit
       Given story/ST-0350 holds its code-review report, two finding files with story ST-0350, and one register file with story ST-0350
       When dispatch merge-story ST-0350 runs premerge-check
@@ -460,6 +513,20 @@ Feature: Run Lifecycle
       When dispatch merge-story ST-0350 runs premerge-check
       Then premerge-check exits non-zero
       And the message names docs/findings/BUG-0092.md
+
+    Scenario: merge-story declares no file scope for a finding
+      Given docs/findings/BUG-0090.md has artifact packages/factory/scripts/dispatch:1383
+      And story/BUG-0090 changes packages/factory/scripts/dispatch and adds tests/factory/test_dispatch_close.py
+      And every other check passes
+      When dispatch merge-story BUG-0090 runs premerge-check
+      Then premerge-check receives neither --scope nor --scope-glob
+      And premerge-check exits 0
+
+    Scenario: The file limit still applies to a finding
+      Given story/BUG-0090 changes 21 files outside docs/reviews/ and docs/findings/
+      When dispatch merge-story BUG-0090 runs premerge-check with --max-files 20
+      Then premerge-check exits non-zero
+      And the message names the file limit
 
     Scenario Outline: The semantic gates run on every story branch name
       Given a branch <branch> whose gates fail
@@ -482,9 +549,24 @@ Feature: Run Lifecycle
       When premerge-check runs on story/ST-0350
       Then premerge-check runs the command of license-check on the head of story/ST-0350
 
+    Scenario Outline: premerge-check builds the call of a gate that it names
+      Given docs/testing.yaml has the entry gates.<gate> with enabled true and no command
+      When premerge-check runs on story/ST-0350
+      Then premerge-check runs its built-in call of <gate> on the head of story/ST-0350
+
+      Examples:
+        | gate             |
+        | crap-score       |
+        | mutation-testing |
+
+    Scenario: premerge-check reads the old key crap_score
+      Given docs/testing.yaml has the entry gates.crap_score with enabled true and threshold 8
+      When premerge-check runs on story/ST-0350
+      Then premerge-check runs crap-score with the threshold 8 on the head of story/ST-0350
+
     Scenario: A story's quality-gates field adds a gate and keeps the project's gates
-      Given docs/testing.yaml enables crap-score
-      And docs/testing.yaml lists mutation-testing with enabled false
+      Given docs/testing.yaml has the entry gates.crap-score with enabled true
+      And docs/testing.yaml has the entry gates.mutation-testing with enabled false
       And backlog/ST-0350.md has quality-gates [mutation-testing]
       When premerge-check runs on story/ST-0350
       Then premerge-check runs crap-score and mutation-testing
@@ -502,7 +584,7 @@ Feature: Run Lifecycle
         | docs/testing.yaml has the entry gates.license-check without a command |
 
     Scenario: The gate list of a story
-      Given docs/testing.yaml enables crap-score
+      Given docs/testing.yaml has the entry gates.crap-score with enabled true
       And backlog/ST-0350.md has a Test Design section
       When premerge-check resolves the gates of ST-0350
       Then the gates are dependency-check, test-design-verify, and crap-score
@@ -628,6 +710,14 @@ Feature: Run Lifecycle
       Then dispatch exits non-zero
       And the message names <reason>
       And the ledger holds no entry for <id>
+
+    Scenario: A stop refuses dispatch add
+      Given docs/findings/BUG-0096.md has severity critical and status open, and its stop is not confirmed
+      And docs/findings/BUG-0090.md has run feature/login, a blocking severity, and status open
+      When the implementation agent runs dispatch add BUG-0090
+      Then dispatch exits 1
+      And dispatch prints the stop notice
+      And the ledger holds no entry for BUG-0090
 
       Examples:
         | case                                                              | id       | reason                            |
@@ -766,6 +856,20 @@ Feature: Run Lifecycle
       When the User runs dispatch close
       Then that worktree is gone
 
+    Scenario Outline: A stop allows the commands that start and merge nothing
+      Given docs/findings/BUG-0096.md has severity critical and status open, and its stop is not confirmed
+      And <precondition>
+      When the User runs <command>
+      Then dispatch prints no stop notice
+      And <command> does what it does without a stop
+
+      Examples:
+        | command                       | precondition                                                       |
+        | dispatch return-story ST-0350 | ST-0350 is failed in the run on feature/login                      |
+        | dispatch close                | feature/login is merged into dev and every story is done or pending |
+        | dispatch close --drop         | every unfinished story of feature/login is returned                |
+        | dispatch close --orphans      | a worktree under .current-work/ belongs to no ledger               |
+
   Rule: User cleans up the runs that no active run owns
     # actor: User
 
@@ -815,6 +919,8 @@ Feature: Run Lifecycle
   Rule: User keeps agents from destroying work in every agent tool
     # actor: User
     # @packages/factory/config/hooks/block-dangerous-git.sh
+    # Limit: the guardrail reads the command text. A command built from
+    # variables, such as D=dispatch followed by "$D close --drop", passes it.
 
     Scenario Outline: The guardrail refuses agents the two commands that destroy work
       Given an agent session in <tool>
@@ -833,6 +939,21 @@ Feature: Run Lifecycle
         | pi          | dispatch close --drop          |
         | OpenCode    | dispatch return-story ST-0350  |
         | OpenCode    | dispatch close --drop          |
+
+    Scenario Outline: The guardrail refuses every form of the two commands
+      Given an agent session in Claude Code
+      When the agent issues <form>
+      Then the guardrail refuses the command
+
+      Examples:
+        | form                                                            |
+        | .agent-factory/factory/scripts/dispatch return-story ST-0350    |
+        | ./.agent-factory/factory/scripts/dispatch close --drop          |
+        | packages/factory/scripts/dispatch close --drop                  |
+        | git status && dispatch close --drop                             |
+        | git status; dispatch return-story ST-0350                       |
+        | bash -c "dispatch close --drop"                                 |
+        | bash -c "git status && dispatch return-story ST-0350"           |
 
     Scenario: The guardrail refuses no other dispatch command
       Given a run by hand is active on feature/login
@@ -894,6 +1015,20 @@ Feature: Run Lifecycle
       Then the ledger has no closed field
       And no story entry has a gate_results field
 
+    Scenario: dispatch reads the old names of a ledger and writes only the new ones
+      Given the ledger of feature/login has invocation_branch feature/login and mode automated
+      When the implementation agent runs dispatch mark-blocked ST-0350 --reason "design question"
+      Then the ledger of feature/login has feature_branch feature/login and no invocation_branch
+      And its mode is orchestrated
+
+    Scenario: dispatch close closes a run whose ledger has the old names
+      Given the ledger of feature/login has invocation_branch feature/login and mode automated
+      And feature/login is merged into dev
+      And every story of the run is done
+      When the User runs dispatch close
+      Then dispatch exits 0
+      And .current-work/feature/login/dispatch-ledger.yaml is gone
+
     Scenario: The dispatch contract lists exactly the fields the code writes
       When the Factory maintainer compares dispatch-contract.md with the fields that Ledger and StoryEntry write
       Then each written field is listed, under the name the code uses
@@ -924,6 +1059,12 @@ Feature: Run Lifecycle
       Then it runs the code under packages/factory
       And it reads nothing from this repository's .agent-factory/factory
       And a test that installs the Factory into a temporary project still reads that project's .agent-factory
+
+    Scenario: A link to this repository's .agent-factory for scope-lint is no read of the installed copy
+      Given tests/factory/test_core_layout_gates.py links this repository's .agent-factory into a baseline copy
+      And scope-lint reads .agent-factory/workstreams through that link
+      When the Factory maintainer checks the test suite for reads of the installed copy
+      Then the check does not count that link as a read of .agent-factory/factory
 
   Rule: Factory maintainer reads one vocabulary in every Factory document
     # actor: Factory maintainer

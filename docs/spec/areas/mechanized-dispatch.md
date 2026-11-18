@@ -51,74 +51,7 @@ This specification describes the behavioral contracts of the `dispatch` script a
 
 ### Story Lifecycle
 
-```text
-State: PENDING
-On Prepare:
-  ChangeState(PREPARED)
-On Block:
-  ChangeState(BLOCKED)
-
-State: PREPARED
-On MarkDispatching:
-  ChangeState(DISPATCHING)
-On Block:
-  ChangeState(BLOCKED)
-
-State: DISPATCHING
-On MarkDispatched:
-  ChangeState(DISPATCHED)
-On Fail:
-  ChangeState(FAILED)
-On Block:
-  ChangeState(BLOCKED)
-
-State: DISPATCHED
-On MergeSucceeds:
-  ChangeState(DONE)
-On Block:
-  ChangeState(BLOCKED)
-On Fail:
-  ChangeState(FAILED)
-
-State: DONE
-  # terminal
-
-State: FAILED
-On ReDispatch:
-  ChangeState(PREPARED)
-  # re-dispatch creates a new attempt and re-prepares the story
-On Return:
-  ChangeState(PENDING)
-  # dispatch return-story: the User returns the story to the backlog
-
-State: BLOCKED
-On ReDispatch:
-  ChangeState(PREPARED)
-  # user-initiated recovery after resolving the blocking condition
-On Return:
-  ChangeState(PENDING)
-  # dispatch return-story: the User returns the story to the backlog
-```
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING
-    PENDING --> PREPARED : Prepare
-    PENDING --> BLOCKED : Block
-    PREPARED --> DISPATCHING : MarkDispatching
-    PREPARED --> BLOCKED : Block
-    DISPATCHING --> DISPATCHED : MarkDispatched
-    DISPATCHING --> FAILED : Fail
-    DISPATCHING --> BLOCKED : Block
-    DISPATCHED --> DONE : MergeSucceeds
-    DISPATCHED --> BLOCKED : Block
-    DISPATCHED --> FAILED : Fail
-    FAILED --> PREPARED : ReDispatch
-    FAILED --> PENDING : Return
-    BLOCKED --> PREPARED : ReDispatch
-    BLOCKED --> PENDING : Return
-    DONE --> [*]
-```
+The states of a unit of work and the commands that move it between them are in [state-machines.md § Ledger Entry Lifecycle](../state-machines.md#ledger-entry-lifecycle). The Features below hold the detail of each `dispatch` subcommand that fires one of these transitions.
 
 ______________________________________________________________________
 
@@ -490,6 +423,13 @@ Feature: Story Lifecycle
     Then premerge-check receives the output globs via --scope-glob
     And evaluates changed files using gitignore-style glob semantics
 
+  Scenario: A finding declares no scope to premerge-check
+    Given BUG-0090 is a finding in the ledger with artifact packages/factory/scripts/dispatch:1383
+    When dispatch merge-story BUG-0090 invokes premerge-check
+    Then premerge-check receives neither --scope nor --scope-glob
+    And premerge-check receives --max-files 20
+    # A finding declares no file list. Its artifact serves only the overlap planning.
+
   Scenario: Dry-run reports premerge-check result without merging
     Given ST-003's story branch is ready to merge
     When the user runs dispatch merge-story ST-003 --dry-run
@@ -606,20 +546,38 @@ Feature: Story Lifecycle
     And the story's escalation slot is not consumed
 
   # Phase 3
-  Scenario: acceptance_unmet failure requires escalation before re-dispatch
-    Given ST-003 failed with class acceptance_unmet
-    And ST-003 has not been escalated
+  Scenario: A counted failure re-dispatches on the same tier while attempts remain
+    Given docs/testing.yaml sets gates.attempts to 3
+    And ST-003 has two counted attempts on its tier, each with class acceptance_unmet
     When the user runs dispatch re-dispatch ST-003
-    Then dispatch exits non-zero
-    And reports that escalation is required for acceptance_unmet
+    Then a new attempt is created at the same tier
+    And ST-003 transitions from failed to prepared
 
   # Phase 3
-  Scenario: contradictory_evidence failure requires escalation before re-dispatch
-    Given ST-003 failed with class contradictory_evidence
+  Scenario Outline: A counted failure requires escalation once the attempts on the tier are used up
+    Given docs/testing.yaml sets gates.attempts to 3
+    And ST-003 has three counted attempts on its tier, each with class <class>
     And ST-003 has not been escalated
     When the user runs dispatch re-dispatch ST-003
     Then dispatch exits non-zero
-    And reports that escalation is required for contradictory_evidence
+    And reports that escalation is required before re-dispatch
+
+    Examples:
+      | class                  |
+      | acceptance_unmet       |
+      | contradictory_evidence |
+
+  # Phase 3
+  Scenario: After the User's fix, re-dispatch grants new attempts to a failed story whose attempts are used up
+    Given docs/testing.yaml sets neither gates.attempts nor gates.attempts_escalated
+    And ST-003 has three counted attempts on the tier standard and three on the tier strong
+    And ST-003 is failed on the tier strong
+    And the User has fixed the cause of the failures
+    When the user runs dispatch re-dispatch ST-003
+    Then ST-003 transitions from failed to prepared on the tier strong
+    And ST-003 has three new counted attempts on the tier strong
+    # How dispatch tells this case from a retry in the gate-check step is open
+    # item RL-G22 in run-lifecycle-gaps.md.
 
   # --- blocked story recovery ---
 
@@ -1007,6 +965,14 @@ Feature: Evidence-Gated Escalation
     When the user runs dispatch escalate <story-id>
     Then dispatch exits non-zero
 
+  Scenario: gates.attempts_escalated 0 blocks escalation
+    Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 0
+    And a story has three impl attempts on its tier, each with failure class acceptance_unmet
+    And all other escalation conditions are met
+    When the user runs dispatch escalate <story-id>
+    Then dispatch exits non-zero
+    And the ledger is unchanged
+
   Scenario: Already at strong tier blocks escalation (saturation)
     Given a story is already at strong tier
     When the user runs dispatch escalate <story-id>
@@ -1259,7 +1225,7 @@ Each decision below resolves an open finding from the adversarial review of the 
 | Proposal Section                                 | Feature(s)                                                                                      |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
 | Phase 1 — Dispatch script                        | Wave Planning, Dispatch Initialization, Wave Lifecycle, Story Lifecycle, Subcommand Idempotency |
-| Phase 1 — Ledger status lifecycle                | Story Lifecycle (state machine in Domain Model)                                                 |
+| Phase 1 — Ledger status lifecycle                | Story Lifecycle; the state machine is in state-machines.md § Ledger Entry Lifecycle             |
 | Phase 1 — Implementation-agent changes           | Story Lifecycle (all dispatch subcommands replace raw git)                                      |
 | Phase 2 — Step manifest                          | Step Manifest Lifecycle                                                                         |
 | Phase 2 — Enforcement hooks                      | Read Guard, Write Guard, Bash Guard, Context Guard                                              |
@@ -1282,6 +1248,6 @@ Each decision below resolves an open finding from the adversarial review of the 
 | Design Details — Re-dispatch vs retry            | Story Lifecycle (re-dispatch scenarios)                                                         |
 | Design Details — Scripts validate, LLM sequences | Story Lifecycle (all dispatch subcommands)                                                      |
 | run-lifecycle — The run                          | Dispatch Initialization, Wave Planning, Wave Lifecycle; run-lifecycle.feature                   |
-| run-lifecycle — Attempts and stops               | Story Lifecycle (state machine, red test suite), Evidence-Gated Escalation                      |
+| run-lifecycle — Attempts and stops               | Story Lifecycle (re-dispatch, red test suite), Evidence-Gated Escalation                        |
 | run-lifecycle — Wave close                       | Wave Lifecycle                                                                                  |
 | run-lifecycle — every other section              | run-lifecycle.feature                                                                           |
