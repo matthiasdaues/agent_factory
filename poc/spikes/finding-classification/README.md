@@ -45,6 +45,9 @@ and with the filed rating. It ran on 2026-11-18. The report is
 - [run-8/](run-8/) holds the eighth run: design e, the run-7 cases with
   corrected wording, on all 28 document findings with two Sonnet and two Codex
   raters per batch. The results are in [run-8-results.md](key/run-8-results.md).
+- [run-9/](run-9/) holds the ninth run: design f, a rule for side texts, on
+  the 28 document findings. Only the Sonnet half ran; the Codex raters hit a
+  usage limit. The results are in [run-9-results.md](key/run-9-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
