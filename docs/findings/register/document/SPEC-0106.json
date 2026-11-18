@@ -16,5 +16,5 @@
   },
   "why_this_severity": "No row or test depends on the count, and OI-17 links RL-G24 (no to fails_purpose); a reader who compares the strategy with the gaps report meets two counts (raises_cost).",
   "commit": "c2d09f330160ac5ca7c55b53d82b84d85ff93e43",
-  "status": "open"
+  "status": "resolved"
 }
