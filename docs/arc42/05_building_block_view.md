@@ -136,7 +136,7 @@ The test-strategy agent owns the test guardrails: `crap-score`, `mutation-testin
 
 The developer agent never runs the gates. Each fix iteration starts with a clean context. This separation prevents context contamination and enforces the trust boundary.
 
-**Story-level gate configuration:** `dependency-check` runs after every story. `test-design-verify` runs whenever the story has a Test Design or a Prior Tests section. The story's `quality-gates` field picks `crap-score` and `mutation-testing`. A story without the field takes them from the `gates` section of `docs/testing.yaml`. Without either, the fail-closed default runs `crap-score` and never `mutation-testing`, because only the `gates` section holds the mutation command ([BR-066](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)). In manual mode, the developer agent runs the same gates before it hands a story back.
+**Story-level gate configuration:** `dependency-check` runs after every story. `test-design-verify` runs whenever the story has a Test Design or a Prior Tests section. The story's `quality-gates` field picks `crap-score` and `mutation-testing`. A story without the field takes them from the `gates` section of `docs/testing.yaml`. Without either, the fail-closed default runs `crap-score` and never `mutation-testing`, because only the `gates` section holds the mutation command ([BR-066](../spec/validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066)). In manual mode, the developer agent runs the same gates before it hands a story back.
 
 ### 5.2.4 Module-graph check
 

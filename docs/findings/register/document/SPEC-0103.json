@@ -16,5 +16,5 @@
   },
   "why_this_severity": "By hand the implementation agent starts a story only after the User's go, and prepare-wave prepares only the stories of its own wave, so a returned story does not start again without the User (no to fails_purpose); the implementer of prepare-story must work out from the proposal that a returned entry may not start (raises_cost).",
   "commit": "c2d09f330160ac5ca7c55b53d82b84d85ff93e43",
-  "status": "open"
+  "status": "resolved"
 }

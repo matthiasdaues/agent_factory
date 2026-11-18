@@ -5,7 +5,7 @@ Generated from:
 - Feature spec: [core-artifact-ownership.feature](../features/core-artifact-ownership.feature)
 - Entity model: [entity-model.md § Core Artifact Ownership Entities](../entity-model.md#core-artifact-ownership-entities)
 - Interface contracts: [interface-contracts.md § Core Artifact Ownership Contracts](../interface-contracts.md#core-artifact-ownership-contracts), and the sections `dependency-check` and `docs/testing.yaml` — `gates` section schema
-- Validation rules: [validation-rules.md § Ownership and drift reports](../validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)
+- Validation rules: [validation-rules.md § Ownership and spec-feedback reports](../validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066)
 - Charter layer bindings: [testing.yaml](../../testing.yaml)
 - Repository test infrastructure: `tests/conftest.py`, `tests/factory/` (among them `test_index_lint.py`, `test_dispatch_merge_safety.py`, `test_dispatch_run_blockers.py`, `test_core_layout_gates.py`, `test_core_layout_references.py`), `pyproject.toml` (markers `spec` and `container`)
 

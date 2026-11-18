@@ -416,7 +416,7 @@ The two ownership checks match by sample path. So `docs/spec/features/{name}.fea
 
 **Glossary terms.** Only the domain-modeling agent writes `docs/spec/glossary.md`, and the glossary holds only terms the stakeholder confirmed. Every other agent that meets a term writes a row of `docs/spec/work/term-candidates.md`. The domain-modeling agent proposes definitions there, asks the stakeholder one domain area at a time, and moves each confirmed term into the glossary.
 
-**Specification artifacts.** The spec [core-artifact-ownership.feature](../spec/features/core-artifact-ownership.feature), the [core list contract](../spec/interface-contracts.md#packagesfactoryrulebookscore-artifactsyaml), and [BR-056 to BR-067](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) hold the details.
+**Specification artifacts.** The spec [core-artifact-ownership.feature](../spec/features/core-artifact-ownership.feature), the [core list contract](../spec/interface-contracts.md#packagesfactoryrulebookscore-artifactsyaml), and [BR-056 to BR-067](../spec/validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066) hold the details.
 
 ## 8.18 ID Allocation
 

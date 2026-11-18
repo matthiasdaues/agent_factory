@@ -746,7 +746,7 @@ sequenceDiagram
 **Key Points:**
 
 - Each story has its own report, `docs/spec/work/spec-feedback-<story-id>.md`, because the developer agents of a wave run in parallel. A story without a report counts as a story without rows.
-- A row carries the columns Artifact, Drift, Evidence, Owner, and Status. The [Report Row Lifecycle](../spec/state-machines.md#report-row-lifecycle) holds the four statuses, and [BR-061](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) names who sets each one.
+- A row carries the columns Artifact, Drift, Evidence, Owner, and Status. The [Report Row Lifecycle](../spec/state-machines.md#report-row-lifecycle) holds the four statuses, and [BR-061](../spec/validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066) names who sets each one.
 - A row about an artifact without a declared review, such as a QA strategy or an ADR, closes at `fixed`. `close-wave` reads the core list to tell the two kinds of row apart.
 - `close-wave` fails closed. A report with wrong column headers, a row with a status outside `open`, `fixed`, `confirmed`, and `rejected`, or a missing core list each fails, and the message names the file. A missing report still counts as a story without rows.
 - `close-wave` reads `rulebooks/core-artifacts.yaml` under the Factory root it runs from, as `index-lint` resolves its root. That is `packages/factory/` in this repository and `.agent-factory/factory/` in an installed project.
@@ -819,7 +819,7 @@ sequenceDiagram
 - The orchestrator reads the core list, as `dispatch close-wave` does, to tell a row on a core artifact from the others. A `fixed` row on an artifact outside the core list, such as an ADR, closes at `fixed`, because the artifact has no declared review (DEC-35).
 - The owner and the reviewer commit on the branch that holds the reconciliation report, normally the feature branch before its merge into `dev`. So the fixes reach `dev` with the code they describe.
 - Only the playbook's DONE list waits for the rows. No script reads the reconciliation reports. So an unhandled row blocks neither `premerge-check`, nor `dispatch close-wave`, nor the next reconciliation run.
-- [BR-067](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) holds the rule, and the [Report Row Lifecycle](../spec/state-machines.md#report-row-lifecycle) holds the statuses.
+- [BR-067](../spec/validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066) holds the rule, and the [Report Row Lifecycle](../spec/state-machines.md#report-row-lifecycle) holds the statuses.
 
 ## 6.14 Other Runtime Scenarios (Summary)
 

@@ -90,4 +90,4 @@ reports.
   [8.17](../arc42/08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review)
   compares the two loops.
 - The backfeed follows BR-067 in
-  [validation-rules.md](../spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066).
+  [validation-rules.md](../spec/validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066).

@@ -174,14 +174,14 @@ The stakeholder decided G08 and G10 on 2026-11-03 and accepted the recommendatio
 
 - **Case:** ST-0319 found no drift, so `spec-feedback-ST-0319.md` does not exist.
 - **Options:** A missing report counts as a report without rows, so the wave closes. Or `close-wave` fails, so every developer agent must write an empty report.
-- **Recommendation:** A missing report counts as no rows, because the developer agent writes a row only when it finds drift. The [validation rules](../validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) state this rule in BR-063. Accepted on 2026-11-03.
+- **Recommendation:** A missing report counts as no rows, because the developer agent writes a row only when it finds drift. The [validation rules](../validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066) state this rule in BR-063. Accepted on 2026-11-03.
 - **Settles:** CAO-14 and the `close-wave` contract.
 
 ### CAO-G14: Does a `{name}` placeholder match like `*`?
 
 - **Case:** The requirements agent declares `docs/spec/features/{name}.feature`. The sample path is `docs/spec/features/example.feature`.
 - **Options:** `{name}` matches any text inside one path segment, so the sample path matches. Or `{name}` is a literal, so the requirements agent declares no producer of the feature files, and the contract test fails.
-- **Recommendation:** `{name}` matches like `*`, because PROP-33 names exactly this pattern pair as the case the sample path resolves. The [validation rules](../validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066) state this rule in BR-057. Accepted on 2026-11-03.
+- **Recommendation:** `{name}` matches like `*`, because PROP-33 names exactly this pattern pair as the case the sample path resolves. The [validation rules](../validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066) state this rule in BR-057. Accepted on 2026-11-03.
 - **Settles:** The matching rule of the contract test and of `index-lint`.
 
 ### CAO-G15: Does the stakeholder confirm the glossary terms this pass added?

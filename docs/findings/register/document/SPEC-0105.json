@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The heading names the right rules, so a reader finds them (no to fails_purpose); the text check RL-19-LN-01 fails on the heading, and a reader meets two terms for one concept (raises_cost).",
   "commit": "c2d09f330160ac5ca7c55b53d82b84d85ff93e43",
-  "status": "open"
+  "status": "resolved"
 }

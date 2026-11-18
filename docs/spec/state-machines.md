@@ -1131,7 +1131,9 @@ On Added:
   ChangeState(PENDING)
 On Prepare:
   # dispatch prepare-wave or prepare-story
-  if a dependency inside the run is not done
+  if the entry has returned true
+    RejectCommand("dispatch: the unit of work was returned and waits for the end of the run")
+  else if a dependency inside the run is not done
     RejectCommand("dispatch: a dependency inside the run is not done")
   else if the previous wave has no wave record
     RejectCommand("dispatch: the previous wave has no wave record")
@@ -1179,7 +1181,9 @@ State: FAILED
 On ReDispatch:
   if the entry has two contract_violation attempts
     RejectCommand("dispatch: the story is terminal after two contract_violation failures")
-  else if the counted attempts on the tier reached the limit and the tier is not strong and the entry has not escalated and gates.attempts_escalated is above 0
+  else if the counted attempts on the tier reached the limit and dispatch escalate would grant a promotion
+    # escalate grants only when the tier is not strong, the entry has not escalated,
+    # gates.attempts_escalated is above 0, verify-base passes, and the diff stays inside the scope (BR-115)
     RejectCommand("dispatch: the story requires escalation before re-dispatch")
   else
     # with the attempts used up and no promotion left, re-dispatch grants
@@ -1224,10 +1228,10 @@ stateDiagram-v2
 
 #### Notes
 
-- **PENDING** is also where a returned unit of work ends a run. **Return** sets the field `returned` of the entry to `true`, and **Added** sets it back to `false`. `dispatch close` accepts a **PENDING** entry, and a returned story stays in the backlog with `status: pending` (BR-116, BR-119).
+- **PENDING** is also where a returned unit of work ends a run. **Return** sets the field `returned` of the entry to `true`, and **Added** sets it back to `false`. **Prepare** refuses an entry with `returned: true`. So a returned story stays **PENDING** until the run ends, and a returned finding starts again only after `dispatch add` (BR-113, BR-117). `dispatch close` accepts a **PENDING** entry, and a returned story stays in the backlog with `status: pending` (BR-116, BR-119).
 - **Added** applies only to a finding. `dispatch add` refuses an ID in any state other than **PENDING** and names that state (BR-117).
 - **Escalate** is no edge. `dispatch escalate` changes the tier of the entry and leaves its state. After a failed attempt, the next **ReDispatch** runs on the new tier (BR-115).
-- **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Once the attempts are used up, **ReDispatch** refuses while the entry can still escalate. With no promotion left, because the tier is `strong`, the entry has escalated, or `gates.attempts_escalated` is `0`, the User fixes the cause, and **ReDispatch** grants `gates.attempts` new counted attempts on the current tier (BR-116, RL-G19). No flag guards this grant. So on the last tier an agent can start a retry that the User did not ask for, and the User watches the run.
-- **HasStopped** is the predicate for an entry that waits for the User. It holds for every **BLOCKED** entry. It holds for a **FAILED** entry in two cases only: two of its attempts have the failure class `contract_violation`, or its counted attempts on its tier reached the limit of that tier and it cannot escalate any more. An entry cannot escalate any more when it runs on the tier `strong`, has already escalated, or `gates.attempts_escalated` is `0`. HasStopped holds for no entry in any other state. A **FAILED** entry for which HasStopped does not hold still has a retry, so the implementation agent runs `dispatch escalate` or **ReDispatch** without the User (BR-114, BR-116).
+- **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Once the attempts are used up, **ReDispatch** refuses while the entry can still escalate. With no promotion left, because the entry cannot escalate any more as **HasStopped** defines, the User fixes the cause, and **ReDispatch** grants `gates.attempts` new counted attempts on the current tier (BR-116, RL-G19). No flag guards this grant. So on the last tier an agent can start a retry that the User did not ask for, and the User watches the run.
+- **HasStopped** is the predicate for an entry that waits for the User. It holds for every **BLOCKED** entry. It holds for a **FAILED** entry in two cases only: two of its attempts have the failure class `contract_violation`, or its counted attempts on its tier reached the limit of that tier and it cannot escalate any more. An entry cannot escalate any more when `dispatch escalate` refuses it for any reason of BR-115: the tier is `strong`, the entry has already escalated, `gates.attempts_escalated` is `0`, `verify-base` fails, or the diff leaves the scope. **ReDispatch** checks these reasons when it runs, so an entry that the User fixed, for example by moving its diff back inside the scope, can then escalate. HasStopped holds for no entry in any other state. A **FAILED** entry for which HasStopped does not hold still has a retry, so the implementation agent runs `dispatch escalate` or **ReDispatch** without the User (BR-114, BR-116).
 - An entry for which HasStopped holds leaves its state only after the User: the User fixes the cause and tells the implementation agent to continue, or runs **Return**. Two `contract_violation` attempts leave **Return** as the only way out.
 - **FAILED** and **BLOCKED** block `dispatch close` and the merge of the feature branch into `dev` until the entry is **DONE** or **PENDING**, whether HasStopped holds or not (BR-119). `dispatch close-wave` lets a wave close only when HasStopped holds for each of its **FAILED** and **BLOCKED** entries, as [validation-rules.md § Dispatch ledger](validation-rules.md#dispatch-ledger-dispatch) defines.
