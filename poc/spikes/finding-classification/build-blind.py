@@ -7,12 +7,13 @@ file as filed, and removes the rating. It writes:
 
 - <run-dir>/blind/<ID>.md: the finding without the rating.
 - <run-dir>/filing.tsv: ID, filing SHA, filing date.
-- <run-dir>/strip-log.md: every line the script removed, per finding.
+- <key-dir>/<run>-strip-log.md: every line the script removed, per finding.
+  It names the filed rating, so it stays out of the raters' run folder.
 - <key-dir>/answer-key.tsv: ID, source, category, severity as filed. The
   script adds rows to an existing key and keeps the rows of other IDs.
 
 Without IDs, the script takes every docs/findings/*.md at HEAD.
-Read strip-log.md before you dispatch raters. It must list only rating
+Read the strip log before you dispatch raters. It must list only rating
 fields, resolution text, and lines that name the severity.
 """
 
@@ -76,7 +77,8 @@ def main():
         (run / "blind" / f"{fid}.md").write_text(blind)
         log += [f"## {fid}", "", "```"] + removed + ["```", ""]
     (run / "filing.tsv").write_text("\n".join(filing) + "\n")
-    (run / "strip-log.md").write_text("\n".join(log))
+    log_file = key / f"{run.name}-strip-log.md"
+    log_file.write_text("\n".join(log))
     # Merge, so a new run keeps the filed ratings of earlier runs.
     key_file = key / "answer-key.tsv"
     rows = {}
@@ -84,7 +86,7 @@ def main():
         rows = {l.split("\t", 1)[0]: l for l in key_file.read_text().splitlines() if l}
     rows.update({a.split("\t", 1)[0]: a for a in answers})
     key_file.write_text("\n".join(rows[i] for i in sorted(rows)) + "\n")
-    print(f"{len(ids)} findings; read {run / 'strip-log.md'} before dispatch")
+    print(f"{len(ids)} findings; read {log_file} before dispatch")
 
 
 if __name__ == "__main__":

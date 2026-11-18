@@ -9,8 +9,8 @@ and with the filed rating. It ran on 2026-11-18. The report is
 ## Layout
 
 - [build-blind.py](build-blind.py) builds blind copies of findings from their
-  filing commits. It also writes `filing.tsv`, a strip log, and the answer
-  key.
+  filing commits. It also writes `filing.tsv`, the answer key, and a strip
+  log in `key/`.
 - [compare.py](compare.py) compares rater pairs with each other and with the
   answer key.
 - [key/](key/) holds the filed ratings
@@ -22,6 +22,10 @@ and with the filed rating. It ran on 2026-11-18. The report is
 - [run-2/](run-2/) holds the second run: ten findings, a control pair (K)
   on [rules-1.md](run-2/rules/rules-1.md) and a changed pair (T) on
   [rules-2.md](run-2/rules/rules-2.md).
+- [run-3/](run-3/) holds the third run: ATAM-0002, ATAM-0003, and ATAM-0007,
+  four raters (Q1 to Q4) on [rules-3.md](run-3/rules/rules-3.md), which adds R1,
+  R2, and two draft calibration rows. The results are in
+  [run-3-results.md](key/run-3-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
@@ -51,18 +55,18 @@ an allowlist, because the key and the report now sit in this repository.
 
    ```
    python3 -I poc/spikes/finding-classification/build-blind.py \
-     <gigacron checkout> poc/spikes/finding-classification/run-3 \
+     <gigacron checkout> poc/spikes/finding-classification/run-4 \
      poc/spikes/finding-classification/key [ID ...]
    ```
 
    Pass a new run folder. The script adds the filed ratings of the IDs you
    pass to `key/answer-key.tsv` and keeps the other rows.
 
-1. Read `run-3/strip-log.md`. It must list only rating fields, resolution
+1. Read `key/run-4-strip-log.md`. It must list only rating fields, resolution
    text, and lines that name a severity. Cut any line that still hints at the
    rating from the blind copy by hand.
 
-1. Copy a brief from `run-1/` or `run-2/` into `run-3/`, and change its paths.
+1. Copy a brief from `run-1/` or `run-2/` into `run-4/`, and change its paths.
 
 1. Write the predictions into `key/` before any rater starts. Each
    prediction names the result that refutes it.
@@ -70,7 +74,7 @@ an allowlist, because the key and the report now sit in this repository.
 1. Dispatch two raters per batch, each in a fresh agent, with this prompt:
 
    ```
-   Read and follow the brief at poc/spikes/finding-classification/run-3/brief.md.
+   Read and follow the brief at poc/spikes/finding-classification/run-4/brief.md.
    Your rater ID is <ID>. Your batch: <finding IDs>. Report back with the
    short summary the brief asks for.
    ```
@@ -79,7 +83,7 @@ an allowlist, because the key and the report now sit in this repository.
 
    ```
    python3 -I poc/spikes/finding-classification/compare.py \
-     poc/spikes/finding-classification/run-3 X1,X2 Y1,Y2
+     poc/spikes/finding-classification/run-4 X1,X2 Y1,Y2
    ```
 
 1. Check each rater's transcript for reads outside the allowlist. The gigacron
