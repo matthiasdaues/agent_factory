@@ -556,11 +556,13 @@ Feature: Story Lifecycle
   # Phase 3
   Scenario Outline: A counted failure requires escalation once the attempts on the tier are used up
     Given docs/testing.yaml sets gates.attempts to 3
+    And docs/testing.yaml sets gates.attempts_escalated to 3
+    And ST-003 runs on the tier standard and has not been escalated
     And ST-003 has three counted attempts on its tier, each with class <class>
-    And ST-003 has not been escalated
     When the user runs dispatch re-dispatch ST-003
     Then dispatch exits non-zero
     And reports that escalation is required before re-dispatch
+    And the message names dispatch escalate
 
     Examples:
       | class                  |
@@ -576,8 +578,30 @@ Feature: Story Lifecycle
     When the user runs dispatch re-dispatch ST-003
     Then ST-003 transitions from failed to prepared on the tier strong
     And ST-003 has three new counted attempts on the tier strong
-    # How dispatch tells this case from a retry in the gate-check step is open
-    # item RL-G22 in run-lifecycle-gaps.md.
+    # re-dispatch grants new attempts only to a story that can no longer
+    # escalate: it runs on the tier strong, has already escalated, or
+    # gates.attempts_escalated is 0 (RL-G22 in run-lifecycle-gaps.md).
+
+  # Phase 3
+  Scenario: After the User's fix, re-dispatch grants new attempts when escalation is off
+    Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 0
+    And ST-003 has three counted attempts on the tier standard
+    And ST-003 is failed on the tier standard
+    And the User has fixed the cause of the failures
+    When the user runs dispatch re-dispatch ST-003
+    Then ST-003 transitions from failed to prepared on the tier standard
+    And ST-003 has three new counted attempts on the tier standard
+
+  # Phase 3
+  Scenario: After the User's fix, re-dispatch refuses a failed story that can still escalate
+    Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 3
+    And ST-003 has three counted attempts on the tier standard and has not been escalated
+    And ST-003 is failed on the tier standard
+    And the User has fixed the cause of the failures
+    When the user runs dispatch re-dispatch ST-003
+    Then dispatch exits non-zero
+    And the message names dispatch escalate
+    And ST-003 stays failed on the tier standard
 
   # --- blocked story recovery ---
 

@@ -339,6 +339,7 @@ Feature: Run Lifecycle
       When the implementation agent runs dispatch re-dispatch ST-0350
       Then dispatch exits non-zero
       And the message says that ST-0350 requires escalation before re-dispatch
+      And the message names dispatch escalate
       And the ledger records ST-0350 as failed on the tier standard
       # @packages/factory/scripts/dispatch::cmd_re_dispatch
 
@@ -366,6 +367,11 @@ Feature: Run Lifecycle
   Rule: User decides how a stopped story continues
     # actor: User
     # @packages/factory/scripts/dispatch_lib.py::VALID_TRANSITIONS
+    # dispatch re-dispatch grants new attempts to a failed story only when the
+    # story can no longer escalate. dispatch cannot see whether the User fixed
+    # the cause, so on the last tier an agent can start a retry that the User
+    # did not ask for. The User watches the run, and the guardrail blocks only
+    # the commands that destroy work (RL-G22).
 
     Scenario Outline: A story stops in the state that names its cause
       Given ST-0350 is dispatched in a run on feature/login
@@ -407,6 +413,28 @@ Feature: Run Lifecycle
       And the ledger records ST-0350 as prepared on the tier strong
       And ST-0350 has three new counted attempts on the tier strong
       And ST-0350 continues in the run on feature/login
+      # @packages/factory/scripts/dispatch::cmd_re_dispatch
+
+    Scenario: After the User's fix, re-dispatch grants new attempts when escalation is off
+      Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 0
+      And ST-0350 failed three counted attempts on the tier standard
+      And the ledger records ST-0350 as failed on the tier standard
+      And the User has fixed the shared test fixture that made every attempt fail
+      When the User tells the implementation agent to continue
+      Then the implementation agent runs dispatch re-dispatch ST-0350
+      And the ledger records ST-0350 as prepared on the tier standard
+      And ST-0350 has three new counted attempts on the tier standard
+      # @packages/factory/scripts/dispatch::cmd_re_dispatch
+
+    Scenario: After the User's fix, re-dispatch refuses a failed story that can still escalate
+      Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 3
+      And ST-0350 failed three counted attempts on the tier standard and has not escalated
+      And the ledger records ST-0350 as failed on the tier standard
+      And the User has fixed the shared test fixture that made every attempt fail
+      When the implementation agent runs dispatch re-dispatch ST-0350
+      Then dispatch exits non-zero
+      And the message names dispatch escalate
+      And the ledger records ST-0350 as failed on the tier standard
       # @packages/factory/scripts/dispatch::cmd_re_dispatch
 
     Scenario Outline: return-story sets a stopped story back to pending
@@ -563,6 +591,27 @@ Feature: Run Lifecycle
       Given docs/testing.yaml has the entry gates.crap_score with enabled true and threshold 8
       When premerge-check runs on story/ST-0350
       Then premerge-check runs crap-score with the threshold 8 on the head of story/ST-0350
+      And docs/testing.yaml still has the entry gates.crap_score
+
+    Scenario: crap-score reads the old key crap_score
+      Given docs/testing.yaml has the entry gates.crap_score with threshold 8
+      And docs/testing.yaml has no entry gates.crap-score
+      When crap-score runs on ST-0350
+      Then crap-score checks every function of ST-0350 against the threshold 8
+      # @packages/factory/scripts/crap-score::read_threshold_from_testing_yaml
+
+    Scenario: mutation-testing reads the old key mutation_testing
+      Given docs/testing.yaml has the entry gates.mutation_testing with a command and timeout_minutes 45
+      And docs/testing.yaml has no entry gates.mutation-testing
+      When mutation-testing runs on ST-0350
+      Then mutation-testing runs that command with a time limit of 45 minutes
+      # @packages/factory/scripts/mutation-testing::read_section
+
+    Scenario: The test-strategy agent writes gate keys with hyphens
+      Given docs/testing.yaml has no gates section
+      When the test-strategy agent records the gate crap-score in docs/testing.yaml
+      Then docs/testing.yaml has the entry gates.crap-score
+      And docs/testing.yaml has no entry gates.crap_score
 
     Scenario: A story's quality-gates field adds a gate and keeps the project's gates
       Given docs/testing.yaml has the entry gates.crap-score with enabled true
