@@ -16,5 +16,5 @@
   },
   "why_this_severity": "No Rule or test depends on the count, so a planner can act (no to fails_purpose); a reader who compares the gaps report with the QA strategy meets two counts and must recount the Scenarios (raises_cost).",
   "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
-  "status": "open"
+  "status": "resolved"
 }

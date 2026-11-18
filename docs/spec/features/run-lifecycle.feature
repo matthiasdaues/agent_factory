@@ -22,6 +22,15 @@ Feature: Run Lifecycle
   spawn of an owner, or of that owner's reviewer, to settle one row of a
   spec-feedback report.
 
+  A unit of work has stopped when it waits for the User. A blocked unit
+  of work has stopped. A failed unit of work has stopped in two cases
+  only: its counted attempts on its tier are used up and it cannot
+  escalate any more, or two of its attempts have the failure class
+  contract_violation. A unit of work cannot escalate any more when it
+  runs on the tier strong, has already escalated, or gates.attempts_escalated
+  is 0. Every other failed unit of work still has a retry, so the
+  implementation agent runs it again without the User.
+
   The User is the person who drives the Factory, as the glossary defines.
   The examples use the feature branch feature/login, the stories ST-0350,
   ST-0351 and ST-0352, the finding BUG-0090, and the finding QA-0012.
@@ -31,11 +40,14 @@ Feature: Run Lifecycle
   Rule: User starts a run on a feature branch in either way of driving it
     # actor: User
     # @packages/factory/scripts/dispatch::cmd_init
+    # The User asks the implementation agent for the run. The implementation
+    # agent runs dispatch init on both ways, so the User runs only the three
+    # commands of the Rule on a run driven by hand.
 
     Scenario: A run by hand starts without a worktree for the feature branch
       Given no ledger exists for feature/login
       And the primary checkout has dev checked out
-      When the User runs dispatch init --mode by-hand --base dev --feature-branch feature/login --stories ST-0350,ST-0351
+      When the implementation agent runs dispatch init --mode by-hand --base dev --feature-branch feature/login --stories ST-0350,ST-0351
       Then the branch feature/login exists and points at the tip of dev
       And no worktree holds feature/login
       And the primary checkout still has dev checked out
@@ -44,52 +56,52 @@ Feature: Run Lifecycle
 
     Scenario: An orchestrated run starts with a worktree for the feature branch
       Given no ledger exists for feature/login
-      When the User runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350,ST-0351
+      When the implementation agent runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350,ST-0351
       Then a worktree under .current-work/ holds feature/login
       And the ledger of feature/login has mode orchestrated
 
     Scenario: dispatch init without --mode starts an orchestrated run
       Given no ledger exists for feature/login
-      When the User runs dispatch init --base dev --feature-branch feature/login --stories ST-0350
+      When the implementation agent runs dispatch init --base dev --feature-branch feature/login --stories ST-0350
       Then the ledger of feature/login has mode orchestrated
       And a worktree under .current-work/ holds feature/login
 
     Scenario: The branch root is the tip of the feature branch at init
       Given no ledger exists for feature/login
-      When the User runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350
+      When the implementation agent runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350
       Then the ledger's branch_root is the 40-character SHA of the tip of feature/login
       # @packages/factory/scripts/dispatch::cmd_init
 
     Scenario: The test command comes from docs/testing.yaml
       Given docs/testing.yaml names no test command
-      When the User runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350
+      When the implementation agent runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350
       Then dispatch exits non-zero
       And the message names docs/testing.yaml
       # @packages/factory/scripts/dispatch::_read_test_command
 
     Scenario: A second orchestrated run starts while another run is active
       Given an orchestrated run is active on feature/login
-      When the User runs dispatch init --mode orchestrated --base dev --feature-branch feature/search --stories ST-0352
+      When the implementation agent runs dispatch init --mode orchestrated --base dev --feature-branch feature/search --stories ST-0352
       Then dispatch exits 0
       And .current-work/feature/search/dispatch-ledger.yaml exists
 
     Scenario: A second run by hand is refused while a run by hand is active
       Given a run by hand is active on feature/login
-      When the User runs dispatch init --mode by-hand --base dev --feature-branch feature/search --stories ST-0352
+      When the implementation agent runs dispatch init --mode by-hand --base dev --feature-branch feature/search --stories ST-0352
       Then dispatch exits non-zero
       And the message names the active run on feature/login
       And no ledger exists for feature/search
 
     Scenario: A feature branch whose ledger lists other stories is refused
       Given .current-work/feature/login/dispatch-ledger.yaml lists ST-0350
-      When the User runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0351
+      When the implementation agent runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0351
       Then dispatch exits non-zero
       And the message names the ledger of feature/login
       And the ledger of feature/login still lists only ST-0350
 
     Scenario: dispatch init on a ledger with the same stories resumes an interrupted start
       Given .current-work/feature/login/dispatch-ledger.yaml lists ST-0350 and ST-0351
-      When the User runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350,ST-0351
+      When the implementation agent runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0350,ST-0351
       Then dispatch exits 0
       And the ledger of feature/login is unchanged
       # @packages/factory/scripts/dispatch::cmd_init
@@ -98,7 +110,7 @@ Feature: Run Lifecycle
       Given ST-0351 depends on ST-0349
       And backlog/ST-0349.md has status pending
       And ST-0349 is not named in --stories
-      When the User runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0351
+      When the implementation agent runs dispatch init --mode orchestrated --base dev --feature-branch feature/login --stories ST-0351
       Then dispatch exits non-zero
       And the message names ST-0349
       And no ledger exists for feature/login
@@ -162,11 +174,23 @@ Feature: Run Lifecycle
       And the implementation agent runs no command until the User's go
 
       Examples:
-        | point                                    |
-        | the start of ST-0350                     |
-        | the merge of ST-0350                     |
-        | a stop of ST-0350 as failed or blocked   |
-        | the merge of feature/login into dev      |
+        | point                                                                         |
+        | the start of ST-0350                                                          |
+        | dispatch add of QA-0012                                                       |
+        | the merge of ST-0350                                                          |
+        | a stop of ST-0350 as blocked                                                  |
+        | a stop of ST-0350 as failed after its last counted attempt on the tier strong |
+        | a stop of ST-0350 as failed after its second contract_violation attempt       |
+        | the merge of feature/login into dev                                           |
+
+    Scenario: A failed attempt with a retry left is no decision point
+      Given a run by hand is active on feature/login
+      And docs/testing.yaml sets gates.attempts to 3
+      And ST-0350 runs on the tier standard
+      When the first attempt of ST-0350 fails crap-score
+      Then the ledger records ST-0350 as failed
+      And ST-0350 has not stopped
+      And the implementation agent runs dispatch re-dispatch ST-0350 without a stop for the User
 
     Scenario: prepare-story checks out the story branch in the primary checkout
       Given a run by hand is active on feature/login
@@ -189,7 +213,7 @@ Feature: Run Lifecycle
       When the run goes from dispatch init to dispatch close
       Then the User runs at most dispatch return-story, dispatch close --drop, and dispatch close
       And the User merges feature/login into dev
-      And the implementation agent runs every other dispatch command of the run
+      And the implementation agent runs dispatch init and every other dispatch command of the run
 
     Scenario: A run by hand needs no refresh of the story branch
       Given a run by hand is active on feature/login
@@ -377,14 +401,16 @@ Feature: Run Lifecycle
       Given ST-0350 is dispatched in a run on feature/login
       When <cause>
       Then the ledger records ST-0350 as <state>
+      And ST-0350 has stopped
       And the run waits for the User
 
       Examples:
-        | cause                                                   | state   |
-        | the attempts run out and a gate still fails             | failed  |
-        | dispatch merge-story meets a merge conflict             | blocked |
-        | dispatch merge-story meets a conflict in the refresh    | blocked |
-        | the test suite fails after the merge of story/ST-0350   | blocked |
+        | cause                                                                        | state   |
+        | a gate still fails on the last counted attempt of ST-0350 on the tier strong | failed  |
+        | a second attempt of ST-0350 fails with the failure class contract_violation  | failed  |
+        | dispatch merge-story meets a merge conflict                                  | blocked |
+        | dispatch merge-story meets a conflict in the refresh                         | blocked |
+        | the test suite fails after the merge of story/ST-0350                        | blocked |
 
     Scenario: A red test suite after a merge moves the feature branch back
       Given feature/login is at commit A
@@ -506,6 +532,14 @@ Feature: Run Lifecycle
       Then premerge-check exits non-zero
       And the message names dependency-check
       # @packages/factory/scripts/premerge-check::check_semantic_gates
+
+    Scenario: Without dependency rules, premerge-check skips dependency-check and names the skip
+      Given docs/spec/dependency-rules.dsl does not exist
+      And every other check of story/ST-0350 passes
+      When premerge-check runs on story/ST-0350
+      Then premerge-check does not run dependency-check
+      And premerge-check prints that it skipped dependency-check because docs/spec/dependency-rules.dsl does not exist
+      And premerge-check exits 0
 
     Scenario: The rerun leaves the primary checkout as it was
       Given the primary checkout holds a changed tracked file and an untracked file
@@ -633,7 +667,8 @@ Feature: Run Lifecycle
         | docs/testing.yaml has the entry gates.license-check without a command |
 
     Scenario: The gate list of a story
-      Given docs/testing.yaml has the entry gates.crap-score with enabled true
+      Given docs/spec/dependency-rules.dsl exists
+      And docs/testing.yaml has the entry gates.crap-score with enabled true
       And backlog/ST-0350.md has a Test Design section
       When premerge-check resolves the gates of ST-0350
       Then the gates are dependency-check, test-design-verify, and crap-score
@@ -682,9 +717,11 @@ Feature: Run Lifecycle
   Rule: Implementation agent starts the next wave only after the wave close
     # actor: Implementation agent
     # @packages/factory/scripts/dispatch::cmd_close_wave
+    # A wave can close when each of its units of work is done, blocked,
+    # failed and stopped, or pending after a return.
 
     Scenario: close-wave refuses while a drift row is not handled
-      Given every story of wave 1 has stopped
+      Given every story of wave 1 is done or has stopped
       And docs/spec/work/spec-feedback-ST-0350.md has a row with status open
       And docs/spec/work/spec-feedback-ST-0351.md has a fixed row about docs/spec/glossary.md, an artifact on the core list
       When the implementation agent runs dispatch close-wave 1
@@ -702,8 +739,36 @@ Feature: Run Lifecycle
 
     Scenario: The wave close does not wait for the User's go
       Given a run by hand is active on feature/login
-      When the last story of a wave stops
+      When the last story of a wave merges or stops
       Then the implementation agent runs dispatch close-wave without a stop for the User
+
+    Scenario: A wave that holds a returned story closes, and the next independent story starts
+      Given an orchestrated run is active on feature/login
+      And wave 1 holds ST-0350 and ST-0351, and wave 2 holds ST-0352
+      And ST-0352 depends on neither ST-0350 nor ST-0351
+      And ST-0350 is done
+      And the User has returned ST-0351, so the ledger records ST-0351 as pending
+      And no spec-feedback report of wave 1 has an open row or a fixed row about an artifact on the core list
+      When the implementation agent runs dispatch close-wave 1
+      Then dispatch exits 0
+      And the ledger holds a wave record for wave 1
+      And the ledger still records ST-0351 as pending in wave 1
+      And dispatch prepare-wave 2 prepares ST-0352
+
+    Scenario Outline: close-wave refuses while a unit of work of the wave can still go on
+      Given wave 1 holds ST-0350 and ST-0351
+      And ST-0350 is done
+      And ST-0351 <state>
+      When the implementation agent runs dispatch close-wave 1
+      Then dispatch exits non-zero
+      And the message names ST-0351
+      And the ledger holds no wave record for wave 1
+
+      Examples:
+        | state                                                                                 |
+        | is dispatched                                                                         |
+        | is failed after its first counted attempt on the tier standard, with gates.attempts 3 |
+        | is pending and has never been returned                                                |
 
     Scenario: The next wave waits for the wave record
       Given the ledger holds no wave record for wave 1
@@ -774,8 +839,17 @@ Feature: Run Lifecycle
       And dispatch prints the stop notice
       And the ledger holds no entry for BUG-0090
 
+    Scenario: The gate-check step files a blocking QA finding for a mutant it cannot resolve
+      Given an orchestrated run is active on feature/login
+      And mutation-testing leaves a surviving mutant in plan_moves on story/ST-0350
+      And the gate-check step can neither kill the mutant with a new test nor remove it as dead code
+      When the implementation agent files the mutant
+      Then docs/findings/QA-0012.md has severity major, status open, owner planning-agent, and run feature/login
+
     Scenario: The wave close routes the open QA findings by owner
-      Given wave 1 filed QA-0012 with owner planning-agent and QA-0013 with owner test-strategy-agent
+      Given an orchestrated run is active on feature/login
+      And wave 1 filed QA-0012 and QA-0013 as open blocking findings with run feature/login
+      And QA-0012 has owner planning-agent and QA-0013 has owner test-strategy-agent
       When dispatch close-wave 1 passes
       Then the implementation agent runs dispatch add QA-0012
       And QA-0012 is a unit of work of wave 2
@@ -1119,9 +1193,10 @@ Feature: Run Lifecycle
     # actor: Factory maintainer
 
     Scenario: No living Factory document uses a replaced term
-      When the Factory maintainer searches every Markdown file under packages/factory/ and under docs/spec/ outside docs/spec/work/
+      When the Factory maintainer searches every Markdown file under packages/factory/ and under docs/spec/ outside docs/spec/work/, and every .feature file under docs/spec/features/
       Then no file uses the terms automated mode, manual mode, mechanized dispatch, invocation branch, gate-check loop, drift report, or main checkout
       And accepted ADRs, superseded proposals, and file names keep their terms
+      And a sentence that names a replaced term only to forbid it keeps the term, as this Scenario does
       And the files under docs/spec/work/ keep their terms, because they record earlier passes
 
     Scenario: No error message uses a replaced term

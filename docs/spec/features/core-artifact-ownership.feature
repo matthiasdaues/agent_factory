@@ -502,9 +502,9 @@ Feature: Core artifact ownership
     Scenario: A function above the CRAP threshold blocks the merge
       Given docs/testing.yaml sets gates.crap_score.threshold to 30
       And after ST-0318 crap-score reports the function plan_moves at 42
-      When the implementation agent runs the gates in automated mode
+      When the implementation agent runs the gates in the gate-check step
       Then the merge of ST-0318 is blocked
-      And the developer agent gets a fix iteration for plan_moves
+      And a fresh developer agent gets the output of crap-score for plan_moves
 
     Scenario: The implementation agent runs the project's mutation command as a gate
       Given docs/testing.yaml enables crap-score and mutation testing with gates.mutation_testing.command set
@@ -541,22 +541,20 @@ Feature: Core artifact ownership
       Then it runs <gates run>
 
       Examples:
-        | story field                 | test design             | gates section                                          | gates run                                              |
-        | quality-gates: [crap-score] | no Test Design section  | enables crap-score and mutation testing with a command | crap-score and dependency-check                        |
-        | quality-gates: [crap-score] | a Test Design section   | enables crap-score and mutation testing with a command | crap-score, test-design-verify, and dependency-check   |
-        | no quality-gates field      | no Test Design section  | enables crap-score and mutation testing with a command | crap-score, dependency-check, and the mutation command |
-        | no quality-gates field      | no Test Design section  | enables only mutation testing with a command           | dependency-check and the mutation command              |
-        | no quality-gates field      | no Test Design section  | has no gates section                                   | crap-score and dependency-check                        |
+        | story field                 | test design            | gates section                                          | gates run                                                                  |
+        | quality-gates: [crap-score] | no Test Design section | enables crap-score and mutation testing with a command | crap-score, dependency-check, and the mutation command                     |
+        | quality-gates: [crap-score] | a Test Design section  | enables crap-score and mutation testing with a command | crap-score, test-design-verify, dependency-check, and the mutation command |
+        | no quality-gates field      | no Test Design section | enables crap-score and mutation testing with a command | crap-score, dependency-check, and the mutation command                     |
+        | no quality-gates field      | no Test Design section | enables only mutation testing with a command           | dependency-check and the mutation command                                  |
+        | no quality-gates field      | no Test Design section | has no gates section                                   | crap-score and dependency-check                                            |
 
-    Scenario: The developer agent runs the gates in manual mode
-      Given the implementation agent runs in manual mode
-      When the developer agent finishes a story
-      Then the developer agent runs the same gates before it hands the story back
-      # @packages/factory/agents/developer-agent.md
+    # The implementation agent runs the gates on both ways of driving a run,
+    # and the developer agent runs none: run-lifecycle.feature, Scenario
+    # "The developer agent runs no gate script".
 
-    Scenario: The developer agent resolves each surviving mutant before the merge
+    Scenario: The implementation agent resolves each surviving mutant in the gate-check step
       Given mutation testing leaves three surviving mutants in the path-table planner after ST-0318
-      When the developer agent handles them inside the coding loop
+      When the implementation agent handles them in the gate-check step
       Then each mutant ends as removed dead code, a new test, or a QA finding
       # @packages/factory/skills/mutation-testing/SKILL.md
 
@@ -565,8 +563,8 @@ Feature: Core artifact ownership
     # @packages/factory/skills/mutation-testing/SKILL.md
 
     Scenario: mutation-testing files an unresolved mutant as a QA finding for the test-strategy agent
-      Given the developer agent cannot resolve a surviving mutant in plan_moves
-      When it files the mutant through the mutation-testing skill
+      Given the gate-check step cannot resolve a surviving mutant in plan_moves
+      When the implementation agent files the mutant through the mutation-testing skill
       Then docs/findings/ has a new QA finding with owner: test-strategy-agent
 
     Scenario: The implementation agent dispatches the test-strategy agent for each open QA finding
@@ -701,16 +699,19 @@ Feature: Core artifact ownership
       Then the requirements agent sets the row to rejected
       And the requirements agent files the BUG finding
 
-    Scenario Outline: In manual mode the human closes a story only after its rows are handled
-      Given the implementation agent runs in manual mode
+    Scenario Outline: In a run by hand, the wave of a story closes only after its rows are handled
+      Given a run by hand is active on feature/login
+      And ST-0318 has merged and is the only story of wave 1
       And spec-feedback-ST-0318.md has a fixed row for <artifact>
-      When the human checks whether ST-0318 may close
-      Then the dispatch contract's manual-mode section says the story <result>
+      When the implementation agent runs dispatch close-wave 1
+      Then dispatch <result>
+      # The same wave close as in an orchestrated run: run-lifecycle.feature,
+      # Scenario "In a run by hand, each story is a wave of its own".
 
       Examples:
-        | artifact                               | result     |
-        | docs/spec/validation-rules.md          | stays open |
-        | docs/spec/work/payments-qa-strategy.md | may close  |
+        | artifact                               | result                                      |
+        | docs/spec/validation-rules.md          | exits non-zero and lists the row            |
+        | docs/spec/work/payments-qa-strategy.md | exits 0 and writes a wave record for wave 1 |
 
   Rule: Reconciliation agent reports drift to each artifact's owner
     # actor: Reconciliation agent

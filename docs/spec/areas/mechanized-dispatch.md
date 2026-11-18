@@ -208,15 +208,24 @@ Feature: Dispatch Initialization
     Given a branch named feature/my-work exists
     And its tip is reachable from the base branch
     And docs/testing.yaml names a test command
-    When the user runs dispatch init --base main --feature-branch feature/my-work --stories ST-001,ST-002
+    When the user runs dispatch init --mode orchestrated --base main --feature-branch feature/my-work --stories ST-001,ST-002
     Then no new branch is created
+    And a worktree under .current-work/ holds feature/my-work
     And the dispatch ledger is initialized at .current-work/feature/my-work/dispatch-ledger.yaml
     And all named stories are recorded as pending
+    # By hand, init adopts the branch the same way and creates no worktree.
 
-  Scenario: Non-existent feature branch is rejected
+  Scenario Outline: A missing feature branch is created from the tip of the base
     Given no branch named feature/missing exists
-    When the user runs dispatch init --base main --feature-branch feature/missing --stories ST-001
-    Then dispatch exits non-zero
+    When the user runs dispatch init --mode <mode> --base main --feature-branch feature/missing --stories ST-001
+    Then the branch feature/missing exists and points at the tip of main
+    And <worktree>
+    And the ledger of feature/missing has mode <mode>
+
+    Examples:
+      | mode         | worktree                                              |
+      | orchestrated | a worktree under .current-work/ holds feature/missing |
+      | by-hand      | no worktree holds feature/missing                     |
 
   Scenario: Feature branch unreachable from base is rejected
     Given a branch named feature/diverged exists
@@ -237,8 +246,11 @@ Feature: Wave Lifecycle
   Phase: 1
   dispatch prepare-wave starts only after the prior wave has a wave
   record, and prepares all parallel-safe stories and serial chain heads.
-  dispatch close-wave writes the wave record after every story of the
-  wave has stopped and every drift row of the wave is handled.
+  dispatch close-wave writes the wave record once every drift row of the
+  wave is handled and each story of the wave is in one of four states:
+  done, blocked, failed and stopped, or pending after a return. The
+  description of run-lifecycle.feature defines when a failed story has
+  stopped. A failed story with a retry left keeps its wave open.
 
   Scenario: Wave 1 can be prepared without a prior-wave check
     Given the dispatch has just been initialized with no prior waves
@@ -276,24 +288,31 @@ Feature: Wave Lifecycle
     Then the manifest exists at .current-work/<feature-branch>/<story-branch>/current-step.yml
     And it contains the story's inputs, outputs, and max_input_tokens
 
-  Scenario: Stopped stories and handled drift rows allow wave closure
-    Given wave 1 has stories ST-001 (done) and ST-002 (blocked)
+  Scenario: Done, stopped, and returned stories and handled drift rows allow wave closure
+    Given wave 1 has stories ST-001 (done), ST-002 (blocked), ST-003 (failed and stopped on the tier strong), and ST-004 (pending after a return)
     And no spec-feedback report of wave 1 has an open row or a fixed row about a core-list artifact
     When the user runs dispatch close-wave 1
     Then dispatch exits zero
     And the ledger holds a wave record for wave 1
 
   Scenario: An unhandled drift row blocks wave closure
-    Given every story of wave 1 has stopped
+    Given every story of wave 1 is done or has stopped
     And docs/spec/work/spec-feedback-ST-001.md has a row with status open
     When the user runs dispatch close-wave 1
     Then dispatch exits non-zero
     And lists the row with its owner
 
-  Scenario: Non-terminal story blocks wave closure
-    Given wave 1 has ST-001 (done) and ST-002 (dispatched)
+  Scenario Outline: A story that can still go on blocks wave closure
+    Given wave 1 has ST-001 (done) and ST-002 (<state>)
     When the user runs dispatch close-wave 1
     Then dispatch exits non-zero
+    And the message names ST-002
+
+    Examples:
+      | state                                                       |
+      | dispatched                                                  |
+      | failed with a counted attempt left on the tier standard     |
+      | pending, never returned, as the next link of a serial chain |
 ```
 
 ### Feature: Story Lifecycle
@@ -942,7 +961,7 @@ Feature: Evidence-Gated Escalation
   model help with. An attempt of any other class keeps its re-dispatch
   rule and does not count. A failing gate records the failure class
   acceptance_unmet. A story on the tier strong does not escalate. It
-  becomes failed after its attempts.
+  becomes failed after its attempts and has stopped.
 
   Scenario: All conditions met grants escalation
     Given docs/testing.yaml sets gates.attempts to 3

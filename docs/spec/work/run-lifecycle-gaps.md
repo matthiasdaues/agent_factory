@@ -3,7 +3,7 @@
 Generated: 2026-11-18
 Source: [run-lifecycle.md](../../proposals/run-lifecycle.md)
 
-The first pass ran unattended, without the stakeholder. Each point where the requirements agent would have asked the stakeholder is in [Choices made without the stakeholder](#choices-made-without-the-stakeholder), with its reason. The first pass listed fifteen behaviours that the proposal leaves undecided, RL-G01 to RL-G15. The stakeholder settled all fifteen on 2026-11-18. The fix pass wrote each answer into [Settled items](#settled-items), the feature file, and the area spec. One item, RL-G16, came up while the fix pass wrote RL-G01. The stakeholder settled it on 2026-11-18 as well, and it is in [Settled items](#settled-items). The domain-modeling agent then found five more items, RL-G17 to RL-G21, and the QA strategy listed ten, OI-02 to OI-11. The stakeholder settled all of them on 2026-11-18. RL-G17 to RL-G21 are in [Settled items](#settled-items), and the QA strategy items are in [Answers to the QA strategy items](#answers-to-the-qa-strategy-items). The second fix pass wrote each answer that is testable behaviour into the feature file and the area spec. Two new questions came up in that pass, RL-G22 and RL-G23. The stakeholder settled both on 2026-11-18, and they are in [Settled items](#settled-items). No item is open.
+The first pass ran unattended, without the stakeholder. Each point where the requirements agent would have asked the stakeholder is in [Choices made without the stakeholder](#choices-made-without-the-stakeholder), with its reason. The first pass listed fifteen behaviours that the proposal leaves undecided, RL-G01 to RL-G15. The stakeholder settled all fifteen on 2026-11-18. The fix pass wrote each answer into [Settled items](#settled-items), the feature file, and the area spec. One item, RL-G16, came up while the fix pass wrote RL-G01. The stakeholder settled it on 2026-11-18 as well, and it is in [Settled items](#settled-items). The domain-modeling agent then found five more items, RL-G17 to RL-G21, and the QA strategy listed ten, OI-02 to OI-11. The stakeholder settled all of them on 2026-11-18. RL-G17 to RL-G21 are in [Settled items](#settled-items), and the QA strategy items are in [Answers to the QA strategy items](#answers-to-the-qa-strategy-items). The second fix pass wrote each answer that is testable behaviour into the feature file and the area spec. Two new questions came up in that pass, RL-G22 and RL-G23. The stakeholder settled both on 2026-11-18, and they are in [Settled items](#settled-items). The third fix pass answered the findings of [spec review pass 1](../../reviews/spec-review-2026-11-18-run-lifecycle.md) that the requirements agent owns, and wrote the feature-file part of SPEC-0086 and SPEC-0087. No item is open.
 
 ## Actor-Goal Matrix
 
@@ -84,7 +84,7 @@ Each completion criterion of the proposal traces to a Rule or to an open item.
 | `hook-metadata.yaml` has the hook entry, and `test_every_hook_has_metadata` passes          | RL-10         |
 | The ledger fields are renamed and reduced; the dispatch contract lists exactly them         | RL-17         |
 | `merge-story` leaves `.agent-factory/factory` unchanged; the tests read no installed copy   | RL-18         |
-| No Markdown file under `packages/factory/` or `docs/spec/` uses a replaced term             | RL-19, RL-G14 |
+| No living Markdown or `.feature` file uses a replaced term                                  | RL-19, RL-G14 |
 | `index-lint --check` passes                                                                 | RL-19         |
 
 ## Missing Rules
@@ -93,7 +93,7 @@ None. Every actor-goal pair has a Rule.
 
 ## Rules Without Scenarios
 
-None. The feature file holds 19 Rules and 132 Scenarios, counting each Scenario Outline once. The parser `gherkin-official` reads the file without an error and counts the same numbers.
+None. The feature file holds 19 Rules, 128 Scenarios and 14 Scenario Outlines, 142 in all. The parser `gherkin-official` reads the file without an error and counts the same numbers.
 
 ## Ambiguous Wording
 
@@ -148,6 +148,14 @@ These statements change documents outside the specification, or describe a cost 
 - The costs, the bypass of `git commit --no-verify` by a human, the limits of review coverage, and the gate result files under `.current-work/<gate>/` in Design Details. RL-14 checks that `dispatch close` removes the gate result files.
 - The security scanner, a limit on repeat reviews, trusted gate results, gates for documents, and mutation testing at the merge. The proposal defers them.
 
+## Other Feature Files That Change
+
+The run lifecycle changes three other feature files. Planning cuts each change into a story:
+
+- `docs/spec/features/core-artifact-ownership.feature` describes the run lifecycle since the third fix pass (SPEC-0090). The test guardrails Outline runs the mutation command next to a story's `quality-gates`, because that field only adds gates. The implementation agent resolves the surviving mutants in the gate-check step. In a run by hand, `dispatch close-wave` checks the rows of each story. A comment points to RL-02 for the gates on both ways. The tests `test_st_0365_*` and `test_st_0362_manual_mode_*` in `tests/factory/test_core_artifact_ownership_text.py` encode the earlier Scenarios. The story that changes the developer agent and the implementation agent changes these tests in the same commit. The Rule "Test-strategy agent resolves the surviving mutants that a developer agent cannot resolve" keeps its name, which the scope map and the core-artifact-ownership QA strategy cite. The story that changes the mutation-testing skill renames it, so the name speaks of the gate-check step.
+- `docs/spec/features/counter-ids.feature` line 314 says "manual mode" and "automated mode", because it quotes `rules.md` (SPEC-0096). The story that changes the vocabulary of `rules.md` changes these rows and `tests/factory/test_counter_ids_text.py` in the same commit.
+- `docs/spec/features/finding-classification.feature` lines 704 to 709 and 896 to 899 say "main checkout" (SPEC-0096). The vocabulary story replaces it with "primary checkout".
+
 ## Handover to the Domain-Modeling Agent
 
 The domain-modeling agent owns `docs/spec/validation-rules.md`, `docs/spec/interface-contracts.md`, `docs/spec/state-machines.md`, the entity model, and the glossary. The proposal changes these parts of them:
@@ -178,7 +186,7 @@ The domain-modeling agent writes the answers to RL-G17 to RL-G21 and to the QA s
 
 ## Answers to the QA Strategy Items
 
-The [QA strategy](run-lifecycle-qa-strategy.md#open-items) listed OI-02 to OI-11. The stakeholder settled each on 2026-11-18. The answers shape the Scenarios, so they are recorded here. OI-01 waits for the domain-modeling agent and is not a question for the stakeholder.
+The [QA strategy](run-lifecycle-qa-strategy.md#open-items) listed OI-02 to OI-11. The stakeholder settled each on 2026-11-18. The answers shape the Scenarios, so they are recorded here. The domain-modeling agent settled OI-01, as the QA strategy records.
 
 | ID    | Question                                                                                                                          | Answer                                                                                                                                                                                                                                                                                                                                                                                       | Where                                                                                                                                                                                                                                                                                           |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -214,6 +222,8 @@ The domain-modeling agent applied every row of [Handover to the Domain-Modeling 
 | RL-C04 | The area spec follows the code where the proposal changes nothing: `re-dispatch` keeps the story branch and its worktree, and `plan --dry-run` leaves the ledger unchanged. | The brief's rule. The proposal also says that `re-dispatch` keeps the branch.                                                                                                                          |
 | RL-C05 | The four term rows have the status `confirmed`.                                                                                                                             | The stakeholder accepted the proposal, which settles the terms in its Terms table. Only the domain-modeling agent moves them into the glossary.                                                        |
 | RL-C06 | The examples use `docs/reviews/code-review-ST-0350-2026-11-24.md` and the stash name of the proposal, and `gates.license-check` as a gate the script does not name.         | The proposal's own example dates and names keep the Scenarios consistent with it. `license-check` is an invented gate name, so no Scenario depends on an existing gate.                                |
+| RL-C07 | The implementation agent runs `dispatch init` on both ways, and the User asks it for the run (SPEC-0091). The RL-01 Rule keeps the User as its actor.                       | The proposal gives the User only `return-story`, `close --drop` and `close`, and `implementation-agent.md` runs `init` today. So the text check RL-03-LN-02 stays as it is.                            |
+| RL-C08 | In a run by hand, `dispatch add` waits for the User's go, as a row of the Outline of decision points (SPEC-0092).                                                           | The proposal's subcommand table gives `add` to the implementation agent "after the human's go". The wave close before it still runs without a stop.                                                    |
 
 ## Deferred Scope
 
