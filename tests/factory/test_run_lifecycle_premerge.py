@@ -84,12 +84,12 @@ def wave_repo(tmp_path: Path) -> dict[str, Path]:
 def _build_wave_repo(tmp_path: Path, files: dict[str, str] | None = None) -> dict[str, Path]:
     """Build the wave repository; *files* go into its first commit."""
     repo = tmp_path / "repo"
-    for folder in ("backlog", "config", "src", "docs/reviews"):
+    for folder in ("backlog", "src", "docs/reviews"):
         (repo / folder).mkdir(parents=True)
     _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
     for story_id in STORIES:
         (repo / "backlog" / f"{story_id}.md").write_text(STORY.format(id=story_id))
-    (repo / "config" / "project.json").write_text('{"test_command": "true"}')
+    (repo / "docs" / "testing.yaml").write_text('test_command: "true"\n')
     (repo / ".gitignore").write_text(".current-work/\n.agent-factory/\n")
     (repo / "src" / ".keep").write_text("")
     for rel, text in (files or {}).items():

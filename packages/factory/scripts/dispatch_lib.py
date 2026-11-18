@@ -214,7 +214,6 @@ class StoryEntry:
     base_sha: str | None = None
     tier: str | None = None
     reason: str | None = None
-    gate_results: dict[str, Any] = field(default_factory=dict)
     attempts: list[dict[str, Any]] = field(default_factory=list)
     escalation_granted: bool = False
     verify_base: str | None = None
@@ -247,7 +246,6 @@ class StoryEntry:
             "base_sha": self.base_sha,
             "tier": self.tier,
             "reason": self.reason,
-            "gate_results": self.gate_results,
         }
         if self.attempts:
             d["attempts"] = self.attempts
@@ -282,7 +280,6 @@ class StoryEntry:
             base_sha=data.get("base_sha"),
             tier=data.get("tier"),
             reason=data.get("reason"),
-            gate_results=data.get("gate_results", {}),
             attempts=_coerce_sequence(data.get("attempts", [])),
             escalation_granted=bool(data.get("escalation_granted", False)),
             verify_base=data.get("verify_base"),
@@ -328,11 +325,15 @@ class WaveCloseout:
         )
 
 
+LEDGER_MODES = ("orchestrated", "by-hand")
+# Old ledger names that dispatch reads and never writes (BR-111, OI-09).
+OLD_MODE_NAMES = {"automated": "orchestrated"}
+
+
 class Ledger:
     def __init__(self) -> None:
-        self.mode: str = "automated"
-        self.closed: bool = False
-        self.invocation_branch: str | None = None
+        self.mode: str = "orchestrated"
+        self.feature_branch: str | None = None
         self.branch_root: str | None = None
         self.branch_head: str | None = None
         self.stories: dict[str, StoryEntry] = {}
@@ -434,9 +435,9 @@ class Ledger:
             if entry.base_sha is not None:
                 _validate_sha(entry.base_sha)
         path.parent.mkdir(parents=True, exist_ok=True)
-        data: dict[str, Any] = {"mode": self.mode, "closed": self.closed}
-        if self.invocation_branch is not None:
-            data["invocation_branch"] = self.invocation_branch
+        data: dict[str, Any] = {"mode": self.mode}
+        if self.feature_branch is not None:
+            data["feature_branch"] = self.feature_branch
         if self.branch_root is not None:
             data["branch_root"] = self.branch_root
         if self.branch_head is not None:
@@ -452,9 +453,11 @@ class Ledger:
             raise FileNotFoundError(path)
         raw = _load_yaml(path.read_text())
         ledger = cls()
-        ledger.mode = raw.get("mode", "automated")
-        ledger.closed = bool(raw.get("closed", False))
-        ledger.invocation_branch = raw.get("invocation_branch")
+        mode = raw.get("mode", "orchestrated")
+        ledger.mode = OLD_MODE_NAMES.get(mode, mode)
+        ledger.feature_branch = raw.get("feature_branch") or raw.get(
+            "invocation_branch"
+        )
         ledger.branch_root = raw.get("branch_root")
         ledger.branch_head = raw.get("branch_head")
         for sid, sdata in raw.get("stories", {}).items():
@@ -464,11 +467,12 @@ class Ledger:
         return ledger
 
     def format_status_table(self) -> str:
+        run = f"mode: {self.mode}\nfeature_branch: {self.feature_branch or ''}\n"
         if not self.stories:
-            return "No stories in ledger."
+            return run + "No stories in ledger."
         header = f"{'ID':<12} {'Wave':<6} {'Status':<14} {'Branch':<40} {'SHA':<42}"
         sep = "-" * len(header)
-        lines = [header, sep]
+        lines = [run, header, sep]
         for entry in self.stories.values():
             sha_display = entry.base_sha or ""
             branch_display = entry.branch or ""

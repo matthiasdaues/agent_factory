@@ -55,7 +55,7 @@ def wave_two(tmp_path: Path) -> dict[str, Path]:
     _git(repo, "worktree", "add", "-q", "-b", "feat/x", str(inv))
     ledger_path = repo / ".current-work" / "feat" / "x" / "dispatch-ledger.yaml"
     ledger = lib.Ledger()
-    ledger.invocation_branch = "feat/x"
+    ledger.feature_branch = "feat/x"
     ledger.waves.append(lib.WaveCloseout(number=1, branch_head="a" * 40))
     for story_id in WAVE:
         ledger.stories[story_id] = lib.StoryEntry(
