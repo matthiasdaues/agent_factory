@@ -44,6 +44,10 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0034 | [One register file per minor finding](../adr/0034-one-register-file-per-minor-finding.md)                                                                     | accepted               | pugh-matrix |
 | 0035 | [Guard the human fields in every CLI](../adr/0035-guard-human-fields-in-every-cli.md)                                                                         | accepted               | pugh-matrix |
 | 0036 | [The TypeScript tests run as a `node:test` suite](../adr/0036-typescript-tests-run-as-a-node-test-suite.md)                                                   | accepted               | none        |
+| 0037 | [One lifecycle for runs orchestrated and by hand](../adr/0037-one-lifecycle-for-runs-orchestrated-and-by-hand.md)                                             | proposed               | pugh-matrix |
+| 0038 | [premerge-check reruns the gates in a temporary worktree](../adr/0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md)                             | proposed               | pugh-matrix |
+| 0039 | [One git guardrail script for all five agent tools](../adr/0039-one-git-guardrail-script-for-all-five-agent-tools.md)                                         | proposed               | pugh-matrix |
+| 0040 | [The Factory tests run against the source](../adr/0040-the-factory-tests-run-against-the-source.md)                                                           | proposed               | pugh-matrix |
 
 ## Key Decisions
 
@@ -280,8 +284,8 @@ option +2 against the scan, ahead of one ref per ID and a shared cache
 repository at +1 and the countapi service at −6. See
 [8.18](08_crosscutting_concepts.md#818-id-allocation).
 
-**ADR-0032** lets agents push the claim ref through `next-id` in manual and in
-automated mode. It is the one exception to the human's ownership of pushes.
+**ADR-0032** lets agents push the claim ref through `next-id` in both ways of
+driving a run. It is the one exception to the human's ownership of pushes.
 The guardrail hook stays unchanged.
 
 **ADR-0033** keeps the counter in the `.git` of the project's main repository
@@ -309,6 +313,34 @@ changing it. See [6.18](06_runtime_view.md#618-the-guard-refuses-a-human-field).
 
 **ADR-0036** runs the TypeScript tests of the Factory as one `node:test`
 suite on Node 22.6 or later, with no new dependency.
+
+### Run Lifecycle
+
+**ADR-0037** gives a run one lifecycle for both ways of driving it. A run by
+hand uses the same story branches, ledger states, story workflow, merge
+checks, and close as an orchestrated run. The implementation agent runs the
+gate-check step in both ways, only `dispatch merge-story` sets `done`, and a red
+test suite after a merge moves the feature branch back. The drift sessions
+move to the wave close. The decision amends ADR-0012 and ADR-0029. The Pugh
+matrix scored it +6, against +4 for running each story by hand as a one-story
+orchestrated run in a worktree. See
+[6.22](06_runtime_view.md#622-a-run-from-init-to-close).
+
+**ADR-0038** lets `premerge-check` rerun every gate and the test suite in a
+temporary detached worktree at the branch head, so no stored result decides a
+merge and no file of the human's checkout changes. It scored +2, against −1
+for a rerun in the checkout that holds the branch. See
+[6.24](06_runtime_view.md#624-the-merge-check-of-a-story).
+
+**ADR-0039** makes `block-dangerous-git.sh` the one git guardrail of Claude
+Code, Codex, Copilot CLI, pi, and OpenCode. pi's extension and OpenCode's
+plugin pass each shell command to the script and hold no rule of their own.
+It scored +6, against 0 for one rule set per tool and 0 for a shared rule file.
+See [6.25](06_runtime_view.md#625-the-git-guardrail-in-every-agent-tool).
+
+**ADR-0040** runs the tests of this repository against `packages/factory/`, so
+`dispatch merge-story` copies nothing into the installed copy. See
+[7.1](07_deployment_view.md#71-release-1-local-operator-workstation).
 
 ## Superseded Decisions
 

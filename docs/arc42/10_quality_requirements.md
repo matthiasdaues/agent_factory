@@ -200,13 +200,13 @@ References: [8.17](08_crosscutting_concepts.md#817-artifact-ownership-one-produc
 
 ### QS-17: The specification lags the code by one wave at most
 
-| Field             | Description                                                                                                                                                                                                                                                                                                                             |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Quality attribute | Maintainability (specification currency)                                                                                                                                                                                                                                                                                                |
-| Stimulus          | A developer agent finds during a story that the code and a core artifact disagree.                                                                                                                                                                                                                                                      |
-| Environment       | Automated mode; several developer agents run the stories of one wave in parallel.                                                                                                                                                                                                                                                       |
-| Response          | The developer agent writes an `open` row of its story's spec-feedback report. The implementation agent dispatches the row's owner and then the owner's reviewer. `dispatch close-wave` fails while the row is `open`, or `fixed` on a core or seam artifact. `dispatch prepare-wave` refuses the next wave until the close is recorded. |
-| Response measure  | The next wave starts only after every drift row on a core or seam artifact is `confirmed` or `rejected`, and each `rejected` row has a `BUG` finding against the code.                                                                                                                                                                  |
+| Field             | Description                                                                                                                                                                                                                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Quality attribute | Maintainability (specification currency)                                                                                                                                                                                                                                                                                                               |
+| Stimulus          | A developer agent finds during a story that the code and a core artifact disagree.                                                                                                                                                                                                                                                                     |
+| Environment       | An orchestrated run; several developer agents run the stories of one wave in parallel.                                                                                                                                                                                                                                                                 |
+| Response          | The developer agent writes an `open` row of its story's spec-feedback report. At the wave close, the implementation agent spawns the row's owner and then the owner's reviewer. `dispatch close-wave` fails while the row is `open`, or `fixed` on a core or seam artifact. `dispatch prepare-wave` refuses the next wave until the close is recorded. |
+| Response measure  | The next wave starts only after every drift row on a core or seam artifact is `confirmed` or `rejected`, and each `rejected` row has a `BUG` finding against the code.                                                                                                                                                                                 |
 
 References: [6.12](06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-0029](../adr/0029-per-story-drift-reports-block-the-wave-close.md)
 
@@ -336,11 +336,35 @@ References: [ADR-0034](../adr/0034-one-register-file-per-minor-finding.md), [5.1
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Quality attribute | Safety (deterministic validation)                                                                                                                                                                        |
 | Stimulus          | A reviewer commits a code finding with `in_use: false`, and every line of its artifact range exists unchanged on `dev`, on a release tag, or in the installed copy, also after a move to another file.   |
-| Environment       | The pre-commit hook in the main checkout or in a linked worktree, with `docs/factory-settings.yaml` committed.                                                                                           |
+| Environment       | The pre-commit hook in the primary checkout or in a linked worktree, with `docs/factory-settings.yaml` committed.                                                                                        |
 | Response          | `finding-lint --staged` finds the line identities in that place and rejects the finding.                                                                                                                 |
 | Response measure  | The commit fails with exit `1` and the message of the first place found, such as `artifact lines exist unchanged on dev`. A range whose lines changed on the feature branch passes with `in_use: false`. |
 
 References: [6.19](06_runtime_view.md#619-finding-lint-at-a-commit)
+
+### QS-28: A failing gate merges on neither way of driving a run
+
+| Field             | Description                                                                                                                                                                                                           |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Safety (deterministic validation)                                                                                                                                                                                     |
+| Stimulus          | ST-0350 passed `dependency-check` in the gate-check step, and a later fix commit adds an import that breaks a rule of `dependency-rules.dsl`. A passing result file for the gate still exists under `.current-work/`. |
+| Environment       | A run on `feature/login`, once orchestrated and once by hand. The primary checkout holds a changed tracked file and an untracked file.                                                                                |
+| Response          | `dispatch merge-story ST-0350` runs `premerge-check`, which reruns every gate in a temporary worktree at the head of `story/ST-0350` and ignores the stored result.                                                   |
+| Response measure  | `premerge-check` exits `1` and names `dependency-check` on both ways, writes no `premerge-check-ok` marker, and the merge does not happen. Both files in the primary checkout are unchanged, and no stash was made.   |
+
+References: [6.24](06_runtime_view.md#624-the-merge-check-of-a-story), [ADR-0038](../adr/0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md)
+
+### QS-29: No agent destroys work in any agent tool
+
+| Field             | Description                                                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quality attribute | Controllability (human authority)                                                                                                                                                |
+| Stimulus          | An agent issues `dispatch return-story ST-0350` or `dispatch close --drop`, as a bare command, through a path to `dispatch`, after `&&` or `;`, or inside `bash -c`.             |
+| Environment       | A session in Claude Code, Codex, Copilot CLI, pi, or OpenCode, inside or outside a run.                                                                                          |
+| Response          | The tool's entry hands the command to `block-dangerous-git.sh`, which refuses it.                                                                                                |
+| Response measure  | In each of the five tools, the command does not run, and the refusal names the reason. Every other `dispatch` subcommand passes. For OpenCode, a real session shows the refusal. |
+
+References: [6.25](06_runtime_view.md#625-the-git-guardrail-in-every-agent-tool), [ADR-0039](../adr/0039-one-git-guardrail-script-for-all-five-agent-tools.md)
 
 ## 10.2 Quality Attribute Priority
 
@@ -373,6 +397,8 @@ References: [6.19](06_runtime_view.md#619-finding-lint-at-a-commit)
 | 1        | Security (human fields)                  | QS-25     |
 | 1        | Correctness (registers)                  | QS-26     |
 | 2        | Safety (deterministic validation)        | QS-27     |
+| 1        | Safety (deterministic validation)        | QS-28     |
+| 1        | Controllability (human authority)        | QS-29     |
 
 ## Referenced from
 

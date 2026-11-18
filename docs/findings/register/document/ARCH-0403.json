@@ -1,0 +1,20 @@
+{
+  "id": "ARCH-0403",
+  "source": "architecture-agent",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/state-machines.md:1002",
+  "story": null,
+  "finding": "The Finding Lifecycle names only a repeat review pass as the performer of FixVerified from IN_LOOP to RESOLVED. BR-118 and the dispatch contract let dispatch merge-story set status resolved in the finding file, in the merge commit, for a blocking finding that dispatch add put into a run as a unit of work, such as BUG-0090. So the component check finds dispatch performing a transition that the comment of the state machine gives to a review. Add dispatch merge-story as the performer of FixVerified for a finding that runs as a unit of work, with a reference to BR-118. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "No story or code encodes BR-118 yet, and BR-118 states the performer plainly, so an implementer of merge-story acts correctly (no to fails_purpose); a reader who checks the transition in the state machine meets a second performer only in BR-118 (raises_cost).",
+  "commit": "06d88637fb5640d50b83502fa62ebe27422a1d1f",
+  "status": "open"
+}

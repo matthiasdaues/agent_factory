@@ -70,6 +70,29 @@ asking. A project that finished its fitting earlier gets the hook from
 on a yes. It also runs `init-factory` of the new release, which adds the
 missing guard entries.
 
+The run lifecycle adds no process either. `dispatch`, `premerge-check`, and
+the gate scripts run as scripts in the checkout where a session calls them. A
+run keeps its state under `.current-work/<feature-branch>/` of the primary
+checkout: the ledger, the briefs, and the step manifests. An orchestrated run
+also keeps its worktrees there, one for the feature branch and one per story. A
+run by hand works in the primary checkout and has no worktree of its own.
+`premerge-check` adds a temporary detached worktree under
+`.current-work/<feature-branch>/premerge/<id>` for each merge check and
+removes it afterwards. The Run Worktrees container holds all of them, and
+`dispatch close` removes them with the rest of the run's state.
+
+The git guardrail runs in the process of each agent tool's hook. Claude Code,
+Codex, and Copilot CLI run `block-dangerous-git.sh` from their native hook.
+pi runs the extension `block-dangerous-git.ts`, and OpenCode runs the plugin
+`agent-factory.ts`. Both start the same script for each shell command.
+
+This repository holds the Factory twice. `packages/factory/` is the source,
+and `.agent-factory/factory/` is the installed copy that the sessions of this
+checkout run. The test suite runs the code under `packages/factory/`.
+`dispatch merge-story` copies nothing into the installed copy, so the
+installed copy changes only through `update-factory`, as in any other project
+([ADR-0040](../adr/0040-the-factory-tests-run-against-the-source.md)).
+
 ## 7.2 Lifecycle Boundaries
 
 `init-factory --with-usage` and `init-factory --add usage` install the analysis

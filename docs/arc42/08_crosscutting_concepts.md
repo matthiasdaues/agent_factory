@@ -47,7 +47,7 @@ Factory Flow Control uses **mechanically triggered gates** as the enforcement la
 
 | Hook Type                  | Fires When                   | Runs What                                                                | Cannot Be Bypassed By         | Exit Codes                      |
 | -------------------------- | ---------------------------- | ------------------------------------------------------------------------ | ----------------------------- | ------------------------------- |
-| **PreToolUse**             | Before every shell command   | `block-dangerous-git.sh` (charter-aware allowlist)                       | Agent or human (CLI enforces) | 0 (allow), 2 (deny)             |
+| **PreToolUse**             | Before every shell command   | `block-dangerous-git.sh`, the one git guardrail of all five agent tools  | Agent or human (CLI enforces) | 0 (allow), 2 (deny)             |
 | **Eligibility evaluation** | `intent select` invocation   | Precondition evaluator against agent definitions                         | Manual invocation required    | (evidence table)                |
 | **OpenCode V2 Plugin**     | Before every tool invocation | Permission Enforcer (`execute.before`), Tool Restrictor (`context` hook) | Agent (plugin enforces)       | allow/deny with recovery action |
 
@@ -56,11 +56,13 @@ Factory Flow Control uses **mechanically triggered gates** as the enforcement la
 Agents do not have unrestricted shell access. Every command passes through a PreToolUse hook (`block-dangerous-git.sh`) before execution. The hook:
 
 1. Receives the command through the runtime adapter: Claude Code, Copilot CLI,
-   and Codex provide their native hook JSON shapes; Pi's extension receives the
-   tool call and applies the same deny list.
+   and Codex provide their native hook JSON shapes. pi's extension
+   `block-dangerous-git.ts` and OpenCode's plugin pass the command to the same
+   script and return its answer; neither holds a rule of its own
+   ([ADR-0039](../adr/0039-one-git-guardrail-script-for-all-five-agent-tools.md)).
 2. Matches it against a deny list (destructive git commands, test commands).
 3. Exits 0 (allow) or 2 (deny). Exit 2 surfaces as a denial message to the agent; the command never executes.
-4. OpenCode's Factory plugin applies the same deny rules through the V2 `execute.before` hook. The plugin evaluates ordered allow, ask, and deny rules; explicit denials are final.
+4. OpenCode's Factory plugin calls the script from the V2 `execute.before` hook. Its Permission Enforcer also evaluates ordered allow, ask, and deny rules; explicit denials are final.
 
 This is **preventive validation**, not reactive. The agent never sees test output from a run it initiated unless it runs a project-declared command.
 
@@ -147,15 +149,15 @@ Two distinctions from section 8.2 matter. First, these validators are **on deman
 
 ## 8.7 Semantic Quality Gates
 
-The two semantic gates (`crap-score`, `dependency-check`) extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks to code meaning. They are **on-demand validators owned by the implementation-agent dispatcher**, not hook-triggered. This placement follows [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md). The test-strategy agent owns the test guardrails, `crap-score`, `mutation-testing`, and `test-design-verify`: it chooses them and sets their thresholds in `testing.yaml`. The implementation agent runs them, together with the project's mutation command from `gates.mutation_testing.command` ([ADR-0027](../adr/0027-split-the-requirements-agent-by-artifact-family.md)).
+The semantic gates (`crap-score`, `dependency-check`, `test-design-verify`, `mutation-testing`, and any gate with a command in `docs/testing.yaml`) extend the "Agentic Creation, Deterministic Validation" principle from syntactic checks to code meaning. The implementation agent runs them in the gate-check step, in both ways of driving a run, and `premerge-check` runs them again at the merge. This placement follows [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) and [ADR-0038](../adr/0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md). The test-strategy agent owns the test guardrails, `crap-score`, `mutation-testing`, and `test-design-verify`: it chooses them and sets their thresholds and commands in `testing.yaml` ([ADR-0027](../adr/0027-split-the-requirements-agent-by-artifact-family.md)).
 
-### Why Dispatcher-Owned, Not Hook-Triggered
+### Why Not Hook-Triggered
 
-Hook-triggered gates (section 8.2) fire at operation boundaries that every commit or push crosses. Semantic gates fire once per developer-agent iteration in the gate loop, after the developer commits, and only for the story's changed files.
+Hook-triggered gates (section 8.2) fire at operation boundaries that every commit or push crosses. A gate that takes minutes would slow every commit, so the slow gates run once per attempt in the gate-check step and once at the merge. A fast gate runs on every commit as well: `dependency-check` is also the pre-commit hook `agent_factory_hook-dependency-check`, which gives the developer agent early feedback.
 
 ### Why Not Developer-Owned
 
-A developer agent running its own quality gates is self-validation. The same principle that led ADR-0003 to block agents from running bare test commands applies here. The developer creates; the dispatcher validates. The developer never sees the gate scripts; it receives only the gate reports when a fix is needed.
+A developer agent running its own quality gates is self-validation. The same principle that led ADR-0003 to block agents from running bare test commands applies here. The developer creates; the implementation agent and `premerge-check` validate. The developer never sees the gate scripts; it receives only the gate reports when a fix is needed.
 
 ### Coherence with Testing Strategy
 
@@ -587,7 +589,7 @@ a shell. The design for that path is deferred to the gate-evidence proposal.
 - [05_building_block_view.md section 5.2.5](05_building_block_view.md#525-agent-context-validation-concern-lint)
 - [06_runtime_view.md section 6.2](06_runtime_view.md#62-agent-selection)
 - [06_runtime_view.md section 6.3](06_runtime_view.md#63-test-gate-presence)
-- [06_runtime_view.md section 6.4](06_runtime_view.md#64-semantic-gate-loop)
+- [06_runtime_view.md section 6.4](06_runtime_view.md#64-gate-check-step)
 - [06_runtime_view.md section 6.5](06_runtime_view.md#65-agent-context-validation)
 - [06_runtime_view.md section 6.10](06_runtime_view.md#610-value-first-onboarding)
 - [09_architecture_decisions.md](09_architecture_decisions.md)

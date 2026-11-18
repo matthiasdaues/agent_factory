@@ -6,6 +6,8 @@ evaluation: none
 
 # Per-story drift reports block the wave close
 
+Amended by [ADR-0037](0037-one-lifecycle-for-runs-orchestrated-and-by-hand.md): the implementation agent spawns the owner and the reviewer of each drift row at the wave close, on the feature branch, and `dispatch merge-story` does not wait for them.
+
 ## Context
 
 Take ST-0318. While implementing it, the developer agent finds that the

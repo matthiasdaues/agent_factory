@@ -8,6 +8,10 @@ evaluation: pugh-matrix
 
 Amended by [ADR-0027](0027-split-the-requirements-agent-by-artifact-family.md): mutation testing runs as a gate through the project's command in `gates.mutation_testing.command`.
 
+Amended by [ADR-0037](0037-one-lifecycle-for-runs-orchestrated-and-by-hand.md): the implementation agent runs the gate-check step in both ways of driving a run, with `gates.attempts` and `gates.attempts_escalated` attempts from `docs/testing.yaml`, and a story that uses them up is `failed`.
+
+Amended by [ADR-0038](0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md): `premerge-check` reruns every gate in a temporary worktree at the branch head instead of reading the stored results.
+
 ## Context
 
 The Factory introduces three semantic quality gates — CRAP scoring, mutation analysis, and dependency-rule checking — that run deterministic scripts on committed code. The question is where in the workflow these gates fire and who owns their execution.
