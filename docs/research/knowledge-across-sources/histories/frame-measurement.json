@@ -1,0 +1,38 @@
+{
+  "concept": "Measuring a frame in text",
+  "area": "4. Claim propagation and framing",
+  "current_formulation": "SemEval-2023 Task 3 assigns one or more of 14 generic framing dimensions to each news article, in nine languages.",
+  "steps": [
+    {
+      "formulation": "Researchers build an issue-specific codebook and code documents by hand. Known through the Media Frames Corpus paper.",
+      "date": "2015-07-26",
+      "record": "A4-SR-09",
+      "quote": "Past work on framing includes many examples of issue-specific studies based on manual content analysis",
+      "criticism": {
+        "record": "A4-SR-09",
+        "date": "2015-07-26",
+        "quote": "they do not characterize framing at a level of abstraction that allows comparison across social issues.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Fifteen generic framing dimensions are meant to cover all specific frames on any issue; annotators label spans and a primary frame per article.",
+      "date": "2015-07-26",
+      "record": "A4-SR-09",
+      "quote": "which are intended to subsume all specific frames that might be encountered on any issue of public concern.",
+      "criticism": null
+    },
+    {
+      "formulation": "Systems assign one or more of 14 generic dimensions to each article, as a multi-label task in several languages.",
+      "date": "2023-07-01",
+      "record": "A4-SR-10",
+      "quote": "identify one or more frames used in the article from a pool of 14 generic framing dimensions",
+      "criticism": {
+        "record": "A4-SR-10",
+        "date": "2023-07-01",
+        "quote": "the value was 0.342, which is lower than the recommended threshold of 0.667",
+        "drove_next": false
+      }
+    }
+  ]
+}

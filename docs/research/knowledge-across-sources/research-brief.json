@@ -1,0 +1,33 @@
+{
+  "mode": "survey",
+  "research_question": "How do existing methods and systems capture, link, and trace knowledge from heterogeneous sources (news, email, chat, conversation transcripts) on any topic, including how claims propagate and change between sources, and which of their concepts have been hardened through several documented rounds of formulation, criticism, and reformulation?",
+  "intended_use": "Widen the design of a knowledge graph with provenance from the Agent Factory's own documents to a personal or team knowledge system over any source and any topic. The factory is the system's first tenant and the method that builds and runs it. The survey informs a rewrite of the case document and a later falsification study; it changes no factory code.",
+  "audience": "Agent Factory maintainers who know software engineering and the earlier knowledge graph survey, but not the literature on knowledge management, fact-checking, conversation mining, or media framing.",
+  "scope": "Four areas. (1) Personal and team knowledge management: the lineage from the Memex and hypertext through Zettelkasten to current note graphs and enterprise knowledge management, and how each handles sources, links, and provenance. (2) Claims across news: claim detection, claim matching, fact-checking pipelines and the ClaimReview markup, and how corrections and retractions are recorded and followed. (3) Email, chat, and meeting transcripts as sources: message identity and threading (RFC 5322 Message-ID and References), chat export formats, conversation disentanglement, speaker attribution, and the extraction of decisions and action items from meetings. (4) Claim propagation and framing: how downstream outlets reuse a primary report (verbatim, altered, reframed, or independently reported), text reuse detection, framing theory, detection of stance and sentiment shift, and origin tracing in fact-checking. For each area, record the concepts that went through several documented rounds of proposal, criticism, and replacement, with the sequence of formulations and what criticism drove each change.",
+  "exclusions": [
+    "Implementing, installing, or benchmarking any tool or store",
+    "Vendor marketing material as evidence for a claim about capability or adoption",
+    "Graph data models and standards already covered by the knowledge-graph-state-of-the-art survey, except where an area needs them as context",
+    "Pricing and licensing assessment of products",
+    "Legal limits on storage, such as copyright and data protection. Every source is treated as storable; rule-based exclusions and deletion come later"
+  ],
+  "freshness_requirements": [
+    "Fact-checking, claim detection, and language-model systems from 2020 onward",
+    "Older sources are acceptable and expected for the history of a concept, from Bush 1945 onward"
+  ],
+  "source_requirements": [
+    "Primary sources first: original papers, specifications and RFCs, and project documentation",
+    "Peer-reviewed surveys for the overview of each area",
+    "Each history of a concept cites the source of each formulation and of each criticism",
+    "Secondary sources only where a primary source is unreachable, and then marked as secondary",
+    "Every source record states what the source shows and what it does not show, and puts the source's own words in double quotes in its Evidence section"
+  ],
+  "cost_of_error": "Medium. A wrong finding on propagation or claims steers the core model, which is expensive to change once the store holds data. The survey must mark weak evidence rather than hide it.",
+  "completion_criteria": [
+    "Each of the four scope areas has findings backed by recorded sources",
+    "The report names the concepts with a documented history of several formulation and criticism rounds, checked by concept-history-check, with the sequence and the criticism behind each change where recorded",
+    "The report describes how a downstream source's reuse of a primary report can be classified and recorded, with the methods the literature offers for each class",
+    "The report lists candidates for the later falsification study, phrased as testable design claims for the wider knowledge system",
+    "The report reports history as what the sources document; it does not claim that any concept survived refutation, because that verdict belongs to the falsification workflow"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "concept": "The disentanglement task",
+  "area": "3. Email, chat, and meeting transcripts",
+  "current_formulation": "Annotators label reply links between chat messages, and each connected component of the reply graph is one conversation.",
+  "steps": [
+    {
+      "formulation": "Disentanglement clusters the utterances of one transcript into separate conversations.",
+      "date": "2008-06-01",
+      "record": "A3-SR-15",
+      "quote": "Disentanglement is the clustering task of dividing a transcript into a set of distinct conversations.",
+      "criticism": {
+        "record": "A3-SR-16",
+        "date": "2019-07-28",
+        "quote": "datasets that are either small (2,500 messages, Elsner and Charniak, 2008) or not released (Adams and Martell, 2008).",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Messages are nodes of a reply graph, and each connected component is a conversation.",
+      "date": "2019-07-28",
+      "record": "A3-SR-16",
+      "quote": "We label this data with a graph in which messages are nodes and edges indicate that one message is a response to another.",
+      "criticism": {
+        "record": "A3-SR-16",
+        "date": "2019-07-28",
+        "quote": "risks introducing a bias, as people write differently when explicit structure is defined",
+        "drove_next": false
+      }
+    }
+  ]
+}

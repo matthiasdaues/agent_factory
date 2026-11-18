@@ -1,0 +1,31 @@
+{
+  "concept": "Claim provenance",
+  "area": "4. Claim propagation and framing",
+  "current_formulation": "A provenance graph links earlier statements to a claim with the labels identical, paraphrased, textually entailed, triggered, and contradicted.",
+  "steps": [
+    {
+      "formulation": "Fact-checking assigns a truth value to a claim in its context; who first made the claim is not part of the task.",
+      "date": "2014-06-26",
+      "record": "A2-SR-01",
+      "quote": "We define fact-checking to be the assignment of a truth value to a claim made in a particular context.",
+      "criticism": {
+        "record": "A4-SR-15",
+        "date": "2020-07-01",
+        "quote": "who first made a given claim, and how an original claim developed and changed over time",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Edges from earlier statements to a claim carry the labels identical, paraphrased, textually entailed, or motivated.",
+      "date": "2020-07-01",
+      "record": "A4-SR-15",
+      "quote": "identical, when a source quotes a statement from another source",
+      "criticism": {
+        "record": "A4-SR-15",
+        "date": "2020-07-01",
+        "quote": "It is important to note that we have not solved the claim provenance problem.",
+        "drove_next": false
+      }
+    }
+  ]
+}

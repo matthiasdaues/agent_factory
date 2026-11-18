@@ -1,0 +1,52 @@
+{
+  "concept": "The Message-ID rule",
+  "area": "3. Email, chat, and meeting transcripts",
+  "current_formulation": "RFC 5322 requires one globally unique Message-ID per message version and allows only one written form of it; older forms are parsed only.",
+  "steps": [
+    {
+      "formulation": "RFC 733 gives each version of a message a unique identifier, guaranteed by the host that generates it, and allows one Message-ID field per message.",
+      "date": "1977-11-21",
+      "record": "A3-SR-01",
+      "quote": "This field contains a unique identifier (the phrase) which refers to THIS version of THIS message.",
+      "criticism": null
+    },
+    {
+      "formulation": "RFC 822 keeps the meaning and writes the identifier in address form inside angle brackets.",
+      "date": "1982-08-13",
+      "record": "A3-SR-02",
+      "quote": "This field contains a unique identifier (the local-part address unit) which refers to THIS version of THIS message.",
+      "criticism": {
+        "record": "A3-SR-06",
+        "date": "1997-01-01",
+        "quote": "especially since Message-IDs and email addresses have identical syntax.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "RFC 1036 forbids reuse of an identifier during the lifetime of an earlier message and treats foreign identifiers as opaque strings.",
+      "date": "1987-12-01",
+      "record": "A3-SR-03",
+      "quote": "The Message-ID may not be reused during the lifetime of any previous message with the same Message-ID.",
+      "criticism": null
+    },
+    {
+      "formulation": "RFC 2822 requires global uniqueness and lets the sender's intent decide whether a changed message keeps its identifier.",
+      "date": "2001-04-01",
+      "record": "A3-SR-04",
+      "quote": "The message identifier (msg-id) itself MUST be a globally unique identifier for a message.",
+      "criticism": {
+        "record": "A3-SR-07",
+        "date": "2008-06-01",
+        "quote": "The actual text in RFC 2822 may use quoting, resulting in multiple ways of expressing the same Message ID.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "RFC 5322 allows only the dot-atom form on the left-hand side and no internal whitespace, so one identifier has one written form.",
+      "date": "2008-10-01",
+      "record": "A3-SR-05",
+      "quote": "this syntax only permits the dot-atom-text form on the left-hand side",
+      "criticism": null
+    }
+  ]
+}

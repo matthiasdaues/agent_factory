@@ -1,0 +1,38 @@
+{
+  "concept": "Information about a link and the annotation model",
+  "area": "1. Personal and team knowledge management",
+  "current_formulation": "The W3C Web Annotation Data Model stores an annotation as a resource of its own with body, target, creator, and creation time, and points into a given version of the target.",
+  "steps": [
+    {
+      "formulation": "Enquire links carry a type and may carry a comment.",
+      "date": "1980-01-01",
+      "record": "A1-SR-06",
+      "quote": "and may also have comment associated with it.",
+      "criticism": {
+        "record": "A1-SR-07",
+        "date": "1991-01-01",
+        "quote": "This perverts the data model significantly, and I cannot see that that is a good idea.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Information about a link belongs in the source node or in an intermediate node such as an annotation, not on the link.",
+      "date": "1991-01-01",
+      "record": "A1-SR-07",
+      "quote": "Information about the link can always be put in the source node, or in an intermediate node, for example an annotation.",
+      "criticism": null
+    },
+    {
+      "formulation": "The W3C model makes the annotation a set of connected resources, usually a body and a target, with creator, creation time, selectors, and states.",
+      "date": "2017-02-23",
+      "record": "A1-SR-18",
+      "quote": "An annotation is considered to be a set of connected resources, typically including a body and target",
+      "criticism": {
+        "record": "A1-SR-18",
+        "date": "2017-02-23",
+        "quote": "is very brittle with regards to changes to the resource.",
+        "drove_next": false
+      }
+    }
+  ]
+}

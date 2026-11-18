@@ -1,0 +1,59 @@
+{
+  "concept": "Link direction and storage",
+  "area": "1. Personal and team knowledge management",
+  "current_formulation": "Note tools write a link one-way in the source note and compute the reverse direction as a backlink list inside one vault or graph.",
+  "steps": [
+    {
+      "formulation": "The memex writes the link code on both items, so either item recalls the other; links form named trails that can be copied to another person.",
+      "date": "1945-07-01",
+      "record": "A1-SR-01",
+      "quote": "on each item these dots by their positions designate the index number of the other item.",
+      "criticism": null
+    },
+    {
+      "formulation": "Xanadu keeps links outside the documents, makes them two-way, and treats re-use as a separate connection called transclusion. The date is Nelson's own account of an undocumented 1960 design.",
+      "date": "1960-01-01",
+      "record": "A1-SR-03",
+      "quote": "must support bidirectional and profuse links, which cannot be embedded",
+      "criticism": null
+    },
+    {
+      "formulation": "Links carry types, and most links have a direction, like an arrow from one structure to another.",
+      "date": "1962-10-01",
+      "record": "A1-SR-02",
+      "quote": "most links possessed a direction, i.e., they were like an arrow pointing from one substructure to another",
+      "criticism": {
+        "record": "A1-SR-04",
+        "date": "1988-10-01",
+        "quote": "Yet these systems differ markedly in the specific data models and sets of functionality that they provide to their users.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "The Dexter model stores links in a storage layer apart from component content and addresses link ends through anchors with stable IDs.",
+      "date": "1990-01-16",
+      "record": "A1-SR-04",
+      "quote": "Anchors can therefore be uniquely identified across the whole universe by a component UID, anchor id pair.",
+      "criticism": null
+    },
+    {
+      "formulation": "The Web link is one-way in the data model; the reverse direction is recovered by a reverse link on write or by back-links gathered in a background process.",
+      "date": "1991-01-01",
+      "record": "A1-SR-07",
+      "quote": "A compromise that links be one-way in the data model, but that a reverse link is created when any link is made",
+      "criticism": {
+        "record": "A1-SR-03",
+        "date": "1999-12-01",
+        "quote": "The Web trivialized this original Xanadu model, vastly but incorrectly simplifying these problems to a world of fragile ever-breaking one-way links",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Obsidian writes links one-way in the source note and shows the reverse direction as computed backlinks.",
+      "date": "2026-03-24",
+      "record": "A1-SR-09",
+      "quote": "A backlink for a note is a link from another note to that note.",
+      "criticism": null
+    }
+  ]
+}

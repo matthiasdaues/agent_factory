@@ -1,0 +1,55 @@
+{
+  "concept": "Check-worthy claim",
+  "area": "2. Claims across news",
+  "current_formulation": "CheckThat! 2020 asks annotators an objective question (does the text hold a verifiable factual claim) and a subjective question (should a fact-checker verify it); both must be yes.",
+  "steps": [
+    {
+      "formulation": "ClaimBuster calls a factual sentence check-worthy when the general public wants to know whether it is true.",
+      "date": "2015-10-19",
+      "record": "A2-SR-02",
+      "quote": "These sentences contain factual claims and the general public will be interested in knowing whether the claims are true or false.",
+      "criticism": {
+        "record": "A2-SR-04",
+        "date": "2018-08-08",
+        "quote": "The ClaimBuster system did not try to mimic the check-worthiness decisions for any specific fact-checking organization",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "CheckThat! 2018 ranks debate sentences by how one fact-checker, FactCheck.org, selected them.",
+      "date": "2018-08-08",
+      "record": "A2-SR-04",
+      "quote": "mimic the selection strategies of a particular fact-checking organization",
+      "criticism": {
+        "record": "A2-SR-08",
+        "date": "2020-07-15",
+        "quote": "Due to the subjective nature of check-worthiness, we chose to represent the check-worthiness criteria by several questions",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Full Fact labels whether a sentence holds a checkable claim and leaves importance to fact-checkers.",
+      "date": "2018-09-01",
+      "record": "A2-SR-05",
+      "quote": "We chose to decouple the importance of the claim from the claim itself.",
+      "criticism": {
+        "record": "A2-SR-05",
+        "date": "2020-08-17",
+        "quote": "At the level of all the 7 granular categories the inter-annotator agreement is moderate",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "CheckThat! 2020 splits the label into an objective verifiable-claim question and a subjective priority question.",
+      "date": "2020-07-15",
+      "record": "A2-SR-08",
+      "quote": "we consider as worth fact-checking the tweets that received a positive answer both to Q1 and to Q5",
+      "criticism": {
+        "record": "A2-SR-11",
+        "date": "2022-06-06",
+        "quote": "Check-worthiness and rumourousness can be subjective.",
+        "drove_next": false
+      }
+    }
+  ]
+}

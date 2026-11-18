@@ -1,0 +1,26 @@
+{
+  "concept": "SECI model of knowledge creation",
+  "area": "1. Personal and team knowledge management",
+  "current_formulation": "The proponents restate tacit and explicit knowledge as ends of a continuum and say they answer six questions from the debate; the body of the reply was not read.",
+  "steps": [
+    {
+      "formulation": "Four modes of conversion between tacit and explicit knowledge, set inside ba, a shared context, with knowledge assets as inputs and outputs.",
+      "date": "2000-02-01",
+      "record": "A1-SR-12",
+      "quote": "There are four modes of knowledge conversion.",
+      "criticism": {
+        "record": "A1-SR-14",
+        "date": "2002-10-01",
+        "quote": "it cannot be 'captured' - it can only be demonstrated through our expressible knowledge and through our acts.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Tacit and explicit knowledge are distinguished along a continuum.",
+      "date": "2009-06-01",
+      "record": "A1-SR-13",
+      "quote": "tacit and explicit knowledge can be conceptually distinguished along a continuum",
+      "criticism": null
+    }
+  ]
+}

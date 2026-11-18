@@ -1,0 +1,38 @@
+{
+  "concept": "The stance-detection task",
+  "area": "4. Claim propagation and framing",
+  "current_formulation": "Article-to-headline stance is scored with class-wise and macro-averaged F1, which the majority class does not dominate.",
+  "steps": [
+    {
+      "formulation": "Stance is whether the author of a text is in favour of, against, or neutral towards a target.",
+      "date": "2016-06-16",
+      "record": "A4-SR-11",
+      "quote": "Stance detection is the task of automatically determining from text whether the author of the text is in favor of, against, or neutral towards a proposition or target.",
+      "criticism": {
+        "record": "A4-SR-11",
+        "date": "2016-06-16",
+        "quote": "systems found it markedly more difficult to infer stance towards the target of interest from tweets that express opinion towards another entity.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "FNC-1 labels a news article as agreeing with, disagreeing with, discussing, or unrelated to a headline. Known through Hanselowski et al.",
+      "date": "2017-01-01",
+      "record": "A4-SR-12",
+      "quote": "The goal of the FNC-1 challenge is to determine the perspective (or stance) of a news article relative to a given headline.",
+      "criticism": {
+        "record": "A4-SR-12",
+        "date": "2018-08-01",
+        "quote": "FNC-1's proposed evaluation metric favors the majority class",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Class-wise and macro-averaged F1 replace the FNC-1 score.",
+      "date": "2018-08-01",
+      "record": "A4-SR-12",
+      "quote": "we propose the class-wise and the macro-averaged F1 scores (F1 m) as a new metric for this task",
+      "criticism": null
+    }
+  ]
+}

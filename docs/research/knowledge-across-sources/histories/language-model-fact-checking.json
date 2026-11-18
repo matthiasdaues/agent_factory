@@ -1,0 +1,31 @@
+{
+  "concept": "Language-model fact-checking",
+  "area": "2. Claims across news",
+  "current_formulation": "Language-model agents with web search check claims better than the same models without it, with accuracy that varies by language and verdict.",
+  "steps": [
+    {
+      "formulation": "A masked language model checks a claim closed-book: a correctly predicted masked token counts as support.",
+      "date": "2020-07-24",
+      "record": "A2-SR-09",
+      "quote": "If predicted token matches the masked token, the claim is supported, otherwise it is refuted.",
+      "criticism": {
+        "record": "A2-SR-09",
+        "date": "2020-07-24",
+        "quote": "Though we do not ultimately outperform methods which use explicit knowledge bases",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "GPT agents retrieve contextual information from the web before they decide.",
+      "date": "2023-10-01",
+      "record": "A2-SR-13",
+      "quote": "incorporating contextual information significantly improves accuracy.",
+      "criticism": {
+        "record": "A2-SR-13",
+        "date": "2024-02-07",
+        "quote": "caution is essential due to inconsistent accuracy.",
+        "drove_next": false
+      }
+    }
+  ]
+}

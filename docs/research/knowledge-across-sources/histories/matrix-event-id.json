@@ -1,0 +1,38 @@
+{
+  "concept": "The Matrix event ID",
+  "area": "3. Email, chat, and meeting transcripts",
+  "current_formulation": "From room version 4, the event ID is the reference hash of the event in URL-safe unpadded Base64.",
+  "steps": [
+    {
+      "formulation": "Room versions 1 and 2 give an event an opaque ID with a domain that only namespaces it.",
+      "date": "2024-10-01",
+      "record": "A3-SR-11",
+      "quote": "Event IDs in this room version have the format: $opaque_id:domain",
+      "criticism": {
+        "record": "A3-SR-11",
+        "date": "2024-10-01",
+        "quote": "servers receive multiple events with the same ID in either the same or different rooms where the server cannot easily keep track of which event it should be using.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Room version 3 computes the event ID as the reference hash of the event in unpadded Base64.",
+      "date": "2024-10-01",
+      "record": "A3-SR-11",
+      "quote": "The event ID is the reference hash of the event encoded using Unpadded Base64, prefixed with $.",
+      "criticism": {
+        "record": "A3-SR-11",
+        "date": "2024-10-01",
+        "quote": "Room version 3 generated event IDs that were difficult for client implementations which were not encoding the event ID to function in those rooms.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Room version 4 replaces the 62nd and 63rd Base64 characters with URL-safe ones.",
+      "date": "2024-10-01",
+      "record": "A3-SR-11",
+      "quote": "a variation of Unpadded Base64 which replaces the 62nd and 63rd characters with - and _ instead of using + and /.",
+      "criticism": null
+    }
+  ]
+}

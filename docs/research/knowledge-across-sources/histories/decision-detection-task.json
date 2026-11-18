@@ -1,0 +1,26 @@
+{
+  "concept": "The decision-detection task",
+  "area": "3. Email, chat, and meeting transcripts",
+  "current_formulation": "Decision dialogue acts are split into issue, resolution proposal, resolution restatement, and agreement.",
+  "steps": [
+    {
+      "formulation": "Decision-making dialogue acts form one class, derived from links to the decision section of a human summary.",
+      "date": "2007-04-01",
+      "record": "A3-SR-19",
+      "quote": "We formulate the problem as classifying decision-making units at two levels of granularity: dialogue acts and topic segments.",
+      "criticism": {
+        "record": "A3-SR-21",
+        "date": "2008-06-01",
+        "quote": "The F-score they achieved was 0.35, which gives a good indication of the difficulty of this task.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Decision dialogue acts take the roles issue, resolution, and agreement.",
+      "date": "2008-06-01",
+      "record": "A3-SR-21",
+      "quote": "Our scheme distinguishes among three main decision dialogue act (DDA) classes: issue (I), resolution (R), and agreement (A).",
+      "criticism": null
+    }
+  ]
+}

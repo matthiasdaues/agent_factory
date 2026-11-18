@@ -1,0 +1,38 @@
+{
+  "concept": "Text reuse class",
+  "area": "4. Claim propagation and framing",
+  "current_formulation": "Boumans et al. link articles to agency copy by cosine similarity and score verbatim reuse with a churnalism index.",
+  "steps": [
+    {
+      "formulation": "METER sorts newspaper stories into wholly derived, partially derived, and non-derived from agency copy, by journalists' judgement.",
+      "date": "2002-07-01",
+      "record": "A4-SR-01",
+      "quote": "wholly-derived (WD): all text in the newspaper article is rewritten only from news agency copy",
+      "criticism": {
+        "record": "A4-SR-02",
+        "date": "2010-08-01",
+        "quote": "Although the corpus can be used to evaluate plagiarism detection its design does not support this task.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "PAN-PC-10 models reuse as a source passage under artificial or human obfuscation.",
+      "date": "2010-08-01",
+      "record": "A4-SR-02",
+      "quote": "Since verbatim copies can be detected easily, plagiarists often rewrite ssrc to obfuscate their illegitimate act.",
+      "criticism": null
+    },
+    {
+      "formulation": "Agency dependence is measured by text comparison: a cosine link, then a churnalism index for verbatim reuse.",
+      "date": "2018-01-01",
+      "record": "A4-SR-04",
+      "quote": "when the churnalism index > .7, the two texts are nearly identical",
+      "criticism": {
+        "record": "A4-SR-04",
+        "date": "2018-01-01",
+        "quote": "the agency and the newspaper independently of each other replicate the same source text, such as a press release.",
+        "drove_next": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "concept": "The diarization metric",
+  "area": "3. Email, chat, and meeting transcripts",
+  "current_formulation": "DIHARD II scores diarization with full DER, without collars or overlap exclusion, plus the new Jaccard error rate.",
+  "steps": [
+    {
+      "formulation": "The NIST Rich Transcription evaluations introduce the diarization error rate. Known only through DIHARD II.",
+      "date": "2019-06-18",
+      "record": "A3-SR-22",
+      "quote": "the RT evaluations introduced the diarization error rate (DER) metric",
+      "criticism": null
+    },
+    {
+      "formulation": "Most later work scores a modified DER that excludes speech within 250 ms of boundaries and overlapped speech. Known only through DIHARD II.",
+      "date": "2019-06-18",
+      "record": "A3-SR-22",
+      "quote": "the majority of this work has evaluated systems using a modified version of DER",
+      "criticism": {
+        "record": "A3-SR-22",
+        "date": "2019-06-18",
+        "quote": "this may have resulted in an over-optimistic assessment of performance even within these domains",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "DIHARD II uses full DER without collars or overlap exclusion, and adds the Jaccard error rate.",
+      "date": "2019-06-18",
+      "record": "A3-SR-22",
+      "quote": "DER is adopted as the primary evaluation metric, but without use of collars or exclusion of overlapping speech.",
+      "criticism": null
+    }
+  ]
+}

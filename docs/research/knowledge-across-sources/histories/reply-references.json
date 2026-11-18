@@ -1,0 +1,43 @@
+{
+  "concept": "In-Reply-To and References",
+  "area": "3. Email, chat, and meeting transcripts",
+  "current_formulation": "RFC 2822 restricts generated In-Reply-To and References fields to message identifiers, builds References from the parent's References plus the parent's Message-ID, and assumes a single parent.",
+  "steps": [
+    {
+      "formulation": "RFC 822 lets both fields hold any sequence of free phrases and message identifiers.",
+      "date": "1982-08-13",
+      "record": "A3-SR-02",
+      "quote": "/ \"References\" \":\" \\*(phrase / msg-id)",
+      "criticism": {
+        "record": "A3-SR-06",
+        "date": "1997-01-01",
+        "quote": "its definition was pretty useless.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "RFC 1036 builds References for news as the parent's References plus the parent's Message-ID, and permits truncation.",
+      "date": "1987-12-01",
+      "record": "A3-SR-03",
+      "quote": "a blank, and the Message-ID of the original message.",
+      "criticism": {
+        "record": "A3-SR-06",
+        "date": "1997-01-01",
+        "quote": "it is not uncommon for multiple messages in the same thread to have seemingly-contradictory References data",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "RFC 2822 restricts both fields to identifiers, adopts the news construction rule for mail, and assumes a single parent.",
+      "date": "2001-04-01",
+      "record": "A3-SR-04",
+      "quote": "These implementations assume that each new message is a reply to a single parent",
+      "criticism": {
+        "record": "A3-SR-07",
+        "date": "2008-06-01",
+        "quote": "in actual practice this discipline has not been followed.",
+        "drove_next": false
+      }
+    }
+  ]
+}

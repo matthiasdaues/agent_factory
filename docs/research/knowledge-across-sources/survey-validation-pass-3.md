@@ -1,0 +1,95 @@
+# Survey Validation, Pass 3: Knowledge Across Sources
+
+This file records the third run of Step 5 of [research-survey.md](../../../packages/factory/playbooks/research-survey.md) for [survey-report.md](survey-report.md). The validator did not write any artifact of this survey. The stakeholder ordered a narrow pass. So this review judges only the sentences that changed after [pass 2](survey-validation-pass-2.md), plus two consistency checks. Sentences that pass 2 accepted stay accepted.
+
+## 1. Verdict
+
+The report passes the gate. All five mechanical checks pass. Of the 16 changed sentences, 15 are supported and one is partly supported. P2-01 to P2-05 and P2-07 are fixed. No correction blocks.
+
+One new correction, P3-01, is `minor`. The fix of P2-01 says that the entailment labelling of A4-SR-15 is the only automatic method at the level of meaning outside science. Claim matching (A2-SR-10) is a second one. The report already names claim matching in section 2.2, so a reader still finds it.
+
+Next step: the Research Report Writer may fix P3-01 and the notes in section 6. The gate does not wait for them.
+
+## 2. Mechanical results
+
+All commands ran from the repository root on 2026-11-18.
+
+| #   | Check                                | Command or method                                                                                                                                                                     | Exit | Result                                                                                                               |
+| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------- |
+| 1   | Concept histories                    | `packages/factory/scripts/concept-history-check docs/research/knowledge-across-sources`                                                                                               | 0    | `concept-history-check: 18 histories pass`.                                                                          |
+| 2   | Tables equal the script output       | `concept-history-check --table docs/research/knowledge-across-sources`, then `diff` against lines 55 to 79 of the report                                                              | 0    | Both tables and the line between them match exactly, 25 lines each.                                                  |
+| 3   | Report schema                        | The json block of section 6 extracted to a scratch file, then `packages/factory/scripts/schema-validate <file> packages/factory/rulebooks/schemas/research-survey-report.schema.json` | 0    | No violation. A control run on `{}` exits 1, so the validator does check the file.                                   |
+| 4   | Every record ID resolves to one file | Every `A[1-4]-SR-NN` in the report and in `histories/` searched under `sources/` with `find`                                                                                          | 0    | The report cites 77 distinct IDs. Each ID in the report and in `histories/` resolves to exactly one file.            |
+| 5   | Source records                       | `packages/factory/scripts/source-record-check docs/research/knowledge-across-sources/sources`                                                                                         | 0    | `77 records checked, 0 failure(s), 4 other file(s) skipped`. The brief does not ask for this check, but Step 6 does. |
+
+A word-bounded search for "proven", "prove", "validated", "survived", "survive", "survives", "admitted", and "refutation" finds no match. The nine candidates use "Refuted if", which states a test condition, not a status.
+
+## 3. Changed sentences
+
+The review opened every cited record for each sentence.
+
+| #   | Place                                       | Sentence, in short                                                                                          | Verdict          | Reason                                                                                                                                                                                                                                                                            |
+| --- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 4.2 Methods                                 | The provenance graph labels paraphrased and entailed edges with a textual entailment model (A4-SR-15).      | Supported        | The `method` field says it "labels edges with a textual entailment model" over statements from retrieved articles. The edge label set holds "paraphrased" and "textually entailed".                                                                                               |
+| 2   | 4.2 What they show                          | The entailment labels are automatic but carry no direction of claim strength.                               | Supported        | The quoted edge label set has no scale of claim strength. Section 6 has a note on this sentence.                                                                                                                                                                                  |
+| 3   | 4.2 What they show                          | The record gives no accuracy figure, and the authors call the problem unsolved (A4-SR-15).                  | Supported        | The record holds no figure. Section 1 of the paper says "we have not solved the claim provenance problem".                                                                                                                                                                        |
+| 4   | 4.2 What they show                          | Neither Sumner's scale nor SPICED shows that the outlet used the source directly (A4-SR-13, A4-SR-14).      | Supported        | A4-SR-13 does not show "whether the downstream text used the paper directly". A4-SR-14 cannot tell whether journalists read the press release.                                                                                                                                    |
+| 5   | 4.2 Gaps, second sentence                   | Outside science, the only recorded automatic method at the level of meaning is the entailment labelling.    | Partly supported | A4-SR-15 holds such a method. But A2-SR-10 trains a multilingual embedding model that pairs WhatsApp messages carrying one claim, and A4-SR-16 says that repeats are "more often" paraphrases. That is a second automatic method at the level of meaning outside science (P3-01). |
+| 6   | Finding 10, title                           | A manual method with a direction of change and automatic methods without one.                               | Supported        | Sumner is manual with an ordered scale (A4-SR-14). SPICED (A4-SR-13) and the entailment labels (A4-SR-15) are automatic and have no direction of change.                                                                                                                          |
+| 7   | Finding 10, summary                         | Sumner, SPICED, the entailment labels with their bounds, and the weak separation by surface methods.        | Supported        | Each clause matches A4-SR-01, A4-SR-02, A4-SR-13, A4-SR-14, or A4-SR-15.                                                                                                                                                                                                          |
+| 8   | 4.4 Methods, second sentence                | The record gives only a best ternary F1 of 0.664 and no figure for the partially derived class.             | Supported        | The `limitations` field gives the best ternary F1 of 0.664. Section 5 of the paper describes the "high misclassification of PD as both WD and ND" without a figure for that class.                                                                                                |
+| 9   | 4.3 What they show                          | MediaSpin reports κ = 0.67 without saying whom it compares.                                                 | Supported        | The quote gives "Cohen's κ of 0.67" with pairwise percentage agreement and names no pair of raters.                                                                                                                                                                               |
+| 10  | 4.3 What they show                          | The most common error was the direction of the change (A4-SR-17).                                           | Supported        | The record quotes "The most common error type was directional".                                                                                                                                                                                                                   |
+| 11  | 4.3 Gaps                                    | Newsalyze (Hamborg 2023), cited in A4-SR-17, is an unread lead.                                             | Supported        | The record quotes the Newsalyze sentence and calls it a citation, not the paper's own method.                                                                                                                                                                                     |
+| 12  | Section 7, "Evidence gaps that matter most" | Newsalyze, cited in A4-SR-17, is an unread lead.                                                            | Supported        | As row 11.                                                                                                                                                                                                                                                                        |
+| 13  | `evidence_gaps`, first item                 | Newsalyze, which A4-SR-17 cites for cross-outlet variation, is an unread lead.                              | Supported        | As row 11.                                                                                                                                                                                                                                                                        |
+| 14  | 2.3, last sentence                          | One benchmark, QMSum, restates meeting summarization as answers to queries (A3-SR-18).                      | Supported        | The record shows the task "restated from one generic summary per meeting to answers to user queries". The sentence no longer says that the field moved.                                                                                                                           |
+| 15  | Finding 8, last sentence                    | QMSum restates meeting summarization as answers to queries.                                                 | Supported        | As row 14.                                                                                                                                                                                                                                                                        |
+| 16  | Section 5, "Human decisions fit"            | Human decisions fit independence (A4-SR-15), frames (A4-SR-09), and meeting decisions (A3-SR-20, A3-SR-21). | Supported        | A4-SR-15 leaves uncited influence to future work. A4-SR-09 treats much disagreement as valid interpretation. A3-SR-20 and A3-SR-21 report F-scores of about 0.3 and 0.35 for flat labels. The section is marked as interpretation.                                                |
+
+## 4. Pass-2 corrections
+
+| ID    | Pass-2 correction, in short                                            | Status | Evidence                                                                                                                                                              |
+| ----- | ---------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P2-01 | Add the entailment labelling of A4-SR-15 to section 4.2 and finding 10 | Fixed  | Methods, "What they show and do not show", the second gap, and finding 10 now name the method with its bounds. The new gap sentence overstates by one method (P3-01). |
+| P2-02 | State what A4-SR-01 gives for the classifier                           | Fixed  | Row 8.                                                                                                                                                                |
+| P2-03 | Say "inter-annotator agreement of κ = 0.67" and that whom is unclear   | Fixed  | Row 9.                                                                                                                                                                |
+| P2-04 | Name Newsalyze as an unread lead                                       | Fixed  | Rows 11 to 13.                                                                                                                                                        |
+| P2-05 | Say that QMSum restates the task, not that the field moved             | Fixed  | Rows 14 and 15.                                                                                                                                                       |
+| P2-07 | Cite A3-SR-20 and A3-SR-21 for meeting decisions                       | Fixed  | Row 16. The brief does not list P2-06, and section 3.11 is unchanged. P2-06 was a `note`, so nothing needs to change.                                                 |
+
+## 5. Consistency checks
+
+### 5.1 Section 2.4 and the methods for changes of meaning
+
+Section 2.4 says: "Changes of meaning are measured by hand coding of claim strength (A4-SR-14) and by a learned score of information change (A4-SR-13)." It does not name A4-SR-15.
+
+The sentence does not contradict section 4.2 or finding 10. Both methods it names measure a degree of change, and the entailment labels classify a relation without a degree. Section 2.4 also points to section 4 for the methods by class, and it names the provenance graph two sentences later. But a reader of section 2 alone can take the sentence as the full list. That reader would miss the one automatic method for news that finding 10 now names. The misreading does not change a conclusion, because section 4.2 and finding 10 state the full list. So this is a note, not a correction (section 6).
+
+### 5.2 Length
+
+The writing brief sets "At most 5,000 words of prose" and does not define prose. The counts below leave out the json block and every table line.
+
+| What the count includes                                   | Words |
+| --------------------------------------------------------- | ----- |
+| Headings, prose, and record-ID citations                  | 5,036 |
+| Prose and record-ID citations, without headings           | 4,889 |
+| Headings and prose, without parenthesized citation groups | 4,773 |
+| Prose only, without headings and citation groups          | 4,626 |
+
+The first count matches the writer's 5,036. The validator could not reproduce the writer's 4,985, because the writer's rule for removing citations is not stated. The count exceeds the limit only when headings count as prose, and then by 36 words, under 1%. No reader concludes anything different because of it, so it does not matter for the gate.
+
+## 6. Required corrections and notes
+
+[finding-classification.md](../../../packages/factory/rulebooks/conventions/finding-classification.md) puts a report under the document class. The survey folder is untracked in git, and no story or code outside this run encodes the report. So `in_use` is false, and no correction can be `critical`.
+
+| ID    | Where                    | Category | Type        | Severity | Blocks | Fix                                                                                                                                                                                                   | Why this severity                                                                                                                                                                                                                                                                        |
+| ----- | ------------------------ | -------- | ----------- | -------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P3-01 | Report section 4.2, Gaps | `defect` | `incorrect` | `minor`  | no     | Drop "only". Name claim matching (A2-SR-10, A4-SR-16) beside the entailment labelling as automatic methods at the level of meaning outside science, and say that neither gives a direction of change. | `raises_cost`: a reader who plans altered-edge detection for news misses one lead in this section. No to `fails_purpose`: the main gap, no automatic score with a direction, still holds, because claim matching has no direction either. Section 2.2 and finding 3 name claim matching. |
+
+Notes for the writer and the stakeholder. Nothing here needs to change.
+
+- Section 2.4 lists two methods for changes of meaning and leaves out the entailment labels (section 5.1). A clause such as "and, for news, by entailment labels on a provenance graph (A4-SR-15)" would close the gap for a reader of section 2 alone.
+- Row 2: in the record, an entailed edge means the earlier statement "can support" the later one. A reader could argue that this carries a weak direction, because a supported statement is not stronger than its support. The record does not say so, so the report's reading stands.
+- The word count exceeds 5,000 only with headings counted (section 5.2).
+- Pass 2 asked for a full rerun of this step. The stakeholder ordered this narrow pass instead, so the sentences that pass 2 accepted were not reopened.

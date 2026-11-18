@@ -1,0 +1,26 @@
+{
+  "concept": "Information change in an altered claim",
+  "area": "4. Claim propagation and framing",
+  "current_formulation": "SPICED rates on five points how far the information of two findings matches, without a direction of change.",
+  "steps": [
+    {
+      "formulation": "Coders rate the strength of causal claims by hand on a seven-point scale across paper, press release, and news.",
+      "date": "2014-12-01",
+      "record": "A4-SR-14",
+      "quote": "We used a seven point scale to rate increasing levels of determinism",
+      "criticism": {
+        "record": "A4-SR-13",
+        "date": "2022-12-01",
+        "quote": "make purely manual efforts both intractable and unattractive.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Annotators rate how similar the information of two findings is, not their wording, and models learn the score.",
+      "date": "2022-12-01",
+      "record": "A4-SR-13",
+      "quote": "the first paraphrase dataset of scientific findings annotated for degree of information change.",
+      "criticism": null
+    }
+  ]
+}

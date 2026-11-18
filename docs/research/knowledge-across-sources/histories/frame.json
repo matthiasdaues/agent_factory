@@ -1,0 +1,50 @@
+{
+  "concept": "Frame",
+  "area": "4. Claim propagation and framing",
+  "current_formulation": "Researchers keep both equivalence and emphasis frames and state which type they study; the records reach this step through a 2025 secondary source.",
+  "steps": [
+    {
+      "formulation": "A frame is an interpretive design that a person uses to make sense of events (Goffman 1974, through a secondary account).",
+      "date": "1974-01-01",
+      "record": "A4-SR-06",
+      "quote": "Goffman called these interpretive designs frames that we use in our day-to-day experience to make sense of the world.",
+      "criticism": {
+        "record": "A4-SR-07",
+        "date": "1993-09-01",
+        "quote": "framing is often defined casually, with much left to an assumed tacit understanding of reader and researcher.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "To frame is to select some aspects of reality and make them more salient in a text, promoting a problem definition, causal interpretation, moral evaluation, or treatment recommendation.",
+      "date": "1993-09-01",
+      "record": "A4-SR-07",
+      "quote": "To frame is to select some aspects of a perceived reality and make them more salient in a communicating text",
+      "criticism": {
+        "record": "A4-SR-08",
+        "date": "2016-01-01",
+        "quote": "it has been argued that effects of emphasis frames may not be exclusively attributed to framing",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Researchers should move away from studying emphasis frames, which overlap with agenda setting and priming. A4-SR-08 reports these calls and cites Cacciatore, Scheufele and Iyengar (2016) and Scheufele and Iyengar (2012) for them.",
+      "date": "2016-01-01",
+      "record": "A4-SR-08",
+      "quote": "there have been calls to move away from studying emphasis frames",
+      "criticism": {
+        "record": "A4-SR-08",
+        "date": "2025-01-01",
+        "quote": "frames that seem equivalent may actually not always be equivalent",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Both frame types stay in use (Brüggemann and D'Angelo 2018; Leeper and Slothuus 2018, through a secondary account).",
+      "date": "2025-01-01",
+      "record": "A4-SR-08",
+      "quote": "Still, there are also good reasons to keep studying both",
+      "criticism": null
+    }
+  ]
+}
