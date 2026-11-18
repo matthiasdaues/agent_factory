@@ -503,6 +503,15 @@ Feature: Run Lifecycle
       And dispatch refuses to start ST-0352
       And ST-0353 starts
 
+    Scenario: prepare-story refuses a returned story and names the return
+      Given wave 1 of feature/login has a wave record
+      And the User returned ST-0351 in wave 1, so the entry of ST-0351 has returned true
+      When the implementation agent runs dispatch prepare-story ST-0351
+      Then dispatch exits non-zero
+      And the message names the return of ST-0351
+      And the ledger records ST-0351 as pending
+      # @packages/factory/scripts/dispatch::cmd_prepare_story
+
     Scenario: Every dependency inside the run is checked
       Given ST-0352 depends on ST-0350 and on ST-0351
       And ST-0350 is done and ST-0351 is dispatched
