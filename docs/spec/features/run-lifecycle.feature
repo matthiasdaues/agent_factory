@@ -636,13 +636,21 @@ Feature: Run Lifecycle
       Then the gates run without that test file
       And the untracked test file is back in the story's checkout afterwards
 
-    Scenario: The rerun takes the gate scripts from the installed copy of the calling checkout
+    Scenario: The rerun takes the gate scripts from the installed copy of the primary checkout
       Given the primary checkout holds the installed copy .agent-factory/factory
+      And the worktree of feature/login holds no .agent-factory/
       And the temporary worktree at the head of story/ST-0350 holds no .agent-factory/
-      When premerge-check, called from the primary checkout, reruns the gates of ST-0350
+      When merge-story calls premerge-check from the worktree of feature/login, and premerge-check reruns the gates of ST-0350
       Then each gate script runs from .agent-factory/factory of the primary checkout
       And each gate script reads the temporary worktree as its source root
       And the temporary worktree builds its own uv environment
+      # @packages/factory/scripts/premerge-check::gate_script
+
+    Scenario: Without a gate script in the installed copy, the rerun takes it from the folder of premerge-check
+      Given .agent-factory/factory/scripts of the primary checkout holds no dependency-check
+      When premerge-check reruns the gates of ST-0350
+      Then dependency-check runs from the folder that holds premerge-check
+      # @packages/factory/scripts/premerge-check::gate_script
 
     Scenario: The story's review reports and findings do not count toward the file limit
       Given story/ST-0350 holds its code-review report, two finding files with story ST-0350, and one register file with story ST-0350
