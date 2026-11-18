@@ -1203,6 +1203,16 @@ def _prepare_story_by_hand(
         print(refusal, file=sys.stderr)
         return 1
 
+    main_root = _main_worktree_root()
+    if not ledger_path.resolve().is_relative_to((main_root / ".current-work").resolve()):
+        print(
+            f"error: the ledger {ledger_path} does not lie under "
+            f"{main_root / '.current-work'}; run prepare-story in the primary "
+            f"checkout of the run",
+            file=sys.stderr,
+        )
+        return 1
+
     unmet = [
         dep for dep in entry.deps
         if dep in ledger.stories and ledger.stories[dep].status != StoryState.DONE
@@ -1230,8 +1240,17 @@ def _prepare_story_by_hand(
         )
         return 1
 
-    main_root = _main_worktree_root()
     project_root = main_root
+    _, changed, _ = _git("-C", str(main_root), "diff", "--name-only", "HEAD")
+    if changed:
+        print(
+            f"error: the primary checkout {main_root} holds uncommitted changes "
+            f"to tracked files; commit them or set them aside first:",
+            file=sys.stderr,
+        )
+        for line in changed.splitlines():
+            print(f"  {line}", file=sys.stderr)
+        return 1
     branch_name = f"story/{entry.id}"
     tip = _branch_tip(branch_name)
     if tip is not None and tip != base_sha:
@@ -1255,7 +1274,7 @@ def _prepare_story_by_hand(
         code, _, err = _git("-C", str(main_root), "checkout", "-q", branch_name)
     created = tip is None and _branch_tip(branch_name) is not None
     if code != 0:
-        _undo_checkout_by_hand(main_root, None, branch_name, created)
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
         print(
             f"error: failed to check out {branch_name!r} in {main_root}: {err}",
             file=sys.stderr,

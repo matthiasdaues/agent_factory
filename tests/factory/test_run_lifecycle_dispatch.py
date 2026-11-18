@@ -482,3 +482,64 @@ def test_RL_02_IT_01_a_story_reaches_dispatched_in_a_run_by_hand(run_repo):
     assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "dispatched"
     status = _dispatch(run_repo, ledger, "status")
     assert re.search(r"ST-0350\s+1\s+dispatched", status.stdout), status.stdout
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_refuses_uncommitted_tracked_changes(run_repo):
+    """Decision of 2026-11-18: by hand, prepare-story refuses an uncommitted
+    change to a tracked file and names the file. Untracked files do not count."""
+    ledger = _by_hand_run(run_repo)
+    (run_repo / "src" / ".keep").write_text("edited\n")
+    (run_repo / "src" / "draft.txt").write_text("untracked\n")
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert "src/.keep" in result.stderr
+    assert "draft.txt" not in result.stderr
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert (run_repo / "src" / ".keep").read_text() == "edited\n"
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+    (run_repo / "src" / ".keep").write_text("")
+    retry = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+    assert retry.returncode == 0, retry.stderr
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_a_failing_post_checkout_hook_restores_the_earlier_branch(run_repo):
+    """IMPL-0028: git switches the branch and then returns the hook's exit
+    status, so prepare-story checks the earlier branch out again."""
+    ledger = _by_hand_run(run_repo)
+    hook = run_repo / ".git" / "hooks" / "post-checkout"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode != 0
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_refuses_a_ledger_of_another_checkout(
+    run_repo, tmp_path
+):
+    """IMPL-0029: the ledger must lie under .current-work of the primary
+    checkout the command runs against."""
+    ledger = _by_hand_run(run_repo)
+    clone = tmp_path / "clone"
+    _git(tmp_path, "clone", "-q", "-b", "dev", str(run_repo), str(clone))
+    _git(clone, "branch", "feature/login", "origin/feature/login")
+
+    result = _dispatch(clone, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert ".current-work" in result.stderr
+    assert _git(clone, "branch", "--show-current") == "dev"
+    assert _git(clone, "branch", "--list", "story/ST-0350") == ""
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
