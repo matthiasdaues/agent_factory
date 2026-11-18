@@ -239,6 +239,24 @@ Feature: Run Lifecycle
       And the uncommitted change to src/login.py is unchanged
       And the tip of feature/login is the same commit as before the merge-story call
 
+    Scenario: A refused checkout of the feature branch stops merge-story in a run by hand
+      Given a run by hand is active on feature/login
+      And the primary checkout has story/ST-0350 checked out
+      And ST-0350 is dispatched
+      And story/ST-0350 changed src/login.py
+      And the primary checkout holds an uncommitted change to src/login.py
+      And every check of premerge-check passes at the head of story/ST-0350
+      When the User gives the go and the implementation agent runs dispatch merge-story ST-0350
+      Then premerge-check exits 0
+      And git refuses the checkout of feature/login
+      And merge-story exits 1 and merges nothing
+      And the message names src/login.py and the primary checkout
+      And the ledger records ST-0350 as dispatched
+      And the primary checkout still has story/ST-0350 checked out
+      And the uncommitted change to src/login.py is unchanged
+      And the tip of feature/login is the same commit as before the merge-story call
+      And after the User commits or reverts the change and gives the go again, merge-story runs premerge-check again before it checks out feature/login
+
     Scenario: The User runs only three commands in a run by hand
       Given a run by hand is active on feature/login
       When the run goes from dispatch init to dispatch close
@@ -652,6 +670,23 @@ Feature: Run Lifecycle
       Then premerge-check exits non-zero
       And the message names the file limit
 
+    Scenario: An uncommitted change in the worktree of the feature branch stops merge-story in an orchestrated run
+      Given an orchestrated run is active on feature/login
+      And ST-0350 is dispatched
+      And story/ST-0350 changed src/login.py
+      And the worktree of feature/login holds an uncommitted change to src/login.py
+      And every check of premerge-check passes at the head of story/ST-0350
+      When the implementation agent runs dispatch merge-story ST-0350
+      Then premerge-check exits 0
+      And merge-story exits 1 and merges nothing
+      And the message names src/login.py and the worktree of feature/login
+      And the ledger records ST-0350 as dispatched
+      And the worktree of ST-0350 still has story/ST-0350 checked out
+      And the tip of feature/login is the same commit as before the merge-story call
+      And the implementation agent reports the message to the User unchanged
+      And the implementation agent does not change the worktree of feature/login
+      And the uncommitted change to src/login.py is unchanged
+
     Scenario Outline: The semantic gates run on every story branch name
       Given a branch <branch> whose gates fail
       When premerge-check runs on <branch>
@@ -1047,11 +1082,11 @@ Feature: Run Lifecycle
       Given the primary checkout holds a changed tracked file and an untracked file
       And every other check of feature/login passes
       When the implementation agent runs premerge-check dev feature/login
-      Then the full test suite runs in a temporary worktree at the head of feature/login
+      Then the full test suite runs in a temporary worktree at .current-work/feature/login/premerge/feature at the head of feature/login
       And premerge-check exits 0
       And both files in the primary checkout are unchanged
       And git stash list shows no new stash
-      And no temporary worktree of premerge-check is left under .current-work/feature/login/premerge/
+      And no worktree is left at .current-work/feature/login/premerge/feature
 
     Scenario: A finding of another run does not block the feature merge
       Given an open blocking finding has run feature/search
