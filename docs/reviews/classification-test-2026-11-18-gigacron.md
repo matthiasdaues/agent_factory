@@ -21,6 +21,14 @@ raters split, and they survived a second test. They are listed in
 passed its test but was wrong: the current rules already make such a finding a
 `question` when the ranking decides its severity, and no rater saw that.
 
+All of that holds for one model, `claude-opus-5-5`. A fifth run put R1 and
+R2 into the rulebook and gave all 38 findings to raters on
+`claude-sonnet-5-5` and on `gpt-5.6-sol`. Within each model, the raters
+agreed on severity in 37 of 38 findings. Across the two models, they agreed
+in only 30 to 32 of 38, so the rulebook's claim fails for reviewers on
+different models. Most of the gap comes from one rule: when a story or code
+encodes the statement of a document. See [Cross-model run](#cross-model-run).
+
 The test files no finding in this repository. Every number below comes from
 the rater output files listed in [Data](#data).
 
@@ -330,20 +338,58 @@ category for one of two raters. Two raters are too few to judge the row.
 These gaps are real in the rule text, but no candidate rule has been tested
 for them yet.
 
-| Gap                                                                                            | Finding    | Observed effect                                              | Next step                                                                                               |
-| ---------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Code class: a wrong result that only unusual input to a public API reaches, against FAGAN-0032 | FAGAN-0003 | Severity split, two `minor` and two `major`. Blocking flips. | Write a rule that decides the case, then retest with four raters on FAGAN-0003 as filed and FAGAN-0032. |
-| Document `fails_purpose`: does a parser that refuses the whole file give a "wrong result"?     | SPEC-0007  | None. All raters gave `major`.                               | None until a case splits.                                                                               |
-| Security: effects `secrets` and `disclosure` both fit an arbitrary file read                   | FAGAN-0002 | None. Both raters chose `secrets` and `critical`.            | None until a case splits.                                                                               |
-| Class table lists code under both the code and the security class                              | FAGAN-0002 | None. Both raters chose security.                            | None until a case splits.                                                                               |
-| No calibration for a specification that runs ahead of planned code                             | RECON-0001 | None. Both raters gave `note`.                               | None until a case splits.                                                                               |
-| Contradiction with a row that describes an open proposal                                       | SPEC-0026  | None. Both raters gave `major`, with low confidence.         | None until a case splits.                                                                               |
+| Gap                                                                                            | Finding    | Observed effect                                                               | Next step                                                                                               |
+| ---------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Code class: a wrong result that only unusual input to a public API reaches, against FAGAN-0032 | FAGAN-0003 | Severity split, two `minor` and two `major`. Blocking flips.                  | Write a rule that decides the case, then retest with four raters on FAGAN-0003 as filed and FAGAN-0032. |
+| Document `fails_purpose`: does a parser that refuses the whole file give a "wrong result"?     | SPEC-0007  | None. All raters gave `major`.                                                | None until a case splits.                                                                               |
+| Security: effects `secrets` and `disclosure` both fit an arbitrary file read                   | FAGAN-0002 | None. Both raters chose `secrets` and `critical`.                             | None until a case splits.                                                                               |
+| Class table lists code under both the code and the security class                              | FAGAN-0002 | None. Both raters chose security.                                             | None until a case splits.                                                                               |
+| No calibration for a specification that runs ahead of planned code                             | RECON-0001 | In the fifth run, Sonnet gave `note` and Codex gave `major`. Blocking flips.  | Decide with the `in_use` rule for documents.                                                            |
+| Document `fails_purpose`: does a summary that leaves out a case contradict the full text?      | SPEC-0023  | In the fifth run, Sonnet gave `minor` and Codex gave `major`. Blocking flips. | Write a rule that decides the case, then retest on both models.                                         |
+| Contradiction with a row that describes an open proposal                                       | SPEC-0026  | None. Both raters gave `major`, with low confidence.                          | None until a case splits.                                                                               |
+
+## Cross-model run
+
+The fifth run rebuilt all 38 findings from the filed text with the spike's
+`build-blind.py`, so ATAM-0006, ATAM-0009, and FAGAN-0003 are valid there.
+The rules were the rulebook with R1 and R2. Each of the three batches went to
+two raters on `claude-sonnet-5-5`, as Claude Code subagents, and to two
+raters on `gpt-5.6-sol`, through `codex exec` with the project instructions
+switched off.
+
+| Field    | Sonnet pairs | Codex pairs | Sonnet against Codex |
+| -------- | ------------ | ----------- | -------------------- |
+| Severity | 37/38        | 37/38       | 30 to 32 of 38       |
+| Blocking | 37/38        | 38/38       | 35 to 36 of 38       |
+| Class    | 38/38        | 38/38       | 38/38                |
+
+The prediction was at least 34 of 38 in every comparison. It held within each
+model and failed across models. The models split on seven findings, and on
+six of them both raters of a model gave the same answer. So each model reads
+the rules its own way, and the splits are not noise.
+
+- Four of the seven splits turn on `in_use` for a document: SPEC-0013,
+  SPEC-0014, SPEC-0015, and RECON-0001. Codex counts code that follows the
+  other side of a contradiction, a story that defers to the faulty text, or a
+  pending story as encoding the statement. Sonnet does not. R1 leaves these
+  cases open.
+- Two findings flip blocking: RECON-0001 (`note` against `major`) and
+  SPEC-0023 (`minor` against `major`, on `fails_purpose`).
+- ATAM-0006 came out a `minor` risk from Sonnet and a `note` suggestion from
+  Codex. Sonnet's own basis, exposure `uncertain` against a scenario without
+  a priority, makes it a `question` under the rules. No rater chose
+  `question`.
+- One Codex rater rated FAGAN-0003 `critical` on a wrong git fact. The
+  filing commit was not on `dev` at filing time.
+
+The full table is in
+[run-5-results.md](../../poc/spikes/finding-classification/key/run-5-results.md).
 
 ## Limits of the test
 
-- All raters ran on one model. Full agreement shows that the rules give one
-  model a stable result. It does not show that two different reviewers agree.
-  A run with raters on two models would test that.
+- The first four runs used one model. The fifth run used two others and
+  refuted cross-model agreement. It used one prompt per model, so a part of
+  the gap may come from the harness rather than the model.
 - Each pair rated a batch once. The second run repeated only ten findings, so
   the effects of R1 and R2 rest on few cases: one split in `in_use` and four
   class decisions.
@@ -371,13 +417,17 @@ compares rater pairs.
 - `run-2/rules/rules-2.md`: the changed rulebook as tested.
 - `key/answer-key.tsv` and `key/retest-predictions.md`: the original ratings
   and the predictions written before the second run.
+- `run-5/`: the cross-model run, with its predictions and results in `key/`.
 - `run-3/` and `run-4/`: the retests of the draft calibration rows and of the
   exposure candidate, with their predictions and results in `key/`.
 
 ## Next steps
 
-1. The stakeholder decides on R1 and R2. An accepted change goes into
-   `packages/factory/rulebooks/conventions/finding-classification.md`.
+1. R1 and R2 are in
+   [finding-classification.md](../../packages/factory/rulebooks/conventions/finding-classification.md).
+   Next, write a rule for when a story or code encodes a document statement.
+   Test it on SPEC-0013, SPEC-0014, SPEC-0015, and RECON-0001 with raters on
+   both models.
 2. Keep the draft calibration rows out of the rulebook until the first row
    holds on more raters. The next test needs a finding whose exposure is
    clearly `uncertain`, such as an unchecked assumption about a tool, and a row

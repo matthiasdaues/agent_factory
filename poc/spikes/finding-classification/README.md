@@ -31,6 +31,10 @@ and with the filed rating. It ran on 2026-11-18. The report is
   rule for exposure. The raters got the handoff's scenario lists in
   `run-4/scenarios/` instead of the handoff. The results are in
   [run-4-results.md](key/run-4-results.md).
+- [run-5/](run-5/) holds the fifth run: all 38 findings, rebuilt with
+  `build-blind.py`, rated on the rulebook with R1 and R2 by six raters on
+  `claude-sonnet-5-5` and six on `gpt-5.6-sol` through `codex exec`. The
+  results are in [run-5-results.md](key/run-5-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
