@@ -247,10 +247,11 @@ Feature: Wave Lifecycle
   dispatch prepare-wave starts only after the prior wave has a wave
   record, and prepares all parallel-safe stories and serial chain heads.
   dispatch close-wave writes the wave record once every drift row of the
-  wave is handled and each story of the wave is in one of four states:
-  done, blocked, failed and stopped, or pending after a return. The
-  description of run-lifecycle.feature defines when a failed story has
-  stopped. A failed story with a retry left keeps its wave open.
+  wave is handled and each story of the wave is in one of five states:
+  done, blocked, failed and stopped, pending after a return, or pending
+  and held back by a returned dependency, directly or through another
+  story. The description of run-lifecycle.feature defines when a failed
+  story has stopped. A failed story with a retry left keeps its wave open.
 
   Scenario: Wave 1 can be prepared without a prior-wave check
     Given the dispatch has just been initialized with no prior waves
@@ -313,6 +314,18 @@ Feature: Wave Lifecycle
       | dispatched                                                  |
       | failed with a counted attempt left on the tier standard     |
       | pending, never returned, as the next link of a serial chain |
+  # In each row, ST-001 is done, so ST-002 has no returned dependency.
+
+  Scenario: A chain held back by its returned head allows wave closure
+    Given wave 1 has the serial chain ST-005, ST-006, ST-007
+    And ST-006 depends on ST-005, and ST-007 depends on ST-006
+    And the user has returned ST-005
+    And ST-006 and ST-007 are pending and have never been prepared
+    And no spec-feedback report of wave 1 has an open row or a fixed row about a core-list artifact
+    When the user runs dispatch close-wave 1
+    Then dispatch exits zero
+    And the ledger holds a wave record for wave 1
+    And ST-005, ST-006 and ST-007 stay pending in wave 1
 ```
 
 ### Feature: Story Lifecycle
@@ -333,10 +346,17 @@ Feature: Story Lifecycle
     And verify-base runs against that merge commit
     And ST-006 is recorded as prepared
 
-  Scenario: Non-done predecessor blocks preparation
-    Given ST-005 is dispatched (not done)
+  Scenario Outline: Non-done predecessor blocks preparation
+    Given ST-006 depends on ST-005
+    And ST-005 is <state>
     When the user runs dispatch prepare-story ST-006
     Then dispatch exits non-zero
+    And ST-006 stays pending
+
+    Examples:
+      | state                  |
+      | dispatched             |
+      | pending after a return |
 
   Scenario: By hand, prepare-story writes the manifest and the contract without a worktree
     Given a run by hand is active on feature/login

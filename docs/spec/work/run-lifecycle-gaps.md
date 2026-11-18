@@ -93,7 +93,7 @@ None. Every actor-goal pair has a Rule.
 
 ## Rules Without Scenarios
 
-None. The feature file holds 19 Rules, 128 Scenarios and 14 Scenario Outlines, 142 in all. The parser `gherkin-official` reads the file without an error and counts the same numbers.
+None. The feature file holds 19 Rules, 129 Scenarios and 14 Scenario Outlines, 143 in all. The parser `gherkin-official` reads the file without an error and counts the same numbers.
 
 ## Ambiguous Wording
 

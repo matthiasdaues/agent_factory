@@ -718,7 +718,8 @@ Feature: Run Lifecycle
     # actor: Implementation agent
     # @packages/factory/scripts/dispatch::cmd_close_wave
     # A wave can close when each of its units of work is done, blocked,
-    # failed and stopped, or pending after a return.
+    # failed and stopped, pending after a return, or pending and held back
+    # by a returned dependency, directly or through another story.
 
     Scenario: close-wave refuses while a drift row is not handled
       Given every story of wave 1 is done or has stopped
@@ -755,6 +756,18 @@ Feature: Run Lifecycle
       And the ledger still records ST-0351 as pending in wave 1
       And dispatch prepare-wave 2 prepares ST-0352
 
+    Scenario: A wave closes while its stories wait on a returned dependency
+      Given an orchestrated run is active on feature/login
+      And wave 1 holds the serial chain ST-0350, ST-0351, ST-0352
+      And ST-0351 depends on ST-0350, and ST-0352 depends on ST-0351
+      And the User has returned ST-0350
+      And ST-0351 and ST-0352 are pending and have never been prepared
+      And no spec-feedback report of wave 1 has an open row or a fixed row about an artifact on the core list
+      When the implementation agent runs dispatch close-wave 1
+      Then dispatch exits 0
+      And the ledger holds a wave record for wave 1
+      And the ledger still records ST-0350, ST-0351 and ST-0352 as pending in wave 1
+
     Scenario Outline: close-wave refuses while a unit of work of the wave can still go on
       Given wave 1 holds ST-0350 and ST-0351
       And ST-0350 is done
@@ -768,7 +781,7 @@ Feature: Run Lifecycle
         | state                                                                                 |
         | is dispatched                                                                         |
         | is failed after its first counted attempt on the tier standard, with gates.attempts 3 |
-        | is pending and has never been returned                                                |
+        | is pending, has never been returned, and has no returned dependency                   |
 
     Scenario: The next wave waits for the wave record
       Given the ledger holds no wave record for wave 1
