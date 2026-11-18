@@ -44,10 +44,10 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0034 | [One register file per minor finding](../adr/0034-one-register-file-per-minor-finding.md)                                                                     | accepted               | pugh-matrix |
 | 0035 | [Guard the human fields in every CLI](../adr/0035-guard-human-fields-in-every-cli.md)                                                                         | accepted               | pugh-matrix |
 | 0036 | [The TypeScript tests run as a `node:test` suite](../adr/0036-typescript-tests-run-as-a-node-test-suite.md)                                                   | accepted               | none        |
-| 0037 | [One lifecycle for runs orchestrated and by hand](../adr/0037-one-lifecycle-for-runs-orchestrated-and-by-hand.md)                                             | proposed               | pugh-matrix |
-| 0038 | [premerge-check reruns the gates in a temporary worktree](../adr/0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md)                             | proposed               | pugh-matrix |
-| 0039 | [One git guardrail script for all five agent tools](../adr/0039-one-git-guardrail-script-for-all-five-agent-tools.md)                                         | proposed               | pugh-matrix |
-| 0040 | [The Factory tests run against the source](../adr/0040-the-factory-tests-run-against-the-source.md)                                                           | proposed               | pugh-matrix |
+| 0037 | [One lifecycle for runs orchestrated and by hand](../adr/0037-one-lifecycle-for-runs-orchestrated-and-by-hand.md)                                             | accepted               | pugh-matrix |
+| 0038 | [premerge-check reruns the gates in a temporary worktree](../adr/0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md)                             | accepted               | pugh-matrix |
+| 0039 | [One git guardrail script for all five agent tools](../adr/0039-one-git-guardrail-script-for-all-five-agent-tools.md)                                         | accepted               | pugh-matrix |
+| 0040 | [The Factory tests run against the source](../adr/0040-the-factory-tests-run-against-the-source.md)                                                           | accepted               | pugh-matrix |
 
 ## Key Decisions
 

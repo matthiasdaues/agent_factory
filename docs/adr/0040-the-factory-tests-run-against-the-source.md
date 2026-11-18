@@ -1,6 +1,6 @@
 ---
 id: 0040
-status: proposed
+status: accepted
 evaluation: pugh-matrix
 ---
 
