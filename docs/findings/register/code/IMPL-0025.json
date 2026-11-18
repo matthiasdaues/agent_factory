@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0025",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:400-416",
+  "story": "ST-0413",
+  "finding": "A report whose branch_head is a ref name, such as HEAD or story/ST-0350, passes the review check at every later head. check_code_review passes branch_head unchecked to `git merge-base --is-ancestor <branch_head> <branch>`, and git resolves the ref to the current tip, which is always its own ancestor. The review ran this probe in a scratch repository: a report with `branch_head: story/ST-0350` printed PASS code-review. report-format.md requires a full 40-character SHA, so the check accepts a value that the report contract forbids. The behavior looks unintended. The smallest fix is in check_code_review: accept branch_head only when it matches ^[0-9a-f]{40}$, and name the report and the value in the BLOCK line otherwise.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "A report of the story must still exist, so the check still shows that a review ran; only an agent that breaks the report format reaches this path (no to fails_purpose). The ancestor test then says nothing about which commit the review saw, and a later reader cannot tell from the report what was reviewed.",
+  "commit": "3cdf55bf3b2aa1d745ebc50decc8484eb75b1226",
+  "status": "open"
+}

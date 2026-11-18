@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 
 DISPATCH = SOURCE_SCRIPTS_DIR / "dispatch"
 STORY = """---
@@ -123,6 +123,7 @@ def test_RL_18_IT_01_merge_story_copies_nothing_into_the_installed_copy(factory_
     )
     story = factory_repo["story"]
     (story / "src" / "ST-0350.txt").write_text("work\n")
+    write_review_report(story, "ST-0350")
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "story work")
     sha = _git(story, "rev-parse", "HEAD")

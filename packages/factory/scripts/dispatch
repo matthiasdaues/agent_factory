@@ -21,10 +21,12 @@ Exit code: 0 on success, 1 on error, 2 on usage error.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -289,6 +291,36 @@ DEFAULT_MAX_FILES = 20
 
 # The index-lint pre-commit hook rewrites this file during a story commit.
 HOOK_REWRITTEN_INDEX = "packages/factory/INDEX.yaml"
+
+def _load_premerge_check():
+    """Load premerge-check as a module, so merge-story shares its scope rule."""
+    loader = SourceFileLoader("premerge_check", str(SCRIPT_DIR / "premerge-check"))
+    spec = importlib.util.spec_from_loader("premerge_check", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def _story_owned_scope(target_branch: str, branch: str, story_id: str) -> list[str] | None:
+    """The changed review and finding files that belong to *story_id*.
+
+    A file in docs/reviews/ or docs/findings/ belongs to the story when its
+    name holds the story ID or its `story` field at the branch head names the
+    story. Prints the git error and returns None when git cannot read a file.
+    """
+    code, out, err = _git("diff", "--name-only", f"{target_branch}...{branch}")
+    if code != 0:
+        print(f"error: cannot list the changed files of {branch}: {err}", file=sys.stderr)
+        return None
+    premerge = _load_premerge_check()
+    files = [line for line in out.splitlines() if line]
+    try:
+        return premerge.story_owned_files(branch, story_id, files)
+    except premerge.GitReadError as exc:
+        print(f"error: cannot read the scope of {story_id} at {branch}: {exc}",
+              file=sys.stderr)
+        return None
+
 
 def _scaled_max_files(output_count: int) -> int:
     """Recommend a per-story ``--max-files`` threshold from an output count.
@@ -1905,6 +1937,13 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         # The story's own drift report is part of its work (ADR-0029).
         premerge_cmd += ["--scope-glob", spec_feedback_path(entry.id)]
         premerge_cmd += ["--scope-glob", HOOK_REWRITTEN_INDEX]
+        # The story's own review reports, finding files and register files
+        # are part of its work, and premerge-check does not count them.
+        owned = _story_owned_scope(target_branch, entry.branch, entry.id)
+        if owned is None:
+            return 1
+        for path in owned:
+            premerge_cmd += ["--scope", path]
         premerge_cmd += ["--max-files", str(_scaled_max_files(len(outputs)))]
 
         premerge_result = subprocess.run(

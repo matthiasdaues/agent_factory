@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import SOURCE_SCRIPTS_DIR, load_script
+from conftest import SOURCE_SCRIPTS_DIR, load_script, write_review_report
 
 GATE = SOURCE_SCRIPTS_DIR / "mutation-testing"
 PREMERGE = SOURCE_SCRIPTS_DIR / "premerge-check"
@@ -82,6 +82,7 @@ def _fixture(tmp_path: Path, testing_yaml: str, mutate: str | None) -> Path:
         script.parent.mkdir()
         script.write_text(mutate)
         script.chmod(0o755)
+    write_review_report(repo, STORY_ID)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "story")
     dep_dir = repo / ".current-work" / "dependency-check"

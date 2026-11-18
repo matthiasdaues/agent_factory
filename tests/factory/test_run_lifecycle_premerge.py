@@ -445,3 +445,221 @@ def test_RL_08_IT_17_an_untracked_test_file_takes_no_part_in_the_test_suite(tmp_
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PASS test-suite: the test suite 'sh scripts/run-tests.sh' passed for ST-0350" in result.stdout
     assert untracked.read_text() == "exit 1\n"
+
+
+# --- ST-0413: no merge without a review report or with an open blocking finding ---
+
+FINDING = """---
+id: {id}
+source: code-review-agent
+review_class: code
+category: {category}
+type: function
+severity: {severity}
+artifact: src/ST-0350.txt:1
+status: {status}
+owner: developer-agent
+story: {story}
+run:
+traces: [BR-085]
+---
+
+# {id}
+"""
+REGISTER = """{{
+  "id": "{id}",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "function",
+  "severity": "minor",
+  "artifact": "src/ST-0350.txt:1",
+  "story": "ST-0350",
+  "status": "open"
+}}
+"""
+REPORT_PATH = f"docs/reviews/code-review-ST-0350-{REVIEW_DAY}.md"
+
+
+def _finding(
+    finding_id: str, *, story: str = "ST-0350", status: str = "open",
+    category: str = "defect", severity: str = "major",
+) -> str:
+    return FINDING.format(
+        id=finding_id, story=story, status=status, category=category, severity=severity,
+    )
+
+
+def _commit_on_story(repo: Path, files: dict[str, str], message: str = "work") -> str:
+    """Commit *files* on story/ST-0350 in its checkout and return the head."""
+    story = repo / STORY_DIR
+    for rel, text in files.items():
+        (story / rel).parent.mkdir(parents=True, exist_ok=True)
+        (story / rel).write_text(text)
+    _git(story, "add", "-A")
+    _git(story, "commit", "-qm", message)
+    return _git(story, "rev-parse", "HEAD")
+
+
+def _review(base: str, head: str, story: str = "ST-0350") -> str:
+    return REPORT.format(id=story, day=REVIEW_DAY, base=base, head=head)
+
+
+@pytest.mark.spec("RL-08-IT-01")
+def test_RL_08_IT_01_merge_story_refuses_a_branch_without_a_review_report(wave_repo):
+    """Scenario: A story branch without a matching review report is refused."""
+    repo, feature, ledger = wave_repo["repo"], wave_repo["feature"], wave_repo["ledger"]
+    sha = _commit_on_story(repo, {"src/ST-0350.txt": "work\n"})
+    assert _dispatch(repo, ledger, "verify-story", "ST-0350", "--sha", sha).returncode == 0
+    tip = _git(feature, "rev-parse", "HEAD")
+
+    result = _dispatch(feature, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert (
+        "BLOCK code-review: no report docs/reviews/code-review-ST-0350-YYYY-MM-DD.md"
+        in result.stdout
+    )
+    assert _git(feature, "rev-parse", "HEAD") == tip
+
+
+@pytest.mark.spec("RL-08-IT-01")
+@pytest.mark.parametrize(
+    ("case", "passes"),
+    [("other story", False), ("not an ancestor", False), ("older ancestor", True)],
+)
+def test_RL_08_IT_01_only_a_report_of_the_story_at_an_ancestor_counts(
+    wave_repo, case, passes,
+):
+    """A report of another story or of a commit outside the branch does not
+    count; a report of an older ancestor does (BR-122)."""
+    repo, base = wave_repo["repo"], wave_repo["base"]
+    work = _commit_on_story(repo, {"src/ST-0350.txt": "work\n"})
+    if case == "other story":
+        report = _review(base, work, story="ST-0351")
+    elif case == "not an ancestor":
+        report = _review(base, "0" * 40)
+    else:
+        report = _review(base, base)
+    _commit_on_story(repo, {REPORT_PATH: report}, "docs: review")
+    _commit_on_story(repo, {"src/ST-0350.txt": "work after the review\n"})
+
+    result = _premerge(repo)
+
+    assert (result.returncode == 0) is passes, result.stdout + result.stderr
+    if passes:
+        assert f"PASS code-review: {REPORT_PATH}" in result.stdout
+    else:
+        assert "BLOCK code-review" in result.stdout
+
+
+@pytest.mark.spec("RL-08-IT-02")
+def test_RL_08_IT_02_an_open_blocking_finding_at_the_head_is_refused_and_named(wave_repo):
+    """Scenario: An open blocking finding at the branch head is refused and named."""
+    repo = wave_repo["repo"]
+    _work_and_review(repo, wave_repo["ledger"], wave_repo["base"], "ST-0350")
+    _commit_on_story(repo, {"docs/findings/BUG-0091.md": _finding("BUG-0091")})
+    # The folder premerge-check runs in holds a resolved copy, which must not count.
+    findings = repo / "docs" / "findings"
+    findings.mkdir(parents=True, exist_ok=True)
+    (findings / "BUG-0091.md").write_text(_finding("BUG-0091", status="resolved"))
+
+    result = _premerge(repo)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK open-findings: BUG-0091 of ST-0350 is open and blocking" in result.stdout
+    assert not (repo / ".current-work" / "premerge-check-ok").exists()
+
+
+@pytest.mark.spec("RL-08-IT-02")
+def test_RL_08_IT_02_the_check_passes_once_the_finding_is_resolved(wave_repo):
+    """Demo step 4: after BUG-0091 is resolved at the head, the check passes,
+    also with an open copy in the folder premerge-check runs in."""
+    repo = wave_repo["repo"]
+    _work_and_review(repo, wave_repo["ledger"], wave_repo["base"], "ST-0350")
+    _commit_on_story(repo, {"docs/findings/BUG-0091.md": _finding("BUG-0091")})
+    _commit_on_story(
+        repo, {"docs/findings/BUG-0091.md": _finding("BUG-0091", status="resolved")}
+    )
+    findings = repo / "docs" / "findings"
+    findings.mkdir(parents=True, exist_ok=True)
+    (findings / "BUG-0091.md").write_text(_finding("BUG-0091"))
+
+    result = _premerge(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS open-findings: no open blocking finding of ST-0350" in result.stdout
+
+
+@pytest.mark.spec("RL-08-IT-03")
+def test_RL_08_IT_03_a_finding_that_does_not_block_leaves_the_merge_open(wave_repo):
+    """Scenario: A finding that does not block leaves the merge open."""
+    repo = wave_repo["repo"]
+    _work_and_review(repo, wave_repo["ledger"], wave_repo["base"], "ST-0350")
+    _commit_on_story(
+        repo,
+        {
+            "docs/findings/register/code/IMPL-0093.json": REGISTER.format(id="IMPL-0093"),
+            "docs/findings/IMPL-0094.md": _finding("IMPL-0094", category="suggestion"),
+            "docs/findings/BUG-0095.md": _finding("BUG-0095", story="ST-0351"),
+        },
+    )
+
+    result = _premerge(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS open-findings: no open blocking finding of ST-0350" in result.stdout
+
+
+SRC_FOLDER_STORY = STORY.replace(
+    '["src/{id}.txt", "src/{id}.py", "docs/reviews/code-review-{id}-*.md"]', '["src/"]'
+).format(id="ST-0350")
+
+
+@pytest.mark.spec("RL-08-IT-07")
+def test_RL_08_IT_07_the_storys_reports_and_findings_do_not_count_toward_the_limit(tmp_path):
+    """Scenario: The story's review reports and findings do not count toward
+    the file limit."""
+    run = _build_wave_repo(tmp_path, {"backlog/ST-0350.md": SRC_FOLDER_STORY})
+    repo, feature, ledger, base = run["repo"], run["feature"], run["ledger"], run["base"]
+    work = {f"src/f{n:02}.txt": "work\n" for n in range(1, 19)}
+    head = _commit_on_story(repo, work)
+    sha = _commit_on_story(
+        repo,
+        {
+            REPORT_PATH: _review(base, head),
+            "docs/findings/BUG-0091.md": _finding("BUG-0091", status="resolved"),
+            "docs/findings/BUG-0096.md": _finding("BUG-0096", status="resolved"),
+            "docs/findings/register/code/IMPL-0093.json": REGISTER.format(id="IMPL-0093"),
+        },
+        "docs: review",
+    )
+    assert _dispatch(repo, ledger, "verify-story", "ST-0350", "--sha", sha).returncode == 0
+
+    result = _dispatch(feature, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (
+        "PASS file-count-blowout: 18 files changed, not counting 4 review or "
+        "finding file(s) of the story (limit 20)" in result.stdout
+    )
+    assert "PASS out-of-scope-paths: all 22 file(s) under declared scope" in result.stdout
+
+
+@pytest.mark.spec("RL-08-IT-08")
+def test_RL_08_IT_08_a_finding_of_another_story_outside_the_scope_blocks(wave_repo):
+    """Scenario: A finding of another story outside the scope blocks the merge."""
+    repo, feature, ledger = wave_repo["repo"], wave_repo["feature"], wave_repo["ledger"]
+    _work_and_review(repo, ledger, wave_repo["base"], "ST-0350")
+    sha = _commit_on_story(
+        repo,
+        {"docs/findings/BUG-0092.md": _finding("BUG-0092", story="ST-0351", status="resolved")},
+    )
+    assert _dispatch(repo, ledger, "verify-story", "ST-0350", "--sha", sha).returncode == 0
+    tip = _git(feature, "rev-parse", "HEAD")
+
+    result = _dispatch(feature, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK out-of-scope-paths: docs/findings/BUG-0092.md" in result.stdout
+    assert _git(feature, "rev-parse", "HEAD") == tip
