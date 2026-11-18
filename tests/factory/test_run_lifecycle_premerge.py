@@ -84,12 +84,12 @@ def wave_repo(tmp_path: Path) -> dict[str, Path]:
 def _build_wave_repo(tmp_path: Path, files: dict[str, str] | None = None) -> dict[str, Path]:
     """Build the wave repository; *files* go into its first commit."""
     repo = tmp_path / "repo"
-    for folder in ("backlog", "config", "src", "docs/reviews"):
+    for folder in ("backlog", "src", "docs/reviews"):
         (repo / folder).mkdir(parents=True)
     _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
     for story_id in STORIES:
         (repo / "backlog" / f"{story_id}.md").write_text(STORY.format(id=story_id))
-    (repo / "config" / "project.json").write_text('{"test_command": "true"}')
+    (repo / "docs" / "testing.yaml").write_text('test_command: "true"\n')
     (repo / ".gitignore").write_text(".current-work/\n.agent-factory/\n")
     (repo / "src" / ".keep").write_text("")
     for rel, text in (files or {}).items():
@@ -347,3 +347,101 @@ def test_RL_08_IT_13_without_dependency_rules_the_check_skips_and_names_it(tmp_p
         in result.stdout
     )
     assert not ran.exists()
+
+
+# --- ST-0415: every enabled gate and the test suite run at the branch head ---
+
+STORY_DIR = Path(".current-work") / "feat" / "login" / "story" / "ST-0350"
+LICENSE_CHECK = """{{
+  echo "cwd=$PWD"
+  echo "head=$(git rev-parse HEAD)"
+}} > {log}
+"""
+GATES_WITH_LICENSE_CHECK = """test_command: "true"
+gates:
+  license-check:
+    enabled: true
+    command: sh scripts/license-check
+  crap-score:
+    enabled: false
+"""
+
+
+@pytest.mark.spec("RL-09-IT-01")
+def test_RL_09_IT_01_premerge_check_runs_a_gate_that_the_script_does_not_name(tmp_path):
+    """Scenario: premerge-check runs a gate that the script does not name."""
+    log = tmp_path / "license-check.log"
+    run = _build_wave_repo(
+        tmp_path,
+        {
+            "docs/testing.yaml": GATES_WITH_LICENSE_CHECK,
+            "scripts/license-check": LICENSE_CHECK.format(log=log),
+        },
+    )
+    repo = run["repo"]
+    head = _work_and_review(repo, run["ledger"], run["base"], "ST-0350")
+
+    result = _premerge(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS semantic-gates: license-check passed for ST-0350" in result.stdout
+    record = dict(line.split("=", 1) for line in log.read_text().splitlines())
+    assert record["cwd"] == str(repo / PREMERGE_PATH)
+    assert record["head"] == head
+
+
+RUN_TESTS = """#!/bin/sh
+echo "$PWD" > {log}
+for test in tests/*.sh; do
+  sh "$test" || exit 1
+done
+"""
+TEST_SUITE_YAML = 'test_command: "sh scripts/run-tests.sh"\n'
+
+
+def _test_suite_repo(tmp_path: Path) -> tuple[dict[str, Path], Path]:
+    log = tmp_path / "suite.log"
+    run = _build_wave_repo(
+        tmp_path,
+        {
+            "docs/testing.yaml": TEST_SUITE_YAML,
+            "scripts/run-tests.sh": RUN_TESTS.format(log=log),
+            "tests/test_passes.sh": "exit 0\n",
+        },
+    )
+    return run, log
+
+
+@pytest.mark.spec("RL-08-IT-17")
+def test_RL_08_IT_17_a_head_that_fails_the_test_suite_is_refused(tmp_path):
+    """premerge-check runs test_command in the temporary worktree, refuses a
+    red suite, and names the test suite."""
+    run, log = _test_suite_repo(tmp_path)
+    repo = run["repo"]
+    (repo / STORY_DIR / "tests" / "test_fails.sh").write_text("exit 1\n")
+    _work_and_review(repo, run["ledger"], run["base"], "ST-0350")
+
+    result = _premerge(repo)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK test-suite: the test suite 'sh scripts/run-tests.sh' exited 1" in result.stdout
+    assert log.read_text().strip() == str(repo / PREMERGE_PATH)
+    assert not (repo / ".current-work" / "premerge-check-ok").exists()
+    assert not (repo / PREMERGE_PATH).exists()
+
+
+@pytest.mark.spec("RL-08-IT-17")
+def test_RL_08_IT_17_an_untracked_test_file_takes_no_part_in_the_test_suite(tmp_path):
+    """An untracked failing test in the story's checkout does not reach the
+    test suite in the temporary worktree."""
+    run, _ = _test_suite_repo(tmp_path)
+    repo = run["repo"]
+    _work_and_review(repo, run["ledger"], run["base"], "ST-0350")
+    untracked = repo / STORY_DIR / "tests" / "test_untracked.sh"
+    untracked.write_text("exit 1\n")
+
+    result = _premerge(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS test-suite: the test suite 'sh scripts/run-tests.sh' passed for ST-0350" in result.stdout
+    assert untracked.read_text() == "exit 1\n"

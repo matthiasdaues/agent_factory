@@ -6,9 +6,11 @@ These tests read files of this repository and check their text.
 from __future__ import annotations
 
 import re
+from dataclasses import fields
 from pathlib import Path
 
 import pytest
+import yaml
 
 from conftest import REPO_ROOT
 
@@ -205,3 +207,74 @@ def test_RL_04_LN_04_a_feature_level_report_names_its_run(agent: Path, report: s
     ):
         assert row in table
     assert "run:" in _section(REPORT_FORMAT, "Report frontmatter")
+
+
+# --- RL-17: the dispatch contract lists the fields of the ledger (ST-0408) ----
+
+DISPATCH_CONTRACT = FACTORY / "rulebooks" / "conventions" / "dispatch-contract.md"
+
+
+def _contract_ledger_blocks() -> list[dict]:
+    """Return the YAML blocks of the sections Dispatch Ledger and Wave Closeout Record."""
+    text = DISPATCH_CONTRACT.read_text(encoding="utf-8")
+    start = text.index("### Dispatch Ledger")
+    end = text.index("\n## Close\n", start)
+    return [
+        yaml.safe_load(block)
+        for block in re.findall(r"```yaml\n(.*?)```", text[start:end], re.DOTALL)
+    ]
+
+
+def _story_keys(ledger: dict) -> set[str]:
+    return {key for entry in ledger["stories"].values() for key in entry}
+
+
+@pytest.mark.spec("RL-17-LN-01")
+def test_RL_17_LN_01_the_dispatch_contract_lists_exactly_the_written_fields(tmp_path) -> None:
+    """Scenario: The dispatch contract lists exactly the fields the code writes."""
+    import dispatch_lib as lib
+    from test_run_lifecycle_ledger import full_ledger, written
+
+    code = written(full_ledger(), tmp_path / "dispatch-ledger.yaml")
+    # The sample ledger sets every field, so the check sees each written name.
+    assert _story_keys(code) == {f.name for f in fields(lib.StoryEntry)}
+    schema, closeout = _contract_ledger_blocks()
+
+    assert set(schema) == set(code)
+    assert _story_keys(schema) == _story_keys(code)
+    assert set(closeout["waves"][0]) == set(code["waves"][0])
+
+
+# --- ST-0415: the test-strategy agent writes gate keys with hyphens --------
+
+FACTORY = REPO_ROOT / "packages" / "factory"
+GATE_KEY_TEXTS = (
+    FACTORY / "agents" / "test-strategy-agent.md",
+    FACTORY / "skills" / "detect-test-regime" / "SKILL.md",
+    FACTORY / "skills" / "crap-score" / "SKILL.md",
+    FACTORY / "skills" / "mutation-testing" / "SKILL.md",
+)
+# The old gate keys of BR-055. A field key keeps its underscores, so
+# gates.attempts_escalated and gates.mutation-testing.timeout_minutes do not count.
+OLD_GATE_KEY = re.compile(r"\bgates\.(?:crap_score|mutation_testing|test_design_verify)\b")
+
+
+@pytest.mark.spec("RL-09-LN-01")
+@pytest.mark.parametrize("path", GATE_KEY_TEXTS, ids=lambda p: p.parent.name)
+def test_RL_09_LN_01_the_gate_texts_name_only_keys_with_hyphens(path: Path) -> None:
+    """Scenario: The test-strategy agent writes gate keys with hyphens."""
+    assert OLD_GATE_KEY.findall(path.read_text(encoding="utf-8")) == []
+
+
+@pytest.mark.spec("RL-09-LN-01")
+def test_RL_09_LN_01_the_test_strategy_agent_names_the_key_with_hyphens() -> None:
+    text = GATE_KEY_TEXTS[0].read_text(encoding="utf-8")
+    assert "`gates.crap-score.threshold`" in text
+
+
+@pytest.mark.spec("RL-09-LN-01")
+def test_RL_09_LN_01_the_check_finds_an_old_gate_key() -> None:
+    assert OLD_GATE_KEY.findall("set gates.crap_score.threshold") == ["gates.crap_score"]
+    assert OLD_GATE_KEY.findall("set gates.mutation-testing.timeout_minutes") == []
+    assert OLD_GATE_KEY.findall("gates.attempts_escalated") == []
+    assert OLD_GATE_KEY.findall("gates.test_design_verify") == ["gates.test_design_verify"]

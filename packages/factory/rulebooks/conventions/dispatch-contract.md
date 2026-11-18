@@ -245,32 +245,44 @@ The following sections do not apply in manual mode: Dispatch Ledger, Wave Bounda
 
 ### Dispatch Ledger
 
-The dispatch ledger applies to **automated mode only**.
+Both ways of driving a run keep a ledger: an orchestrated run and a run by hand. `dispatch init --mode orchestrated|by-hand` writes it, and without `--mode` the run is orchestrated.
 
-The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `.agent-factory/factory/scripts/dispatch` subcommands mutate it. The ledger is saved after each mechanically observable transition. It lives under the ignored `.current-work/` and is never committed.
+The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `.agent-factory/factory/scripts/dispatch` subcommands mutate it. The ledger is saved after each mechanically observable transition. It lives under the ignored `.current-work/` and is never committed. A ledger exists only while its run is active, so it has no field that marks the run closed.
 
-Schema:
+Schema, with every field that `dispatch` writes:
 
 ```yaml
 ---
-mode: automated
-closed: false | true
-invocation_branch: <branch-name>
-branch_root: <40-char SHA>
+mode: orchestrated | by-hand
+feature_branch: <branch-name>
+branch_root: <40-char SHA>  # tip of the feature branch at init
 branch_head: <40-char SHA>  # updated after each merge or wave closeout
 stories:
-  - id: <story-id>
-    branch: <feature-branch-name>
-    worktree: <worktree-path>
-    declared_base: <40-char SHA>
-    verify_base: pass | fail | pending
-    premerge_check: pass | fail | pending
-    commit_sha: <40-char SHA or null>
-    merge_sha: <40-char SHA or null>
+  <story-id>:
+    id: <story-id>
+    wave: <wave-number or null>
     status: pending | prepared | dispatching | dispatched | done | blocked | failed
-    wave: <wave-number>
+    deps: [<story-id>, ...]
+    branch: <story branch or null>
+    worktree: <worktree path or null>
+    feature_branch: <branch-name or null>
+    base_sha: <40-char SHA or null>
+    tier: <economy | standard | strong or null>
     reason: <null or explanation for blocked/failed>
+    # The fields below appear only once they hold a value.
+    attempts: [<attempt record>, ...]
+    escalation_granted: true
+    verify_base: <verify-base result>
+    commit_sha: <40-char SHA>
+    failure_class: <failure class>
+    evidence: <evidence path>
+    manifest_recoveries: [<recovery record>, ...]
+    active_session: seam | impl
+    active_tier: <economy | standard | strong>
+waves: [<wave closeout record>, ...]  # see Wave Closeout Record
 ```
+
+`dispatch` also reads a ledger with the old names `invocation_branch` and `mode: automated`. It reads them as `feature_branch` and `mode: orchestrated`, and its next write holds only the new names.
 
 The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads it to determine which stories completed, which failed, what is merely prepared, and what the current base SHA is, rather than reconstructing state from git log heuristics.
 
