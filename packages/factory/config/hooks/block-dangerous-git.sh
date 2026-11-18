@@ -21,16 +21,27 @@ deny() {
 # ST-0427 (ADR-0039, OI-11): dispatch return-story and dispatch close --drop
 # destroy work and are always the User's decision, so they are refused in every
 # session. The match finds dispatch at a command position: the start of a line,
-# after ; & | ( or a backtick, or after the -c of bash -c, with or without a
-# path. A quoted mention, such as in grep or a commit message, passes. The
-# script reads only the text, so a command built from variables passes too.
+# or after ; & | ( or a backtick. Before dispatch it skips the words that lead a
+# command without being the command, as guard-human-fields does: the WRAPPERS
+# words, nohup and exec, an assignment NAME=value, an interpreter such as
+# python3, bash or uv run, and their options. dispatch may carry a path, and its
+# options, such as --ledger <path>, may stand before the subcommand. A quote may
+# surround each word. A quoted mention inside another command, such as a grep
+# pattern or a commit message, passes. The script reads only the text, so a
+# command built from variables passes too.
 SQ="'"
-DISPATCH_AT="(^|[;&|(\`]|-[a-z]*c[[:space:]]+[\"$SQ]?)[[:space:]]*([^[:space:];&|()\`\"$SQ]*/)?dispatch[[:space:]]+"
-DISPATCH_END="([[:space:];&|)\`\"$SQ]|\$)"
+Q="[\"$SQ]?"
+PLAIN="[^[:space:];&|()\`\"$SQ]"
+LEAD_NAME="(\\{|!|then|do|else|($PLAIN*/)?(env|command|time|sudo|nohup|exec|python[0-9.]*|bash|sh|zsh|dash|uv[[:space:]]+run))"
+LEAD_ASSIGN="[A-Za-z_][A-Za-z0-9_]*=(\"[^\"]*\"|$SQ[^$SQ]*$SQ|$PLAIN*)"
+OPTION="$Q-$PLAIN*$Q([[:space:]]+$Q[^-[:space:];&|()\`\"$SQ]$PLAIN*$Q)?"
+LEAD="($LEAD_NAME|$LEAD_ASSIGN|$OPTION)[[:space:]]+"
+DISPATCH_AT="(^|[;&|(\`])[[:space:]]*($LEAD)*$Q($PLAIN*/)?dispatch$Q[[:space:]]+($OPTION[[:space:]]+)*$Q"
+DISPATCH_END="$Q([[:space:];&|)\`]|\$)"
 if printf '%s\n' "$COMMAND" | grep -qE "${DISPATCH_AT}return-story${DISPATCH_END}"; then
   deny "'$COMMAND' runs dispatch return-story, which destroys the story's work. Only the User runs it."
 fi
-if printf '%s\n' "$COMMAND" | grep -qE "${DISPATCH_AT}close[[:space:]]([^;&|\`\"$SQ]*[[:space:]])?--drop${DISPATCH_END}"; then
+if printf '%s\n' "$COMMAND" | grep -qE "${DISPATCH_AT}close$Q[[:space:]]([^;&|\`\"$SQ]*[[:space:]])?$Q--drop${DISPATCH_END}"; then
   deny "'$COMMAND' runs dispatch close --drop, which destroys the run's work. Only the User runs it."
 fi
 

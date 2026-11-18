@@ -437,7 +437,7 @@ class TestEveryToolPayloadReachesTheRefusal:
 
 
 class TestEveryFormIsRefused:
-    """RL-16-IT-07: a path, a chain, and bash -c (OI-11)."""
+    """RL-16-IT-07: every form that puts dispatch at a command position (OI-11)."""
 
     @pytest.mark.spec("RL-16-IT-07")
     @pytest.mark.parametrize(
@@ -450,6 +450,29 @@ class TestEveryFormIsRefused:
             ("git status; dispatch return-story ST-0350", "dispatch return-story"),
             ('bash -c "dispatch close --drop"', "dispatch close --drop"),
             ('bash -c "git status && dispatch return-story ST-0350"', "dispatch return-story"),
+            # IMPL-0021: an option of dispatch before the subcommand.
+            (
+                "dispatch --ledger .current-work/feature/x/dispatch-ledger.yaml return-story ST-0350",
+                "dispatch return-story",
+            ),
+            (
+                "dispatch --ledger=.current-work/feature/x/dispatch-ledger.yaml close --drop",
+                "dispatch close --drop",
+            ),
+            # IMPL-0021: a shell word that leads the command.
+            ("env dispatch return-story ST-0350", "dispatch return-story"),
+            ("FOO=1 dispatch return-story ST-0350", "dispatch return-story"),
+            ("{ dispatch return-story ST-0350; }", "dispatch return-story"),
+            ("if true; then dispatch return-story ST-0350; fi", "dispatch return-story"),
+            # IMPL-0021: an interpreter in front of dispatch.
+            ("uv run .agent-factory/factory/scripts/dispatch close --drop", "dispatch close --drop"),
+            (
+                "python3 .agent-factory/factory/scripts/dispatch return-story ST-0350",
+                "dispatch return-story",
+            ),
+            # IMPL-0021: a quoted word, which the shell unquotes.
+            ('dispatch close "--drop"', "dispatch close --drop"),
+            ('dispatch "return-story" ST-0350', "dispatch return-story"),
         ],
     )
     def test_st_0427_every_form_is_refused(self, form, names, isolated_git):
@@ -457,6 +480,25 @@ class TestEveryFormIsRefused:
         _init_repo(main, "dev")
 
         _assert_refused(_run_hook(form, cwd=main), names)
+
+    @pytest.mark.spec("RL-16-IT-07")
+    @pytest.mark.parametrize(
+        "mention",
+        [
+            'grep -n "dispatch return-story" docs/spec/interface-contracts.md',
+            'grep -c "dispatch close --drop" docs/spec/interface-contracts.md',
+            "rg 'dispatch return-story' docs/",
+            'git commit -m "docs: refuse dispatch close --drop and dispatch return-story"',
+            "echo dispatch return-story",
+        ],
+    )
+    def test_st_0427_a_quoted_mention_in_another_command_passes(self, mention, isolated_git):
+        main = isolated_git / "main"
+        _init_repo(main, "dev")
+
+        result = _run_hook(mention, cwd=main)
+
+        assert result.returncode == 0, result.stderr
 
 
 class TestNoOtherDispatchCommandIsRefused:
