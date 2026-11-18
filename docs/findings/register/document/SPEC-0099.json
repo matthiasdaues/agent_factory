@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The links still open the right files, so a reader finds the items (no to fails_purpose); a reader who follows the Open Items link finds 'No item is open' and must search for OI-13 to OI-16, which BR-116 and BR-121 cite (raises_cost).",
   "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
-  "status": "open"
+  "status": "resolved"
 }

@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Removing a marker keyed to a branch of the run is safe, because a marker only lets a merge of that exact head through, so the implementer can act (no to fails_purpose); the test writer of RL-14-IT-01 must still decide which files the Scenario 'the markers of the run are gone' checks (raises_cost).",
   "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
-  "status": "open"
+  "status": "resolved"
 }
