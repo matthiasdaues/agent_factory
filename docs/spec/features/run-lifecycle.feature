@@ -760,6 +760,12 @@ Feature: Run Lifecycle
       And the message names <reason>
       And the ledger holds no entry for <id>
 
+      Examples:
+        | case                                                              | id       | reason                            |
+        | backlog/ST-0351.md is a story of the backlog                      | ST-0351  | that add takes only a finding     |
+        | docs/findings/BUG-0093.md has status resolved                     | BUG-0093 | the status resolved               |
+        | docs/findings/BUG-0094.md has status open and the severity minor  | BUG-0094 | that BUG-0094 does not block      |
+
     Scenario: A stop refuses dispatch add
       Given docs/findings/BUG-0096.md has severity critical and status open, and its stop is not confirmed
       And docs/findings/BUG-0090.md has run feature/login, a blocking severity, and status open
@@ -767,12 +773,6 @@ Feature: Run Lifecycle
       Then dispatch exits 1
       And dispatch prints the stop notice
       And the ledger holds no entry for BUG-0090
-
-      Examples:
-        | case                                                              | id       | reason                            |
-        | backlog/ST-0351.md is a story of the backlog                      | ST-0351  | that add takes only a finding     |
-        | docs/findings/BUG-0093.md has status resolved                     | BUG-0093 | the status resolved               |
-        | docs/findings/BUG-0094.md has status open and the severity minor  | BUG-0094 | that BUG-0094 does not block      |
 
     Scenario: The wave close routes the open QA findings by owner
       Given wave 1 filed QA-0012 with owner planning-agent and QA-0013 with owner test-strategy-agent
