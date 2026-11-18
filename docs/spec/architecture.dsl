@@ -533,7 +533,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         dispatchCli -> git "Cuts and merges branches, moves the feature branch back on a red suite, deletes merged branches"
         dispatchCli -> runWorktrees "Creates the worktrees of an orchestrated run; removes them at close"
         dispatchCli -> projectFilesystem "By hand, checks out the story branch, and the feature branch after premerge-check passes"
-        dispatchCli -> coreArtifacts "Reads the test command and the attempt limits"
+        dispatchCli -> coreArtifacts "Reads the test command, the attempt limits, and refuse_dirty_feature_worktree"
         dispatchCli -> premergeCheck "merge-story runs it first and merges only on exit 0"
 
         # premerge-check
@@ -941,11 +941,14 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             implementationAgent -> humanOperator "Names merge-story ST-0350 again and waits for the go"
         }
 
-        dynamic factoryAgents "MergeCheckoutRefused" "premerge-check passes for story/ST-0350 by hand, but git refuses the checkout of feature/login over an uncommitted change, and merge-story merges nothing" {
+        dynamic factoryAgents "MergeCheckoutRefused" "Every check passes, but an uncommitted change stops the merge: git refuses it by hand, and merge-story refuses it in an orchestrated run" {
             implementationAgent -> dispatchCli "Runs merge-story ST-0350 after the User's go"
             dispatchCli -> premergeCheck "Runs premerge-check, and every check passes"
             dispatchCli -> projectFilesystem "Checks out feature/login, and git refuses over the uncommitted change to src/login.py"
             implementationAgent -> humanOperator "Shows the message unchanged: the files, the checkout, and that nothing merged"
+            implementationAgent -> dispatchCli "Orchestrated: runs merge-story ST-0351 in the worktree of feature/login"
+            dispatchCli -> runWorktrees "Finds an uncommitted change to a tracked file, names the files and the worktree, and merges nothing"
+            implementationAgent -> humanOperator "Reports the message unchanged and does not repair the worktree"
         }
 
         dynamic factoryAgents "StoryWorkflow" "ST-0350 goes through the story workflow on story/ST-0350, on both ways of driving a run" {
