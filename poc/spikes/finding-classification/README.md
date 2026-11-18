@@ -42,6 +42,9 @@ and with the filed rating. It ran on 2026-11-18. The report is
 - [run-7/](run-7/) holds the seventh run: design d, a list of named cases
   for `in_use` built from the stakeholder's decisions after run 6, on the six
   findings of run 6. The results are in [run-7-results.md](key/run-7-results.md).
+- [run-8/](run-8/) holds the eighth run: design e, the run-7 cases with
+  corrected wording, on all 28 document findings with two Sonnet and two Codex
+  raters per batch. The results are in [run-8-results.md](key/run-8-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
