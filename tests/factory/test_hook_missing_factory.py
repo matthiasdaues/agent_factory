@@ -59,7 +59,7 @@ def _run_entry(entry: str, repo: Path) -> subprocess.CompletedProcess:
 
 
 def test_template_has_every_factory_hook():
-    assert len(TEMPLATE_ENTRIES) == 11
+    assert len(TEMPLATE_ENTRIES) == 12
 
 
 @pytest.mark.parametrize("hook_id,entry", TEMPLATE_ENTRIES, ids=[i for i, _ in TEMPLATE_ENTRIES])
@@ -223,6 +223,11 @@ def test_hook_runs_the_gate_from_a_linked_worktree(hook_id, entry, tmp_path):
     worktree = tmp_path / "story"
     _git(main, "worktree", "add", "-q", "-b", "story", str(worktree))
     _git(main, "config", "--local", "agent-factory.installed", "true")
+    if hook_id == "agent_factory_hook-dependency-check":
+        # ST-0417: without a rules file the hook skips before the gate.
+        rules = worktree / "docs" / "spec" / "dependency-rules.dsl"
+        rules.parent.mkdir(parents=True)
+        rules.write_text("domain must_not_depend_on web\n", encoding="utf-8")
 
     result = _run_entry(entry, worktree)
 
