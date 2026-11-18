@@ -63,8 +63,9 @@ class TestPiWorktreePath:
         assert "join(worktreeDir(cwd, params.target), sanitizeBranch(item.branch))" in source
 
     def test_guard_accepts_any_path_under_current_work(self):
-        source = (EXTENSIONS / "block-dangerous-git.ts").read_text(encoding="utf-8")
-        assert 'wtPath.startsWith(".current-work/")' in source
+        # ST-0427, ADR-0039: the rule left pi's extension for the shared script.
+        source = (REPO_ROOT / "packages/factory/config/hooks/block-dangerous-git.sh").read_text(encoding="utf-8")
+        assert ".current-work/*) ;; # allowed" in source
         assert ".current-work/<feature-branch>/<branch>" in source
 
 
