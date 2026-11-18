@@ -12,7 +12,7 @@ By:   Manual invocation or implementation-agent automation.
 
 Usage
   dispatch status
-  dispatch init --base <branch> --stories ST-001,ST-002
+  dispatch init --base <branch> --stories ST-001,ST-002 [--mode orchestrated|by-hand]
   dispatch plan --backlog-dir backlog
 
 Exit code: 0 on success, 1 on error, 2 on usage error.
@@ -21,7 +21,6 @@ Exit code: 0 on success, 1 on error, 2 on usage error.
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import subprocess
 import sys
@@ -33,6 +32,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import (
     FAILURE_CLASSES,
+    LEDGER_MODES,
     MANIFEST_FILENAME,
     QUALIFYING_ESCALATION_FAILURE_CLASSES,
     STOP_SUBCOMMANDS,
@@ -223,21 +223,11 @@ def _top_level_entries(text: str, keys: tuple[str, ...]) -> dict:
     return entries
 
 
-def _project_json_command(path: Path) -> str | None:
-    try:
-        data = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return None
-    command = data.get("test_command") if isinstance(data, dict) else None
-    return command if isinstance(command, str) and command else None
-
-
 def _read_test_command(project_root: Path) -> str | None:
-    """Read the project's test command (BUG-0085).
+    """Read the project's test command from docs/testing.yaml (BR-112).
 
-    init-factory records it in docs/testing.yaml. A config/project.json with
-    a test_command key, the layout before that, still works. In a linked
-    worktree, a file missing from the checkout is read from the main tree.
+    In a linked worktree, a file missing from the checkout is read from the
+    main tree.
     """
     roots = [project_root]
     code, common_dir, _ = _git("rev-parse", "--git-common-dir")
@@ -247,10 +237,6 @@ def _read_test_command(project_root: Path) -> str | None:
             roots.append(main_root)
     for root in roots:
         command = _testing_yaml_command(root / "docs" / "testing.yaml")
-        if command:
-            return command
-    for root in roots:
-        command = _project_json_command(root / "config" / "project.json")
         if command:
             return command
     return None
@@ -577,9 +563,14 @@ def _prepare_seams_first_session(
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    """Initialize a dispatch run: create feature branch, worktree, and ledger."""
+    """Start a run: create the feature branch, and write the ledger.
+
+    An orchestrated run gets a worktree for its feature branch. A run by hand
+    gets the branch only, because it works in the primary checkout (BR-112).
+    """
     feature_branch = getattr(args, "feature_branch", None)
     baseline_commit = getattr(args, "baseline_commit", False)
+    mode = getattr(args, "mode", None) or "orchestrated"
 
     if feature_branch and baseline_commit:
         print(
@@ -589,13 +580,38 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     project_root = _project_root()
-    active = _active_ledger(project_root)
-    if active is not None:
+    story_ids = [s.strip() for s in args.stories.split(",")]
+    branch_name = feature_branch or _impl_branch_name(story_ids)
+    ledger_dir = project_root / ".current-work" / branch_name
+    ledger_path = ledger_dir / "dispatch-ledger.yaml"
+
+    if ledger_path.exists():
+        try:
+            existing = Ledger.load(ledger_path)
+            if set(existing.stories.keys()) == set(story_ids):
+                print(
+                    f"dispatch init: ledger already exists for '{branch_name}' (no-op)"
+                )
+                return 0
+        except Exception:  # noqa: BLE001, S110 - malformed ledger handled below
+            pass
         print(
-            f"error: dispatch is still active: {active}",
+            f"error: the ledger of '{branch_name}' lists other stories: {ledger_path}",
             file=sys.stderr,
         )
         return 1
+
+    if mode == "by-hand":
+        other = _active_run_by_hand()
+        if other is not None:
+            other_branch, other_path = other
+            print(
+                f"error: a run by hand is active on '{other_branch}' "
+                f"({other_path}); both need the primary checkout",
+                file=sys.stderr,
+            )
+            return 1
+
     test_cmd = _read_test_command(project_root)
     if not test_cmd:
         print(
@@ -604,7 +620,15 @@ def cmd_init(args: argparse.Namespace) -> int:
         )
         return 1
 
-    story_ids = [s.strip() for s in args.stories.split(",")]
+    open_deps = _open_outside_deps(project_root, story_ids)
+    if open_deps:
+        for sid, dep in open_deps:
+            print(
+                f"error: {sid} depends on {dep}, which is outside the run "
+                "and not done in the backlog",
+                file=sys.stderr,
+            )
+        return 1
 
     tier_check = _check_tier_mismatches(project_root, story_ids)
     if tier_check.blocking:
@@ -627,20 +651,13 @@ def cmd_init(args: argparse.Namespace) -> int:
     if feature_branch:
         code, fb_sha, _ = _git("rev-parse", f"refs/heads/{feature_branch}")
         if code != 0:
-            # Branch does not exist — create it with a linked worktree from base.
-            main_root = _main_worktree_root()
             wt_path = (
-                main_root
-                / ".current-work"
-                / feature_branch
-                / "invocation"
+                _main_worktree_root() / ".current-work" / feature_branch / "invocation"
             )
-            code, _, err = _git(
-                "worktree", "add", "-b", feature_branch, str(wt_path), base_sha
-            )
+            code, err = _create_run_branch(mode, feature_branch, wt_path, base_sha)
             if code != 0:
                 print(
-                    f"error: failed to create invocation branch "
+                    f"error: failed to create feature branch "
                     f"'{feature_branch}' from '{base}': {err}",
                     file=sys.stderr,
                 )
@@ -659,32 +676,7 @@ def cmd_init(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-        branch_name = feature_branch
     else:
-        branch_name = f"impl/{'-'.join(story_ids[:3]).lower()}"
-        if len(story_ids) > 3:
-            branch_name += f"-and-{len(story_ids) - 3}-more"
-
-    # Idempotency check
-    ledger_dir = project_root / ".current-work" / branch_name
-    ledger_path = ledger_dir / "dispatch-ledger.yaml"
-    if ledger_path.exists():
-        try:
-            existing = Ledger.load(ledger_path)
-            if set(existing.stories.keys()) == set(story_ids):
-                print(
-                    f"dispatch init: ledger already exists for '{branch_name}' (no-op)"
-                )
-                return 0
-        except Exception:  # noqa: BLE001, S110 - malformed ledger handled below
-            pass
-        print(
-            f"error: dispatch already active for '{branch_name}' at {ledger_path}",
-            file=sys.stderr,
-        )
-        return 1
-
-    if not feature_branch:
         code, untracked, _ = _git("ls-files", "--others", "--exclude-standard")
         if untracked and not baseline_commit:
             print(
@@ -703,23 +695,20 @@ def cmd_init(args: argparse.Namespace) -> int:
             )
             code, base_sha, _ = _git("rev-parse", "HEAD")
 
-        # Create feature branch + worktree
         worktree_path = project_root / ".current-work" / branch_name
-        code, _, err = _git(
-            "worktree", "add", "-b", branch_name, str(worktree_path), base_sha
-        )
+        code, err = _create_run_branch(mode, branch_name, worktree_path, base_sha)
         if code != 0:
-            print(f"error: failed to create worktree: {err}", file=sys.stderr)
+            print(f"error: failed to create branch: {err}", file=sys.stderr)
             return 1
 
-    # Resolve the branch root SHA for the ledger
+    # The branch root is the tip of the feature branch at init (BR-112).
     code, root_sha, _ = _git("rev-parse", f"refs/heads/{branch_name}")
     if code != 0:
         root_sha = base_sha
 
-    # Initialize ledger
     ledger = Ledger()
-    ledger.invocation_branch = branch_name
+    ledger.mode = mode
+    ledger.feature_branch = branch_name
     ledger.branch_root = root_sha
     ledger.branch_head = root_sha
     for sid in story_ids:
@@ -731,29 +720,63 @@ def cmd_init(args: argparse.Namespace) -> int:
     ledger_dir.mkdir(parents=True, exist_ok=True)
     ledger.save(ledger_path)
 
-    print(f"dispatch init: initialized '{branch_name}' with {len(story_ids)} stories")
+    print(
+        f"dispatch init: initialized '{branch_name}' ({mode}) "
+        f"with {len(story_ids)} stories"
+    )
     print(f"  ledger: {ledger_path}")
     return 0
 
 
+def _impl_branch_name(story_ids: list[str]) -> str:
+    """Name the branch of a run started without --feature-branch."""
+    name = f"impl/{'-'.join(story_ids[:3]).lower()}"
+    if len(story_ids) > 3:
+        name += f"-and-{len(story_ids) - 3}-more"
+    return name
 
-def _active_ledger(project_root: Path) -> Path | None:
-    """Return the first non-terminal ledger, if one exists."""
-    current_work = project_root / ".current-work"
+
+def _create_run_branch(
+    mode: str, branch: str, worktree_path: Path, base_sha: str
+) -> tuple[int, str]:
+    """Create *branch* at *base_sha*; only an orchestrated run gets a worktree."""
+    if mode == "by-hand":
+        code, _, err = _git("branch", branch, base_sha)
+    else:
+        code, _, err = _git("worktree", "add", "-b", branch, str(worktree_path), base_sha)
+    return code, err
+
+
+def _active_run_by_hand() -> tuple[str, Path] | None:
+    """Return the feature branch and ledger path of an active run by hand."""
+    # A ledger exists only while its run is active (BR-111).
+    current_work = _main_worktree_root() / ".current-work"
     if not current_work.is_dir():
         return None
     for ledger_path in sorted(current_work.glob("**/dispatch-ledger.yaml")):
         try:
             ledger = Ledger.load(ledger_path)
-        except (OSError, TypeError, ValueError):
-            return ledger_path
-        if any(
-            not ledger.is_terminal(story_id) for story_id in ledger.stories
-        ):
-            return ledger_path
+        except Exception:  # noqa: BLE001, S112 - an unreadable ledger names no mode
+            continue
+        if ledger.mode == "by-hand":
+            return ledger.feature_branch or "", ledger_path
     return None
 
 
+def _open_outside_deps(
+    project_root: Path, story_ids: list[str]
+) -> list[tuple[str, str]]:
+    """Return each (story, dependency) pair whose dependency is outside the run
+    and not done in the backlog."""
+    open_deps = []
+    for sid in story_ids:
+        for dep in _story_deps(project_root, sid):
+            if dep in story_ids:
+                continue
+            frontmatter = _story_frontmatter(project_root, dep) or {}
+            if frontmatter.get("status") != "done":
+                open_deps.append((sid, dep))
+    return open_deps
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
@@ -818,12 +841,12 @@ def _load_ledger(ledger_path: Path) -> Ledger | None:
     return None
 
 
-def _load_automated_ledger(ledger_path: Path) -> Ledger | None:
-    """Load *ledger_path* and require an automated-mode ledger."""
+def _load_orchestrated_ledger(ledger_path: Path) -> Ledger | None:
+    """Load *ledger_path* and require the ledger of an orchestrated run."""
     ledger = _load_ledger(ledger_path)
-    if ledger is not None and ledger.mode != "automated":
+    if ledger is not None and ledger.mode != "orchestrated":
         print(
-            f"error: command requires an automated-mode ledger: {ledger_path}",
+            f"error: command requires the ledger of an orchestrated run: {ledger_path}",
             file=sys.stderr,
         )
         return None
@@ -941,7 +964,7 @@ def _remove_story_workspace(
 def cmd_prepare_wave(args: argparse.Namespace) -> int:
     """Prepare every eligible story in one wave."""
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -967,12 +990,12 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         )
         return 1
 
-    target_branch = ledger.invocation_branch
+    target_branch = ledger.feature_branch
     if not target_branch:
         target_branch = _current_branch_name()
     if not target_branch:
         print(
-            "error: prepare-wave requires invocation_branch in the ledger "
+            "error: prepare-wave requires feature_branch in the ledger "
             "or a named current branch",
             file=sys.stderr,
         )
@@ -1091,7 +1114,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
 def cmd_prepare_story(args: argparse.Namespace) -> int:
     """Prepare one serial chain link from its predecessor's merge commit."""
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -1122,7 +1145,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         worktree_path = Path(entry.worktree)
         feature_branch = (
             entry.feature_branch
-            or ledger.invocation_branch
+            or ledger.feature_branch
             or _current_branch_name()
         )
         if not feature_branch:
@@ -1196,7 +1219,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     main_root = _main_worktree_root()
     feature_branch_for_path = (
         predecessor.feature_branch
-        or ledger.invocation_branch
+        or ledger.feature_branch
         or _current_branch_name()
     )
     branch_name = f"story/{entry.id}"
@@ -1234,7 +1257,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     feature_branch = (
         predecessor.feature_branch
-        or ledger.invocation_branch
+        or ledger.feature_branch
         or _current_branch_name()
     )
     if not feature_branch:
@@ -1748,7 +1771,7 @@ def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str)
 def cmd_refresh_story(args: argparse.Namespace) -> int:
     """Bring a story branch up to the invocation branch tip (BUG-0089)."""
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
         return 1
     entry = ledger.stories.get(args.story_id)
@@ -1762,10 +1785,10 @@ def cmd_refresh_story(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    if not ledger.invocation_branch:
-        print("error: the ledger records no invocation_branch", file=sys.stderr)
+    if not ledger.feature_branch:
+        print("error: the ledger records no feature_branch", file=sys.stderr)
         return 1
-    code = _refresh_story_branch(ledger, entry, ledger.invocation_branch)
+    code = _refresh_story_branch(ledger, entry, ledger.feature_branch)
     if entry.status == StoryState.BLOCKED:
         _save_ledger(ledger, ledger_path)
     return code
@@ -1792,7 +1815,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     that far, and the test suite runs against the existing merge commit.
     """
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -1814,7 +1837,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         return 1
 
     project_root = _project_root()
-    target_branch = ledger.invocation_branch or _current_branch_name()
+    target_branch = ledger.feature_branch or _current_branch_name()
     if not target_branch:
         print(
             "error: unable to determine target branch from ledger or current checkout",
@@ -2053,14 +2076,14 @@ def _drift_check(branch_head: str):
 
 def cmd_close_wave(args: argparse.Namespace) -> int:
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
         return 1
 
     # Read the invocation branch by name, so the result does not depend on
     # which checkout the caller runs from.
     head_ref = (
-        f"refs/heads/{ledger.invocation_branch}" if ledger.invocation_branch else "HEAD"
+        f"refs/heads/{ledger.feature_branch}" if ledger.feature_branch else "HEAD"
     )
     branch_head_code, branch_head, branch_head_err = _git("rev-parse", head_ref)
     if branch_head_code != 0:
@@ -2110,6 +2133,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--stories", required=True)
     p_init.add_argument("--baseline-commit", action="store_true")
     p_init.add_argument("--feature-branch", default=None)
+    p_init.add_argument("--mode", choices=LEDGER_MODES, default="orchestrated")
     p_init.add_argument("--yes", action="store_true", help="skip confirmation prompts")
 
     p_plan = sub.add_parser("plan", help="compute wave plan from stories")
