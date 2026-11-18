@@ -1,0 +1,20 @@
+{
+  "id": "ATAM-0026",
+  "source": "atam-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incorrect",
+  "severity": "minor",
+  "artifact": "docs/spec/architecture.dsl:74",
+  "story": null,
+  "finding": "The new and changed views are hard to read. The descriptions of dispatch, premerge-check, block-dangerous-git.sh, State Files, and Run Worktrees run to several hundred characters, so the text overflows the element boxes, crosses the container borders, and is cut off. The names of State Files and Run Worktrees are hidden in RunOrchestrated, RunByHand, and PremergeStoryCheck, and edge labels overlap in PremergeStoryCheck. RunLifecycleComponents puts 23 elements on a 7470 by 10889 pixel canvas, so no label is legible at page width in 5.13. Keep each DSL description to one sentence and move the detail into the tables of 5.4 and 5.13, then split RunLifecycleComponents into a view of dispatch with the Ledger and a view of premerge-check with the gates and the guardrail, re-export, and look at the PNGs. Owner: architecture-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Chapters 5.13 and 6 carry the same content as tables and Mermaid sequences, so a reader can act without the images (no to fails_purpose); a reader who opens a diagram cannot tell which element is which (raises_cost).",
+  "commit": "8b246fc263d73cb7d13a33c3b801c0d18dff4ecd",
+  "status": "open"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "ATAM-0025",
+  "source": "atam-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/arc42/06_runtime_view.md:1385-1386",
+  "story": null,
+  "finding": "No view says what happens after premerge-check refuses a story merge. PremergeStoryCheck ends with exit 1, the Ledger Entry Lifecycle has no transition for a refused merge-story, and the entry stays dispatched. The implementation agent's next step is unnamed: rerun the gate-check step and mark-failed for a failing gate, spawn a developer agent for an open finding, or stop for the User on a scope failure. RunByHand step 10 also shows the output of premerge-check before the go without naming the call, such as merge-story --dry-run. Add the path after a refusal to 6.23 or 6.24 and name the dry run in RunByHand. Owner: architecture-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The existing edges cover a gate failure once the implementation agent reruns the gate-check step, so an implementer can act (no to fails_purpose); the author of the implementation agent definition must still work out each refusal case alone (raises_cost).",
+  "commit": "8b246fc263d73cb7d13a33c3b801c0d18dff4ecd",
+  "status": "open"
+}

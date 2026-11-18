@@ -1,0 +1,20 @@
+{
+  "id": "ATAM-0024",
+  "source": "atam-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/arc42/06_runtime_view.md:143-149",
+  "story": null,
+  "finding": "The gate-check step in 6.4.1 and the DSL view GateCheckStep leave out ledger transitions. After dispatch re-dispatch ST-0350 the entry is prepared, and the view spawns the fresh developer agent without dispatch mark-dispatching and mark-dispatched, so the entry never returns to dispatched, where merge-story needs it. The escalate branch leaves out the re-dispatch that must follow, because escalate changes the tier and leaves the entry failed. Add mark-dispatching before the spawn and mark-dispatched after the fix commit, and add re-dispatch after escalate, in the DSL view and in 6.4.1. Owner: architecture-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The Ledger Entry Lifecycle and StoryWorkflow show the missing edges, and the Ledger refuses a wrong transition and names it, so an implementer reaches the right sequence (no to fails_purpose); a reader of 6.4 must compare it with the state machine to find the gap (raises_cost).",
+  "commit": "8b246fc263d73cb7d13a33c3b801c0d18dff4ecd",
+  "status": "open"
+}
