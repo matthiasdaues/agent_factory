@@ -602,7 +602,8 @@ normal workstream and does not reuse the sandbox as production state.
 
 Two kinds of row move through statuses in
 [core-artifact-ownership.feature](features/core-artifact-ownership.feature):
-a row of a drift report and a row of the term-candidate file. Written per
+a row of a spec-feedback report or a reconciliation report, and a row of the
+term-candidate file. Written per
 [state-machine-notation.md § Canonical Format](../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format):
 pseudocode is authoritative, Mermaid is derived.
 
@@ -1102,3 +1103,126 @@ stateDiagram-v2
 - **Removed** is the deletion of an `open` register file that `HEAD` holds, without a finding file of the same ID. `finding-lint` rejects it, so a fix keeps the register file and sets `resolved` (DEC-60, BR-110). A file in **RESOLVED** or **WAIVED** has left the lifecycle and may be deleted (DEC-65). The migration also removes the old `.jsonl` registers. They are no register files, so that removal is no **Removed** event (BR-095).
 - **AgentConfirms** and **AgentWaives**, the agent's attempt to set `waived` in a finding file or a register file, are refused by `guard-human-fields` (BR-092). The finding stays in its state.
 - A **question** never enters this machine. The reviewer agent writes it into `docs/spec/work/todo.md` (BR-085).
+
+## Run Lifecycle State Machines
+
+A unit of work in [run-lifecycle.feature](features/run-lifecycle.feature)
+moves through the states of its ledger entry, on both ways of driving a run.
+The ledger field `status` shows the state in lower case. Written per
+[state-machine-notation.md § Canonical Format](../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format):
+pseudocode is authoritative, Mermaid is derived. BR-111 to BR-122 in
+[validation-rules.md § Dispatch ledger](validation-rules.md#dispatch-ledger-dispatch)
+hold the rules.
+
+### Ledger Entry Lifecycle
+
+One story or one finding in the ledger of a run, from `dispatch init` or
+`dispatch add` to the close of the run. The tier and the counted attempts are
+fields of the entry, not states (BR-114, BR-115).
+
+#### Pseudocode
+
+```text
+State: PENDING
+  # initial — dispatch init writes a story, dispatch add writes an open blocking finding
+On Added:
+  # dispatch add on an ID that the ledger holds as pending, after a return
+  # the entry goes into a new wave, and its attempts restart on the default tier
+  ChangeState(PENDING)
+On Prepare:
+  # dispatch prepare-wave or prepare-story
+  if a dependency inside the run is not done
+    RejectCommand("dispatch: a dependency inside the run is not done")
+  else if the previous wave has no wave record
+    RejectCommand("dispatch: the previous wave has no wave record")
+  else
+    ChangeState(PREPARED)
+On Block:
+  ChangeState(BLOCKED)
+
+State: PREPARED
+  # the story branch, the declared base, the step manifest, and verify-base are in place
+On MarkDispatching:
+  # the implementation agent is about to spawn the developer agent
+  ChangeState(DISPATCHING)
+On Block:
+  ChangeState(BLOCKED)
+
+State: DISPATCHING
+On MarkDispatched:
+  # the developer agent committed
+  ChangeState(DISPATCHED)
+On Fail:
+  # the spawn failed
+  ChangeState(FAILED)
+On Block:
+  ChangeState(BLOCKED)
+
+State: DISPATCHED
+On MergeSucceeds:
+  # dispatch merge-story merged, the test suite passed, and the status is set in the merge commit
+  ChangeState(DONE)
+On Fail:
+  # a gate still fails in the gate-check step; the attempt records its failure class
+  ChangeState(FAILED)
+On Block:
+  # a merge conflict, a refresh conflict, or a red test suite after the merge
+  # on a red test suite, merge-story first moves the feature branch back
+  ChangeState(BLOCKED)
+On MarkDone:
+  RejectCommand("dispatch: only merge-story sets done")
+
+State: DONE
+  # terminal — the merge commit holds status done for a story or resolved for a finding
+
+State: FAILED
+On ReDispatch:
+  if the entry has two contract_violation attempts
+    RejectCommand("dispatch: the story is terminal after two contract_violation failures")
+  else if the counted attempts on the tier reached the limit of the tier
+    RejectCommand("dispatch: the story requires escalation before re-dispatch")
+  else
+    ChangeState(PREPARED)
+On Return:
+  # dispatch return-story, run by the User; the guardrail refuses it to agents
+  ChangeState(PENDING)
+
+State: BLOCKED
+On ReDispatch:
+  # the User fixed the cause and told the implementation agent to continue
+  ChangeState(PREPARED)
+On Return:
+  # dispatch return-story, run by the User; the guardrail refuses it to agents
+  ChangeState(PENDING)
+```
+
+#### Derived Mermaid
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> PENDING : Added
+    PENDING --> PREPARED : Prepare
+    PENDING --> BLOCKED : Block
+    PREPARED --> DISPATCHING : MarkDispatching
+    PREPARED --> BLOCKED : Block
+    DISPATCHING --> DISPATCHED : MarkDispatched
+    DISPATCHING --> FAILED : Fail
+    DISPATCHING --> BLOCKED : Block
+    DISPATCHED --> DONE : MergeSucceeds
+    DISPATCHED --> FAILED : Fail
+    DISPATCHED --> BLOCKED : Block
+    FAILED --> PREPARED : ReDispatch
+    FAILED --> PENDING : Return
+    BLOCKED --> PREPARED : ReDispatch
+    BLOCKED --> PENDING : Return
+    DONE --> [*]
+```
+
+#### Notes
+
+- **PENDING** is also where a returned unit of work ends a run. `dispatch close` accepts it, and a returned story stays in the backlog with `status: pending` (BR-116, BR-119).
+- **Added** applies only to a finding. `dispatch add` refuses an ID in any state other than **PENDING** and names that state (BR-117).
+- **Escalate** is no edge. `dispatch escalate` changes the tier of the entry and leaves its state. After a failed attempt, the next **ReDispatch** runs on the new tier (BR-115).
+- **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Whether it grants new attempts once the attempts of the last tier are used up and the User fixed the cause is open item RL-G19 in [run-lifecycle-gaps.md § Open Items](work/run-lifecycle-gaps.md#open-items).
+- **FAILED** and **BLOCKED** wait for the User. Both block `dispatch close` and the merge of the feature branch into `dev` until the entry is **DONE** or **PENDING** (BR-119).

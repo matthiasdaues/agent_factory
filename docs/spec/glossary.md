@@ -162,6 +162,15 @@ Terms for the falsification-driven research feature (phase-6 agents and the `res
 | **Agreement Check**       | The measurement of how often two runs give the same severity to a fixed set of 20 closed findings, once with the new rules and once with the old ones.                                                                                                                                                                                    |                                  |
 | **Migration Agent**       | The agent that runs the one-time migration of every open finding without `review_class` (BR-095). It classifies each finding with the rulebook, rewrites its artifact, fills `## Possible damage` for a `critical` result, and changes the files only after the stakeholder's pause point.                                                |                                  |
 
+## Run Lifecycle Vocabulary
+
+| Term             | Definition                                                                                                                                                                                                                               | Avoid |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| **Dispatch Run** | Everything the Factory does for one feature branch, from `dispatch init` to `dispatch close`. Documents shorten it to run. One playbook run contains the dispatch run of its feature. "Dispatch" alone names only the script `dispatch`. |       |
+| **orchestrated** | The way of driving a run in which the implementation agent starts stories in waves. The ledger's `mode` value is `orchestrated`.                                                                                                         |       |
+| **by hand**      | The way of driving a run in which the User decides when each story starts. The ledger's `mode` value is `by-hand`.                                                                                                                       |       |
+| **Unit of Work** | A story or a blocking finding that runs through the story workflow on the branch `story/<id>`. `premerge-check` reads the ID of the unit of work from the branch name.                                                                   |       |
+
 ## Acronyms and Abbreviations
 
 | Term   | Definition                                                                              | Avoid |
