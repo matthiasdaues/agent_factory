@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0098",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/entity-model.md:127",
+  "story": null,
+  "finding": "The entity model lacks attributes that the Scenarios and contracts use. GATE_ENTRY holds name, enabled and threshold, but RL-09 and the gates schema use command and timeout_minutes, and GATE_CONFIG does not hold the scalars attempts and attempts_escalated. The DISPATCH_LEDGER entry names status, wave, tier, attempts, commit_sha and attempt_grants, but the area spec Scenarios use escalation_granted, the reason of a blocked entry, branch, and worktree. No entity holds the review report with story, run and branch_head, which BR-122 and the premerge-check contract read. Add these attributes, and add a review report entity or link to report-format.md. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "dispatch-contract.md and interface-contracts.md list each field, so an implementer can act (no to fails_purpose); a reader of the entity model must look up three other files to find the fields that the Scenarios check (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

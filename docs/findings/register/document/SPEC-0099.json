@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0099",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:167",
+  "story": null,
+  "finding": "Two cross-references of the structure files are stale. validation-rules.md line 167 says the items RL-G01 to RL-G21 are in the gaps report and that OI-02 to OI-11 are in run-lifecycle-qa-strategy.md § Open Items. The gaps report now holds RL-G01 to RL-G23, and the QA strategy's Open Items section says that no item is open, while its Settled Items section holds OI-01 to OI-16. interface-contracts.md line 30 also names RL-G01 to RL-G21. Point both lines to RL-G01 to RL-G23 and to run-lifecycle-qa-strategy.md § Settled Items. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The links still open the right files, so a reader finds the items (no to fails_purpose); a reader who follows the Open Items link finds 'No item is open' and must search for OI-13 to OI-16, which BR-116 and BR-121 cite (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

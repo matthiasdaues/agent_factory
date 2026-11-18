@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0092",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:157",
+  "story": null,
+  "finding": "The proposal's subcommand table lets the implementation agent run dispatch add by hand only after the human's go. The spec does not say whether add waits for the go: the Outline of decision points lists four points without add, and the Scenario 'The wave close routes the open QA findings by owner' runs dispatch add QA-0012 right after the wave close, which 'does not wait for the User's go'. Add the go before dispatch add in a run by hand, or record that the stakeholder drops it. Owner: requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The User still gives the go before prepare-story starts the added unit of work, so nothing starts without the User (no to fails_purpose); the implementer must compare the proposal's subcommand table with the Outline to see the gap (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

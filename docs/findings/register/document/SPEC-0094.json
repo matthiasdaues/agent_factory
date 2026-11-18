@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0094",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md:52",
+  "story": null,
+  "finding": "dispatch close removes 'the premerge-check-ok and verify-base-ok markers of the run' (RL-14, interface-contracts.md line 41). premerge-check writes one file, .current-work/premerge-check-ok, keyed to the head of a branch, and the guardrail reads that path. With two runs active at once, the spec does not say which marker files belong to a run: the one file in the primary checkout, only the markers inside the run's worktrees, or the markers keyed to the run's branches. Name the path of each marker of a run, or state that close removes a marker only when it is keyed to a branch of the run. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Removing a marker keyed to a branch of the run is safe, because a marker only lets a merge of that exact head through, so the implementer can act (no to fails_purpose); the test writer of RL-14-IT-01 must still decide which files the Scenario 'the markers of the run are gone' checks (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

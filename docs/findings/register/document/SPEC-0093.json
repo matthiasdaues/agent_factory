@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0093",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:777",
+  "story": null,
+  "finding": "The proposal says that the implementation agent files a QA finding when the gate-check step cannot resolve something, such as a surviving mutant. No Scenario states this. The Scenario 'The wave close routes the open QA findings by owner' starts from QA-0012 and QA-0013 without a severity, while dispatch add accepts only an open blocking finding (BR-117), so a minor QA-0012 in the register would make add refuse. Add a Scenario in which the implementation agent files a blocking QA finding with an owner for a mutant it cannot resolve, and make the routing Scenario say that QA-0012 is an open blocking finding. Owner: requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "BR-117 and the proposal say which findings add accepts, so a test writer can add the missing severity (no to fails_purpose); the writer of RL-12-LN-01 and RL-12-IT-01 must find the filing rule in the proposal instead of the spec (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

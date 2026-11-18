@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0091",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:187",
+  "story": null,
+  "finding": "The Scenario 'The User runs only three commands in a run by hand' lets the User run only return-story, close --drop and close, and says that the implementation agent runs every other dispatch command of the run. The RL-01 Scenarios make the User run dispatch init, also by hand. State who runs dispatch init in a run by hand, and align the Scenario, the RL-01 actor, and the text check RL-03-LN-02. Owner: requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Either actor can run init, and the guardrail refuses neither, so the implementer can act (no to fails_purpose); a reader must notice that the Scenario 'from dispatch init to dispatch close' contradicts the actor of RL-01 (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

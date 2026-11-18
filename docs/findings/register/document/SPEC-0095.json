@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0095",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:175",
+  "story": null,
+  "finding": "By hand, BR-113 lets dispatch prepare-story write 'the next free wave number' into the ledger, and BR-117 lets dispatch add put a finding 'in a new wave, the next free number'. For BUG-0090 added by hand, add writes wave N, and prepare-story BUG-0090 may write wave N+1. Then wave N holds no unit of work and no wave record, and BR-113 makes prepare-story refuse. State that by hand prepare-story keeps the wave that add wrote, and writes the next free number only for an entry without a wave. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Keeping the wave that add wrote is the plain reading of 'a new wave', so an implementer can act (no to fails_purpose); the writer of RL-03-IT-02 must read BR-113 and BR-117 together to see that the two numbers may differ (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0097",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md#run-lifecycle-vocabulary",
+  "story": null,
+  "finding": "The feature file and the structure files use run lifecycle terms that the glossary does not define: Feature Branch, Story Branch, Wave, Wave Record, Ledger, Gate-Check Step, Drift Session, Primary Checkout, Counted Attempt, and Feature Checks. The Avoid cells of Dispatch Run, orchestrated, by hand and Unit of Work are empty, although the proposal replaces automated mode, manual mode, mechanized dispatch, invocation branch, gate-check loop, drift report and main checkout. The entry User still says 'driving Agent Factory directly by hand' in the old, general sense. 'Run' now also means a Dispatch Run, beside Unattended Run and Logical Run, and the Dispatch Run entry names a Playbook Run that has no entry. Define the missing terms, fill the Avoid cells with the replaced terms, reword the User entry, and give Playbook Run an entry or drop the reference. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The feature file defines each of these terms in its description, so a planner can act (no to fails_purpose); a reader of a structure file alone meets Wave Record or Gate-Check Step without a definition and two senses of 'by hand' and 'run' (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

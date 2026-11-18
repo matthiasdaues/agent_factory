@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0096",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:1121",
+  "story": null,
+  "finding": "The Scenario 'No living Factory document uses a replaced term' searches only Markdown files, as the proposal's completion criterion does. The proposal's Documents that change says that every Factory document uses the new terms. The feature files are not Markdown, so counter-ids.feature line 314, core-artifact-ownership.feature lines 505, 551, 552 and 704, and finding-classification.feature lines 704 to 709 and 896 to 899 keep 'manual mode', 'automated mode' and 'main checkout'. Extend the search to the .feature files under docs/spec/features/, or rename the Scenario so it names Markdown files only. Owner: requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The criterion of the proposal names Markdown files, so the Scenario as written can pass and a planner can act (no to fails_purpose); a reader of the feature files meets two terms for one concept, such as 'manual mode' and 'by hand' (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}

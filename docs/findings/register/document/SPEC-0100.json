@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0100",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/work/run-lifecycle-gaps.md:94",
+  "story": null,
+  "finding": "The gaps report holds stale facts. Rules Without Scenarios says the feature file holds 19 Rules and 132 Scenarios and that gherkin-official counts the same; the file holds 124 Scenarios and 13 Scenario Outlines, 137 in all, as the QA strategy states. Answers to the QA Strategy Items says that OI-01 waits for the domain-modeling agent; the QA strategy settles OI-01. Correct the count and the OI-01 sentence. Owner: requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "No Rule or test depends on the count, so a planner can act (no to fails_purpose); a reader who compares the gaps report with the QA strategy meets two counts and must recount the Scenarios (raises_cost).",
+  "commit": "5f1170e788eaae81b2652cbf371eed85511589c0",
+  "status": "open"
+}
