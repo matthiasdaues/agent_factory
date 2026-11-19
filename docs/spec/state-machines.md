@@ -1168,7 +1168,9 @@ On Fail:
   # a gate still fails in the gate-check step; the attempt records its failure class
   ChangeState(FAILED)
 On Block:
-  # a merge conflict, a refresh conflict, or a red test suite after the merge
+  # a red test suite after the merge, on both ways
+  # in an orchestrated run also a refresh conflict, or a merge that git refuses (reason merge conflict)
+  # by hand, a refused merge keeps the entry dispatched (BR-124)
   # on a red test suite, merge-story first moves the feature branch back
   ChangeState(BLOCKED)
 On MarkDone:
