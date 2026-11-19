@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.11.1 — 2026-11-20
+
+This release adds five working rules from the retrospective of the
+run-lifecycle implementation. Run `update-factory` to receive it.
+
+### Changes
+
+- **The planning agent lists more files in `touches`.** A story also names
+  the test files that its change makes wrong, and the finding files a
+  reviewer may resolve. `premerge-check` refuses a file outside `touches`.
+- **A fix iteration stays on the code path of its blocking findings.** The
+  implementation agent takes a minor finding into it only when it lies on the
+  same path. Every other minor finding goes to a later story.
+- **The implementation agent commits nothing on the feature branch while an
+  agent works on an older base.** It waits for the agent's commit, then
+  commits and runs `refresh-story`.
+- **The reviewer at the wave close leaves the User's rows alone.** Its brief
+  names the rows that only the User confirms, such as rows on
+  `docs/testing.yaml`.
+- **The developer and code-review agents wait on an output file or a process
+  ID.** A loop on `pgrep -f` of a word in its own command line waits forever.
+  A probe script of the code-review agent checks first that it runs inside
+  its own scratch repository.
+
 ## 1.11.0 — 2026-11-19
 
 This release gives every implementation run one lifecycle, from
