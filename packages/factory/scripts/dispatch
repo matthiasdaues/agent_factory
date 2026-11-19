@@ -3003,6 +3003,25 @@ class _FoundLedger:
     link: Path | None = None
 
 
+def _untracked_ledgers(tree: Path) -> list[Path]:
+    """Each ledger file in the checkout of *tree* that git does not track.
+
+    cmd_init writes a ledger to .current-work/<branch>/ of the checkout it
+    runs in, and that folder can be a registered worktree or lie inside one,
+    as after an init without --feature-branch (IMPL-0053). A tracked file of
+    that name is a project file (IMPL-0046). The .current-work/ of *tree* is
+    a root of the walk of its own. When git cannot list the files, the
+    ledger path at the root stands for the checkout, so its claim keeps
+    the worktree."""
+    code, out, _ = _git_in(
+        tree, "ls-files", "--others", "-z", "--",
+        f":(glob)**/{LEDGER_FILENAME}", ":(exclude,glob).current-work/**",
+    )
+    if code != 0:
+        return [Path(LEDGER_FILENAME)]
+    return [Path(rel) for rel in out.split("\0") if rel]
+
+
 def _find_ledgers(
     roots: list[Path], trees: dict[Path, str | None]
 ) -> tuple[list[_FoundLedger], list[Path]]:
@@ -3041,6 +3060,11 @@ def _find_ledgers(
                     pending.append((sub, root, link or sub))
                 elif sub.resolve() not in trees:
                     kept.append(name)
+                else:
+                    base = start.relative_to(root) / here.relative_to(start) / name
+                    for rel in _untracked_ledgers(sub):
+                        path = sub / rel
+                        found.setdefault(path, _FoundLedger(path, base / rel.parent, link))
             subfolders[:] = kept
             if LEDGER_FILENAME in files:
                 path = here / LEDGER_FILENAME

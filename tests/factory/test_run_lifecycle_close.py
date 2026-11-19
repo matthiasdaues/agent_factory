@@ -1266,3 +1266,35 @@ def test_RL_15_IT_01_orphans_stops_after_a_failed_removal_and_names_the_stash(tm
     assert "dispatch close --orphans: done" not in result.stdout
     assert shallow.is_dir()
     assert deep.is_dir()
+
+
+@pytest.mark.spec("RL-15-IT-01")
+@pytest.mark.parametrize("nested", ["at the root", "deeper"])
+def test_RL_15_IT_01_orphans_keeps_a_run_whose_run_folder_is_its_feature_worktree(
+    tmp_path, nested,
+):
+    """IMPL-0053: dispatch init without --feature-branch puts the feature
+    worktree at .current-work/<branch> and the ledger at its root. The walk
+    still reads that ledger, so the live run keeps its worktrees."""
+    repo = _orphan_repo(tmp_path)
+    if nested == "at the root":
+        feature = _tree(repo, "feature/x", "feature/x")
+        ledger = feature / "dispatch-ledger.yaml"
+        story_rel = "feature/x/.current-work/story/ST-1"
+    else:
+        feature = _tree(repo, "feature", "feature/host")
+        ledger = feature / "x/dispatch-ledger.yaml"
+        _git(repo, "branch", "feature/x", "dev")
+        story_rel = "feature/x/story/ST-1"
+    _write_ledger(ledger, "feature/x", {"ST-1": "dispatched"})
+    story = _tree(repo, story_rel, "story/ST-1")
+    (story / "wip.txt").write_text("agent at work\n")
+    before = ledger.read_text()
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ledger.read_text() == before
+    assert feature.is_dir()
+    assert (story / "wip.txt").read_text() == "agent at work\n"
+    assert _stashes(repo) == []
