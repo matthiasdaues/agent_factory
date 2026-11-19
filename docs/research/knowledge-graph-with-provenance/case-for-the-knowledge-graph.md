@@ -223,6 +223,7 @@ The third survey adds a claim that bears on every candidate edge: a cross-encode
 - Outcomes: Second-survey claim 6 tests extraction against that known list and checks every anchor. First-survey claim 8 checks only the quotes. The third-survey check needs candidate pairs from the pilot. Claims 4 and 1 need email or news.
 - Recommendation: Test second-survey claim 6 first, then first-survey claim 8, then the third-survey check. The handoff gives the first test a known answer.
 - What would change it: If news becomes the second source family, second-survey claim 1 moves to second place.
+- Pilot result: Story D tested claims 6 and 8 on one day of the session. A Claude extractor met both. A local `qwen3:8b` met neither: it found 17 of 20 decisions, and 7 of its 37 quotes occur nowhere in the input ([pilot notes C and D](../../../poc/kg-pilot/notes-cd.md)). The falsification study still needs a second session, an answer key written by a person, and a judge from another model family.
 - What the answer settles: The brief of the first falsification study.
 
 ### 7.4 The ID prefix for records
@@ -235,7 +236,7 @@ The third survey adds a claim that bears on every candidate edge: a cross-encode
 
 ## 8. Next step: the pilot
 
-The pilot runs in two stages ([design position](design-position.md#the-spike)). The stakeholder approved a first part of stage 1 on 2026-11-19: the nine tests and an import of one session without extraction. It is in [`poc/kg-pilot`](../../../poc/kg-pilot/README.md).
+The pilot runs in two stages ([design position](design-position.md#the-spike)). The stakeholder approved a first part of stage 1 on 2026-11-19: the nine tests and an import of one session without extraction. The same day it approved the import of written files and a comparison of two extractors. The pilot is in [`poc/kg-pilot`](../../../poc/kg-pilot/README.md).
 
 ### 8.1 Stage 1: factory sessions
 
@@ -261,7 +262,14 @@ All nine pass. Three results changed the store ([pilot notes A](../../../poc/kg-
 - The vector search filters by model and model version.
 - `pg_trgm` is a third search branch for German part-words. Full-text search missed 7 of 8 of them; `pg_trgm` found all 8.
 
-Test 9 needs a larger corpus and a final 19 image. The import wrote 1,966 spans of one session, and every anchor resolves to a message in the session file. The answer does not yet list the twenty decisions, because they sit in the handoff file. The next part of stage 1 imports the handoff as a source and tests extraction ([pilot notes B](../../../poc/kg-pilot/notes-b.md)).
+Test 9 needs a larger corpus and a final 19 image. The import wrote 1,966 spans of one session, and every anchor resolves to a message in the session file. The answer does not yet list the twenty decisions, because they sit in the handoff file ([pilot notes B](../../../poc/kg-pilot/notes-b.md)).
+
+The next part imported each Markdown file the session wrote as a file version, and extracted decisions from one day of chat ([pilot notes C and D](../../../poc/kg-pilot/notes-cd.md)):
+
+- The store rebuilt the handoff with all twenty decisions from the session file, after the file on disk had been overwritten.
+- The run-lifecycle question ranks the handoff 41st, because the decisions were made under the name "Dispatch process". The store needs a link between a topic's old and new names.
+- A Claude extractor found all 20 decisions, with 29 of 29 quotes verbatim. A local `qwen3:8b` found 17, with 7 quotes that occur nowhere and 4 statements that contradict a decision. The stakeholder ruled out the local model for extraction.
+- Extracted decisions stay candidates, and the import should reject one whose quote is not in its cited span.
 
 ### 8.2 Stage 2: one email mailbox
 
@@ -276,7 +284,7 @@ Email is the recommended second family, because its anchors rank high in section
 - The factory's gates read files in git, so checks on the store must run as queries, with the same query command in every command-line interface (CLI) ([design position](design-position.md#costs)).
 - Decisions cannot be rebuilt from the sources, so the store needs a backup and an export of its decision history that nothing can rewrite. It also needs its own approved proposal.
 - No survey installed or ran a store. Own-write visibility through HNSW and through GIN is inferred from code.
-- No record measures retrieval quality for `ts_rank`, BM25, or any fusion on a corpus like the store's, or how accurately a current LLM extracts ideas.
+- No record measures retrieval quality for `ts_rank`, BM25, or any fusion on a corpus like the store's. Only the pilot measures how accurately a current LLM extracts decisions, on one session, with an answer key and a judge from the model family of one extractor.
 - The third survey failed its first validation pass on one blocking defect and passed the [second](../graph-and-embeddings/survey-validation-pass-2.md). The fourth and fifth passed at once, with minor corrections. The first and second surveys were accepted with open points from their last passes ([pass 5](../knowledge-graph-state-of-the-art/survey-validation-pass-5.md#notes-for-the-stakeholder), [pass 3](../knowledge-across-sources/survey-validation-pass-3.md)).
 
 ## 10. Glossary
@@ -312,7 +320,7 @@ Email is the recommended second family, because its anchors rank high in section
 - IMAP (Internet Message Access Protocol). The protocol mail clients use to read mail on a server. Its threading standard rebuilds email threads from headers.
 - `In-Reply-To`. The email header that names the parent of a reply by its `Message-ID`. Mail software often filled it with free text.
 - KI (knowledge item). A candidate ID prefix for records, beside `NOTION`.
-- LLM (large language model). A model that generates text, as the factory's agents do. No record measures how accurately one extracts ideas.
+- LLM (large language model). A model that generates text, as the factory's agents do. Only the pilot's one session measures how accurately one extracts decisions.
 - `Message-ID`. The email header that names one version of one message. It must be globally unique.
 - MVCC (multiversion concurrency control). The way PostgreSQL shows each transaction its own snapshot of the rows.
 - Nanopublication. A small published claim split into assertion, provenance, and publication information. It is the documented pattern for one claim per record.
