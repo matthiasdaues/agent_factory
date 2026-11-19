@@ -1,5 +1,78 @@
 # Changelog
 
+## 1.11.0 — 2026-11-19
+
+This release gives every implementation run one lifecycle, from
+`dispatch init` to `dispatch close`. A run by hand now uses the same ledger,
+story workflow and checks as an orchestrated run. Only `dispatch merge-story`
+marks a story `done`, and a run ends with nothing left behind. Run
+`update-factory` to receive it. Existing ledgers, the old gate keys with
+underscores and the mode values `automated` and `manual` still load.
+
+### Changes
+
+- **One run, two ways to drive it.** `dispatch init --mode by-hand` starts a
+  run by hand; `--mode orchestrated` is the default. By hand, each story is a
+  wave of its own, `prepare-story` cuts the story branch in the primary
+  checkout, and the implementation agent stops before each decision point and
+  waits for the User's go.
+- **The story workflow is the same on both ways.** The developer agent
+  commits on the story branch and runs no gate. The code-review agent reviews
+  the commit, and a fresh developer agent fixes each blocking finding, with a
+  repeat review after each fix. The implementation agent runs the gates in
+  the gate-check step.
+- **`merge-story` alone marks a story done.** It runs `premerge-check` first
+  and writes `status: done` into the merge commit. `mark-done` is gone. A
+  hook that refuses that amend stops the merge with exit 1 and leaves the
+  story `dispatched`; a rerun amends again. After a red suite, the feature
+  branch moves back with `git reset --keep`, so uncommitted changes outside
+  the story stay.
+- **`premerge-check` checks more before a merge.** It refuses a story without
+  a code review of its branch head or with an open blocking finding, reruns
+  every gate that `docs/testing.yaml` enables at the branch head in a
+  temporary worktree, and reads a finding's `story` at the merge base.
+  `premerge-check dev <feature-branch>` checks that a whole feature is ready:
+  no stopped or unstarted story, every wave recorded, no open blocking
+  finding, and a green suite.
+- **A stopped story can go back to the backlog.** `dispatch return-story`
+  sets a `failed` or `blocked` story to `pending`, and the stories that depend
+  on it wait. `re-dispatch` accepts only `failed` and `blocked`, and
+  `escalate` also applies the file limit of `merge-story`. `mark-failed` now
+  requires `--class`, so every failed attempt counts toward the limits.
+- **Waves close in order.** `close-wave` refuses while a spec-feedback row of
+  the wave is open, or a unit of work can still go on, and names each cause.
+  `prepare-wave`, `prepare-story` and `close-wave` wait for the record of the
+  previous wave. The drift sessions run at the wave close.
+- **A blocking finding runs as a unit of work.** `dispatch add <finding-id>`
+  puts an open blocking finding into the next wave. Its merge sets the
+  finding `resolved`, and a returned finding runs its next attempt on its
+  existing branch.
+- **`dispatch close` ends a run.** It stashes the untracked and changed files
+  of each worktree under a named stash, removes the worktrees, the ledger,
+  the markers and the briefs, and deletes merged branches. `close --drop` ends
+  a run whose unfinished stories are returned. `close --orphans` cleans up
+  what old runs left behind and keeps whatever a live run may own.
+- **An unresolved mutant becomes a QA finding whose owner follows its
+  cause.** The test-strategy agent resolves a mutant that no test should
+  kill, and the planning agent owns one that needs a test.
+- **One vocabulary.** The Factory texts now say run, orchestrated, by hand,
+  feature branch, story branch, gate-check step, spec-feedback report, drift
+  session and primary checkout.
+
+### Fixes
+
+- **A merge no longer touches the installed copy.** `merge-story` takes its
+  gate scripts from the installed copy without writing to it.
+- **The git guardrail refuses `dispatch return-story` and
+  `dispatch close --drop` to agents** in Claude Code, Codex, Copilot, pi and
+  OpenCode. OpenCode gets the same git guardrail as the other tools.
+- **The dependency rules run in the commit hook.**
+- **`prepare-wave` cuts each new story branch from the current tip of the
+  feature branch,** so a finding filed after the last merge no longer fails
+  `verify-base`.
+- **The ledger writer quotes free text** that PyYAML would misread, such as a
+  reason that starts with `[` or reads `no`.
+
 ## 1.10.1 — 2026-11-19
 
 This release stops an update from copying the usage data. Run
