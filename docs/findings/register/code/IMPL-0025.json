@@ -16,5 +16,5 @@
   },
   "why_this_severity": "A report of the story must still exist, so the check still shows that a review ran; only an agent that breaks the report format reaches this path (no to fails_purpose). The ancestor test then says nothing about which commit the review saw, and a later reader cannot tell from the report what was reviewed.",
   "commit": "3cdf55bf3b2aa1d745ebc50decc8484eb75b1226",
-  "status": "open"
+  "status": "resolved"
 }

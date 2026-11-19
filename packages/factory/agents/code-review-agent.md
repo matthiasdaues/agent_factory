@@ -44,7 +44,7 @@ triggers:
   - "review the diff"
 handoff-to:
   - implementation-agent
-  - reconciliation-agent
+  - qa-agent
 version: 0.2.0
 ---
 
@@ -134,5 +134,9 @@ to the filing decision.
 **If defects** → Implementation Agent: _"Code review found [N] defects. Fix
 and re-submit for review."_
 
-**If clean** → Reconciliation Agent: _"Code review is clean. Run
-reconciliation."_
+**If clean, for a story** → Implementation Agent: _"Code review is clean.
+Run the gate-check step."_
+
+**If clean, for the whole feature** → the QA Agent: _"Code review of the
+whole feature is clean. Run QA on the feature branch."_ Reconciliation runs
+on `dev` after the merge.

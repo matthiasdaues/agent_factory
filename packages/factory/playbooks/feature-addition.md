@@ -142,26 +142,6 @@ steps:
       - 'docs/findings/IMPL-*.md'
     outputs: []
     max_input_tokens: 20000
-  - name: reconcile
-    inputs:
-      - 'backlog/ST-*.md'
-      - 'docs/spec/**/*.md'
-      - 'docs/spec/**/*.feature'
-      - '.agent-factory/factory/**/*.py'
-      - 'tests/**/*.py'
-      - 'config/**/*.json'
-    outputs:
-      - '.agent-factory/factory/**/*.py'
-      - 'tests/**/*.py'
-      - 'config/**/*.json'
-      - 'docs/**/*.md'
-      - 'backlog/ST-*.md'
-    max_input_tokens: 100000
-  - name: decision-point-4-5
-    inputs:
-      - 'docs/findings/*.md'
-    outputs: []
-    max_input_tokens: 20000
   - name: qa
     inputs:
       - '.agent-factory/factory/**/*.py'
@@ -179,6 +159,32 @@ steps:
       - 'docs/findings/FAGAN-*.md'
       - 'docs/findings/BUG-*.md'
       - 'docs/findings/SEC-*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: merge-into-dev
+    inputs:
+      - 'docs/reviews/**/*.md'
+      - 'docs/findings/*.md'
+    outputs: []
+    max_input_tokens: 20000
+  - name: reconcile
+    inputs:
+      - 'backlog/ST-*.md'
+      - 'docs/spec/**/*.md'
+      - 'docs/spec/**/*.feature'
+      - '.agent-factory/factory/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+    outputs:
+      - '.agent-factory/factory/**/*.py'
+      - 'tests/**/*.py'
+      - 'config/**/*.json'
+      - 'docs/**/*.md'
+      - 'backlog/ST-*.md'
+    max_input_tokens: 100000
+  - name: decision-point-6-2
+    inputs:
+      - 'docs/findings/*.md'
     outputs: []
     max_input_tokens: 20000
 ---
@@ -504,12 +510,16 @@ deferred scope, and applies the declared governance and risk domains.
 
 ### Step 4.2 — Code Review (Separate Session)
 
+The code-review-agent reviews the whole feature. The feature checks start
+after the last wave closes: code review of the whole
+feature, then QA, then the merge into `dev`, then reconciliation on `dev`.
+
 ```bash
 # Start NEW session, activate code-review-agent
 ```
 
 **Agent**: `code-review-agent`
-**Expected outputs**: `docs/reviews/code-review-*.md`, `docs/findings/IMPL-*.md`
+**Expected outputs**: `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`, `docs/findings/IMPL-*.md`
 
 ### Decision Point 4.3
 
@@ -521,28 +531,6 @@ grep -l "^status: open" docs/findings/IMPL-*.md
 
 **If defects** → Return to the implementation-agent to address findings, then
 re-run the code-review-agent.
-**If clean** → The reconciliation-agent's preconditions are satisfied.
-
-### Step 4.4 — Reconcile
-
-```bash
-# Start NEW session, activate reconciliation-agent
-```
-
-**Agent**: `reconciliation-agent`
-
-### Decision Point 4.5
-
-Check for open findings:
-
-```bash
-grep -l "^status: open" docs/findings/*.md
-```
-
-**If open findings** → Send each open finding to the agent in its `owner:`
-field. A `BUG` finding names the developer agent. Then re-run the
-reconciliation-agent. Reconciliation rows in `docs/reviews/` go to the owner
-named in each row.
 **If clean** → The qa-agent's preconditions are satisfied.
 
 ## Quality
@@ -554,6 +542,7 @@ named in each row.
 ```
 
 **Agent**: `qa-agent`
+**Expected outputs**: `docs/reviews/fagan-review-*.md`, `docs/reviews/security-review-*.md`, `docs/reviews/bug-hunt-*.md`
 
 ### Decision Point 5.2
 
@@ -565,6 +554,38 @@ grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 
 **If defects** → Return to the implementation-agent to address findings, then
 re-run the qa-agent.
+**If clean** → Go to Step 5.3.
+
+### Step 5.3 — Merge Into `dev`
+
+The implementation-agent runs
+`.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows
+the result. When it refuses, fix each cause it names and run it again. When it
+passes, the stakeholder merges the feature branch into `dev` and ends the run
+with `dispatch close`. No agent merges into `dev`.
+
+## Reconciliation
+
+### Step 6.1 — Reconcile On `dev`
+
+```bash
+# Start NEW session, activate reconciliation-agent
+```
+
+**Agent**: `reconciliation-agent`
+
+### Decision Point 6.2
+
+Check for open findings:
+
+```bash
+grep -l "^status: open" docs/findings/*.md
+```
+
+**If open findings** → Send each open finding to the agent in its `owner:`
+field. A `BUG` finding names the developer agent. Then re-run the
+reconciliation-agent. Reconciliation rows in `docs/reviews/` go to the owner
+named in each row.
 **If clean** → DONE
 
 ## Stop notice
@@ -593,4 +614,4 @@ Final checks:
 - [ ] Every absorbed local branch is deleted safely with `git branch -d`, unless named as an active review base
 - [ ] Handoff records exact local/upstream tips and ahead/behind counts per [handoff-format.md](../rulebooks/conventions/handoff-format.md)
 
-**Ready to merge**
+**Merged into `dev` and reconciled**

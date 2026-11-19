@@ -213,14 +213,17 @@ infrastructure; there is no separate setup epic.
 **Agent**: `implementation-agent` (spawns parallel `developer-agent` subagents)
 **Expected outputs**: `src/**/*`, `tests/**/*`, commits per story
 
-### Step 4.2 — Run Code Review Agent (Separate Session)
+### Step 4.2 — Run Code Review Agent On The Whole Feature (Separate Session)
+
+The feature checks start after the last wave closes: code review of the whole
+feature, then QA, then the merge into `dev`, then reconciliation on `dev`.
 
 ```bash
 # Start NEW session, activate code-review-agent
 ```
 
 **Agent**: `code-review-agent`
-**Expected outputs**: `docs/reviews/code-review-*.md`, `docs/findings/IMPL-*.md`
+**Expected outputs**: `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`, `docs/findings/IMPL-*.md`
 
 ### Decision Point 4.3
 
@@ -231,7 +234,7 @@ grep -l "^status: open" docs/findings/IMPL-*.md
 ```
 
 **If implementation defects exist** → Go to Step 4.4
-**If no defects** → The reconciliation-agent's preconditions are satisfied.
+**If no defects** → The qa-agent's preconditions are satisfied.
 
 ### Step 4.4 — Loop: Fix Implementation Defects
 
@@ -243,36 +246,6 @@ grep -l "^status: open" docs/findings/IMPL-*.md
 
 Return to Step 4.2 (run code-review-agent again)
 
-### Step 4.5 — Run Reconciliation Agent (Separate Session)
-
-```bash
-# Start NEW session, activate reconciliation-agent
-```
-
-**Agent**: `reconciliation-agent`
-**Expected outputs**: `docs/reviews/reconciliation-*.md` (one row per drift, each naming its owner), `docs/findings/BUG-*.md` (code defects, if found)
-
-### Decision Point 4.6
-
-Check: `docs/findings/*.md` files with `status: open`
-
-```bash
-grep -l "^status: open" docs/findings/*.md
-```
-
-**If open findings exist** → Go to Step 4.7
-**If no open findings** → The qa-agent's preconditions are satisfied.
-
-### Step 4.7 — Loop: Address Open Findings
-
-```bash
-# Start NEW session, activate implementation-agent
-```
-
-**Instructions**: Send each open finding to the agent in its `owner:` field. A `BUG` finding names the developer agent. Each owner fixes its artifact, and reconciliation rows in `docs/reviews/` go to the owner named in each row.
-
-Return to Step 4.5 (run reconciliation-agent again)
-
 ## Quality
 
 ### Step 5.1 — Run QA Agent
@@ -282,7 +255,7 @@ Return to Step 4.5 (run reconciliation-agent again)
 ```
 
 **Agent**: `qa-agent` (Fagan + Security + Bug Hunt)
-**Expected outputs**: `docs/reviews/fagan-review-*.md`, `docs/reviews/security-review-*.md`, `docs/findings/FAGAN-*.md`, `docs/findings/SEC-*.md`, `docs/findings/BUG-*.md`
+**Expected outputs**: `docs/reviews/fagan-review-*.md`, `docs/reviews/security-review-*.md`, `docs/reviews/bug-hunt-*.md`, `docs/findings/FAGAN-*.md`, `docs/findings/SEC-*.md`, `docs/findings/BUG-*.md`
 
 ### Decision Point 5.2
 
@@ -293,7 +266,7 @@ grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 ```
 
 **If open defects exist** → Go to Step 5.3
-**If no defects** → DONE (Step 5.4).
+**If no defects** → Go to Step 5.4.
 
 ### Step 5.3 — Loop: Fix Defects
 
@@ -305,7 +278,43 @@ grep -l "^status: open" docs/findings/{FAGAN,SEC,BUG}-*.md
 
 Return to Step 5.1 (run qa-agent again)
 
-### Step 5.4 — DONE
+### Step 5.4 — Merge Into `dev`
+
+The implementation-agent runs `.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows the result. When it refuses, fix each cause it names and run it again. When it passes, the stakeholder merges the feature branch into `dev` and ends the run with `dispatch close`. No agent merges into `dev`.
+
+## Reconciliation
+
+### Step 6.1 — Run Reconciliation Agent On `dev` (Separate Session)
+
+```bash
+# Start NEW session, activate reconciliation-agent
+```
+
+**Agent**: `reconciliation-agent`
+**Expected outputs**: `docs/reviews/reconciliation-*.md` (one row per drift, each naming its owner), `docs/findings/BUG-*.md` (code defects, if found)
+
+### Decision Point 6.2
+
+Check: `docs/findings/*.md` files with `status: open`
+
+```bash
+grep -l "^status: open" docs/findings/*.md
+```
+
+**If open findings exist** → Go to Step 6.3
+**If no open findings** → DONE (Step 6.4).
+
+### Step 6.3 — Loop: Address Open Findings
+
+```bash
+# Start NEW session, activate implementation-agent
+```
+
+**Instructions**: Send each open finding to the agent in its `owner:` field. A `BUG` finding names the developer agent. Each owner fixes its artifact, and reconciliation rows in `docs/reviews/` go to the owner named in each row.
+
+Return to Step 6.1 (run reconciliation-agent again)
+
+### Step 6.4 — DONE
 
 ✅ **Terminal Condition: Project Ready for Feature Delivery**
 
