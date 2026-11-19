@@ -129,14 +129,18 @@ def latest_attempt_for_session(
 
 
 def _coerce_sequence(value: Any) -> list[Any]:
-    """Return *value* as a list, accepting legacy stringified list payloads."""
+    """Return *value* as a list, accepting a JSON flow sequence, as the
+    stdlib writer writes one, and a legacy stringified Python list."""
     if isinstance(value, list):
         return value
     if isinstance(value, str):
         try:
-            parsed = ast.literal_eval(value)
-        except (ValueError, SyntaxError):
-            return []
+            parsed = json.loads(value)
+        except ValueError:
+            try:
+                parsed = ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                return []
         if isinstance(parsed, list):
             return parsed
     return []
@@ -537,6 +541,14 @@ class Ledger:
         self.transition(story_id, StoryState.PENDING)
         entry.returned = True
 
+    def returned_refusal(self, story_id: str) -> str | None:
+        """Name the return of a returned entry, which waits for the end of the run (BR-113)."""
+        if not self.stories[story_id].returned:
+            return None
+        return (
+            f"dispatch: {story_id} was returned and waits for the end of the run"
+        )
+
     def is_terminal(self, story_id: str) -> bool:
         """Return True when the story is in a terminal lifecycle state."""
         return self.stories[story_id].status in {
@@ -670,6 +682,59 @@ class Ledger:
         return "\n".join(lines)
 
 
+DEPENDENCY_NOT_DONE = "dispatch: a dependency inside the run is not done"
+
+
+def returned_dependencies(ledger: Ledger, story_id: str) -> list[str]:
+    """Return the returned stories that *story_id* waits on inside the run,
+    directly or through another story that is not done (BR-113).
+
+    Reads only the ledger. A dependency outside the run does not count."""
+    found: set[str] = set()
+    seen: set[str] = set()
+    todo = list(ledger.stories[story_id].deps)
+    while todo:
+        dep = todo.pop()
+        if dep in seen or dep not in ledger.stories:
+            continue
+        seen.add(dep)
+        entry = ledger.stories[dep]
+        if entry.status == StoryState.DONE:
+            continue
+        if entry.returned:
+            found.add(dep)
+        todo.extend(entry.deps)
+    return sorted(found)
+
+
+def dependency_refusals(ledger: Ledger, entry: StoryEntry) -> list[str]:
+    """Name each dependency of *entry* inside the run that is not done, and
+    the return that holds it back (BR-113). Empty when the entry may start."""
+    refusals = []
+    for dep in entry.deps:
+        if dep not in ledger.stories:
+            continue
+        dep_entry = ledger.stories[dep]
+        if dep_entry.status == StoryState.DONE:
+            continue
+        text = f"{entry.id} depends on {dep}, which is {dep_entry.status.value}"
+        if dep_entry.returned:
+            text += " and returned"
+        behind = returned_dependencies(ledger, dep)
+        if behind:
+            text += f" and waits on the returned {', '.join(behind)}"
+        refusals.append(text)
+    return refusals
+
+
+def held_back(ledger: Ledger, entry: StoryEntry) -> bool:
+    """True for a pending entry that can never start in this run: it was
+    returned, or it waits on a returned story (BR-113)."""
+    return entry.status == StoryState.PENDING and (
+        entry.returned or bool(returned_dependencies(ledger, entry.id))
+    )
+
+
 # ---------------------------------------------------------------------------
 # Minimal YAML handling (stdlib only, no PyYAML dependency)
 # ---------------------------------------------------------------------------
@@ -741,11 +806,17 @@ def _stdlib_dump(data: dict[str, Any], indent: int = 0) -> str:
                 if isinstance(item, dict):
                     first = True
                     for k, v in item.items():
+                        # A list or a mapping inside an item, such as the
+                        # `blocked` list of a wave record, is a JSON flow
+                        # collection, which YAML reads unchanged.
+                        text = (
+                            json.dumps(v) if isinstance(v, (list, dict)) else _scalar(v)
+                        )
                         if first:
-                            lines.append(f"{prefix}  - {k}: {_scalar(v)}")
+                            lines.append(f"{prefix}  - {k}: {text}")
                             first = False
                         else:
-                            lines.append(f"{prefix}    {k}: {_scalar(v)}")
+                            lines.append(f"{prefix}    {k}: {text}")
                 else:
                     lines.append(f"{prefix}  - {_scalar(item)}")
         elif isinstance(value, list):
@@ -766,25 +837,35 @@ def _scalar(value: Any) -> str:
         return str(value)
     if not isinstance(value, str):
         return str(value)
-    text = value
-    # Quote a string that the loader would not read back unchanged, such as
-    # "123", "null", "a #b", ">-", or a quoted string. The loader reads a
-    # block scalar header before _parse_scalar sees the value. JSON quoting
-    # is valid YAML.
+    # Write a string plain only when both loaders read it back unchanged:
+    # it holds only safe characters, and no YAML 1.1 resolver of PyYAML
+    # reads it as a bool, null, number, or date. JSON quoting is valid YAML,
+    # so every other string is quoted (IMPL-0032).
     if (
-        not text
-        or text != text.strip()
-        or "\n" in text
-        or text in ("[]", "{}")
-        or _BLOCK_HEADER_RE.match(text)
-        or _parse_scalar(text) != text
-        # YAML reads "a: b" as a mapping, such as the record
-        # "escalate refused: scope", though the stdlib loader does not.
-        or ": " in text
-        or text.endswith(":")
+        _PLAIN_RE.fullmatch(value)
+        and value == value.rstrip()
+        and not _YAML11_IMPLICIT_RE.fullmatch(value)
+        and _parse_scalar(value) == value
     ):
-        return json.dumps(text)
-    return text
+        return value
+    return json.dumps(value)
+
+
+# A conservative set of strings that YAML reads as plain strings.
+_PLAIN_RE = re.compile(r"[A-Za-z0-9_./][A-Za-z0-9 _./,;()+-]*")
+# The implicit resolvers of PyYAML for YAML 1.1 bool, null, int, float,
+# and timestamp, with y and n added as YAML 1.1 keywords.
+_YAML11_IMPLICIT_RE = re.compile(
+    r"""(?x)
+    y|Y|n|N|yes|Yes|YES|no|No|NO|true|True|TRUE|false|False|FALSE
+    |on|On|ON|off|Off|OFF|null|Null|NULL|~
+    |[-+]?0b[0-1_]+|[-+]?0[0-7_]+|[-+]?(?:0|[1-9][0-9_]*)|[-+]?0x[0-9a-fA-F_]+
+    |[-+]?[1-9][0-9_]*(?::[0-5]?[0-9])+
+    |[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+]?[0-9]+)?|\.[0-9][0-9_]*(?:[eE][-+]?[0-9]+)?
+    |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)
+    |[0-9][0-9][0-9][0-9]-[0-9][0-9]?-[0-9][0-9]?.*
+    """
+)
 
 
 def _stdlib_load(text: str) -> dict[str, Any]:
@@ -1063,6 +1144,12 @@ def _parse_scalar(text: str) -> Any:
             return value
     if text.startswith("#"):
         return None
+    if text.startswith(("[", "{")):
+        # The stdlib writer writes a nested collection as JSON flow.
+        try:
+            return json.loads(text)
+        except ValueError:
+            pass
     comment = text.find(" #")
     if comment != -1:
         text = text[:comment].rstrip()

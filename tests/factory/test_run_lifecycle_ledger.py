@@ -822,3 +822,250 @@ def test_RL_06_CT_01_the_stdlib_writer_keeps_a_record_with_a_colon_valid(
 
     assert yaml.safe_load(path.read_text())["stories"]["ST-0350"]["reason"] == record
     assert lib.Ledger.load(path).stories["ST-0350"].reason == record
+
+
+# --- RL-07: a returned story holds back the stories behind it (ST-0420) ------
+
+
+def pending_entry(story_id: str, wave: int, *deps: str, **fields) -> lib.StoryEntry:
+    fields.setdefault("status", S.PENDING)
+    return lib.StoryEntry(
+        id=story_id, wave=wave, deps=list(deps), feature_branch="feature/login",
+        **fields,
+    )
+
+
+def returned_chain() -> list[lib.StoryEntry]:
+    """The Demo Data of ST-0420: ST-0350 is returned, ST-0351 and ST-0352 wait
+    on it, ST-0353 depends on none of them, and ST-0354 closes a diamond."""
+    return [
+        pending_entry("ST-0350", 1, returned=True),
+        pending_entry("ST-0353", 1),
+        pending_entry("ST-0351", 2, "ST-0350"),
+        pending_entry("ST-0352", 3, "ST-0351"),
+        pending_entry("ST-0354", 3, "ST-0353", "ST-0351"),
+    ]
+
+
+@pytest.fixture
+def started(run, monkeypatch) -> list[str]:
+    """Stub the branch and worktree of a started story; list the started ids."""
+    ids: list[str] = []
+    dispatch = run.dispatch
+
+    def create(branch, worktree, base):
+        ids.append(branch.removeprefix("story/"))
+        return dispatch._StoryWorkspace(True, True, "")
+
+    monkeypatch.setattr(dispatch, "_main_worktree_root", lambda: run.root)
+    monkeypatch.setattr(dispatch, "_create_story_workspace", create)
+    monkeypatch.setattr(dispatch, "_verify_worktree_registration", lambda path: True)
+    monkeypatch.setattr(dispatch, "_write_story_manifest", lambda *args: (0, ""))
+    return ids
+
+
+def write_run(run: Run, entries: list[lib.StoryEntry], *, record: bool = False) -> None:
+    ledger = lib.Ledger()
+    ledger.feature_branch = "feature/login"
+    ledger.branch_root = SHA
+    ledger.branch_head = SHA
+    for entry in entries:
+        ledger.stories[entry.id] = entry
+    if record:
+        ledger.waves.append(lib.WaveCloseout(number=1, branch_head=SHA))
+    ledger.save(run.path)
+
+
+@pytest.mark.spec("RL-07-CT-01")
+def test_RL_07_CT_01_a_returned_story_holds_back_the_chain_behind_it(run, started):
+    """Scenario: A returned story holds back the chain behind it."""
+    write_run(run, returned_chain())
+
+    wave_one = run("prepare-wave", "1")
+    merged = lib.Ledger.load(run.path)
+    merged.stories["ST-0353"].status = S.DONE
+    merged.save(run.path)
+    wave_two = run("prepare-wave", "2")
+    direct = run("prepare-story", "ST-0351")
+    chain = run("prepare-story", "ST-0352")
+    diamond = run("prepare-story", "ST-0354")
+
+    assert started == ["ST-0353"]
+    assert wave_two[0] == 0, wave_two[2]
+    assert "ST-0351 depends on ST-0350" in wave_two[1] + wave_two[2]
+    assert "returned" in wave_two[1] + wave_two[2]
+    for code, _, err in (direct, chain, diamond):
+        assert code == 1
+        assert "a dependency inside the run is not done" in err
+        assert "returned ST-0350" in err or "ST-0350, which is pending and returned" in err
+    assert "ST-0352 depends on ST-0351" in chain[2]
+    assert "ST-0354 depends on ST-0351" in diamond[2]
+    for story_id in ("ST-0350", "ST-0351", "ST-0352", "ST-0354"):
+        assert run.entry(story_id).status == S.PENDING
+    assert wave_one[0] == 1
+
+
+@pytest.mark.spec("RL-07-CT-01")
+def test_RL_07_CT_01_the_dependency_check_reads_only_the_ledger():
+    """BR-113: the check names each returned story behind a dependency,
+    directly or through another story, and nothing for a free story."""
+    ledger = lib.Ledger()
+    for entry in returned_chain():
+        ledger.stories[entry.id] = entry
+
+    assert lib.returned_dependencies(ledger, "ST-0352") == ["ST-0350"]
+    assert lib.returned_dependencies(ledger, "ST-0354") == ["ST-0350"]
+    assert lib.returned_dependencies(ledger, "ST-0353") == []
+    assert lib.dependency_refusals(ledger, ledger.stories["ST-0353"]) == []
+    assert lib.dependency_refusals(ledger, ledger.stories["ST-0352"]) == [
+        "ST-0352 depends on ST-0351, which is pending and waits on the returned ST-0350"
+    ]
+    assert lib.held_back(ledger, ledger.stories["ST-0352"])
+    assert not lib.held_back(ledger, ledger.stories["ST-0353"])
+
+
+@pytest.mark.spec("RL-07-CT-02")
+def test_RL_07_CT_02_every_dependency_inside_the_run_is_checked(run, started):
+    """Scenario: Every dependency inside the run is checked."""
+    write_run(run, [
+        pending_entry("ST-0350", 1, status=S.DONE, commit_sha=SHA),
+        pending_entry("ST-0351", 1, status=S.DISPATCHED),
+        pending_entry("ST-0352", 2, "ST-0350", "ST-0351"),
+    ])
+
+    code, _, err = run("prepare-story", "ST-0352")
+
+    assert code == 1
+    assert "ST-0352 depends on ST-0351, which is dispatched" in err
+    assert "ST-0350" not in err.replace("ST-0352", "")
+    assert started == []
+    assert run.entry("ST-0352").status == S.PENDING
+
+
+@pytest.mark.spec("RL-07-CT-03")
+@pytest.mark.parametrize("mode", lib.LEDGER_MODES)
+def test_RL_07_CT_03_prepare_story_refuses_a_returned_story_and_names_the_return(
+    run, started, mode
+):
+    """Scenario: prepare-story refuses a returned story and names the return."""
+    write_run(run, [pending_entry("ST-0351", 1, returned=True)], record=True)
+    lib_ledger = lib.Ledger.load(run.path)
+    lib_ledger.mode = mode
+    lib_ledger.save(run.path)
+
+    code, _, err = run("prepare-story", "ST-0351")
+
+    assert code == 1
+    assert "ST-0351 was returned and waits for the end of the run" in err
+    assert started == []
+    assert (run.entry("ST-0351").status, run.entry("ST-0351").returned) == (
+        S.PENDING, True,
+    )
+
+
+@pytest.mark.spec("RL-07-CT-03")
+def test_RL_07_CT_03_prepare_wave_refuses_a_returned_story_and_starts_the_others(
+    run, started
+):
+    """prepare-wave names the return, exits non-zero, and still starts the
+    stories of the wave that wait on nothing, also after the wave record."""
+    write_run(run, [
+        pending_entry("ST-0351", 1, returned=True),
+        pending_entry("ST-0353", 1),
+    ], record=True)
+
+    code, _, err = run("prepare-wave", "1")
+
+    assert code == 1
+    assert "ST-0351 was returned and waits for the end of the run" in err
+    assert started == ["ST-0353"]
+    assert run.entry("ST-0351").status == S.PENDING
+    assert run.entry("ST-0353").status == S.PREPARED
+
+
+# --- RL-17-CT-01: the stdlib writer writes YAML that PyYAML reads (IMPL-0032) --
+
+FREE_TEXT_REASONS = [
+    "[WIP] waits on ST-0418",
+    "- see the CI log",
+    "no",
+    "2026-11-19",
+    "1:30",
+    "`uv sync` fails",
+    "*.lock conflict",
+    "@reviewer asked",
+    "on",
+    "Yes",
+    "~",
+    "0x1F",
+    "1_000",
+    ".inf",
+    "1.5",
+    "0755",
+    "a #b",
+    "% done",
+    "!tag",
+    "&anchor",
+    "{a: b}",
+    "? key",
+    "| pipe",
+    "> fold",
+    "'quoted'",
+    '"double"',
+    "ends with:",
+    "x: y",
+    "tab\there",
+    "Umlaut ä",
+    "design question",
+]
+
+
+@pytest.mark.spec("RL-17-CT-01")
+@pytest.mark.parametrize("reason", FREE_TEXT_REASONS)
+def test_RL_17_CT_01_the_stdlib_writer_writes_free_text_that_pyyaml_reads(
+    tmp_path, monkeypatch, reason
+):
+    """IMPL-0032: dispatch runs without PyYAML, so a `mark-blocked --reason`
+    text must read back through yaml.safe_load as the same string."""
+    ledger = lib.Ledger()
+    ledger.stories["ST-0350"] = failed_entry(status=S.BLOCKED, reason=reason)
+    ledger.waves.append(lib.WaveCloseout(
+        number=1, blocked=[{"id": "ST-0350", "reason": reason}], branch_head=SHA,
+    ))
+    monkeypatch.setattr(lib, "yaml", None)
+    path = tmp_path / "dispatch-ledger.yaml"
+
+    ledger.save(path)
+
+    data = yaml.safe_load(path.read_text())
+    assert data["stories"]["ST-0350"]["reason"] == reason
+    assert data["waves"][0]["blocked"][0]["reason"] == reason
+    loaded = lib.Ledger.load(path)
+    assert loaded.stories["ST-0350"].reason == reason
+    assert loaded.waves[0].blocked == [{"id": "ST-0350", "reason": reason}]
+
+
+@pytest.mark.spec("RL-17-CT-01")
+@pytest.mark.parametrize(
+    "value", ["feature/login", "story/ST-0350", SHA, "pending", "/tmp/w", "design question"]
+)
+def test_RL_17_CT_01_the_stdlib_writer_keeps_plain_values_plain(value):
+    """A branch, a path, a state, and plain words stay unquoted."""
+    assert lib._scalar(value) == value
+
+
+@pytest.mark.spec("RL-17-CT-01")
+def test_RL_17_CT_01_a_wave_record_of_an_older_writer_still_loads(tmp_path):
+    """A ledger written before IMPL-0032 holds a wave list as a Python repr."""
+    path = tmp_path / "dispatch-ledger.yaml"
+    path.write_text(
+        "---\nmode: orchestrated\nstories: {}\nwaves:\n  - number: 1\n"
+        "    blocked: [{'id': 'ST-0350', 'reason': 'design question'}]\n"
+        "    next_ready: ['ST-0351']\n"
+    )
+
+    wave = lib._stdlib_load(path.read_text())["waves"][0]
+    record = lib.WaveCloseout.from_dict(wave)
+
+    assert record.blocked == [{"id": "ST-0350", "reason": "design question"}]
+    assert record.next_ready == ["ST-0351"]
