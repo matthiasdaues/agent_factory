@@ -1143,10 +1143,185 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
     return 0
 
 
+def _pending_entry_error(entry: StoryEntry) -> str | None:
+    """Name why prepare-story cannot prepare *entry*, or None for a pending one."""
+    if entry.status == StoryState.FAILED:
+        return (
+            f"error: story {entry.id} failed; prepare-story prepares only a "
+            f"pending story. Retry it with `dispatch re-dispatch {entry.id}`"
+        )
+    if entry.status != StoryState.PENDING:
+        return (
+            f"error: story {entry.id} is {entry.status.value}; prepare-story "
+            f"prepares only a pending story"
+        )
+    return None
+
+
+def _wave_by_hand(ledger: Ledger, entry: StoryEntry) -> tuple[int | None, str | None]:
+    """Return the wave of *entry* in a run by hand, or the refusal.
+
+    Each story is a wave of its own, so an entry without a wave takes the
+    next free number (BR-064). The previous wave needs its record (BR-113).
+    """
+    wave = entry.wave
+    if wave is None:
+        taken = [e.wave for e in ledger.stories.values() if e.wave is not None]
+        wave = max(taken, default=0) + 1
+    recorded = {record.number for record in ledger.waves}
+    if wave > 1 and wave - 1 not in recorded:
+        return None, (
+            f"error: wave {wave - 1} has no wave record; run "
+            f"`dispatch close-wave {wave - 1}` before prepare-story {entry.id}"
+        )
+    return wave, None
+
+
+def _undo_checkout_by_hand(
+    main_root: Path, previous: str | None, branch_name: str, created: bool
+) -> None:
+    """Check the earlier branch out again and delete a story branch we created."""
+    if previous:
+        _git("-C", str(main_root), "checkout", "-q", previous)
+    if created:
+        _git("-C", str(main_root), "branch", "-D", branch_name)
+
+
+def _prepare_story_by_hand(
+    ledger: Ledger, ledger_path: Path, entry: StoryEntry
+) -> int:
+    """Prepare one story of a run by hand in the primary checkout (RL-G03).
+
+    The story branch starts at the tip of the feature branch and is checked
+    out in the primary checkout. No worktree is added, so the entry's
+    worktree stays empty.
+    """
+    if entry.status == StoryState.PREPARED:
+        return 0
+    refusal = _pending_entry_error(entry)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 1
+
+    main_root = _main_worktree_root()
+    if not ledger_path.resolve().is_relative_to((main_root / ".current-work").resolve()):
+        print(
+            f"error: the ledger {ledger_path} does not lie under "
+            f"{main_root / '.current-work'}; run prepare-story in the primary "
+            f"checkout of the run",
+            file=sys.stderr,
+        )
+        return 1
+
+    unmet = [
+        dep for dep in entry.deps
+        if dep in ledger.stories and ledger.stories[dep].status != StoryState.DONE
+    ]
+    if unmet:
+        for dep in unmet:
+            print(
+                f"error: {entry.id} depends on {dep}, which is "
+                f"{ledger.stories[dep].status.value}",
+                file=sys.stderr,
+            )
+        return 1
+
+    wave, refusal = _wave_by_hand(ledger, entry)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 1
+
+    feature_branch = ledger.feature_branch
+    base_sha = _branch_tip(feature_branch) if feature_branch else None
+    if not base_sha:
+        print(
+            f"error: feature branch {feature_branch!r} of the ledger does not exist",
+            file=sys.stderr,
+        )
+        return 1
+
+    project_root = main_root
+    code, changed, err = _git(
+        "-C", str(main_root), "status", "--porcelain", "--untracked-files=no"
+    )
+    if code != 0:
+        print(
+            f"error: git status failed in the primary checkout {main_root}, "
+            f"so prepare-story cannot tell whether it is clean: {err}",
+            file=sys.stderr,
+        )
+        return 1
+    if changed:
+        print(
+            f"error: the primary checkout {main_root} holds uncommitted changes "
+            f"to tracked files; commit them or set them aside first:",
+            file=sys.stderr,
+        )
+        # _git strips the output, so the status letters of the first line
+        # may have lost their leading blank; split off the letters instead.
+        for line in changed.splitlines():
+            print(f"  {line.split(maxsplit=1)[1]}", file=sys.stderr)
+        return 1
+    branch_name = f"story/{entry.id}"
+    tip = _branch_tip(branch_name)
+    if tip is not None and tip != base_sha:
+        print(
+            f"error: branch {branch_name!r} already exists with commits that are "
+            f"not on the feature branch; inspect it, then delete it or resume it",
+            file=sys.stderr,
+        )
+        return 1
+
+    code, previous, _ = _git(
+        "-C", str(main_root), "symbolic-ref", "--short", "-q", "HEAD"
+    )
+    if code != 0:
+        _, previous, _ = _git("-C", str(main_root), "rev-parse", "HEAD")
+    if tip is None:
+        code, _, err = _git(
+            "-C", str(main_root), "checkout", "-q", "-b", branch_name, base_sha
+        )
+    else:
+        code, _, err = _git("-C", str(main_root), "checkout", "-q", branch_name)
+    created = tip is None and _branch_tip(branch_name) is not None
+    if code != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        print(
+            f"error: failed to check out {branch_name!r} in {main_root}: {err}",
+            file=sys.stderr,
+        )
+        return 1
+
+    verify_code, verify_output = _run_verify_base(main_root, feature_branch, base_sha)
+    if verify_code != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        if verify_output:
+            print(verify_output, file=sys.stderr)
+        print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
+        return 1
+
+    entry.branch = branch_name
+    entry.worktree = None
+    entry.base_sha = base_sha
+    manifest_code, manifest_err = _write_story_manifest(
+        project_root, entry, feature_branch, main_root
+    )
+    if manifest_code != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        print(f"error: {manifest_err}", file=sys.stderr)
+        return 1
+    entry.wave = wave
+    entry.active_session = "impl"
+    entry.active_tier = _story_declared_or_current_tier(project_root, entry)
+    ledger.transition(entry.id, StoryState.PREPARED)
+    return _save_ledger(ledger, ledger_path)
+
+
 def cmd_prepare_story(args: argparse.Namespace) -> int:
-    """Prepare one serial chain link from its predecessor's merge commit."""
+    """Prepare one story: a serial chain link in an orchestrated run, or the
+    next story of a run by hand in the primary checkout."""
     ledger_path = Path(args.ledger)
-    ledger = _load_orchestrated_ledger(ledger_path)
+    ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -1155,6 +1330,8 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     if entry is None:
         print(f"error: story not found: {story_id}", file=sys.stderr)
         return 1
+    if ledger.mode == "by-hand":
+        return _prepare_story_by_hand(ledger, ledger_path, entry)
 
     project_root = _project_root()
     story_meta = _story_meta_for_manifest(project_root, story_id)
@@ -1204,19 +1381,9 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     if entry.status == StoryState.PREPARED:
         return 0
-    if entry.status == StoryState.FAILED:
-        print(
-            f"error: story {story_id} failed; prepare-story prepares only a "
-            f"pending story. Retry it with `dispatch re-dispatch {story_id}`",
-            file=sys.stderr,
-        )
-        return 1
-    if entry.status != StoryState.PENDING:
-        print(
-            f"error: story {story_id} is {entry.status.value}; prepare-story "
-            f"prepares only a pending story",
-            file=sys.stderr,
-        )
+    refusal = _pending_entry_error(entry)
+    if refusal:
+        print(refusal, file=sys.stderr)
         return 1
 
     if not entry.deps:
