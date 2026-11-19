@@ -48,6 +48,26 @@ Every finding also says how serious the problem is. We call this its **severity*
 
 class: dense
 
+# Why the factory classifies findings
+
+All artifacts created by an AI process must be independently reviewed - first by AI.
+
+This review SHOLD yield consistent results independent given it is run in the same context.
+
+This reviews are mission critical steps to ensure the quality of agentically produced code and docs.
+
+| | |
+| --- | --- |
+| **Problem** | Highly inconsistent review results over the same review items. |
+|||
+| **Solution** | A global ruleset for review finding classification and ONE scoring algorithm |
+|||
+| **Benefit** | The same problem gets the same severity classification. The signal to the team is clear and actionable |
+
+---
+
+class: dense
+
 # Every finding has one of four severities
 
 | Severity | What it means | What the run does | What you do |
@@ -56,20 +76,6 @@ class: dense
 | .major[major] | The work does not do its job. | The agent that wrote the work has to fix it. | You wait for the fix. |
 | .minor[minor] | The work does its job, but later changes will cost more. | The run continues. | You read the reason in the final summary. |
 | .note[note] | Nothing needs to change. | The run continues. | You do nothing. |
-
----
-
-class: dense
-
-# The reviewer answers fixed questions
-
-Reviewers used to choose a word such as "significant". Two reviews of the same work could then give different results.
-
-Now the reviewer answers fixed questions about the problem, and the answers are saved in the finding.
-
-A fixed rule then turns the answers into the severity. The same answers always give the same severity.
-
-Fixed questions alone are not enough. In a test, two AI models each answered the same question in their own way. So where a question leaves room, the rules list named cases. The reviewer picks the case that fits and records it in the finding.
 
 ---
 
@@ -84,8 +90,16 @@ Suppose a review finds that your new command prints the wrong total. Your change
 | Does the problem cause harm in work that is already in use? | .crit[critical] | No. Only your branch has this code. |
 | Does the work fail its own purpose? | .major[major] | Yes. The total must be right. |
 | Does it only make later work harder? | .minor[minor] | No. |
+||||
+| The first "yes" sets the severity: | .major[major] |  Three "no" yield .note[note].|
 
-The first "yes" sets the severity, so this finding is .major[major]. Three "no" answers give .note[note].
+---
+
+# Documents follow two more rules
+
+A document is in use only when code on `dev`, or a finished story, already does what the faulty text says. A story that only plans the work does not count.
+
+A summary, a comment or a diagram label that repeats a rule is a side text. If it leaves out a case, the reader needs a second look: .minor[minor]. If it states something false, it sends the reader the wrong way: .major[major].
 
 ---
 

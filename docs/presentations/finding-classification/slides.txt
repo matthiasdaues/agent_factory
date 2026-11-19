@@ -71,7 +71,8 @@
 
     Fixed questions alone are not enough. In a test, two AI models each answered the same
     question in their own way. So where a question leaves room, the rules list **named cases**.
-    The reviewer picks the case that fits and records it in the finding.
+    The reviewer picks the case that fits and records it in the finding. With the named cases,
+    raters on both models gave the same severity to all 28 document findings of the test.
 
 ```
 @footer finding classification
@@ -94,8 +95,24 @@
 
     Does it only make later work harder?      **minor**          No.
 
-    The first "yes" sets the severity, so this finding is **major**. Three "no" answers give
+    The first "yes" sets the severity:        **major**.         Three "no" answers give
     ~~note~~.
+```
+@footer finding classification
+---
+```grid 99x25
+
+
+
+    **DOCUMENTS FOLLOW TWO MORE RULES**
+
+    A document is in use only when code on dev, or a finished story, already does what the
+    faulty text says. A story that only plans the work does not count.
+
+    A summary, a comment or a diagram label that repeats a rule is a **side text**. If it
+    leaves out a case, the reader needs a second look: **minor**. If it states something false,
+    it sends the reader the wrong way: **major**.
+
 ```
 @footer finding classification
 ---
