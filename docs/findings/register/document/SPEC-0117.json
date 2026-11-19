@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0117",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/arc42/06_runtime_view.md:1316",
+  "story": null,
+  "finding": "The runtime view says that 'dispatch close --orphans cleans up worktrees, branches, and ledgers that no active run owns (BR-120)'. Commit 28ec0830 splits that rule. BR-120 now holds only the ledgers, and the new BR-125 holds the worktrees of no ledger. BR-125 also says that --orphans lists the branch of each such worktree and deletes no branch. So the sentence names a cleanup of branches that does not happen, and it cites only one of the two rules. Change the sentence to: 'dispatch close --orphans removes the ledgers that no active run owns (BR-120) and the merged worktrees that no ledger owns (BR-125). It deletes no branch.' Owner: architecture-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "BR-120, BR-125 and the close bullet of the interface contracts state the rule, and the code follows them, so a planner or implementer reaches the right behavior (no to fails_purpose); a reader of the runtime view expects branches to go and must read BR-125 to learn otherwise (raises_cost). No story or code outside the run encodes the sentence.",
+  "commit": "4a02b2aa92d27156837a4a9293bf7ecc63d6823e",
+  "status": "open"
+}

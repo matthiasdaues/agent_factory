@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0116",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "untraced",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:1086",
+  "story": null,
+  "finding": "Commit 28ec0830 adds four rules to the Feature merge paragraph of docs/spec/interface-contracts.md § premerge-check, and no Scenario of run-lifecycle.feature traces any of them. First, the feature merge refuses when the ledger of the run is missing or cannot be read. Second, it refuses a pending unit of work that no return holds back (BR-113, IMPL-0050). Third, it refuses when docs/testing.yaml at the feature branch head has no test_command. Fourth, it runs for the target refs/heads/dev, applies no file limit without --max-files, and prints the SKIP line for the file limit. The QA strategy has no row for these rules either. tests/factory/test_run_lifecycle_premerge.py covers the pending case under RL-13-IT-01 and the target refs/heads/dev, but no test covers the missing ledger or the missing test_command. Add the first three cases as rows to the Scenario Outline 'premerge-check dev refuses a run that is not ready', and add one Scenario for the target refs/heads/dev and the file limit. Owner: requirements-agent. The test-strategy agent then adds the matching QA rows.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The contract and premerge-check agree on each rule, so an implementer and a test writer who follow the contract reach the right behavior (no to fails_purpose); a reader who looks for these refusals in the feature file or the QA strategy finds nothing and must turn to the contract (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "4a02b2aa92d27156837a4a9293bf7ecc63d6823e",
+  "status": "open"
+}
