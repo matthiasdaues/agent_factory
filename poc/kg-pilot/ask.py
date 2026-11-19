@@ -2,7 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["asyncpg>=0.30", "fastembed>=0.4"]
 # ///
-"""Ask the store a question: fused search, then one hop along live edges.
+"""Ask the store a question: first the topics named in it and their decisions, then fused search
+and one hop along live edges.
 
 Run: uv run --script ask.py "What was decided about the run lifecycle?" [german|english]
 """
@@ -28,6 +29,10 @@ async def main() -> None:
     text = "[" + ",".join(f"{x:.6f}" for x in vector) + "]"
     con = await asyncpg.connect(DSN_APP)
     await con.execute("set search_path = kg, public")
+    route = await con.fetch(
+        "select r.name, r.similarity, r.status, d.body, s.anchor ->> 'timestamp' as ts, s.anchor ->> 'message_uuid' as uuid "
+        "from topic_route($1) r join node d on d.id = r.decision_id left join node s on s.id = r.span_id "
+        "order by s.anchor ->> 'timestamp', d.id", question)
     rows = await con.fetch(
         "select w.seed_id, w.node_id, w.hops, w.score, n.kind, n.body, n.anchor "
         "from search_then_traverse($1, $2::vector, $3::regconfig, 10, 1, $4) w join node n on n.id = w.node_id "
@@ -35,6 +40,10 @@ async def main() -> None:
         question, text, config, MODEL_NAME)
     await con.close()
     print(f"question: {question} ({config}); model {MODEL_NAME}, fastembed-{version('fastembed')}")
+    if route:
+        print(f"topic named {route[0]['name']!r} (similarity {route[0]['similarity']:.2f}): {len(route)} decisions")
+    for r in route:
+        print(f"  decision ({r['status']}) {r['ts']} {r['uuid']} | {' '.join(r['body'].split())[:120]}")
     for r in rows:
         anchor = json.loads(r["anchor"])
         where = f"{anchor.get('timestamp', '')} {anchor.get('message_uuid', '')}" if r["kind"] == "span" else r["kind"]

@@ -16,7 +16,7 @@ create function utf8_bytes(t text) returns bytea language sql immutable parallel
 -- Node kinds and the edge rules between them.
 create table node_kind (kind text primary key);
 insert into node_kind values
-  ('source'), ('span'), ('problem'), ('conjecture'), ('criticism'), ('test'), ('decision');
+  ('source'), ('span'), ('problem'), ('conjecture'), ('criticism'), ('test'), ('decision'), ('topic'), ('name');
 
 create table edge_type (type text primary key);
 create table edge_rule (
@@ -26,7 +26,8 @@ create table edge_rule (
   primary key (type, source_kind, target_kind)
 );
 insert into edge_type values
-  ('part_of'), ('replies_to'), ('quotes'), ('criticises'), ('rests_on'), ('similar_to'), ('written_in');
+  ('part_of'), ('replies_to'), ('quotes'), ('criticises'), ('rests_on'), ('similar_to'), ('written_in'),
+  ('names'), ('about');
 insert into edge_rule values
   ('part_of', 'span', 'source'),
   ('replies_to', 'span', 'span'),
@@ -36,7 +37,10 @@ insert into edge_rule values
   ('rests_on', 'decision', 'conjecture'),
   ('similar_to', 'span', 'span'),
   ('similar_to', 'conjecture', 'conjecture'),
-  ('written_in', 'source', 'span');
+  ('written_in', 'source', 'span'),
+  ('names', 'name', 'topic'),
+  ('quotes', 'name', 'span'),
+  ('about', 'decision', 'topic');
 
 -- Nodes. A claimed relation that can be criticised is a node of its own.
 create table node (
@@ -257,6 +261,27 @@ language sql stable as $$
   select distinct on (seed_id, node_id) seed_id, node_id, hops, score
   from walk where not is_cycle
   order by seed_id, node_id, hops
+$$;
+
+-- Topic route: the topics whose names occur in the question, and their decisions.
+-- A name matches when word_similarity with some part of the question reaches the threshold.
+create function topic_route(question text, threshold float8 default 0.8)
+returns table (topic_id bigint, name text, similarity float8, decision_id bigint, span_id bigint, status text)
+language sql stable as $$
+  with names as (
+    select n.id, n.body, word_similarity(n.body, question) as s
+    from node n where n.kind = 'name' and word_similarity(n.body, question) >= threshold
+  ),
+  topics as (
+    select distinct on (e.target_id) e.target_id as topic_id, names.body, names.s
+    from names join edge e on e.source_id = names.id and e.type = 'names' and e.valid_to is null
+    order by e.target_id, names.s desc
+  )
+  select t.topic_id, t.body, t.s, a.source_id, q.target_id, a.status
+  from topics t
+  join edge a on a.target_id = t.topic_id and a.type = 'about' and a.valid_to is null
+  left join edge q on q.source_id = a.source_id and q.type = 'quotes' and q.valid_to is null
+  order by t.s desc, a.source_id
 $$;
 
 -- The application role: read and insert, never rewrite.

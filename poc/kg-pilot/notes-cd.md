@@ -50,8 +50,8 @@ Second-survey claim 6, decisions anchored to existing utterances: the Claude ext
 
 ## Open points
 
-1. Link a topic's old and new names, so a question in today's words finds decisions made in yesterday's.
-2. Make the quote check a gate of the import, and keep extracted decisions as candidates until a person confirms them. Done for the gate in [story E](story-e-quote-gate.md) on 2026-11-19: a trigger refuses the 8 quotes, and all six items pass on a throwaway database. The pilot store `kg` was loaded before the gate and still holds the 8 edges; it gets the trigger at its next schema load. Confirming candidates is not built.
+1. Link a topic's old and new names, so a question in today's words finds decisions made in yesterday's. Done in [story F](story-f-topics.md) on 2026-11-19 for one topic set by hand ([notes on story F](notes-f.md)).
+2. Make the quote check a gate of the import, and keep extracted decisions as candidates until a person confirms them. Done for the gate in [story E](story-e-quote-gate.md) on 2026-11-19: a trigger refuses the 8 quotes, and all six items pass on a throwaway database. The pilot store `kg` was loaded before the gate and still holds the 8 edges; `migrate-to-f.sql` gave it the trigger in story F. Confirming candidates is not built.
 3. Repeat story D on a second session with an answer key written by a person, and with a judge from another model family.
 
 ## Decision
