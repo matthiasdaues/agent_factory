@@ -1913,7 +1913,6 @@ READ_SUBCOMMANDS = frozenset(
         "plan",
         "suggest-merge-args",
         "verify-story",
-        "mark-done",
         "mark-blocked",
         "mark-failed",
         "clear-manifest",
