@@ -78,6 +78,12 @@ gates:
   mutation-testing:
     enabled: false
 
+# Read by `dispatch merge-story` in an orchestrated run (BR-124). With true,
+# merge-story refuses a new merge while the worktree of the feature branch
+# holds an uncommitted change to a tracked file. A missing key means true.
+dispatch:
+  refuse_dirty_feature_worktree: true
+
 risk_classes:
   critical:
     format: forbidden
