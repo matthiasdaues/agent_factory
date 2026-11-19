@@ -281,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 6366
-    total_tokens: 16959
+    tokens: 6866
+    total_tokens: 17719
     inputs:
       required:
         - type: story
@@ -384,8 +384,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1700
-    total_tokens: 13133
+    tokens: 1745
+    total_tokens: 13382
     inputs:
       required:
         - type: feature
@@ -411,6 +411,9 @@ agents:
           validator: ""
           required: true
         - path_pattern: docs/reviews/security-review-*.md
+          validator: ""
+          required: false
+        - path_pattern: docs/reviews/bug-hunt-*.md
           validator: ""
           required: false
         - path_pattern: tests/**/*
@@ -887,7 +890,7 @@ skills:
     category: quality
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
-    tokens: 886
+    tokens: 1090
   - name: explain-review-finding
     category: quality
     description: When the user asks what a review finding, bug report, failing test, or architecture concern means, explain it to a newcomer, starting with a short chain of cause and effect.
@@ -1062,7 +1065,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 907
-    total_tokens: 19709
+    total_tokens: 19958
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1074,7 +1077,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1676
-    total_tokens: 53462
+    total_tokens: 54222
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1088,10 +1091,10 @@ playbooks:
       - planning-agent
       - implementation-agent
       - code-review-agent
-      - reconciliation-agent
       - qa-agent
-    tokens: 4995
-    total_tokens: 114229
+      - reconciliation-agent
+    tokens: 5224
+    total_tokens: 115467
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1105,11 +1108,11 @@ playbooks:
       - planning-agent
       - implementation-agent
       - code-review-agent
-      - reconciliation-agent
       - qa-agent
+      - reconciliation-agent
       - coaching-agent
-    tokens: 3024
-    total_tokens: 113743
+    tokens: 3170
+    total_tokens: 114898
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1125,7 +1128,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1358
-    total_tokens: 20160
+    total_tokens: 20409
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1170,7 +1173,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 5010
+    tokens: 5079
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1182,7 +1185,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3095
+    tokens: 3355
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md

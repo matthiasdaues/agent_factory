@@ -94,7 +94,7 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [branching-policy.md](conventions/branching-policy.md)
 
-- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`. **(automated only)** In manual mode, the primary checkout is used directly; no worktrees are created.
+- **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`. **(automated only)** A run by hand checks out each story branch in the primary checkout. Only `premerge-check` adds a worktree there: a temporary one under `.current-work/<feature-branch>/premerge/`, which it removes afterwards (BR-123).
 - **MUST** place every worktree under `.current-work/<feature-branch>/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
 - **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
@@ -149,7 +149,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
 - **MUST NOT** switch the current checkout to create a branch in automated mode; automated branches use a dedicated linked worktree with `git worktree add -b`. In a run by hand, `dispatch init` creates the feature branch, and `dispatch prepare-story` checks out each story branch in the primary checkout.
-- **MUST** run `.agent-factory/factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker. **(automated only)**
+- **MUST** run `.agent-factory/factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker. This holds on both ways: a run by hand runs it through `dispatch merge-story`, and before the merge into `dev` as `premerge-check dev <feature-branch>` (BR-124).
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `.agent-factory/factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.

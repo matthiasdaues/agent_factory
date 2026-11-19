@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The refusal still holds and merge-story always runs from the root (no to fails_purpose). An operator who runs the check by hand from a subfolder searches for a report that exists and misses a finding that is open.",
   "commit": "3cdf55bf3b2aa1d745ebc50decc8484eb75b1226",
-  "status": "open"
+  "status": "resolved"
 }

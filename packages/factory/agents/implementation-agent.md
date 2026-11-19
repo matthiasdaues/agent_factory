@@ -184,6 +184,8 @@ The developer agent commits on both ways, so the review and the gates see commit
 
 7. **Repeat or finish** — Continue from Step 2 with the next ready story until all done (record branch head) or blocked state reported.
 
+8. **Feature checks and the merge into `dev`** — After the last wave closes, run the [feature checks](#feature-checks-and-the-merge-into-dev).
+
 **Prompt template for subagents (automated mode):**
 
 > You are a developer-agent. Your worktree was prepared by `.agent-factory/factory/scripts/dispatch`, which already created the story workspace, recorded the declared base SHA, and ran the pre-spawn verify-base check.
@@ -208,7 +210,7 @@ A run by hand uses the same ledger, [story workflow](#story-workflow) and checks
 
 7. **Close the wave** — Handle the story's spec-feedback report as step 4f of the orchestrated workflow describes. Then run `dispatch close-wave <wave>` and route the `QA` findings as step 6 of the orchestrated workflow does. Before a finding becomes a unit of work, stop. Repeat from step 2 until every story is `done` or has stopped.
 
-8. **Merge into `dev`** — After the feature checks, stop before the merge into `dev`. The User merges the feature branch into `dev` and ends the run with `dispatch close`.
+8. **Merge into `dev`** — After the last wave closes, run the [feature checks](#feature-checks-and-the-merge-into-dev). Stop before the merge into `dev`. The User merges the feature branch into `dev` and ends the run with `dispatch close`.
 
 **Prompt template for subagents (run by hand):**
 
@@ -312,6 +314,17 @@ The gate-check loop and `premerge-check` are independent, sequential gates. The 
 >
 > Fix the gate failures on branch `<feature-branch>`, commit, and return. Story: `backlog/ST-NNNN.md`. This is attempt `<N>` on the tier `<tier>`.
 
+## Feature checks and the merge into `dev`
+
+The feature checks start after the last wave closes, on both ways. They run in this order:
+
+1. **Code review of the whole feature.** The code-review agent reviews the feature branch with `--base <branch-root> --head <branch-head>` and writes `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`, with the slash of the branch name replaced by a hyphen.
+2. **QA.** The QA agent then explores the feature branch and writes the Fagan, security, and bug-hunt reports.
+3. **Merge.** Run `.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and show its full output to the User. When it refuses, fix each cause it names and run it again. When it passes, the User merges the feature branch into `dev`. The implementation agent never merges into `dev`. The User then ends the run with `dispatch close`.
+4. **Reconciliation.** The reconciliation agent reconciles the specification and the architecture against the code on `dev`.
+
+Each report of steps 1 and 2 sets `run` to the feature branch and `branch_head` to the head of the feature branch it reviewed (BR-122). A blocking finding of these steps becomes a unit of work with `dispatch add <finding-id>`, and the step that filed it runs again after the merge of the fix. `premerge-check dev <feature-branch>` refuses while a unit of work of the run is `failed` or `blocked`, a wave has no wave record, one of the four reports is missing or reviewed a commit outside the feature branch, or a blocking finding of the run is open. It runs the full test suite in a temporary worktree at `.current-work/<feature-branch>/premerge/feature` and removes it afterwards (BR-123).
+
 ## Completion Criteria
 
 - All stories `done`, branch head recorded, OR
@@ -319,4 +332,4 @@ The gate-check loop and `premerge-check` are independent, sequential gates. The 
 
 ## Handoff
 
-> _"Implementation complete. Run reconciliation-agent, then QA, with `--base <branch-root> --head <branch-head>`. Branch state and any intentionally retained work follow [handoff-format.md](../rulebooks/conventions/handoff-format.md)."_
+> _"Implementation complete. Every wave is closed. Run the code-review agent on the whole feature, then QA, with `--base <branch-root> --head <branch-head>`. Then run `premerge-check dev <feature-branch>`, show the result, and leave the merge into `dev` to the User. Reconciliation runs on `dev` after the merge. Branch state and any intentionally retained work follow [handoff-format.md](../rulebooks/conventions/handoff-format.md)."_

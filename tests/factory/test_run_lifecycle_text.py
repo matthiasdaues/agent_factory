@@ -543,3 +543,101 @@ def test_RL_08_LN_01_a_dirty_feature_worktree_goes_to_the_user_unchanged() -> No
     assert "Report its message to the User unchanged" in merge
     assert "do not change that worktree" in merge
     assert "`dispatch.refuse_dirty_feature_worktree: false`" in merge
+
+
+# --- RL-13: the feature checks and the merge into dev (ST-0424) ---------------
+
+PLAYBOOKS = FACTORY / "playbooks"
+FEATURE_PLAYBOOKS = (PLAYBOOKS / "feature-addition.md", PLAYBOOKS / "greenfield-development.md")
+BRANCHING_POLICY = FACTORY / "rulebooks" / "conventions" / "branching-policy.md"
+RULES = FACTORY / "rulebooks" / "rules.md"
+BUG_HUNT = FACTORY / "skills" / "bug-hunt" / "SKILL.md"
+FEATURE_CHECKS = "Feature checks and the merge into `dev`"
+
+
+def _positions(text: str, marks: tuple[str, ...]) -> list[int]:
+    found = [text.find(mark) for mark in marks]
+    assert -1 not in found, dict(zip(marks, found))
+    return found
+
+
+@pytest.mark.spec("RL-13-LN-01")
+@pytest.mark.parametrize("path", FEATURE_PLAYBOOKS, ids=lambda p: p.name)
+def test_RL_13_LN_01_the_playbook_orders_review_qa_merge_reconciliation(path: Path) -> None:
+    """Scenario: The feature checks run after the last wave closes."""
+    text = _text(path)
+    assert (
+        "The feature checks start after the last wave closes: code review of the whole "
+        "feature, then QA, then the merge into `dev`, then reconciliation on `dev`." in text
+    )
+    marks = (
+        "activate code-review-agent",
+        "`docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`",
+        "activate qa-agent",
+        "`docs/reviews/bug-hunt-*.md`",
+        "premerge-check dev <feature-branch>",
+        "activate reconciliation-agent",
+    )
+    positions = _positions(text, marks)
+    assert positions == sorted(positions)
+
+
+@pytest.mark.spec("RL-13-LN-01")
+def test_RL_13_LN_01_the_agent_and_the_policy_order_the_feature_checks() -> None:
+    """The implementation agent and the branching policy name the same order."""
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, FEATURE_CHECKS)
+    assert [step.split(".**")[0] for step in steps] == [
+        "**Code review of the whole feature", "**QA", "**Merge", "**Reconciliation",
+    ]
+    assert "`docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`" in steps[0]
+    assert "on `dev`" in steps[3]
+    policy = _numbered_steps(BRANCHING_POLICY, "Merge Into Dev")
+    assert "reviews the whole feature" in policy[0]
+    assert "QA agent" in policy[1]
+    assert "premerge-check dev <feature-branch>`" in policy[2]
+    assert "on `dev`" in policy[3]
+    handoff = _section(IMPLEMENTATION_AGENT, "Handoff")
+    assert "Run reconciliation-agent, then QA" not in handoff
+    assert "Reconciliation runs on `dev` after the merge" in handoff
+
+
+@pytest.mark.spec("RL-13-LN-02")
+def test_RL_13_LN_02_the_agent_shows_the_result_and_leaves_the_merge_to_the_user() -> None:
+    """Scenario: The User merges after the implementation agent shows the result."""
+    merge = _numbered_steps(IMPLEMENTATION_AGENT, FEATURE_CHECKS)[2]
+    assert "Run `.agent-factory/factory/scripts/premerge-check dev <feature-branch>`" in merge
+    assert "show its full output to the User" in merge
+    assert "When it passes, the User merges the feature branch into `dev`" in merge
+    assert "The implementation agent never merges into `dev`" in merge
+    for step in ("7. **Repeat or finish**", "8. **Merge into `dev`**"):
+        assert step in IMPLEMENTATION_AGENT.read_text(encoding="utf-8")
+    assert _text(IMPLEMENTATION_AGENT).count("(#feature-checks-and-the-merge-into-dev)") == 2
+    assert "No agent merges into `dev`" in _text(BRANCHING_POLICY)
+
+
+@pytest.mark.spec("RL-13-LN-02")
+def test_RL_13_LN_02_rules_run_premerge_check_on_both_ways() -> None:
+    """IMPL-0034: the rule that runs premerge-check before git merge holds on both
+    ways, and the worktree rule names the temporary worktree of premerge-check."""
+    lines = RULES.read_text(encoding="utf-8").splitlines()
+    premerge = [line for line in lines if "premerge-check <target> <branch>` before `git merge" in line]
+    assert len(premerge) == 1
+    assert "(automated only)" not in premerge[0]
+    assert "This holds on both ways" in premerge[0]
+    worktree = [line for line in lines if "git worktree add -b <branch> .current-work" in line]
+    assert len(worktree) == 1
+    assert "no worktrees are created" not in worktree[0]
+    assert "A run by hand checks out each story branch in the primary checkout" in worktree[0]
+    assert "Only `premerge-check` adds a worktree there" in worktree[0]
+
+
+@pytest.mark.spec("RL-04-LN-04")
+def test_RL_04_LN_04_the_bug_hunt_skill_writes_its_report() -> None:
+    """BUG-0130: the bug-hunt skill names its report with `run` and `branch_head`,
+    and the QA agent declares it as an output."""
+    report = _section(BUG_HUNT, "Phase: Report")
+    assert "save the report as `docs/reviews/bug-hunt-YYYY-MM-DD.md`" in report
+    assert "sets `run` to the feature branch and `branch_head` to the full SHA" in report
+    front = yaml.safe_load(QA_AGENT.read_text(encoding="utf-8").split("---")[1])
+    patterns = [d["path_pattern"] for d in front["outputs"]["declarations"]]
+    assert "docs/reviews/bug-hunt-*.md" in patterns

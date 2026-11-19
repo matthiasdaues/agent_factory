@@ -663,3 +663,369 @@ def test_RL_08_IT_08_a_finding_of_another_story_outside_the_scope_blocks(wave_re
     assert result.returncode == 1, result.stdout + result.stderr
     assert "BLOCK out-of-scope-paths: docs/findings/BUG-0092.md" in result.stdout
     assert _git(feature, "rev-parse", "HEAD") == tip
+
+
+# --- ST-0424: the review check reads a full SHA from any folder ---
+
+
+@pytest.mark.spec("RL-08-IT-01")
+def test_RL_08_IT_01_a_report_whose_branch_head_is_a_ref_name_is_refused(wave_repo):
+    """IMPL-0025: a ref name as branch_head resolves to the current tip, so the
+    check accepts only a full SHA and names the report and the value."""
+    repo, base = wave_repo["repo"], wave_repo["base"]
+    _commit_on_story(repo, {"src/ST-0350.txt": "work\n"})
+    _commit_on_story(repo, {REPORT_PATH: _review(base, "story/ST-0350")}, "docs: review")
+
+    result = _premerge(repo)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    block = [line for line in result.stdout.splitlines() if line.startswith("BLOCK code-review")]
+    assert len(block) == 1, result.stdout
+    assert REPORT_PATH in block[0]
+    assert "'story/ST-0350'" in block[0]
+
+
+@pytest.mark.spec("RL-08-IT-02")
+def test_RL_08_IT_02_the_check_reads_the_head_from_a_subfolder(tmp_path):
+    """IMPL-0026: run from packages/, premerge-check finds the report and the open
+    BUG-0091 at the head, as it does from the project root."""
+    run = _build_wave_repo(tmp_path, {"packages/.keep": ""})
+    repo = run["repo"]
+    _work_and_review(repo, run["ledger"], run["base"], "ST-0350")
+    _commit_on_story(repo, {"docs/findings/BUG-0091.md": _finding("BUG-0091")})
+
+    def review_and_findings(cwd: Path) -> list[str]:
+        result = _premerge(cwd)
+        assert result.returncode == 1, result.stdout + result.stderr
+        return [
+            line for line in result.stdout.splitlines()
+            if line.startswith(("PASS code-review", "BLOCK code-review", "PASS open-findings",
+                                "BLOCK open-findings"))
+        ]
+
+    from_root = review_and_findings(repo)
+    from_packages = review_and_findings(repo / "packages")
+
+    assert from_packages == from_root
+    assert from_root[0].startswith(f"PASS code-review: {REPORT_PATH}")
+    assert from_root[1].startswith("BLOCK open-findings: BUG-0091 of ST-0350")
+
+
+# --- ST-0424: premerge-check dev <feature-branch>, the feature merge check ---
+
+FEATURE = "feature/login"
+FEATURE_PREMERGE = Path(".current-work") / "feature" / "login" / "premerge" / "feature"
+FEATURE_REPORTS = {
+    "review": ("code-review", f"docs/reviews/code-review-feature-login-{REVIEW_DAY}.md"),
+    "fagan": ("fagan-review", f"docs/reviews/fagan-review-{REVIEW_DAY}.md"),
+    "security": ("security-review", f"docs/reviews/security-review-{REVIEW_DAY}.md"),
+    "bug-hunt": ("bug-hunt", f"docs/reviews/bug-hunt-{REVIEW_DAY}.md"),
+}
+FEATURE_REPORT = """---
+type: {type}
+title: {type} of {run}
+date: {day}
+status: pass
+reviewer: qa-agent
+findings_filed: 0
+story:
+run: {run}
+branch: {run}
+branch_base: {base}
+branch_head: {head}
+---
+
+# {type} of {run}
+"""
+FEATURE_FINDING = """---
+id: {id}
+source: qa-agent
+review_class: runtime
+category: defect
+type: function
+severity: major
+artifact: src/login.txt:1
+status: {status}
+owner: developer-agent
+story: {story}
+run: {run}
+traces: [BR-085]
+---
+
+# {id}
+"""
+SUITE = "#!/bin/sh\necho \"$PWD\" > {log}\nexit {code}\n"
+
+
+def _ledger_text(statuses: dict[str, str], waves: list[int]) -> str:
+    import yaml
+
+    stories = {
+        sid: {"id": sid, "wave": wave, "status": status, "deps": [], "branch": f"story/{sid}"}
+        for wave, (sid, status) in enumerate(statuses.items(), start=1)
+    }
+    records = [
+        {"number": n, "completed": [], "blocked": [], "failed": [], "next_ready": []}
+        for n in waves
+    ]
+    return yaml.safe_dump(
+        {"mode": "orchestrated", "feature_branch": FEATURE, "stories": stories, "waves": records},
+        sort_keys=False,
+    )
+
+
+def _feature_run(
+    tmp_path: Path,
+    *,
+    statuses: dict[str, str] | None = None,
+    waves: tuple[int, ...] = (1, 2),
+    reports: dict[str, str] | None = None,
+    findings: dict[str, str] | None = None,
+    suite_exit: int = 0,
+    head_of_report: str | None = None,
+) -> dict[str, Path | str]:
+    """A run on feature/login with ST-0350 in wave 1 and ST-0351 in wave 2.
+
+    *reports* maps a key of FEATURE_REPORTS to the `run` of that report; a key
+    left out writes no report. By default all four reports name feature/login.
+    """
+    repo = tmp_path / "repo"
+    log = tmp_path / "suite.log"
+    repo.mkdir(parents=True)
+    _git(tmp_path, "init", "-q", "-b", "dev", str(repo))
+    (repo / ".gitignore").write_text(".current-work/\n.agent-factory/\n")
+    (repo / "docs").mkdir()
+    (repo / "docs" / "testing.yaml").write_text('test_command: "sh tests/suite.sh"\n')
+    (repo / "src").mkdir()
+    (repo / "src" / "login.txt").write_text("start\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    base = _git(repo, "rev-parse", "HEAD")
+    feature = repo / ".current-work" / "feature" / "login" / "inv"
+    _git(repo, "worktree", "add", "-q", "-b", FEATURE, str(feature))
+    (feature / "tests").mkdir()
+    (feature / "tests" / "suite.sh").write_text(SUITE.format(log=log, code=suite_exit))
+    (feature / "src" / "login.txt").write_text("login\n")
+    _git(feature, "add", "-A")
+    _git(feature, "commit", "-qm", "feat: login")
+    head = head_of_report or _git(feature, "rev-parse", "HEAD")
+    runs = reports if reports is not None else {key: FEATURE for key in FEATURE_REPORTS}
+    for key, report_run in runs.items():
+        kind, path = FEATURE_REPORTS[key]
+        (feature / path).parent.mkdir(parents=True, exist_ok=True)
+        (feature / path).write_text(
+            FEATURE_REPORT.format(type=kind, run=report_run, day=REVIEW_DAY, base=base, head=head)
+        )
+    for rel, text in (findings or {}).items():
+        (feature / rel).parent.mkdir(parents=True, exist_ok=True)
+        (feature / rel).write_text(text)
+    _git(feature, "add", "-A")
+    _git(feature, "commit", "-qm", "docs: feature checks")
+    ledger = repo / ".current-work" / "feature" / "login" / "dispatch-ledger.yaml"
+    ledger.write_text(
+        _ledger_text(statuses or {"ST-0350": "done", "ST-0351": "done"}, list(waves))
+    )
+    return {"repo": repo, "feature": feature, "log": log}
+
+
+def _premerge_dev(cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [str(PREMERGE), "dev", FEATURE],
+        cwd=cwd, env=_env(), capture_output=True, text=True, check=False,
+    )
+
+
+def _feature_finding(finding_id: str, *, story: str = "", run: str = FEATURE,
+                     status: str = "open") -> dict[str, str]:
+    return {
+        f"docs/findings/{finding_id}.md": FEATURE_FINDING.format(
+            id=finding_id, story=story, run=run, status=status,
+        )
+    }
+
+
+def _block_lines(result: subprocess.CompletedProcess) -> list[str]:
+    return [line for line in result.stdout.splitlines() if line.startswith("BLOCK")]
+
+
+@pytest.mark.spec("RL-13-IT-01")
+@pytest.mark.parametrize(
+    ("statuses", "waves", "named"),
+    [
+        ({"ST-0350": "failed", "ST-0351": "done"}, (1, 2), "ST-0350"),
+        ({"ST-0350": "done", "ST-0351": "blocked"}, (1, 2), "ST-0351"),
+        ({"ST-0350": "done", "ST-0351": "done"}, (1,), "wave 2"),
+    ],
+    ids=["failed", "blocked", "open wave"],
+)
+def test_RL_13_IT_01_a_stopped_story_or_an_open_wave_is_refused(tmp_path, statuses, waves, named):
+    """Scenario Outline: premerge-check dev refuses a run that is not ready, rows 1 to 3."""
+    run = _feature_run(tmp_path, statuses=statuses, waves=waves)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    blocks = _block_lines(result)
+    assert len(blocks) == 1, result.stdout
+    assert named in blocks[0]
+    assert not (run["repo"] / ".current-work" / "premerge-check-ok").exists()
+
+
+@pytest.mark.spec("RL-13-IT-01")
+def test_RL_13_IT_01_a_run_without_a_ledger_is_refused(tmp_path):
+    """Without the ledger, the check cannot show that no unit of work stopped."""
+    run = _feature_run(tmp_path)
+    ledger = run["repo"] / ".current-work" / "feature" / "login" / "dispatch-ledger.yaml"
+    ledger.unlink()
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "dispatch-ledger.yaml" in _block_lines(result)[0]
+
+
+@pytest.mark.spec("RL-13-IT-02")
+@pytest.mark.parametrize(
+    ("missing", "named"),
+    [
+        ("review", "the end-of-feature review"),
+        ("fagan", "the Fagan report"),
+        ("security", "the security report"),
+        ("bug-hunt", "the bug-hunt report"),
+    ],
+)
+def test_RL_13_IT_02_a_missing_feature_report_is_refused(tmp_path, missing, named):
+    """Scenario Outline: premerge-check dev refuses a run that is not ready, rows 4 to 7."""
+    reports = {key: FEATURE for key in FEATURE_REPORTS if key != missing}
+    run = _feature_run(tmp_path, reports=reports)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    blocks = _block_lines(result)
+    assert len(blocks) == 1, result.stdout
+    assert named in blocks[0]
+
+
+@pytest.mark.spec("RL-13-IT-02")
+def test_RL_13_IT_02_a_qa_report_of_another_run_does_not_count(tmp_path):
+    """Scenario: A QA report of another run does not count for the feature merge."""
+    reports = {key: FEATURE for key in FEATURE_REPORTS}
+    reports["fagan"] = "feature/search"
+    run = _feature_run(tmp_path, reports=reports)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    blocks = _block_lines(result)
+    assert len(blocks) == 1, result.stdout
+    assert "the Fagan report" in blocks[0]
+
+
+@pytest.mark.spec("RL-13-IT-02")
+@pytest.mark.parametrize(
+    ("head", "shown"),
+    [("0" * 40, None), (FEATURE, f"'{FEATURE}'")],
+    ids=["not an ancestor", "ref name"],
+)
+def test_RL_13_IT_02_a_report_of_other_code_is_refused(tmp_path, head, shown):
+    """A branch_head outside the feature branch, or a ref name, does not count (BR-122)."""
+    run = _feature_run(tmp_path, head_of_report=head)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    blocks = _block_lines(result)
+    assert len(blocks) == 4, result.stdout
+    if shown:
+        assert all(shown in line for line in blocks)
+
+
+@pytest.mark.spec("RL-13-IT-03")
+@pytest.mark.parametrize(
+    ("finding", "named"),
+    [
+        (_feature_finding("BUG-0090"), "BUG-0090"),
+        (_feature_finding("BUG-0091", story="ST-0350", run=""), "BUG-0091"),
+    ],
+    ids=["run of the branch", "story of the run"],
+)
+def test_RL_13_IT_03_an_open_blocking_finding_of_the_run_is_refused(tmp_path, finding, named):
+    """Scenario Outline: premerge-check dev refuses a run that is not ready, rows 8 and 9."""
+    run = _feature_run(tmp_path, findings=finding)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    blocks = _block_lines(result)
+    assert len(blocks) == 1, result.stdout
+    assert named in blocks[0]
+
+
+@pytest.mark.spec("RL-13-IT-03")
+@pytest.mark.parametrize(
+    "finding",
+    [_feature_finding("BUG-0092", run="feature/search"), _feature_finding("BUG-0093", run="")],
+    ids=["another run", "no run and no story"],
+)
+def test_RL_13_IT_03_a_finding_of_another_run_does_not_block(tmp_path, finding):
+    """Scenario: A finding of another run does not block the feature merge."""
+    run = _feature_run(tmp_path, findings=finding)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.spec("RL-13-IT-03")
+def test_RL_13_IT_03_the_check_passes_once_the_finding_is_resolved(tmp_path):
+    """Demo steps 2 and 3: the check names BUG-0090, then passes once it is resolved."""
+    open_run = _feature_run(tmp_path / "open", findings=_feature_finding("BUG-0090"))
+    refused = _premerge_dev(open_run["repo"])
+    resolved_run = _feature_run(
+        tmp_path / "resolved", findings=_feature_finding("BUG-0090", status="resolved"),
+    )
+
+    passed = _premerge_dev(resolved_run["repo"])
+
+    assert refused.returncode == 1
+    assert f"BUG-0090 (run {FEATURE})" in refused.stdout
+    assert passed.returncode == 0, passed.stdout + passed.stderr
+    assert f"premerge-check: PASS — '{FEATURE}' clean to merge into 'dev'" in passed.stdout
+    assert (resolved_run["repo"] / ".current-work" / "premerge-check-ok").exists()
+
+
+@pytest.mark.spec("RL-13-IT-04")
+def test_RL_13_IT_04_a_failing_test_suite_is_refused(tmp_path):
+    """Scenario Outline: premerge-check dev refuses a run that is not ready, row 10."""
+    run = _feature_run(tmp_path, suite_exit=1)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    blocks = _block_lines(result)
+    assert len(blocks) == 1, result.stdout
+    assert "the test suite" in blocks[0]
+    assert run["log"].read_text().strip() == str(run["repo"] / FEATURE_PREMERGE)
+    assert not (run["repo"] / FEATURE_PREMERGE).exists()
+
+
+@pytest.mark.spec("RL-13-IT-04")
+def test_RL_13_IT_04_the_suite_runs_in_a_temporary_worktree(tmp_path):
+    """Scenario: The feature merge check runs the test suite in a temporary worktree."""
+    run = _feature_run(tmp_path)
+    repo = run["repo"]
+    (repo / "src" / "login.txt").write_text("changed\n")
+    (repo / "notes.txt").write_text("untracked\n")
+    status = _git(repo, "status", "--porcelain")
+
+    result = _premerge_dev(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert run["log"].read_text().strip() == str(repo / FEATURE_PREMERGE)
+    assert (repo / "src" / "login.txt").read_text() == "changed\n"
+    assert (repo / "notes.txt").read_text() == "untracked\n"
+    assert _git(repo, "status", "--porcelain") == status
+    assert _git(repo, "stash", "list") == ""
+    assert not (repo / FEATURE_PREMERGE).exists()
+    assert str(repo / FEATURE_PREMERGE) not in _worktrees(repo)
