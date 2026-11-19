@@ -57,7 +57,7 @@ branch-head pair below.
 
 ### Worktree Isolation
 
-A feature branch name is not a working directory. The universal branch/worktree rule above guarantees that every new branch is born in a dedicated worktree; dispatch adds the requirement to confirm — via `git worktree list --porcelain`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow — Automated Mode, Step 3](../../agents/implementation-agent.md#workflow--automated-mode) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared main checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
+A feature branch name is not a working directory. The universal branch/worktree rule above guarantees that every new branch is born in a dedicated worktree; dispatch adds the requirement to confirm — via `git worktree list --porcelain`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow — Orchestrated Run, Step 3](../../agents/implementation-agent.md#workflow--orchestrated-run) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared main checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
 
 ### Verify-Base Preamble
 
@@ -151,7 +151,7 @@ story/ST-0021, story/ST-0051, story/ST-0054, story/ST-0056          # parallel: 
 - [commit-conventions.md](commit-conventions.md) — commit format on feature branches
 - [versioning-policy.md](versioning-policy.md) — related but distinct: governs release tags, not in-progress branches
 - [dispatch-contract.md](dispatch-contract.md) — sub-agent addressing and dispatch scope/checkpointing, the non-branching half of the dispatch contract this rulebook's Verify-Base Preamble and Pre-Merge Diff Check sections belong to
-- [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) — the enforcing agent's workflow
+- [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) — the enforcing agent's workflow
 - [verify-base](../../scripts/verify-base) — Verify-Base Preamble / Declared Base SHA enforcement
 - [premerge-check](../../scripts/premerge-check) — Pre-Merge Diff Check enforcement
 - [docs/reviews/retro-2026-07-12.md](../../../../docs/reviews/retro-2026-07-12.md) and [docs/reviews/retro-2026-07-10.md](../../../../docs/reviews/retro-2026-07-10.md) — the sessions that motivated these sections

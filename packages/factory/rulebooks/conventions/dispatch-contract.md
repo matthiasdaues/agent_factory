@@ -360,12 +360,12 @@ When a dispatch touches files under `packages/factory/`, QA can pass in the work
 
 ## Enforcement
 
-Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. In automated mode, mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. In manual mode, none of these script commands apply. See [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) for the current concrete application.
+Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. In automated mode, mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. In manual mode, none of these script commands apply. See [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) for the current concrete application.
 
 ## References
 
 - [rules.md § Dispatch](../rules.md#dispatch)
 - [branching-policy.md](branching-policy.md) — the branch/worktree half of the dispatch contract (Verify-Base Preamble, Declared Base SHA, Pre-Merge Diff Check)
-- [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) — the current dispatcher applying this contract
+- [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) — the current dispatcher applying this contract
 - [reconciliation-agent.md](../../agents/reconciliation-agent.md) — the agent whose incident motivated the Sub-Agent Addressing rule
 - [docs/reviews/retro-2026-07-12.md](../../../../docs/reviews/retro-2026-07-12.md) — the session that motivated both rules

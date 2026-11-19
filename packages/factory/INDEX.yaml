@@ -279,10 +279,10 @@ agents:
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     tier: standard
-    description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
+    description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in an orchestrated run, or serial human-driven work in the primary checkout in a run by hand. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 7721
-    total_tokens: 18809
+    tokens: 7731
+    total_tokens: 18831
     inputs:
       required:
         - type: story
@@ -428,7 +428,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2536
-    total_tokens: 17912
+    total_tokens: 17918
     inputs:
       required:
         - type: scope-map
@@ -519,7 +519,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1364
-    total_tokens: 10258
+    total_tokens: 10264
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -649,8 +649,8 @@ agents:
     tier: strong
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
-    tokens: 1333
-    total_tokens: 12344
+    tokens: 1335
+    total_tokens: 12346
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -1055,7 +1055,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 63704
+    total_tokens: 63710
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1077,7 +1077,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1701
-    total_tokens: 55562
+    total_tokens: 55590
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1094,7 +1094,7 @@ playbooks:
       - qa-agent
       - reconciliation-agent
     tokens: 5224
-    total_tokens: 116857
+    total_tokens: 116885
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1112,7 +1112,7 @@ playbooks:
       - reconciliation-agent
       - coaching-agent
     tokens: 3170
-    total_tokens: 116288
+    total_tokens: 116316
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1141,7 +1141,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1455
-    total_tokens: 15684
+    total_tokens: 15690
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -1162,7 +1162,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 19577
+    total_tokens: 19583
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -1185,7 +1185,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3374
+    tokens: 3380
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -1205,7 +1205,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 7038
+    tokens: 7044
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md

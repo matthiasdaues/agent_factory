@@ -297,7 +297,7 @@ IMPLEMENTATION_AGENT = FACTORY / "agents" / "implementation-agent.md"
 
 
 def _gate_check_loop() -> str:
-    return _section(IMPLEMENTATION_AGENT, "Gate-Check Loop")
+    return _section(IMPLEMENTATION_AGENT, "Gate-Check Step")
 
 
 @pytest.mark.spec("RL-05-LN-01")
@@ -397,10 +397,10 @@ def test_RL_02_LN_03_the_story_workflow_runs_its_five_steps_in_order() -> None:
     assert "implements the story with TDD and commits" in implement
     assert "`docs/reviews/code-review-<story-id>-YYYY-MM-DD.md`" in review
     assert "also when the review files no finding" in review
-    assert "[Gate-Check Loop](#gate-check-loop)" in gates
+    assert "[Gate-Check Step](#gate-check-step)" in gates
     assert "`dispatch merge-story <story-id>`" in merge
     assert "sets `status: done` in the merge commit" in merge
-    for heading in ("Workflow — Automated Mode", "Workflow — Run By Hand"):
+    for heading in ("Workflow — Orchestrated Run", "Workflow — Run By Hand"):
         assert "steps 2 and 3 of the [story workflow](#story-workflow)" in _block(IMPLEMENTATION_AGENT, heading)
     place = _block(DEVELOPER_AGENT, "Place in the story workflow")
     order = ["implement and commit", "review", "fix each open blocking finding",
@@ -534,7 +534,7 @@ def test_RL_03_LN_02_the_user_runs_only_three_commands() -> None:
 
 
 def _orchestrated_merge_step() -> str:
-    workflow = _section(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    workflow = _section(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     return workflow.split("d. **Merge**")[1].split("e. **Failed/blocked stories**")[0]
 
 
@@ -592,7 +592,7 @@ def test_RL_08_LN_01_a_refused_merge_by_hand_waits_for_the_user() -> None:
 def test_RL_11_LN_01_the_drift_sessions_run_at_the_wave_close_without_a_stop() -> None:
     """Scenarios: The implementation agent runs the drift sessions and closes the
     wave; The wave close does not wait for the User's go."""
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     close = next(step for step in steps if step.startswith("**Close the wave**"))
     marks = (
         "dispatch close-wave <wave-number>",
@@ -755,7 +755,7 @@ MUTATION_SKILL = FACTORY / "skills" / "mutation-testing" / "SKILL.md"
 
 
 def _route_step() -> str:
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     return next(step for step in steps if step.startswith("**Route the QA findings**"))
 
 
@@ -763,7 +763,7 @@ def _route_step() -> str:
 def test_RL_12_LN_01_the_wave_close_routes_the_qa_findings_by_owner() -> None:
     """Scenarios: The wave close routes the open QA findings by owner; The next
     wave waits until every spawn of the test-strategy agent returns."""
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     titles = [step.split("**")[1] for step in steps]
     assert titles.index("Route the QA findings") == titles.index("Close the wave") + 1
     route = _route_step()
@@ -841,7 +841,7 @@ def test_RL_05_LN_02_the_fix_prompt_names_the_story_branch_and_the_place_of_work
 def test_RL_11_LN_01_the_wave_record_is_the_boundary_of_the_next_wave() -> None:
     """IMPL-0055: steps 2, 4 and 4e and § Hard Checkpoint Per Story name the wave
     record, and no passage calls a failed story with a retry left terminal."""
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     plan = next(step for step in steps if step.startswith("**Plan wave**"))
     verify = next(step for step in steps if step.startswith("**Verify, review"))
     assert "launches only after the **prior** wave has its wave record" in plan
