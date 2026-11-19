@@ -508,6 +508,42 @@ def test_RL_03_IT_01_prepare_story_by_hand_refuses_uncommitted_tracked_changes(r
 
 
 @pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_refuses_a_staged_change_reverted_in_the_tree(
+    run_repo,
+):
+    """Review note N4: a change that is staged and then reverted in the working
+    tree is still uncommitted, so prepare-story refuses it and names the file."""
+    ledger = _by_hand_run(run_repo)
+    (run_repo / "src" / ".keep").write_text("staged\n")
+    _git(run_repo, "add", "src/.keep")
+    (run_repo / "src" / ".keep").write_text("")
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert "  src/.keep" in result.stderr
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_fails_closed_when_git_status_fails(run_repo):
+    """Review note N5: when git cannot report the state of the primary
+    checkout, prepare-story refuses with exit 1 and names the git error."""
+    ledger = _by_hand_run(run_repo)
+    (run_repo / ".git" / "index").write_bytes(b"garbage")
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert "git status failed" in result.stderr
+    assert "index file" in result.stderr
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+
+@pytest.mark.spec("RL-03-IT-01")
 def test_RL_03_IT_01_a_failing_post_checkout_hook_restores_the_earlier_branch(run_repo):
     """IMPL-0028: git switches the branch and then returns the hook's exit
     status, so prepare-story checks the earlier branch out again."""

@@ -1241,15 +1241,26 @@ def _prepare_story_by_hand(
         return 1
 
     project_root = main_root
-    _, changed, _ = _git("-C", str(main_root), "diff", "--name-only", "HEAD")
+    code, changed, err = _git(
+        "-C", str(main_root), "status", "--porcelain", "--untracked-files=no"
+    )
+    if code != 0:
+        print(
+            f"error: git status failed in the primary checkout {main_root}, "
+            f"so prepare-story cannot tell whether it is clean: {err}",
+            file=sys.stderr,
+        )
+        return 1
     if changed:
         print(
             f"error: the primary checkout {main_root} holds uncommitted changes "
             f"to tracked files; commit them or set them aside first:",
             file=sys.stderr,
         )
+        # _git strips the output, so the status letters of the first line
+        # may have lost their leading blank; split off the letters instead.
         for line in changed.splitlines():
-            print(f"  {line}", file=sys.stderr)
+            print(f"  {line.split(maxsplit=1)[1]}", file=sys.stderr)
         return 1
     branch_name = f"story/{entry.id}"
     tip = _branch_tip(branch_name)
