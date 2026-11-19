@@ -138,43 +138,204 @@ def _coerce_sequence(value: Any) -> list[Any]:
     return []
 
 
-def failure_class_for_re_dispatch(entry: StoryEntry) -> str | None:
-    """Return the failure class that governs *entry*'s next re-dispatch.
+# The attempt cap of the gate-check step (BR-114, BR-115, BR-116).
+COUNTED_FAILURE_CLASSES = QUALIFYING_ESCALATION_FAILURE_CLASSES
+DEFAULT_GATE_ATTEMPTS = 3
+# The records that `escalate` writes into `reason` after a check of the branch.
+ESCALATE_REFUSED_VERIFY_BASE = "escalate refused: verify-base"
+ESCALATE_REFUSED_SCOPE = "escalate refused: scope"
+ESCALATE_REFUSED_RECORDS = (ESCALATE_REFUSED_VERIFY_BASE, ESCALATE_REFUSED_SCOPE)
 
-    The direct field wins because ``mark-failed`` records it explicitly.
-    Falling back to the latest attempt keeps legacy ledgers and partially
-    reconstructed entries usable.
+
+@dataclass(frozen=True)
+class AttemptLimits:
+    """`gates.attempts` and `gates.attempts_escalated` of docs/testing.yaml."""
+
+    attempts: int = DEFAULT_GATE_ATTEMPTS
+    attempts_escalated: int = DEFAULT_GATE_ATTEMPTS
+
+
+def attempt_limits(gates: Any) -> AttemptLimits:
+    """Read the two attempt counts from the `gates` section.
+
+    An absent key takes the default 3. `attempts_escalated: 0` stays 0,
+    because it turns escalation off. Any other value than a whole number,
+    or a number below the minimum, raises ValueError that names the key.
     """
-    if entry.failure_class is not None:
-        return entry.failure_class
-    latest_attempt = latest_attempt_for_session(entry)
-    if latest_attempt is None:
-        return None
-    failure_class = latest_attempt.get("failure_class")
-    return failure_class if isinstance(failure_class, str) else None
+    section = gates if isinstance(gates, dict) else {}
+    values = {}
+    for key, minimum in (("attempts", 1), ("attempts_escalated", 0)):
+        value = section.get(key, DEFAULT_GATE_ATTEMPTS)
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise ValueError(
+                f"gates.{key} must be a whole number of at least {minimum}, "
+                f"got {value!r}"
+            )
+        values[key] = value
+    return AttemptLimits(**values)
 
 
-def re_dispatch_disposition(entry: StoryEntry) -> str:
-    """Classify whether the story may re-dispatch now.
+def entry_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
+    """Return the tier the entry runs on now.
+
+    `escalate` writes `tier`. Before an escalation, the tier is the declared
+    one, which `mark-failed` also records on each attempt.
+    """
+    if entry.tier:
+        return entry.tier
+    if declared_tier:
+        return declared_tier
+    for attempt in reversed(entry.attempts):
+        if isinstance(attempt, dict) and attempt.get("tier"):
+            return str(attempt["tier"])
+    return "economy"
+
+
+def counted_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
+    """Return the tier on which `mark-failed` records an attempt and dispatch counts it.
+
+    It is the tier the entry runs on now: `active_tier`, else `entry_tier`.
+    A seams-first implementation session sets `active_tier` one tier below
+    the story's tier, so its attempts count on that lower tier (BR-114).
+    """
+    return entry.active_tier or entry_tier(entry, declared_tier)
+
+
+def _last_grant(entry: StoryEntry) -> dict[str, Any] | None:
+    grants = [grant for grant in entry.attempt_grants if isinstance(grant, dict)]
+    return grants[-1] if grants else None
+
+
+def counted_attempts_on_tier(entry: StoryEntry, tier: str) -> int:
+    """Count the counted attempts on *tier* after the last grant (BR-114, BR-116)."""
+    grant = _last_grant(entry)
+    start = int(grant.get("attempt_count") or 0) if grant else 0
+    return sum(
+        1
+        for attempt in entry.attempts[start:]
+        if isinstance(attempt, dict)
+        and attempt.get("failure_class") in COUNTED_FAILURE_CLASSES
+        and attempt.get("tier") == tier
+    )
+
+
+def tier_attempt_limit(entry: StoryEntry, tier: str, limits: AttemptLimits) -> int:
+    """Return the number of counted attempts the entry gets on *tier*.
+
+    A grant of `re-dispatch` gives `gates.attempts` new attempts. Otherwise
+    the tier after an escalation gets `gates.attempts_escalated`, and the
+    first tier gets `gates.attempts`.
+    """
+    grant = _last_grant(entry)
+    if grant is not None and grant.get("tier") == tier:
+        return limits.attempts
+    if entry.escalation_granted:
+        return limits.attempts_escalated
+    return limits.attempts
+
+
+def attempts_used_up(entry: StoryEntry, tier: str, limits: AttemptLimits) -> bool:
+    """Return True when the counted attempts on *tier* reached the limit."""
+    return counted_attempts_on_tier(entry, tier) >= tier_attempt_limit(
+        entry, tier, limits
+    )
+
+
+def ledger_escalation_refusal(
+    entry: StoryEntry, tier: str, limits: AttemptLimits
+) -> str | None:
+    """Name the reason of BR-115 that the ledger alone shows, or None.
+
+    These are the tier `strong`, an earlier escalation, and
+    `gates.attempts_escalated: 0`. The checks of the branch, `verify-base`
+    and the scope, need git, so `dispatch` runs them.
+    """
+    if tier == "strong" or next_tier(tier) is None:
+        return f"it runs on the tier {tier}, which does not escalate"
+    if entry.escalation_granted:
+        return "it has already escalated"
+    if limits.attempts_escalated == 0:
+        return "gates.attempts_escalated is 0 in docs/testing.yaml, so escalation is off"
+    return None
+
+
+def cannot_escalate(entry: StoryEntry, tier: str, limits: AttemptLimits) -> bool:
+    """Return True when `escalate` refuses the entry for a reason of BR-115.
+
+    The reasons of the branch come from the record in `reason` that
+    `escalate` wrote, so this reads only the ledger.
+    """
+    return (
+        ledger_escalation_refusal(entry, tier, limits) is not None
+        or entry.reason in ESCALATE_REFUSED_RECORDS
+    )
+
+
+def contract_violation_count(entry: StoryEntry) -> int:
+    return sum(
+        1
+        for attempt in entry.attempts
+        if isinstance(attempt, dict)
+        and attempt.get("failure_class") == RE_DISPATCH_TERMINAL_FAILURE_CLASS
+    )
+
+
+def has_stopped(
+    entry: StoryEntry, limits: AttemptLimits, tier: str | None = None
+) -> bool:
+    """The predicate HasStopped of the Ledger Entry Lifecycle (BR-116).
+
+    It holds for every `blocked` entry. A `failed` entry has stopped when
+    two of its attempts are `contract_violation`, or when its counted
+    attempts on its tier reached the limit and it cannot escalate any more.
+    Every other entry still has a retry, or does not wait for the User.
+    """
+    if entry.status == StoryState.BLOCKED:
+        return True
+    if entry.status != StoryState.FAILED:
+        return False
+    if contract_violation_count(entry) >= 2:
+        return True
+    current = tier or counted_tier(entry)
+    return attempts_used_up(entry, current, limits) and cannot_escalate(
+        entry, current, limits
+    )
+
+
+def re_dispatch_disposition(
+    entry: StoryEntry,
+    tier: str,
+    limits: AttemptLimits,
+    branch_allows_escalation: Callable[[], bool],
+) -> str:
+    """Classify what `re-dispatch` does with the entry.
 
     Returns one of:
 
-    - ``same_tier`` — proceed normally.
-    - ``requires_escalation`` — block until escalation is granted.
-    - ``terminal`` — block because the failure is terminal.
+    - ``same_tier`` — set `prepared` on the same tier.
+    - ``requires_escalation`` — refuse and name `dispatch escalate`.
+    - ``grant`` — record a grant of new attempts, then set `prepared`.
+    - ``terminal`` — refuse after two `contract_violation` attempts.
+
+    *branch_allows_escalation* runs the checks of the branch. It is called
+    only when the ledger alone allows an escalation.
     """
-    failure_class = failure_class_for_re_dispatch(entry)
-    if failure_class in QUALIFYING_ESCALATION_FAILURE_CLASSES:
-        return "same_tier" if entry.escalation_granted else "requires_escalation"
-    if failure_class == RE_DISPATCH_TERMINAL_FAILURE_CLASS:
-        terminal_count = sum(
-            1
-            for attempt in entry.attempts
-            if attempt.get("failure_class") == RE_DISPATCH_TERMINAL_FAILURE_CLASS
-        )
-        if terminal_count >= 2:
-            return "terminal"
-    return "same_tier"
+    if entry.status != StoryState.FAILED:
+        return "same_tier"
+    if contract_violation_count(entry) >= 2:
+        return "terminal"
+    if not attempts_used_up(entry, tier, limits):
+        return "same_tier"
+    if ledger_escalation_refusal(entry, tier, limits) is not None:
+        return "grant"
+    return "requires_escalation" if branch_allows_escalation() else "grant"
+
+
+def grant_attempts(entry: StoryEntry, tier: str) -> dict[str, Any]:
+    """Append one item to `attempt_grants` and return it (BR-116, OI-13)."""
+    grant = {"tier": tier, "attempt_count": len(entry.attempts)}
+    entry.attempt_grants.append(grant)
+    return grant
 
 
 def append_attempt(
@@ -216,6 +377,7 @@ class StoryEntry:
     reason: str | None = None
     attempts: list[dict[str, Any]] = field(default_factory=list)
     escalation_granted: bool = False
+    attempt_grants: list[dict[str, Any]] = field(default_factory=list)
     verify_base: str | None = None
     commit_sha: str | None = None
     failure_class: str | None = None
@@ -251,6 +413,8 @@ class StoryEntry:
             d["attempts"] = self.attempts
         if self.escalation_granted:
             d["escalation_granted"] = self.escalation_granted
+        if self.attempt_grants:
+            d["attempt_grants"] = self.attempt_grants
         if self.verify_base is not None:
             d["verify_base"] = self.verify_base
         if self.commit_sha is not None:
@@ -282,6 +446,7 @@ class StoryEntry:
             reason=data.get("reason"),
             attempts=_coerce_sequence(data.get("attempts", [])),
             escalation_granted=bool(data.get("escalation_granted", False)),
+            attempt_grants=_coerce_sequence(data.get("attempt_grants", [])),
             verify_base=data.get("verify_base"),
             commit_sha=data.get("commit_sha"),
             failure_class=data.get("failure_class"),

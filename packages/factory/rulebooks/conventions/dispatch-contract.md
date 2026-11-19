@@ -268,10 +268,11 @@ stories:
     feature_branch: <branch-name or null>
     base_sha: <40-char SHA or null>
     tier: <economy | standard | strong or null>
-    reason: <null or explanation for blocked/failed>
+    reason: <null or explanation for blocked/failed>  # or "escalate refused: verify-base" or "escalate refused: scope"
     # The fields below appear only once they hold a value.
     attempts: [<attempt record>, ...]
     escalation_granted: true
+    attempt_grants: [{tier: <tier>, attempt_count: <number of attempts at the grant>}, ...]
     verify_base: <verify-base result>
     commit_sha: <40-char SHA>
     failure_class: <failure class>

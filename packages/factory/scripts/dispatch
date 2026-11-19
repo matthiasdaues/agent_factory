@@ -33,12 +33,16 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import (
+    COUNTED_FAILURE_CLASSES,
+    ESCALATE_REFUSED_RECORDS,
+    ESCALATE_REFUSED_SCOPE,
+    ESCALATE_REFUSED_VERIFY_BASE,
     FAILURE_CLASSES,
     LEDGER_MODES,
     MANIFEST_FILENAME,
-    QUALIFYING_ESCALATION_FAILURE_CLASSES,
     STOP_SUBCOMMANDS,
     TIER_RANK,
+    AttemptLimits,
     Ledger,
     ManifestExistsError,
     ReportError,
@@ -48,12 +52,17 @@ from dispatch_lib import (
     TransitionError,
     _load_yaml,
     append_attempt,
-    attempts_for_session,
+    attempt_limits,
     clear_manifest_force,
     compute_wave_plan,
+    counted_attempts_on_tier,
+    counted_tier,
     drift_row_problems,
     glob_match,
+    grant_attempts,
+    has_stopped,
     implementation_session_tier,
+    ledger_escalation_refusal,
     load_core_patterns,
     load_project_config,
     load_stories,
@@ -65,6 +74,7 @@ from dispatch_lib import (
     spec_feedback_path,
     stop_notice,
     suggest_tier,
+    tier_attempt_limit,
     write_handoff_contract,
     write_manifest,
 )
@@ -242,6 +252,40 @@ def _read_test_command(project_root: Path) -> str | None:
         if command:
             return command
     return None
+
+
+def _read_attempt_limits(project_root: Path) -> AttemptLimits:
+    """Read `gates.attempts` and `gates.attempts_escalated` (BR-114).
+
+    In a linked worktree, a file missing from the checkout is read from the
+    main tree. Without the file or the keys, both counts are 3. A value
+    that is no whole number raises ValueError.
+    """
+    roots = [project_root]
+    code, common_dir, _ = _git("rev-parse", "--git-common-dir")
+    if code == 0 and common_dir:
+        main_root = Path(common_dir).resolve().parent
+        if main_root != project_root:
+            roots.append(main_root)
+    for root in roots:
+        path = root / "docs" / "testing.yaml"
+        if not path.is_file():
+            continue
+        try:
+            data = _load_yaml(path.read_text())
+        except Exception as e:  # name the file in the refusal
+            raise ValueError(f"cannot parse {path}: {e}") from e
+        return attempt_limits(data.get("gates") if isinstance(data, dict) else None)
+    return AttemptLimits()
+
+
+def _attempt_limits_or_error(project_root: Path) -> AttemptLimits | None:
+    """Return the attempt limits, or print the error and return None."""
+    try:
+        return _read_attempt_limits(project_root)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return None
 
 
 def _story_frontmatter(project_root: Path, story_id: str) -> dict | None:
@@ -1637,10 +1681,8 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
     if current_status != target_state:
         entry.failure_class = args.failure_class
         entry.evidence = args.evidence
-        tier = (
-            entry.active_tier
-            or entry.tier
-            or _story_declared_tier(_project_root(), args.story_id)
+        tier = counted_tier(
+            entry, _story_declared_tier(_project_root(), args.story_id)
         )
         append_attempt(
             entry,
@@ -1653,10 +1695,81 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
         )
         if target_state == StoryState.BLOCKED:
             entry.reason = "seam_defect_human_decision"
-    return _save_ledger(ledger, ledger_path)
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    _print_stop_state(_project_root(), entry)
+    return 0
+
+
+def _print_stop_state(project_root: Path, entry: StoryEntry) -> None:
+    """Say whether the entry has stopped or still has a retry (BR-116)."""
+    limits = _attempt_limits_or_error(project_root)
+    if limits is None:
+        return
+    tier = counted_tier(entry, _story_declared_tier(project_root, entry.id))
+    if has_stopped(entry, limits, tier):
+        print(
+            f"dispatch: {entry.id} has stopped as {entry.status.value} "
+            "and waits for the User"
+        )
+        return
+    counted = counted_attempts_on_tier(entry, tier)
+    limit = tier_attempt_limit(entry, tier, limits)
+    if entry.status == StoryState.FAILED and counted >= limit:
+        print(
+            f"dispatch: {entry.id} has used up its {counted} of {limit} counted "
+            f"attempts on the tier {tier}; run `dispatch escalate {entry.id}`"
+        )
+        return
+    print(
+        f"dispatch: {entry.id} has a retry left ({counted} of {limit} counted "
+        f"attempts on the tier {tier}); run `dispatch re-dispatch {entry.id}`"
+    )
+
+
+class _BranchCheckError(Exception):
+    """The checks of the branch could not run."""
+
+
+def _latest_counted_commit(entry: StoryEntry) -> str | None:
+    """Return the commit of the latest counted attempt, else the entry's commit."""
+    for attempt in reversed(entry.attempts):
+        if (
+            isinstance(attempt, dict)
+            and attempt.get("failure_class") in COUNTED_FAILURE_CLASSES
+            and attempt.get("commit_sha")
+        ):
+            return str(attempt["commit_sha"])
+    return entry.commit_sha
+
+
+def _branch_escalation_refusal(
+    project_root: Path, entry: StoryEntry
+) -> tuple[str | None, str]:
+    """Run the checks of the branch that `escalate` needs (BR-115).
+
+    Returns the record for `reason` when a check refuses, else None, and
+    the output that explains it. A run by hand has no worktree, so the
+    checks run in the primary checkout. Raises _BranchCheckError when the
+    entry has no branch or no declared base.
+    """
+    if not entry.branch or not entry.base_sha:
+        raise _BranchCheckError(
+            f"story {entry.id} is missing prepared branch metadata"
+        )
+    worktree = Path(entry.worktree) if entry.worktree else project_root
+    code, output = _run_verify_base(worktree, entry.branch, entry.base_sha)
+    if code != 0:
+        return ESCALATE_REFUSED_VERIFY_BASE, output
+    if _story_scope_violation(project_root, entry.id, _latest_counted_commit(entry)):
+        return ESCALATE_REFUSED_SCOPE, (
+            f"the diff of {entry.branch} leaves the declared outputs of {entry.id}"
+        )
+    return None, ""
 
 
 def cmd_re_dispatch(args: argparse.Namespace) -> int:
+    """Set a failed or blocked entry prepared within the attempt cap (BR-116)."""
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
     if ledger is None:
@@ -1667,10 +1780,32 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
         print(f"error: story not found: {args.story_id}", file=sys.stderr)
         return 1
 
-    disposition = re_dispatch_disposition(entry)
+    project_root = _project_root()
+    limits = AttemptLimits()
+    tier = counted_tier(entry, _story_declared_tier(project_root, args.story_id))
+    if entry.status == StoryState.FAILED:
+        read = _attempt_limits_or_error(project_root)
+        if read is None:
+            return 1
+        limits = read
+
+    def branch_allows_escalation() -> bool:
+        record, _ = _branch_escalation_refusal(project_root, entry)
+        return record is None
+
+    try:
+        disposition = re_dispatch_disposition(
+            entry, tier, limits, branch_allows_escalation
+        )
+    except _BranchCheckError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
     if disposition == "requires_escalation":
+        counted = counted_attempts_on_tier(entry, tier)
         print(
-            f"error: story {args.story_id} requires escalation before re-dispatch",
+            f"error: story {args.story_id} requires escalation before re-dispatch: "
+            f"its {counted} counted attempts on the tier {tier} are used up. "
+            f"Run `dispatch escalate {args.story_id}`.",
             file=sys.stderr,
         )
         return 1
@@ -1686,11 +1821,22 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    return _save_ledger(ledger, ledger_path)
+    if entry.reason in ESCALATE_REFUSED_RECORDS:
+        entry.reason = None
+    if disposition == "grant":
+        grant_attempts(entry, tier)
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    if disposition == "grant":
+        print(
+            f"dispatch re-dispatch: {args.story_id} gets {limits.attempts} new "
+            f"counted attempts on the tier {tier}"
+        )
+    return 0
 
 
 def cmd_escalate(args: argparse.Namespace) -> int:
-    """Escalate a failed story to the next tier when all six conditions pass."""
+    """Promote a story one tier when every condition of BR-115 holds."""
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
     if ledger is None:
@@ -1701,84 +1847,52 @@ def cmd_escalate(args: argparse.Namespace) -> int:
     if entry is None:
         print(f"error: story not found: {args.story_id}", file=sys.stderr)
         return 1
-
-    story_tier = (
-        entry.tier or _story_declared_tier(project_root, args.story_id) or "economy"
-    )
-    if story_tier == "strong":
-        print(
-            f"error: story {args.story_id} is already at strong tier", file=sys.stderr
-        )
+    limits = _attempt_limits_or_error(project_root)
+    if limits is None:
         return 1
 
-    impl_attempts = attempts_for_session(entry, "impl")
-    if len(impl_attempts) != 1:
+    story_tier = counted_tier(entry, _story_declared_tier(project_root, args.story_id))
+    refusal = ledger_escalation_refusal(entry, story_tier, limits)
+    if refusal is None:
+        counted = counted_attempts_on_tier(entry, story_tier)
+        limit = tier_attempt_limit(entry, story_tier, limits)
+        if counted < limit:
+            refusal = (
+                f"it has {counted} of {limit} counted attempts on the tier "
+                f"{story_tier}, and escalate grants only once they are used up"
+            )
+    if refusal is not None:
         print(
-            f"error: story {args.story_id} requires exactly one prior impl attempt",
+            f"error: dispatch escalate refuses {args.story_id}: {refusal}",
             file=sys.stderr,
         )
         return 1
 
-    attempt = impl_attempts[0]
-    failure_class = attempt.get("failure_class")
-    if failure_class not in QUALIFYING_ESCALATION_FAILURE_CLASSES:
-        print(
-            f"error: story {args.story_id} has non-qualifying failure class: {failure_class}",
-            file=sys.stderr,
-        )
+    try:
+        record, output = _branch_escalation_refusal(project_root, entry)
+    except _BranchCheckError as e:
+        print(f"error: {e}", file=sys.stderr)
         return 1
-
-    if entry.escalation_granted:
-        print(f"error: story {args.story_id} has already escalated", file=sys.stderr)
-        return 1
-
-    if any(
-        other.id != entry.id and other.wave == entry.wave and other.escalation_granted
-        for other in ledger.stories.values()
-    ):
-        entry.status = StoryState.BLOCKED
-        entry.reason = "wave_escalation_exhausted"
+    if record is not None:
+        entry.reason = record
         if _save_ledger(ledger, ledger_path) != 0:
             return 1
+        if output:
+            print(output, file=sys.stderr)
         print(
-            f"error: wave escalation slot already taken for wave {entry.wave}",
-            file=sys.stderr,
-        )
-        return 1
-
-    if not entry.branch or not entry.worktree or not entry.base_sha:
-        print(
-            f"error: story {args.story_id} is missing prepared branch metadata",
-            file=sys.stderr,
-        )
-        return 1
-
-    verify_code, verify_output = _run_verify_base(
-        Path(entry.worktree), entry.branch, entry.base_sha
-    )
-    if verify_code != 0:
-        if verify_output:
-            print(verify_output, file=sys.stderr)
-        print(f"error: verify-base failed for {args.story_id}", file=sys.stderr)
-        return 1
-
-    commit_sha = attempt.get("commit_sha") or entry.commit_sha
-    if _story_scope_violation(project_root, args.story_id, commit_sha):
-        print(
-            f"error: scope violation blocks escalation for {args.story_id}",
+            f"error: dispatch escalate refuses {args.story_id}: {record}. "
+            f"{args.story_id} has stopped and waits for the User",
             file=sys.stderr,
         )
         return 1
 
     next_story_tier = next_tier(story_tier)
-    if next_story_tier is None:
-        print(
-            f"error: story {args.story_id} is already at strong tier", file=sys.stderr
-        )
-        return 1
-
     entry.tier = next_story_tier
     entry.escalation_granted = True
+    if entry.active_tier is not None:
+        entry.active_tier = next_story_tier
+    if entry.reason in ESCALATE_REFUSED_RECORDS:
+        entry.reason = None
     if _save_ledger(ledger, ledger_path) != 0:
         return 1
     print(

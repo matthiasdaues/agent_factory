@@ -278,3 +278,56 @@ def test_RL_09_LN_01_the_check_finds_an_old_gate_key() -> None:
     assert OLD_GATE_KEY.findall("set gates.mutation-testing.timeout_minutes") == []
     assert OLD_GATE_KEY.findall("gates.attempts_escalated") == []
     assert OLD_GATE_KEY.findall("gates.test_design_verify") == ["gates.test_design_verify"]
+
+
+# --- RL-05: the gate-check step retries within the attempt limits (ST-0418) ---
+
+IMPLEMENTATION_AGENT = FACTORY / "agents" / "implementation-agent.md"
+
+
+def _gate_check_loop() -> str:
+    return _section(IMPLEMENTATION_AGENT, "Gate-Check Loop")
+
+
+@pytest.mark.spec("RL-05-LN-01")
+def test_RL_05_LN_01_a_failing_gate_records_acceptance_unmet() -> None:
+    """Scenario: A failing gate records the failure class acceptance_unmet."""
+    loop = _section(IMPLEMENTATION_AGENT, "Fix-iteration loop")
+    assert "When a gate fails, the attempt has failed." in loop
+    assert "dispatch mark-failed <story-id> --class acceptance_unmet`" in loop
+    assert "A failing gate always records the failure class `acceptance_unmet` (BR-114)." in loop
+
+
+@pytest.mark.spec("RL-05-LN-02")
+def test_RL_05_LN_02_each_retry_gets_a_fresh_developer_agent_with_the_gate_output() -> None:
+    """Scenario: Each retry gets a fresh developer agent with the gate output."""
+    loop = _section(IMPLEMENTATION_AGENT, "Fix-iteration loop")
+    assert "Spawn a **fresh** developer agent for the retry" in loop
+    assert (
+        "The brief of the fresh developer agent holds the gate output: the report "
+        "of each failing gate and the affected files"
+    ) in loop
+    template = _gate_check_loop().split("**Fix-iteration prompt template:**")[1]
+    assert "**Gate reports:**" in template
+    assert "This is attempt `<N>` on the tier `<tier>`." in template
+
+
+@pytest.mark.spec("RL-05-LN-03")
+def test_RL_05_LN_03_dispatch_counts_the_attempts_on_both_ways() -> None:
+    """Scenario: With the defaults, a failing story gets three attempts on each tier and is then failed.
+    Scenario: The same counts apply in a run by hand."""
+    loop = _gate_check_loop()
+    attempts = _section(IMPLEMENTATION_AGENT, "Attempts and escalation")
+    assert "The implementation agent does not count attempts itself" in attempts
+    assert "it runs `dispatch re-dispatch` and `dispatch escalate`" in attempts
+    assert "A story gets `gates.attempts` counted attempts on its tier, the first attempt included." in attempts
+    assert "the story gets `gates.attempts_escalated` counted attempts" in attempts
+    assert "`gates.attempts_escalated: 0` turns escalation off" in attempts
+    assert "then stays `failed`" in attempts
+    assert "The same counts apply in an orchestrated run and in a run by hand." in attempts
+    assert "dispatch re-dispatch <story-id>`" in loop
+    assert "dispatch escalate <story-id>`" in loop
+    assert "runs in an orchestrated run and in a run by hand" in loop
+    for old in ("Maximum fix iterations per tier", "wave escalation slot", "**6** developer spawns",
+                "applies to **automated mode only**"):
+        assert old not in loop

@@ -127,7 +127,7 @@ Resolve before Step 1 and state the effective mode and its source.
 
 4. **Verify, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. For each completed story:
    a. **SHA verification**: call `.agent-factory/factory/scripts/dispatch verify-story <story-id> --sha <reported-commit-sha>` on every commit SHA the subagent reported.
-   b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, iteration cap, escalation, and fix-iteration prompt template. Start every fix iteration with `.agent-factory/factory/scripts/dispatch refresh-story <story-id>`, so the story branch contains the moved invocation branch and `verify-base` passes.
+   b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, attempt limits, escalation, and fix-iteration prompt template. Start every fix iteration with `.agent-factory/factory/scripts/dispatch refresh-story <story-id>`, so the story branch contains the moved invocation branch and `verify-base` passes.
    c. **Merge**: when all gates pass, call `.agent-factory/factory/scripts/dispatch merge-story <story-id>` from the invocation branch's worktree. The script refuses to run on any other branch. It owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
    d. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
    e. **Drift rows**: after the merge, handle the merged story's report, `docs/spec/work/spec-feedback-<story-id>.md`, as [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge) describes. The dispatcher first dispatches the owner of each `open` row, and the owner sets `fixed`. It then dispatches the owner's reviewer for each `fixed` row, and the reviewer sets `confirmed` or `rejected`. A rejecting reviewer files a `BUG` finding with `owner: developer-agent`. Wait for every dispatch to return before `close-wave`. A story without a report needs no dispatch.
@@ -218,7 +218,7 @@ Resolve before Step 1 and state the effective mode and its source.
 
 ### Gate-Check Loop
 
-The gate-check loop applies to **automated mode only**. In manual mode, the developer agent runs the same gates before it hands the story back (developer agent, step 4 "Run the gates"). The code-review-agent then reviews the commit.
+The gate-check loop runs in an orchestrated run and in a run by hand, with the same attempt limits. In manual mode, the developer agent runs the same gates before it hands the story back (developer agent, step 4 "Run the gates"). The code-review-agent then reviews the commit.
 
 After the developer-agent commits and the dispatcher verifies the commit SHA (Step 4a), the dispatcher runs semantic quality gates on the committed artifacts before proceeding to `premerge-check` and merge. The gate-check loop runs once per developer iteration, not per git commit, not on every push, and not only at PR time.
 
@@ -257,25 +257,28 @@ Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-n
 
 #### Fix-iteration loop
 
-When any gate fails:
+When a gate fails, the attempt has failed. Run these steps:
 
-1. The dispatcher spawns a **fresh** developer-agent with only the gate reports and affected files as input. The fresh agent carries no accumulated context from prior iterations — this prevents context contamination from gate output, analysis, and fix attempts accumulating in one agent's window.
-2. The fresh developer fixes the failing code and commits.
-3. The dispatcher verifies the new commit SHA, then re-runs all gates.
-4. Repeat until all gates pass or the iteration cap is reached.
+1. Record the attempt with `.agent-factory/factory/scripts/dispatch mark-failed <story-id> --class acceptance_unmet`. A failing gate always records the failure class `acceptance_unmet` (BR-114). `mark-failed` then prints whether the story has a retry left or has stopped.
+2. When the story has stopped, end the loop and report the story to the User. [Attempts and escalation](#attempts-and-escalation) says when a story stops.
+3. Otherwise, run `.agent-factory/factory/scripts/dispatch re-dispatch <story-id>`. When `re-dispatch` refuses and names `dispatch escalate`, run `.agent-factory/factory/scripts/dispatch escalate <story-id>` and then `re-dispatch` again. When `escalate` refuses, the story has stopped.
+4. Spawn a **fresh** developer agent for the retry, with `mark-dispatching` before the spawn and `mark-dispatched` after it. The brief of the fresh developer agent holds the gate output: the report of each failing gate and the affected files, as the fix-iteration prompt template below shows. The fresh agent carries no context from earlier attempts, so gate output, analysis, and fixes do not pile up in one agent's window.
+5. The fresh developer agent fixes the code and commits. Verify the new commit SHA (Step 4a), then run all gates again.
 
-#### Iteration cap and escalation
+Repeat until all gates pass or the story has stopped.
 
-Maximum fix iterations per tier: **3**. Iteration 1 is the original implementation; 2 and 3 are fix attempts.
+#### Attempts and escalation
 
-When the cap is hit at the current tier:
+`dispatch` counts the attempts and enforces the limits. The implementation agent does not count attempts itself; it runs `dispatch re-dispatch` and `dispatch escalate` and follows their answer. A counted attempt has the failure class `acceptance_unmet` or `contradictory_evidence`. An attempt of another class, such as `spend_death`, does not count.
 
-1. Mark the story as failed: `.agent-factory/factory/scripts/dispatch mark-failed <story-id> --class acceptance_unmet`.
-2. Attempt tier escalation: `.agent-factory/factory/scripts/dispatch escalate <story-id>`. The escalation follows the evidence-gated predicate from [cost-aware-agent-delegation.md](../../../docs/proposals/superseded/cost-aware-agent-delegation.md) — the dispatch script enforces all six escalation conditions.
-3. If escalation succeeds, the story is re-dispatched at tier+1 with a fresh 3-iteration cap.
-4. If escalation fails (already at `strong`, wave escalation slot taken, or scope violation), the story is terminal.
+- A story gets `gates.attempts` counted attempts on its tier, the first attempt included. `re-dispatch` keeps the tier while counted attempts remain.
+- Once those attempts are used up, `re-dispatch` refuses and names `dispatch escalate`. `escalate` grants the next tier when the tier is not `strong`, the story has not escalated, `gates.attempts_escalated` is above `0`, `verify-base` passes, and the diff stays inside the scope (BR-115). An escalation of another story in the same wave does not count, so every story that uses up its attempts escalates.
+- On the stronger tier, the story gets `gates.attempts_escalated` counted attempts.
+- Both values come from `docs/testing.yaml` and default to `3`. `gates.attempts_escalated: 0` turns escalation off. With the defaults, a failing story gets three attempts on its tier and three on the stronger tier, and then stays `failed`. A story on `strong` gets three attempts and does not escalate.
+- A story has stopped when two of its attempts have the failure class `contract_violation`, or when its counted attempts on its tier are used up and `escalate` refuses it (HasStopped, BR-116). A failed attempt with a retry left is no stop, so run the retry without the User.
+- A stopped story waits for the User. When the User has fixed the cause and says to continue, run `re-dispatch`. It grants `gates.attempts` new counted attempts on the current tier and records the grant in the ledger field `attempt_grants`.
 
-Effective maximum: **6** developer spawns per story (3 at the current tier + 3 at tier+1) before the story reaches a terminal state. A story that exhausts both tiers receives `mark-failed --class acceptance_unmet` and blocks the next wave until recorded.
+The same counts apply in an orchestrated run and in a run by hand.
 
 #### Interaction with premerge-check
 
@@ -291,7 +294,7 @@ The gate-check loop and `premerge-check` are independent, sequential gates. The 
 > **Affected files:**
 > `<list of files flagged in the gate reports>`
 >
-> Fix the gate failures on branch `<feature-branch>`, commit, and return. Story: `backlog/ST-NNNN.md`. This is fix iteration `<N>` of `<max>`.
+> Fix the gate failures on branch `<feature-branch>`, commit, and return. Story: `backlog/ST-NNNN.md`. This is attempt `<N>` on the tier `<tier>`.
 
 ## Completion Criteria
 
