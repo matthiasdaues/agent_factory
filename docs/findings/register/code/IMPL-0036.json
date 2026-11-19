@@ -16,5 +16,5 @@
   },
   "why_this_severity": "dispatch verify-story checks with git branch --contains that each reported commit lies on the story branch, so a retry committed on the feature branch is refused before any merge (no to fails_purpose). The refused retry still costs a counted attempt and a second spawn, and the developer agent must work out the right branch alone.",
   "commit": "0c410ccab9bce30722e41757d08a3305d99934b9",
-  "status": "open"
+  "status": "resolved"
 }

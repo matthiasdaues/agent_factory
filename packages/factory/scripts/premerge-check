@@ -34,8 +34,13 @@ Checks
      that exists at the merge base, the field counts at the merge base, so
      a branch cannot take a file of another story by rewriting the field
      (IMPL-0027). For a file new on the branch, it counts at the head.
+     A finding file whose `run` at the head names `<target>` also belongs to
+     the story when a `file-qa-finding` entry of the story's stored
+     `mutation-testing` result names it (BR-066).
   3. Out-of-scope paths (only if `--scope` given): every changed file must
-     fall under at least one declared `--scope` prefix.
+     fall under at least one declared `--scope` prefix. The finding files of
+     the story's stored `mutation-testing` result, as check 2 names them,
+     are inside the scope.
   4. Code review ran (story branches only): a report
      `docs/reviews/code-review-*.md` at the branch head sets `story` to the
      story ID and `branch_head` to a full SHA that is an ancestor of the
@@ -67,6 +72,11 @@ Checks
          of their gates; with both forms, the key with hyphens wins with a
          warning (BR-055). Without the field and without a `gates` section,
          `crap-score` runs alone. No default picks `mutation-testing`.
+       - `mutation-testing` passes after an exit 0. After a non-zero exit
+         premerge-check takes the list `mutants` from the stored result
+         `.current-work/mutation-testing/<story-id>.json` of the folder it
+         runs in, and the rule `judge` of the `mutation-testing` script
+         decides (BR-066, RL-G25).
        - The test suite: `test_command` of `docs/testing.yaml`. A non-zero
          exit fails and names the test suite. Without `test_command`,
          premerge-check prints the skip.
@@ -116,6 +126,8 @@ import os
 import re
 import subprocess
 import sys
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -448,7 +460,76 @@ def story_owned_files(
     by_field |= _records_of_story(
         branch, story_id, [f for f in rest if f not in at_base and f in at_head]
     )
-    return [f for f in candidates if f in by_name or f in by_field]
+    filed = mutant_finding_files(target, branch, story_id, [f for f in rest if f in at_head])
+    return [f for f in candidates if f in by_name or f in by_field or f in filed]
+
+
+# --- The stored result of mutation-testing (BR-066, RL-G25) ---
+
+STORED_MUTATION_RESULTS = Path(".current-work") / "mutation-testing"
+
+
+def _mutation_gate():
+    """Load the mutation-testing script, which holds the result rule `judge`."""
+    loader = SourceFileLoader("mutation_testing", str(SCRIPT_DIR / "mutation-testing"))
+    module = module_from_spec(spec_from_loader("mutation_testing", loader))
+    loader.exec_module(module)
+    return module
+
+
+def stored_mutation_result(story_id: str) -> dict:
+    """The stored result of the gate-check step, or an empty mapping.
+
+    It lies in `.current-work/mutation-testing/<story-id>.json` at the top of
+    the folder premerge-check runs in, the invocation worktree in an
+    orchestrated run and the primary checkout by hand.
+    """
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    if code != 0:
+        return {}
+    try:
+        data = json.loads((Path(top) / STORED_MUTATION_RESULTS / f"{story_id}.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def filed_finding_ids(result: dict) -> set[str]:
+    """The `finding` of each `file-qa-finding` entry of `mutants`."""
+    mutants = result.get("mutants")
+    return {
+        str(m["finding"])
+        for m in (mutants if isinstance(mutants, list) else [])
+        if isinstance(m, dict)
+        and m.get("resolution_action") == "file-qa-finding"
+        and isinstance(m.get("finding"), str)
+    }
+
+
+def mutant_finding_files(
+    target: str, branch: str, story_id: str, paths: list[str]
+) -> set[str]:
+    """The finding files of *paths* that the stored result names and whose
+    `run` at the head of *branch* is *target* (BR-066)."""
+    named = filed_finding_ids(stored_mutation_result(story_id))
+    files = [f for f in paths if _is_finding_file(f) and Path(f).stem in named]
+    return set(_records_with(branch, "run", target, files)) if files else set()
+
+
+def filed_scope(story_id: str | None, owned: list[str], args: argparse.Namespace) -> list[str]:
+    """The story's own files that its stored mutation result names; they are
+    inside a declared scope (BR-066). Without a declared scope, none."""
+    if not story_id or not (args.scope or args.scope_glob):
+        return []
+    named = filed_finding_ids(stored_mutation_result(story_id))
+    return [f for f in owned if _is_finding_file(f) and Path(f).stem in named]
+
+
+def finding_exists_at(branch: str):
+    """Tell whether `docs/findings/<ID>.md` is at the head of *branch*."""
+    def exists(finding_id: str) -> bool:
+        return f"{FINDINGS_DIR}{finding_id}.md" in files_at_head(branch, FINDINGS_DIR)
+    return exists
 
 
 def _is_ancestor(commit: str, branch: str) -> bool:
@@ -827,16 +908,20 @@ def _describe_row(row: dict) -> str:
     return str(name)
 
 
-def read_gate_result(path: Path) -> tuple[bool, str]:
+def read_gate_result(path: Path, branch: str | None = None) -> tuple[bool, str]:
     """Read one gate result file.
 
     crap-score and dependency-check write a list of rows with `pass_fail`;
-    test-design-verify writes an object with `passed`.
+    test-design-verify writes an object with `passed`. A result of
+    mutation-testing, an object with `timed_out` or `mutants`, goes to the
+    rule `judge`, which looks up each named finding at the head of *branch*.
     """
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError):
         return False, "invalid result"
+    if isinstance(data, dict) and ("timed_out" in data or "mutants" in data):
+        return judge_mutation_result(data, branch)
     if isinstance(data, list):
         failing = [r for r in data if not isinstance(r, dict) or r.get("pass_fail") != "pass"]
         if not failing:
@@ -847,6 +932,36 @@ def read_gate_result(path: Path) -> tuple[bool, str]:
     if isinstance(data, dict):
         return (True, "passed") if data.get("passed") is True else (False, "failed")
     return False, "invalid result"
+
+
+def judge_mutation_result(data: dict, branch: str | None) -> tuple[bool, str]:
+    """Apply the result rule of mutation-testing; without *branch* no finding exists."""
+    exists = finding_exists_at(branch) if branch else (lambda _id: False)
+    try:
+        return _mutation_gate().judge(data, exists)
+    except GitReadError as exc:
+        return False, f"failed: {exc}"
+
+
+def mutation_rerun_result(
+    report: Path, story_id: str, branch: str | None
+) -> tuple[bool, str]:
+    """Judge the rerun after a non-zero exit with the stored list `mutants`.
+
+    The rerun gives the exit code and the time-out. The gate-check step wrote
+    the list into the stored result, which the rerun cannot hold (BR-066).
+    """
+    try:
+        data = json.loads(report.read_text())
+    except (OSError, ValueError):
+        return False, "result not found"
+    if not isinstance(data, dict):
+        return False, "invalid result"
+    stored = stored_mutation_result(story_id)
+    data.pop("mutants", None)
+    if "mutants" in stored:
+        data["mutants"] = stored["mutants"]
+    return judge_mutation_result(data, branch)
 
 
 def primary_checkout() -> Path | None:
@@ -962,8 +1077,12 @@ def rerun_gate(
     story_id: str,
     entries: dict[str, dict] | None = None,
     py_files: list[str] | None = None,
+    branch: str | None = None,
 ) -> tuple[bool, str]:
     """Run *gate* in *worktree* and judge it by its exit code.
+
+    After a non-zero exit of mutation-testing, the result rule decides with
+    the stored list `mutants` (BR-066).
 
     premerge-check builds the call of a gate it names. Every other gate runs
     the `command` of its entry through the shell.
@@ -994,6 +1113,9 @@ def rerun_gate(
         return False, f"cannot run {call}: {exc}"
     if result.returncode == 0:
         return True, "passed"
+    if gate == "mutation-testing" and report is not None:
+        ok, detail = mutation_rerun_result(report, story_id, branch)
+        return ok, detail if ok else f"exit {result.returncode}: {detail}"
     return False, _failure_detail(result, report)
 
 
@@ -1003,12 +1125,13 @@ def check_semantic_gates(
     worktree: Path,
     primary: Path,
     py_files: list[str] | None = None,
+    branch: str | None = None,
 ) -> list[str]:
     """Run each gate in *worktree* and return one entry per gate that fails."""
     entries, _ = gate_entries(worktree)
     failed_gates = []
     for gate in gates:
-        ok, detail = rerun_gate(primary, gate, worktree, story_id, entries, py_files)
+        ok, detail = rerun_gate(primary, gate, worktree, story_id, entries, py_files, branch)
         if not ok:
             failed_gates.append(f"{gate} ({detail})")
     return failed_gates
@@ -1126,7 +1249,9 @@ def main(argv: list[str] | None = None) -> int:
         print(line)
         findings.append(ok)
 
-    ok, line = check_out_of_scope(files, args.scope, args.scope_glob)
+    ok, line = check_out_of_scope(
+        files, args.scope + filed_scope(story_id, owned, args), args.scope_glob
+    )
     print(line)
     findings.append(ok)
 
@@ -1175,7 +1300,7 @@ def main(argv: list[str] | None = None) -> int:
             for warning in warnings + notices:
                 print(warning)
             failed_gates = check_semantic_gates(
-                gates, story_id, worktree, primary, py_files
+                gates, story_id, worktree, primary, py_files, args.branch
             )
             suite_ok, suite_line = check_test_suite(worktree, story_id)
         finally:

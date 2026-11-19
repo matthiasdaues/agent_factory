@@ -34,6 +34,20 @@ Output
   `.current-work/mutation-testing/<story-id>.json`, the file premerge-check
   reads. Prints the result to stdout.
 
+The result rule (BR-066, RL-G25)
+  The gate-check step adds the list `mutants` to the result file, one entry
+  per mutant with `operator`, `location`, `status`, and `resolution_action`.
+  An entry with `file-qa-finding` also names its `QA` finding in `finding`.
+  `judge` decides whether the result lets the story merge:
+  - an exit 0 of the command passes, whatever `mutants` holds;
+  - a time-out, or a command that did not run, fails;
+  - after a non-zero exit, the result passes only when `mutants` holds at
+    least one survivor, no survivor lacks one of the three actions of the
+    skill, no entry is `unresolved`, and the `finding` of every
+    `file-qa-finding` entry names an existing finding file. No list, an
+    empty list, or a list without a survivor fails.
+  premerge-check applies `judge` at the merge.
+
 Exit codes
   0: the command exited 0 within the limit
   1: the gate failed or could not run
@@ -45,9 +59,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -62,6 +78,9 @@ KILL_GRACE_SECONDS = 10
 GATE_KEY = "mutation-testing"
 # The old key with underscores still counts (BR-055).
 OLD_GATE_KEY = "mutation_testing"
+# The three actions that resolve a surviving mutant (mutation-testing skill).
+RESOLUTIONS = ("remove-dead-code", "add-missing-test", "file-qa-finding")
+FINDING_ID = re.compile(r"^[A-Z]+-\d+$")
 OWNER_HINT = (
     "gates.mutation-testing.command is missing in {path}; "
     "the test-strategy agent writes the project's mutation command"
@@ -168,6 +187,52 @@ def evaluate(testing_yaml: Path, cwd: Path, limit_seconds: float | None) -> dict
         return {**base, "passed": False, "message": str(exc)}
     result = run_command(command, cwd, limit)
     return {**base, "command": command, "timeout_seconds": limit, **result}
+
+
+def _entry_problem(entry: object, finding_exists: Callable[[str], bool]) -> str | None:
+    """Name why one entry of `mutants` blocks the merge, or None when it does not."""
+    if not isinstance(entry, dict):
+        return "an entry of mutants is no object"
+    location = entry.get("location") or "?"
+    action = entry.get("resolution_action")
+    if action == "unresolved":
+        return f"{location} is unresolved"
+    if entry.get("status") != "survived":
+        return None
+    if action not in RESOLUTIONS:
+        return f"{location} is unresolved"
+    if action != "file-qa-finding":
+        return None
+    finding = entry.get("finding")
+    if not isinstance(finding, str) or not FINDING_ID.match(finding):
+        return f"{location} is filed but names no finding ID in finding"
+    if not finding_exists(finding):
+        return f"{location} names {finding}, which has no file docs/findings/{finding}.md"
+    return None
+
+
+def judge(result: dict, finding_exists: Callable[[str], bool]) -> tuple[bool, str]:
+    """Decide whether a result of the gate lets the story merge (BR-066, RL-G25).
+
+    *finding_exists* tells whether `docs/findings/<ID>.md` exists for an ID.
+    """
+    if result.get("passed") is True:
+        return True, "passed"
+    if result.get("timed_out") is True:
+        return False, "failed: the mutation command ran past its time limit"
+    exit_code = result.get("exit_code")
+    if isinstance(exit_code, bool) or not isinstance(exit_code, int):
+        return False, "failed: the mutation command did not run"
+    mutants = result.get("mutants")
+    if not isinstance(mutants, list):
+        return False, f"failed: the command exited {exit_code}, and the result has no list mutants"
+    survivors = [m for m in mutants if isinstance(m, dict) and m.get("status") == "survived"]
+    if not survivors:
+        return False, f"failed: the command exited {exit_code}, and mutants holds no survivor"
+    problems = [p for p in (_entry_problem(m, finding_exists) for m in mutants) if p]
+    if problems:
+        return False, "failed: " + "; ".join(problems)
+    return True, f"passed: each of {len(survivors)} surviving mutant(s) is resolved"
 
 
 def run_gate(

@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The cited lines exist unchanged on dev, so in_use is true. close-wave, prepare-wave and prepare-story enforce the new rule, so no wave starts too early (no to harms_downstream, and no to fails_purpose). An agent that reads step 2 or step 4e first must find out from a refusal that a failed story with a retry left blocks the close.",
   "commit": "1b69eb6d13e5af2ccfb6d4a3a125da37343e7e15",
-  "status": "open"
+  "status": "resolved"
 }

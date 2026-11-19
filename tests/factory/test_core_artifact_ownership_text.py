@@ -711,10 +711,20 @@ class TestSt0358MutationTestingFilesAQaFinding:
     """CAO-12-LN-01: an unresolved mutant becomes a QA finding with its owner."""
 
     def test_st_0358_file_qa_finding_names_path_and_owner(self):
+        """The owner follows the cause (RL-12-LN-02, settled OI-17, ST-0423)."""
         text = _flat(MUTATION_TESTING.read_text(encoding="utf-8"))
         assert "`docs/findings/QA-NNNN.md`" in text
-        assert "`owner: test-strategy-agent`" in text
         assert "`status: open`" in text
+        assert "The owner follows the cause (RL-G24)" in text
+        assert (
+            "| The mutant needs a test that the gate-check step could not write "
+            "within its attempts | `owner: planning-agent` |"
+        ) in text
+        assert (
+            "| The mutant does not change behaviour, or a gate setting is wrong, "
+            "so no test should kill it | `owner: test-strategy-agent` |"
+        ) in text
+        assert "Set `owner: test-strategy-agent`" not in text
 
 
 @pytest.mark.spec("CAO-12-LN-01")

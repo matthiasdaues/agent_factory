@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0058",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:463",
+  "story": "ST-0423",
+  "finding": "story_owned_files admits a finding file that already exists at the merge base, so a story can take another story's finding into its own files. The new line passes every changed finding file at the head to mutant_finding_files, not only the files new on the branch, and mutant_finding_files reads run at the head. A probe in a scratch repository showed the effect. story/ST-0002 changed QA-0001.md, which has story: ST-0001 at the merge base, and BUG-0009.md, where the branch added run: feature/x. The stored result of ST-0002 named both IDs in file-qa-finding entries, and story_owned_files returned both files. Without the stored result it returned none. So the scope check and the file limit of dispatch merge-story admit an edit of a foreign finding, such as status: resolved on an earlier QA finding, whenever the list mutants names its ID. This reopens the path that IMPL-0027 closed with the rule that the field counts at the merge base for an existing file. The skill files each QA finding new on the story branch, so the wider rule looks unintended. The smallest fix is in story_owned_files: pass only the files of rest that are not in at_base to mutant_finding_files.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the feature branch (no to in_use). The path needs a list mutants that names an existing finding ID, and the implementation agent writes that list, so the story's required behavior holds (no to fails_purpose). Until the fix, a reviewer must check by hand that each finding a story changes is new on its branch.",
+  "commit": "6aee3022b31b942630e43affbf94ee3f060ed1ea",
+  "status": "open"
+}
