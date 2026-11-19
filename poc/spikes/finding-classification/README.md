@@ -49,6 +49,9 @@ and with the filed rating. It ran on 2026-11-18. The report is
   the 28 document findings, two Sonnet and two Codex raters per batch. The
   Codex half ran a day later, after a usage limit. The results are in
   [run-9-results.md](key/run-9-results.md).
+- [run-10/](run-10/) holds the tenth run: the side-text rule with a sentence on
+  wrong links and one on main rules, on the 28 document findings. The results
+  are in [run-10-results.md](key/run-10-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
