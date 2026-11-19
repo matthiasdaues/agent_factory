@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0043",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:2840",
+  "story": "ST-0425",
+  "finding": "_remove_run_dir reads the registered worktrees with `_registered_worktrees(main_root) or {}`. When `git worktree list` fails at this point, the function sees no worktree, so it runs shutil.rmtree on the run folder even when a worktree that the ledger does not name is still in it. The check that keeps the folder exists for exactly that worktree, so a failed git call turns it off. The gap starts in the `or {}` fallback; cmd_close already stops on the same failure at its first call, so the fallback looks like an oversight. The smallest fix is in _remove_run_dir: when _registered_worktrees returns None, keep the folder and print an error that names it.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "cmd_close has already run `git worktree list` with success a moment before, so the second call fails only on a rare git error such as a lock or a full disk (no to fails_purpose). When it does fail, the close deletes the folder without the check, and a reader must know that the fallback opens the delete. The lines exist only on the story branch, so in_use is false.",
+  "commit": "74be6f10bde528c41b8d2a2f1bc30cf755022e76",
+  "status": "open"
+}
