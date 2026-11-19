@@ -2706,12 +2706,24 @@ def _registered_worktrees(main_root: Path) -> dict[Path, str | None] | None:
     return trees
 
 
-def _close_run_dir(current: Path, feature_branch: str) -> Path | None:
-    """The folder of the run under .current-work/, or None when it lies outside."""
-    run_dir = (current / feature_branch).resolve()
-    if run_dir == current or not run_dir.is_relative_to(current):
-        return None
-    return run_dir
+def _close_run_dir(
+    main_root: Path, current: Path, feature_branch: str
+) -> tuple[Path | None, str | None]:
+    """The folder of the run under .current-work/, or the reason to refuse it.
+
+    The name must be a branch name that git accepts as it is, so that no
+    `.` or `..` part leads to the folder of another run. The path is not
+    resolved, and a symlink on the way to the folder is refused, so that a
+    link cannot lead there either."""
+    code, out, _ = _git_in(main_root, "check-ref-format", "--branch", feature_branch)
+    if code != 0 or out != feature_branch:
+        return None, f"the feature branch {feature_branch!r} is not a valid branch name"
+    run_dir = current
+    for part in feature_branch.split("/"):
+        run_dir = run_dir / part
+        if run_dir.is_symlink():
+            return None, f"{run_dir} is a symlink, so it may lead to another run"
+    return run_dir, None
 
 
 def _branch_exists(main_root: Path, branch: str) -> bool:
@@ -2784,8 +2796,20 @@ def _stash_and_remove(
     """Stash the changes of the worktree at *path*, then remove the worktree.
 
     Return the stash name, when a stash was made, and the error, if any.
-    The stash is never applied (BR-119)."""
-    code, changes, err = _git_in(path, "status", "--porcelain")
+    The stash is never applied (BR-119). A registered worktree below *path*
+    stops the removal, because git would delete it with the folder. The
+    check for changes lists every untracked file, whatever the git config
+    of the User says, as git stash --include-untracked does."""
+    trees = _registered_worktrees(main_root)
+    if trees is None:
+        return None, f"git worktree list failed in {main_root}"
+    for other in trees:
+        if other != path and other.is_relative_to(path):
+            return None, (
+                f"{path} holds the worktree {other}, which the ledger does not "
+                "name; move or remove that worktree first"
+            )
+    code, changes, err = _git_in(path, "status", "--porcelain", "--untracked-files=all")
     if code != 0:
         return None, f"git status failed in {path}: {err}"
     stashed = None
@@ -2833,11 +2857,13 @@ def _remove_gate_results(current: Path, ledger: Ledger) -> None:
                 result.unlink()
 
 
-def _remove_run_dir(main_root: Path, current: Path, run_dir: Path) -> list[Path]:
+def _remove_run_dir(
+    current: Path, run_dir: Path, trees: dict[Path, str | None]
+) -> list[Path]:
     """Remove the folder of the run, unless a worktree that git lists is left in it.
 
-    Return the worktrees left, which keep the folder."""
-    trees = _registered_worktrees(main_root) or {}
+    *trees* are the worktrees that git lists after the removals. Return the
+    worktrees left, which keep the folder."""
     left = [path for path in trees if path.is_relative_to(run_dir)]
     if left:
         return left
@@ -2889,12 +2915,12 @@ def cmd_close(args: argparse.Namespace) -> int:
     feature_branch = ledger.feature_branch
     main_root = _main_worktree_root().resolve()
     current = (main_root / ".current-work").resolve()
-    run_dir = _close_run_dir(current, feature_branch) if feature_branch else None
-    if feature_branch is None or run_dir is None:
-        print(
-            f"error: the ledger {ledger_path} names no feature branch under {current}",
-            file=sys.stderr,
-        )
+    if feature_branch is None:
+        print(f"error: the ledger {ledger_path} names no feature branch", file=sys.stderr)
+        return 1
+    run_dir, refusal = _close_run_dir(main_root, current, feature_branch)
+    if run_dir is None:
+        print(f"error: dispatch close: {refusal}; the ledger stays", file=sys.stderr)
         return 1
     refusals = close_refusals(ledger)
     if not args.drop:
@@ -2924,12 +2950,20 @@ def cmd_close(args: argparse.Namespace) -> int:
             )
             return 1
     _git_in(main_root, "worktree", "prune")
+    left_trees = _registered_worktrees(main_root)
+    if left_trees is None:
+        print(
+            f"error: git worktree list failed in {main_root}; the ledger stays, "
+            "so run dispatch close again after you fix the cause",
+            file=sys.stderr,
+        )
+        return 1
 
     run_branches = _run_branches(ledger)
     ledger_path.unlink(missing_ok=True)
     _remove_run_markers(current, ledger, run_branches)
     _remove_gate_results(current, ledger)
-    for path in _remove_run_dir(main_root, current, run_dir):
+    for path in _remove_run_dir(current, run_dir, left_trees):
         print(f"kept {run_dir}: it holds the worktree {path}, which the ledger does not name")
     _delete_run_branches(main_root, run_branches)
     print(f"dispatch close: closed the run on {feature_branch}")

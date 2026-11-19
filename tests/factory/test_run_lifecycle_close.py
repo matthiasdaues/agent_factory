@@ -467,3 +467,242 @@ def test_RL_17_IT_03_dispatch_close_closes_a_run_whose_ledger_has_the_old_names(
     assert result.returncode == 0, result.stdout + result.stderr
     assert not ledger.exists()
     assert BRANCH not in _branches(repo)
+
+
+# -- The stops and the path guards of the close (IMPL-0040 to IMPL-0044) -------
+
+
+def _returned(repo: Path) -> Path:
+    """A run on feature/login whose only story ST-0350 the User returned.
+
+    Return the worktree of ST-0350, which return-story leaves in place."""
+    _start(repo, "ST-0350")
+    _dispatched(repo, "ST-0350")
+    _run(
+        repo,
+        ("mark-blocked", "ST-0350", "--reason", "design question"),
+        ("return-story", "ST-0350"),
+    )
+    return _story_tree(repo, "ST-0350")
+
+
+def _stash_of(repo: Path, label: str) -> str | None:
+    name = f"run {BRANCH} {label} {datetime.now().astimezone().date().isoformat()}"
+    for line in _git(repo, "stash", "list", "--format=%H %s").splitlines():
+        if line.endswith(f": {name}"):
+            return line.split()[0]
+    return None
+
+
+@pytest.mark.spec("RL-14-IT-03")
+@pytest.mark.parametrize("config", [None, "no", "normal"], ids=["default", "no", "normal"])
+def test_RL_14_IT_03_close_stashes_a_worktree_with_only_an_untracked_file(
+    tmp_path, config,
+):
+    """IMPL-0040: the check for changes ignores status.showUntrackedFiles."""
+    repo = _run_repo(tmp_path)
+    story = _returned(repo)
+    (story / "notes.txt").write_text("my notes\n")
+    (story / "drafts").mkdir()
+    (story / "drafts" / "idea.txt").write_text("idea\n")
+    if config:
+        _git(repo, "config", "status.showUntrackedFiles", config)
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    stash = _stash_of(repo, "ST-0350")
+    assert stash, result.stdout
+    untracked = _git(repo, "show", "--format=", "--name-only", f"{stash}^3")
+    assert sorted(untracked.splitlines()) == ["drafts/idea.txt", "notes.txt"]
+
+
+@pytest.mark.spec("RL-14-IT-03")
+def test_RL_14_IT_03_close_stashes_a_worktree_with_only_a_tracked_change(tmp_path):
+    repo = _run_repo(tmp_path)
+    story = _returned(repo)
+    (story / "src" / "login.py").write_text("def login():\n    return False\n")
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    stash = _stash_of(repo, "ST-0350")
+    assert stash, result.stdout
+    tracked = _git(repo, "diff", "--name-only", f"{stash}^1", stash)
+    assert tracked.splitlines() == ["src/login.py"]
+
+
+@pytest.mark.spec("RL-14-IT-01")
+def test_RL_14_IT_01_close_refuses_to_remove_a_worktree_that_holds_one_the_ledger_does_not_name(
+    tmp_path,
+):
+    """IMPL-0041: a worktree of another run inside the ignored .current-work/
+    of the feature worktree stops the close."""
+    repo = _run_repo(tmp_path)
+    _returned(repo)
+    feature = repo / ".current-work" / BRANCH / "invocation"
+    nested = feature / ".current-work" / "feature" / "other" / "story" / "ST-0900"
+    _git(repo, "worktree", "add", "-q", "-b", "story/ST-0900", str(nested), "dev")
+    (nested / "work.txt").write_text("work\n")
+    before = _ledger_of(repo).read_text()
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert str(nested) in result.stderr
+    assert _ledger_of(repo).read_text() == before
+    assert (nested / "work.txt").read_text() == "work\n"
+    assert str(nested) in _worktrees(repo)
+    assert feature.is_dir()
+
+
+@pytest.mark.spec("RL-14-IT-01")
+@pytest.mark.parametrize(
+    "name", ["feature/../feature/other", "feature/./other", "feature//other", "@{-1}"],
+)
+def test_RL_14_IT_01_close_refuses_a_feature_branch_that_git_rejects(tmp_path, name):
+    """IMPL-0042: a feature branch edited by hand cannot point at another run."""
+    repo = _run_repo(tmp_path)
+    _start(repo, "ST-0350")
+    other = repo / ".current-work" / "feature" / "other" / "briefs" / "ST-0901.md"
+    other.parent.mkdir(parents=True)
+    other.write_text("brief\n")
+    ledger = _ledger_of(repo)
+    data = yaml.safe_load(ledger.read_text())
+    data["feature_branch"] = name
+    ledger.write_text(yaml.safe_dump(data))
+    before = ledger.read_text()
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert ledger.read_text() == before
+    assert other.read_text() == "brief\n"
+
+
+@pytest.mark.spec("RL-14-IT-01")
+def test_RL_14_IT_01_close_refuses_a_symlinked_run_folder(tmp_path):
+    """IMPL-0042: a run folder that is a symlink leads to another run."""
+    repo = _run_repo(tmp_path)
+    _start(repo, "ST-0350")
+    current = repo / ".current-work"
+    other = current / "feature" / "other" / "briefs" / "ST-0901.md"
+    other.parent.mkdir(parents=True)
+    other.write_text("brief\n")
+    (current / "feature" / "link").symlink_to("other")
+    ledger = _ledger_of(repo)
+    data = yaml.safe_load(ledger.read_text())
+    data["feature_branch"] = "feature/link"
+    ledger.write_text(yaml.safe_dump(data))
+    before = ledger.read_text()
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "symlink" in result.stderr
+    assert ledger.read_text() == before
+    assert other.read_text() == "brief\n"
+
+
+@pytest.mark.spec("RL-14-IT-01")
+def test_RL_14_IT_01_close_leaves_a_worktree_outside_current_work(tmp_path):
+    """A ledger entry that names a worktree outside .current-work/ keeps it."""
+    repo = _run_repo(tmp_path)
+    _start(repo, "ST-0350")
+    outside = tmp_path / "outside"
+    _git(repo, "worktree", "add", "-q", "-b", "story/ST-0350", str(outside), "dev")
+    (outside / "notes.txt").write_text("my notes\n")
+    ledger = _ledger_of(repo)
+    data = yaml.safe_load(ledger.read_text())
+    data["stories"]["ST-0350"].update(worktree=str(outside), branch="story/ST-0350")
+    ledger.write_text(yaml.safe_dump(data))
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (outside / "notes.txt").read_text() == "my notes\n"
+    assert str(outside.resolve()) in _worktrees(repo)
+    assert _stash_of(repo, "ST-0350") is None
+
+
+@pytest.mark.spec("RL-14-IT-03")
+def test_RL_14_IT_03_a_failed_stash_stops_the_close_and_keeps_the_ledger(tmp_path):
+    """IMPL-0044: a lock on refs/stash makes git stash push fail."""
+    repo = _run_repo(tmp_path)
+    story = _returned(repo)
+    (story / "notes.txt").write_text("my notes\n")
+    (repo / ".git" / "refs" / "stash.lock").write_text("")
+    before = _ledger_of(repo).read_text()
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "git stash failed" in result.stderr
+    assert _ledger_of(repo).read_text() == before
+    assert (story / "notes.txt").read_text() == "my notes\n"
+
+
+@pytest.mark.spec("RL-14-IT-03")
+def test_RL_14_IT_03_a_failed_removal_stops_the_close_and_names_the_stash(tmp_path):
+    """IMPL-0044: git worktree remove refuses a locked worktree."""
+    repo = _run_repo(tmp_path)
+    story = _returned(repo)
+    (story / "notes.txt").write_text("my notes\n")
+    _git(repo, "worktree", "lock", str(story))
+    before = _ledger_of(repo).read_text()
+
+    result = _close(repo, "--drop")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "git worktree remove failed" in result.stderr
+    assert _ledger_of(repo).read_text() == before
+    assert story.is_dir()
+    stash = _stash_of(repo, "ST-0350")
+    assert stash
+    assert f"stash: run {BRANCH} ST-0350" in result.stdout
+    untracked = _git(repo, "show", "--format=", "--name-only", f"{stash}^3")
+    assert untracked.splitlines() == ["notes.txt"]
+
+
+def _git_that_fails_after_prune(tmp_path: Path) -> dict[str, str]:
+    """An environment whose git fails git worktree list after git worktree prune."""
+    real = subprocess.run(
+        ["which", "git"], capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    flag = tmp_path / "pruned"
+    wrapper = bin_dir / "git"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        'case " $* " in\n'
+        f'  *" worktree prune "*) touch "{flag}" ;;\n'
+        f'  *" worktree list "*) [ -e "{flag}" ] && exit 128 ;;\n'
+        "esac\n"
+        f'exec "{real}" "$@"\n'
+    )
+    wrapper.chmod(0o755)
+    env = _env()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    return env
+
+
+@pytest.mark.spec("RL-14-IT-01")
+def test_RL_14_IT_01_a_failed_worktree_list_keeps_the_run_folder(tmp_path):
+    """IMPL-0043: the check that keeps the run folder fails closed."""
+    repo = _run_repo(tmp_path)
+    _returned(repo)
+    brief = repo / ".current-work" / BRANCH / "briefs" / "ST-0350.md"
+    brief.parent.mkdir(parents=True)
+    brief.write_text("brief\n")
+
+    result = subprocess.run(
+        [str(DISPATCH), "--ledger", str(_ledger_of(repo)), "close", "--drop"],
+        cwd=repo, env=_git_that_fails_after_prune(tmp_path),
+        capture_output=True, text=True, check=False,
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "git worktree list failed" in result.stderr
+    assert _ledger_of(repo).exists()
+    assert brief.read_text() == "brief\n"

@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The owned rows RL-14-IT-01 to RL-14-IT-08 each have a test, and the probes show that both stops work today (no to fails_purpose). A later change can drop a stop or a guard of a command that deletes files, and no test fails. The lines exist only on the story branch, so in_use is false.",
   "commit": "74be6f10bde528c41b8d2a2f1bc30cf755022e76",
-  "status": "open"
+  "status": "resolved"
 }
