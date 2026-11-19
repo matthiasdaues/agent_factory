@@ -110,6 +110,33 @@ begin
 end $$;
 create trigger edge_kinds before insert on edge for each row execute function check_edge_kinds();
 
+-- Where a quote sits in a text: exact, whitespace (only whitespace differs), or missing.
+create function quote_found(quote text, body text) returns text language sql immutable parallel safe
+return case
+  when coalesce(quote, '') = '' then 'missing'
+  when strpos(body, quote) > 0 then 'exact'
+  when strpos(regexp_replace(btrim(body), '\s+', ' ', 'g'),
+              regexp_replace(btrim(quote), '\s+', ' ', 'g')) > 0 then 'whitespace'
+  else 'missing'
+end;
+
+-- Rule: a quotes edge needs its source's quote in the target span's text.
+create function check_quote() returns trigger language plpgsql as $$
+declare
+  quote text;
+  body text;
+begin
+  select s.anchor ->> 'quote', t.body into quote, body
+  from node s, node t where s.id = new.source_id and t.id = new.target_id;
+  if quote_found(quote, body) = 'missing' then
+    raise exception 'quote of node % is not in span %', new.source_id, new.target_id
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+create trigger edge_quote before insert on edge for each row when (new.type = 'quotes')
+  execute function check_quote();
+
 -- Rule: a node's kind may change only if every live edge still fits.
 create function check_node_kind_change() returns trigger language plpgsql as $$
 begin
