@@ -72,6 +72,11 @@ document, so the finding belongs to the document class, with type
 `incomplete`. It carries `source: atam-review` and `review_class: document`
 together.
 
+An ATAM finding belongs to the architecture class when it names a quality
+scenario and shows how a decision threatens that scenario's response. Every
+other ATAM finding belongs to the document class. A Scenario of a `.feature`
+file is a requirement, not a quality scenario.
+
 An observation that names no artifact is not a finding. It becomes an action
 item of its retrospective or an entry in `docs/spec/work/todo.md`.
 
@@ -111,9 +116,35 @@ the run's own workspace. Every finding records the answer in the field
 
 A document is in use only when stories or code outside the run encode its
 statement. Being merged on `dev` is not enough, because a document does harm
-only through what is built from it. When ATAM review filed [ATAM-0004](../../../../docs/findings/ATAM-0004.md), ADR-0026
+only through what is built from it. The statement is the text that the
+`**Fix:**` line changes. A syntax defect is in use only when a tool outside the
+run reads that syntax, such as a Gherkin runner in CI. When ATAM review filed [ATAM-0004](../../../../docs/findings/ATAM-0004.md), ADR-0026
 was accepted and on `dev`, but no migration code was built from it yet. So the
 gap was not in use.
+
+The reviewer decides `in_use` for a document by the first of these cases
+that applies, and records the case by its name:
+
+1. `syntax`: the defect is in the syntax of the text. It is in use only when
+   a tool outside the run reads that syntax.
+2. `built`: code on `dev`, `main`, a release tag, or an installed copy does
+   what the text says that the Fix replaces, as that text stands now, or a
+   test there asserts it. In use.
+3. `done-story`: a done story restates that text as the behavior it built.
+   In use.
+4. `other-side`: a story or code does what the other side of a
+   contradiction says, not what that text says. Not in use, and
+   `harms_downstream` is "no". The contradiction counts through
+   `fails_purpose` and `raises_cost`.
+5. `deferral`: a story links to the text, names it, or defers work to it,
+   also when it restates the content. Not in use, because deferred work is
+   not built.
+6. `open-story`: a story that is not done restates the text. Not in use.
+7. `none`: nothing outside the run refers to the text. Not in use.
+
+When the Fix offers options, the reviewer applies the cases to the text of
+each option. The statement is in use only when it is in use under every
+option.
 
 The reviewer checks "in use" as a fact, for example in the git state. The
 reviewer does not predict which later gate might catch the defect. For a code,
@@ -162,13 +193,27 @@ The types are `incorrect`, `ambiguous`, `incomplete`, `inconsistent`,
 `unverifiable`, `infeasible`, `untraced`, `unnecessary`, and `compound`. A
 `compound` statement bundles two requirements in one, so neither can be
 checked or traced alone. Reconciliation adds its four kinds: `code-defect`,
-`spec-stale`, `undocumented`, and `speculative`.
+`spec-stale`, `undocumented`, and `speculative`. A `code-defect` finding
+whose Scenario is correct, and whose implementing story is planned but not
+done, is a `suggestion` with severity `note`. The document is right, and the
+story owns the code.
 
 | Question           | What "yes" means for a document                                                                                                                                                                                                                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `harms_downstream` | The statement contradicts an accepted ADR, an interface contract, or an accepted specification, or it states a rule that makes the implementation wrong, and stories or code outside the run already encode it.                                                                                                                                                                |
 | `fails_purpose`    | A planner or implementer cannot act on the statement without asking the author. Two statements in the reviewed artifact contradict each other. A requirement has no check. Deciding question: does a person or tool that follows the statement as written reach a wrong result or report a false one? A "yes" answers `fails_purpose`, also when a later check would catch it. |
 | `raises_cost`      | The reader can act and reaches the right result, but only after a second reading. Examples are an unclear sentence, a missing cross-link, or two terms for one concept.                                                                                                                                                                                                        |
+
+A side text repeats a main rule of the reviewed documents: a summary, a
+table or column comment, a diagram label, or a component description. When
+the main rule is correct and the side text leaves out a case that the main
+rule states, the finding answers `raises_cost` and not `fails_purpose`. When
+the side text states something that the main rule contradicts, or names
+something that does not exist, it answers `fails_purpose`.
+A link or cross-reference that points to the wrong target answers
+`raises_cost`: the reader lands near the right place and finds it on a second
+look. A table or list that states the rule itself is a main rule, not a side
+text, also when it leaves something open.
 
 `finding-lint` does not check `in_use` of a document against git. So the
 `**Why this severity:**` line names the story or code that encodes the

@@ -1,0 +1,38 @@
+{
+  "concept": "Keeping a graph index current under updates",
+  "area": "Area 4: nearest-neighbour indexes and hybrid queries",
+  "current_formulation": "IP-DiskANN processes each insert and delete in place, without batch consolidation.",
+  "steps": [
+    {
+      "formulation": "Periodic full rebuild of the index from scratch, stated as industry practice.",
+      "date": "2021-05-20",
+      "record": "A4-SR-06",
+      "quote": "the current practice in industry is to periodically re-build such indices from scratch",
+      "criticism": {
+        "record": "A4-SR-06",
+        "date": "2021-05-20",
+        "quote": "However, this is a very expensive operation.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "FreshDiskANN: lazy deletion to a delete list, with later batch consolidation of the graph.",
+      "date": "2021-05-20",
+      "record": "A4-SR-06",
+      "quote": "FreshVamana employs a lazy deletion strategy",
+      "criticism": {
+        "record": "A4-SR-08",
+        "date": "2025-02-19",
+        "quote": "state-of-the-art algorithms such as FreshDiskANN accumulate deletions in a batch and periodically consolidate",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "IP-DiskANN: every insert and delete is processed in place.",
+      "date": "2025-02-19",
+      "record": "A4-SR-08",
+      "quote": "the first algorithm to avoid batch consolidation by efficiently processing each insertion and deletion in-place",
+      "criticism": null
+    }
+  ]
+}

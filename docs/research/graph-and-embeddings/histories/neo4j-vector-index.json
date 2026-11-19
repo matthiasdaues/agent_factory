@@ -1,0 +1,26 @@
+{
+  "concept": "Neo4j vector index",
+  "area": "Area 2: stores that hold a graph and vectors",
+  "current_formulation": "A Cypher SEARCH clause queries the vector index and filters inside the index.",
+  "steps": [
+    {
+      "formulation": "Node vector index, public beta in 5.11 and generally available in 5.13, queried through a procedure.",
+      "date": "2023-08-01",
+      "record": "A2-SR-08",
+      "quote": "Node vector indexes were released as a public beta in Neo4j 5.11 and general availability in Neo4j 5.13.",
+      "criticism": {
+        "record": "A2-SR-09",
+        "date": "2026-01-01",
+        "quote": "using a normal WHERE clause in the MATCH can lead to significantly fewer results",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "SEARCH clause in Cypher 25 with a restricted WHERE that filters inside the vector index.",
+      "date": "2026-01-01",
+      "record": "A2-SR-09",
+      "quote": "It applies a filter to the vector index, and is a restricted version of the normal Cypher",
+      "criticism": null
+    }
+  ]
+}

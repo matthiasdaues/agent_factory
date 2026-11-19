@@ -1,0 +1,30 @@
+{
+  "local": {
+    "extractor": "ollama qwen3:8b",
+    "decisions": 37,
+    "key_found": "17 of 20",
+    "key_missed": [
+      7,
+      17,
+      19
+    ],
+    "precision": "17 of 37 match a key decision",
+    "quotes_exact": "28 of 37",
+    "quotes_whitespace_only": 1,
+    "quotes_missing": 8,
+    "anchors_resolve": "37 of 37",
+    "seconds": 5296.2
+  },
+  "claude": {
+    "extractor": "claude subagent claude-opus-5-5",
+    "decisions": 29,
+    "key_found": "20 of 20",
+    "key_missed": [],
+    "precision": "24 of 29 match a key decision",
+    "quotes_exact": "29 of 29",
+    "quotes_whitespace_only": 0,
+    "quotes_missing": 0,
+    "anchors_resolve": "29 of 29",
+    "seconds": null
+  }
+}

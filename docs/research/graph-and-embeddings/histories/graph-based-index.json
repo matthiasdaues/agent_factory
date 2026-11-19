@@ -1,0 +1,43 @@
+{
+  "concept": "The graph-based index",
+  "area": "Area 4: nearest-neighbour indexes and hybrid queries",
+  "current_formulation": "HNSW adds layers to the navigable small world graph so that search scales logarithmically; it is held in main memory.",
+  "steps": [
+    {
+      "formulation": "k-nearest-neighbour graph, as summarised by the HNSW authors.",
+      "date": "2016-03-30",
+      "record": "A4-SR-04",
+      "quote": "The main drawbacks of the k-NN graph approaches are",
+      "criticism": {
+        "record": "A4-SR-04",
+        "date": "2016-03-30",
+        "quote": "the power law scaling of the number of steps with the dataset size during the routing process",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Navigable small world: points are inserted in random order and linked to their closest earlier neighbours, as summarised by the HNSW authors.",
+      "date": "2016-03-30",
+      "record": "A4-SR-04",
+      "quote": "The NSW graph is constructed via consecutive insertion of elements in random order by bidirectionally connecting them to the M closest neighbors from the previously inserted elements.",
+      "criticism": {
+        "record": "A4-SR-04",
+        "date": "2016-03-30",
+        "quote": "due to the overall polylogarithmic complexity scaling, the algorithm was still prone to",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "HNSW: layers with exponentially decaying membership, search from the top layer.",
+      "date": "2016-03-30",
+      "record": "A4-SR-04",
+      "quote": "boosts the performance compared to NSW and allows a logarithmic complexity scaling",
+      "criticism": {
+        "record": "A4-SR-05",
+        "date": "2019-12-08",
+        "quote": "generate indices that must be stored in main memory for fast high-recall search. This makes them expensive and limits the size of the dataset.",
+        "drove_next": false
+      }
+    }
+  ]
+}

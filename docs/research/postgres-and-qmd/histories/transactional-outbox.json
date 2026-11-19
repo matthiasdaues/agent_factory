@@ -1,0 +1,38 @@
+{
+  "concept": "Transactional outbox",
+  "area": "Area 1: PostgreSQL with pgvector",
+  "current_formulation": "The latest recorded variant writes outbox events as logical decoding messages into the PostgreSQL write-ahead log instead of an outbox table.",
+  "steps": [
+    {
+      "formulation": "The service writes the message to an outbox table in the same transaction as the business data, and a separate relay sends it on by polling the table or by tailing the transaction log.",
+      "date": "2017-01-01",
+      "record": "A1-SR-16",
+      "quote": "The solution is for the service that sends the message to first store the message in the database as part of the transaction that updates the business entities.",
+      "criticism": {
+        "record": "A1-SR-17",
+        "date": "2019-02-19",
+        "quote": "As opposed to any polling-based approach, event capture happens with a very low overhead in near-realtime.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "The outbox row is captured by change data capture on the PostgreSQL write-ahead log and deleted in the same transaction, so the table stays empty and the broker keeps the history.",
+      "date": "2019-02-19",
+      "record": "A1-SR-17",
+      "quote": "So we are able to capture the event added to the outbox table by means of CDC, but when looking at the contents of the table itself, it will always be empty.",
+      "criticism": {
+        "record": "A1-SR-18",
+        "date": "2023-03-06",
+        "quote": "messages must never be modified after being added to the outbox, which might happen by accident with a table-based approach.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Outbox events are written with pg_logical_emit_message() as logical decoding messages to the write-ahead log, without a table.",
+      "date": "2023-03-06",
+      "record": "A1-SR-18",
+      "quote": "Instead of inserting outbox events in a dedicated outbox table, the idea is to emit them just as logical decoding messages to the WAL.",
+      "criticism": null
+    }
+  ]
+}

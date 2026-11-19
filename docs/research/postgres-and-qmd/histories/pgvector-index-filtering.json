@@ -1,0 +1,50 @@
+{
+  "concept": "pgvector index types and filtered search",
+  "area": "Area 1: PostgreSQL with pgvector",
+  "current_formulation": "pgvector offers HNSW and IVFFlat, applies filters after the index scan, and since 0.8.0 offers iterative scans in a strict-order and a relaxed-order mode.",
+  "steps": [
+    {
+      "formulation": "Release 0.1.0 offers IVFFlat as the only approximate index, to be built after the table holds data.",
+      "date": "2021-04-20",
+      "record": "A1-SR-11",
+      "quote": "Indexes should be created after the table has data for optimal clustering.",
+      "criticism": {
+        "record": "A1-SR-12",
+        "date": "2023-07-07",
+        "quote": "Currently, it's very slow, please add support for the HNSW algorithm to continue to use pg_vector.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Release 0.5.0 adds the HNSW index type; the maintainer announces it in the issue that asked for it.",
+      "date": "2023-08-29",
+      "record": "A1-SR-12",
+      "quote": "Hey all, 0.5.0 is now released",
+      "criticism": {
+        "record": "A1-SR-13",
+        "date": "2023-09-11",
+        "quote": "To do this efficiently is not straightforward",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "The maintainer plans iterative scans behind one switch: when too few rows pass the filter, the scan continues.",
+      "date": "2024-09-20",
+      "record": "A1-SR-13",
+      "quote": "If too few results from the initial index scan match the filters, the scan will continue until enough matching results are found.",
+      "criticism": {
+        "record": "A1-SR-13",
+        "date": "2024-09-20",
+        "quote": "A drawback of this approach is results may not be returned in strict order",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Release 0.8.0 ships iterative scans with two modes, strict_order and relaxed_order.",
+      "date": "2024-10-30",
+      "record": "A1-SR-14",
+      "quote": "Iterative scans can use strict or relaxed ordering.",
+      "criticism": null
+    }
+  ]
+}

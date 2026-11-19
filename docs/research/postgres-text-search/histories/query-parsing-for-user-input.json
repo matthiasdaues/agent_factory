@@ -1,0 +1,43 @@
+{
+  "concept": "Query parsing for user input",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "websearch_to_tsquery accepts web-search syntax and raises no syntax error, so raw user input can go to full-text search.",
+  "steps": [
+    {
+      "formulation": "to_tsquery builds a query from text in which every operator is written out.",
+      "date": "2017-07-19",
+      "record": "A1-SR-15",
+      "quote": "The main one is the to_tsquery function that allows to make query with any operation.",
+      "criticism": {
+        "record": "A1-SR-15",
+        "date": "2017-07-19",
+        "quote": "But to make correct query all of the operators should be specified explicitly.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "plainto_tsquery and phraseto_tsquery build a query from plain text, without operators.",
+      "date": "2017-07-19",
+      "record": "A1-SR-15",
+      "quote": "postgres has functions like plainto_tsquery and phraseto_tsquery which allow to make tsqueries from strings",
+      "criticism": {
+        "record": "A1-SR-15",
+        "date": "2017-07-19",
+        "quote": "But they are not flexible enough.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "websearch_to_tsquery accepts a web-like syntax and tolerates errors (release 11).",
+      "date": "2018-04-05",
+      "record": "A1-SR-15",
+      "quote": "Error-tolerant conversion function with web-like syntax for search query",
+      "criticism": {
+        "record": "A1-SR-14",
+        "date": "2026-10-09",
+        "quote": "Fix websearch_to_tsquery() to properly parse multiple adjacent discarded tokens in quotes",
+        "drove_next": false
+      }
+    }
+  ]
+}

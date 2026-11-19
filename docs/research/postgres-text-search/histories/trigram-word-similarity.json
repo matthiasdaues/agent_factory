@@ -1,0 +1,33 @@
+{
+  "concept": "Trigram word similarity",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "strict_word_similarity forces the matched extent to word boundaries, beside the older word_similarity for parts of words.",
+  "steps": [
+    {
+      "formulation": "similarity() compares the trigram sets of whole strings, with a threshold set by set_limit for the % operator.",
+      "date": "2004-05-31",
+      "record": "A1-SR-02",
+      "quote": "provides functions and index classes for determining the similarity of text based on trigram matching.",
+      "criticism": null
+    },
+    {
+      "formulation": "word_similarity() compares a string with the best-matching extent of another string (commit of 2016-03-16).",
+      "date": "2004-05-31",
+      "record": "A1-SR-02",
+      "quote": "Patch introduces a concept of similarity over string and just a word from another string.",
+      "criticism": {
+        "record": "A1-SR-03",
+        "date": "2017-10-27",
+        "quote": "word_similarity doesn’t seem to do exactly what the docs say, since it will match trigrams from multiple words rather tan doing a word by word comparison.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "strict_word_similarity() takes word boundaries into account (release 11).",
+      "date": "2018-03-21",
+      "record": "A1-SR-02",
+      "quote": "strict_word_similarity is similar to existing word_similarity function but it takes into account word boundaries to compute similarity.",
+      "criticism": null
+    }
+  ]
+}

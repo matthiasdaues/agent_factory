@@ -1,0 +1,23 @@
+{"matches": [
+{"number": 1, "pool_ids": ["P041", "P063", "P052"]},
+{"number": 2, "pool_ids": ["P053", "P056"]},
+{"number": 3, "pool_ids": ["P049", "P061", "P043", "P001"]},
+{"number": 4, "pool_ids": ["P001", "P043"]},
+{"number": 5, "pool_ids": ["P032", "P050"]},
+{"number": 6, "pool_ids": ["P027", "P044"]},
+{"number": 7, "pool_ids": ["P021"]},
+{"number": 8, "pool_ids": ["P029", "P034"]},
+{"number": 9, "pool_ids": ["P012", "P059"]},
+{"number": 10, "pool_ids": ["P003", "P015"]},
+{"number": 11, "pool_ids": ["P006", "P028"]},
+{"number": 12, "pool_ids": ["P039", "P002"]},
+{"number": 13, "pool_ids": ["P047", "P065", "P002"]},
+{"number": 14, "pool_ids": ["P058", "P060"]},
+{"number": 15, "pool_ids": ["P013", "P054"]},
+{"number": 16, "pool_ids": ["P025", "P035", "P011"]},
+{"number": 17, "pool_ids": ["P004"]},
+{"number": 18, "pool_ids": ["P009", "P066", "P022", "P024"]},
+{"number": 19, "pool_ids": ["P019", "P022"]},
+{"number": 20, "pool_ids": ["P014", "P042"]}
+],
+"notes": "Several pool statements state the opposite of a decision and were not counted as matches: P037 (no story branches or ledger by hand, contradicts 1), P045 (guardrail asks rather than denies, contradicts 18), P046 (agent runs the command on a yes, contradicts 17), P005 (no defined end, contradicts 1). P002 and P022 each match two decisions. P001 and P043 count for 3 and 4 because they state that no run state remains and that the human deletes unmerged branches. P009 and P066 say the human runs person commands, which touches 17, but were counted only for 18 because they omit the stop, the shown output and the printed command. P052 counts for 1 because thorough guidance for the by-hand driver is part of that decision. P007 names the vocabulary topic only. The remaining unmatched statements concern proposal editing (lector cut plan, primer, summary, sections), premerge-check branch-name and branch-head rules, and the earlier story-workflow scope; none of the twenty covers them. Unmatched ids (25): P005, P007, P008, P010, P016, P017, P018, P020, P023, P026, P030, P031, P033, P036, P037, P038, P040, P045, P046, P048, P051, P055, P057, P062, P064."}

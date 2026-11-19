@@ -1,0 +1,33 @@
+{
+  "concept": "Phonetic name matching",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "fuzzystrmatch offers Daitch-Mokotoff codes that GIN can index, and in 19 the older phonetic functions treat only ASCII letters as letters.",
+  "steps": [
+    {
+      "formulation": "fuzzystrmatch adds Levenshtein and Metaphone beside the Soundex contrib (commit of 2001-08-07).",
+      "date": "2023-04-07",
+      "record": "A1-SR-04",
+      "quote": "here's a patch to implement both levenshtein() and metaphone() in a contrib.",
+      "criticism": {
+        "record": "A1-SR-04",
+        "date": "2026-11-12",
+        "quote": "Note that Soundex is not very useful for non-English names.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Daitch-Mokotoff Soundex returns an array of codes, one per plausible pronunciation (release 16).",
+      "date": "2023-04-07",
+      "record": "A1-SR-04",
+      "quote": "The result may contain one or more codes depending on how many plausible pronunciations there are, so it is represented as an array.",
+      "criticism": null
+    },
+    {
+      "formulation": "In 19, soundex, metaphone, and difference treat only ASCII letters as letters.",
+      "date": "2026-10-09",
+      "record": "A1-SR-14",
+      "quote": "soundex(), metaphone(), and difference() now treat only ASCII letters as letters.",
+      "criticism": null
+    }
+  ]
+}

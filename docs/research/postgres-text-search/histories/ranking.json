@@ -1,0 +1,26 @@
+{
+  "concept": "Ranking in core full-text search",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "ts_rank and ts_rank_cd score one document at a time from its own tsvector and use no collection statistics.",
+  "steps": [
+    {
+      "formulation": "tsearch2 ships the rank functions rank and rank_cd with proximity and structure information.",
+      "date": "2007-08-21",
+      "record": "A1-SR-13",
+      "quote": "Sophisticated ranking functions with support of proximity and structure information",
+      "criticism": null
+    },
+    {
+      "formulation": "Core 8.3 ships ts_rank and ts_rank_cd.",
+      "date": "2008-02-04",
+      "record": "A1-SR-07",
+      "quote": "PostgreSQL provides two predefined ranking functions, which take into account lexical, proximity, and structural information",
+      "criticism": {
+        "record": "A1-SR-07",
+        "date": "2008-02-04",
+        "quote": "functions do not use any global information, so it is impossible to produce a fair normalization to 1% or 100% as sometimes desired.",
+        "drove_next": false
+      }
+    }
+  ]
+}

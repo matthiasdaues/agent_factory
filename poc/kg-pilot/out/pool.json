@@ -1,0 +1,266 @@
+[
+  {
+    "pool_id": "P001",
+    "statement": "A run ends either finished or dropped; afterwards only unmerged branches remain, and the human deletes them."
+  },
+  {
+    "pool_id": "P002",
+    "statement": "The code review at the end of the feature and QA run inside the run, on the feature branch. The check before the merge into `dev` requires both to have finished with no open finding."
+  },
+  {
+    "pool_id": "P003",
+    "statement": "The implementation agent runs the gates on both ways, and the developer agent never runs a gate script."
+  },
+  {
+    "pool_id": "P004",
+    "statement": "At each by-hand stop the agent shows the premerge-check output, the findings with their status and the branch head, and gives the exact command to run."
+  },
+  {
+    "pool_id": "P005",
+    "statement": "The process has a defined start but no defined end."
+  },
+  {
+    "pool_id": "P006",
+    "statement": "Where a document and the code disagree with no design question behind it, the document changes to match the code."
+  },
+  {
+    "pool_id": "P007",
+    "statement": "The proposal uses only the proposed vocabulary for terms."
+  },
+  {
+    "pool_id": "P008",
+    "statement": "The Bypass item will keep only the new fact that a human can still skip the hooks."
+  },
+  {
+    "pool_id": "P009",
+    "statement": "In a run driven by hand, the git guardrail refuses agents the commands that need a person, and you run those commands yourself. OpenCode gets the git guardrail as part of this work."
+  },
+  {
+    "pool_id": "P010",
+    "statement": "The stakeholder recommends that story branches driven by hand should use the name `story/ST-NNNN` to ensure `premerge-check` checks them."
+  },
+  {
+    "pool_id": "P011",
+    "statement": "The ledger field commit_sha keeps holding the merge commit after a merge; no separate field for the story's own commit."
+  },
+  {
+    "pool_id": "P012",
+    "statement": "The next wave starts only after the previous wave is closed; by hand each story is a wave of its own."
+  },
+  {
+    "pool_id": "P013",
+    "statement": "Drift sessions run at the close of each wave, not after each merge."
+  },
+  {
+    "pool_id": "P014",
+    "statement": "dispatch close also closes old leftover runs, and dispatch close --orphans lists worktrees and branches without a ledger."
+  },
+  {
+    "pool_id": "P015",
+    "statement": "The implementation agent runs the gates on both ways, and the developer agent never runs a gate script."
+  },
+  {
+    "pool_id": "P016",
+    "statement": "The primer will lose the sentence 'The proposal has no open questions.'"
+  },
+  {
+    "pool_id": "P017",
+    "statement": "The story workflow is treated as a subset of the dispatch process; work goes upstream to define the whole dispatch process first."
+  },
+  {
+    "pool_id": "P018",
+    "statement": "The handback completion criterion names the output of premerge-check rather than the output of each gate."
+  },
+  {
+    "pool_id": "P019",
+    "statement": "The proposal uses one vocabulary: run, orchestrated, by hand, feature branch, story branch, gate-check step, spawn, spec-feedback report, primary checkout; dispatch names only the script."
+  },
+  {
+    "pool_id": "P020",
+    "statement": "The Design sections now follow a specific order including the story workflow, two ways to drive it, findings naming their story, fast gates as pre-commit hooks, checks at the merge, and the git guardrail by path."
+  },
+  {
+    "pool_id": "P021",
+    "statement": "The number of fix rounds is configurable, with three rounds on the story's tier plus three with a stronger model as the default."
+  },
+  {
+    "pool_id": "P022",
+    "statement": "The ledger records how the run is driven, with mode values orchestrated and by-hand."
+  },
+  {
+    "pool_id": "P023",
+    "statement": "The section 'Relation to the ownership proposal' will be removed, and its content will be merged into the Motivation paragraph."
+  },
+  {
+    "pool_id": "P024",
+    "statement": "Every enforcement mechanism must work in all supported agent CLIs, or it is designed differently."
+  },
+  {
+    "pool_id": "P025",
+    "statement": "Every ledger field must have a command that reads it; fields without a reader (gate_results, closed) are dropped."
+  },
+  {
+    "pool_id": "P026",
+    "statement": "The gate list appears twice, but it will stay under step 4, and the merge check table will link to it."
+  },
+  {
+    "pool_id": "P027",
+    "statement": "The merge sets a story to done on both ways, and the human driving by hand merges with dispatch merge-story."
+  },
+  {
+    "pool_id": "P028",
+    "statement": "Where a document and the code disagree with no design question behind it, the document changes to match the code."
+  },
+  {
+    "pool_id": "P029",
+    "statement": "The feature branch moves back to the commit before the failed merge, and the spec changes to match the code."
+  },
+  {
+    "pool_id": "P030",
+    "statement": "premerge-check reads the review report and finding files from the branch head with git and reruns the gates in the story's checkout; this rule was added to the story workflow proposal."
+  },
+  {
+    "pool_id": "P031",
+    "statement": "In the orchestrated mode, `merge-story` must run on the invocation branch and handles conflicts by aborting and blocking the story."
+  },
+  {
+    "pool_id": "P032",
+    "statement": "One run may be active per feature branch, with each run's ledger read only by its own branch."
+  },
+  {
+    "pool_id": "P033",
+    "statement": "The dispatch process should be defined consistently, covering the entire lifecycle from start to end of a run, including cleanup."
+  },
+  {
+    "pool_id": "P034",
+    "statement": "When tests fail after a story merge, the feature branch moves back to the commit before the merge, and the spec changes to match the code."
+  },
+  {
+    "pool_id": "P035",
+    "statement": "Every ledger field must have a command that reads it. Fields without a reader are removed, and the dispatch contract describes exactly the fields the code writes."
+  },
+  {
+    "pool_id": "P036",
+    "statement": "One new proposal, docs/proposals/run-lifecycle.md, covers the run lifecycle and supersedes story-workflow.md."
+  },
+  {
+    "pool_id": "P037",
+    "statement": "In the manual mode, there are no story branches, worktrees, ledger, or scripts, and the human handles all steps manually."
+  },
+  {
+    "pool_id": "P038",
+    "statement": "The `story-workflow.md` proposal will include a rule that `premerge-check` reads the code-review report and the finding files from the branch head with git, not from the folder it runs in, and reruns the gates in the story's checkout."
+  },
+  {
+    "pool_id": "P039",
+    "statement": "Development, tests, code review, CRAP, mutation testing and QA with their fix loops belong inside the run; reconciliation runs on dev after the merge."
+  },
+  {
+    "pool_id": "P040",
+    "statement": "The `premerge-check` command writes a marker file and reads gate results only for branches named `story/ST-\n\\d+`."
+  },
+  {
+    "pool_id": "P041",
+    "statement": "A run driven by hand has the same frame as an orchestrated run: feature branch, ledger, story branches cut from the feature branch, and an end."
+  },
+  {
+    "pool_id": "P042",
+    "statement": "`dispatch close` also closes the old runs, and `--orphans` lists what has no ledger."
+  },
+  {
+    "pool_id": "P043",
+    "statement": "A run ends either finished or dropped, with no run state remaining except unmerged branches that the human deletes."
+  },
+  {
+    "pool_id": "P044",
+    "statement": "The merge sets `done` on both ways, and the human who drives by hand merges with `dispatch merge-story`."
+  },
+  {
+    "pool_id": "P045",
+    "statement": "The ledger records the mode, and in a run driven by hand the guardrail asks you before each command that needs a person."
+  },
+  {
+    "pool_id": "P046",
+    "statement": "The agent asks at each point where a person decides, and runs the command on your yes."
+  },
+  {
+    "pool_id": "P047",
+    "statement": "Per-story steps (TDD, tests, story code review, crap-score, mutation testing) run on the story branch; the end-of-feature code review stays and runs with QA on the feature branch; a security scan is added per story."
+  },
+  {
+    "pool_id": "P048",
+    "statement": "The `story-workflow.md` proposal will be accepted and processed by the agent to update the primer and start the lector's structural pass."
+  },
+  {
+    "pool_id": "P049",
+    "statement": "The `dispatch close` command removes all run state and keeps no record beyond git history and the story files."
+  },
+  {
+    "pool_id": "P050",
+    "statement": "One run may be active per feature branch; every check whether a run is active reads only the ledger of its own branch."
+  },
+  {
+    "pool_id": "P051",
+    "statement": "The orchestrated mode requires that the `init` command creates a feature branch and a worktree, and refuses if any ledger has a non-terminal story or lacks a `test_command` in `docs/testing.yaml`."
+  },
+  {
+    "pool_id": "P052",
+    "statement": "The person who drives a run by hand gets thorough guidance, which becomes its own part of the proposal."
+  },
+  {
+    "pool_id": "P053",
+    "statement": "The human merges the feature branch into dev on both ways, after the check command passes."
+  },
+  {
+    "pool_id": "P054",
+    "statement": "Drift sessions for spec-feedback rows run at the close of each wave, not after each merge."
+  },
+  {
+    "pool_id": "P055",
+    "statement": "The lector's cut plan for story-workflow.md is applied as approved (order and duplicate changes), without the proposed empty Appendix."
+  },
+  {
+    "pool_id": "P056",
+    "statement": "The human merges the feature branch into `dev` on both ways after the check command passes."
+  },
+  {
+    "pool_id": "P057",
+    "statement": "The Summary will be revised to list what the proposal delivers, including one workflow, the three merge checks, the `story` field, the `dependency-check` hook, the split of the guardrail, and the deferred rule about which findings must be fixed."
+  },
+  {
+    "pool_id": "P058",
+    "statement": "Security scanning per story is a deterministic scanner gate, configurable per project: each project chooses whether to enable it and which scanners to run."
+  },
+  {
+    "pool_id": "P059",
+    "statement": "The next wave starts only after the previous wave is closed, and by hand each story is a wave of its own."
+  },
+  {
+    "pool_id": "P060",
+    "statement": "A deterministic scanner gate runs per story, configured per project, and the setup proposal will cover the tools."
+  },
+  {
+    "pool_id": "P061",
+    "statement": "dispatch close removes all state of the run and keeps no record beyond git history and the story files."
+  },
+  {
+    "pool_id": "P062",
+    "statement": "The proposal document is written and marked as a draft, with all twenty decisions presented in the present tense."
+  },
+  {
+    "pool_id": "P063",
+    "statement": "Both ways of running a feature share one frame, with the human driving by hand starting from the feature branch."
+  },
+  {
+    "pool_id": "P064",
+    "statement": "The `story-workflow.md` proposal will be updated with the rule about `premerge-check` and the primer will be generated."
+  },
+  {
+    "pool_id": "P065",
+    "statement": "The code review at the end of the feature stays and is part of the feature-level process."
+  },
+  {
+    "pool_id": "P066",
+    "statement": "In a run driven by hand, the git guardrail refuses agents the commands that need a person, and the human runs them; OpenCode gets the git guardrail as part of this work."
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "concept": "qmd model runtime",
+  "area": "Area 2: qmd",
+  "current_formulation": "qmd runs its local GGUF models in-process through node-llama-cpp.",
+  "steps": [
+    {
+      "formulation": "The first commit computes embeddings through Ollama.",
+      "date": "2025-12-07",
+      "record": "A2-SR-11",
+      "quote": "Vector semantic search via sqlite-vec + Ollama embeddings",
+      "criticism": {
+        "record": "A2-SR-09",
+        "date": "2026-11-17",
+        "quote": "Ollama adds convenience but also a running server dependency.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Release 0.6.0 (changelog date 2025-12-28) runs all model operations in-process through node-llama-cpp.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "Replaced Ollama HTTP API with node-llama-cpp for all LLM operations.",
+      "criticism": null
+    }
+  ]
+}

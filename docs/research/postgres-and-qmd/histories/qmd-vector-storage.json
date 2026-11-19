@@ -1,0 +1,50 @@
+{
+  "concept": "qmd unit and layout of vector storage",
+  "area": "Area 2: qmd",
+  "current_formulation": "qmd embeds chunks of about 900 tokens into a sqlite-vec vec0 table partitioned by collection, and qmd cleanup repacks the table when deletes leave holes.",
+  "steps": [
+    {
+      "formulation": "The first commit stores one vector per document, keyed by content hash, in the vec0 table vectors_vec.",
+      "date": "2025-12-07",
+      "record": "A2-SR-11",
+      "quote": "Content vectors keyed by hash (UNIQUE)",
+      "criticism": {
+        "record": "A2-SR-09",
+        "date": "2026-11-17",
+        "quote": "averages everything together, matching poorly for specific queries",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Release 0.3.0 (code commit of 2025-12-08) embeds chunks of about 900 tokens instead of whole documents.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "Chunking produces one embedding per ~900-token section with focused semantic signal.",
+      "criticism": {
+        "record": "A2-SR-10",
+        "date": "2026-11-17",
+        "quote": "small collections crowded out of the global ANN candidate pool",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Release 2.9.0 (layout commit of 2026-09-24) partitions the vector table by collection, so a scoped query scans only its collection.",
+      "date": "2026-11-17",
+      "record": "A2-SR-10",
+      "quote": "The vector index is partitioned by collection.",
+      "criticism": {
+        "record": "A2-SR-10",
+        "date": "2026-11-17",
+        "quote": "re-embeds and orphan removal leave holes in older chunks that every brute-force scan still reads",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "qmd cleanup repacks the vector table when it has holes.",
+      "date": "2026-11-17",
+      "record": "A2-SR-02",
+      "quote": "repack the vector table when it has holes",
+      "criticism": null
+    }
+  ]
+}

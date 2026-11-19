@@ -1,0 +1,52 @@
+{
+  "concept": "qmd query expansion",
+  "area": "Area 2: qmd",
+  "current_formulation": "A fine-tuned local model expands a plain query into typed lex, vec, and hyde lines routed to their backends, and a caller may write the typed lines and an intent line directly.",
+  "steps": [
+    {
+      "formulation": "Release 0.6.0 (changelog date 2025-12-28) types the expansions as lexical, vector, and HyDE, so each goes to its own backend.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "so each routes to the right backend instead of sending everything everywhere",
+      "criticism": null
+    },
+    {
+      "formulation": "Release 0.8.0 replaces the stock expansion model with one fine-tuned by GRPO.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "Fine-tuned query expansion model trained with GRPO replaces the stock Qwen3 0.6B.",
+      "criticism": {
+        "record": "A2-SR-09",
+        "date": "2026-11-17",
+        "quote": "Eliminates ~4 wasted backend calls per query",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Release 0.9.0 (npm date 2026-02-15) keeps the type of each expansion on the way to the backends.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "type-routed query expansion preserves lex/vec/hyde type info and routes to the appropriate backend",
+      "criticism": null
+    },
+    {
+      "formulation": "Release 1.1.0 (relevant date 2026-02-20) lets the caller write a query document of typed lines instead of a plain query.",
+      "date": "2026-11-17",
+      "record": "A2-SR-08",
+      "quote": "QMD queries are structured documents with typed sub-queries.",
+      "criticism": null
+    },
+    {
+      "formulation": "Release 1.1.5 adds an intent parameter that steers expansion, chunk selection, reranking, and snippets.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "steers all five pipeline stages",
+      "criticism": {
+        "record": "A2-SR-10",
+        "date": "2026-11-17",
+        "quote": "one reported query ran 23 expansions where 9 were distinct, and each copy ran its own search.",
+        "drove_next": false
+      }
+    }
+  ]
+}

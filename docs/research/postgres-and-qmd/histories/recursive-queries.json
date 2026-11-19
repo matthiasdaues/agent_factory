@@ -1,0 +1,40 @@
+{
+  "concept": "Recursive queries with SEARCH and CYCLE",
+  "area": "Area 1: PostgreSQL with pgvector",
+  "current_formulation": "PostgreSQL 18 supports WITH RECURSIVE with the SEARCH and CYCLE clauses as a rewrite into the hand-written form, and the cycle mark values are optional (feature T133).",
+  "steps": [
+    {
+      "formulation": "SQL:1999 defines WITH RECURSIVE and the SEARCH and CYCLE clauses, with mandatory cycle mark values.",
+      "date": "1999-09-01",
+      "record": "A1-SR-01",
+      "quote": "CYCLE <cycle column list> SET <cycle mark column> TO <cycle mark value> DEFAULT <non-cycle mark value> USING <path column>",
+      "criticism": null
+    },
+    {
+      "formulation": "PostgreSQL 8.4 implements WITH RECURSIVE without SEARCH and CYCLE, and the manual tells users to detect cycles by hand with an array of visited values.",
+      "date": "2009-07-01",
+      "record": "A1-SR-02",
+      "quote": "The standard method for handling such situations is to compute an array of the already-visited values.",
+      "criticism": {
+        "record": "A1-SR-03",
+        "date": "2020-05-20",
+        "quote": "The original discussion about recursive CTEs briefly mentioned these as something to do later but then it was never mentioned again.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "PostgreSQL adds SEARCH and CYCLE as a rewrite into the hand-written form (commit of 2021-02-01, released in 14 on 2021-09-30).",
+      "date": "2021-02-01",
+      "record": "A1-SR-04",
+      "quote": "These clauses can be rewritten into queries using existing syntax, and that is what this patch does in the rewriter.",
+      "criticism": null
+    },
+    {
+      "formulation": "Following a draft of a later standard, the cycle mark values become optional and default to TRUE and FALSE.",
+      "date": "2021-02-27",
+      "record": "A1-SR-04",
+      "quote": "Per SQL:202x draft, in the CYCLE clause of a recursive query, the cycle mark values can be of type boolean and can be omitted",
+      "criticism": null
+    }
+  ]
+}

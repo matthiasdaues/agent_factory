@@ -1,0 +1,38 @@
+{
+  "concept": "The approximate nearest-neighbour index lineage",
+  "area": "Area 4: nearest-neighbour indexes and hybrid queries",
+  "current_formulation": "Graph-based indexes, with HNSW as the layered proximity graph searched from the top layer.",
+  "steps": [
+    {
+      "formulation": "Locality-sensitive hashing: points are hashed so that close points collide more often than distant ones.",
+      "date": "1998-05-01",
+      "record": "A4-SR-01",
+      "quote": "hash the points in a way that the probability of collision is much higher for objects which are close to each other than for those which are far apart",
+      "criticism": {
+        "record": "A4-SR-03",
+        "date": "2009-08-01",
+        "quote": "for real data, LSH is outperformed by heuristic methods, which exploit the distribution of the vectors",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Product quantization with an inverted file (IVFADC): short codes, and a scan of only the inverted lists near the query.",
+      "date": "2009-08-01",
+      "record": "A4-SR-03",
+      "quote": "To avoid exhaustive search we combine an inverted file system [26] with the asymmetric distance computation (IVFADC).",
+      "criticism": {
+        "record": "A4-SR-05",
+        "date": "2019-12-08",
+        "quote": "their 1-recall@1 is rather low (around 0.5) since the data compression is lossy",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "HNSW: a layered proximity graph searched greedily from the top layer.",
+      "date": "2016-03-30",
+      "record": "A4-SR-04",
+      "quote": "Starting search from the upper layer together with utilizing the scale separation boosts the performance compared to NSW and allows a logarithmic complexity scaling.",
+      "criticism": null
+    }
+  ]
+}

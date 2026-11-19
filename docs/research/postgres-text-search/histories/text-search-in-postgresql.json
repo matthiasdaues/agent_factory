@@ -1,0 +1,40 @@
+{
+  "concept": "Text search in PostgreSQL",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "Text search is part of the core server, configured by SQL commands, and the tsearch2 compatibility module is gone.",
+  "steps": [
+    {
+      "formulation": "contrib/tsearch adds the type txtidx with a GiST index, as a first step towards OpenFTS inside PostgreSQL.",
+      "date": "2007-08-21",
+      "record": "A1-SR-13",
+      "quote": "Tsearch contrib module contains implementation of new data type txtidx",
+      "criticism": {
+        "record": "A1-SR-13",
+        "date": "2007-08-21",
+        "quote": "We didn't try to implement a full-featured search engine with stable interfaces but rather experiment with various approaches.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "contrib/tsearch2 adds tsvector, tsquery, configuration tables, and the rank functions rank and rank_cd.",
+      "date": "2007-08-21",
+      "record": "A1-SR-13",
+      "quote": "Tsearch2 - is the full text engine, fully integrated into PostgreSQL RDBMS.",
+      "criticism": null
+    },
+    {
+      "formulation": "Text search moves into the core server in 8.3, configured by SQL commands, with dictionary files in one directory.",
+      "date": "2008-02-04",
+      "record": "A1-SR-13",
+      "quote": "search is configured through the specialized SQL commands shown earlier in this chapter",
+      "criticism": null
+    },
+    {
+      "formulation": "Release 10 removes the contrib/tsearch2 compatibility module.",
+      "date": "2026-10-09",
+      "record": "A1-SR-14",
+      "quote": "Remove contrib/tsearch2 module (Robert Haas)",
+      "criticism": null
+    }
+  ]
+}

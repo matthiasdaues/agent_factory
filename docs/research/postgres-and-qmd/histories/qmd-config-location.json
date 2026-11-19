@@ -1,0 +1,21 @@
+{
+  "concept": "qmd location of collection configuration",
+  "area": "Area 2: qmd",
+  "current_formulation": "Collection configuration lives in a YAML file and is mirrored into the SQLite table store_collections.",
+  "steps": [
+    {
+      "formulation": "Release 0.5.0 (changelog date 2025-12-13) moves collections and contexts from SQLite tables into a YAML file.",
+      "date": "2026-11-17",
+      "record": "A2-SR-09",
+      "quote": "Collections and contexts moved from SQLite tables to YAML",
+      "criticism": null
+    },
+    {
+      "formulation": "The YAML file stays, and the table store_collections mirrors it inside the database.",
+      "date": "2026-11-17",
+      "record": "A2-SR-03",
+      "quote": "makes the DB self-contained (no external config needed)",
+      "criticism": null
+    }
+  ]
+}

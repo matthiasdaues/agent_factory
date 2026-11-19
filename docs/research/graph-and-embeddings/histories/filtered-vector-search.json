@@ -1,0 +1,43 @@
+{
+  "concept": "Filtered vector search",
+  "area": "Area 4: nearest-neighbour indexes and hybrid queries",
+  "current_formulation": "ACORN traverses the subgraph that the predicate induces in an HNSW-style graph, for any predicate.",
+  "steps": [
+    {
+      "formulation": "Cost-based choice among hybrid query plans, such as a filter followed by brute force or an approximate scan.",
+      "date": "2020-08-01",
+      "record": "A4-SR-09",
+      "quote": "accuracy-aware cost-based optimization techniques are proposed to identify effective execution plans",
+      "criticism": {
+        "record": "A4-SR-10",
+        "date": "2023-04-30",
+        "quote": "Consequently, current indices have high search latency or low recall which is not practical in interactive web-scenarios.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Filtered-DiskANN: graph edges depend on vector geometry and on the label sets of the points.",
+      "date": "2023-04-30",
+      "record": "A4-SR-10",
+      "quote": "forms connections not only based on the geometry of the vector data, but also the associated label set",
+      "criticism": {
+        "record": "A4-SR-11",
+        "date": "2024-03-07",
+        "quote": "restricts the cardinality of the predicate set to about 1,000 and only supports equality predicates",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "ACORN: predicate subgraph traversal for any predicate.",
+      "date": "2024-03-07",
+      "record": "A4-SR-11",
+      "quote": "ACORN introduces the idea of predicate subgraph traversal",
+      "criticism": {
+        "record": "A4-SR-12",
+        "date": "2025-07-29",
+        "quote": "ACORN, for example, supports various filter types and performs reliably across dataset scales but is often outperformed by more specialized methods.",
+        "drove_next": false
+      }
+    }
+  ]
+}

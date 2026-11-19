@@ -1,0 +1,88 @@
+{
+  "source": {
+    "message_uuid": "ba9d6bda-9d76-4e2a-869b-de65384fe6de",
+    "file": "docs/handoffs/handoff-run-lifecycle-decisions-2026-11-16.md"
+  },
+  "decisions": [
+    {
+      "number": 1,
+      "text": "A run driven by hand has the same frame as an orchestrated run: feature branch, ledger, story branches cut from the feature branch, merge of each story into the feature branch through premerge-check, and a defined end. The ways differ only in who starts a story, whether stories run in parallel, and who merges a story. The human driving by hand needs thorough guidance (stakeholder's words: \"We would have to provide the user with thorough guidance, but yes\"). Consequence for story-workflow.md: stories by hand start from the feature branch, not dev."
+    },
+    {
+      "number": 2,
+      "text": "The human merges the feature branch into dev on both ways, after a check command passes (every story done, every wave closed, end-of-feature review ran with no open finding, full test suite passes). The agent's work ends at the feature branch."
+    },
+    {
+      "number": 3,
+      "text": "dispatch close removes everything of the run: ledger, worktrees, gate results, markers, briefs; deletes merged branches with `git branch -d`. No tracked run record; git history and story files hold the outcome."
+    },
+    {
+      "number": 4,
+      "text": "A run closes only when each story is done or returned to the backlog by the human (story file back to pending on the feature branch). A dropped feature: the human says so, every unfinished story returns to the backlog. dispatch close lists unmerged branches; the human deletes them (force delete is human-only)."
+    },
+    {
+      "number": 5,
+      "text": "One run per feature branch. Each run has its ledger under .current-work/<branch>/; every \"is a run active?\" check reads only the ledger of the branch it works on. Runs by hand need the primary checkout, so one by-hand run at a time; orchestrated runs work in their own worktrees."
+    },
+    {
+      "number": 6,
+      "text": "The merge sets done, on both ways. dispatch merge-story writes done into the merge commit (as code does today). By hand, the human merges with dispatch merge-story, not git merge. The developer agent never sets done. done means merged into the feature branch. Drift-row rule stays at wave close."
+    },
+    {
+      "number": 7,
+      "text": "Gate fix cap, both ways: 3 rounds on the story's tier, then 3 with a stronger model, then failed (6 attempts max). The counts are configurable, 3+3 is the default. Later settled: `gates.fix_rounds` and `gates.fix_rounds_escalated` in `docs/testing.yaml` (0 escalated = no escalation). ADR-0012 changes to match. failed (gates not fixable) and blocked (conflict, red tests after merge) keep their names but are handled the same way: the human fixes or returns the story."
+    },
+    {
+      "number": 8,
+      "text": "Red tests after a story merge: the script moves the feature branch back to the commit before the merge (as code does); the story is blocked. The spec's \"revert the merge commit\" changes to match. Reason: feature branch is local; a revert would make a later re-merge bring in nothing."
+    },
+    {
+      "number": 9,
+      "text": "Wave N+1 starts only after dispatch close-wave N succeeded (ADR-0029); code changes to match. By hand, each story is a wave of its own, closed after each story — this reproduces today's by-hand drift rule."
+    },
+    {
+      "number": 10,
+      "text": "The implementation agent runs the gates on both ways (ADR-0012), starts fresh developer agents on failure, counts fix rounds. By hand it works in the primary checkout and reports to the human after each story. The developer agent never runs gate scripts (pre-commit hooks still give early feedback). The human keeps the person decisions: when to merge, what to do with a stopped story. developer-agent.md and the rules line on by-hand gate decisions change to match."
+    },
+    {
+      "number": 11,
+      "text": "Where a document and the code disagree with no design question behind it, the document changes to match the code (plan writes waves; test command from docs/testing.yaml; merge-story syncs installed copy; branch root = feature branch tip at init; ia:303 handoff line is stale, the playbook order holds)."
+    },
+    {
+      "number": 12,
+      "text": "Inside one run, with their fix loops (stakeholder's words): \"Development -> Test -> Code Review -> CRAP -> Mutation Testing -> QA\". Reconciliation runs on dev after the merge, one feature at a time, outside the run (it edits shared docs; parallel runs would conflict). The dev-merge check requires the in-run steps finished with no open finding."
+    },
+    {
+      "number": 13,
+      "text": "Split: per story (story branch, before its merge): development with TDD, tests, code review of the story diff, crap-score, mutation testing, security scan. Per feature (feature branch, after the last wave closes): end-of-feature code review (stays), then QA; QA fixes run as stories. Mutation may move to feature level if the mutation-gate trial shows it is too slow per story."
+    },
+    {
+      "number": 14,
+      "text": "Security per story is a deterministic scanner gate: pre-commit hook on every commit, rerun at the merge like the other gates. Configurable per project and need (stakeholder's words: \"the security scanning should be configurable per project and need\"). A setup skill picks tools per language (e.g. Bandit/Semgrep, Gitleaks) in a separate proposal like crap-gate-setup.md. OWASP review stays in QA at feature level."
+    },
+    {
+      "number": 15,
+      "text": "Drift sessions run at wave close, not after each merge: close-wave starts owners and reviewers for all reports of the wave, waits for their commits, checks no row is open. By hand each story is a wave, so rows are handled after each story. ADR-0029 changes (no merge-story wait). (Stakeholder typed \"BZ\", read as B.)"
+    },
+    {
+      "number": 16,
+      "text": "Every ledger field has a command that reads it. Drop gate_results (gates rerun), closed (ledger existence = run active), and the rules' audit requirement (ledger deleted at close). Wave records stay (prepare-wave reads them). dispatch-contract describes exactly the fields the code writes, under the code's names. Checked: after a merge, commit_sha holds the merge commit and prepare-story reads it as the base of a serial link; verify-story's scope check reads the story commit before the merge; merge resume uses the branch tip. So no reader needs the story's own commit after the merge."
+    },
+    {
+      "number": 17,
+      "text": "By hand, the implementation agent stops at each person decision (before a story starts, before it merges, when a story stops, before the dev merge), shows premerge-check output, findings with status, branch head, and prints the exact command. The human runs it (with ! in Claude Code, or in their own terminal). The agent then reads the ledger to confirm the step happened and carries on. The dev merge: the agent runs the check command and shows the result; the human runs git merge."
+    },
+    {
+      "number": 18,
+      "text": "The ledger records the mode (orchestrated | by-hand). In a by-hand run the git guardrail DENIES agents the person commands (dispatch merge-story, dispatch prepare-story, returning a story to the backlog). Must work for every supported agent tool (stakeholder: \"This must either work for all CLIs or we must design it differently\"), so no reliance on Claude Code's \"ask\". The git guardrail is installed for Claude Code, Codex, Copilot, pi; OpenCode gets only guard-human-fields today, so OpenCode gets the git guardrail as part of this work."
+    },
+    {
+      "number": 19,
+      "text": "Vocabulary: run (init to close for one feature branch); orchestrated; by hand; feature branch (cut from dev, replaces invocation branch); story branch (story/<story-id>, cut from the feature branch); gate-check step; spawn (one agent start); spec-feedback report; primary checkout. \"dispatch\" names only the script. Ledger mode values: orchestrated, by-hand."
+    },
+    {
+      "number": 20,
+      "text": "Leftovers: dispatch close also works on old runs; each leftover run closes with the same command (ST-0344 must be returned to the backlog first). dispatch close --orphans lists worktrees and branches without a ledger, removes worktrees whose branch is merged, leaves unmerged ones for the human. No one-time migration script."
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "concept": "The sentence embedding for similarity",
+  "area": "Area 3: embedding similarity for the system's tasks",
+  "current_formulation": "A contrastive training objective makes sentence vectors more uniform and aligns positive pairs, so cosine compares meaning.",
+  "steps": [
+    {
+      "formulation": "InferSent: a sentence encoder trained on natural language inference labels and transferred to other tasks.",
+      "date": "2017-05-01",
+      "record": "A3-SR-01",
+      "quote": "universal sentence representations trained using the supervised data of the Stanford Natural Language Inference datasets",
+      "criticism": null
+    },
+    {
+      "formulation": "Raw BERT output: the output layer is averaged, or the first token is taken, as the sentence vector.",
+      "date": "2019-08-01",
+      "record": "A3-SR-03",
+      "quote": "The most commonly used approach is to average the BERT output layer",
+      "criticism": {
+        "record": "A3-SR-03",
+        "date": "2019-08-01",
+        "quote": "this common practice yields rather bad sentence embeddings, often worse than averaging GloVe embeddings",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Sentence-BERT: BERT fine-tuned in a siamese network so that sentence vectors can be compared by cosine.",
+      "date": "2019-08-01",
+      "record": "A3-SR-03",
+      "quote": "use siamese and triplet network structures to derive semantically meaningful sentence embeddings that can be compared using cosine-similarity",
+      "criticism": {
+        "record": "A3-SR-08",
+        "date": "2022-10-01",
+        "quote": "SimCSE (Gao et al., 2021b) or SBERT (Reimers and Gurevych, 2019) solely evaluate on STS and classification tasks",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "BERT-flow: sentence vectors are mapped to an isotropic Gaussian distribution after training, without labels.",
+      "date": "2020-11-02",
+      "record": "A3-SR-05",
+      "quote": "transform the anisotropic sentence embedding distribution to a smooth and isotropic Gaussian distribution through normalizing flows",
+      "criticism": {
+        "record": "A3-SR-06",
+        "date": "2021-04-01",
+        "quote": "which only aim to encourage isotropic representations",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "SimCSE: contrastive training with dropout noise, or with NLI pairs as positives and hard negatives.",
+      "date": "2021-04-01",
+      "record": "A3-SR-06",
+      "quote": "takes an input sentence and predicts itself in a contrastive objective, with only standard dropout used as noise",
+      "criticism": {
+        "record": "A3-SR-08",
+        "date": "2022-10-01",
+        "quote": "solely evaluate on STS and classification tasks, leaving open questions about the transferability of the embedding models to search or clustering tasks",
+        "drove_next": false
+      }
+    }
+  ]
+}

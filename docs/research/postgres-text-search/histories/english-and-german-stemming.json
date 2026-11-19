@@ -1,0 +1,33 @@
+{
+  "concept": "English and German stemming",
+  "area": "Area 1: built-in and contrib text search",
+  "current_formulation": "Snowball 3.0.0 rules merge german2 into german and add English exceptions; that PostgreSQL 19 ships them is inferred.",
+  "steps": [
+    {
+      "formulation": "The Porter stemmer for English.",
+      "date": "2002-09-01",
+      "record": "A1-SR-09",
+      "quote": "after twenty years of use of the Porter stemmer",
+      "criticism": {
+        "record": "A1-SR-09",
+        "date": "2002-09-01",
+        "quote": "certain improvements did suggest themselves, and a new algorithm for English is therefore offered here.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Porter2 becomes Snowball's english algorithm.",
+      "date": "2002-09-01",
+      "record": "A1-SR-09",
+      "quote": "a new algorithm for English is therefore offered here.",
+      "criticism": null
+    },
+    {
+      "formulation": "Snowball 3.0.0 handles ASCII transliterations of umlauts in the german stemmer.",
+      "date": "2026-11-18",
+      "record": "A1-SR-09",
+      "quote": "Snowball 3.0.0: Handle ASCII transliterations of umlauts (merging the",
+      "criticism": null
+    }
+  ]
+}

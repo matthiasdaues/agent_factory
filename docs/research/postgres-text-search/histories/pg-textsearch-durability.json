@@ -1,0 +1,38 @@
+{
+  "concept": "pg_textsearch durability and replication",
+  "area": "Area 2: BM25 extensions and keyword with vector in one query",
+  "current_formulation": "A paged memtable with a shared-memory cache, written through generic WAL with no custom resource manager.",
+  "steps": [
+    {
+      "formulation": "Index buffers are written and flushed without WAL.",
+      "date": "2026-03-21",
+      "record": "A2-SR-17",
+      "quote": "pg_textsearch currently uses `MarkBufferDirty` + `FlushOneBuffer` for all buffer modifications, with no WAL logging.",
+      "criticism": {
+        "record": "A2-SR-17",
+        "date": "2026-03-21",
+        "quote": "replicas don't see buffer modifications since no WAL records are generated",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "v1.2.0 adds custom WAL entries to keep the replica's memtable in sync.",
+      "date": "2026-05-12",
+      "record": "A2-SR-02",
+      "quote": "v1.2.0 had introduced custom WAL entries",
+      "criticism": {
+        "record": "A2-SR-02",
+        "date": "2026-05-29",
+        "quote": "These however are not compatible with the stateless WAL redo used in the systems mentioned earlier.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "v1.3.0 replaces the shared-memory memtable with a paged memtable and a shared-memory cache.",
+      "date": "2026-05-29",
+      "record": "A2-SR-02",
+      "quote": "v1.3.0 replaces the shared-memory memtable with a paged version plus a shared-memory cache.",
+      "criticism": null
+    }
+  ]
+}

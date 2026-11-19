@@ -1,0 +1,45 @@
+{
+  "concept": "Rank fusion",
+  "area": "Area 2: BM25 extensions and keyword with vector in one query",
+  "current_formulation": "Weighted RRF: each branch contributes weight / (k + rank), and the contributions are summed in one SQL statement.",
+  "steps": [
+    {
+      "formulation": "CombSUM and CombMNZ add the similarity scores of several runs, CombMNZ weighted by the number of runs that found a document.",
+      "date": "1993-08-31",
+      "record": "A2-SR-12",
+      "quote": "CombMNZ to provide higher weights to documents retrieved by multiple retrieval methods.",
+      "criticism": {
+        "record": "A2-SR-11",
+        "date": "2009-07-19",
+        "quote": "CombMNZ multiplies the sum of the uncalibrated scores of individual system by the sum of a binary quantization of each rank.",
+        "drove_next": false
+      }
+    },
+    {
+      "formulation": "Reciprocal rank fusion sums 1 / (k + rank) over the rankings, with k = 60.",
+      "date": "2009-07-19",
+      "record": "A2-SR-11",
+      "quote": "we came up with Reciprocal Rank Fusion (RRF) to serve as a baseline.",
+      "criticism": {
+        "record": "A2-SR-13",
+        "date": "2023-05-04",
+        "quote": "because RRF is a function of ranks, it disregards the distribution of scores and, as such, discards useful information.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Convex combination of normalised lexical and semantic scores with one parameter alpha.",
+      "date": "2023-05-04",
+      "record": "A2-SR-13",
+      "quote": "Because lexical scores (such as BM25) and semantic scores (such as dot product) may be unbounded, often they are normalized with min-max scaling",
+      "criticism": null
+    },
+    {
+      "formulation": "Weighted RRF in SQL: each branch contributes weight / (k + rank).",
+      "date": "2026-11-18",
+      "record": "A2-SR-07",
+      "quote": "Each branch contributes `weight / (k + rank)`, and the contributions are added.",
+      "criticism": null
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+window 1: S001..S020, 3 decisions, 347.6s
+window 2: S021..S033, 5 decisions, 532.8s
+window 3: S034..S048, 1 decisions, 321.7s
+window 4: S049..S063, 1 decisions, 263.1s
+window 5: S064..S079, 1 decisions, 234.5s
+window 6: S080..S086, 4 decisions, 780.6s
+window 7: S087..S096, 1 decisions, 271.0s
+window 8: S097..S115, 5 decisions, 728.3s
+window 9: S116..S134, 5 decisions, 672.4s
+window 10: S135..S153, 6 decisions, 634.2s
+window 11: S154..S172, 4 decisions, 417.3s
+window 12: S173..S175, 1 decisions, 92.7s
+out/extraction-local.json: 37 decisions in 5296.2s

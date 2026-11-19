@@ -1,0 +1,38 @@
+{
+  "concept": "pgvector index design",
+  "area": "Area 2: stores that hold a graph and vectors",
+  "current_formulation": "pgvector offers HNSW and IVFFlat indexes, and an iterative index scan continues until enough rows pass the filter.",
+  "steps": [
+    {
+      "formulation": "IVFFlat as the approximate index, with product quantization preferred over graph-based methods by the maintainer.",
+      "date": "2021-06-10",
+      "record": "A2-SR-03",
+      "quote": "I currently think product quantization is a better fit for the library than graph-based methods",
+      "criticism": {
+        "record": "A2-SR-03",
+        "date": "2021-06-10",
+        "quote": "Currently, it's very slow, please add support for the HNSW algorithm to continue to use pg_vector.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "HNSW index type added (release 0.5.0, 2023-08-28 per the changelog entry).",
+      "date": "2026-11-18",
+      "record": "A2-SR-02",
+      "quote": "Added HNSW index type",
+      "criticism": {
+        "record": "A2-SR-01",
+        "date": "2026-11-18",
+        "quote": "With approximate indexes, filtering is applied *after* the index is scanned.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Iterative index scans (release 0.8.0, 2024-10-30 per the changelog entry) continue the scan until enough rows match the filter.",
+      "date": "2026-11-18",
+      "record": "A2-SR-02",
+      "quote": "Added support for iterative index scans",
+      "criticism": null
+    }
+  ]
+}

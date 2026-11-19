@@ -1,0 +1,55 @@
+{
+  "concept": "Knowledge graph embedding, structure or text",
+  "area": "Area 1: architectures that combine graphs and embeddings",
+  "current_formulation": "A language model scores a triple from the text of its entity and relation descriptions instead of from structure alone.",
+  "steps": [
+    {
+      "formulation": "TransE: a relation is a translation between entity vectors learned from triples alone.",
+      "date": "2013-01-01",
+      "record": "A1-SR-11",
+      "quote": "models relationships by interpreting them as translations operating on the low-dimensional embeddings of the entities",
+      "criticism": {
+        "record": "A1-SR-12",
+        "date": "2014-01-01",
+        "quote": "We note that TransE does not do well in dealing with these properties.",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "TransH: a relation is a translation on a relation-specific hyperplane.",
+      "date": "2014-01-01",
+      "record": "A1-SR-12",
+      "quote": "models a relation as a hyperplane together with a translation operation on it",
+      "criticism": {
+        "record": "A1-SR-13",
+        "date": "2019-02-26",
+        "quote": "none of existing models is capable of modeling and inferring all the above patterns",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "RotatE: a relation is a rotation in complex vector space.",
+      "date": "2019-02-26",
+      "record": "A1-SR-13",
+      "quote": "the RotatE model defines each relation as a rotation from the source entity to the target entity in the complex vector space",
+      "criticism": {
+        "record": "A1-SR-14",
+        "date": "2019-09-07",
+        "quote": "most knowledge graph embedding models only use structure information in observed triple facts, which suffer from the sparseness of knowledge graphs",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "KG-BERT: triples are treated as text sequences and scored by a language model over entity and relation descriptions.",
+      "date": "2019-09-07",
+      "record": "A1-SR-14",
+      "quote": "We treat triples in knowledge graphs as textual sequences",
+      "criticism": {
+        "record": "A1-SR-14",
+        "date": "2019-09-07",
+        "quote": "a major limitation is that BERT model is expensive",
+        "drove_next": false
+      }
+    }
+  ]
+}

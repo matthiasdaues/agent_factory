@@ -1,0 +1,43 @@
+{
+  "concept": "The nearest-neighbour benchmark",
+  "area": "Area 4: nearest-neighbour indexes and hybrid queries",
+  "current_formulation": "The 2023 challenge tests filtered search, out-of-distribution data, sparse vectors, and streaming updates.",
+  "steps": [
+    {
+      "formulation": "ANN-Benchmarks: in-memory indexes, one thread, datasets of millions of points.",
+      "date": "2018-07-17",
+      "record": "A4-SR-13",
+      "quote": "a tool for evaluating the performance of in-memory approximate nearest neighbor algorithms",
+      "criticism": {
+        "record": "A4-SR-15",
+        "date": "2021-12-01",
+        "quote": "most empirical evaluations of algorithms have focused on smaller datasets, typically of 1 million points",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Billion-scale challenge that counts hardware cost.",
+      "date": "2021-12-01",
+      "record": "A4-SR-15",
+      "quote": "compares ANNS algorithms at billion-scale by hardware cost, accuracy and performance.",
+      "criticism": {
+        "record": "A4-SR-16",
+        "date": "2023-12-01",
+        "quote": "Unlike prior challenges that emphasized scaling up classical ANN search",
+        "drove_next": true
+      }
+    },
+    {
+      "formulation": "Challenge tracks for filtered, out-of-distribution, sparse, and streaming search.",
+      "date": "2023-12-01",
+      "record": "A4-SR-16",
+      "quote": "this competition addressed filtered search, out-of-distribution data, sparse and streaming variants of ANNS",
+      "criticism": {
+        "record": "A4-SR-12",
+        "date": "2025-07-29",
+        "quote": "the lack of diverse and realistic datasets, particularly ones derived from the latest transformer-based text embedding models",
+        "drove_next": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "mode": "survey",
+  "research_question": "Which PostgreSQL extensions and built-in features give the proposed store keyword, fuzzy, and ranked text search beside pgvector, how do they combine with vector search in one query, and what do they cost in components, consistency, and maintenance?",
+  "intended_use": "Fill the gap the postgres-and-qmd survey found: the store sketch in design-position.md has no answer for keyword queries or ranking, which qmd provides with full-text search, vector search, fusion, and reranking. The survey informs the search layer of the store sketch and the pilot tests; it changes no factory code.",
+  "audience": "Agent Factory maintainers who know the four earlier surveys and the store sketch, but not PostgreSQL text search internals.",
+  "scope": "Two areas. (1) Built-in and contrib features: pg_trgm (similarity, word similarity, the % and <-> operators, GIN and GiST trigram indexes, thresholds), fuzzystrmatch (Levenshtein, Soundex, Metaphone, Double Metaphone, Daitch-Mokotoff), unaccent, full-text search (tsvector, tsquery, configurations, dictionaries and stemming, including German and English, ts_rank and ts_rank_cd, phrase search, websearch_to_tsquery), and GIN and GiST index behaviour under updates, including the GIN pending list. (2) Ranking extensions and hybrid search: BM25 extensions for PostgreSQL (such as ParadeDB pg_search, pg_textsearch, and VectorChord-bm25), whether each keeps PostgreSQL transaction semantics, and their project health; and how keyword and vector results combine in one SQL statement, such as reciprocal rank fusion, with documented examples from pgvector or the extensions. For each feature record the simplicity facts: components, query languages, consistency boundaries, what must be kept in sync, rebuildable derived data, release activity, and project health. For each area, record concepts with a documented history of formulation, criticism, and reformulation where the sources show one.",
+  "exclusions": [
+    "Implementing, installing, or benchmarking any tool or store",
+    "Vendor marketing material as evidence for a claim about capability, performance, or adoption; documentation counts only for stated features and syntax",
+    "Search engines outside PostgreSQL, such as Elasticsearch, OpenSearch, or Meilisearch, except as context for a criticism",
+    "Pricing and licensing assessment, except whether a component is open source",
+    "Legal limits on storage, such as copyright and data protection"
+  ],
+  "freshness_requirements": [
+    "PostgreSQL 18 and 19 documentation, and the current release state of every extension as of November 2026",
+    "Older sources are acceptable for the history of a concept, such as BM25 or trigram matching"
+  ],
+  "source_requirements": [
+    "Primary sources first: the PostgreSQL manual, extension repositories, changelogs, release notes, and source code",
+    "Source code counts as primary evidence for a behaviour the documentation does not state, cited by file and commit",
+    "Secondary sources only where a primary source is unreachable, and then marked as secondary",
+    "Every source record states what the source shows and what it does not show, and puts the source's own words in double quotes in its Evidence section"
+  ],
+  "cost_of_error": "Medium. A search layer can be replaced later more easily than the store, but an extension that breaks transaction semantics or is abandoned would damage the single consistency boundary of the design.",
+  "completion_criteria": [
+    "Each of the two scope areas has findings backed by recorded sources",
+    "The report compares the text search options on the simplicity facts, each fact backed by a record or marked not found",
+    "The report states which options keep one PostgreSQL transaction boundary and which do not",
+    "The report shows, from records, how keyword and vector results combine in one statement, or states that no record shows it",
+    "The report lists candidates for the later falsification study, phrased as testable design claims",
+    "The report reports what the sources document; it does not claim that any concept survived refutation"
+  ]
+}

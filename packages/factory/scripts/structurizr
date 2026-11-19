@@ -65,6 +65,29 @@ strip_prefix() {
     done
 }
 
+# Remove the render time from the diagram footer of each SVG.
+# Structurizr writes a line such as "Thursday, November 19, 2026 at 9:55 AM
+# Coordinated Universal Time" into every image. Without this step, an export
+# of an unchanged diagram still changes the file, and every export rewrites
+# all images.
+strip_render_time() {
+    python3 - "${IMAGES_DIR}" <<'PY'
+import pathlib
+import re
+import sys
+
+STAMP = re.compile(
+    r'<tspan dy="0" >[A-Z][a-z]+day, [A-Z][a-z]+ \d{1,2}, \d{4} '
+    r"at \d{1,2}:\d{2} [AP]M [^<]*</tspan>"
+)
+for path in pathlib.Path(sys.argv[1]).glob("*.svg"):
+    text = path.read_text(encoding="utf-8")
+    clean = STAMP.sub('<tspan dy="0" ></tspan>', text)
+    if clean != text:
+        path.write_text(clean, encoding="utf-8")
+PY
+}
+
 # Subcommand dispatcher
 case "${1:-}" in
     export-svg|export-all)
@@ -73,6 +96,7 @@ case "${1:-}" in
             -v "${DOCS_DIR}:/workspace" \
             "${IMAGE}" export -format svg -workspace "/workspace/${WORKSPACE}" -output /workspace/assets/images
         strip_prefix
+        strip_render_time
         ;;
     validate)
         exec docker run --rm \

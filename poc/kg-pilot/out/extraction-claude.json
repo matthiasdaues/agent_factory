@@ -1,0 +1,151 @@
+{
+  "extractor": "claude subagent claude-opus-5-5",
+  "spans_file": "out/spans-2026-11-15.jsonl",
+  "decisions": [
+    {
+      "statement": "premerge-check reads the review report and finding files from the branch head with git and reruns the gates in the story's checkout; this rule was added to the story workflow proposal.",
+      "quote": "I added the rule to the \"Checks at the merge\" section, along with one completion criterion for it.",
+      "span_id": "S009"
+    },
+    {
+      "statement": "The lector's cut plan for story-workflow.md is applied as approved (order and duplicate changes), without the proposed empty Appendix.",
+      "quote": "The lector agent is now applying the approved cuts and will do the sentence pass afterwards.",
+      "span_id": "S032"
+    },
+    {
+      "statement": "The handback completion criterion names the output of premerge-check rather than the output of each gate.",
+      "quote": "The handback criterion now names \"the output of `premerge-check`\".",
+      "span_id": "S034"
+    },
+    {
+      "statement": "The story workflow is treated as a subset of the dispatch process; work goes upstream to define the whole dispatch process first.",
+      "quote": "Story workflow is a subset of the dispatch process. Let's go upstream.",
+      "span_id": "S075"
+    },
+    {
+      "statement": "A run driven by hand has the same frame as an orchestrated run: feature branch, ledger, story branches cut from the feature branch, and an end.",
+      "quote": "Settled: both ways share one frame.",
+      "span_id": "S100"
+    },
+    {
+      "statement": "The person who drives a run by hand gets thorough guidance, which becomes its own part of the proposal.",
+      "quote": "The person who drives by hand gets thorough guidance, which will become its own part of the proposal.",
+      "span_id": "S100"
+    },
+    {
+      "statement": "The human merges the feature branch into dev on both ways, after the check command passes.",
+      "quote": "Settled: the human merges into `dev` on both ways, after the check command passes.",
+      "span_id": "S103"
+    },
+    {
+      "statement": "dispatch close removes all state of the run and keeps no record beyond git history and the story files.",
+      "quote": "Settled: `dispatch close` removes everything of the run and keeps no record beyond git history and the story files.",
+      "span_id": "S106"
+    },
+    {
+      "statement": "A run ends either finished or dropped; afterwards only unmerged branches remain, and the human deletes them.",
+      "quote": "Settled: a run ends either finished or dropped. In both cases nothing of the run remains except unmerged branches, and the human deletes those.",
+      "span_id": "S109"
+    },
+    {
+      "statement": "One run may be active per feature branch; every check whether a run is active reads only the ledger of its own branch.",
+      "quote": "Settled: one run per feature branch. Every check that asks whether a run is active reads only the ledger of its own branch.",
+      "span_id": "S111"
+    },
+    {
+      "statement": "The merge sets a story to done on both ways, and the human driving by hand merges with dispatch merge-story.",
+      "quote": "Settled: the merge sets `done` on both ways, and the human who drives by hand merges with `dispatch merge-story`.",
+      "span_id": "S116"
+    },
+    {
+      "statement": "The number of fix rounds is configurable, with three rounds on the story's tier plus three with a stronger model as the default.",
+      "quote": "Can we make the count configurable and use these 3+3 as default?",
+      "span_id": "S120"
+    },
+    {
+      "statement": "When tests fail after a story merge, the feature branch moves back to the commit before the merge, and the spec changes to match the code.",
+      "quote": "Settled: the feature branch moves back to the commit before the failed merge, and the spec changes to match the code.",
+      "span_id": "S123"
+    },
+    {
+      "statement": "The next wave starts only after the previous wave is closed; by hand each story is a wave of its own.",
+      "quote": "Settled: the next wave starts only after the previous wave is closed, and by hand each story is a wave of its own.",
+      "span_id": "S125"
+    },
+    {
+      "statement": "The implementation agent runs the gates on both ways, and the developer agent never runs a gate script.",
+      "quote": "Settled: the implementation agent runs the gates on both ways, and the developer agent never runs a gate script.",
+      "span_id": "S128"
+    },
+    {
+      "statement": "Where a document and the code disagree with no design question behind it, the document changes to match the code.",
+      "quote": "Recorded: where a document and the code disagree with no design question behind it, the document changes to match the code.",
+      "span_id": "S130"
+    },
+    {
+      "statement": "Development, tests, code review, CRAP, mutation testing and QA with their fix loops belong inside the run; reconciliation runs on dev after the merge.",
+      "quote": "Recorded: development, tests, code review, CRAP, mutation testing and QA, each with its fix loop, belong inside the run. Reconciliation runs on `dev` after the merge.",
+      "span_id": "S137"
+    },
+    {
+      "statement": "Per-story steps (TDD, tests, story code review, crap-score, mutation testing) run on the story branch; the end-of-feature code review stays and runs with QA on the feature branch; a security scan is added per story.",
+      "quote": "Recorded: the split as I described it, with the code review at the end of the feature kept, and a security scan added per story.",
+      "span_id": "S140"
+    },
+    {
+      "statement": "Security scanning per story is a deterministic scanner gate, configurable per project: each project chooses whether to enable it and which scanners to run.",
+      "quote": "Recorded: a deterministic scanner gate per story, configured per project. Each project chooses whether to enable it and which scanners to run.",
+      "span_id": "S144"
+    },
+    {
+      "statement": "Drift sessions for spec-feedback rows run at the close of each wave, not after each merge.",
+      "quote": "I take \"BZ\" as B: the drift sessions run at the close of each wave.",
+      "span_id": "S146"
+    },
+    {
+      "statement": "Every ledger field must have a command that reads it; fields without a reader (gate_results, closed) are dropped.",
+      "quote": "It also gives the ledger's mode field a reader, so it passes the ledger rule you just accepted.",
+      "span_id": "S154"
+    },
+    {
+      "statement": "The ledger field commit_sha keeps holding the merge commit after a merge; no separate field for the story's own commit.",
+      "quote": "No command needs the story's own commit after the merge, so the field can stay as it is.",
+      "span_id": "S150"
+    },
+    {
+      "statement": "The ledger records how the run is driven, with mode values orchestrated and by-hand.",
+      "quote": "Settled: the ledger records the mode",
+      "span_id": "S156"
+    },
+    {
+      "statement": "Every enforcement mechanism must work in all supported agent CLIs, or it is designed differently.",
+      "quote": "This must either work for all CLIs or we must design it differently.",
+      "span_id": "S160"
+    },
+    {
+      "statement": "In a run driven by hand, the git guardrail refuses agents the commands that need a person, and the human runs them; OpenCode gets the git guardrail as part of this work.",
+      "quote": "Settled: in a run driven by hand, the git guardrail refuses agents the commands that need a person, and you run those commands yourself. OpenCode gets the git guardrail as part of this work.",
+      "span_id": "S164"
+    },
+    {
+      "statement": "At each by-hand stop the agent shows the premerge-check output, the findings with their status and the branch head, and gives the exact command to run.",
+      "quote": "Each stop shows the `premerge-check` output, the findings with their status and the branch head, and it gives the exact command to run.",
+      "span_id": "S164"
+    },
+    {
+      "statement": "The proposal uses one vocabulary: run, orchestrated, by hand, feature branch, story branch, gate-check step, spawn, spec-feedback report, primary checkout; dispatch names only the script.",
+      "quote": "Settled: the proposal uses only that vocabulary.",
+      "span_id": "S167"
+    },
+    {
+      "statement": "dispatch close also closes old leftover runs, and dispatch close --orphans lists worktrees and branches without a ledger.",
+      "quote": "Settled: `dispatch close` also closes the old runs, and `--orphans` lists what has no ledger.",
+      "span_id": "S169"
+    },
+    {
+      "statement": "One new proposal, docs/proposals/run-lifecycle.md, covers the run lifecycle and supersedes story-workflow.md.",
+      "quote": "`story-workflow.md` is marked `superseded`, and a line at its top points to the new proposal.",
+      "span_id": "S173"
+    }
+  ]
+}

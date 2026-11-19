@@ -31,6 +31,27 @@ and with the filed rating. It ran on 2026-11-18. The report is
   rule for exposure. The raters got the handoff's scenario lists in
   `run-4/scenarios/` instead of the handoff. The results are in
   [run-4-results.md](key/run-4-results.md).
+- [run-5/](run-5/) holds the fifth run: all 38 findings, rebuilt with
+  `build-blind.py`, rated on the rulebook with R1 and R2 by six raters on
+  `claude-sonnet-5-5` and six on `gpt-5.6-sol` through `codex exec`. The
+  results are in [run-5-results.md](key/run-5-results.md).
+- [run-6/](run-6/) holds the sixth run: three designs for the in-use rule
+  (`rules-a.md` to `rules-c.md`) on six findings, one of them the invented
+  control SPEC-0027, each with two Sonnet and two Codex raters. The results
+  are in [run-6-results.md](key/run-6-results.md).
+- [run-7/](run-7/) holds the seventh run: design d, a list of named cases
+  for `in_use` built from the stakeholder's decisions after run 6, on the six
+  findings of run 6. The results are in [run-7-results.md](key/run-7-results.md).
+- [run-8/](run-8/) holds the eighth run: design e, the run-7 cases with
+  corrected wording, on all 28 document findings with two Sonnet and two Codex
+  raters per batch. The results are in [run-8-results.md](key/run-8-results.md).
+- [run-9/](run-9/) holds the ninth run: design f, a rule for side texts, on
+  the 28 document findings, two Sonnet and two Codex raters per batch. The
+  Codex half ran a day later, after a usage limit. The results are in
+  [run-9-results.md](key/run-9-results.md).
+- [run-10/](run-10/) holds the tenth run: the side-text rule with a sentence on
+  wrong links and one on main rules, on the 28 document findings. The results
+  are in [run-10-results.md](key/run-10-results.md).
 
 Each run folder holds the rater brief, `filing.tsv`, the blind copies in
 `blind/`, and one JSON-lines file per rater in `out/`.
