@@ -72,16 +72,18 @@ The store is one PostgreSQL server with pgvector and two contrib modules, `pg_tr
 
 - `node`: one row per source, span, problem, conjecture, criticism, test, or decision, with its kind and its language. Anything that can be criticised is a node. A claimed relation, such as "this outlet reframed that report", is a node with two plain edges, so a refutation always targets a node.
 - `edge`: `id`, `source_id`, `target_id`, `type`, `status`, `asserted_by`, `evidence_span_id`, `valid_from`, `valid_to`, `recorded_at`, and `meta`. `type` is a foreign key to `edge_type`, which names the node kinds allowed at each end. `status` is candidate or confirmed; similarity writes candidates only, and a check or a person confirms them. Every value a query filters on or a rule checks is a column; `meta` as `jsonb` holds the rest.
-- `embedding`: `node_id`, `model`, `model_version`, `vector`, with an HNSW index. A new model adds rows beside the old ones, and each vector carries the model version that produced it. A content hash on the text lets an import skip re-embedding unchanged text, an idea taken from qmd.
+- `embedding`: `node_id`, `model`, `model_version`, `vector`, with an HNSW index. A new model adds rows beside the old ones, and each vector carries the model version that produced it. A content hash on the text lets an import skip re-embedding unchanged text, an idea taken from qmd. The vector search filters by model and model version. With several models in one table, it needs `hnsw.iterative_scan` or one partial HNSW index per model, so the filter does not starve the index scan ([pilot notes A](../../../poc/kg-pilot/notes-a.md)).
 
 The database enforces the rules. A trigger rejects an edge whose ends have the wrong node kinds, which is shape validation done with plain constraints. The trigger checks at insert, so a second trigger on `node` must reject a change of kind that would break an existing edge. Edges and decisions are append-only: a change ends the old row and writes a new one, so "as of date D" is a query. Withheld privileges and raising triggers enforce this for the application's role. The table owner keeps full rights, and row triggers do not fire on `TRUNCATE`, so the roles are part of the design. Indexes on `(source_id, type)` and `(target_id, type)` serve traversal in both directions.
+
+Imports run under `READ COMMITTED`, not `SERIALIZABLE`. pgvector's indexes take no fine-grained predicate locks, so in the pilot a vector read under `SERIALIZABLE` conflicted with every concurrent insert, in 10 of 10 rounds. A unique key or an advisory lock on the content hash stops duplicates instead. Where a path does use `SERIALIZABLE`, the GIN index runs with `fastupdate = off`. With it on, writers on disjoint rows failed in 20 of 20 rounds; with it off, in none ([pilot notes A](../../../poc/kg-pilot/notes-a.md)).
 
 ## The search layer
 
 Search uses only what PostgreSQL ships, so the single transaction boundary holds:
 
 - Full-text search over a stored generated `tsvector` column, which picks the `german` or `english` configuration from the node's language, with a GIN index. The built-in German configuration stems words but does not split compounds. Splitting needs Hunspell dictionary files on the server, outside the tables.
-- `pg_trgm` for typos and partial names, with a trigram index that also serves `LIKE` and regular expressions.
+- `pg_trgm` for typos and partial names, with a trigram index that also serves `LIKE` and regular expressions. Until Hunspell is decided, it is also a third branch of the fused search for German part-words. In the pilot, full-text search missed 7 of 8 German part-word queries, such as "Verbindung" for "Datenbankverbindung", and `pg_trgm` word similarity found all 8 ([pilot notes A](../../../poc/kg-pilot/notes-a.md)).
 - pgvector for similarity.
 
 One statement fuses the keyword ranking and the vector ranking by reciprocal rank fusion, as the pgvector example shows, and weights them by query type, an idea taken from qmd. `ts_rank` uses no statistics across the whole collection, so it is not BM25. A BM25 extension enters only if the pilot shows that ranking is too weak. The records show each BM25 extension breaking or leaving unstated part of the transaction boundary: ParadeDB's free edition stops a standby when an index is created, and `pg_textsearch` keeps compaction output after a rollback. Reranking inside SQL has no record; a reranker would run in the Python layer.
@@ -110,6 +112,8 @@ The surveys found no source for the behaviours these tests check, or found limit
 8. A German sample corpus shows which compound queries miss without Hunspell.
 9. A `pg_upgrade` from 18 to 19 shows which stored `tsvector` values change.
 
+The [pilot](../../../poc/kg-pilot/README.md) ran all nine on 2026-11-19 against `pgvector/pgvector:pg18`, and all pass. Tests 1 to 5 showed the designed behaviour. Test 6 caught the duplicate, but two writers of unrelated vectors also failed, which contradicts pgvector issue #1055 as the postgres-and-qmd survey recorded it. Test 7 led to the isolation rule in "The proposed store", and test 8 to the third search branch. Test 9 found no changed `tsvector` between 18 and `19rc1` on seven sentences; it needs a larger corpus and a final 19 image before it says anything ([pilot notes A](../../../poc/kg-pilot/notes-a.md)).
+
 ## Bolder options the stakeholder has not decided
 
 - Turn the order around: the graph holds the ideas, and a proposal becomes a view, a bundle of ideas with one acceptance decision.
@@ -117,7 +121,9 @@ The surveys found no source for the behaviours these tests check, or found limit
 
 ## The spike
 
-Import a few sessions from `usage/transcripts/`, starting with the session behind the run-lifecycle handoff of 2026-11-16. Remove repeated copies, extract ideas and decisions with message anchors, and load them into a PostgreSQL database outside git, in the schema of "The proposed store". Ask: "What was decided about the run lifecycle?" The spike passes when the answer finds the twenty decisions of the handoff and each points to a message that exists. Nothing is committed except a short findings note. The stakeholder has not yet approved the spike.
+Import a few sessions from `usage/transcripts/`, starting with the session behind the run-lifecycle handoff of 2026-11-16. Remove repeated copies, extract ideas and decisions with message anchors, and load them into a PostgreSQL database outside git, in the schema of "The proposed store". Ask: "What was decided about the run lifecycle?" The spike passes when the answer finds the twenty decisions of the handoff and each points to a message that exists.
+
+The stakeholder approved a narrower pilot on 2026-11-19: the nine tests and an import of that one session, with spans and embeddings but no extraction. The import read the Claude Code session file, because the copies in `usage/transcripts/` did not show `uuid` and `parentUuid` as top-level fields. It wrote 1,966 spans, and all 865 message anchors exist in the file. The English and the German question both return spans from 2026-11-16. They do not return the twenty decisions, because those sit in the handoff file, which the pilot did not import ([pilot notes B](../../../poc/kg-pilot/notes-b.md)).
 
 ## Costs
 

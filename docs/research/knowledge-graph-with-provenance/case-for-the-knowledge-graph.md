@@ -190,7 +190,7 @@ Each survey ranks the store's parts by the rule of section 4, and a rank holds o
 What would change the choice:
 
 - RDF stays the alternative where records must be exchanged with outside parties, because PROV-O and SHACL are W3C Recommendations built on RDF, or once RDF 1.2 becomes one.
-- A failed pilot test on own-write visibility, rollback, the type trigger, or the role design (tests 1 to 4) reopens the store.
+- A failed pilot test on own-write visibility, rollback, the type trigger, or the role design (tests 1 to 4) reopens the store. All four passed in the pilot of 2026-11-19 ([pilot notes A](../../../poc/kg-pilot/notes-a.md)).
 - A released SQL/PGQ would add a graph query language over the same tables. No source schedules one.
 
 The choice fixes the schema and the import format of the pilot.
@@ -235,7 +235,7 @@ The third survey adds a claim that bears on every candidate edge: a cross-encode
 
 ## 8. Next step: the pilot
 
-The stakeholder has not yet approved the pilot ([design position](design-position.md#the-spike)). It runs in two stages.
+The pilot runs in two stages ([design position](design-position.md#the-spike)). The stakeholder approved a first part of stage 1 on 2026-11-19: the nine tests and an import of one session without extraction. It is in [`poc/kg-pilot`](../../../poc/kg-pilot/README.md).
 
 ### 8.1 Stage 1: factory sessions
 
@@ -254,6 +254,14 @@ The pilot also runs the nine tests of the [design position](design-position.md#t
 7. Under `SERIALIZABLE`, serialization failures differ with the GIN `fastupdate` setting on and off, by an amount the test records.
 8. A German sample corpus shows which compound queries miss without Hunspell.
 9. A `pg_upgrade` from 18 to 19 shows which stored `tsvector` values change.
+
+All nine pass. Three results changed the store ([pilot notes A](../../../poc/kg-pilot/notes-a.md)):
+
+- Imports run under `READ COMMITTED`. Under `SERIALIZABLE`, a pgvector read conflicted with every concurrent insert, so duplicates are stopped by a key or a lock on the content hash. A path that uses `SERIALIZABLE` sets `fastupdate = off` on the GIN index.
+- The vector search filters by model and model version.
+- `pg_trgm` is a third search branch for German part-words. Full-text search missed 7 of 8 of them; `pg_trgm` found all 8.
+
+Test 9 needs a larger corpus and a final 19 image. The import wrote 1,966 spans of one session, and every anchor resolves to a message in the session file. The answer does not yet list the twenty decisions, because they sit in the handoff file. The next part of stage 1 imports the handoff as a source and tests extraction ([pilot notes B](../../../poc/kg-pilot/notes-b.md)).
 
 ### 8.2 Stage 2: one email mailbox
 
