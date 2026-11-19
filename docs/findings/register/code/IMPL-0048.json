@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0048",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:2980-2994",
+  "story": "ST-0426",
+  "finding": "`_find_ledgers` does not follow a symlinked folder, and it also does not report one. When the run folder `.current-work/feature/x` is a symlink to another place, the live ledger behind it stays unseen, and the run has no claim. In a scratch repository with `feature/x` present, `--orphans` then stashed and removed the worktrees of `feature/x` and `story/ST-1`, which lay elsewhere under `.current-work/`. BR-119 refuses a close through a symlinked run folder for the same reason, because the link may lead to another run. The smallest fix is in `_find_ledgers`: when the walk meets a symlinked folder, `--orphans` stops with exit 1 before it removes anything and names the link, or it keeps every worktree and lists the link.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "dispatch never creates a symlinked run folder, and a worktree that dispatch puts inside such a folder resolves outside `.current-work/`, so `--orphans` never takes it (no to fails_purpose). The removal needs a hand-made link together with worktrees outside the run folder. A reader must still know that the walk skips links without a word. The lines exist only on the story branch, so in_use is false.",
+  "commit": "48a890b3f7e7813a1d15cbd43711cf42e48e74ac",
+  "status": "resolved"
+}

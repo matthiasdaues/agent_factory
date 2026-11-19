@@ -757,6 +757,40 @@ def stash_name(feature_branch: str, label: str, day: str) -> str:
     return f"run {feature_branch} {label} {day}"
 
 
+def orphan_stash_name(branch: str, day: str) -> str:
+    """The name of the stash `close --orphans` makes of a worktree of no ledger."""
+    return f"orphan {branch} {day}"
+
+
+def orphan_ledger_verdict(ledger: Ledger, branch_state: str) -> tuple[bool, str | None]:
+    """Decide what `close --orphans` does with *ledger* (BR-120).
+
+    *branch_state* says whether the feature branch that the ledger names
+    "exists", is "gone", is "invalid" as a branch name, or is "none" at all.
+    Return whether to remove the ledger, and the reason to list a ledger
+    that stays. A ledger whose feature branch exists belongs to an active
+    run, so it stays without a line. Every case that dispatch cannot decide
+    keeps the ledger."""
+    if branch_state == "exists":
+        return False, None
+    if branch_state == "none" or not ledger.feature_branch:
+        return False, "it names no feature branch"
+    if branch_state == "invalid":
+        return False, (
+            f"its feature branch {ledger.feature_branch!r} is not a valid branch name"
+        )
+    if branch_state != "gone":
+        return False, f"dispatch cannot tell whether {ledger.feature_branch} exists"
+    unfinished = [
+        f"{entry.id} is {entry.status.value}"
+        for entry in ledger.stories.values()
+        if entry.status != StoryState.DONE
+    ]
+    if not unfinished:
+        return True, None
+    return False, f"{ledger.feature_branch} is gone; " + ", ".join(unfinished)
+
+
 # ---------------------------------------------------------------------------
 # Minimal YAML handling (stdlib only, no PyYAML dependency)
 # ---------------------------------------------------------------------------
