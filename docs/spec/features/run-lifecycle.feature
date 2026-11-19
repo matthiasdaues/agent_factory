@@ -157,7 +157,7 @@ Feature: Run Lifecycle
       When the User runs dispatch mark-done ST-0350
       Then dispatch exits non-zero
       And the usage text lists no mark-done subcommand
-      # @packages/factory/scripts/dispatch::cmd_mark_done
+      # @packages/factory/scripts/dispatch::build_parser
 
     Scenario: The developer agent runs no gate script
       Given the developer agent implements ST-0350
@@ -447,19 +447,19 @@ Feature: Run Lifecycle
     # the commands that destroy work (RL-G22).
 
     Scenario Outline: A story stops in the state that names its cause
-      Given ST-0350 is dispatched in a run on feature/login
+      Given ST-0350 is dispatched in an orchestrated run on feature/login
       When <cause>
       Then the ledger records ST-0350 as <state>
       And ST-0350 has stopped
       And the run waits for the User
 
       Examples:
-        | cause                                                                        | state   |
-        | a gate still fails on the last counted attempt of ST-0350 on the tier strong | failed  |
-        | a second attempt of ST-0350 fails with the failure class contract_violation  | failed  |
-        | dispatch merge-story meets a merge conflict                                  | blocked |
-        | dispatch merge-story meets a conflict in the refresh                         | blocked |
-        | the test suite fails after the merge of story/ST-0350                        | blocked |
+        | cause                                                                                          | state   |
+        | a gate still fails on the last counted attempt of ST-0350 on the tier strong                   | failed  |
+        | a second attempt of ST-0350 fails with the failure class contract_violation                    | failed  |
+        | git refuses the merge of story/ST-0350 over an untracked file in the worktree of feature/login | blocked |
+        | dispatch merge-story meets a conflict in the refresh                                           | blocked |
+        | the test suite fails after the merge of story/ST-0350                                          | blocked |
 
     Scenario: A story whose diff leaves its scope stops when dispatch escalate refuses it
       Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 3

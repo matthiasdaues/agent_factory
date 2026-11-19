@@ -444,8 +444,9 @@ Feature: Story Lifecycle
     And the test suite runs and passes
     And the story branch and worktree are cleaned up
 
-  Scenario: Merge conflict aborts and marks blocked
-    Given ST-003's story branch conflicts with the feature branch
+  Scenario: A merge that git refuses aborts and marks blocked
+    Given ST-003 is dispatched in an orchestrated run
+    And the worktree of the feature branch holds an untracked file that the merge of ST-003 would overwrite
     When the user runs dispatch merge-story ST-003
     Then the merge is aborted via git merge --abort
     And ST-003 is marked blocked with reason "merge conflict"

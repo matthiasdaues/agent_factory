@@ -867,6 +867,7 @@ Feature: Finding classification
         | init             |
         | prepare-wave     |
         | prepare-story    |
+        | add              |
         | mark-dispatching |
         | mark-dispatched  |
         | re-dispatch      |
@@ -886,10 +887,13 @@ Feature: Finding classification
         | plan               |
         | suggest-merge-args |
         | verify-story       |
-        | mark-done          |
         | mark-blocked       |
         | mark-failed        |
         | clear-manifest     |
+        | return-story       |
+        | close              |
+        | close --drop       |
+        | close --orphans    |
 
     Scenario: The scripts read the findings of the working tree they run in
       Given the feature worktree of feature/core-artifact-ownership holds an uncommitted BUG-0037 with severity critical and status open
