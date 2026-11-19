@@ -16,5 +16,5 @@
   },
   "why_this_severity": "No test file holds such a read today, the check finds every other form, and the suite run in a linked worktree with no .agent-factory/ fails a real runtime read (no to fails_purpose). A read added below the link in test_core_layout_gates.py passes the text check, and the maintainer learns of it only from a red worktree run.",
   "commit": "d7ef4ccb4998c22da6474a691e4bd147267ed488",
-  "status": "open"
+  "status": "resolved"
 }

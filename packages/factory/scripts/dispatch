@@ -57,10 +57,13 @@ from dispatch_lib import (
     compute_wave_plan,
     counted_attempts_on_tier,
     counted_tier,
+    DEPENDENCY_NOT_DONE,
+    dependency_refusals,
     drift_row_problems,
     glob_match,
     grant_attempts,
     has_stopped,
+    held_back,
     implementation_session_tier,
     ledger_escalation_refusal,
     load_core_patterns,
@@ -1067,6 +1070,9 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if entry.wave is not None
         and entry.wave < wave
         and entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+        # A returned story and a story that waits on one never start in
+        # this run, so they hold back no later wave (BR-113).
+        and not held_back(ledger, entry)
     ]
     if blocking:
         blockers = ", ".join(
@@ -1104,6 +1110,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         key=lambda entry: entry.id,
     )
     wave_story_ids = {entry.id for entry in stories_in_wave}
+    refused_return = False
 
     for entry in stories_in_wave:
         # Only a pending story gets a new workspace. A story past that state
@@ -1111,21 +1118,21 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if entry.status != StoryState.PENDING:
             continue
 
+        returned = ledger.returned_refusal(entry.id)
+        if returned:
+            print(f"error: {returned}; prepare-wave skipped it", file=sys.stderr)
+            refused_return = True
+            continue
+
         same_wave_deps = [dep for dep in entry.deps if dep in wave_story_ids]
         if same_wave_deps:
             continue
 
-        unmet = [
-            dep for dep in entry.deps
-            if dep in ledger.stories
-            and ledger.stories[dep].status != StoryState.DONE
-        ]
+        unmet = dependency_refusals(ledger, entry)
         if unmet:
             print(
-                f"dispatch prepare-wave: skipped {entry.id}: dependency "
-                + ", ".join(
-                    f"{dep} is {ledger.stories[dep].status.value}" for dep in unmet
-                )
+                f"dispatch prepare-wave: skipped {entry.id}: {DEPENDENCY_NOT_DONE}: "
+                + "; ".join(unmet)
             )
             continue
 
@@ -1197,11 +1204,17 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if save_code != 0:
             return save_code
 
-    return 0
+    return 1 if refused_return else 0
 
 
 def _pending_entry_error(entry: StoryEntry) -> str | None:
-    """Name why prepare-story cannot prepare *entry*, or None for a pending one."""
+    """Name why prepare-story cannot prepare *entry*, or None for a pending
+    entry that was not returned (BR-113)."""
+    if entry.status == StoryState.PENDING and entry.returned:
+        return (
+            f"error: dispatch: {entry.id} was returned and waits for the end "
+            f"of the run; prepare-story does not start it again"
+        )
     if entry.status == StoryState.FAILED:
         return (
             f"error: story {entry.id} failed; prepare-story prepares only a "
@@ -1213,6 +1226,14 @@ def _pending_entry_error(entry: StoryEntry) -> str | None:
             f"prepares only a pending story"
         )
     return None
+
+
+def _print_dependency_refusals(ledger: Ledger, entry: StoryEntry) -> bool:
+    """Print each dependency inside the run that is not done; True if any (BR-113)."""
+    refusals = dependency_refusals(ledger, entry)
+    for refusal in refusals:
+        print(f"error: {DEPENDENCY_NOT_DONE}: {refusal}", file=sys.stderr)
+    return bool(refusals)
 
 
 def _wave_by_hand(ledger: Ledger, entry: StoryEntry) -> tuple[int | None, str | None]:
@@ -1270,17 +1291,7 @@ def _prepare_story_by_hand(
         )
         return 1
 
-    unmet = [
-        dep for dep in entry.deps
-        if dep in ledger.stories and ledger.stories[dep].status != StoryState.DONE
-    ]
-    if unmet:
-        for dep in unmet:
-            print(
-                f"error: {entry.id} depends on {dep}, which is "
-                f"{ledger.stories[dep].status.value}",
-                file=sys.stderr,
-            )
+    if _print_dependency_refusals(ledger, entry):
         return 1
 
     wave, refusal = _wave_by_hand(ledger, entry)
@@ -1448,6 +1459,8 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
             f"error: story {story_id} has no chain predecessor recorded",
             file=sys.stderr,
         )
+        return 1
+    if _print_dependency_refusals(ledger, entry):
         return 1
 
     predecessor_id = entry.deps[0]

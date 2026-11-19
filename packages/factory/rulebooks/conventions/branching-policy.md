@@ -19,7 +19,7 @@ Shared integration files (a composition root, a domain-entities module, a ports 
 
 ### Every Branch Has A Worktree
 
-In automated mode, creating a branch and creating its linked worktree are one atomic operation. This applies to **every** local branch type: invocation, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. Sequential work or a branch used by only one agent does not qualify for an exception. In manual mode, the primary checkout is used directly; see [Manual-Mode Primary-Checkout Usage](#manual-mode-primary-checkout-usage).
+In automated mode, creating a branch and creating its linked worktree are one atomic operation. This applies to **every** local branch type: invocation, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. Sequential work or a branch used by only one agent does not qualify for an exception. In a run by hand, the primary checkout is used directly; see [Story Branches In A Run By Hand](#story-branches-in-a-run-by-hand).
 
 ```bash
 git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>
@@ -32,9 +32,9 @@ In automated mode, do not use standalone branch creation (`git branch <name>`, `
 
 The checkout in which a command starts remains on its existing branch. Work on the new branch happens only in the new worktree. This prevents branch switching from moving or contaminating a shared checkout and makes branch ownership observable from Git state.
 
-### Manual-Mode Primary-Checkout Usage
+### Story Branches In A Run By Hand
 
-In manual mode, the implementation-agent works in the primary checkout without dispatch scripts, ledgers, or worktrees. The human creates a feature branch from `dev` with `git checkout -b feature/<name>` or adopts the branch already checked out. No story branches are created. Stories dispatch serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. The git guardrail's standalone-branch-creation block does not apply in manual mode because the human — not an agent — owns the branch operation.
+In a run by hand, the implementation agent works in the primary checkout and creates no worktree. `dispatch init --mode by-hand` cuts the feature branch from `dev` and writes the ledger. For each story, `dispatch prepare-story` cuts `story/<story-id>` from the tip of the feature branch and checks it out in the primary checkout. The developer agent commits on the story branch. `dispatch merge-story` checks the feature branch out again and merges the story branch into it. One story runs at a time, so the feature branch does not move under a story, and no story branch needs `dispatch refresh-story`. `dispatch` creates every branch, so no agent runs a standalone branch command.
 
 ### Indexed Artifacts On Any Branch
 
@@ -43,16 +43,16 @@ An indexed artifact — a backlog story (`ST-NNNN`), a finding (`BUG-NNNN`), a p
 The usual sequence is:
 
 1. **Planning agent** commits proposals and indexed artifacts (all `status: pending`) on the branch where it makes them.
-2. **Implementation agent** creates the invocation branch from `dev` (automated mode uses `dispatch init`; manual mode uses `git checkout -b`).
+2. **Implementation agent** creates the invocation branch from `dev` with `dispatch init`, in an orchestrated run and in a run by hand.
 3. Story branches are cut from the invocation branch.
 4. After all stories pass gates, the invocation branch merges back to `dev`.
 
 ### Invocation Branch
 
 New invocation branches use `feature/<proposal-title>` and start from `dev`.
-In automated mode, every story branch starts from the invocation branch and
-uses linked worktrees. In manual mode, the human creates or adopts the branch
-in the primary checkout. The invocation branch defines the branch-root and
+Every story branch starts from the invocation branch. In automated mode, it
+uses a linked worktree. In a run by hand, `dispatch prepare-story` checks it
+out in the primary checkout. The invocation branch defines the branch-root and
 branch-head pair below.
 
 ### Worktree Isolation
