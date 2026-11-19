@@ -626,14 +626,16 @@ class Ledger:
         `pending` after a return, and `pending` behind a returned
         dependency (BR-062, BR-113). *drift_check* takes the ids of the
         wave's stories and returns one problem per unhandled or unreadable
-        drift row (BR-062). Any problem keeps the wave open."""
+        drift row (BR-062). Any problem keeps the wave open. A wave
+        without entries closes with empty lists."""
         for record in self.waves:
             if record.number == wave:
                 return record, False
 
+        # A wave without entries, for example after `add` moved its only
+        # entry to a later wave, has nothing that can go on and closes with
+        # empty lists.
         wave_stories = [entry for entry in self.stories.values() if entry.wave == wave]
-        if not wave_stories:
-            raise TransitionError(f"wave {wave} has no stories")
 
         limits = limits or AttemptLimits()
         can_go_on = [
@@ -647,7 +649,7 @@ class Ledger:
                 + ", ".join(can_go_on)
             )
 
-        if drift_check is not None:
+        if drift_check is not None and wave_stories:
             problems = drift_check([entry.id for entry in wave_stories])
             if problems:
                 raise TransitionError(

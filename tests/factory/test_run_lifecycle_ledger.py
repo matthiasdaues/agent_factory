@@ -354,6 +354,22 @@ def test_RL_05_CT_02_escalate_refuses_an_unreadable_attempt_count(run):
     assert run.entry().tier == "standard"
 
 
+@pytest.mark.spec("RL-05-CT-02")
+def test_RL_05_CT_02_mark_failed_without_a_class_writes_no_attempt(run):
+    """ST-0431: an attempt without a failure class counts against no limit,
+    so mark-failed requires --class and leaves the ledger as it was."""
+    run.write(failed_entry(status=lib.StoryState.DISPATCHED))
+    before = run.path.read_bytes()
+    run.capsys.readouterr()
+
+    with pytest.raises(SystemExit) as refused:
+        run.dispatch.main(["--ledger", str(run.path), "mark-failed", "ST-0350"])
+
+    assert refused.value.code != 0
+    assert "--class" in run.capsys.readouterr().err
+    assert run.path.read_bytes() == before
+
+
 @pytest.mark.spec("RL-05-CT-03")
 def test_RL_05_CT_03_a_story_on_strong_does_not_escalate_and_fails_after_its_attempts(run):
     """Scenario: A story on the tier strong does not escalate and fails after its attempts."""
@@ -857,6 +873,12 @@ def started(run, monkeypatch) -> list[str]:
         ids.append(branch.removeprefix("story/"))
         return dispatch._StoryWorkspace(True, True, "")
 
+    # prepare-wave reads the tip of the feature branch as the base (ST-0431).
+    git = dispatch._git
+    monkeypatch.setattr(
+        dispatch, "_git",
+        lambda *args: (0, SHA, "") if args[:1] == ("rev-parse",) else git(*args),
+    )
     monkeypatch.setattr(dispatch, "_main_worktree_root", lambda: run.root)
     monkeypatch.setattr(dispatch, "_create_story_workspace", create)
     monkeypatch.setattr(dispatch, "_verify_worktree_registration", lambda path: True)
@@ -1095,6 +1117,25 @@ def test_RL_11_CT_01_the_refusal_names_every_open_unit_of_work_with_its_state():
 
     assert "ST-0351 (dispatched)" in str(refusal.value)
     assert "ST-0352 (failed with a retry left)" in str(refusal.value)
+
+
+@pytest.mark.spec("RL-11-CT-01")
+def test_RL_11_CT_01_close_wave_records_a_wave_without_entries():
+    """ST-0431: a wave whose only entry add moved to a later wave holds no
+    unit of work that can go on, so close-wave records it with empty lists."""
+    ledger = lib.Ledger()
+    ledger.feature_branch = "feature/login"
+    ledger.stories["ST-0350"] = pending_entry("ST-0350", 1, status=S.DONE, commit_sha=SHA)
+    ledger.stories["BUG-0090"] = pending_entry("BUG-0090", 3)
+    ledger.waves.append(lib.WaveCloseout(number=1, branch_head=SHA))
+
+    record, created = ledger.close_wave(2, "b" * 40, limits=lib.AttemptLimits(3, 3))
+
+    assert created
+    assert (record.number, record.completed, record.blocked, record.failed) == (2, [], [], [])
+    assert record.next_ready == ["BUG-0090"]
+    assert [r.number for r in ledger.waves] == [1, 2]
+    assert ledger.branch_head == "b" * 40
 
 
 @pytest.mark.spec("RL-11-CT-02")

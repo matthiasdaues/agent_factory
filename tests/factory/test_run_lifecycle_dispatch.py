@@ -1615,7 +1615,7 @@ def test_RL_12_IT_04_adding_a_returned_finding_again_reuses_its_entry(tmp_path):
     entry = _unit(run)
     assert entry.status.value == "prepared"
     assert (entry.branch, entry.worktree) == (before.branch, before.worktree)
-    assert entry.base_sha == lib.Ledger.load(ledger).branch_head
+    assert entry.base_sha == feature_tip
     story = run["finding_story"]
     assert _git(story, "branch", "--show-current") == "story/BUG-0090"
     for commit in (run["attempt_one"], feature_tip):
@@ -1715,6 +1715,92 @@ def test_RL_06_IT_05_escalate_of_a_finding_checks_only_the_file_limit(
     else:
         assert result.returncode == 1, result.stdout + result.stderr
         assert (entry.tier, entry.reason) == (None, "escalate refused: scope")
+
+
+# -- ST-0431: the run goes on after a finding is added -------------------------
+
+RE_DISPATCH_REFUSES = ["pending", "prepared", "dispatching", "dispatched", "done"]
+
+
+def _unit_in_state(tmp_path: Path, state: str) -> tuple[dict[str, Path], str]:
+    """Return the run and the ID of its unit of work in *state*: ST-0350 is
+    done after wave 1, and BUG-0090 takes each state before it."""
+    run = _wave_one_merged(tmp_path)
+    if state == "done":
+        return run, "ST-0350"
+    steps = [("add", BUG), ("prepare-wave", "2"),
+             ("mark-dispatching", BUG), ("mark-dispatched", BUG)]
+    _steps(run, *steps[: RE_DISPATCH_REFUSES.index(state) + 1])
+    assert _unit(run).status.value == state
+    return run, BUG
+
+
+@pytest.mark.spec("RL-06-IT-03")
+@pytest.mark.parametrize("state", RE_DISPATCH_REFUSES)
+def test_RL_06_IT_03_re_dispatch_refuses_a_unit_of_work_that_has_not_stopped(
+    tmp_path, state
+):
+    """ST-0431: re-dispatch continues only a failed or blocked unit of work
+    on its branch (BR-116); every other state is refused, and the ledger
+    stays as it was."""
+    run, unit_id = _unit_in_state(tmp_path, state)
+    before = run["ledger"].read_bytes()
+
+    result = _dispatch(run["repo"], run["ledger"], "re-dispatch", unit_id)
+
+    assert result.returncode != 0
+    assert f"{unit_id} is {state}" in result.stderr
+    assert "re-dispatch accepts only failed and blocked" in result.stderr
+    assert run["ledger"].read_bytes() == before
+    if state == "pending":
+        assert (_unit(run).branch, _unit(run).worktree) == (None, None)
+
+
+@pytest.mark.spec("RL-12-IT-01")
+def test_RL_12_IT_01_prepare_wave_cuts_the_branch_from_the_tip_of_the_feature_branch(
+    tmp_path,
+):
+    """ST-0431: a commit on the feature branch after the wave record, such as
+    a filed finding, is the base of the next story branch, and verify-base
+    passes on it. branch_head keeps the wave record's commit."""
+    run = _wave_one_merged(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    recorded = lib.Ledger.load(ledger).branch_head
+    tip = _commit_on_feature(run, "docs/notes.md", "filed after the wave record\n")
+    assert tip != recorded
+    _steps(run, ("add", BUG))
+
+    result = _dispatch(repo, ledger, "prepare-wave", "2")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _unit(run).base_sha == tip
+    assert _git(repo, "rev-parse", "story/BUG-0090") == tip
+    assert lib.Ledger.load(ledger).branch_head == recorded
+    verify = subprocess.run(
+        [str(SOURCE_SCRIPTS_DIR / "verify-base"), "feature/login", "--expect-base", tip],
+        cwd=run["finding_story"], env=_env(), capture_output=True, text=True, check=False,
+    )
+    assert verify.returncode == 0, verify.stdout + verify.stderr
+    assert "BASE_OK" in verify.stdout
+
+
+@pytest.mark.spec("RL-11-CT-01")
+def test_RL_11_CT_01_close_wave_records_a_wave_whose_only_entry_add_moved(tmp_path):
+    """ST-0431: add moves the returned BUG-0090 out of wave 2 before its close.
+    close-wave 2 records the empty wave, and prepare-wave 3 finds the record."""
+    run = _returned_finding(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    _steps(run, ("add", BUG))
+    assert _unit(run).wave == 3
+
+    result = _dispatch(repo, ledger, "close-wave", "2")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    record = next(r for r in lib.Ledger.load(ledger).waves if r.number == 2)
+    assert (record.completed, record.blocked, record.failed) == ([], [], [])
+    prepared = _dispatch(repo, ledger, "prepare-wave", "3")
+    assert prepared.returncode == 0, prepared.stdout + prepared.stderr
+    assert _unit(run).status.value == "prepared"
 
 
 # -- RL-12: a filed surviving mutant runs in the next wave (ST-0423) ----------

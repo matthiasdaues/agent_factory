@@ -346,7 +346,7 @@ def test_RL_14_IT_04_dispatch_close_refuses_a_run_with_a_stopped_story(
     _start(repo, "ST-0350")
     _dispatched(repo, "ST-0350")
     mark = (
-        ("mark-failed", "ST-0350") if stop == "failed"
+        ("mark-failed", "ST-0350", "--class", "acceptance_unmet") if stop == "failed"
         else ("mark-blocked", "ST-0350", "--reason", "waits")
     )
     _run(repo, mark)

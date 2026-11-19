@@ -1259,12 +1259,16 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         )
         return 1
 
-    base_sha = ledger.branch_head or ledger.branch_root
-    if not base_sha:
-        code, base_sha, err = _git("rev-parse", "HEAD")
-        if code != 0:
-            print(f"error: failed to resolve base SHA: {err}", file=sys.stderr)
-            return 1
+    # A story branch starts at the commit the feature branch has now, read by
+    # name as close-wave does; branch_head records only the last merge or
+    # wave close.
+    base_ref = (
+        f"refs/heads/{ledger.feature_branch}" if ledger.feature_branch else "HEAD"
+    )
+    code, base_sha, err = _git("rev-parse", base_ref)
+    if code != 0:
+        print(f"error: failed to resolve base SHA: {err}", file=sys.stderr)
+        return 1
 
     main_root = _main_worktree_root()
     project_root = _project_root()
@@ -1973,6 +1977,16 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
     entry = ledger.stories.get(args.story_id)
     if entry is None:
         print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    # Only a stopped unit of work has a branch to continue (BR-116). A
+    # pending entry reaches prepared through prepare-wave or prepare-story,
+    # which cut its branch (BR-113).
+    if entry.status not in (StoryState.FAILED, StoryState.BLOCKED):
+        print(
+            f"error: {args.story_id} is {entry.status.value}; "
+            "re-dispatch accepts only failed and blocked",
+            file=sys.stderr,
+        )
         return 1
 
     project_root = _project_root()
@@ -3546,8 +3560,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_mf.add_argument(
         "--class",
         dest="failure_class",
-        required=False,
-        default=None,
+        required=True,
         choices=FAILURE_CLASSES,
     )
     p_mf.add_argument("--evidence", required=False, default=None)

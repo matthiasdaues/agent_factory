@@ -317,6 +317,7 @@ def _read_run(tmp_path: Path, subcommand: str, *, stop: bool):
         "status": ["status"],
         "verify-story": ["verify-story", "ST-0001", "--sha", sha],
         "mark-blocked": ["mark-blocked", "ST-0001", "--reason", "waits"],
+        "mark-failed": ["mark-failed", "ST-0001", "--class", "acceptance_unmet"],
         "clear-manifest": ["clear-manifest", "--force", "--worktree", str(story)],
         "close": ["close"],
     }.get(subcommand, [subcommand, "ST-0001"])

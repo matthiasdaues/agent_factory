@@ -321,19 +321,26 @@ def test_prepare_wave_retry_succeeds_after_verify_base_fails(tmp_path):
     assert _init(r, "ST-0001").returncode == 0
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
 
-    # Make verify-base fail once: move the invocation branch ahead of the
-    # ledger's base, so the story worktree would start behind its target.
-    (r["inv"] / "src" / "ahead.txt").write_text("ahead\n")
-    _git(r["inv"], "add", "-A")
-    _git(r["inv"], "commit", "-qm", "ahead")
+    # Make verify-base fail once: the first checkout of a story worktree
+    # moves the invocation branch ahead, so the worktree starts behind its
+    # target. prepare-wave cuts from the tip of the branch (ST-0431), so the
+    # move has to happen after the cut.
+    marker = r["repo"] / ".git" / "ahead-once"
+    hook = r["repo"] / ".git" / "hooks" / "post-checkout"
+    hook.write_text(
+        "#!/bin/sh\n"
+        f'[ -e "{marker}" ] && exit 0\n'
+        f'touch "{marker}"\n'
+        'ahead=$(git -c user.name=t -c user.email=t@t commit-tree '
+        '"feat/x^{tree}" -p feat/x -m ahead)\n'
+        'git update-ref refs/heads/feat/x "$ahead"\n'
+    )
+    hook.chmod(0o755)
     failed = _dispatch(r["repo"], r["ledger"], "prepare-wave", "1")
     assert failed.returncode != 0
+    assert "verify-base failed for ST-0001" in failed.stderr
     assert _git(r["repo"], "branch", "--list", "story/ST-0001") == ""
 
-    # Bring the ledger's base up to the branch, then retry.
-    data = _ledger(r)
-    data["branch_head"] = _git(r["repo"], "rev-parse", "feat/x")
-    r["ledger"].write_text(yaml.safe_dump(data))
     retry = _dispatch(r["repo"], r["ledger"], "prepare-wave", "1")
 
     assert retry.returncode == 0, retry.stderr
