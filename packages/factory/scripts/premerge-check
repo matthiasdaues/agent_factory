@@ -27,9 +27,13 @@ Checks
   2. File-count blowout: `git diff --name-only <target>...<branch>` must
      not exceed `--max-files` (default 20) — a large, unscoped diff is the
      signature of a stale-base run that touched far more than intended.
-     On a story branch, the story's own files in `docs/reviews/` and
-     `docs/findings/` do not count. A file there belongs to the story when
-     its name holds the story ID or its `story` field names the story.
+     On a story branch `story/<id>`, where `<id>` is a story ID or a
+     finding ID, the unit's own files in `docs/reviews/` and
+     `docs/findings/` do not count. A file there belongs to the unit when
+     its name holds the ID or its `story` field names the ID. For a file
+     that exists at the merge base, the field counts at the merge base, so
+     a branch cannot take a file of another story by rewriting the field
+     (IMPL-0027). For a file new on the branch, it counts at the head.
   3. Out-of-scope paths (only if `--scope` given): every changed file must
      fall under at least one declared `--scope` prefix.
   4. Code review ran (story branches only): a report
@@ -42,7 +46,7 @@ Checks
      Checks 4 and 5 read the branch head through git, never the folder
      premerge-check runs in.
   6. Semantic gates (story branches only): if `<branch>` matches the pattern
-     `story/ST-NNNN`, premerge-check adds a detached worktree at the branch
+     `story/<id>`, with a story ID or a finding ID, premerge-check adds a detached worktree at the branch
      head under `.current-work/<target>/premerge/<story-id>` of the primary
      checkout and removes it afterwards (BR-123, ADR-0038). Before the add,
      it removes a worktree that a crashed run left at that path. The gate
@@ -167,7 +171,9 @@ def check_stale_base(target: str, branch: str) -> tuple[bool, str]:
 
 
 def changed_files(target: str, branch: str) -> tuple[int, list[str], str]:
-    code, out, err = run_git(["diff", "--name-only", f"{target}...{branch}"])
+    # --no-renames keeps the old name of a renamed file in the list, so a
+    # renamed finding of another story still needs a scope entry (IMPL-0057).
+    code, out, err = run_git(["diff", "--name-only", "--no-renames", f"{target}...{branch}"])
 
     if code != 0:
         return 2, [], err
@@ -226,8 +232,9 @@ def check_out_of_scope(
 
 
 def extract_story_id(branch: str) -> str | None:
-    """Extract story ID from branch name (e.g., 'story/ST-0105' -> 'ST-0105')."""
-    match = re.match(r"^story/(ST-\d+)$", branch)
+    """Extract the ID of a unit of work from its branch name: a story ID, as in
+    'story/ST-0105' -> 'ST-0105', or a finding ID, as in 'story/BUG-0090'."""
+    match = re.match(r"^story/([A-Z]+-\d+)$", branch)
     return match.group(1) if match else None
 
 
@@ -406,18 +413,41 @@ def _records_of_story(branch: str, story_id: str, paths: list[str]) -> dict[str,
     return _records_with(branch, "story", story_id, paths)
 
 
-def story_owned_files(branch: str, story_id: str, files: list[str]) -> list[str]:
+def merge_base(target: str, branch: str) -> str:
+    """The merge base of *target* and *branch*; GitReadError without one."""
+    code, out, err = run_git(["merge-base", target, branch])
+    if code != 0 or not out:
+        raise GitReadError(f"git merge-base {target} {branch}: {err or 'no merge base'}")
+    return out
+
+
+def _review_and_finding_files(rev: str) -> set[str]:
+    return set(files_at_head(rev, REVIEWS_DIR) + files_at_head(rev, FINDINGS_DIR))
+
+
+def story_owned_files(
+    target: str, branch: str, story_id: str, files: list[str]
+) -> list[str]:
     """The files of *files* in docs/reviews/ and docs/findings/ that belong to
-    the story: the name holds the story ID, or the `story` field at the head
-    of *branch* names the story. A file the branch deleted is not the story's.
+    the unit of work: the name holds the ID, or the `story` field names it.
+
+    For a file that exists at the merge base of *target* and *branch*, the
+    field counts at the merge base, so a branch cannot take a file of
+    another story by rewriting the field (IMPL-0027). For a file new on the
+    branch, the field counts at the head of *branch*.
     """
     candidates = [f for f in files if f.startswith((REVIEWS_DIR, FINDINGS_DIR))]
     if not candidates:
         return []
-    present = set(files_at_head(branch, REVIEWS_DIR) + files_at_head(branch, FINDINGS_DIR))
+    base = merge_base(target, branch)
+    at_base = _review_and_finding_files(base)
+    at_head = _review_and_finding_files(branch)
     by_name = [f for f in candidates if story_id in Path(f).name]
-    to_read = [f for f in candidates if f not in by_name and f in present]
-    by_field = _records_of_story(branch, story_id, to_read)
+    rest = [f for f in candidates if f not in by_name]
+    by_field = _records_of_story(base, story_id, [f for f in rest if f in at_base])
+    by_field |= _records_of_story(
+        branch, story_id, [f for f in rest if f not in at_base and f in at_head]
+    )
     return [f for f in candidates if f in by_name or f in by_field]
 
 
@@ -1078,7 +1108,11 @@ def main(argv: list[str] | None = None) -> int:
 
     story_id = extract_story_id(args.branch)
     try:
-        owned = story_owned_files(args.branch, story_id, files) if story_id else []
+        owned = (
+            story_owned_files(args.target, args.branch, story_id, files)
+            if story_id
+            else []
+        )
     except GitReadError as exc:
         print(f"premerge-check: {exc}", file=sys.stderr)
         return 2
@@ -1157,7 +1191,7 @@ def main(argv: list[str] | None = None) -> int:
         findings.append(suite_ok)
     elif not feature_merge:
         # Non-story branches skip semantic gates
-        print("SKIP semantic-gates: branch does not match story/ST-NNNN pattern")
+        print("SKIP semantic-gates: branch does not match the pattern story/<id>")
 
     if all(findings):
         print(

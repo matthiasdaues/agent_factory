@@ -549,6 +549,46 @@ class Ledger:
             f"dispatch: {story_id} was returned and waits for the end of the run"
         )
 
+    def next_free_wave(self) -> int:
+        """The wave after every wave of an entry and of a wave record."""
+        taken = [e.wave for e in self.stories.values() if e.wave is not None]
+        taken += [record.number for record in self.waves]
+        return max(taken, default=0) + 1
+
+    def add_finding(self, finding_id: str) -> StoryEntry:
+        """Put a finding into the next free wave and return its entry (BR-117).
+
+        A new ID gets a new entry without dependencies and without a tier, so
+        it runs on the default tier. A `pending` entry, such as one after a
+        return, is reused: its attempts restart on the default tier, `returned`
+        goes back to false, and its branch stays. Any other state raises
+        TransitionError that names the state.
+        """
+        wave = self.next_free_wave()
+        entry = self.stories.get(finding_id)
+        if entry is None:
+            entry = StoryEntry(id=finding_id, feature_branch=self.feature_branch)
+            self.stories[finding_id] = entry
+        elif entry.status != StoryState.PENDING:
+            raise TransitionError(
+                f"{finding_id} is {entry.status.value}; add takes back only "
+                "a pending entry"
+            )
+        else:
+            entry.deps = []
+            entry.tier = None
+            entry.active_tier = None
+            entry.active_session = None
+            entry.escalation_granted = False
+            entry.attempts = []
+            entry.attempt_grants = []
+            entry.reason = None
+            entry.failure_class = None
+            entry.evidence = None
+            entry.returned = False
+        entry.wave = wave
+        return entry
+
     def lets_its_wave_close(self, entry: StoryEntry, limits: AttemptLimits) -> bool:
         """True when *entry* is in one of the five states that let its wave
         close: done, blocked, failed and stopped, or held back (BR-113)."""
@@ -2087,6 +2127,7 @@ def compute_wave_plan(
 STOP_SUBCOMMANDS = frozenset(
     {
         "init",
+        "add",
         "prepare-wave",
         "prepare-story",
         "mark-dispatching",
@@ -2115,6 +2156,40 @@ READ_SUBCOMMANDS = frozenset(
 )
 
 FINDINGS_DIR = "docs/findings"
+# A story ID; every other ID of a unit of work is a finding ID (BR-117).
+STORY_ID_RE = re.compile(r"ST-\d+")
+# The blocking rule of BR-085: these categories at these severities block.
+BLOCKING_CATEGORIES = ("defect", "risk")
+BLOCKING_SEVERITIES = ("critical", "major")
+
+
+def is_story_id(unit_id: str) -> bool:
+    """True for a story ID such as ST-0350, False for a finding ID."""
+    return bool(STORY_ID_RE.fullmatch(unit_id))
+
+
+def finding_add_refusal(
+    finding_id: str, fields: dict[str, str | None] | None
+) -> str | None:
+    """Name why `dispatch add` refuses the finding, or None (BR-117).
+
+    *fields* are the top-level keys of docs/findings/<id>.md, or None when
+    the file is missing or has no frontmatter.
+    """
+    if fields is None:
+        return f"{FINDINGS_DIR}/{finding_id}.md does not exist or has no frontmatter"
+    status = fields.get("status")
+    if status != "open":
+        return f"{finding_id} has the status {status}, and add takes only an open finding"
+    category, severity = fields.get("category"), fields.get("severity")
+    if category not in BLOCKING_CATEGORIES or severity not in BLOCKING_SEVERITIES:
+        return (
+            f"{finding_id} does not block: its category is {category} and its "
+            f"severity is {severity} (BR-085)"
+        )
+    return None
+
+
 _TOP_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(?:\s+(.*))?$")
 _SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`])")
 _CHECK_SEPARATOR = " — check: "

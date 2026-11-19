@@ -1240,3 +1240,117 @@ def test_RL_17_CT_01_a_wave_record_of_an_older_writer_still_loads(tmp_path):
 
     assert record.blocked == [{"id": "ST-0350", "reason": "design question"}]
     assert record.next_ready == ["ST-0351"]
+
+
+# --- RL-12: dispatch add accepts only an open blocking finding (ST-0422) ---
+
+FINDING = """---
+id: {id}
+category: {category}
+severity: {severity}
+status: {status}
+story:
+run: feature/login
+---
+
+# {id}
+"""
+
+
+def write_finding(run: Run, finding_id: str, *, category: str = "defect",
+                  severity: str = "major", status: str = "open") -> None:
+    folder = run.root / "docs" / "findings"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{finding_id}.md").write_text(
+        FINDING.format(id=finding_id, category=category, severity=severity, status=status)
+    )
+
+
+@pytest.mark.spec("RL-12-CT-01")
+@pytest.mark.parametrize(
+    "state", [s for s in lib.StoryState if s != lib.StoryState.PENDING], ids=lambda s: s.value
+)
+def test_RL_12_CT_01_add_refuses_an_id_in_any_state_but_pending(run, state):
+    """Scenario: dispatch add refuses an ID in any state but pending."""
+    write_finding(run, "BUG-0090")
+    run.write(failed_entry("BUG-0090", tier=None, status=state))
+    before = run.path.read_text()
+
+    code, _, err = run("add", "BUG-0090")
+
+    assert code == 1
+    assert f"BUG-0090 is {state.value}" in err
+    assert run.path.read_text() == before
+
+
+@pytest.mark.spec("RL-12-CT-01")
+def test_RL_12_CT_01_add_reuses_a_pending_entry_in_the_next_free_wave(run):
+    """A pending entry goes into the wave after every entry and wave record,
+    with its attempts and tier reset, and keeps its branch (BR-117)."""
+    write_finding(run, "BUG-0090")
+    returned = failed_entry(
+        "BUG-0090", tier="standard", classes=(AU, AU), status=lib.StoryState.PENDING,
+        returned=True, escalation_granted=True, active_tier="standard",
+        attempt_grants=[{"tier": "standard", "attempt_count": 1}], reason="merge conflict",
+    )
+    run.write(returned, failed_entry("ST-0350", status=lib.StoryState.DONE))
+    ledger = lib.Ledger.load(run.path)
+    ledger.waves.append(lib.WaveCloseout(number=4))
+    ledger.save(run.path)
+
+    code, out, err = run("add", "BUG-0090")
+
+    assert code == 0, err
+    entry = run.entry("BUG-0090")
+    assert (entry.status, entry.wave, entry.returned) == (S.PENDING, 5, False)
+    assert (entry.tier, entry.active_tier, entry.escalation_granted) == (None, None, False)
+    assert (entry.attempts, entry.attempt_grants, entry.reason) == ([], [], None)
+    assert entry.branch == "story/BUG-0090"
+    assert lib.counted_tier(entry) == "economy"
+    assert "BUG-0090 is pending in wave 5" in out
+
+
+CASES = {
+    "a story of the backlog": ("ST-0351", "ST-0351 is a story, and add takes only a finding"),
+    "a finding ID with a backlog file": ("BUG-0097", "BUG-0097 is a story, and add takes only a finding"),
+    "a resolved finding": ("BUG-0093", "the status resolved"),
+    "a minor finding": ("BUG-0094", "BUG-0094 does not block"),
+    "a suggestion": ("BUG-0095", "BUG-0095 does not block"),
+    "no finding file": ("BUG-0096", "docs/findings/BUG-0096.md does not exist"),
+}
+
+
+@pytest.mark.spec("RL-12-CT-02")
+@pytest.mark.parametrize("case", list(CASES))
+def test_RL_12_CT_02_add_accepts_only_an_open_blocking_finding(run, case):
+    """Scenario Outline: dispatch add accepts only an open blocking finding."""
+    (run.root / "backlog").mkdir()
+    (run.root / "backlog" / "ST-0351.md").write_text("---\nid: ST-0351\nstatus: open\n---\n")
+    (run.root / "backlog" / "BUG-0097.md").write_text("---\nid: BUG-0097\nstatus: open\n---\n")
+    write_finding(run, "BUG-0097")
+    write_finding(run, "BUG-0093", status="resolved")
+    write_finding(run, "BUG-0094", severity="minor")
+    write_finding(run, "BUG-0095", category="suggestion")
+    run.write(failed_entry("ST-0350", status=lib.StoryState.DONE))
+    unit_id, reason = CASES[case]
+
+    code, _, err = run("add", unit_id)
+
+    assert code == 1
+    assert reason in err
+    assert unit_id not in lib.Ledger.load(run.path).stories
+
+
+@pytest.mark.spec("RL-12-CT-02")
+@pytest.mark.parametrize(("category", "severity"), [("defect", "major"), ("risk", "major")])
+def test_RL_12_CT_02_add_accepts_each_blocking_class(run, category, severity):
+    """A defect or risk finding at the severity critical or major blocks (BR-085)."""
+    write_finding(run, "BUG-0090", category=category, severity=severity)
+    run.write(failed_entry("ST-0350", status=lib.StoryState.DONE))
+
+    code, _, err = run("add", "BUG-0090")
+
+    assert code == 0, err
+    entry = run.entry("BUG-0090")
+    assert (entry.status, entry.wave, entry.deps, entry.tier) == (S.PENDING, 2, [], None)
+    assert entry.feature_branch == "feature/login"

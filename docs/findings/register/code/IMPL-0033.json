@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Both lists hold the same five parts today, and RL-06-IT-05 checks that escalate grants once the diff is back inside the scope (no to fails_purpose). A later change to the scope rule must be made twice, and a missed copy makes escalate refuse a story that merge-story accepts, or the other way round.",
   "commit": "348c85f2c42f46384634a2c3425e9b2658bfb001",
-  "status": "open"
+  "status": "resolved"
 }

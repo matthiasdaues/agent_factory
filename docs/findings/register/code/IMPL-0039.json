@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The refusal stops the merge, names the files and the worktree, and the key works as BR-124 defines (no to fails_purpose). A User who edits the wrong copy of docs/testing.yaml loses one run and has to find out which file dispatch reads. The code exists only on the story branch, so in_use is false.",
   "commit": "a431dd800cdd0f385aad5e210116c69846519559",
-  "status": "open"
+  "status": "resolved"
 }
