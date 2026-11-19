@@ -1215,7 +1215,7 @@ DISPATCH_CONTRACT = RULEBOOKS / "conventions" / "dispatch-contract.md"
 def _drift_rows_rule() -> str:
     return _flat(
         _subsection(
-            DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Drift Rows After A Merge"
+            DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Drift Rows At The Wave Close"
         )
     )
 
@@ -1226,8 +1226,8 @@ def _manual_mode_rule() -> str:
     )
 
 
-def _automated_step_4() -> str:
-    return _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", 4)
+def _automated_step(number: int) -> str:
+    return _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", number)
 
 
 def _workflow_step_in(path, section: str, number: int) -> str:
@@ -1258,13 +1258,16 @@ class TestSt0362PostMergeDispatchOrder:
         assert "`reviewed_by:` entry of the owner's declaration" in rule
         assert "closes at `fixed`" in rule
 
-    def test_st_0362_implementation_agent_runs_the_rule_after_each_merge(self):
-        step = _automated_step_4()
+    def test_st_0362_implementation_agent_runs_the_rule_at_the_wave_close(self):
+        # The drift sessions moved from the merge to the wave close (OI-18,
+        # RL-11-LN-01; ST-0421).
+        step = _automated_step(5)
         owner = step.index("dispatches the owner of each `open` row")
         reviewer = step.index("dispatches the owner's reviewer for each `fixed` row")
-        assert step.index("merge-story") < owner < reviewer
-        assert "Drift Rows After A Merge" in step
-        assert "before `close-wave`" in step
+        assert step.index("dispatch close-wave") < owner < reviewer
+        assert "Drift Rows At The Wave Close" in step
+        assert "run `close-wave` again until it passes" in step
+        assert "Drift rows" not in _automated_step(4)
 
     def test_st_0362_route_the_qa_findings_stays_step_6(self):
         step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", 6)
@@ -1302,24 +1305,32 @@ class TestSt0362ManualModeHoldsPerStory:
     """CAO-14-LN-01 and CAO-G31: per-story rule and QA routing at story close."""
 
     def test_st_0362_manual_mode_keeps_the_story_open(self):
+        # By hand each story is a wave of its own, so `close-wave` checks the
+        # rows and the human closes no story (RL-11-IT-03; ST-0421).
         rule = _manual_mode_rule()
         assert "the drift-row rule holds per story" in rule
         assert (
-            "The human does not close a story while its report has an `open` "
+            "`close-wave` refuses while the story's report has an `open` "
             "row, or a `fixed` row about an artifact on the core list." in rule
         )
+        assert "The human closes no story" in rule
+        assert "no ledger" not in rule
 
     def test_st_0362_manual_mode_routes_qa_findings_at_story_close(self):
         rule = _manual_mode_rule()
-        assert "At each story's close, the implementation agent routes the open `QA` findings" in rule
+        assert (
+            "At each story's wave close, the implementation agent routes the "
+            "open `QA` findings" in rule
+        )
         assert "CAO-G31" in rule
 
-    def test_st_0362_run_by_hand_handles_the_rows_before_the_wave_close(self):
+    def test_st_0362_run_by_hand_handles_the_rows_at_the_wave_close(self):
         # A run by hand closes a wave per story; the human closes no story and
-        # sets no `done` (RL-11-IT-03, RL-02-LN-02; ST-0411).
+        # sets no `done` (RL-11-IT-03, RL-02-LN-02; ST-0411). `close-wave`
+        # lists the rows first (OI-18; ST-0421).
         step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Run By Hand", 7)
         assert "spec-feedback report" in step
-        assert step.index("spec-feedback report") < step.index("dispatch close-wave")
+        assert step.index("dispatch close-wave") < step.index("spec-feedback report")
         assert "route the `QA` findings" in step
         assert "sets `status: done`" not in step
 

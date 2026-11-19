@@ -201,7 +201,7 @@ Motivating example: in the 2026-07-21 session a developer-agent committed on a s
 
 ### Wave Boundary As Hard Gate
 
-File-disjoint stories fan out in parallel within a wave — that concurrency is the dispatcher's strength. The constraint is between waves, not within them: **every story in a wave must reach a terminal state before the next wave launches**. A terminal state is a verified merge or an explicit blocked/failed record in the dispatch ledger.
+File-disjoint stories fan out in parallel within a wave — that concurrency is the dispatcher's strength. The constraint is between waves, not within them: **the next wave launches only after the wave record exists**. `dispatch close-wave` writes it once every unit of work of the wave is `done`, `blocked`, `failed` and stopped, or `pending` and held back by a return, and once the wave's drift rows are handled. `dispatch prepare-wave` and `dispatch prepare-story` refuse until the previous wave has its record (BR-113).
 
 This eliminates the drift pattern (wave N+1 dispatching against stale state) without sacrificing the throughput of parallel fan-out. The concurrent wave cap from [Model Tier And Wave Size](#model-tier-and-wave-size) (default six) still applies within each wave.
 
@@ -222,9 +222,9 @@ The story file's `status` field must be updated to `done` in the **same commit**
 
 This ensures the backlog file is always consistent with the repository's actual state: if the commit is present, the status is `done`; if the status is `done`, the commit is present.
 
-### Drift Rows After A Merge
+### Drift Rows At The Wave Close
 
-After a story merges, the implementation agent handles each row of the story's spec-feedback report, `docs/spec/work/spec-feedback-<story-id>.md`. It works in two passes:
+The drift sessions run at the wave close, never after a merge. Once the last unit of work of a wave has merged or stopped, the implementation agent runs `dispatch close-wave <wave>`. `close-wave` reads the spec-feedback report of each story of the wave, `docs/spec/work/spec-feedback-<story-id>.md`. It refuses while a row is `open`, or `fixed` about an artifact on the core list `rulebooks/core-artifacts.yaml`, and lists each such row with its owner (BR-062). The implementation agent handles each listed row in two passes:
 
 1. The implementation agent dispatches the owner of each `open` row. The owner is the agent in the row's Owner column. The owner changes the artifact and sets the row to `fixed`.
 2. The implementation agent then dispatches the owner's reviewer for each `fixed` row. The reviewer is the `reviewed_by:` entry of the owner's declaration that matches the row's artifact. The reviewer sets the row to `confirmed` or `rejected`.
@@ -235,13 +235,15 @@ When the reviewer is the stakeholder, the implementation agent dispatches no rev
 
 A reviewer sets `rejected` when the code breaks an accepted requirement. The reviewer that rejects the row files a `BUG` finding, `docs/findings/BUG-NNNN.md`, with `owner: developer-agent`. When the stakeholder rejects, the agent that ran the session files the `BUG` finding. A `rejected` row does not block the wave. The implementation agent states this rule in the brief of each owner and each reviewer.
 
+Owners and reviewers commit each row status on the feature branch (ADR-0029). After every dispatch has returned, the implementation agent runs `close-wave` again, and repeats the two passes until it passes. It does not wait for the User's go, because the wave close starts, merges and destroys nothing.
+
 ### Manual Mode
 
-Manual mode (`--manual`) disables all mechanized dispatch infrastructure. No dispatch scripts, no ledger, no automated SHA verification, no wave boundaries. The implementation-agent dispatches stories serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. A code-review-agent reviews each committed story before the next dispatch. When defects are found, the implementation-agent dispatches a fresh developer-agent with the findings for remediation. The human commits fixes.
+Manual mode (`--manual`) is the run by hand. It keeps the same ledger, story workflow and checks as an orchestrated run, and it runs one story at a time in the primary checkout.
 
-Manual mode has no waves, so the drift-row rule holds per story. After the human commits a story, the implementation agent handles the story's report as [Drift Rows After A Merge](#drift-rows-after-a-merge) describes. The human does not close a story while its report has an `open` row, or a `fixed` row about an artifact on the core list. The core list is `rulebooks/core-artifacts.yaml`. At each story's close, the implementation agent routes the open `QA` findings, as step 6 of the automated workflow does after `close-wave` (CAO-G31).
+Each story is a wave of its own (BR-064), so the drift-row rule holds per story. After the story merges or stops, the implementation agent runs `dispatch close-wave <wave>` and handles each listed row as [Drift Rows At The Wave Close](#drift-rows-at-the-wave-close) describes. `close-wave` refuses while the story's report has an `open` row, or a `fixed` row about an artifact on the core list. The core list is `rulebooks/core-artifacts.yaml`. `dispatch prepare-story` refuses the next story until the wave has its record. The human closes no story, because `close-wave` checks the rows. At each story's wave close, the implementation agent routes the open `QA` findings, as step 6 of the automated workflow does after `close-wave` (CAO-G31).
 
-The following sections do not apply in manual mode: Dispatch Ledger, Wave Boundary As Hard Gate, Hard Checkpoint Per Story, Wave Closeout Record, Story Status Commit Rule, QA-in-Worktree Divergence.
+QA-in-Worktree Divergence does not apply in manual mode, because the story runs in the primary checkout.
 
 ### Dispatch Ledger
 

@@ -91,6 +91,8 @@ def returned_run(tmp_path: Path) -> tuple[Path, Path]:
         ("mark-dispatched", "ST-0350"),
         ("mark-blocked", "ST-0350", "--reason", "- see the CI log"),
         ("return-story", "ST-0350"),
+        # The returned ST-0350 lets wave 1 close (BR-113, ST-0421).
+        ("close-wave", "1"),
     ):
         result = _dispatch(repo, ledger, *args)
         assert result.returncode == 0, (args, result.stdout, result.stderr)

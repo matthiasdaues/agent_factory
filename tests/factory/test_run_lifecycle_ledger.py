@@ -884,6 +884,8 @@ def test_RL_07_CT_01_a_returned_story_holds_back_the_chain_behind_it(run, starte
     wave_one = run("prepare-wave", "1")
     merged = lib.Ledger.load(run.path)
     merged.stories["ST-0353"].status = S.DONE
+    # The held-back entries let waves 1 and 2 close (BR-113, ST-0421).
+    merged.waves += [lib.WaveCloseout(number=n, branch_head=SHA) for n in (1, 2)]
     merged.save(run.path)
     wave_two = run("prepare-wave", "2")
     direct = run("prepare-story", "ST-0351")
@@ -964,6 +966,27 @@ def test_RL_07_CT_03_prepare_story_refuses_a_returned_story_and_names_the_return
 
 
 @pytest.mark.spec("RL-07-CT-03")
+def test_RL_07_CT_03_prepare_story_names_the_return_of_a_seams_first_story(run, started):
+    """IMPL-0037: an orchestrated prepare-story of a returned seams-first story
+    names the return, not the seam session."""
+    (run.root / "backlog").mkdir(exist_ok=True)
+    (run.root / "backlog" / "ST-0351.md").write_text(
+        SEAMS_FIRST_STORY.replace("ST-0350", "ST-0351")
+    )
+    write_run(run, [pending_entry("ST-0351", 1, returned=True)], record=True)
+
+    code, _, err = run("prepare-story", "ST-0351")
+
+    assert code == 1
+    assert "ST-0351 was returned and waits for the end of the run" in err
+    assert "seam session" not in err
+    assert started == []
+    assert (run.entry("ST-0351").status, run.entry("ST-0351").returned) == (
+        S.PENDING, True,
+    )
+
+
+@pytest.mark.spec("RL-07-CT-03")
 def test_RL_07_CT_03_prepare_wave_refuses_a_returned_story_and_starts_the_others(
     run, started
 ):
@@ -981,6 +1004,154 @@ def test_RL_07_CT_03_prepare_wave_refuses_a_returned_story_and_starts_the_others
     assert started == ["ST-0353"]
     assert run.entry("ST-0351").status == S.PENDING
     assert run.entry("ST-0353").status == S.PREPARED
+
+
+# --- RL-11-CT: the five states that let a wave close (ST-0421) ---------------
+
+
+def wave_one(state_of_st_0351: lib.StoryEntry, *more: lib.StoryEntry) -> lib.Ledger:
+    """Wave 1 holds the done ST-0350 and *state_of_st_0351*."""
+    ledger = lib.Ledger()
+    ledger.feature_branch = "feature/login"
+    ledger.stories["ST-0350"] = pending_entry(
+        "ST-0350", 1, status=S.DONE, commit_sha=SHA
+    )
+    for entry in (state_of_st_0351, *more):
+        ledger.stories[entry.id] = entry
+    return ledger
+
+
+def st_0351(**fields) -> lib.StoryEntry:
+    fields.setdefault("status", S.PENDING)
+    return lib.StoryEntry(
+        id="ST-0351", wave=1, feature_branch="feature/login",
+        deps=fields.pop("deps", []), **fields,
+    )
+
+
+KEEPS_THE_WAVE_OPEN = {
+    "dispatched": st_0351(status=S.DISPATCHED),
+    "failed after its first counted attempt": st_0351(
+        status=S.FAILED, tier="standard", attempts=[attempt(AU)]
+    ),
+    "pending without a returned dependency": st_0351(),
+    "prepared": st_0351(status=S.PREPARED),
+    "dispatching": st_0351(status=S.DISPATCHING),
+    "failed without an attempt": st_0351(status=S.FAILED, tier="standard"),
+}
+
+LETS_THE_WAVE_CLOSE = {
+    "done": st_0351(status=S.DONE, commit_sha=SHA),
+    "blocked": st_0351(status=S.BLOCKED, reason="red suite"),
+    "failed and stopped": st_0351(
+        status=S.FAILED, tier="strong", attempts=[attempt(AU, "strong")] * 3
+    ),
+    "failed after two contract_violation attempts": st_0351(
+        status=S.FAILED, tier="standard",
+        attempts=[attempt("contract_violation")] * 2,
+    ),
+    "pending after a return": st_0351(returned=True),
+}
+
+
+@pytest.mark.spec("RL-11-CT-01")
+@pytest.mark.parametrize("state", list(KEEPS_THE_WAVE_OPEN), ids=lambda s: s.replace(" ", "-"))
+def test_RL_11_CT_01_close_wave_refuses_while_a_unit_of_work_can_still_go_on(state):
+    """Scenario Outline: close-wave refuses while a unit of work of the wave can still go on."""
+    ledger = wave_one(KEEPS_THE_WAVE_OPEN[state])
+
+    with pytest.raises(lib.TransitionError) as refusal:
+        ledger.close_wave(1, SHA, limits=lib.AttemptLimits(3, 3))
+
+    assert "ST-0351" in str(refusal.value)
+    assert "ST-0350" not in str(refusal.value)
+    assert ledger.waves == []
+
+
+@pytest.mark.spec("RL-11-CT-01")
+@pytest.mark.parametrize("state", list(LETS_THE_WAVE_CLOSE), ids=lambda s: s.replace(" ", "-"))
+def test_RL_11_CT_01_close_wave_accepts_each_state_that_lets_the_wave_close(state):
+    """A unit of work lets its wave close when it is done, blocked, failed and
+    stopped, or pending after a return (BR-062, BR-113)."""
+    ledger = wave_one(LETS_THE_WAVE_CLOSE[state])
+
+    _record, created = ledger.close_wave(1, SHA, limits=lib.AttemptLimits(3, 3))
+
+    assert created
+    assert [record.number for record in ledger.waves] == [1]
+    assert ledger.stories["ST-0351"].status == LETS_THE_WAVE_CLOSE[state].status
+
+
+@pytest.mark.spec("RL-11-CT-01")
+def test_RL_11_CT_01_the_refusal_names_every_open_unit_of_work_with_its_state():
+    ledger = wave_one(
+        st_0351(status=S.DISPATCHED),
+        lib.StoryEntry(id="ST-0352", wave=1, status=S.FAILED, tier="standard",
+                       attempts=[attempt(AU)]),
+    )
+
+    with pytest.raises(lib.TransitionError) as refusal:
+        ledger.close_wave(1, SHA, limits=lib.AttemptLimits(3, 3))
+
+    assert "ST-0351 (dispatched)" in str(refusal.value)
+    assert "ST-0352 (failed with a retry left)" in str(refusal.value)
+
+
+@pytest.mark.spec("RL-11-CT-02")
+def test_RL_11_CT_02_a_wave_closes_while_its_stories_wait_on_a_returned_dependency():
+    """Scenario: A wave closes while its stories wait on a returned dependency."""
+    ledger = lib.Ledger()
+    ledger.feature_branch = "feature/login"
+    for entry in (
+        pending_entry("ST-0350", 1, returned=True),
+        pending_entry("ST-0351", 1, "ST-0350"),
+        pending_entry("ST-0352", 1, "ST-0351"),
+    ):
+        ledger.stories[entry.id] = entry
+
+    _record, created = ledger.close_wave(1, SHA, limits=lib.AttemptLimits())
+
+    assert created
+    assert [record.number for record in ledger.waves] == [1]
+    for story_id in ("ST-0350", "ST-0351", "ST-0352"):
+        assert ledger.stories[story_id].status == S.PENDING
+        assert ledger.stories[story_id].wave == 1
+    assert [ledger.stories[s].returned for s in ("ST-0351", "ST-0352")] == [False, False]
+
+
+@pytest.mark.spec("RL-11-CT-03")
+def test_RL_11_CT_03_a_wave_closes_when_escalate_refused_a_failed_story_for_its_scope(
+    run, monkeypatch
+):
+    """Scenario: A wave closes when dispatch escalate refused a failed story for
+    its scope. close-wave reads only the ledger and docs/testing.yaml: a git
+    command on the story branch, or a read of its diff, fails the test."""
+    run.gates(attempts=3, attempts_escalated=3)
+    run.write(
+        failed_entry(classes=[AU, AU, AU], reason=lib.ESCALATE_REFUSED_SCOPE),
+        pending_entry("ST-0351", 1, status=S.DONE, commit_sha=SHA),
+    )
+
+    def git(*args: str) -> tuple[int, str, str]:
+        assert not any("story/" in arg for arg in args), args
+        if args[0] == "rev-parse":
+            return 0, SHA, ""
+        if args[0] == "cat-file":
+            return 1, "", ""
+        raise AssertionError(f"close-wave ran git {args}")
+
+    def no_diff(*args):
+        raise AssertionError("close-wave read the diff of the story branch")
+
+    monkeypatch.setattr(run.dispatch, "_git", git)
+    monkeypatch.setattr(run.dispatch, "_story_scope_violation", no_diff)
+
+    code, _, err = run("close-wave", "1")
+
+    assert code == 0, err
+    assert [record.number for record in lib.Ledger.load(run.path).waves] == [1]
+    entry = run.entry()
+    assert (entry.status, entry.tier) == (S.FAILED, "standard")
 
 
 # --- RL-17-CT-01: the stdlib writer writes YAML that PyYAML reads (IMPL-0032) --

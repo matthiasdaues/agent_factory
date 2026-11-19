@@ -266,6 +266,10 @@ def test_close_wave_does_not_list_a_story_whose_dependency_failed(tmp_path):
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
     ledger = lib.Ledger.load(r["ledger"])
     ledger.stories["ST-0001"].status = lib.StoryState.FAILED
+    # Only a failed story that has stopped lets its wave close (ST-0421).
+    ledger.stories["ST-0001"].attempts = [
+        {"failure_class": "contract_violation"}, {"failure_class": "contract_violation"},
+    ]
 
     record, _ = ledger.close_wave(1, "a" * 40)
 
@@ -278,6 +282,8 @@ def test_prepare_wave_skips_a_story_whose_dependency_is_blocked(tmp_path):
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
     assert _dispatch(r["repo"], r["ledger"], "prepare-wave", "1").returncode == 0
     _block_story(r, "ST-0001")
+    # The next wave waits for the wave record (BR-113, ST-0421).
+    assert _dispatch(r["repo"], r["ledger"], "close-wave", "1").returncode == 0
 
     result = _dispatch(r["repo"], r["ledger"], "prepare-wave", "2")
 
@@ -465,6 +471,8 @@ def chain(tmp_path: Path) -> dict[str, Path]:
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
     assert _dispatch(r["repo"], r["ledger"], "prepare-wave", "1").returncode == 0
     _finish_story(r, "ST-0001")
+    # ST-0002 lies in wave 2, which waits for the record of wave 1 (ST-0421).
+    assert _dispatch(r["repo"], r["ledger"], "close-wave", "1").returncode == 0
     return r
 
 

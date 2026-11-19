@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The step names both refusals and keeps the agent from repairing the worktree, which is what RL-08-LN-01 requires, and merge-story itself refuses and keeps the entry dispatched (no to fails_purpose). An agent that meets either refusal must infer the next step from the dispatch messages or ask the User. The text exists only on the story branch, so in_use is false.",
   "commit": "a431dd800cdd0f385aad5e210116c69846519559",
-  "status": "open"
+  "status": "resolved"
 }
