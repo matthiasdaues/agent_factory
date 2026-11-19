@@ -56,8 +56,8 @@ from dispatch_lib import (
     clear_manifest_force,
     compute_wave_plan,
     counted_attempts_on_tier,
+    counted_tier,
     drift_row_problems,
-    entry_tier,
     glob_match,
     grant_attempts,
     has_stopped,
@@ -1681,7 +1681,7 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
     if current_status != target_state:
         entry.failure_class = args.failure_class
         entry.evidence = args.evidence
-        tier = entry.active_tier or entry_tier(
+        tier = counted_tier(
             entry, _story_declared_tier(_project_root(), args.story_id)
         )
         append_attempt(
@@ -1706,7 +1706,7 @@ def _print_stop_state(project_root: Path, entry: StoryEntry) -> None:
     limits = _attempt_limits_or_error(project_root)
     if limits is None:
         return
-    tier = entry_tier(entry, _story_declared_tier(project_root, entry.id))
+    tier = counted_tier(entry, _story_declared_tier(project_root, entry.id))
     if has_stopped(entry, limits, tier):
         print(
             f"dispatch: {entry.id} has stopped as {entry.status.value} "
@@ -1715,6 +1715,12 @@ def _print_stop_state(project_root: Path, entry: StoryEntry) -> None:
         return
     counted = counted_attempts_on_tier(entry, tier)
     limit = tier_attempt_limit(entry, tier, limits)
+    if entry.status == StoryState.FAILED and counted >= limit:
+        print(
+            f"dispatch: {entry.id} has used up its {counted} of {limit} counted "
+            f"attempts on the tier {tier}; run `dispatch escalate {entry.id}`"
+        )
+        return
     print(
         f"dispatch: {entry.id} has a retry left ({counted} of {limit} counted "
         f"attempts on the tier {tier}); run `dispatch re-dispatch {entry.id}`"
@@ -1776,7 +1782,7 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
 
     project_root = _project_root()
     limits = AttemptLimits()
-    tier = entry_tier(entry, _story_declared_tier(project_root, args.story_id))
+    tier = counted_tier(entry, _story_declared_tier(project_root, args.story_id))
     if entry.status == StoryState.FAILED:
         read = _attempt_limits_or_error(project_root)
         if read is None:
@@ -1845,7 +1851,7 @@ def cmd_escalate(args: argparse.Namespace) -> int:
     if limits is None:
         return 1
 
-    story_tier = entry_tier(entry, _story_declared_tier(project_root, args.story_id))
+    story_tier = counted_tier(entry, _story_declared_tier(project_root, args.story_id))
     refusal = ledger_escalation_refusal(entry, story_tier, limits)
     if refusal is None:
         counted = counted_attempts_on_tier(entry, story_tier)

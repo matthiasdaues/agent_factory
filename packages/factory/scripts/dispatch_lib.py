@@ -191,6 +191,16 @@ def entry_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
     return "economy"
 
 
+def counted_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
+    """Return the tier on which `mark-failed` records an attempt and dispatch counts it.
+
+    It is the tier the entry runs on now: `active_tier`, else `entry_tier`.
+    A seams-first implementation session sets `active_tier` one tier below
+    the story's tier, so its attempts count on that lower tier (BR-114).
+    """
+    return entry.active_tier or entry_tier(entry, declared_tier)
+
+
 def _last_grant(entry: StoryEntry) -> dict[str, Any] | None:
     grants = [grant for grant in entry.attempt_grants if isinstance(grant, dict)]
     return grants[-1] if grants else None
@@ -286,7 +296,7 @@ def has_stopped(
         return False
     if contract_violation_count(entry) >= 2:
         return True
-    current = tier or entry_tier(entry)
+    current = tier or counted_tier(entry)
     return attempts_used_up(entry, current, limits) and cannot_escalate(
         entry, current, limits
     )

@@ -166,6 +166,25 @@ def failed_entry(story_id: str = "ST-0350", tier: str = "standard", classes=(), 
     )
 
 
+def seams_first_entry(active_tier: str = "economy", classes=(), **fields):
+    """A seams-first story declared `standard`: `tier` is unset until `escalate`
+    writes it, and the implementation session runs on *active_tier*."""
+    entry = failed_entry(tier=None, active_session="impl", active_tier=active_tier,
+                         **fields)
+    entry.attempts = [attempt(c, active_tier) for c in classes]
+    return entry
+
+
+SEAMS_FIRST_STORY = """---
+id: ST-0350
+tier: standard
+strategy: seams-first
+---
+
+# A seams-first story
+"""
+
+
 class Run:
     """A ledger in tmp_path and the dispatch script, called in this process.
 
@@ -549,6 +568,12 @@ def test_RL_06_CT_02_re_dispatch_checks_the_scope_again(run):
          lib.AttemptLimits(), True),
         ("an attempt of another class on strong",
          failed_entry(tier="strong", classes=["spend_death"] * 4), lib.AttemptLimits(), False),
+        ("last counted attempt of a seams-first session with an escalation left",
+         seams_first_entry(classes=[AU, AU, AU]), lib.AttemptLimits(), False),
+        ("seams-first session used up after an escalation",
+         seams_first_entry(active_tier="standard", classes=[AU, AU, AU],
+                           escalation_granted=True),
+         lib.AttemptLimits(), True),
         ("blocked", failed_entry(status=lib.StoryState.BLOCKED), lib.AttemptLimits(), True),
         ("dispatched", failed_entry(status=lib.StoryState.DISPATCHED, classes=[AU] * 3,
                                     tier="strong"), lib.AttemptLimits(), False),
@@ -576,6 +601,72 @@ def test_RL_03_CT_01_mark_failed_says_a_retry_is_left(run):
     assert entry.attempts[-1]["failure_class"] == AU
     assert entry.attempts[-1]["tier"] == "standard"
     assert not lib.has_stopped(entry, run.limits())
+
+
+@pytest.mark.spec("RL-03-CT-01")
+def test_RL_03_CT_01_mark_failed_names_escalate_after_the_last_attempt_on_the_tier(run):
+    """After the third counted attempt on a tier that can still escalate, the
+    next step is `dispatch escalate`, not a retry (BR-115, BR-116)."""
+    run.write(failed_entry(status=lib.StoryState.DISPATCHED, classes=[AU, AU]))
+
+    code, out, err = run("mark-failed", "ST-0350", "--class", AU)
+
+    assert code == 0, err
+    assert "has a retry left" not in out
+    assert "ST-0350 has used up its 3 of 3 counted attempts on the tier standard" in out
+    assert "dispatch escalate ST-0350" in out
+    assert not lib.has_stopped(run.entry(), run.limits())
+
+
+def write_seams_first_story(run: Run) -> None:
+    (run.root / "backlog").mkdir(exist_ok=True)
+    (run.root / "backlog" / "ST-0350.md").write_text(SEAMS_FIRST_STORY)
+
+
+@pytest.mark.spec("RL-05-CT-01")
+def test_RL_05_CT_01_a_seams_first_session_counts_its_attempts_on_its_own_tier(run):
+    """mark-failed records an attempt on the tier that dispatch counts: a
+    seams-first implementation session declared `standard` runs on `economy`,
+    and its third counted attempt there names escalate (IMPL-0030)."""
+    write_seams_first_story(run)
+    run.write(seams_first_entry(status=lib.StoryState.DISPATCHED, classes=[AU, AU]))
+
+    code, out, err = run("mark-failed", "ST-0350", "--class", AU)
+
+    assert code == 0, err
+    entry = run.entry()
+    assert entry.attempts[-1]["tier"] == "economy"
+    assert lib.counted_tier(entry, "standard") == "economy"
+    assert lib.counted_attempts_on_tier(entry, "economy") == 3
+    assert "3 of 3 counted attempts on the tier economy" in out
+    assert "dispatch escalate ST-0350" in out
+    assert not lib.has_stopped(entry, run.limits())
+
+    code, _, err = run("re-dispatch", "ST-0350")
+    assert code != 0
+    assert "dispatch escalate ST-0350" in err
+
+    code, out, err = run("escalate", "ST-0350")
+    assert code == 0, err
+    assert "economy -> standard" in out
+    entry = run.entry()
+    assert entry.tier == "standard"
+    assert entry.active_tier == "standard"
+
+
+@pytest.mark.spec("RL-05-CT-02")
+def test_RL_05_CT_02_the_gate_loop_of_a_seams_first_story_stops(run):
+    """A seams-first story gets the attempts of each tier and then stops, as
+    any other story does (BR-114, BR-116, IMPL-0030)."""
+    write_seams_first_story(run)
+    run.write(seams_first_entry(status=lib.StoryState.PREPARED))
+
+    run.gate_loop()
+
+    assert run.tiers_of_attempts() == Counter({"economy": 3, "standard": 3})
+    entry = run.entry()
+    assert entry.status == lib.StoryState.FAILED
+    assert lib.has_stopped(entry, run.limits())
 
 
 @pytest.mark.spec("RL-03-CT-01")
