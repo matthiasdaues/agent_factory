@@ -16,5 +16,5 @@
   },
   "why_this_severity": "dispatch reads every ledger with its own stdlib loader, which returns each probed string unchanged, and every record that dispatch writes now round-trips through PyYAML (no to fails_purpose). A test, a review probe, or a python3 run with PyYAML installed fails on a ledger that holds such a reason, and the operator must find and quote the value by hand. The quoting rule exists unchanged in the installed copy, so in_use is true, but no installed tool reads a ledger with PyYAML, so harms_downstream is false.",
   "commit": "348c85f2c42f46384634a2c3425e9b2658bfb001",
-  "status": "open"
+  "status": "resolved"
 }

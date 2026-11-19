@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0038",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/implementation-agent.md:173",
+  "story": "ST-0416",
+  "finding": "Step 4d of the orchestrated workflow tells the implementation agent to report a dirty-worktree refusal to the User and to leave the worktree alone, but it does not say what the agent does after the User has committed, reverted, or set the key. For a refused premerge-check the step ends with \"run step 4d again\"; the dirty-worktree case has no such step, so an agent can end the wave or wait without a rule. The last sentence, \"The rerun after a refused amend does not check the worktree\", names a rerun that step 4d never asks for: the step does not say that a refused amend exits 1 and that the agent runs merge-story again after the User fixes the hook. The gap starts in the agent text; dispatch behaves as BR-124 and BR-118 require. It looks like an omission. The smallest fix is two sentences in step 4d: after the User has acted on a dirty-worktree refusal, run step 4d again; when a hook refuses the amend, report the message to the User and run step 4d again after the User has fixed the cause.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The step names both refusals and keeps the agent from repairing the worktree, which is what RL-08-LN-01 requires, and merge-story itself refuses and keeps the entry dispatched (no to fails_purpose). An agent that meets either refusal must infer the next step from the dispatch messages or ask the User. The text exists only on the story branch, so in_use is false.",
+  "commit": "a431dd800cdd0f385aad5e210116c69846519559",
+  "status": "open"
+}

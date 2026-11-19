@@ -77,9 +77,11 @@ scope checks, cleanup, and the ledger. Story branches get worktrees under
 from `dispatch init`. Record the branch head from `dispatch close-wave`. Hand
 off with `--base <branch-root> --head <branch-head>`.
 
-**Manual mode:** the human creates or adopts the feature branch directly. No
-dispatch scripts, no ledger, no worktrees. The human owns all branch
-operations, commits, and pushes.
+**Run by hand:** `dispatch init --mode by-hand` cuts the feature branch and
+writes the ledger, and it adds no worktree. `dispatch prepare-story` cuts each
+story branch from the tip of the feature branch and checks it out in the
+primary checkout. `dispatch merge-story` checks the feature branch out again
+before it merges. The User pushes.
 
 Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wave large enough to risk a long-running, hard-to-verify dispatch must be split into smaller, independently mergeable dispatches rather than run as one.
 
@@ -87,10 +89,10 @@ Per [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md), a wav
 
 The dispatcher accepts a `mode` parameter at invocation:
 
-| Mode        | Trigger                                                     | Behaviour                                                                                                                             |
-| ----------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `automated` | `implement backlog`                                         | Parallel waves, worktrees, subagent commits, auto-merge after scripted gate checks                                                    |
-| `manual`    | `implement backlog --manual --feature-branch <branch-name>` | Single feature branch in primary checkout, serial stories, no staging or committing, human reviews and commits, code review per story |
+| Mode        | Trigger                                                     | Behaviour                                                                                                                         |
+| ----------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `automated` | `implement backlog`                                         | Parallel waves, worktrees, subagent commits, auto-merge after scripted gate checks                                                |
+| `manual`    | `implement backlog --manual --feature-branch <branch-name>` | A run by hand: one story at a time in the primary checkout, the same ledger and story workflow, a stop before each decision point |
 
 ### Mode resolution
 
@@ -103,6 +105,45 @@ The effective mode is the first match:
 No hardcoded factory default. If none of the three resolves, ask the user.
 
 Resolve before Step 1 and state the effective mode and its source.
+
+### Who runs each dispatch command
+
+The implementation agent runs every `dispatch` command of a run on both ways, except three. The User runs `dispatch return-story` and `dispatch close --drop`, which the guardrail refuses agents, and `dispatch close`.
+
+| Subcommand                                                                                                                    | Orchestrated run          | Run by hand                                    |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ---------------------------------------------- |
+| `init`                                                                                                                        | The implementation agent. | The implementation agent.                      |
+| `plan`, `prepare-wave`                                                                                                        | The implementation agent. | Not used. Each story is a wave of its own.     |
+| `prepare-story`, `add`, `merge-story`                                                                                         | The implementation agent. | The implementation agent, after the User's go. |
+| `mark-dispatching`, `mark-dispatched`, `verify-story`, `escalate`, `mark-failed`, `mark-blocked`, `re-dispatch`, `close-wave` | The implementation agent. | The implementation agent.                      |
+| `refresh-story`                                                                                                               | The implementation agent. | Not used.                                      |
+| `return-story`, `close --drop`, `close`                                                                                       | The User.                 | The User.                                      |
+
+The User runs the three commands with `!` in Claude Code or in a terminal of their own. A run by hand needs no `refresh-story`: one story runs at a time, so the feature branch does not move under it.
+
+## Story workflow
+
+Every story goes through these steps on its story branch, in an orchestrated run and in a run by hand:
+
+1. **Implement.** A developer agent implements the story with TDD and commits.
+2. **Review.** The code-review agent reviews the diff of the story branch and writes `docs/reviews/code-review-<story-id>-YYYY-MM-DD.md`. Each finding names the story. A developer agent commits the report and the findings on the story branch, also when the review files no finding.
+3. **Fix.** A fresh developer agent fixes each open blocking finding of the story and commits. The code-review agent then reviews the story branch again. Repeat until no blocking finding with the story's ID is open. [finding-classification.md § Shared severity scale and blocking rule](../rulebooks/conventions/finding-classification.md#shared-severity-scale-and-blocking-rule) defines which findings block.
+4. **Gate-check step.** The implementation agent runs the gates of the [Gate-Check Loop](#gate-check-loop) on the story branch, with a fresh developer agent for each retry.
+5. **Merge.** `dispatch merge-story <story-id>` merges the story branch into the feature branch and sets `status: done` in the merge commit.
+
+The developer agent commits on both ways, so the review and the gates see committed work. It never runs a gate script and never sets `status: done`.
+
+**Prompt template for a fix of review findings:**
+
+> You are a developer-agent. You work on branch `story/ST-NNNN`. The code review of story `ST-NNNN` filed blocking findings.
+>
+> **Review report:** `docs/reviews/code-review-<story-id>-<date>.md`
+>
+> **Findings:** `<list of open blocking finding paths>`
+>
+> **Affected files:** `<list of files flagged in findings>`
+>
+> Fix the findings, commit, and return your summary: files changed, tests passing, commit SHAs. Story: `backlog/ST-NNNN.md`
 
 ## Workflow — Automated Mode
 
@@ -125,12 +166,13 @@ Resolve before Step 1 and state the effective mode and its source.
 
 3. **Prepare and dispatch** — `dispatch prepare-wave <wave>` for parallel-safe stories and serial-chain heads; `dispatch prepare-story <id>` for later serial links after predecessor merge. Call `mark-dispatching` before launch, `mark-dispatched` after.
 
-4. **Verify, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. For each completed story:
+4. **Verify, review, gate-check, merge, checkpoint** — Per [dispatch-contract.md § Hard Checkpoint Per Story](../rulebooks/conventions/dispatch-contract.md#hard-checkpoint-per-story), every story must reach terminal state before the next wave launches. For each completed story:
    a. **SHA verification**: call `.agent-factory/factory/scripts/dispatch verify-story <story-id> --sha <reported-commit-sha>` on every commit SHA the subagent reported.
-   b. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, attempt limits, escalation, and fix-iteration prompt template. Start every fix iteration with `.agent-factory/factory/scripts/dispatch refresh-story <story-id>`, so the story branch contains the moved invocation branch and `verify-base` passes.
-   c. **Merge**: when all gates pass, call `.agent-factory/factory/scripts/dispatch merge-story <story-id>` from the invocation branch's worktree. The script refuses to run on any other branch. It owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence.
-   d. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
-   e. **Drift rows**: after the merge, handle the merged story's report, `docs/spec/work/spec-feedback-<story-id>.md`, as [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge) describes. The dispatcher first dispatches the owner of each `open` row, and the owner sets `fixed`. It then dispatches the owner's reviewer for each `fixed` row, and the reviewer sets `confirmed` or `rejected`. A rejecting reviewer files a `BUG` finding with `owner: developer-agent`. Wait for every dispatch to return before `close-wave`. A story without a report needs no dispatch.
+   b. **Review and fix**: run steps 2 and 3 of the [story workflow](#story-workflow) on the story branch.
+   c. **Gate-check loop**: run the semantic quality gates on the developer's committed artifacts. See [Gate-Check Loop](#gate-check-loop) below for the full algorithm, quality-gates resolution, attempt limits, escalation, and fix-iteration prompt template. Start every fix iteration with `.agent-factory/factory/scripts/dispatch refresh-story <story-id>`, so the story branch contains the moved invocation branch and `verify-base` passes.
+   d. **Merge**: when all gates pass, call `.agent-factory/factory/scripts/dispatch merge-story <story-id>` from the invocation branch's worktree. The script refuses to run on any other branch. It owns `premerge-check`, the merge, the `status: done` update, post-merge tests, worktree/branch cleanup, and ledger persistence. When `premerge-check` refuses, `merge-story` exits `1`, merges nothing, and the story stays `dispatched` (BR-124). Send the story back to the gate-check step: run the [fix-iteration loop](#fix-iteration-loop) on the story branch. The fresh developer agent gets the `premerge-check` output as its gate output. Once all gates pass again, run step 4d again. After a passing `premerge-check`, `merge-story` also refuses when the worktree of the feature branch holds an uncommitted change to a tracked file. Report its message to the User unchanged, and do not change that worktree. The User commits or reverts the change, or sets `dispatch.refuse_dirty_feature_worktree: false` in `docs/testing.yaml`. The rerun after a refused amend does not check the worktree.
+   e. **Failed/blocked stories**: record the outcome with the appropriate dispatch subcommand before continuing. A conflict or red suite means the overlap analysis missed a real collision — resolve it. Failed stories stay `pending`; they do not block unrelated stories in the same wave but do block the next wave until recorded.
+   f. **Drift rows**: after the merge, handle the merged story's report, `docs/spec/work/spec-feedback-<story-id>.md`, as [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge) describes. The dispatcher first dispatches the owner of each `open` row, and the owner sets `fixed`. It then dispatches the owner's reviewer for each `fixed` row, and the reviewer sets `confirmed` or `rejected`. A rejecting reviewer files a `BUG` finding with `owner: developer-agent`. Wait for every dispatch to return before `close-wave`. A story without a report needs no dispatch.
 
 5. **Closeout** — Call `.agent-factory/factory/scripts/dispatch close-wave <wave-number>` after every story in the wave is terminal.
 
@@ -148,79 +190,53 @@ Resolve before Step 1 and state the effective mode and its source.
 >
 > Implement story `ST-NNNN` on branch `<feature-branch>` following workflow: Analyse → Agree seams → Red-green TDD → Commit → Spec feedback. Story: `backlog/ST-NNNN.md`
 
-## Workflow — Manual Mode
+## Workflow — Run By Hand
 
-1. **Load backlog** — Parse `id`, `status`, `deps`, `tier`, and `touches` from
-   `backlog/ST-*.md`. Build the dependency graph. Identify ready stories whose
-   dependencies are done.
+A run by hand uses the same ledger, [story workflow](#story-workflow) and checks as an orchestrated run. Each story is a wave of its own and runs in the primary checkout, one story at a time. Before each decision point, the agent stops as [Stops by hand](#stops-by-hand) describes and waits for the User's go.
 
-2. **Branch** — Adopt the current branch if one is checked out, or create
-   `feature/<name>` from `dev` with `git checkout -b`. No dispatch scripts.
+1. **Load backlog and initialise** — Parse `id`, `status`, `deps`, `tier`, and `touches` from `backlog/ST-*.md`. Build the dependency graph. Run `.agent-factory/factory/scripts/dispatch init --mode by-hand --base dev --feature-branch feature/<proposal-title> --stories <ids>`. It cuts the feature branch and writes the ledger, and it adds no worktree. Stop if `init` fails.
 
-3. **Pick next story** — Present the next dependency-ready story to the human
-   and wait for confirmation before dispatching.
+2. **Start the next story** — Pick the next story whose dependencies are `done`. Stop before it starts. On the go, run `dispatch prepare-story <story-id>`. It cuts `story/<story-id>` from the tip of the feature branch and checks it out in the primary checkout.
 
-4. **Dispatch to developer-agent** — Spawn a developer-agent with
-   `--no-stage --no-commit`. The developer writes code, runs tests, and runs
-   the gates of the [Gate-Check Loop](#gate-check-loop). It then returns a
-   summary of changed files, passing tests, gate results, and any
-   spec-feedback notes.
+3. **Implement** — Run `dispatch mark-dispatching <story-id>`, then spawn a developer agent with the prompt template below. After it commits, run `dispatch mark-dispatched <story-id>` and `dispatch verify-story <story-id> --sha <sha>` for each commit it reports.
 
-5. **Human reviews and commits** — The dispatcher waits. The human reviews the
-   changes in their IDE and commits them with the story ID in the subject per
-   [commit-conventions.md](../rulebooks/conventions/commit-conventions.md).
-   When the story has no spec-feedback report, the human sets `status: done`
-   in that commit. Otherwise, step 8 closes the story.
+4. **Review and fix** — Run steps 2 and 3 of the [story workflow](#story-workflow) on the story branch, with the fix prompt template below.
 
-6. **Code review** — Spawn a code-review-agent on the commit diff. The agent
-   writes `docs/reviews/code-review-*.md` and files any `IMPL-*` findings.
+5. **Gate-check step** — Run the [Gate-Check Loop](#gate-check-loop). A failed attempt with a retry left is no stop. When the story has stopped, stop as [Stops by hand](#stops-by-hand) describes.
 
-7. **Present findings** — Show the review report to the human.
+6. **Merge** — Stop before the story merges. On the go, run `dispatch merge-story <story-id>`. It runs `premerge-check` while the story branch is still checked out, and checks out the feature branch only after `premerge-check` exits `0`. When it records the story as `blocked`, stop again.
 
-   - **If findings exist:** spawn a fresh developer-agent with the findings and
-     affected files, using `--no-stage --no-commit`. The human reviews and
-     commits fixes.
-   - **If no findings:** proceed to the next story.
+7. **Close the wave** — Handle the story's spec-feedback report as step 4f of the orchestrated workflow describes. Then run `dispatch close-wave <wave>` and route the `QA` findings as step 6 of the orchestrated workflow does. Before a finding becomes a unit of work, stop. Repeat from step 2 until every story is `done` or has stopped.
 
-8. **Close the story, then the next story** — Handle the rows of the story's
-   report as
-   [dispatch-contract.md § Drift Rows After A Merge](../rulebooks/conventions/dispatch-contract.md#drift-rows-after-a-merge)
-   describes. The human sets `status: done` only when
-   [§ Manual Mode](../rulebooks/conventions/dispatch-contract.md#manual-mode)
-   lets the story close. At the story's close, route the open `QA` findings
-   as step 6 of the automated workflow does after `close-wave`. Then repeat
-   from step 3 until all stories are done or blocked.
+8. **Merge into `dev`** — After the feature checks, stop before the merge into `dev`. The User merges the feature branch into `dev` and ends the run with `dispatch close`.
 
-9. **Done** — Report completion and remaining blocked stories. The human pushes
-   when ready.
+**Prompt template for subagents (run by hand):**
 
-**Prompt template for subagents (manual mode):**
-
-> You are a developer-agent. You are working in the main checkout on branch `<feature-branch>`. The full local dev environment is available — installed dependencies, test commands, and running services.
+> You are a developer-agent. You work in the primary checkout on branch `story/ST-NNNN`, which `dispatch prepare-story` checked out. The full local dev environment is available — installed dependencies, test commands, and running services.
 >
-> Implement story `ST-NNNN` following workflow: Analyse → Agree seams → Red-green TDD → Run the gates. Story: `backlog/ST-NNNN.md`
->
-> `--no-stage --no-commit` — do not run `git add` or `git commit`. Do not set `status: done`. After all tests are green and the gates have run, return your summary: files changed, tests passing, gate results, any spec-feedback notes. The human will review and commit.
+> Implement story `ST-NNNN` following workflow: Analyse → Agree seams → Red-green TDD → Commit → Spec feedback. Story: `backlog/ST-NNNN.md`
 
-**Prompt template for fix iteration (manual mode):**
+### Stops by hand
 
-> You are a developer-agent. You are working in the main checkout on branch `<feature-branch>`. A code review found defects in the prior implementation of story `ST-NNNN`.
->
-> **Review report:** `docs/reviews/code-review-<date>.md`
->
-> **Findings:** `<list of IMPL-* finding paths>`
->
-> **Affected files:** `<list of files flagged in findings>`
->
-> Fix the defects. Story: `backlog/ST-NNNN.md`
->
-> `--no-stage --no-commit` — do not run `git add` or `git commit`. After all tests are green, return your summary: files changed, tests passing. The human will review and commit.
+In a run by hand, stop at each decision point of the table. At each stop, show the story and the head of its branch, the findings of the story with their status, and the output of `premerge-check` where it applies. Then name the command you run after the go, and wait. Run no command of the stop before the User's go.
+
+| Decision point                                                                                     | Command after the go                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before a story starts                                                                              | `dispatch prepare-story <story-id>`                                                                                                                         |
+| Before a finding becomes a unit of work                                                            | `dispatch add <finding-id>`                                                                                                                                 |
+| Before a story merges                                                                              | `dispatch merge-story <story-id>`. At the stop, show the output of `dispatch merge-story <story-id> --dry-run`; it runs `premerge-check` and merges nothing |
+| A story stops as `blocked`                                                                         | `dispatch re-dispatch <story-id>`, once the User has fixed the cause. The User may instead run `dispatch return-story <story-id>`                           |
+| A story stops as `failed` when its counted attempts are used up and `dispatch escalate` refuses it | `dispatch re-dispatch <story-id>`, once the User has fixed the cause. The User may instead run `dispatch return-story <story-id>`                           |
+| A story stops as `failed` after its second `contract_violation` attempt                            | `dispatch re-dispatch <story-id>`, once the User has fixed the cause. The User may instead run `dispatch return-story <story-id>`                           |
+| Before the merge into `dev`                                                                        | `premerge-check dev <feature-branch>`. When it passes, the User merges the feature branch into `dev`                                                        |
+
+A failed attempt with a retry left is no stop: run `dispatch re-dispatch` or `dispatch escalate` without the User (BR-116). The wave close is no stop either, because `dispatch close-wave` starts, merges and destroys nothing.
 
 ### Gate-Check Loop
 
-The gate-check loop runs in an orchestrated run and in a run by hand, with the same attempt limits. In manual mode, the developer agent runs the same gates before it hands the story back (developer agent, step 4 "Run the gates"). The code-review-agent then reviews the commit.
+The gate-check loop runs in an orchestrated run and in a run by hand, with the same attempt limits. It is step 4 of the [story workflow](#story-workflow). The developer agent runs no gate script.
 
-After the developer-agent commits and the dispatcher verifies the commit SHA (Step 4a), the dispatcher runs semantic quality gates on the committed artifacts before proceeding to `premerge-check` and merge. The gate-check loop runs once per developer iteration, not per git commit, not on every push, and not only at PR time.
+After the review leaves no blocking finding of the story open, the dispatcher runs semantic quality gates on the committed artifacts before proceeding to `premerge-check` and merge. The gate-check loop runs once per developer iteration, not per git commit, not on every push, and not only at PR time.
 
 #### Quality-gates resolution
 
@@ -236,22 +252,22 @@ The gate list has three parts (BR-066). `premerge-check` requires a passing resu
 2. **The `gates` section of `testing.yaml`** (at `docs/testing.yaml`) — fallback when the story field is absent (older stories written before the planner filled this field). Each gate with `enabled: true` runs.
 3. **Factory default** — if neither declares gates, run `crap-score` alone (fail-closed). No default runs `mutation-testing`, because its command lives only in the `gates` section.
 
-Gate-specific parameters (e.g. `threshold` for `crap_score`) are read from `testing.yaml` at execution time. `docs/charter/house-rules.md` is no gate source; when it still has `default_quality_gates`, `premerge-check` prints a warning that names the file.
+Gate-specific parameters (e.g. `threshold` for `crap-score`) are read from `testing.yaml` at execution time. `docs/charter/house-rules.md` is no gate source; when it still has `default_quality_gates`, `premerge-check` prints a warning that names the file.
 
 #### Gate execution
 
 For each gate in the resolved list, call its CLI script directly from the story's worktree. The dispatcher passes gate-specific parameters from `testing.yaml` to each script:
 
 ```
-.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap_score.threshold> --report-dir <invocation-worktree>/.current-work/crap-score
+.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap-score.threshold> --report-dir <invocation-worktree>/.current-work/crap-score
 .agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id> --report-dir <invocation-worktree>/.current-work/dependency-check
 .agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id> --report-dir <invocation-worktree>/.current-work/test-design-verify
 .agent-factory/factory/scripts/mutation-testing                  --story-id <story-id> --report-dir <invocation-worktree>/.current-work/mutation-testing
 ```
 
-The four gates are `crap-score`, `mutation-testing`, `test-design-verify`, and `dependency-check`. The `mutation-testing` script runs the command in `gates.mutation_testing.command` from the story's worktree. Run it in the background (`run_in_background: true`), because a foreground Bash call ends after 10 minutes. Wait for its exit notice. The script enforces `gates.mutation_testing.timeout_minutes`, 30 when unset: at the limit it stops the command and its process group and writes a failing result. Set no limit of your own. Without a command, the gate fails and names the test-strategy agent.
+The four gates are `crap-score`, `mutation-testing`, `test-design-verify`, and `dependency-check`. The `mutation-testing` script runs the command in `gates.mutation-testing.command` from the story's worktree. Run it in the background (`run_in_background: true`), because a foreground Bash call ends after 10 minutes. Wait for its exit notice. The script enforces `gates.mutation-testing.timeout_minutes`, 30 when unset: at the limit it stops the command and its process group and writes a failing result. Set no limit of your own. Without a command, the gate fails and names the test-strategy agent.
 
-The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap_score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test_design_verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
+The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap-score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test-design-verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 
 Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome.
 

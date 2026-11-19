@@ -57,10 +57,13 @@ from dispatch_lib import (
     compute_wave_plan,
     counted_attempts_on_tier,
     counted_tier,
+    DEPENDENCY_NOT_DONE,
+    dependency_refusals,
     drift_row_problems,
     glob_match,
     grant_attempts,
     has_stopped,
+    held_back,
     implementation_session_tier,
     ledger_escalation_refusal,
     load_core_patterns,
@@ -254,6 +257,17 @@ def _read_test_command(project_root: Path) -> str | None:
     return None
 
 
+def _checkout_roots(project_root: Path) -> list[Path]:
+    """Return *project_root*, and the main tree when it is a linked worktree."""
+    roots = [project_root]
+    code, common_dir, _ = _git("rev-parse", "--git-common-dir")
+    if code == 0 and common_dir:
+        main_root = Path(common_dir).resolve().parent
+        if main_root != project_root:
+            roots.append(main_root)
+    return roots
+
+
 def _read_attempt_limits(project_root: Path) -> AttemptLimits:
     """Read `gates.attempts` and `gates.attempts_escalated` (BR-114).
 
@@ -261,13 +275,7 @@ def _read_attempt_limits(project_root: Path) -> AttemptLimits:
     main tree. Without the file or the keys, both counts are 3. A value
     that is no whole number raises ValueError.
     """
-    roots = [project_root]
-    code, common_dir, _ = _git("rev-parse", "--git-common-dir")
-    if code == 0 and common_dir:
-        main_root = Path(common_dir).resolve().parent
-        if main_root != project_root:
-            roots.append(main_root)
-    for root in roots:
+    for root in _checkout_roots(project_root):
         path = root / "docs" / "testing.yaml"
         if not path.is_file():
             continue
@@ -277,6 +285,75 @@ def _read_attempt_limits(project_root: Path) -> AttemptLimits:
             raise ValueError(f"cannot parse {path}: {e}") from e
         return attempt_limits(data.get("gates") if isinstance(data, dict) else None)
     return AttemptLimits()
+
+
+def _read_refuse_dirty_feature_worktree(project_root: Path) -> bool:
+    """Read `dispatch.refuse_dirty_feature_worktree` from docs/testing.yaml (BR-124).
+
+    In a linked worktree, a file missing from the checkout is read from the
+    main tree. A missing file, section or key means True. A value that is
+    no bool raises ValueError.
+    """
+    for root in _checkout_roots(project_root):
+        path = root / "docs" / "testing.yaml"
+        if not path.is_file():
+            continue
+        try:
+            data = _load_yaml(path.read_text())
+        except Exception as e:  # name the file in the refusal
+            raise ValueError(f"cannot parse {path}: {e}") from e
+        section = data.get("dispatch") if isinstance(data, dict) else None
+        if not isinstance(section, dict) or "refuse_dirty_feature_worktree" not in section:
+            return True
+        value = section["refuse_dirty_feature_worktree"]
+        if not isinstance(value, bool):
+            raise ValueError(
+                f"{path}: dispatch.refuse_dirty_feature_worktree must be true "
+                f"or false, not {value!r}"
+            )
+        return value
+    return True
+
+
+def _refuse_dirty_feature_worktree(project_root: Path, entry: StoryEntry) -> bool:
+    """Refuse a new merge when the feature worktree holds a tracked change (BR-124).
+
+    Only an orchestrated run calls this, after premerge-check exited 0.
+    Return True when merge-story must stop; the message names the files
+    and the worktree.
+    """
+    try:
+        refuse = _read_refuse_dirty_feature_worktree(project_root)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return True
+    if not refuse:
+        return False
+    code, changed, err = _git(
+        "-C", str(project_root), "status", "--porcelain", "--untracked-files=no"
+    )
+    if code != 0:
+        print(
+            f"error: git status failed in the worktree of the feature branch "
+            f"{project_root}, so merge-story cannot tell whether it is clean; "
+            f"{entry.id} stays dispatched: {err}",
+            file=sys.stderr,
+        )
+        return True
+    if not changed:
+        return False
+    print(
+        f"error: the worktree of the feature branch {project_root} holds "
+        f"uncommitted changes to tracked files; {entry.id} stays dispatched "
+        f"and nothing was merged. Commit or revert them, or set "
+        f"dispatch.refuse_dirty_feature_worktree: false in docs/testing.yaml:",
+        file=sys.stderr,
+    )
+    # _git strips the output, so the status letters of the first line may
+    # have lost their leading blank; split off the letters instead.
+    for line in changed.splitlines():
+        print(f"  {line.split(maxsplit=1)[1]}", file=sys.stderr)
+    return True
 
 
 def _attempt_limits_or_error(project_root: Path) -> AttemptLimits | None:
@@ -1067,6 +1144,9 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if entry.wave is not None
         and entry.wave < wave
         and entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+        # A returned story and a story that waits on one never start in
+        # this run, so they hold back no later wave (BR-113).
+        and not held_back(ledger, entry)
     ]
     if blocking:
         blockers = ", ".join(
@@ -1104,6 +1184,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         key=lambda entry: entry.id,
     )
     wave_story_ids = {entry.id for entry in stories_in_wave}
+    refused_return = False
 
     for entry in stories_in_wave:
         # Only a pending story gets a new workspace. A story past that state
@@ -1111,21 +1192,21 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if entry.status != StoryState.PENDING:
             continue
 
+        returned = ledger.returned_refusal(entry.id)
+        if returned:
+            print(f"error: {returned}; prepare-wave skipped it", file=sys.stderr)
+            refused_return = True
+            continue
+
         same_wave_deps = [dep for dep in entry.deps if dep in wave_story_ids]
         if same_wave_deps:
             continue
 
-        unmet = [
-            dep for dep in entry.deps
-            if dep in ledger.stories
-            and ledger.stories[dep].status != StoryState.DONE
-        ]
+        unmet = dependency_refusals(ledger, entry)
         if unmet:
             print(
-                f"dispatch prepare-wave: skipped {entry.id}: dependency "
-                + ", ".join(
-                    f"{dep} is {ledger.stories[dep].status.value}" for dep in unmet
-                )
+                f"dispatch prepare-wave: skipped {entry.id}: {DEPENDENCY_NOT_DONE}: "
+                + "; ".join(unmet)
             )
             continue
 
@@ -1197,11 +1278,17 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if save_code != 0:
             return save_code
 
-    return 0
+    return 1 if refused_return else 0
 
 
 def _pending_entry_error(entry: StoryEntry) -> str | None:
-    """Name why prepare-story cannot prepare *entry*, or None for a pending one."""
+    """Name why prepare-story cannot prepare *entry*, or None for a pending
+    entry that was not returned (BR-113)."""
+    if entry.status == StoryState.PENDING and entry.returned:
+        return (
+            f"error: dispatch: {entry.id} was returned and waits for the end "
+            f"of the run; prepare-story does not start it again"
+        )
     if entry.status == StoryState.FAILED:
         return (
             f"error: story {entry.id} failed; prepare-story prepares only a "
@@ -1213,6 +1300,14 @@ def _pending_entry_error(entry: StoryEntry) -> str | None:
             f"prepares only a pending story"
         )
     return None
+
+
+def _print_dependency_refusals(ledger: Ledger, entry: StoryEntry) -> bool:
+    """Print each dependency inside the run that is not done; True if any (BR-113)."""
+    refusals = dependency_refusals(ledger, entry)
+    for refusal in refusals:
+        print(f"error: {DEPENDENCY_NOT_DONE}: {refusal}", file=sys.stderr)
+    return bool(refusals)
 
 
 def _wave_by_hand(ledger: Ledger, entry: StoryEntry) -> tuple[int | None, str | None]:
@@ -1270,17 +1365,7 @@ def _prepare_story_by_hand(
         )
         return 1
 
-    unmet = [
-        dep for dep in entry.deps
-        if dep in ledger.stories and ledger.stories[dep].status != StoryState.DONE
-    ]
-    if unmet:
-        for dep in unmet:
-            print(
-                f"error: {entry.id} depends on {dep}, which is "
-                f"{ledger.stories[dep].status.value}",
-                file=sys.stderr,
-            )
+    if _print_dependency_refusals(ledger, entry):
         return 1
 
     wave, refusal = _wave_by_hand(ledger, entry)
@@ -1448,6 +1533,8 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
             f"error: story {story_id} has no chain predecessor recorded",
             file=sys.stderr,
         )
+        return 1
+    if _print_dependency_refusals(ledger, entry):
         return 1
 
     predecessor_id = entry.deps[0]
@@ -2225,6 +2312,11 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     the feature branch checked out. A refused check, checkout or merge exits
     1, keeps the story branch checked out and the entry ``dispatched``, and
     leaves the feature branch where it was (BR-124).
+
+    In an orchestrated run, a new merge also stops after premerge-check
+    exited 0 when the worktree of the feature branch holds an uncommitted
+    change to a tracked file, unless ``dispatch.refuse_dirty_feature_worktree``
+    is false (BR-124). The rerun after a refused amend skips this check.
     """
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
@@ -2356,6 +2448,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
         if premerge_result.returncode != 0:
             print(f"error: premerge-check failed for {entry.branch}", file=sys.stderr)
+            return 1
+
+        # Only before a new merge: the rerun after a refused amend finds the
+        # merge commit at HEAD and the changed backlog file (BR-124, BR-118).
+        if (
+            not by_hand
+            and not args.dry_run
+            and _refuse_dirty_feature_worktree(project_root, entry)
+        ):
             return 1
 
     if args.dry_run:
