@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0055",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/implementation-agent.md:165",
+  "story": "ST-0421",
+  "finding": "Three passages still state the old wave boundary, so the agent texts now give two rules for when the next wave starts. Step 2 of the orchestrated workflow in implementation-agent.md says that every story of the prior wave must reach a terminal state, and step 4 says the same. Step 4e says that failed stories stay pending and block the next wave only until they are recorded. dispatch-contract.md § Hard Checkpoint Per Story calls an explicit failed record a terminal state, and the changed § Manual Mode now applies that section to the run by hand. ST-0421 changed the rule: a failed unit of work with a retry left keeps its wave open, and the next wave waits for the wave record (BR-062, BR-113). The changed § Wave Boundary As Hard Gate and step 5 say so, but the unchanged lines next to them contradict it. dispatch itself refuses correctly, because prepare-wave and prepare-story check the wave record. The gap is in the text only and looks like an omission. The smallest fix is in the two agent texts: let step 2, step 4 and § Hard Checkpoint Per Story point to the wave record, and let step 4e say that a failed unit of work with a retry left keeps the wave open.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The cited lines exist unchanged on dev, so in_use is true. close-wave, prepare-wave and prepare-story enforce the new rule, so no wave starts too early (no to harms_downstream, and no to fails_purpose). An agent that reads step 2 or step 4e first must find out from a refusal that a failed story with a retry left blocks the close.",
+  "commit": "1b69eb6d13e5af2ccfb6d4a3a125da37343e7e15",
+  "status": "open"
+}
