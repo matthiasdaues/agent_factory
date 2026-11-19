@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0047",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:3149-3165",
+  "story": "ST-0426",
+  "finding": "`--orphans` stashes the changes of a locked worktree and only then learns that `git worktree remove` refuses it. The locked worktree stays, but its untracked files and changes now sit in the stash `orphan <branch> <date>`, and `--orphans` stops with exit 1. In a scratch repository, the file `w` left the locked worktree of `story/ST-1` and appeared only in the stash. A lock tells git and the User to leave that worktree alone, so the empty checkout looks unintended. The gap starts in `cmd_close_orphans`, which hands every orphan to `_stash_and_remove` without reading the `locked` line of `git worktree list --porcelain`. The smallest fix is there: read the lock in `_registered_worktrees` or in `_orphan_keep_reason`, and keep and list a locked worktree with the reason `it is locked`, before any stash.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The work stays in a named stash that the output lists, and the branch stays, so nothing is lost (no to fails_purpose). The User must notice the stash and apply it in the locked worktree by hand. The lines exist only on the story branch, so in_use is false.",
+  "commit": "48a890b3f7e7813a1d15cbd43711cf42e48e74ac",
+  "status": "open"
+}

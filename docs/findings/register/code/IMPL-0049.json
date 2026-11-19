@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0049",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_run_lifecycle_close.py:709-1054",
+  "story": "ST-0426",
+  "finding": "No test of RL-15 checks three paths of `--orphans` that the code handles: a ledger that is a symlink, a live run whose ledger lies inside a linked worktree, and the stop with exit 1 after a failed `git worktree remove` with its stash line. The review probed all three by hand in scratch repositories. The first and the third behave as the code says, and the second fails (IMPL-0045). The tests of RL-14 cover `_stash_and_remove` for `close`, but no RL-15 test runs it through `cmd_close_orphans`. The smallest fix is three tests in `tests/factory/test_run_lifecycle_close.py`, under the Test IDs RL-15-IT-01 and RL-15-IT-04.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code paths work in the probes, apart from IMPL-0045, which has its own finding (no to fails_purpose). Without the tests, a later change to the walk or the claims can break the fail-closed paths without a red test. The lines exist only on the story branch, so in_use is false.",
+  "commit": "48a890b3f7e7813a1d15cbd43711cf42e48e74ac",
+  "status": "open"
+}
