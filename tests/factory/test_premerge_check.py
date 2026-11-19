@@ -883,3 +883,109 @@ def test_st_0413_a_path_git_cannot_read_raises_and_names_it(tmp_path, monkeypatc
     _owned_repo(tmp_path, monkeypatch, {"README.md": "changed\n"})
     with pytest.raises(pm.GitReadError, match="docs/findings/BUG-0099.md missing"):
         pm.read_at_head(BRANCH, ["README.md", "docs/findings/BUG-0099.md"])
+
+
+# --- ST-0423: the result rule of the mutation gate (BR-066, RL-G25) -------
+
+QA_FILE = "docs/findings/QA-0012.md"
+QA_FINDING = (
+    "---\nid: QA-0012\ncategory: defect\nseverity: major\nstatus: open\n"
+    "owner: planning-agent\nstory:\nrun: feature/login\n---\n"
+)
+
+
+def _mutant(status: str = "survived", action: str = "file-qa-finding", **extra) -> dict:
+    return {
+        "operator": "+ -> -", "location": "src/login.py:42",
+        "status": status, "resolution_action": action, **extra,
+    }
+
+
+FILED = _mutant(finding="QA-0012")
+KILLED = _mutant("killed", "none-required")
+
+
+def _mutation(exit_code=1, timed_out=False, **extra) -> dict:
+    return {
+        "story_id": STORY_ID, "passed": exit_code == 0 and not timed_out,
+        "command": "mutmut run", "timeout_seconds": 1800,
+        "exit_code": exit_code, "timed_out": timed_out, "message": "x", **extra,
+    }
+
+
+@pytest.mark.spec("RL-12-CT-03")
+@pytest.mark.parametrize(
+    ("payload", "ok"),
+    [
+        (_mutation(0), True),
+        (_mutation(0, mutants=[_mutant(action="unresolved")]), True),
+        (_mutation(1), False),
+        (_mutation(1, mutants=[]), False),
+        (_mutation(1, mutants=[KILLED]), False),
+        (_mutation(1, mutants=[FILED, KILLED]), True),
+        (_mutation(1, mutants=[_mutant(action="add-missing-test"), _mutant(action="remove-dead-code")]), True),
+        (_mutation(1, mutants=[FILED, _mutant(action="unresolved")]), False),
+        (_mutation(1, mutants=[FILED, _mutant(action="none-required")]), False),
+        (_mutation(1, mutants=[_mutant()]), False),
+        (_mutation(1, mutants=[_mutant(finding="QA-0013")]), False),
+        (_mutation(1, mutants=[_mutant(finding="../../README")]), False),
+        (_mutation(None, timed_out=True, mutants=[FILED]), False),
+        (_mutation(None, mutants=[FILED]), False),
+    ],
+    ids=[
+        "exit-0", "exit-0-whatever-the-list-holds", "no-list", "empty-list",
+        "no-survivor", "filed-survivor", "test-and-dead-code", "one-unresolved",
+        "survivor-without-an-action", "file-qa-finding-without-finding",
+        "finding-file-missing", "finding-id-outside-the-folder",
+        "time-out-with-a-resolved-list", "command-did-not-run",
+    ],
+)
+def test_st_0423_read_gate_result_applies_the_mutation_rule(tmp_path, monkeypatch, payload, ok):
+    """RL-12-CT-03: after a non-zero exit, the mutation result passes only with a
+    survivor, none unresolved, and every named finding file at the branch head."""
+    _owned_repo(tmp_path, monkeypatch, {QA_FILE: QA_FINDING})
+    path = tmp_path / "r.json"
+    path.write_text(json.dumps(payload))
+    passed, detail = pm.read_gate_result(path, BRANCH)
+    assert passed is ok, detail
+
+
+@pytest.mark.spec("RL-12-CT-03")
+def test_st_0423_a_failing_mutation_result_names_its_cause(tmp_path, monkeypatch):
+    _owned_repo(tmp_path, monkeypatch, {QA_FILE: QA_FINDING})
+    cases = {
+        "no list mutants": _mutation(1),
+        "holds no survivor": _mutation(1, mutants=[]),
+        "src/login.py:42 is unresolved": _mutation(1, mutants=[_mutant(action="unresolved")]),
+        "QA-0013, which has no file docs/findings/QA-0013.md": _mutation(
+            1, mutants=[_mutant(finding="QA-0013")]
+        ),
+        "time limit": _mutation(None, timed_out=True, mutants=[FILED]),
+    }
+    for expected, payload in cases.items():
+        path = tmp_path / "r.json"
+        path.write_text(json.dumps(payload))
+        passed, detail = pm.read_gate_result(path, BRANCH)
+        assert not passed
+        assert expected in detail, (expected, detail)
+
+
+@pytest.mark.spec("RL-12-CT-03")
+def test_st_0423_a_named_finding_with_the_run_joins_the_story_scope(tmp_path, monkeypatch):
+    """The scope of the story holds a finding file with `run` set to the target
+    when a `file-qa-finding` entry of the stored result names it (BR-066)."""
+    other = QA_FINDING.replace("QA-0012", "QA-0014")
+    elsewhere = QA_FINDING.replace("QA-0012", "QA-0015").replace("feature/login", "feature/other")
+    repo = _owned_repo(
+        tmp_path, monkeypatch,
+        {QA_FILE: QA_FINDING, "docs/findings/QA-0014.md": other,
+         "docs/findings/QA-0015.md": elsewhere},
+    )
+    _git(repo, "branch", "feature/login", "main")
+    stored = _mutation(1, mutants=[FILED, _mutant(finding="QA-0015")])
+    _write(repo, f".current-work/mutation-testing/{STORY_ID}.json", json.dumps(stored))
+    files = [QA_FILE, "docs/findings/QA-0014.md", "docs/findings/QA-0015.md"]
+
+    owned = pm.story_owned_files("feature/login", BRANCH, STORY_ID, files)
+
+    assert owned == [QA_FILE]

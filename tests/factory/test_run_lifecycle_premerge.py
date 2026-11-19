@@ -7,6 +7,7 @@ premerge-check before it merges.
 
 from __future__ import annotations
 
+import json
 import os
 import stat
 import subprocess
@@ -1221,3 +1222,60 @@ def test_RL_13_IT_04_the_suite_runs_in_a_temporary_worktree(tmp_path):
     assert _git(repo, "stash", "list") == ""
     assert not (repo / FEATURE_PREMERGE).exists()
     assert str(repo / FEATURE_PREMERGE) not in _worktrees(repo)
+
+
+# --- ST-0423: the mutation gate at the story merge (BR-066, RL-G25) ---
+
+MUTATION_GATE = (
+    'test_command: "true"\n'
+    "gates:\n  mutation-testing:\n    enabled: true\n    command: \"exit 1\"\n"
+)
+
+
+def _mutation_run(tmp_path: Path, mutants: list[dict]) -> dict[str, Path]:
+    """ST-0350 reviewed; the mutation command exits 1, and the stored result
+    of the gate-check step holds *mutants*."""
+    run = _build_wave_repo(tmp_path, {"docs/testing.yaml": MUTATION_GATE})
+    _work_and_review(run["repo"], run["ledger"], run["base"], "ST-0350")
+    folder = run["feature"] / ".current-work" / "mutation-testing"
+    folder.mkdir(parents=True, exist_ok=True)
+    result = {
+        "story_id": "ST-0350", "passed": False, "command": "exit 1",
+        "timeout_seconds": 1800, "exit_code": 1, "timed_out": False,
+        "message": "the mutation command exited 1", "mutants": mutants,
+    }
+    (folder / "ST-0350.json").write_text(json.dumps(result))
+    return run
+
+
+@pytest.mark.spec("RL-12-IT-07")
+def test_RL_12_IT_07_an_unresolved_surviving_mutant_blocks_the_merge(tmp_path):
+    """Scenario: An unresolved surviving mutant blocks the merge of its story."""
+    unresolved = {
+        "operator": "+ -> -", "location": "src/ST-0350.py:1",
+        "status": "survived", "resolution_action": "unresolved",
+    }
+    run = _mutation_run(tmp_path, [unresolved])
+    tip = _git(run["feature"], "rev-parse", "HEAD")
+
+    result = _dispatch(run["feature"], run["ledger"], "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK semantic-gates: mutation-testing" in result.stdout
+    assert "src/ST-0350.py:1 is unresolved" in result.stdout
+    assert _git(run["feature"], "rev-parse", "HEAD") == tip
+
+
+@pytest.mark.spec("RL-12-IT-08")
+def test_RL_12_IT_08_a_non_zero_run_with_an_empty_list_blocks_the_merge(tmp_path):
+    """Scenario: A non-zero mutation run with an empty mutants list blocks the
+    merge of its story."""
+    run = _mutation_run(tmp_path, [])
+    tip = _git(run["feature"], "rev-parse", "HEAD")
+
+    result = _dispatch(run["feature"], run["ledger"], "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK semantic-gates: mutation-testing" in result.stdout
+    assert "mutants holds no survivor" in result.stdout
+    assert _git(run["feature"], "rev-parse", "HEAD") == tip

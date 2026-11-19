@@ -207,14 +207,14 @@ This eliminates the drift pattern (wave N+1 dispatching against stale state) wit
 
 ### Hard Checkpoint Per Story
 
-Every story in a wave must reach a terminal state — merged commit on the target branch, or an explicit blocked/failed record — before the next wave launches. `prepared` is the required pre-spawn state: the story branch/worktree exists, the declared base SHA is recorded, the step manifest exists, and the dispatch script already ran `verify-base` successfully. "Terminal state" means:
+Every story in a wave merges or stops before `dispatch close-wave` writes the wave record, and the next wave launches only after that record exists, as [Wave Boundary As Hard Gate](#wave-boundary-as-hard-gate) defines. A failed story with a retry left has not stopped, so it keeps its wave open (BR-062, BR-113). `prepared` is the required pre-spawn state: the story branch/worktree exists, the declared base SHA is recorded, the step manifest exists, and the dispatch script already ran `verify-base` successfully. A story has merged or stopped when:
 
 1. The story reached `dispatched` only after the dispatcher marked the handoff around a real subagent spawn.
 2. The story's reported commit SHA passed `dispatch verify-story`.
-3. `dispatch merge-story` ran `premerge-check --scope ...`, the merge completed, and the post-merge tests passed, OR the story was recorded as blocked/failed with a reason.
+3. `dispatch merge-story` ran `premerge-check --scope ...`, the merge completed, and the post-merge tests passed, OR the story stopped as `blocked`, or as `failed` with no retry left, with a reason.
 4. The story file's `status` field is updated in the same commit that delivers the implementation (for done) or in a dedicated status-update commit (for blocked/failed).
 
-No new wave may launch while any story from the prior wave is in an unresolved state. This eliminates the drift pattern where later waves dispatch against progressively staler bases.
+No new wave may launch while the prior wave has no wave record. This eliminates the drift pattern where later waves dispatch against progressively staler bases.
 
 ### Story Status Commit Rule
 

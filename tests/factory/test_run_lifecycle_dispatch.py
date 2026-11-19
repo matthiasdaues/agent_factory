@@ -6,6 +6,7 @@ subprocess, the way the implementation agent does.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -1714,3 +1715,109 @@ def test_RL_06_IT_05_escalate_of_a_finding_checks_only_the_file_limit(
     else:
         assert result.returncode == 1, result.stdout + result.stderr
         assert (entry.tier, entry.reason) == (None, "escalate refused: scope")
+
+
+# -- RL-12: a filed surviving mutant runs in the next wave (ST-0423) ----------
+
+MUTATION_GATE = (
+    'test_command: "true"\n'
+    "gates:\n  mutation-testing:\n    enabled: true\n    command: \"exit 1\"\n"
+)
+QA = "QA-0012"
+QA_FINDING = """---
+id: {id}
+source: mutation-testing
+review_class: code
+category: defect
+type: test
+severity: major
+artifact: src/login.py:42
+status: open
+owner: planning-agent
+story:
+run: feature/login
+---
+
+# {id}
+"""
+
+
+def _store_mutants(run: dict[str, Path], *mutants: dict) -> None:
+    """Write the result of the gate-check step where merge-story reads it."""
+    folder = run["feature"] / ".current-work" / "mutation-testing"
+    folder.mkdir(parents=True, exist_ok=True)
+    result = {
+        "story_id": "ST-0350", "passed": False, "command": "exit 1",
+        "timeout_seconds": 1800, "exit_code": 1, "timed_out": False,
+        "message": "the mutation command exited 1", "mutants": list(mutants),
+    }
+    (folder / "ST-0350.json").write_text(json.dumps(result))
+
+
+def _filed(finding_id: str = QA) -> dict:
+    return {
+        "operator": "+ -> -", "location": "src/login.py:42", "status": "survived",
+        "resolution_action": "file-qa-finding", "finding": finding_id,
+    }
+
+
+def _story_with_findings(tmp_path: Path, *finding_ids: str) -> dict[str, Path]:
+    """ST-0350 dispatched with the mutation gate on; its branch commits each
+    finding of *finding_ids* with run feature/login."""
+    run = _orchestrated_on_login(tmp_path, testing=MUTATION_GATE)
+    for finding_id in finding_ids:
+        path = run["story"] / "docs" / "findings" / f"{finding_id}.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(QA_FINDING.format(id=finding_id))
+    _commit_story_work(run)
+    return run
+
+
+@pytest.mark.spec("RL-12-IT-06")
+def test_RL_12_IT_06_a_story_merges_with_its_mutant_filed_and_the_finding_runs_next(tmp_path):
+    """Scenario: A story merges with its mutant filed, and the QA finding runs
+    in the next wave on the story's code."""
+    run = _story_with_findings(tmp_path, QA)
+    repo, feature, ledger = run["repo"], run["feature"], run["ledger"]
+    _store_mutants(run, _filed())
+
+    merged = _merge(run)
+
+    assert merged.returncode == 0, merged.stdout + merged.stderr
+    assert "PASS out-of-scope-paths" in merged.stdout
+    assert "PASS semantic-gates: mutation-testing passed for ST-0350" in merged.stdout
+    merge_commit = _git(feature, "rev-parse", "HEAD")
+    assert (_entry(run).status.value, _entry(run).wave) == ("done", 1)
+    _steps(run, ("close-wave", "1"), ("add", QA))
+    status = _dispatch(repo, ledger, "status")
+    assert re.search(rf"{QA}\s+2\s+pending", status.stdout), status.stdout
+    front = _finding_front(_git(repo, "show", f"feature/login:docs/findings/{QA}.md"))
+    assert (front["status"], front["run"]) == ("open", "feature/login")
+
+    _steps(run, ("prepare-wave", "2"))
+
+    finding_story = repo / ".current-work" / "feature" / "login" / "story" / QA
+    assert _git(finding_story, "branch", "--show-current") == f"story/{QA}"
+    _git(finding_story, "merge-base", "--is-ancestor", merge_commit, "HEAD")
+    assert (finding_story / "src" / "ST-0350.txt").read_text() == "work\n"
+    feature_merge = subprocess.run(
+        [str(SOURCE_SCRIPTS_DIR / "premerge-check"), "dev", "feature/login"],
+        cwd=repo, env=_env(), capture_output=True, text=True, check=False,
+    )
+    assert feature_merge.returncode != 0, feature_merge.stdout
+    assert QA in feature_merge.stdout
+
+
+@pytest.mark.spec("RL-12-IT-06")
+def test_RL_12_IT_06_a_finding_that_no_entry_names_stays_outside_the_scope(tmp_path):
+    """A finding file with run feature/login that no `finding` field names
+    stays outside the scope and fails the merge (BR-066)."""
+    run = _story_with_findings(tmp_path, QA, "QA-0016")
+    _store_mutants(run, _filed())
+    tip = _git(run["feature"], "rev-parse", "HEAD")
+
+    result = _merge(run)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK out-of-scope-paths: docs/findings/QA-0016.md" in result.stdout
+    assert _git(run["feature"], "rev-parse", "HEAD") == tip

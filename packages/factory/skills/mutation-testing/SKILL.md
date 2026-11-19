@@ -29,20 +29,39 @@ actions:
    owner; remove the dead code rather than preserving it.
 2. **`add-missing-test`** — the code is real behavior and a contract test is
    missing; add the test that kills the mutant.
-3. **`file-qa-finding`** — the developer cannot resolve it inside the coding
-   loop; file a QA finding and attach that resolution to the gate run.
+3. **`file-qa-finding`** — the gate-check step can neither kill the mutant
+   nor remove it as dead code; file a `QA` finding and name it in the
+   mutant's entry.
 
 A survivor without one of those three actions is `unresolved` and blocks
-merge. Zero unresolved survivors is required for merge.
+merge. Zero unresolved survivors is required for merge. A mutant filed as a
+`QA` finding counts as resolved for the story merge. Its finding blocks the
+merge of the feature branch into `dev` until it is resolved (BR-066, RL-G25).
 
 ### Filing a QA finding
 
 For `file-qa-finding`, run `.agent-factory/factory/scripts/next-id QA` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. Write one `docs/findings/QA-NNNN.md` per mutant, per
 the [finding format](../../rulebooks/conventions/finding-format.md). Set
-`owner: test-strategy-agent` and `status: open`. The body names the mutant's
-`location` and `operator`, the contract it joined to, if any, and why the
-coding loop could not resolve it. The test-strategy agent resolves the finding
-after the wave.
+`review_class: code`, `category: defect`, `type: test`, `severity: major`,
+and `status: open`. Set `run` to the feature branch, such as
+`run: feature/login`, and leave `story` empty. So the finding does not block
+the story merge, and it blocks the merge into `dev` (BR-121).
+
+The owner follows the cause (RL-G24):
+
+| Cause                                                                                       | Owner                        |
+| ------------------------------------------------------------------------------------------- | ---------------------------- |
+| The mutant needs a test that the gate-check step could not write within its attempts        | `owner: planning-agent`      |
+| The mutant does not change behaviour, or a gate setting is wrong, so no test should kill it | `owner: test-strategy-agent` |
+
+The body names the mutant's `location` and `operator`, the contract it joined
+to, if any, and the cause. For `owner: planning-agent`, it names the missing
+test. Commit the finding on the story branch, so the merge brings it into the
+feature branch. In the mutant's entry of the report, write the finding's ID
+into `finding`, such as `finding: QA-0012`. At the wave close, the
+implementation agent runs a finding with `owner: planning-agent` in the next
+wave and hands a finding with `owner: test-strategy-agent` to the
+test-strategy agent.
 
 ## Contract-ownership classification
 
@@ -109,6 +128,17 @@ fields:
 - `status` — `killed` or `survived`
 - `resolution_action` — `none-required`, `unresolved`, `remove-dead-code`,
   `add-missing-test`, or `file-qa-finding`
+- `finding` — the ID of the `QA` finding, such as `QA-0012`; present in every
+  entry with `resolution_action: file-qa-finding`
+
+The gate-check step writes these entries as the list `mutants` into the
+result file of the `mutation-testing` gate,
+`.current-work/mutation-testing/<story-id>.json` of the invocation worktree.
+After a non-zero exit of the mutation command, `premerge-check` passes the gate
+only when the list holds at least one survivor, no survivor is `unresolved`,
+and each `finding` names a file `docs/findings/<ID>.md` at the head of the
+story branch. No list, an empty list, or a list without a survivor fails, and
+so does a time-out (BR-066).
 
 When a contract-owner table is available and the mutant resolves against it,
 add:

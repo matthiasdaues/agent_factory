@@ -747,3 +747,110 @@ def test_RL_04_LN_04_the_bug_hunt_skill_writes_its_report() -> None:
     front = yaml.safe_load(QA_AGENT.read_text(encoding="utf-8").split("---")[1])
     patterns = [d["path_pattern"] for d in front["outputs"]["declarations"]]
     assert "docs/reviews/bug-hunt-*.md" in patterns
+
+
+# --- RL-12: QA findings of surviving mutants (ST-0423) ------------------------
+
+MUTATION_SKILL = FACTORY / "skills" / "mutation-testing" / "SKILL.md"
+
+
+def _route_step() -> str:
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    return next(step for step in steps if step.startswith("**Route the QA findings**"))
+
+
+@pytest.mark.spec("RL-12-LN-01")
+def test_RL_12_LN_01_the_wave_close_routes_the_qa_findings_by_owner() -> None:
+    """Scenarios: The wave close routes the open QA findings by owner; The next
+    wave waits until every spawn of the test-strategy agent returns."""
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    titles = [step.split("**")[1] for step in steps]
+    assert titles.index("Route the QA findings") == titles.index("Close the wave") + 1
+    route = _route_step()
+    assert "Run this step after `close-wave` passes." in route
+    marks = (
+        "For each open `QA` finding with `owner: planning-agent`, run "
+        "`.agent-factory/factory/scripts/dispatch add <finding-id>`",
+        "dispatches the test-strategy agent for each open `QA` finding with "
+        "`owner: test-strategy-agent`",
+        "run no `dispatch prepare-wave` while a spawn of the test-strategy agent has not returned",
+    )
+    found = _positions(route, marks)
+    assert found == sorted(found), dict(zip(marks, found))
+    assert "waits for a story that adds the missing test" not in route
+
+
+@pytest.mark.spec("RL-12-LN-02")
+def test_RL_12_LN_02_the_skill_gives_each_cause_its_owner_and_writes_finding() -> None:
+    """Scenario Outline: The gate-check step files a blocking QA finding for a
+    mutant it cannot resolve."""
+    skill = _text(MUTATION_SKILL)
+    assert (
+        "| The mutant needs a test that the gate-check step could not write within "
+        "its attempts | `owner: planning-agent` |"
+    ) in skill
+    assert (
+        "| The mutant does not change behaviour, or a gate setting is wrong, so no "
+        "test should kill it | `owner: test-strategy-agent` |"
+    ) in skill
+    for field in ("`severity: major`", "`status: open`", "`run: feature/login`", "leave `story` empty"):
+        assert field in skill, field
+    report = _block(MUTATION_SKILL, "Report format")
+    assert "- `finding` — the ID of the `QA` finding" in report
+    assert "present in every entry with `resolution_action: file-qa-finding`" in report
+    assert "as the list `mutants` into the result file" in report
+
+    mutants = _block(IMPLEMENTATION_AGENT, "Surviving mutants")
+    assert "`remove-dead-code`, `add-missing-test`, or `file-qa-finding`" in mutants
+    assert (
+        "`owner: planning-agent` when the mutant needs a test that the step could "
+        "not write within its attempts"
+    ) in mutants
+    assert (
+        "`owner: test-strategy-agent` when no test should kill the mutant, because "
+        "it does not change behaviour or a gate setting is wrong"
+    ) in mutants
+    assert "`severity: major`, `status: open`, and `run` set to the feature branch" in mutants
+    assert "with the finding ID in `finding` for each `file-qa-finding` entry" in mutants
+    assert "An `unresolved` mutant always blocks it." in mutants
+
+
+@pytest.mark.spec("RL-12-LN-03")
+def test_RL_12_LN_03_a_finding_handed_to_the_planning_agent_runs_in_the_next_wave() -> None:
+    """Scenario: A QA finding that the test-strategy agent hands to the planning
+    agent runs in the next wave."""
+    route = _route_step()
+    assert (
+        "When the test-strategy agent returns a finding as `open` with "
+        "`owner: planning-agent`, because a test is missing, run "
+        "`dispatch add <finding-id>` for it before `dispatch prepare-wave` of the next wave."
+    ) in route
+
+
+@pytest.mark.spec("RL-05-LN-02")
+def test_RL_05_LN_02_the_fix_prompt_names_the_story_branch_and_the_place_of_work() -> None:
+    """IMPL-0036: the fix-iteration prompt fits both ways of driving a run."""
+    template = _gate_check_loop().split("**Fix-iteration prompt template:**")[1]
+    assert "<feature-branch>" not in template
+    assert "Fix the gate failures on branch `story/ST-NNNN`" in template
+    assert "In an orchestrated run, you work in the story worktree" in template
+    assert "In a run by hand, you work in the primary checkout" in template
+
+
+@pytest.mark.spec("RL-11-LN-01")
+def test_RL_11_LN_01_the_wave_record_is_the_boundary_of_the_next_wave() -> None:
+    """IMPL-0055: steps 2, 4 and 4e and § Hard Checkpoint Per Story name the wave
+    record, and no passage calls a failed story with a retry left terminal."""
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    plan = next(step for step in steps if step.startswith("**Plan wave**"))
+    verify = next(step for step in steps if step.startswith("**Verify, review"))
+    assert "launches only after the **prior** wave has its wave record" in plan
+    assert "the next wave waits for that record" in verify
+    failed = verify.split("e. **Failed/blocked stories**")[1]
+    assert "A failed story with a retry left keeps its wave open" in failed
+    assert "(BR-062, BR-113)" in failed
+    checkpoint = _block(DISPATCH_CONTRACT, "Hard Checkpoint Per Story")
+    assert "the next wave launches only after that record exists" in checkpoint
+    assert "A failed story with a retry left has not stopped, so it keeps its wave open" in checkpoint
+    for text in (plan, verify, checkpoint):
+        assert "terminal state" not in text
