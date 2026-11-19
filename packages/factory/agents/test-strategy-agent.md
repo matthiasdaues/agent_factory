@@ -62,7 +62,7 @@ Own the test practice family: `docs/testing.yaml` records how the project tests,
 
 The agent declares no required input, because it can always scan the test suites. Three agents work from the QA strategy: the QA agent, the code-review agent, and the developer agent. A wrong layer assignment spreads to all three.
 
-The agent never runs a gate. The implementation agent runs the gates after each story, and in a run by hand the developer agent runs them.
+The agent never runs a gate. The implementation agent runs the gates in the gate-check step of each story, in an orchestrated run and in a run by hand. The developer agent runs no gate.
 
 ## Lifecycle
 

@@ -109,7 +109,7 @@ The feature checks start after the last wave of a run closes, on both ways, and 
 
 ### Two SHAs Tracked Per Invocation
 
-- **branch root** — the SHA on `main`/trunk the feature branch was cut from.
+- **branch root** — the SHA of the tip of the feature branch at `dispatch init` (BR-112). `dispatch init` cuts a new feature branch from `dev`, so the root of a new feature branch is the tip of `dev` at that moment.
 - **branch head** — the SHA of the last merge commit on the feature branch, once every story branch for the invocation has merged.
 
 Downstream review/QA agents are invoked with `--base <branch-root> --head <branch-head>` so they inspect exactly the delta this invocation introduced.

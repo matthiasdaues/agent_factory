@@ -28,11 +28,11 @@ git worktree list --porcelain
 
 All worktrees live under `.current-work/<feature-branch>/`, named after their branch. The second command verifies the path and branch before work begins. Standalone branch creation through `git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B` is blocked. Do not switch the current checkout as an intermediate step. To resume an existing unattached branch, use `git worktree add .current-work/<feature-branch>/<branch> <branch>`.
 
-A run by hand is the exception: the human creates or adopts a branch in the
-primary checkout directly. No dispatch scripts are involved. The git guardrail's
-standalone-branch-creation block does not apply because the human — not an
-agent — owns the branch operation. In an orchestrated run, feature and story
-branches remain worktree-only.
+A run by hand creates no worktree. `dispatch init --mode by-hand` cuts the
+feature branch from `dev`, and `dispatch prepare-story` cuts each story branch
+from the tip of the feature branch and checks it out in the primary checkout.
+`dispatch` creates every branch, so no agent runs a standalone branch command.
+In an orchestrated run, feature and story branches remain worktree-only.
 
 ## Merging requires the pre-merge marker
 
@@ -45,14 +45,14 @@ branches remain worktree-only.
 
 The guardrail blocks these in every session, including yours:
 
-| Blocked                                             | Use instead                                                                                                                                     |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Standalone branch creation (orchestrated run)       | `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`; in a run by hand the human creates or adopts the branch directly |
-| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                                                                                                   |
-| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the user for force deletes                                                                                   |
-| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                                                                                              |
-| `git config core.hooksPath …`                       | Do not repoint hooks                                                                                                                            |
-| `git reset --hard`, `git clean`, `git push --force` | Ask the user                                                                                                                                    |
+| Blocked                                             | Use instead                                                                                                                                                    |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Standalone branch creation                          | `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`; in a run by hand `dispatch init` and `dispatch prepare-story` create the branch |
+| `git checkout .` / `git checkout -- .`              | `git checkout HEAD -- <path>`                                                                                                                                  |
+| `git branch -D` (force delete)                      | `git branch -d` (merged only); ask the user for force deletes                                                                                                  |
+| `git commit --no-verify`, `git ... --no-verify`     | Fix the failing hook; never bypass                                                                                                                             |
+| `git config core.hooksPath …`                       | Do not repoint hooks                                                                                                                                           |
+| `git reset --hard`, `git clean`, `git push --force` | Ask the user                                                                                                                                                   |
 
 `rm -rf` is separately gated by the safety classifier — ask before destructive removal.
 
