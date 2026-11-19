@@ -1221,3 +1221,169 @@ def test_RL_06_IT_05_a_refusal_of_the_ledger_writes_no_record(tmp_path, case):
     assert entry.reason is None
     assert lib.has_stopped(entry, lib.AttemptLimits(attempts_escalated=0)
                            if case == "escalation-off" else lib.AttemptLimits())
+
+
+# -- RL-08: merge-story in an orchestrated run refuses before a new merge (ST-0416)
+
+NO_DIRTY_REFUSAL = 'test_command: "true"\ndispatch:\n  refuse_dirty_feature_worktree: false\n'
+
+
+def _failing_gate_on_feature(run: dict[str, Path]) -> None:
+    """Commit dependency rules and a breaking import to the feature branch, so
+    the dependency-check gate of premerge-check fails on the story branch."""
+    feature = run["feature"]
+    (feature / "docs" / "spec").mkdir(parents=True, exist_ok=True)
+    (feature / RULES).write_text("src must_not_depend_on infra\n")
+    (feature / "src" / "uses_infra.py").write_text("import infra\n")
+    _git(feature, "add", RULES, "src/uses_infra.py")
+    _git(feature, "commit", "-qm", "chore: add a breaking import")
+
+
+@pytest.mark.spec("RL-08-IT-15")
+def test_RL_08_IT_15_a_refused_premerge_check_merges_nothing(tmp_path):
+    """Scenario: A refused premerge-check sends a story in an orchestrated run
+    back to the gate-check step."""
+    run = _orchestrated_on_login(tmp_path)
+    _failing_gate_on_feature(run)
+    _commit_story_work(run)
+    tip = _git(run["repo"], "rev-parse", "feature/login")
+
+    result = _merge(run)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK semantic-gates: dependency-check" in result.stdout
+    assert "premerge-check failed for story/ST-0350" in result.stderr
+    assert _git(run["repo"], "rev-parse", "feature/login") == tip
+    assert _entry(run).status.value == "dispatched"
+
+
+@pytest.mark.spec("RL-08-IT-15")
+def test_RL_08_IT_15_a_changed_tracked_file_does_not_hide_a_failing_gate(tmp_path):
+    """BR-124: merge-story checks the feature worktree only after premerge-check
+    exits 0, so the message names the gate and not the changed file."""
+    run = _orchestrated_on_login(tmp_path)
+    _failing_gate_on_feature(run)
+    _commit_story_work(run)
+    (run["feature"] / "src" / ".keep").write_text("my uncommitted work\n")
+
+    result = _merge(run)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK semantic-gates: dependency-check" in result.stdout
+    assert "uncommitted" not in result.stderr
+    assert _entry(run).status.value == "dispatched"
+
+
+@pytest.mark.spec("RL-08-IT-16")
+def test_RL_08_IT_16_a_changed_tracked_file_in_the_feature_worktree_stops_the_merge(
+    tmp_path,
+):
+    """Scenario: An uncommitted change in the worktree of the feature branch
+    stops merge-story in an orchestrated run."""
+    run = _orchestrated_on_login(tmp_path)
+    _commit_story_work(run)
+    tip = _git(run["repo"], "rev-parse", "feature/login")
+    changed = run["feature"] / "src" / ".keep"
+    changed.write_text("my uncommitted work\n")
+
+    result = _merge(run)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "PASS" in result.stdout
+    assert "src/.keep" in result.stderr
+    assert str(run["feature"]) in result.stderr
+    assert changed.read_text() == "my uncommitted work\n"
+    assert _git(run["repo"], "rev-parse", "feature/login") == tip
+    assert _entry(run).status.value == "dispatched"
+
+
+@pytest.mark.spec("RL-08-IT-16")
+def test_RL_08_IT_16_a_staged_change_in_the_feature_worktree_stops_the_merge(tmp_path):
+    """A staged change counts as an uncommitted change too."""
+    run = _orchestrated_on_login(tmp_path)
+    _commit_story_work(run)
+    (run["feature"] / "src" / ".keep").write_text("staged work\n")
+    _git(run["feature"], "add", "src/.keep")
+
+    result = _merge(run)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "src/.keep" in result.stderr
+    assert _entry(run).status.value == "dispatched"
+
+
+@pytest.mark.spec("RL-08-IT-16")
+def test_RL_08_IT_16_an_untracked_file_in_the_feature_worktree_does_not_stop_the_merge(
+    tmp_path,
+):
+    """BR-124 names tracked files only; an untracked file the merge does not
+    touch leaves the merge open."""
+    run = _orchestrated_on_login(tmp_path)
+    _commit_story_work(run)
+    (run["feature"] / "src" / "notes.txt").write_text("scratch\n")
+
+    result = _merge(run)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _entry(run).status.value == "done"
+
+
+@pytest.mark.spec("RL-08-IT-16")
+def test_RL_08_IT_16_the_key_false_merges_past_a_changed_tracked_file(tmp_path):
+    """Scenario: merge-story merges past an uncommitted change when
+    dispatch.refuse_dirty_feature_worktree is false."""
+    run = _orchestrated_on_login(tmp_path, testing=NO_DIRTY_REFUSAL)
+    story_tip = _commit_story_work(run)
+    changed = run["feature"] / "src" / ".keep"
+    changed.write_text("my uncommitted work\n")
+
+    result = _merge(run)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _git(run["repo"], "rev-parse", "feature/login^2") == story_tip
+    assert _entry(run).status.value == "done"
+    assert changed.read_text() == "my uncommitted work\n"
+
+
+@pytest.mark.spec("RL-08-IT-16")
+def test_RL_08_IT_16_the_rerun_after_a_refused_amend_passes(tmp_path):
+    """BR-124, BR-118, SPEC-0110: the refusal applies only before a new merge.
+
+    The refused amend leaves backlog/ST-0350.md changed in the feature
+    worktree; the rerun finds the merge commit at HEAD and passes."""
+    run = _orchestrated_on_login(tmp_path)
+    _commit_story_work(run)
+    hook = _refuse_commits(run["repo"])
+
+    refused = _merge(run)
+
+    assert refused.returncode == 1, refused.stdout + refused.stderr
+    assert "the pre-commit hook refused" in refused.stderr
+    leftover = _git(run["feature"], "status", "--porcelain", "--untracked-files=no")
+    assert "backlog/ST-0350.md" in leftover
+
+    hook.unlink()
+    rerun = _merge(run)
+
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    merged = _git(run["feature"], "show", "feature/login:backlog/ST-0350.md")
+    assert "status: done" in merged.splitlines()
+    assert _entry(run).status.value == "done"
+
+
+@pytest.mark.spec("RL-08-IT-16")
+def test_RL_08_IT_16_a_key_that_is_no_bool_stops_the_merge(tmp_path):
+    """The key is a bool (interface-contracts.md, dispatch section schema); any
+    other value stops the merge and names the file."""
+    run = _orchestrated_on_login(
+        tmp_path,
+        testing='test_command: "true"\ndispatch:\n  refuse_dirty_feature_worktree: "off"\n',
+    )
+    _commit_story_work(run)
+
+    result = _merge(run)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "dispatch.refuse_dirty_feature_worktree must be true or false" in result.stderr
+    assert "docs/testing.yaml" in result.stderr
+    assert _entry(run).status.value == "dispatched"

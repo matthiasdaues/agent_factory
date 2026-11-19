@@ -711,10 +711,14 @@ def test_refresh_story_refuses_a_worktree_on_another_branch(parallel):
 
 
 def _interrupt_merge_story(r: dict[str, Path], tmp_path: Path) -> None:
-    """Run merge-story for ST-0002 and kill it after the merge commit."""
+    """Run merge-story for ST-0002 and kill it after the merge commit.
+
+    The killing test command is an uncommitted change in the feature
+    worktree, so the key turns off the refusal of BR-124 (ST-0416)."""
     sentinel = tmp_path / "killed"
     (r["inv"] / "docs" / "testing.yaml").write_text(
         f"test_command: 'test -f {sentinel} || {{ touch {sentinel}; kill -9 $PPID; }}'\n"
+        "dispatch:\n  refuse_dirty_feature_worktree: false\n"
     )
     _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0002")
     assert _git(r["inv"], "rev-parse", "HEAD^2") == _git(r["repo"], "rev-parse", "story/ST-0002")
