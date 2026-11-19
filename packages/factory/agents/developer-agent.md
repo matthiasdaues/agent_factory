@@ -70,6 +70,8 @@ You never run a gate script. The implementation agent runs the gate-check step, 
 
 Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
+When you wait for a background run, such as a commit hook running the suite, wait on its output file or its process ID. Never loop on `pgrep -f "<word>"` when that word is in the loop's own command line: the loop then finds itself and waits forever.
+
 ## Workflow
 
 **Invoke skills:** `implement-issue`, `spec-feedback`

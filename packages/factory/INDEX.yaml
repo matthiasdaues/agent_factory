@@ -152,8 +152,8 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 1583
-    total_tokens: 9281
+    tokens: 1652
+    total_tokens: 9350
     inputs:
       required:
         - type: story
@@ -185,8 +185,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 2254
-    total_tokens: 5656
+    tokens: 2314
+    total_tokens: 5716
     inputs:
       required:
         - type: feature
@@ -281,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in an orchestrated run, or serial human-driven work in the primary checkout in a run by hand. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 7731
-    total_tokens: 18908
+    tokens: 7874
+    total_tokens: 19051
     inputs:
       required:
         - type: story
@@ -341,8 +341,8 @@ agents:
     tier: strong
     description: Break specification and architecture into a prioritised local backlog of EPICs and User Stories as markdown files.
     path: agents/planning-agent.md
-    tokens: 1755
-    total_tokens: 14570
+    tokens: 1831
+    total_tokens: 14646
     inputs:
       required:
         - type: feature
@@ -1065,7 +1065,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 907
-    total_tokens: 19971
+    total_tokens: 20031
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1077,7 +1077,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1701
-    total_tokens: 55706
+    total_tokens: 55849
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1094,7 +1094,7 @@ playbooks:
       - qa-agent
       - reconciliation-agent
     tokens: 5224
-    total_tokens: 117001
+    total_tokens: 117289
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1112,7 +1112,7 @@ playbooks:
       - reconciliation-agent
       - coaching-agent
     tokens: 3170
-    total_tokens: 116432
+    total_tokens: 116720
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1128,7 +1128,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1358
-    total_tokens: 20422
+    total_tokens: 20482
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration

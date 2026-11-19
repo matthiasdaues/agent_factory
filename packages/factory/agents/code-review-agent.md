@@ -65,6 +65,8 @@ not the full QA phase.
 
 Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-protocol.md).
 
+When you wait for a background run, wait on its output file or its process ID. Never loop on `pgrep -f "<word>"` when that word is in the loop's own command line: the loop then finds itself and waits forever. A probe script checks first that it runs inside its own scratch repository, and stops otherwise.
+
 ## Workflow
 
 1. **Scope** — Identify the implementation diff. Fallback order: explicit

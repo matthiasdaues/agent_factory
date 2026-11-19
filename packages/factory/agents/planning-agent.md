@@ -103,6 +103,8 @@ Sketch story-level slice tables per confirmed EPIC, in the [factory voice](../ru
 
 Write `backlog/ST-NNNN.md` files with MoSCoW priorities, dependencies, and `backlog-lint` validation, in the [factory voice](../rulebooks/conventions/factory-voice.md).
 
+The `touches` of a story also list the test files that the change makes wrong, and the finding files a reviewer may resolve. Search the tests for the names of the scripts, subcommands and headings the story changes. `premerge-check` refuses a file outside `touches`, and in the run-lifecycle run almost every story needed a scope commit for such a file.
+
 **Gate:** user confirms the backlog.
 
 ### Phase 5 — Commit

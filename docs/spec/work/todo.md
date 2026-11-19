@@ -477,3 +477,40 @@ A rebase of `feat/guardrail-in-init-factory` cost about 15 minutes and corrupted
 The hooks of the orchestrator subproject used `uv run --project orchestrator`, which caused a build failure and three hook rewrites. The orchestrator subproject no longer exists, so decide first whether the rule is still needed.
 
 **Action:** decide whether a rule is needed; if so, state in `packages/factory/docs/factory-guide.md` that a subproject hook uses the wrappers in `.agent-factory/factory/scripts/`.
+
+## T-0412 — Run a scripted smoke test before a feature merges into dev
+
+- status: open
+- source: retro-2026-11-20 (run lifecycle)
+- traces: ST-0424, ST-0431
+
+The stakeholder decided on 2026-11-19 that `premerge-check dev <feature-branch>` shall not require the four feature reports. It shall run a scripted smoke test instead. A manual smoke run after wave 9 found three defects that 23 story reviews had missed. How to design the test, and who designs it, is open.
+
+**Action:** decide who designs the smoke test, then write a proposal for it and for the change to the feature merge check.
+
+## T-0413 — Run only the affected tests in the commit hook
+
+- status: open
+- source: retro-2026-11-20 (run lifecycle)
+
+The `run-tests` hook runs all of about 4400 tests on every commit that touches `packages/factory/scripts/` or `tests/`, which takes two to five minutes. A story with a fix iteration paid four to six full runs, and two developers ran tests by hand to get around it.
+
+**Action:** write a proposal for a commit hook that runs the tests a change affects, with `merge-story` keeping the full suite as the gate. Measure first which tests take the most time.
+
+## T-0414 — Bound the usage capture
+
+- status: open
+- source: retro-2026-11-20 (run lifecycle)
+
+The usage capture copies the full main transcript on every hook and keeps every copy. `.agent-factory/usage/transcripts/` reached 56 GB, filled the disk and failed the ST-0431 merge. All records of one session carry the key `<session>-0001`, so the main session and its subagents cannot be told apart, and the referenced transcript copies were empty.
+
+**Action:** write a proposal for a capture that records a delta instead of a full copy, keeps one key per subagent, and caps or rotates its folder.
+
+## T-0415 — Block every way to start pytest by hand
+
+- status: open
+- source: retro-2026-11-20 (run lifecycle)
+
+The Bash guard blocks only `uv run pytest`. Developers ran `.venv/bin/python -m pytest` and `uv run python -m pytest`, which pass the guard.
+
+**Action:** extend the guard to every command that starts pytest, `python -m pytest` in any form included, and keep `pre-commit run run-tests` allowed.
