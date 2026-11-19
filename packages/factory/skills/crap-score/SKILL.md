@@ -14,7 +14,7 @@ with test coverage into a single risk score per function.
 - Formula: `CRAP(m) = comp(m)^2 * (1 - cov(m)/100)^3 + comp(m)`
 - Default threshold: **30** per function (industry standard)
 - Threshold overrides from `testing.yaml` (at `docs/testing.yaml`) when present
-  (key: `gates.crap_score.threshold`)
+  (key: `gates.crap-score.threshold`)
 - One JSON result per function: name, file, complexity, coverage,
   CRAP score, pass/fail
 - Logged output at `.current-work/crap-score/<story-id>.json`

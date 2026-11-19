@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0121",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/work/core-artifact-ownership-qa-strategy.md:84",
+  "story": null,
+  "finding": "The CAO-12 row of the core-artifact-ownership QA strategy says that mutation-testing files an unresolved mutant as a QA finding 'with the test-strategy agent as owner'. Commit 072cd152 renames the CAO-12 Rule to 'Test-strategy agent resolves a filed mutant that no test should kill, and the planning agent owns a filed mutant that needs a test'. The RL-12 Outline 'The gate-check step files a blocking QA finding for a mutant it cannot resolve' and the mutation-testing skill let the owner follow the cause (RL-G24). The test test_st_0358_file_qa_finding_names_path_and_owner already checks both owners. Change the Behavior cell to: the gate-check step files an unresolved mutant as a QA finding whose owner follows the cause, planning-agent for a missing test and test-strategy-agent when no test should kill it. Owner: test-strategy-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The row is implemented, and its test checks the owner that the Rule and the skill name, so nobody writes a new test from the stale cell (no to fails_purpose); a reader of the QA strategy learns a wrong owner and must read the Rule to correct it (raises_cost). No story or code outside the run encodes the cell.",
+  "commit": "072cd1529e6ad0016a8d16e2be780f2959b8ca60",
+  "status": "open"
+}

@@ -98,6 +98,27 @@ repos:
           ^docs/(spec/(architecture|dependency-rules)\.dsl|arc42/05_building_block_view\.md|assets/images/.*|adr/.*\.md)$
         stages: [pre-commit, pre-merge-commit]
 
+      # Check the Python imports of the whole source root against the rules
+      # of docs/spec/dependency-rules.dsl. Runs when a commit stages a .py
+      # file, because dependency-check reads Python imports only. After the
+      # factory guard, the hook checks for the rules file. Without it, the
+      # hook prints a notice and passes before it calls the script, so it
+      # needs no uv (ST-0417).
+      - id: agent_factory_hook-dependency-check
+        name: "agent_factory: dependency-check (dependency rules)"
+        entry: >-
+          bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse
+          --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory";
+          [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" =
+          true ] || exit 0; echo ".agent-factory/ missing. Run update-factory,
+          or set SKIP=<hook id>." >&2; exit 1; }; [ -f
+          docs/spec/dependency-rules.dsl ] || { echo "dependency-check: no
+          docs/spec/dependency-rules.dsl, skipped"; exit 0; }; exec
+          "$AF"/factory/scripts/dependency-check' --
+        language: system
+        pass_filenames: false
+        files: \.py$
+
       # Validate backlog story files — required frontmatter fields,
       # allowed status values, and dependency references that must
       # point to existing stories.
@@ -304,6 +325,18 @@ repos:
       - id: run-container-tests
         name: run-container-tests
         entry: uv run pytest --tb=short --quiet -m container
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
+
+      # Run the real OpenCode session tests of the git guardrail before each
+      # release (RL-16-E2-01, RL-16-E2-02). They use the free tier models
+      # that OpenCode configured on its own:
+      #   pre-commit run run-opencode-session-test --hook-stage manual
+      - id: run-opencode-session-test
+        name: run-opencode-session-test
+        entry: uv run pytest --tb=short --quiet -m opencode_session
         language: system
         pass_filenames: false
         always_run: true

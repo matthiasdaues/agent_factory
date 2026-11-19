@@ -12,8 +12,9 @@ By:   Manual invocation or implementation-agent automation.
 
 Usage
   dispatch status
-  dispatch init --base <branch> --stories ST-001,ST-002
+  dispatch init --base <branch> --stories ST-001,ST-002 [--mode orchestrated|by-hand]
   dispatch plan --backlog-dir backlog
+  dispatch close [--drop|--orphans]
 
 Exit code: 0 on success, 1 on error, 2 on usage error.
 """
@@ -21,22 +22,30 @@ Exit code: 0 on success, 1 on error, 2 on usage error.
 from __future__ import annotations
 
 import argparse
-import json
+import importlib.util
+import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import (
+    ESCALATE_REFUSED_RECORDS,
+    ESCALATE_REFUSED_SCOPE,
+    ESCALATE_REFUSED_VERIFY_BASE,
     FAILURE_CLASSES,
+    LEDGER_MODES,
     MANIFEST_FILENAME,
-    QUALIFYING_ESCALATION_FAILURE_CLASSES,
     STOP_SUBCOMMANDS,
     TIER_RANK,
+    AttemptLimits,
     Ledger,
     ManifestExistsError,
     ReportError,
@@ -46,23 +55,37 @@ from dispatch_lib import (
     TransitionError,
     _load_yaml,
     append_attempt,
-    attempts_for_session,
+    attempt_limits,
     clear_manifest_force,
+    close_refusals,
     compute_wave_plan,
+    counted_attempts_on_tier,
+    counted_tier,
+    DEPENDENCY_NOT_DONE,
+    dependency_refusals,
     drift_row_problems,
-    glob_match,
+    finding_add_refusal,
+    finding_fields,
+    grant_attempts,
+    has_stopped,
     implementation_session_tier,
+    is_story_id,
+    ledger_escalation_refusal,
     load_core_patterns,
     load_project_config,
     load_stories,
     next_tier,
+    orphan_ledger_verdict,
+    orphan_stash_name,
     parse_story_frontmatter,
     re_dispatch_disposition,
     remove_manifest,
     render_handoff_contract,
     spec_feedback_path,
+    stash_name,
     stop_notice,
     suggest_tier,
+    tier_attempt_limit,
     write_handoff_contract,
     write_manifest,
 )
@@ -223,21 +246,11 @@ def _top_level_entries(text: str, keys: tuple[str, ...]) -> dict:
     return entries
 
 
-def _project_json_command(path: Path) -> str | None:
-    try:
-        data = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return None
-    command = data.get("test_command") if isinstance(data, dict) else None
-    return command if isinstance(command, str) and command else None
-
-
 def _read_test_command(project_root: Path) -> str | None:
-    """Read the project's test command (BUG-0085).
+    """Read the project's test command from docs/testing.yaml (BR-112).
 
-    init-factory records it in docs/testing.yaml. A config/project.json with
-    a test_command key, the layout before that, still works. In a linked
-    worktree, a file missing from the checkout is read from the main tree.
+    In a linked worktree, a file missing from the checkout is read from the
+    main tree.
     """
     roots = [project_root]
     code, common_dir, _ = _git("rev-parse", "--git-common-dir")
@@ -249,15 +262,134 @@ def _read_test_command(project_root: Path) -> str | None:
         command = _testing_yaml_command(root / "docs" / "testing.yaml")
         if command:
             return command
-    for root in roots:
-        command = _project_json_command(root / "config" / "project.json")
-        if command:
-            return command
     return None
 
 
+def _checkout_roots(project_root: Path) -> list[Path]:
+    """Return *project_root*, and the main tree when it is a linked worktree."""
+    roots = [project_root]
+    code, common_dir, _ = _git("rev-parse", "--git-common-dir")
+    if code == 0 and common_dir:
+        main_root = Path(common_dir).resolve().parent
+        if main_root != project_root:
+            roots.append(main_root)
+    return roots
+
+
+def _read_attempt_limits(project_root: Path) -> AttemptLimits:
+    """Read `gates.attempts` and `gates.attempts_escalated` (BR-114).
+
+    In a linked worktree, a file missing from the checkout is read from the
+    main tree. Without the file or the keys, both counts are 3. A value
+    that is no whole number raises ValueError.
+    """
+    for root in _checkout_roots(project_root):
+        path = root / "docs" / "testing.yaml"
+        if not path.is_file():
+            continue
+        try:
+            data = _load_yaml(path.read_text())
+        except Exception as e:  # name the file in the refusal
+            raise ValueError(f"cannot parse {path}: {e}") from e
+        return attempt_limits(data.get("gates") if isinstance(data, dict) else None)
+    return AttemptLimits()
+
+
+def _read_refuse_dirty_feature_worktree(project_root: Path) -> bool:
+    """Read `dispatch.refuse_dirty_feature_worktree` from docs/testing.yaml (BR-124).
+
+    In a linked worktree, a file missing from the checkout is read from the
+    main tree. A missing file, section or key means True. A value that is
+    no bool raises ValueError.
+    """
+    for root in _checkout_roots(project_root):
+        path = root / "docs" / "testing.yaml"
+        if not path.is_file():
+            continue
+        try:
+            data = _load_yaml(path.read_text())
+        except Exception as e:  # name the file in the refusal
+            raise ValueError(f"cannot parse {path}: {e}") from e
+        section = data.get("dispatch") if isinstance(data, dict) else None
+        if not isinstance(section, dict) or "refuse_dirty_feature_worktree" not in section:
+            return True
+        value = section["refuse_dirty_feature_worktree"]
+        if not isinstance(value, bool):
+            raise ValueError(
+                f"{path}: dispatch.refuse_dirty_feature_worktree must be true "
+                f"or false, not {value!r}"
+            )
+        return value
+    return True
+
+
+def _testing_yaml_path(project_root: Path) -> Path:
+    """The docs/testing.yaml that dispatch reads: the one of the checkout,
+    else the one of the main tree, else the path in the checkout (IMPL-0039)."""
+    for root in _checkout_roots(project_root):
+        path = root / "docs" / "testing.yaml"
+        if path.is_file():
+            return path
+    return project_root / "docs" / "testing.yaml"
+
+
+def _refuse_dirty_feature_worktree(project_root: Path, entry: StoryEntry) -> bool:
+    """Refuse a new merge when the feature worktree holds a tracked change (BR-124).
+
+    Only an orchestrated run calls this, after premerge-check exited 0.
+    Return True when merge-story must stop; the message names the files
+    and the worktree.
+    """
+    try:
+        refuse = _read_refuse_dirty_feature_worktree(project_root)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return True
+    if not refuse:
+        return False
+    code, changed, err = _git(
+        "-C", str(project_root), "status", "--porcelain", "--untracked-files=no"
+    )
+    if code != 0:
+        print(
+            f"error: git status failed in the worktree of the feature branch "
+            f"{project_root}, so merge-story cannot tell whether it is clean; "
+            f"{entry.id} stays dispatched: {err}",
+            file=sys.stderr,
+        )
+        return True
+    if not changed:
+        return False
+    print(
+        f"error: the worktree of the feature branch {project_root} holds "
+        f"uncommitted changes to tracked files; {entry.id} stays dispatched "
+        f"and nothing was merged. Commit or revert them, or set "
+        f"dispatch.refuse_dirty_feature_worktree: false in "
+        f"{_testing_yaml_path(project_root)}:",
+        file=sys.stderr,
+    )
+    # _git strips the output, so the status letters of the first line may
+    # have lost their leading blank; split off the letters instead.
+    for line in changed.splitlines():
+        print(f"  {line.split(maxsplit=1)[1]}", file=sys.stderr)
+    return True
+
+
+def _attempt_limits_or_error(project_root: Path) -> AttemptLimits | None:
+    """Return the attempt limits, or print the error and return None."""
+    try:
+        return _read_attempt_limits(project_root)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return None
+
+
 def _story_frontmatter(project_root: Path, story_id: str) -> dict | None:
-    """Return the parsed frontmatter for one backlog story, if available."""
+    """Return the parsed frontmatter for one backlog story, if available.
+
+    A finding ID has no backlog file, so dispatch reads none (BR-117)."""
+    if not is_story_id(story_id):
+        return None
     story_path = project_root / "backlog" / f"{story_id}.md"
     if not story_path.exists():
         return None
@@ -301,8 +433,108 @@ def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
 
 DEFAULT_MAX_FILES = 20
 
+
+def _unit_file(project_root: Path, unit_id: str) -> tuple[Path, str]:
+    """The file whose status merge-story sets, and the status it writes (BR-118).
+
+    A story sets `status: done` in backlog/<id>.md, a finding sets
+    `status: resolved` in docs/findings/<id>.md.
+    """
+    if is_story_id(unit_id):
+        return project_root / "backlog" / f"{unit_id}.md", "done"
+    return project_root / "docs" / "findings" / f"{unit_id}.md", "resolved"
+
 # The index-lint pre-commit hook rewrites this file during a story commit.
 HOOK_REWRITTEN_INDEX = "packages/factory/INDEX.yaml"
+
+def _load_premerge_check():
+    """Load premerge-check as a module, so merge-story shares its scope rule."""
+    loader = SourceFileLoader("premerge_check", str(SCRIPT_DIR / "premerge-check"))
+    spec = importlib.util.spec_from_loader("premerge_check", loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def _story_owned_scope(target_branch: str, branch: str, story_id: str) -> list[str] | None:
+    """The changed review and finding files that belong to *story_id*.
+
+    A file in docs/reviews/ or docs/findings/ belongs to the unit of work
+    when its name holds the ID or its `story` field names it, read at the
+    merge base for a file that exists there (IMPL-0027). Prints the git
+    error and returns None when git cannot read a file.
+    """
+    # --no-renames keeps the old name of a renamed file in the list (IMPL-0057).
+    code, out, err = _git(
+        "diff", "--name-only", "--no-renames", f"{target_branch}...{branch}"
+    )
+    if code != 0:
+        print(f"error: cannot list the changed files of {branch}: {err}", file=sys.stderr)
+        return None
+    premerge = _load_premerge_check()
+    files = [line for line in out.splitlines() if line]
+    try:
+        return premerge.story_owned_files(target_branch, branch, story_id, files)
+    except premerge.GitReadError as exc:
+        print(f"error: cannot read the scope of {story_id} at {branch}: {exc}",
+              file=sys.stderr)
+        return None
+
+
+@dataclass(frozen=True)
+class _UnitScope:
+    """The scope of a unit of work as merge-story passes it to premerge-check.
+
+    *entries* are (flag, path) pairs, with the flag `--scope` or
+    `--scope-glob`. A finding declares no file scope, so its list is empty
+    and only *max_files* limits its diff (RL-G20). *owned* are the unit's
+    own review and finding files, which do not count toward the limit.
+    """
+
+    entries: tuple[tuple[str, str], ...]
+    max_files: int
+    owned: tuple[str, ...]
+
+    def arguments(self) -> list[str]:
+        args: list[str] = []
+        for flag, path in self.entries:
+            args += [flag, path]
+        return args + ["--max-files", str(self.max_files)]
+
+
+def _unit_scope(
+    project_root: Path, unit_id: str, target_branch: str, branch: str
+) -> _UnitScope | None:
+    """Build the scope of one unit of work (IMPL-0033).
+
+    merge-story turns it into the arguments of premerge-check, and
+    _story_scope_violation matches the diff against it, so both apply one
+    rule. For a story the scope is its declared `outputs`, else its
+    `touches`, plus its backlog file, its spec-feedback report, the
+    INDEX.yaml that a hook rewrites, and its own review and finding files.
+    An entry with `*` or `?` is a glob, any other entry a path prefix.
+    Returns None when git cannot read the scope.
+    """
+    owned = _story_owned_scope(target_branch, branch, unit_id)
+    if owned is None:
+        return None
+    if not is_story_id(unit_id):
+        return _UnitScope((), DEFAULT_MAX_FILES, tuple(owned))
+    outputs = _story_output_globs(project_root, unit_id)
+    # glob_match has no bracket classes, so ``[`` stays literal.
+    entries = [
+        ("--scope-glob" if any(c in path for c in "*?") else "--scope", path)
+        for path in outputs
+    ]
+    entries += [
+        ("--scope-glob", f"backlog/{unit_id}.md"),
+        # The story's own drift report is part of its work (ADR-0029).
+        ("--scope-glob", spec_feedback_path(unit_id)),
+        ("--scope-glob", HOOK_REWRITTEN_INDEX),
+    ]
+    entries += [("--scope", path) for path in owned]
+    return _UnitScope(tuple(entries), _scaled_max_files(len(outputs)), tuple(owned))
+
 
 def _scaled_max_files(output_count: int) -> int:
     """Recommend a per-story ``--max-files`` threshold from an output count.
@@ -330,32 +562,34 @@ def _attempt_session_for_story(
     return "impl"
 
 
-def _commit_changed_paths(commit_sha: str) -> list[str]:
-    """Return the tracked paths changed by *commit_sha*."""
-    if not commit_sha:
-        return []
-    code, out, _ = _git("show", "--name-only", "--format=", commit_sha)
-    if code != 0:
-        return []
-    return [line.strip() for line in out.splitlines() if line.strip()]
+def _story_scope_violation(project_root: Path, entry: StoryEntry) -> bool:
+    """Return True when the diff of the branch fails the scope or the file
+    limit that merge-story checks (BR-115).
 
-
-def _story_scope_violation(
-    project_root: Path, story_id: str, commit_sha: str | None
-) -> bool:
-    """Return True when a commit touches files outside the story's outputs."""
-    if not commit_sha:
+    The diff runs from the feature branch to the branch of the unit, as in
+    merge-story, so a fix that the User commits on the branch counts. The
+    scope comes from _unit_scope, and the match uses the checks of
+    premerge-check, so escalate and merge-story agree. A finding declares
+    no file scope, so only the file limit applies to it.
+    """
+    target = entry.feature_branch or entry.base_sha
+    if not entry.branch or not target:
         return True
-    outputs = _story_output_globs(project_root, story_id)
-    if not outputs:
+    code, out, _ = _git(
+        "diff", "--name-only", "--no-renames", f"{target}...{entry.branch}"
+    )
+    changed = [line for line in out.splitlines() if line]
+    if code != 0 or not changed:
         return True
-    changed_paths = _commit_changed_paths(commit_sha)
-    if not changed_paths:
+    scope = _unit_scope(project_root, entry.id, target, entry.branch)
+    if scope is None:
         return True
-    for path in changed_paths:
-        if not any(glob_match(pattern, path) for pattern in outputs):
-            return True
-    return False
+    premerge = _load_premerge_check()
+    scopes = [path for flag, path in scope.entries if flag == "--scope"]
+    globs = [path for flag, path in scope.entries if flag == "--scope-glob"]
+    in_scope, _ = premerge.check_out_of_scope(changed, scopes, globs)
+    in_limit, _ = premerge.check_blowout(changed, scope.max_files, list(scope.owned))
+    return not (in_scope and in_limit)
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -428,10 +662,7 @@ def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
     ``max_input_tokens``. Missing or unparsable backlog files yield an empty
     dict — the manifest is still written, just with empty declarations.
     """
-    story_path = project_root / "backlog" / f"{story_id}.md"
-    if not story_path.exists():
-        return {}
-    fm = parse_story_frontmatter(story_path.read_text())
+    fm = _story_frontmatter(project_root, story_id)
     if fm is None:
         return {}
     raw_traces = fm.get("traces")
@@ -465,10 +696,8 @@ def _story_handoff_contract(
     session: str = "impl",
 ) -> tuple[object | None, str | None]:
     """Render and persist the story's seven-part handoff contract."""
-    story_path = project_root / "backlog" / f"{entry.id}.md"
-    story_fm = (
-        parse_story_frontmatter(story_path.read_text()) if story_path.exists() else {}
-    )
+    story_path, _ = _unit_file(project_root, entry.id)
+    story_fm = _story_frontmatter(project_root, entry.id) or {}
     story_title = (story_fm or {}).get("title") or entry.id
     touches = list((story_fm or {}).get("touches") or [])
     strategy = (story_fm or {}).get("strategy")
@@ -577,9 +806,14 @@ def _prepare_seams_first_session(
 
 
 def cmd_init(args: argparse.Namespace) -> int:
-    """Initialize a dispatch run: create feature branch, worktree, and ledger."""
+    """Start a run: create the feature branch, and write the ledger.
+
+    An orchestrated run gets a worktree for its feature branch. A run by hand
+    gets the branch only, because it works in the primary checkout (BR-112).
+    """
     feature_branch = getattr(args, "feature_branch", None)
     baseline_commit = getattr(args, "baseline_commit", False)
+    mode = getattr(args, "mode", None) or "orchestrated"
 
     if feature_branch and baseline_commit:
         print(
@@ -589,13 +823,38 @@ def cmd_init(args: argparse.Namespace) -> int:
         return 1
 
     project_root = _project_root()
-    active = _active_ledger(project_root)
-    if active is not None:
+    story_ids = [s.strip() for s in args.stories.split(",")]
+    branch_name = feature_branch or _impl_branch_name(story_ids)
+    ledger_dir = project_root / ".current-work" / branch_name
+    ledger_path = ledger_dir / "dispatch-ledger.yaml"
+
+    if ledger_path.exists():
+        try:
+            existing = Ledger.load(ledger_path)
+            if set(existing.stories.keys()) == set(story_ids):
+                print(
+                    f"dispatch init: ledger already exists for '{branch_name}' (no-op)"
+                )
+                return 0
+        except Exception:  # noqa: BLE001, S110 - malformed ledger handled below
+            pass
         print(
-            f"error: dispatch is still active: {active}",
+            f"error: the ledger of '{branch_name}' lists other stories: {ledger_path}",
             file=sys.stderr,
         )
         return 1
+
+    if mode == "by-hand":
+        other = _active_run_by_hand()
+        if other is not None:
+            other_branch, other_path = other
+            print(
+                f"error: a run by hand is active on '{other_branch}' "
+                f"({other_path}); both need the primary checkout",
+                file=sys.stderr,
+            )
+            return 1
+
     test_cmd = _read_test_command(project_root)
     if not test_cmd:
         print(
@@ -604,7 +863,15 @@ def cmd_init(args: argparse.Namespace) -> int:
         )
         return 1
 
-    story_ids = [s.strip() for s in args.stories.split(",")]
+    open_deps = _open_outside_deps(project_root, story_ids)
+    if open_deps:
+        for sid, dep in open_deps:
+            print(
+                f"error: {sid} depends on {dep}, which is outside the run "
+                "and not done in the backlog",
+                file=sys.stderr,
+            )
+        return 1
 
     tier_check = _check_tier_mismatches(project_root, story_ids)
     if tier_check.blocking:
@@ -627,20 +894,13 @@ def cmd_init(args: argparse.Namespace) -> int:
     if feature_branch:
         code, fb_sha, _ = _git("rev-parse", f"refs/heads/{feature_branch}")
         if code != 0:
-            # Branch does not exist — create it with a linked worktree from base.
-            main_root = _main_worktree_root()
             wt_path = (
-                main_root
-                / ".current-work"
-                / feature_branch
-                / "invocation"
+                _main_worktree_root() / ".current-work" / feature_branch / "invocation"
             )
-            code, _, err = _git(
-                "worktree", "add", "-b", feature_branch, str(wt_path), base_sha
-            )
+            code, err = _create_run_branch(mode, feature_branch, wt_path, base_sha)
             if code != 0:
                 print(
-                    f"error: failed to create invocation branch "
+                    f"error: failed to create feature branch "
                     f"'{feature_branch}' from '{base}': {err}",
                     file=sys.stderr,
                 )
@@ -659,32 +919,7 @@ def cmd_init(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-        branch_name = feature_branch
     else:
-        branch_name = f"impl/{'-'.join(story_ids[:3]).lower()}"
-        if len(story_ids) > 3:
-            branch_name += f"-and-{len(story_ids) - 3}-more"
-
-    # Idempotency check
-    ledger_dir = project_root / ".current-work" / branch_name
-    ledger_path = ledger_dir / "dispatch-ledger.yaml"
-    if ledger_path.exists():
-        try:
-            existing = Ledger.load(ledger_path)
-            if set(existing.stories.keys()) == set(story_ids):
-                print(
-                    f"dispatch init: ledger already exists for '{branch_name}' (no-op)"
-                )
-                return 0
-        except Exception:  # noqa: BLE001, S110 - malformed ledger handled below
-            pass
-        print(
-            f"error: dispatch already active for '{branch_name}' at {ledger_path}",
-            file=sys.stderr,
-        )
-        return 1
-
-    if not feature_branch:
         code, untracked, _ = _git("ls-files", "--others", "--exclude-standard")
         if untracked and not baseline_commit:
             print(
@@ -703,23 +938,20 @@ def cmd_init(args: argparse.Namespace) -> int:
             )
             code, base_sha, _ = _git("rev-parse", "HEAD")
 
-        # Create feature branch + worktree
         worktree_path = project_root / ".current-work" / branch_name
-        code, _, err = _git(
-            "worktree", "add", "-b", branch_name, str(worktree_path), base_sha
-        )
+        code, err = _create_run_branch(mode, branch_name, worktree_path, base_sha)
         if code != 0:
-            print(f"error: failed to create worktree: {err}", file=sys.stderr)
+            print(f"error: failed to create branch: {err}", file=sys.stderr)
             return 1
 
-    # Resolve the branch root SHA for the ledger
+    # The branch root is the tip of the feature branch at init (BR-112).
     code, root_sha, _ = _git("rev-parse", f"refs/heads/{branch_name}")
     if code != 0:
         root_sha = base_sha
 
-    # Initialize ledger
     ledger = Ledger()
-    ledger.invocation_branch = branch_name
+    ledger.mode = mode
+    ledger.feature_branch = branch_name
     ledger.branch_root = root_sha
     ledger.branch_head = root_sha
     for sid in story_ids:
@@ -731,29 +963,63 @@ def cmd_init(args: argparse.Namespace) -> int:
     ledger_dir.mkdir(parents=True, exist_ok=True)
     ledger.save(ledger_path)
 
-    print(f"dispatch init: initialized '{branch_name}' with {len(story_ids)} stories")
+    print(
+        f"dispatch init: initialized '{branch_name}' ({mode}) "
+        f"with {len(story_ids)} stories"
+    )
     print(f"  ledger: {ledger_path}")
     return 0
 
 
+def _impl_branch_name(story_ids: list[str]) -> str:
+    """Name the branch of a run started without --feature-branch."""
+    name = f"impl/{'-'.join(story_ids[:3]).lower()}"
+    if len(story_ids) > 3:
+        name += f"-and-{len(story_ids) - 3}-more"
+    return name
 
-def _active_ledger(project_root: Path) -> Path | None:
-    """Return the first non-terminal ledger, if one exists."""
-    current_work = project_root / ".current-work"
+
+def _create_run_branch(
+    mode: str, branch: str, worktree_path: Path, base_sha: str
+) -> tuple[int, str]:
+    """Create *branch* at *base_sha*; only an orchestrated run gets a worktree."""
+    if mode == "by-hand":
+        code, _, err = _git("branch", branch, base_sha)
+    else:
+        code, _, err = _git("worktree", "add", "-b", branch, str(worktree_path), base_sha)
+    return code, err
+
+
+def _active_run_by_hand() -> tuple[str, Path] | None:
+    """Return the feature branch and ledger path of an active run by hand."""
+    # A ledger exists only while its run is active (BR-111).
+    current_work = _main_worktree_root() / ".current-work"
     if not current_work.is_dir():
         return None
     for ledger_path in sorted(current_work.glob("**/dispatch-ledger.yaml")):
         try:
             ledger = Ledger.load(ledger_path)
-        except (OSError, TypeError, ValueError):
-            return ledger_path
-        if any(
-            not ledger.is_terminal(story_id) for story_id in ledger.stories
-        ):
-            return ledger_path
+        except Exception:  # noqa: BLE001, S112 - an unreadable ledger names no mode
+            continue
+        if ledger.mode == "by-hand":
+            return ledger.feature_branch or "", ledger_path
     return None
 
 
+def _open_outside_deps(
+    project_root: Path, story_ids: list[str]
+) -> list[tuple[str, str]]:
+    """Return each (story, dependency) pair whose dependency is outside the run
+    and not done in the backlog."""
+    open_deps = []
+    for sid in story_ids:
+        for dep in _story_deps(project_root, sid):
+            if dep in story_ids:
+                continue
+            frontmatter = _story_frontmatter(project_root, dep) or {}
+            if frontmatter.get("status") != "done":
+                open_deps.append((sid, dep))
+    return open_deps
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
@@ -818,12 +1084,12 @@ def _load_ledger(ledger_path: Path) -> Ledger | None:
     return None
 
 
-def _load_automated_ledger(ledger_path: Path) -> Ledger | None:
-    """Load *ledger_path* and require an automated-mode ledger."""
+def _load_orchestrated_ledger(ledger_path: Path) -> Ledger | None:
+    """Load *ledger_path* and require the ledger of an orchestrated run."""
     ledger = _load_ledger(ledger_path)
-    if ledger is not None and ledger.mode != "automated":
+    if ledger is not None and ledger.mode != "orchestrated":
         print(
-            f"error: command requires an automated-mode ledger: {ledger_path}",
+            f"error: command requires the ledger of an orchestrated run: {ledger_path}",
             file=sys.stderr,
         )
         return None
@@ -938,10 +1204,38 @@ def _remove_story_workspace(
         _git("branch", "-D", branch_name)
 
 
+def _reuse_story_workspace(
+    ledger: Ledger, entry: StoryEntry, target_branch: str
+) -> str:
+    """Bring the existing branch of a reused entry onto the feature branch.
+
+    `add` keeps the branch and the worktree of a finding that it takes back
+    (BR-117). The next attempt runs there: the worktree stays, and the
+    feature branch is merged into the branch, as `refresh-story` does, so
+    the work of the earlier attempt stays (IMPL-0056). Returns "ok",
+    "blocked" after a refresh conflict, or "error".
+    """
+    registered = _worktree_for_branch(entry.branch) if entry.branch else None
+    if (
+        not entry.worktree
+        or registered is None
+        or Path(registered).resolve() != Path(entry.worktree).resolve()
+    ):
+        print(
+            f"error: {entry.id} holds the branch {entry.branch}, but git worktree "
+            f"list reports no worktree of it at {entry.worktree}",
+            file=sys.stderr,
+        )
+        return "error"
+    if _refresh_story_branch(ledger, entry, target_branch) == 0:
+        return "ok"
+    return "blocked" if entry.status == StoryState.BLOCKED else "error"
+
+
 def cmd_prepare_wave(args: argparse.Namespace) -> int:
     """Prepare every eligible story in one wave."""
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -949,41 +1243,32 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
     if not any(entry.wave == wave for entry in ledger.stories.values()):
         print(f"error: no story in the ledger carries wave {wave}", file=sys.stderr)
         return 1
-    blocking = [
-        entry
-        for entry in ledger.stories.values()
-        if entry.wave is not None
-        and entry.wave < wave
-        and entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
-    ]
-    if blocking:
-        blockers = ", ".join(
-            f"{entry.id} ({entry.status.value})"
-            for entry in sorted(blocking, key=lambda e: e.id)
-        )
-        print(
-            f"error: wave {wave} blocked by non-terminal prior-wave stories: {blockers}",
-            file=sys.stderr,
-        )
+    missing = _missing_wave_record(ledger, wave, f"prepare-wave {wave}")
+    if missing:
+        print(missing, file=sys.stderr)
         return 1
 
-    target_branch = ledger.invocation_branch
+    target_branch = ledger.feature_branch
     if not target_branch:
         target_branch = _current_branch_name()
     if not target_branch:
         print(
-            "error: prepare-wave requires invocation_branch in the ledger "
+            "error: prepare-wave requires feature_branch in the ledger "
             "or a named current branch",
             file=sys.stderr,
         )
         return 1
 
-    base_sha = ledger.branch_head or ledger.branch_root
-    if not base_sha:
-        code, base_sha, err = _git("rev-parse", "HEAD")
-        if code != 0:
-            print(f"error: failed to resolve base SHA: {err}", file=sys.stderr)
-            return 1
+    # A story branch starts at the commit the feature branch has now, read by
+    # name as close-wave does; branch_head records only the last merge or
+    # wave close.
+    base_ref = (
+        f"refs/heads/{ledger.feature_branch}" if ledger.feature_branch else "HEAD"
+    )
+    code, base_sha, err = _git("rev-parse", base_ref)
+    if code != 0:
+        print(f"error: failed to resolve base SHA: {err}", file=sys.stderr)
+        return 1
 
     main_root = _main_worktree_root()
     project_root = _project_root()
@@ -992,6 +1277,7 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         key=lambda entry: entry.id,
     )
     wave_story_ids = {entry.id for entry in stories_in_wave}
+    refused_return = False
 
     for entry in stories_in_wave:
         # Only a pending story gets a new workspace. A story past that state
@@ -999,38 +1285,51 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if entry.status != StoryState.PENDING:
             continue
 
+        returned = ledger.returned_refusal(entry.id)
+        if returned:
+            print(f"error: {returned}; prepare-wave skipped it", file=sys.stderr)
+            refused_return = True
+            continue
+
         same_wave_deps = [dep for dep in entry.deps if dep in wave_story_ids]
         if same_wave_deps:
             continue
 
-        unmet = [
-            dep for dep in entry.deps
-            if dep in ledger.stories
-            and ledger.stories[dep].status != StoryState.DONE
-        ]
+        unmet = dependency_refusals(ledger, entry)
         if unmet:
             print(
-                f"dispatch prepare-wave: skipped {entry.id}: dependency "
-                + ", ".join(
-                    f"{dep} is {ledger.stories[dep].status.value}" for dep in unmet
-                )
+                f"dispatch prepare-wave: skipped {entry.id}: {DEPENDENCY_NOT_DONE}: "
+                + "; ".join(unmet)
             )
             continue
 
-        branch_name = f"story/{entry.id}"
-        worktree_path = (
-            main_root / ".current-work" / target_branch / branch_name
-        )
-
-        workspace = _create_story_workspace(branch_name, worktree_path, base_sha)
-        if workspace.error:
-            _remove_story_workspace(branch_name, worktree_path, workspace)
-            print(
-                f"error: failed to create {branch_name!r} and its worktree "
-                f"for {entry.id}: {workspace.error}",
-                file=sys.stderr,
+        if entry.branch:
+            # A reused entry keeps its branch and worktree (IMPL-0056).
+            reused = _reuse_story_workspace(ledger, entry, target_branch)
+            if reused == "blocked":
+                if _save_ledger(ledger, ledger_path) != 0:
+                    return 1
+                refused_return = True
+                continue
+            if reused == "error":
+                return 1
+            branch_name, worktree_path = entry.branch, Path(entry.worktree)
+            workspace = _StoryWorkspace(False, False, "")
+            remove_manifest(worktree_path, target_branch, branch_name)
+        else:
+            branch_name = f"story/{entry.id}"
+            worktree_path = (
+                main_root / ".current-work" / target_branch / branch_name
             )
-            return 1
+            workspace = _create_story_workspace(branch_name, worktree_path, base_sha)
+            if workspace.error:
+                _remove_story_workspace(branch_name, worktree_path, workspace)
+                print(
+                    f"error: failed to create {branch_name!r} and its worktree "
+                    f"for {entry.id}: {workspace.error}",
+                    file=sys.stderr,
+                )
+                return 1
 
         if not _verify_worktree_registration(worktree_path):
             _remove_story_workspace(branch_name, worktree_path, workspace)
@@ -1085,13 +1384,212 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
         if save_code != 0:
             return save_code
 
-    return 0
+    return 1 if refused_return else 0
+
+
+def _pending_entry_error(entry: StoryEntry) -> str | None:
+    """Name why prepare-story cannot prepare *entry*, or None for a pending
+    entry that was not returned (BR-113)."""
+    if entry.status == StoryState.PENDING and entry.returned:
+        return (
+            f"error: dispatch: {entry.id} was returned and waits for the end "
+            f"of the run; prepare-story does not start it again"
+        )
+    if entry.status == StoryState.FAILED:
+        return (
+            f"error: story {entry.id} failed; prepare-story prepares only a "
+            f"pending story. Retry it with `dispatch re-dispatch {entry.id}`"
+        )
+    if entry.status != StoryState.PENDING:
+        return (
+            f"error: story {entry.id} is {entry.status.value}; prepare-story "
+            f"prepares only a pending story"
+        )
+    return None
+
+
+def _print_dependency_refusals(ledger: Ledger, entry: StoryEntry) -> bool:
+    """Print each dependency inside the run that is not done; True if any (BR-113)."""
+    refusals = dependency_refusals(ledger, entry)
+    for refusal in refusals:
+        print(f"error: {DEPENDENCY_NOT_DONE}: {refusal}", file=sys.stderr)
+    return bool(refusals)
+
+
+def _wave_by_hand(ledger: Ledger, entry: StoryEntry) -> tuple[int | None, str | None]:
+    """Return the wave of *entry* in a run by hand, or the refusal.
+
+    Each story is a wave of its own, so an entry without a wave takes the
+    next free number (BR-064). The previous wave needs its record (BR-113).
+    """
+    wave = entry.wave
+    if wave is None:
+        taken = [e.wave for e in ledger.stories.values() if e.wave is not None]
+        wave = max(taken, default=0) + 1
+    return wave, _missing_wave_record(ledger, wave, f"prepare-story {entry.id}")
+
+
+def _missing_wave_record(ledger: Ledger, wave: int | None, command: str) -> str | None:
+    """Name the missing record of the wave before *wave*, or None (BR-113).
+
+    `dispatch close-wave` writes the record once the wave's units of work
+    and drift rows let it close, so the record stands for the whole check."""
+    if wave is None or wave <= 1:
+        return None
+    if any(record.number == wave - 1 for record in ledger.waves):
+        return None
+    return (
+        f"error: wave {wave - 1} has no wave record; run "
+        f"`dispatch close-wave {wave - 1}` before {command}"
+    )
+
+
+def _undo_checkout_by_hand(
+    main_root: Path, previous: str | None, branch_name: str, created: bool
+) -> None:
+    """Check the earlier branch out again and delete a story branch we created."""
+    if previous:
+        _git("-C", str(main_root), "checkout", "-q", previous)
+    if created:
+        _git("-C", str(main_root), "branch", "-D", branch_name)
+
+
+def _prepare_story_by_hand(
+    ledger: Ledger, ledger_path: Path, entry: StoryEntry
+) -> int:
+    """Prepare one story of a run by hand in the primary checkout (RL-G03).
+
+    The story branch starts at the tip of the feature branch and is checked
+    out in the primary checkout. No worktree is added, so the entry's
+    worktree stays empty.
+    """
+    if entry.status == StoryState.PREPARED:
+        return 0
+    refusal = _pending_entry_error(entry)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 1
+
+    main_root = _main_worktree_root()
+    if not ledger_path.resolve().is_relative_to((main_root / ".current-work").resolve()):
+        print(
+            f"error: the ledger {ledger_path} does not lie under "
+            f"{main_root / '.current-work'}; run prepare-story in the primary "
+            f"checkout of the run",
+            file=sys.stderr,
+        )
+        return 1
+
+    if _print_dependency_refusals(ledger, entry):
+        return 1
+
+    wave, refusal = _wave_by_hand(ledger, entry)
+    if refusal:
+        print(refusal, file=sys.stderr)
+        return 1
+
+    feature_branch = ledger.feature_branch
+    base_sha = _branch_tip(feature_branch) if feature_branch else None
+    if not base_sha:
+        print(
+            f"error: feature branch {feature_branch!r} of the ledger does not exist",
+            file=sys.stderr,
+        )
+        return 1
+
+    project_root = main_root
+    code, changed, err = _git(
+        "-C", str(main_root), "status", "--porcelain", "--untracked-files=no"
+    )
+    if code != 0:
+        print(
+            f"error: git status failed in the primary checkout {main_root}, "
+            f"so prepare-story cannot tell whether it is clean: {err}",
+            file=sys.stderr,
+        )
+        return 1
+    if changed:
+        print(
+            f"error: the primary checkout {main_root} holds uncommitted changes "
+            f"to tracked files; commit them or set them aside first:",
+            file=sys.stderr,
+        )
+        # _git strips the output, so the status letters of the first line
+        # may have lost their leading blank; split off the letters instead.
+        for line in changed.splitlines():
+            print(f"  {line.split(maxsplit=1)[1]}", file=sys.stderr)
+        return 1
+    branch_name = f"story/{entry.id}"
+    tip = _branch_tip(branch_name)
+    # A reused entry keeps its branch, and the next attempt runs on it (IMPL-0056).
+    reused = entry.branch == branch_name and tip is not None
+    if tip is not None and tip != base_sha and not reused:
+        print(
+            f"error: branch {branch_name!r} already exists with commits that are "
+            f"not on the feature branch; inspect it, then delete it or resume it",
+            file=sys.stderr,
+        )
+        return 1
+
+    code, previous, _ = _git(
+        "-C", str(main_root), "symbolic-ref", "--short", "-q", "HEAD"
+    )
+    if code != 0:
+        _, previous, _ = _git("-C", str(main_root), "rev-parse", "HEAD")
+    if tip is None:
+        code, _, err = _git(
+            "-C", str(main_root), "checkout", "-q", "-b", branch_name, base_sha
+        )
+    else:
+        code, _, err = _git("-C", str(main_root), "checkout", "-q", branch_name)
+    created = tip is None and _branch_tip(branch_name) is not None
+    if code != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        print(
+            f"error: failed to check out {branch_name!r} in {main_root}: {err}",
+            file=sys.stderr,
+        )
+        return 1
+    if reused and _refresh_story_branch(
+        ledger, entry, feature_branch, str(main_root)
+    ) != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        if entry.status == StoryState.BLOCKED:
+            _save_ledger(ledger, ledger_path)
+        return 1
+
+    verify_code, verify_output = _run_verify_base(main_root, feature_branch, base_sha)
+    if verify_code != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        if verify_output:
+            print(verify_output, file=sys.stderr)
+        print(f"error: verify-base failed for {entry.id}", file=sys.stderr)
+        return 1
+
+    entry.branch = branch_name
+    entry.worktree = None
+    entry.base_sha = base_sha
+    if reused:
+        remove_manifest(main_root, feature_branch, branch_name)
+    manifest_code, manifest_err = _write_story_manifest(
+        project_root, entry, feature_branch, main_root
+    )
+    if manifest_code != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        print(f"error: {manifest_err}", file=sys.stderr)
+        return 1
+    entry.wave = wave
+    entry.active_session = "impl"
+    entry.active_tier = _story_declared_or_current_tier(project_root, entry)
+    ledger.transition(entry.id, StoryState.PREPARED)
+    return _save_ledger(ledger, ledger_path)
 
 
 def cmd_prepare_story(args: argparse.Namespace) -> int:
-    """Prepare one serial chain link from its predecessor's merge commit."""
+    """Prepare one story: a serial chain link in an orchestrated run, or the
+    next story of a run by hand in the primary checkout."""
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
 
@@ -1099,6 +1597,14 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     entry = ledger.stories.get(story_id)
     if entry is None:
         print(f"error: story not found: {story_id}", file=sys.stderr)
+        return 1
+    if ledger.mode == "by-hand":
+        return _prepare_story_by_hand(ledger, ledger_path, entry)
+
+    # A returned entry waits for the end of the run, whatever its strategy,
+    # so the return is named before the seams-first branch (IMPL-0037).
+    if entry.status == StoryState.PENDING and entry.returned:
+        print(_pending_entry_error(entry), file=sys.stderr)
         return 1
 
     project_root = _project_root()
@@ -1122,7 +1628,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         worktree_path = Path(entry.worktree)
         feature_branch = (
             entry.feature_branch
-            or ledger.invocation_branch
+            or ledger.feature_branch
             or _current_branch_name()
         )
         if not feature_branch:
@@ -1149,19 +1655,9 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     if entry.status == StoryState.PREPARED:
         return 0
-    if entry.status == StoryState.FAILED:
-        print(
-            f"error: story {story_id} failed; prepare-story prepares only a "
-            f"pending story. Retry it with `dispatch re-dispatch {story_id}`",
-            file=sys.stderr,
-        )
-        return 1
-    if entry.status != StoryState.PENDING:
-        print(
-            f"error: story {story_id} is {entry.status.value}; prepare-story "
-            f"prepares only a pending story",
-            file=sys.stderr,
-        )
+    refusal = _pending_entry_error(entry)
+    if refusal:
+        print(refusal, file=sys.stderr)
         return 1
 
     if not entry.deps:
@@ -1169,6 +1665,12 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
             f"error: story {story_id} has no chain predecessor recorded",
             file=sys.stderr,
         )
+        return 1
+    if _print_dependency_refusals(ledger, entry):
+        return 1
+    missing = _missing_wave_record(ledger, entry.wave, f"prepare-story {entry.id}")
+    if missing:
+        print(missing, file=sys.stderr)
         return 1
 
     predecessor_id = entry.deps[0]
@@ -1196,7 +1698,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     main_root = _main_worktree_root()
     feature_branch_for_path = (
         predecessor.feature_branch
-        or ledger.invocation_branch
+        or ledger.feature_branch
         or _current_branch_name()
     )
     branch_name = f"story/{entry.id}"
@@ -1234,7 +1736,7 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
 
     feature_branch = (
         predecessor.feature_branch
-        or ledger.invocation_branch
+        or ledger.feature_branch
         or _current_branch_name()
     )
     if not feature_branch:
@@ -1298,32 +1800,6 @@ def cmd_mark_dispatching(args: argparse.Namespace) -> int:
 
 def cmd_mark_dispatched(args: argparse.Namespace) -> int:
     return _transition(args, StoryState.DISPATCHED)
-
-
-def cmd_mark_done(args: argparse.Namespace) -> int:
-    """Mark a story done and remove its step manifest (guards deactivate)."""
-    ledger_path = Path(args.ledger)
-    ledger = _load_ledger(ledger_path)
-    if ledger is None:
-        return 1
-    entry = ledger.stories.get(args.story_id)
-    if entry is None:
-        print(f"error: story not found: {args.story_id}", file=sys.stderr)
-        return 1
-
-    try:
-        ledger.transition(args.story_id, StoryState.DONE)
-    except TransitionError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-
-    entry.active_session = None
-    entry.active_tier = None
-
-    if entry.worktree and entry.feature_branch and entry.branch:
-        remove_manifest(Path(entry.worktree), entry.feature_branch, entry.branch)
-
-    return _save_ledger(ledger, ledger_path)
 
 
 def cmd_clear_manifest(args: argparse.Namespace) -> int:
@@ -1415,10 +1891,8 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
     if current_status != target_state:
         entry.failure_class = args.failure_class
         entry.evidence = args.evidence
-        tier = (
-            entry.active_tier
-            or entry.tier
-            or _story_declared_tier(_project_root(), args.story_id)
+        tier = counted_tier(
+            entry, _story_declared_tier(_project_root(), args.story_id)
         )
         append_attempt(
             entry,
@@ -1431,10 +1905,70 @@ def cmd_mark_failed(args: argparse.Namespace) -> int:
         )
         if target_state == StoryState.BLOCKED:
             entry.reason = "seam_defect_human_decision"
-    return _save_ledger(ledger, ledger_path)
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    _print_stop_state(_project_root(), entry)
+    return 0
+
+
+def _print_stop_state(project_root: Path, entry: StoryEntry) -> None:
+    """Say whether the entry has stopped or still has a retry (BR-116)."""
+    limits = _attempt_limits_or_error(project_root)
+    if limits is None:
+        return
+    tier = counted_tier(entry, _story_declared_tier(project_root, entry.id))
+    if has_stopped(entry, limits, tier):
+        print(
+            f"dispatch: {entry.id} has stopped as {entry.status.value} "
+            "and waits for the User"
+        )
+        return
+    counted = counted_attempts_on_tier(entry, tier)
+    limit = tier_attempt_limit(entry, tier, limits)
+    if entry.status == StoryState.FAILED and counted >= limit:
+        print(
+            f"dispatch: {entry.id} has used up its {counted} of {limit} counted "
+            f"attempts on the tier {tier}; run `dispatch escalate {entry.id}`"
+        )
+        return
+    print(
+        f"dispatch: {entry.id} has a retry left ({counted} of {limit} counted "
+        f"attempts on the tier {tier}); run `dispatch re-dispatch {entry.id}`"
+    )
+
+
+class _BranchCheckError(Exception):
+    """The checks of the branch could not run."""
+
+
+def _branch_escalation_refusal(
+    project_root: Path, entry: StoryEntry
+) -> tuple[str | None, str]:
+    """Run the checks of the branch that `escalate` needs (BR-115).
+
+    Returns the record for `reason` when a check refuses, else None, and
+    the output that explains it. A run by hand has no worktree, so the
+    checks run in the primary checkout. Raises _BranchCheckError when the
+    entry has no branch or no declared base.
+    """
+    if not entry.branch or not entry.base_sha:
+        raise _BranchCheckError(
+            f"story {entry.id} is missing prepared branch metadata"
+        )
+    worktree = Path(entry.worktree) if entry.worktree else project_root
+    code, output = _run_verify_base(worktree, entry.branch, entry.base_sha)
+    if code != 0:
+        return ESCALATE_REFUSED_VERIFY_BASE, output
+    if _story_scope_violation(project_root, entry):
+        return ESCALATE_REFUSED_SCOPE, (
+            f"the diff of {entry.branch} leaves the scope or the file limit "
+            f"of {entry.id}"
+        )
+    return None, ""
 
 
 def cmd_re_dispatch(args: argparse.Namespace) -> int:
+    """Set a failed or blocked entry prepared within the attempt cap (BR-116)."""
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
     if ledger is None:
@@ -1444,11 +1978,43 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
     if entry is None:
         print(f"error: story not found: {args.story_id}", file=sys.stderr)
         return 1
-
-    disposition = re_dispatch_disposition(entry)
-    if disposition == "requires_escalation":
+    # Only a stopped unit of work has a branch to continue (BR-116). A
+    # pending entry reaches prepared through prepare-wave or prepare-story,
+    # which cut its branch (BR-113).
+    if entry.status not in (StoryState.FAILED, StoryState.BLOCKED):
         print(
-            f"error: story {args.story_id} requires escalation before re-dispatch",
+            f"error: {args.story_id} is {entry.status.value}; "
+            "re-dispatch accepts only failed and blocked",
+            file=sys.stderr,
+        )
+        return 1
+
+    project_root = _project_root()
+    limits = AttemptLimits()
+    tier = counted_tier(entry, _story_declared_tier(project_root, args.story_id))
+    if entry.status == StoryState.FAILED:
+        read = _attempt_limits_or_error(project_root)
+        if read is None:
+            return 1
+        limits = read
+
+    def branch_allows_escalation() -> bool:
+        record, _ = _branch_escalation_refusal(project_root, entry)
+        return record is None
+
+    try:
+        disposition = re_dispatch_disposition(
+            entry, tier, limits, branch_allows_escalation
+        )
+    except _BranchCheckError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    if disposition == "requires_escalation":
+        counted = counted_attempts_on_tier(entry, tier)
+        print(
+            f"error: story {args.story_id} requires escalation before re-dispatch: "
+            f"its {counted} counted attempts on the tier {tier} are used up. "
+            f"Run `dispatch escalate {args.story_id}`.",
             file=sys.stderr,
         )
         return 1
@@ -1464,11 +2030,109 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
-    return _save_ledger(ledger, ledger_path)
+    if entry.reason in ESCALATE_REFUSED_RECORDS:
+        entry.reason = None
+    if disposition == "grant":
+        grant_attempts(entry, tier)
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    if disposition == "grant":
+        print(
+            f"dispatch re-dispatch: {args.story_id} gets {limits.attempts} new "
+            f"counted attempts on the tier {tier}"
+        )
+    return 0
+
+
+def cmd_return_story(args: argparse.Namespace) -> int:
+    """Set a failed or blocked story back to pending in the ledger and the
+    backlog (BR-116). The backlog file changes in the working tree of the
+    current checkout; return-story commits nothing. For a finding, only the
+    ledger entry changes, and dispatch reads no backlog file."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    if args.story_id not in ledger.stories:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    try:
+        ledger.return_story(args.story_id)
+    except TransitionError as e:
+        print(f"error: dispatch return-story refuses: {e}", file=sys.stderr)
+        return 1
+    if not is_story_id(args.story_id):
+        # A finding keeps its file unchanged; only its entry changes (BR-116).
+        if _save_ledger(ledger, ledger_path) != 0:
+            return 1
+        print(
+            f"dispatch return-story: {args.story_id} is pending in the ledger; "
+            f"docs/findings/{args.story_id}.md keeps its status"
+        )
+        return 0
+    story_file = f"backlog/{args.story_id}.md"
+    if not _update_story_status_in_file(_project_root(), args.story_id, "pending"):
+        print(
+            f"error: dispatch return-story found no status line in {story_file}; "
+            f"the ledger keeps {args.story_id} unchanged",
+            file=sys.stderr,
+        )
+        return 1
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch return-story: {args.story_id} is pending in the ledger and "
+        f"in {story_file}"
+    )
+    return 0
+
+
+def _finding_text(
+    project_root: Path, feature_branch: str | None, finding_id: str
+) -> str | None:
+    """The finding file at the head of the feature branch, where the feature
+    checks commit it; else the file in the current checkout; else None."""
+    rel = f"docs/findings/{finding_id}.md"
+    if feature_branch:
+        code, text, _ = _git("show", f"refs/heads/{feature_branch}:{rel}")
+        if code == 0:
+            return text
+    path = project_root / rel
+    return path.read_text() if path.is_file() else None
+
+
+def cmd_add(args: argparse.Namespace) -> int:
+    """Put an open blocking finding into the next free wave (BR-117)."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    project_root = _project_root()
+    finding_id = args.finding_id
+    if is_story_id(finding_id) or (project_root / "backlog" / f"{finding_id}.md").exists():
+        refusal = f"{finding_id} is a story, and add takes only a finding"
+    else:
+        text = _finding_text(project_root, ledger.feature_branch, finding_id)
+        refusal = finding_add_refusal(finding_id, finding_fields(text))
+    if refusal is None:
+        try:
+            entry = ledger.add_finding(finding_id)
+        except TransitionError as e:
+            refusal = str(e)
+    if refusal is not None:
+        print(f"error: dispatch add refuses {finding_id}: {refusal}", file=sys.stderr)
+        return 1
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch add: {finding_id} is pending in wave {entry.wave} of "
+        f"{ledger.feature_branch}, on the branch story/{finding_id}"
+    )
+    return 0
 
 
 def cmd_escalate(args: argparse.Namespace) -> int:
-    """Escalate a failed story to the next tier when all six conditions pass."""
+    """Promote a story one tier when every condition of BR-115 holds."""
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
     if ledger is None:
@@ -1479,84 +2143,52 @@ def cmd_escalate(args: argparse.Namespace) -> int:
     if entry is None:
         print(f"error: story not found: {args.story_id}", file=sys.stderr)
         return 1
-
-    story_tier = (
-        entry.tier or _story_declared_tier(project_root, args.story_id) or "economy"
-    )
-    if story_tier == "strong":
-        print(
-            f"error: story {args.story_id} is already at strong tier", file=sys.stderr
-        )
+    limits = _attempt_limits_or_error(project_root)
+    if limits is None:
         return 1
 
-    impl_attempts = attempts_for_session(entry, "impl")
-    if len(impl_attempts) != 1:
+    story_tier = counted_tier(entry, _story_declared_tier(project_root, args.story_id))
+    refusal = ledger_escalation_refusal(entry, story_tier, limits)
+    if refusal is None:
+        counted = counted_attempts_on_tier(entry, story_tier)
+        limit = tier_attempt_limit(entry, story_tier, limits)
+        if counted < limit:
+            refusal = (
+                f"it has {counted} of {limit} counted attempts on the tier "
+                f"{story_tier}, and escalate grants only once they are used up"
+            )
+    if refusal is not None:
         print(
-            f"error: story {args.story_id} requires exactly one prior impl attempt",
+            f"error: dispatch escalate refuses {args.story_id}: {refusal}",
             file=sys.stderr,
         )
         return 1
 
-    attempt = impl_attempts[0]
-    failure_class = attempt.get("failure_class")
-    if failure_class not in QUALIFYING_ESCALATION_FAILURE_CLASSES:
-        print(
-            f"error: story {args.story_id} has non-qualifying failure class: {failure_class}",
-            file=sys.stderr,
-        )
+    try:
+        record, output = _branch_escalation_refusal(project_root, entry)
+    except _BranchCheckError as e:
+        print(f"error: {e}", file=sys.stderr)
         return 1
-
-    if entry.escalation_granted:
-        print(f"error: story {args.story_id} has already escalated", file=sys.stderr)
-        return 1
-
-    if any(
-        other.id != entry.id and other.wave == entry.wave and other.escalation_granted
-        for other in ledger.stories.values()
-    ):
-        entry.status = StoryState.BLOCKED
-        entry.reason = "wave_escalation_exhausted"
+    if record is not None:
+        entry.reason = record
         if _save_ledger(ledger, ledger_path) != 0:
             return 1
+        if output:
+            print(output, file=sys.stderr)
         print(
-            f"error: wave escalation slot already taken for wave {entry.wave}",
-            file=sys.stderr,
-        )
-        return 1
-
-    if not entry.branch or not entry.worktree or not entry.base_sha:
-        print(
-            f"error: story {args.story_id} is missing prepared branch metadata",
-            file=sys.stderr,
-        )
-        return 1
-
-    verify_code, verify_output = _run_verify_base(
-        Path(entry.worktree), entry.branch, entry.base_sha
-    )
-    if verify_code != 0:
-        if verify_output:
-            print(verify_output, file=sys.stderr)
-        print(f"error: verify-base failed for {args.story_id}", file=sys.stderr)
-        return 1
-
-    commit_sha = attempt.get("commit_sha") or entry.commit_sha
-    if _story_scope_violation(project_root, args.story_id, commit_sha):
-        print(
-            f"error: scope violation blocks escalation for {args.story_id}",
+            f"error: dispatch escalate refuses {args.story_id}: {record}. "
+            f"{args.story_id} has stopped and waits for the User",
             file=sys.stderr,
         )
         return 1
 
     next_story_tier = next_tier(story_tier)
-    if next_story_tier is None:
-        print(
-            f"error: story {args.story_id} is already at strong tier", file=sys.stderr
-        )
-        return 1
-
     entry.tier = next_story_tier
     entry.escalation_granted = True
+    if entry.active_tier is not None:
+        entry.active_tier = next_story_tier
+    if entry.reason in ESCALATE_REFUSED_RECORDS:
+        entry.reason = None
     if _save_ledger(ledger, ledger_path) != 0:
         return 1
     print(
@@ -1645,13 +2277,17 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
 def _update_story_status_in_file(
     project_root: Path, story_id: str, status: str
 ) -> bool:
-    """Rewrite the ``status:`` frontmatter field in the story's backlog file.
+    """Rewrite the ``status:`` frontmatter field in the story's backlog file."""
+    return _update_status_in_file(project_root / "backlog" / f"{story_id}.md", status)
+
+
+def _update_status_in_file(story_path: Path, status: str) -> bool:
+    """Rewrite the ``status:`` frontmatter field of a story or finding file.
 
     Returns True if the file was found, parsed, and rewritten; False otherwise.
     Only the frontmatter ``status:`` line is touched — the rest of the file
     (including the frontmatter delimiters) is left byte-for-byte identical.
     """
-    story_path = project_root / "backlog" / f"{story_id}.md"
     if not story_path.exists():
         return False
     text = story_path.read_text()
@@ -1676,8 +2312,13 @@ def _update_story_status_in_file(
 REFRESHABLE_STATES = {StoryState.PREPARED, StoryState.DISPATCHING, StoryState.DISPATCHED}
 
 
-def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str) -> int:
+def _refresh_story_branch(
+    ledger: Ledger, entry: StoryEntry, target_branch: str, worktree: str | None = None
+) -> int:
     """Merge *target_branch* into the story branch inside its worktree.
+
+    *worktree* names the checkout that has the branch checked out when it is
+    not the entry's worktree, as in a run by hand.
 
     Returns 0 when the branch already contains the target tip or the merge
     succeeds, 1 otherwise. It refuses, unchanged, a dirty worktree, a
@@ -1686,7 +2327,8 @@ def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str)
     conflict the merge is aborted and the story is marked ``blocked`` with
     reason "refresh conflict"; the caller saves the ledger.
     """
-    if not entry.branch or not entry.worktree:
+    worktree = worktree or entry.worktree
+    if not entry.branch or not worktree:
         print(f"error: story {entry.id} has no branch or worktree recorded", file=sys.stderr)
         return 1
     _, branch_tip, _ = _git("rev-parse", entry.branch)
@@ -1702,7 +2344,6 @@ def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str)
     if contained == 0:
         print(f"{entry.branch} already contains {target_branch}")
         return 0
-    worktree = entry.worktree
     head_code, head_branch, _ = _git("-C", worktree, "symbolic-ref", "-q", "--short", "HEAD")
     if head_code != 0 or head_branch != entry.branch:
         checked_out = head_branch if head_code == 0 else "a detached HEAD"
@@ -1746,9 +2387,9 @@ def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str)
 
 
 def cmd_refresh_story(args: argparse.Namespace) -> int:
-    """Bring a story branch up to the invocation branch tip (BUG-0089)."""
+    """Bring a story branch up to the feature branch tip (BUG-0089)."""
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
         return 1
     entry = ledger.stories.get(args.story_id)
@@ -1762,20 +2403,106 @@ def cmd_refresh_story(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    if not ledger.invocation_branch:
-        print("error: the ledger records no invocation_branch", file=sys.stderr)
+    if not ledger.feature_branch:
+        print("error: the ledger records no feature_branch", file=sys.stderr)
         return 1
-    code = _refresh_story_branch(ledger, entry, ledger.invocation_branch)
+    code = _refresh_story_branch(ledger, entry, ledger.feature_branch)
     if entry.status == StoryState.BLOCKED:
         _save_ledger(ledger, ledger_path)
     return code
+
+
+def _checkout_feature_branch_by_hand(
+    project_root: Path, entry: StoryEntry, target_branch: str
+) -> int:
+    """Check out *target_branch* in the primary checkout after premerge-check.
+
+    Git's own refusal stays: its message names the files, and the story
+    branch stays checked out (BR-124).
+    """
+    if _current_branch_name() == target_branch:
+        return 0
+    code, _, err = _git("checkout", "-q", target_branch)
+    if code == 0:
+        return 0
+    # A failing post-checkout hook switches the branch and still fails.
+    if _current_branch_name() != entry.branch:
+        _git("checkout", "-q", entry.branch)
+    if err:
+        print(err, file=sys.stderr)
+    print(
+        f"error: git refused the checkout of {target_branch} in the primary "
+        f"checkout {project_root}; {entry.id} stays dispatched and "
+        f"{entry.branch} stays checked out. Commit or revert the changes, "
+        f"then run merge-story {entry.id} again",
+        file=sys.stderr,
+    )
+    return 1
+
+
+# The hooks that run on ``git commit --amend`` and can refuse it.
+AMEND_HOOKS = ("pre-commit", "prepare-commit-msg", "commit-msg")
+
+
+def _merge_commit_story_status(story_path: Path, project_root: Path) -> str | None:
+    """Return the ``status:`` of the story file in HEAD, or None without one."""
+    rel = story_path.relative_to(project_root).as_posix()
+    code, text, _ = _git("show", f"HEAD:{rel}")
+    if code != 0:
+        return None
+    fm = parse_story_frontmatter(text)
+    return (fm or {}).get("status")
+
+
+def _amend_hook_names() -> list[str]:
+    """Name the executable hooks that can refuse an amend, in the order git runs them."""
+    code, hooks_dir, _ = _git("rev-parse", "--git-path", "hooks")
+    if code != 0 or not hooks_dir:
+        return []
+    folder = Path(hooks_dir)
+    if not folder.is_absolute():
+        folder = Path.cwd() / folder
+    return [
+        name for name in AMEND_HOOKS
+        if (folder / name).is_file() and os.access(folder / name, os.X_OK)
+    ]
+
+
+def _amend_status_into_merge_commit(project_root: Path, story_id: str) -> int:
+    """Write the status into the merge commit by amending it (BR-118):
+    ``status: done`` in backlog/<id>.md for a story, ``status: resolved`` in
+    docs/findings/<id>.md for a finding.
+
+    A refused amend exits 1 and names the hook that refused it. The caller
+    then leaves the entry ``dispatched``; a rerun amends again.
+    """
+    unit_path, status = _unit_file(project_root, story_id)
+    _update_status_in_file(unit_path, status)
+    _git("add", "--", str(unit_path.relative_to(project_root)))
+    amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
+    if amend_code == 0:
+        return 0
+    hooks = _amend_hook_names()
+    if len(hooks) == 1:
+        who = f"the {hooks[0]} hook refused"
+    elif hooks:
+        who = f"one of the hooks {', '.join(hooks)} refused"
+    else:
+        who = "git refused"
+    print(
+        f"error: {who} the amend that writes status: {status} into the merge "
+        f"commit; {story_id} is not done. Fix the cause, then run "
+        f"merge-story {story_id} again ({amend_err})",
+        file=sys.stderr,
+    )
+    return 1
 
 
 def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
     Refreshes the story branch first (see ``cmd_refresh_story``) when it
-    lacks the invocation tip; a refresh conflict blocks the story. Then runs
+    lacks the feature branch tip; a refresh conflict blocks the story. Then runs
     ``premerge-check`` with the story's declared scope entries
     (``outputs``, else ``touches``) immediately before merging: plain entries as
     ``--scope`` path prefixes, entries with ``*`` or ``?`` as ``--scope-glob``.
@@ -1790,11 +2517,23 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     interrupted before the test suite finished), the merge is not repeated.
     The story file's status is set to done if the interrupted run did not get
     that far, and the test suite runs against the existing merge commit.
+
+    By hand, the primary checkout has the story branch checked out. There is
+    no refresh. ``premerge-check`` runs first, and only after its exit 0 is
+    the feature branch checked out. A refused check, checkout or merge exits
+    1, keeps the story branch checked out and the entry ``dispatched``, and
+    leaves the feature branch where it was (BR-124).
+
+    In an orchestrated run, a new merge also stops after premerge-check
+    exited 0 when the worktree of the feature branch holds an uncommitted
+    change to a tracked file, unless ``dispatch.refuse_dirty_feature_worktree``
+    is false (BR-124). The rerun after a refused amend skips this check.
     """
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
+    by_hand = ledger.mode == "by-hand"
 
     entry = ledger.stories.get(args.story_id)
     if entry is None:
@@ -1814,7 +2553,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         return 1
 
     project_root = _project_root()
-    target_branch = ledger.invocation_branch or _current_branch_name()
+    target_branch = ledger.feature_branch or _current_branch_name()
     if not target_branch:
         print(
             "error: unable to determine target branch from ledger or current checkout",
@@ -1823,21 +2562,25 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         return 1
 
     current_branch = _current_branch_name()
-    if current_branch != target_branch:
+    if by_hand and current_branch not in (entry.branch, target_branch):
+        print(
+            f"error: by hand, merge-story runs in the primary checkout with "
+            f"'{entry.branch}' checked out, but the current checkout is on "
+            f"'{current_branch}'",
+            file=sys.stderr,
+        )
+        return 1
+    if not by_hand and current_branch != target_branch:
         location = _worktree_for_branch(target_branch)
         where = f" Run it from {location}." if location else ""
         print(
-            f"error: merge-story must run on the invocation branch '{target_branch}', "
+            f"error: merge-story must run on the feature branch '{target_branch}', "
             f"but the current checkout is on '{current_branch}'.{where}",
             file=sys.stderr,
         )
         return 1
 
-    story_path = project_root / "backlog" / f"{entry.id}.md"
-    fm = (
-        parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
-    )
-    outputs = _story_output_globs(project_root, entry.id)
+    unit_path, unit_status = _unit_file(project_root, entry.id)
 
     # Interrupted-merge recovery: a prior run created the merge commit (and
     # may have amended the status update into it) but was interrupted before
@@ -1846,9 +2589,13 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     # an ancestor of HEAD in any other way has no commits of its own, and
     # merging it would record unrelated history as the story's work.
     _, branch_tip, _ = _git("rev-parse", entry.branch)
-    second_parent_code, second_parent, _ = _git("rev-parse", "--verify", "-q", "HEAD^2")
+    second_parent_code, second_parent, _ = _git(
+        "rev-parse", "--verify", "-q", f"{target_branch}^2"
+    )
     already_merged = second_parent_code == 0 and second_parent == branch_tip
-    contained_code, _, _ = _git("merge-base", "--is-ancestor", entry.branch, "HEAD")
+    contained_code, _, _ = _git(
+        "merge-base", "--is-ancestor", entry.branch, target_branch
+    )
     if contained_code == 0 and not already_merged:
         if entry.base_sha and branch_tip == entry.base_sha:
             reason = "it has no commits of its own; nothing to merge"
@@ -1861,28 +2608,30 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
-    if not already_merged and not args.dry_run:
+    if by_hand and current_branch != entry.branch and not already_merged:
+        print(
+            f"error: by hand, merge-story checks out {target_branch} itself; "
+            f"check out {entry.branch} in the primary checkout first",
+            file=sys.stderr,
+        )
+        return 1
+
+    # By hand only one story runs at a time, so the feature branch has not
+    # moved under the story branch and needs no refresh.
+    if not already_merged and not args.dry_run and not by_hand:
         if _refresh_story_branch(ledger, entry, target_branch) != 0:
             if entry.status == StoryState.BLOCKED:
                 _save_ledger(ledger, ledger_path)
             return 1
 
     if not already_merged:
-        premerge_cmd = [str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch]
-        # An entry without ``*`` or ``?`` is a path or folder prefix
-        # (``--scope``); only real patterns go through ``--scope-glob``.
-        # glob_match has no bracket classes, so ``[`` stays literal.
-        for entry_path in outputs:
-            flag = "--scope-glob" if any(c in entry_path for c in "*?") else "--scope"
-            premerge_cmd += [flag, entry_path]
-        # The dispatch contract requires updating the story's own backlog file
-        # (status: done) in the implementation commit — always in scope. The
-        # index-lint hook rewrites INDEX.yaml during commits — also in scope.
-        premerge_cmd += ["--scope-glob", f"backlog/{entry.id}.md"]
-        # The story's own drift report is part of its work (ADR-0029).
-        premerge_cmd += ["--scope-glob", spec_feedback_path(entry.id)]
-        premerge_cmd += ["--scope-glob", HOOK_REWRITTEN_INDEX]
-        premerge_cmd += ["--max-files", str(_scaled_max_files(len(outputs)))]
+        scope = _unit_scope(project_root, entry.id, target_branch, entry.branch)
+        if scope is None:
+            return 1
+        premerge_cmd = [
+            str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch,
+            *scope.arguments(),
+        ]
 
         premerge_result = subprocess.run(
             premerge_cmd, capture_output=True, text=True, cwd=project_root, check=False
@@ -1896,6 +2645,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             print(f"error: premerge-check failed for {entry.branch}", file=sys.stderr)
             return 1
 
+        # Only before a new merge: the rerun after a refused amend finds the
+        # merge commit at HEAD and the changed backlog file (BR-124, BR-118).
+        if (
+            not by_hand
+            and not args.dry_run
+            and _refuse_dirty_feature_worktree(project_root, entry)
+        ):
+            return 1
+
     if args.dry_run:
         if already_merged:
             print(f"dry-run: {entry.branch} is already merged into {target_branch}")
@@ -1906,16 +2664,20 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             )
         return 0
 
+    if by_hand and _checkout_feature_branch_by_hand(
+        project_root, entry, target_branch
+    ) != 0:
+        return 1
+
     if already_merged:
         pre_merge_sha = _git("rev-parse", "HEAD^1")[1]
-        if (fm or {}).get("status") != "done" and _update_story_status_in_file(
-            project_root, entry.id, "done"
+        # Read the status from the merge commit, not from the working tree:
+        # after a refused amend the file already says done (BR-118).
+        if (
+            _merge_commit_story_status(unit_path, project_root) != unit_status
+            and _amend_status_into_merge_commit(project_root, entry.id) != 0
         ):
-            _git("add", "--", str(story_path.relative_to(project_root)))
-            amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
-            if amend_code != 0:
-                print(f"error: failed to amend merge commit: {amend_err}", file=sys.stderr)
-                return 1
+            return 1
         merge_sha = _git("rev-parse", "HEAD")[1]
     else:
         pre_merge_sha = _git("rev-parse", "HEAD")[1]
@@ -1928,6 +2690,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         )
         if merge_code != 0:
             _git("merge", "--abort")
+            if by_hand:
+                _git("checkout", "-q", entry.branch)
+                print(
+                    f"error: git refused the merge of {entry.branch} into "
+                    f"{target_branch} in the primary checkout {project_root}; "
+                    f"{entry.id} stays dispatched ({merge_err})",
+                    file=sys.stderr,
+                )
+                return 1
             entry.reason = "merge conflict"
             try:
                 ledger.transition(entry.id, StoryState.BLOCKED)
@@ -1942,24 +2713,10 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             )
             return 1
 
-        _update_story_status_in_file(project_root, entry.id, "done")
-        _git("add", "--", str(story_path.relative_to(project_root)))
-        amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
-        if amend_code != 0:
-            print(f"error: failed to amend merge commit: {amend_err}", file=sys.stderr)
+        if _amend_status_into_merge_commit(project_root, entry.id) != 0:
             return 1
 
         merge_sha = _git("rev-parse", "HEAD")[1]
-
-    # Monorepo sync: if packages/factory/ exists, sync it to the installed
-    # factory/ copy so post-merge tests load the merged code (tests import
-    # from .agent-factory/factory/scripts/, not packages/factory/scripts/).
-    pkg_factory = project_root / "packages" / "factory"
-    installed_factory = project_root / ".agent-factory" / "factory"
-    if pkg_factory.is_dir() and installed_factory.is_dir():
-        import shutil
-
-        shutil.copytree(pkg_factory, installed_factory, dirs_exist_ok=True)
 
     test_command = _read_test_command(project_root)
     if test_command:
@@ -1977,7 +2734,18 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             print(test_result.stderr, file=sys.stderr)
 
         if test_result.returncode != 0:
-            _git("reset", "--hard", pre_merge_sha)
+            # --keep moves the branch and the files the merge changed, and
+            # keeps an uncommitted change to any other file (IMPL-0031).
+            reset_code, _, reset_err = _git("reset", "--keep", pre_merge_sha)
+            if reset_code != 0:
+                print(
+                    f"error: test suite failed after merging {entry.branch}, and "
+                    f"git refused to move {target_branch} back to {pre_merge_sha} "
+                    f"without losing a local change; {entry.id} stays dispatched "
+                    f"({reset_err})",
+                    file=sys.stderr,
+                )
+                return 1
             entry.reason = "post-merge test failure"
             try:
                 ledger.transition(entry.id, StoryState.BLOCKED)
@@ -2037,7 +2805,7 @@ CORE_LIST_PATH = SCRIPT_DIR.parent / "rulebooks" / "core-artifacts.yaml"
 def _drift_check(branch_head: str):
     """Return the close-wave check of the reports at *branch_head* (BR-062).
 
-    Owner and reviewer sessions commit each row status on the invocation
+    Owner and reviewer sessions commit each row status on the feature
     branch (ADR-0029), so the check reads the committed reports."""
 
     def check(story_ids: list[str]) -> list[str]:
@@ -2062,15 +2830,19 @@ def _drift_check(branch_head: str):
 
 
 def cmd_close_wave(args: argparse.Namespace) -> int:
+    """Record the close of one wave, on both ways of a run (BR-062, BR-064)."""
     ledger_path = Path(args.ledger)
-    ledger = _load_automated_ledger(ledger_path)
+    ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
+    limits = _attempt_limits_or_error(_project_root())
+    if limits is None:
+        return 1
 
-    # Read the invocation branch by name, so the result does not depend on
+    # Read the feature branch by name, so the result does not depend on
     # which checkout the caller runs from.
     head_ref = (
-        f"refs/heads/{ledger.invocation_branch}" if ledger.invocation_branch else "HEAD"
+        f"refs/heads/{ledger.feature_branch}" if ledger.feature_branch else "HEAD"
     )
     branch_head_code, branch_head, branch_head_err = _git("rev-parse", head_ref)
     if branch_head_code != 0:
@@ -2081,9 +2853,17 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
         return 1
 
     wave = args.wave
+    # A wave closes only after the wave before it, so an empty later wave
+    # cannot let the next wave start early (BR-113, IMPL-0061). A rerun on
+    # a recorded wave stays a no-op.
+    if not any(record.number == wave for record in ledger.waves):
+        missing = _missing_wave_record(ledger, wave, f"close-wave {wave}")
+        if missing:
+            print(missing, file=sys.stderr)
+            return 1
     try:
         _record, created = ledger.close_wave(
-            wave, branch_head, drift_check=_drift_check(branch_head)
+            wave, branch_head, drift_check=_drift_check(branch_head), limits=limits
         )
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
@@ -2097,6 +2877,631 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     if _save_ledger(ledger, ledger_path) != 0:
         return 1
     print(f"dispatch close-wave: recorded wave {wave} in {ledger_path}")
+    return 0
+
+
+# -- dispatch close: the end of a run (BR-119) --------------------------------
+
+# A finished run has merged its feature branch into this branch (RL-G05).
+CLOSE_TARGET = "dev"
+_UNIT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _git_in(cwd: Path, *args: str) -> tuple[int, str, str]:
+    """Run git on the checkout at *cwd*, whatever folder dispatch runs in."""
+    return _git("-C", str(cwd), *args)
+
+
+def _registered_worktrees(main_root: Path) -> dict[Path, str | None] | None:
+    """Map each worktree that git lists to its branch, or None when detached."""
+    code, out, _ = _git_in(main_root, "worktree", "list", "--porcelain")
+    if code != 0:
+        return None
+    trees: dict[Path, str | None] = {}
+    path: Path | None = None
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            path = Path(line[len("worktree "):]).resolve()
+            trees[path] = None
+        elif line.startswith("branch refs/heads/") and path is not None:
+            trees[path] = line[len("branch refs/heads/"):]
+    return trees
+
+
+def _locked_worktrees(main_root: Path) -> set[Path] | None:
+    """Each worktree that git lists as locked, or None when the list fails."""
+    code, out, _ = _git_in(main_root, "worktree", "list", "--porcelain")
+    if code != 0:
+        return None
+    locked: set[Path] = set()
+    path: Path | None = None
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            path = Path(line[len("worktree "):]).resolve()
+        elif (line == "locked" or line.startswith("locked ")) and path is not None:
+            locked.add(path)
+    return locked
+
+
+def _close_run_dir(
+    main_root: Path, current: Path, feature_branch: str
+) -> tuple[Path | None, str | None]:
+    """The folder of the run under .current-work/, or the reason to refuse it.
+
+    The name must be a branch name that git accepts as it is, so that no
+    `.` or `..` part leads to the folder of another run. The path is not
+    resolved, and a symlink on the way to the folder is refused, so that a
+    link cannot lead there either."""
+    code, out, _ = _git_in(main_root, "check-ref-format", "--branch", feature_branch)
+    if code != 0 or out != feature_branch:
+        return None, f"the feature branch {feature_branch!r} is not a valid branch name"
+    run_dir = current
+    for part in feature_branch.split("/"):
+        run_dir = run_dir / part
+        if run_dir.is_symlink():
+            return None, f"{run_dir} is a symlink, so it may lead to another run"
+    return run_dir, None
+
+
+def _branch_exists(main_root: Path, branch: str) -> bool:
+    code, _, _ = _git_in(main_root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}")
+    return code == 0
+
+
+def _unmerged_feature_refusal(main_root: Path, feature_branch: str) -> str | None:
+    """Name a feature branch that a close without --drop cannot end (BR-119)."""
+    for branch in (feature_branch, CLOSE_TARGET):
+        if not _branch_exists(main_root, branch):
+            return (
+                f"dispatch close: branch {branch} does not exist, so close cannot "
+                f"check that {feature_branch} is merged into {CLOSE_TARGET}; "
+                "to drop the run, run dispatch close --drop"
+            )
+    code, _, _ = _git_in(
+        main_root, "merge-base", "--is-ancestor",
+        f"refs/heads/{feature_branch}", f"refs/heads/{CLOSE_TARGET}",
+    )
+    if code == 0:
+        return None
+    return (
+        f"dispatch close: {feature_branch} is not merged into {CLOSE_TARGET}; "
+        "merge it first, or run dispatch close --drop to drop the run"
+    )
+
+
+def _run_worktrees(
+    main_root: Path,
+    current: Path,
+    run_dir: Path,
+    ledger: Ledger,
+    trees: dict[Path, str | None],
+) -> list[tuple[str, Path]]:
+    """The worktrees of the run, each with the label of its stash.
+
+    A worktree counts only when git lists it, it lies under .current-work/
+    of the primary checkout, and it is not the primary checkout. The story
+    worktrees come first and the worktree of the feature branch last,
+    because an old run nests the others inside it."""
+    picked: dict[Path, str] = {}
+
+    def take(path: Path, label: str) -> None:
+        if path in picked or path not in trees or not path.is_dir():
+            return
+        if path == main_root or not path.is_relative_to(current):
+            return
+        picked[path] = label
+
+    for entry in ledger.stories.values():
+        if entry.worktree:
+            take(Path(entry.worktree).resolve(), entry.id)
+        for path, branch in trees.items():
+            if entry.branch and branch == entry.branch:
+                take(path, entry.id)
+    premerge = run_dir / "premerge"
+    for path in trees:
+        if path != premerge and path.is_relative_to(premerge):
+            take(path, f"premerge/{path.relative_to(premerge)}")
+    for path, branch in trees.items():
+        if branch == ledger.feature_branch:
+            take(path, "feature")
+    return [(label, path) for path, label in picked.items()]
+
+
+def _stash_and_remove(
+    main_root: Path, path: Path, name: str
+) -> tuple[str | None, str | None]:
+    """Stash the changes of the worktree at *path*, then remove the worktree.
+
+    Return the stash name, when a stash was made, and the error, if any.
+    The stash is never applied (BR-119). A registered worktree below *path*
+    stops the removal, because git would delete it with the folder. The
+    check for changes lists every untracked file, whatever the git config
+    of the User says, as git stash --include-untracked does."""
+    trees = _registered_worktrees(main_root)
+    if trees is None:
+        return None, f"git worktree list failed in {main_root}"
+    for other in trees:
+        if other != path and other.is_relative_to(path):
+            return None, (
+                f"{path} holds the worktree {other}, which the ledger does not "
+                "name; move or remove that worktree first"
+            )
+    code, changes, err = _git_in(path, "status", "--porcelain", "--untracked-files=all")
+    if code != 0:
+        return None, f"git status failed in {path}: {err}"
+    stashed = None
+    if changes:
+        code, _, err = _git_in(path, "stash", "push", "--include-untracked", "-m", name)
+        if code != 0:
+            return None, f"git stash failed in {path}: {err}"
+        stashed = name
+    code, _, err = _git_in(main_root, "worktree", "remove", str(path))
+    if code != 0:
+        return stashed, f"git worktree remove failed for {path}: {err}"
+    return stashed, None
+
+
+def _marker_branch(text: str) -> str | None:
+    for line in text.splitlines():
+        if line.startswith("branch="):
+            return line[len("branch="):]
+    return None
+
+
+def _remove_run_markers(current: Path, ledger: Ledger, run_branches: list[str]) -> None:
+    """Remove the markers of the primary checkout that belong to the run.
+
+    Each marker inside a removed worktree went with that worktree. Only a
+    run by hand runs verify-base in the primary checkout (BR-112)."""
+    marker = current / "premerge-check-ok"
+    if marker.is_file() and _marker_branch(marker.read_text()) in run_branches:
+        marker.unlink()
+    if ledger.mode == "by-hand":
+        (current / "verify-base-ok").unlink(missing_ok=True)
+
+
+def _remove_gate_results(current: Path, ledger: Ledger) -> None:
+    """Remove .current-work/<gate>/<id>.json of each unit of work of the run."""
+    if not current.is_dir():
+        return
+    unit_ids = [uid for uid in ledger.stories if _UNIT_ID_RE.match(uid)]
+    for folder in current.iterdir():
+        if folder.is_symlink() or not folder.is_dir():
+            continue
+        for unit_id in unit_ids:
+            result = folder / f"{unit_id}.json"
+            if result.is_file() and not result.is_symlink():
+                result.unlink()
+
+
+def _remove_run_dir(
+    current: Path, run_dir: Path, trees: dict[Path, str | None]
+) -> list[Path]:
+    """Remove the folder of the run, unless a worktree that git lists is left in it.
+
+    *trees* are the worktrees that git lists after the removals. Return the
+    worktrees left, which keep the folder."""
+    left = [path for path in trees if path.is_relative_to(run_dir)]
+    if left:
+        return left
+    if run_dir.is_dir():
+        shutil.rmtree(run_dir)
+    parent = run_dir.parent
+    while parent != current and parent.is_relative_to(current):
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        parent = parent.parent
+    return []
+
+
+def _delete_run_branches(main_root: Path, branches: list[str]) -> None:
+    """Delete each merged branch with git branch -d, and list the others."""
+    for branch in branches:
+        if not _branch_exists(main_root, branch):
+            continue
+        code, _, err = _git_in(main_root, "branch", "-d", branch)
+        if code == 0:
+            print(f"deleted branch: {branch}")
+            continue
+        merged, _, _ = _git_in(main_root, "merge-base", "--is-ancestor", branch, "HEAD")
+        if merged != 0:
+            print(f"unmerged branch: {branch}")
+        else:
+            print(f"kept branch: {branch} ({err})")
+
+
+def _run_branches(ledger: Ledger) -> list[str]:
+    branches = [entry.branch for entry in ledger.stories.values() if entry.branch]
+    if ledger.feature_branch:
+        branches.append(ledger.feature_branch)
+    return list(dict.fromkeys(branches))
+
+
+def cmd_close(args: argparse.Namespace) -> int:
+    """End a finished run, or with --drop a dropped run (BR-119).
+
+    The close acts only on the worktrees, files and branches its own ledger
+    names, and on the run's folder under .current-work/ of the primary
+    checkout."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    feature_branch = ledger.feature_branch
+    main_root = _main_worktree_root().resolve()
+    current = (main_root / ".current-work").resolve()
+    if feature_branch is None:
+        print(f"error: the ledger {ledger_path} names no feature branch", file=sys.stderr)
+        return 1
+    run_dir, refusal = _close_run_dir(main_root, current, feature_branch)
+    if run_dir is None:
+        print(f"error: dispatch close: {refusal}; the ledger stays", file=sys.stderr)
+        return 1
+    refusals = close_refusals(ledger)
+    if not args.drop:
+        refusal = _unmerged_feature_refusal(main_root, feature_branch)
+        refusals += [refusal] if refusal else []
+    if refusals:
+        for refusal in refusals:
+            print(f"error: {refusal}", file=sys.stderr)
+        return 1
+    trees = _registered_worktrees(main_root)
+    if trees is None:
+        print(f"error: git worktree list failed in {main_root}", file=sys.stderr)
+        return 1
+
+    day = datetime.now().astimezone().date().isoformat()
+    for label, path in _run_worktrees(main_root, current, run_dir, ledger, trees):
+        stashed, error = _stash_and_remove(
+            main_root, path, stash_name(feature_branch, label, day)
+        )
+        if stashed:
+            print(f"stash: {stashed}")
+        if error:
+            print(
+                f"error: {error}; the ledger stays, so run dispatch close again "
+                "after you fix the cause",
+                file=sys.stderr,
+            )
+            return 1
+    _git_in(main_root, "worktree", "prune")
+    left_trees = _registered_worktrees(main_root)
+    if left_trees is None:
+        print(
+            f"error: git worktree list failed in {main_root}; the ledger stays, "
+            "so run dispatch close again after you fix the cause",
+            file=sys.stderr,
+        )
+        return 1
+
+    run_branches = _run_branches(ledger)
+    ledger_path.unlink(missing_ok=True)
+    _remove_run_markers(current, ledger, run_branches)
+    _remove_gate_results(current, ledger)
+    for path in _remove_run_dir(current, run_dir, left_trees):
+        print(f"kept {run_dir}: it holds the worktree {path}, which the ledger does not name")
+    _delete_run_branches(main_root, run_branches)
+    print(f"dispatch close: closed the run on {feature_branch}")
+    return 0
+
+
+# -- dispatch close --orphans: what no active run owns (BR-120) ---------------
+
+LEDGER_FILENAME = "dispatch-ledger.yaml"
+
+
+@dataclass
+class _FoundLedger:
+    """A ledger file, with its folder relative to the .current-work/ it lies in.
+
+    *link* is the symlinked folder that the walk passed to reach it, if any."""
+
+    path: Path
+    folder: Path
+    link: Path | None = None
+
+
+def _untracked_ledgers(tree: Path) -> list[Path]:
+    """Each ledger file in the checkout of *tree* that git does not track.
+
+    cmd_init writes a ledger to .current-work/<branch>/ of the checkout it
+    runs in, and that folder can be a registered worktree or lie inside one,
+    as after an init without --feature-branch (IMPL-0053). A tracked file of
+    that name is a project file (IMPL-0046). The .current-work/ of *tree* is
+    a root of the walk of its own. When git cannot list the files, the
+    ledger path at the root stands for the checkout, so its claim keeps
+    the worktree."""
+    code, out, _ = _git_in(
+        tree, "ls-files", "--others", "-z", "--",
+        f":(glob)**/{LEDGER_FILENAME}", ":(exclude,glob).current-work/**",
+    )
+    if code != 0:
+        return [Path(LEDGER_FILENAME)]
+    return [Path(rel) for rel in out.split("\0") if rel]
+
+
+def _find_ledgers(
+    roots: list[Path], trees: dict[Path, str | None]
+) -> tuple[list[_FoundLedger], list[Path]]:
+    """Every ledger file below the .current-work/ folders in *roots*, and the
+    symlinked folders that the walk met.
+
+    The walk skips each registered worktree, whose own .current-work/ is a
+    root of its own, so it never reads the files of a checkout (IMPL-0046).
+    It reads the folder behind a symlink, because a ledger there may own
+    worktrees (IMPL-0048); a ledger behind a link is never removed."""
+    found: dict[Path, _FoundLedger] = {}
+    links: list[Path] = []
+    walked: set[Path] = set()
+    pending = [(root, root, None) for root in roots]
+    while pending:
+        start, root, link = pending.pop(0)
+        if start.is_symlink() and link is None:
+            links.append(start)
+            link = start
+        if not start.is_dir() or start.resolve() in walked or start.resolve() in trees:
+            continue
+        walked.add(start.resolve())
+        for folder, subfolders, files in os.walk(start):
+            here = Path(folder)
+            if here.resolve() in walked and here != start:
+                subfolders[:] = []
+                continue
+            walked.add(here.resolve())
+            kept = []
+            for name in subfolders:
+                sub = here / name
+                if name == ".git":
+                    continue
+                if sub.is_symlink():
+                    links.append(sub)
+                    pending.append((sub, root, link or sub))
+                elif sub.resolve() not in trees:
+                    kept.append(name)
+                else:
+                    base = start.relative_to(root) / here.relative_to(start) / name
+                    for rel in _untracked_ledgers(sub):
+                        path = sub / rel
+                        found.setdefault(path, _FoundLedger(path, base / rel.parent, link))
+            subfolders[:] = kept
+            if LEDGER_FILENAME in files:
+                path = here / LEDGER_FILENAME
+                logical = start.relative_to(root) / here.relative_to(start)
+                found.setdefault(path, _FoundLedger(path, logical, link))
+    return sorted(found.values(), key=lambda item: item.path), links
+
+
+@dataclass
+class _LedgerClaim:
+    """What a ledger that stays owns, so that --orphans leaves it alone.
+
+    *text* is set only for a ledger that dispatch cannot read. Then each
+    worktree whose path or branch appears in that text counts as owned."""
+
+    path: Path
+    folders: list[Path]
+    worktrees: set[Path] = field(default_factory=set)
+    branches: set[str] = field(default_factory=set)
+    text: str | None = None
+
+    def owns(self, main_root: Path, path: Path, branch: str | None) -> bool:
+        if any(path == folder or path.is_relative_to(folder) for folder in self.folders):
+            return True
+        if path in self.worktrees or (branch is not None and branch in self.branches):
+            return True
+        if self.text is None:
+            return False
+        names = [str(path), str(path.relative_to(main_root))]
+        if branch is not None:
+            names.append(branch)
+        return any(name in self.text for name in names)
+
+
+def _ledger_branch_state(main_root: Path, ledger: Ledger) -> str:
+    """Whether the feature branch of *ledger* exists, for orphan_ledger_verdict."""
+    branch = ledger.feature_branch
+    if not branch:
+        return "none"
+    code, out, _ = _git_in(main_root, "check-ref-format", "--branch", branch)
+    if code != 0 or out != branch:
+        return "invalid"
+    return "exists" if _branch_exists(main_root, branch) else "gone"
+
+
+def _claim_of(main_root: Path, current: Path, path: Path, ledger: Ledger) -> _LedgerClaim:
+    claim = _LedgerClaim(path=path, folders=[path.parent])
+    if ledger.feature_branch:
+        claim.branches.add(ledger.feature_branch)
+        if _ledger_branch_state(main_root, ledger) in ("exists", "gone"):
+            claim.folders.append(current / ledger.feature_branch)
+    for entry in ledger.stories.values():
+        claim.branches.add(f"story/{entry.id}")
+        for branch in (entry.branch, entry.feature_branch):
+            if branch:
+                claim.branches.add(branch)
+        if entry.worktree:
+            claim.worktrees.add(Path(entry.worktree).resolve())
+            claim.worktrees.add((main_root / entry.worktree).resolve())
+    return claim
+
+
+def _tracked_by(path: Path, trees: dict[Path, str | None]) -> tuple[Path | None, str | None]:
+    """The worktree whose git tracks the file at *path*, and the error, if any.
+
+    The file belongs to the deepest registered worktree that holds it."""
+    holders = [tree for tree in trees if path.resolve().is_relative_to(tree)]
+    if not holders:
+        return None, None
+    tree = max(holders, key=lambda item: len(item.parts))
+    code, _, err = _git_in(tree, "ls-files", "--error-unmatch", "--", str(path.resolve()))
+    if code == 0:
+        return tree, None
+    if code == 1:
+        return None, None
+    return None, f"git ls-files failed in {tree}: {err}"
+
+
+def _removal_refusal(
+    found: _FoundLedger, trees: dict[Path, str | None], behind_links: set[Path]
+) -> str | None:
+    """The reason to keep a ledger of no active run, or None to remove it."""
+    if found.link is not None or found.path.resolve() in behind_links:
+        link = found.link or "a symlinked folder"
+        return f"it lies behind {link}, and dispatch removes nothing behind a symlink"
+    tracker, error = _tracked_by(found.path, trees)
+    if error is not None:
+        return error
+    if tracker is not None:
+        return f"git tracks it in {tracker}"
+    return None
+
+
+def _sort_ledgers(
+    main_root: Path,
+    current: Path,
+    ledgers: list[_FoundLedger],
+    trees: dict[Path, str | None],
+) -> tuple[list[Path], list[_LedgerClaim]]:
+    """Split the ledgers into those to remove and the claims of those that stay.
+
+    Each ledger that stays is listed, unless it belongs to an active run.
+    Each one also claims the folder of the primary checkout's .current-work/
+    that matches its own folder, because cmd_init writes a ledger to
+    .current-work/<feature-branch>/ of the checkout it runs in, and every
+    worktree of the run goes to that folder of the primary checkout. So the
+    claim holds when the ledger yields no feature branch (IMPL-0045)."""
+    behind_links = {found.path.resolve() for found in ledgers if found.link is not None}
+    remove: list[Path] = []
+    claims: list[_LedgerClaim] = []
+    for found in ledgers:
+        path = found.path
+        mirror = current / found.folder
+        ledger = None
+        error = "it is a symlink" if path.is_symlink() else None
+        if error is None:
+            try:
+                ledger = Ledger.load(path)
+            except Exception as e:  # noqa: BLE001 - every failure keeps the ledger
+                error = str(e).splitlines()[0] if str(e) else type(e).__name__
+        if ledger is None:
+            try:
+                text = path.read_text(errors="replace")
+            except OSError:
+                text = ""
+            claims.append(_LedgerClaim(path=path, folders=[path.parent, mirror], text=text))
+            print(
+                f"kept ledger: {path} (dispatch cannot read it: {error}; "
+                "it keeps every worktree it may own)"
+            )
+            continue
+        gone, reason = orphan_ledger_verdict(ledger, _ledger_branch_state(main_root, ledger))
+        if gone:
+            reason = _removal_refusal(found, trees, behind_links)
+            if reason is None:
+                remove.append(path)
+                continue
+        claim = _claim_of(main_root, current, path, ledger)
+        claim.folders.append(mirror)
+        claims.append(claim)
+        if reason is not None:
+            print(f"kept ledger: {path} ({reason})")
+    return remove, claims
+
+
+def _orphan_keep_reason(
+    main_root: Path,
+    path: Path,
+    branch: str | None,
+    claims: list[_LedgerClaim],
+    trees: dict[Path, str | None],
+    locked: set[Path],
+) -> str | None:
+    """The reason to keep a worktree of no ledger, or None to remove it.
+
+    A locked worktree stays before any stash, because git worktree remove
+    refuses it and the stash would empty its checkout (IMPL-0047)."""
+    if Path.cwd().resolve().is_relative_to(path):
+        return "dispatch runs inside it"
+    if path in locked:
+        return "it is locked"
+    if branch is None:
+        return "detached HEAD, so it has no branch to check"
+    if not _branch_exists(main_root, CLOSE_TARGET):
+        return f"{CLOSE_TARGET} does not exist, so dispatch cannot check the merge"
+    code, _, err = _git_in(
+        main_root, "merge-base", "--is-ancestor",
+        f"refs/heads/{branch}", f"refs/heads/{CLOSE_TARGET}",
+    )
+    if code == 1:
+        return f"{branch} is not merged into {CLOSE_TARGET}"
+    if code != 0:
+        return f"git merge-base failed: {err}"
+    for claim in claims:
+        if claim.path.is_relative_to(path):
+            return f"it holds the ledger {claim.path}"
+    for other in trees:
+        if other != path and other.is_relative_to(path):
+            return f"it holds the worktree {other}"
+    return None
+
+
+def cmd_close_orphans(args: argparse.Namespace) -> int:
+    """Clean up what no active run owns (BR-120).
+
+    A ledger stays when its feature branch exists, when a story in it is not
+    done, or when dispatch cannot read it. Each ledger that stays owns its
+    worktrees. A worktree under .current-work/ that no such ledger owns goes
+    only when its branch is merged into dev; every other one is listed.
+    Whatever dispatch cannot decide, it keeps."""
+    main_root = _main_worktree_root().resolve()
+    current = (main_root / ".current-work").resolve()
+    trees = _registered_worktrees(main_root)
+    if trees is None:
+        print(f"error: git worktree list failed in {main_root}", file=sys.stderr)
+        return 1
+    roots = [current] + [path / ".current-work" for path in trees if path != main_root]
+    ledgers, links = _find_ledgers(roots, trees)
+    for link in links:
+        print(f"kept link: {link} (a symlink; dispatch reads the ledgers behind it "
+              "and removes none of them)")
+    remove, claims = _sort_ledgers(main_root, current, ledgers, trees)
+    for path in remove:
+        try:
+            path.unlink()
+        except OSError as e:
+            print(f"error: cannot remove the ledger {path}: {e}", file=sys.stderr)
+            return 1
+        print(f"removed ledger: {path}")
+
+    orphans = [
+        (path, branch) for path, branch in trees.items()
+        if path != main_root and path != current and path.is_relative_to(current)
+        and path.is_dir()
+        and not any(claim.owns(main_root, path, branch) for claim in claims)
+    ]
+    orphans.sort(key=lambda item: len(item[0].parts), reverse=True)
+    day = datetime.now().astimezone().date().isoformat()
+    for path, branch in orphans:
+        trees = _registered_worktrees(main_root)
+        locked = _locked_worktrees(main_root)
+        if trees is None or locked is None:
+            print(f"error: git worktree list failed in {main_root}", file=sys.stderr)
+            return 1
+        reason = _orphan_keep_reason(main_root, path, branch, claims, trees, locked)
+        if reason is not None:
+            print(f"kept worktree: {path} ({branch + '; ' if branch else ''}{reason})")
+            continue
+        stashed, error = _stash_and_remove(main_root, path, orphan_stash_name(branch, day))
+        if stashed:
+            print(f"stash: {stashed}")
+        if error:
+            print(f"error: {error}; run dispatch close --orphans again after you "
+                  "fix the cause", file=sys.stderr)
+            return 1
+        print(f"removed worktree: {path} ({branch})")
+    print("dispatch close --orphans: done")
     return 0
 
 
@@ -2120,6 +3525,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--stories", required=True)
     p_init.add_argument("--baseline-commit", action="store_true")
     p_init.add_argument("--feature-branch", default=None)
+    p_init.add_argument("--mode", choices=LEDGER_MODES, default="orchestrated")
     p_init.add_argument("--yes", action="store_true", help="skip confirmation prompts")
 
     p_plan = sub.add_parser("plan", help="compute wave plan from stories")
@@ -2147,11 +3553,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_mdd = sub.add_parser("mark-dispatched", help="mark story as dispatched")
     p_mdd.add_argument("story_id")
 
-    p_mdn = sub.add_parser(
-        "mark-done", help="mark story as done, remove its step manifest"
-    )
-    p_mdn.add_argument("story_id")
-
     p_cm = sub.add_parser("clear-manifest", help="force-remove a stale step manifest")
     p_cm.add_argument(
         "--force", action="store_true", help="required: confirms forced recovery"
@@ -2167,8 +3568,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_mf.add_argument(
         "--class",
         dest="failure_class",
-        required=False,
-        default=None,
+        required=True,
         choices=FAILURE_CLASSES,
     )
     p_mf.add_argument("--evidence", required=False, default=None)
@@ -2176,15 +3576,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
     p_rd.add_argument("story_id")
 
+    p_ret = sub.add_parser(
+        "return-story", help="set a failed or blocked story back to pending (User only)"
+    )
+    p_ret.add_argument("story_id")
+
     p_vs = sub.add_parser("verify-story", help="verify a story's commit SHA")
     p_vs.add_argument("story_id")
     p_vs.add_argument("--sha", required=True)
+
+    p_add = sub.add_parser(
+        "add", help="put an open blocking finding into a new wave of the run"
+    )
+    p_add.add_argument("finding_id")
 
     p_es = sub.add_parser("escalate", help="escalate a story to the next tier")
     p_es.add_argument("story_id")
 
     p_rs = sub.add_parser(
-        "refresh-story", help="merge the invocation branch into a story branch"
+        "refresh-story", help="merge the feature branch into a story branch"
     )
     p_rs.add_argument("story_id")
 
@@ -2198,6 +3608,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("close-wave", help="close a completed wave").add_argument(
         "wave", type=int
+    )
+
+    p_close = sub.add_parser(
+        "close", help="end a finished run, or with --drop a dropped run"
+    ).add_mutually_exclusive_group()
+    p_close.add_argument(
+        "--drop",
+        action="store_true",
+        help="end a run whose feature branch is not merged into dev",
+    )
+    p_close.add_argument(
+        "--orphans",
+        action="store_true",
+        help="clean up the worktrees and ledgers that no active run owns",
     )
 
     sub.add_parser(
@@ -2217,7 +3641,9 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write(notice)
             return 1
     # init creates its ledger and reads no existing one, so it needs no default.
-    if args.ledger is None and args.subcommand != "init":
+    # close --orphans reads every ledger, so it needs none either.
+    orphans = args.subcommand == "close" and args.orphans
+    if args.ledger is None and args.subcommand != "init" and not orphans:
         try:
             args.ledger = _default_ledger()
         except LedgerChoiceError as e:
@@ -2238,8 +3664,6 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_dispatching(args)
     if args.subcommand == "mark-dispatched":
         return cmd_mark_dispatched(args)
-    if args.subcommand == "mark-done":
-        return cmd_mark_done(args)
     if args.subcommand == "clear-manifest":
         return cmd_clear_manifest(args)
     if args.subcommand == "mark-blocked":
@@ -2248,10 +3672,14 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_failed(args)
     if args.subcommand == "re-dispatch":
         return cmd_re_dispatch(args)
+    if args.subcommand == "return-story":
+        return cmd_return_story(args)
     if args.subcommand == "verify-story":
         return cmd_verify_story(args)
     if args.subcommand == "escalate":
         return cmd_escalate(args)
+    if args.subcommand == "add":
+        return cmd_add(args)
     if args.subcommand == "refresh-story":
         return cmd_refresh_story(args)
     if args.subcommand == "merge-story":
@@ -2260,6 +3688,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_close_wave(args)
     if args.subcommand == "suggest-merge-args":
         return cmd_suggest_merge_args(args)
+    if orphans:
+        return cmd_close_orphans(args)
+    if args.subcommand == "close":
+        return cmd_close(args)
     return cmd_not_implemented(args)
 
 

@@ -701,12 +701,12 @@ Feature: Finding classification
       Then the porcelain output names factory/scripts/dispatch, a path that no longer exists, as part of each line identity
       And the lint finds the identities on dev and rejects in_use false
 
-    Scenario: A lint run in a linked worktree finds the installed copy in the main checkout
+    Scenario: A lint run in a linked worktree finds the installed copy in the primary checkout
       Given finding-lint runs in a linked story worktree that holds no .agent-factory/
-      And the main checkout holds .agent-factory/factory/ with the artifact lines of a code finding unchanged
+      And the primary checkout holds .agent-factory/factory/ with the artifact lines of a code finding unchanged
       And the finding records in_use false
       When finding-lint looks for the installed copy
-      Then it finds .agent-factory/factory/ in the main checkout
+      Then it finds .agent-factory/factory/ in the primary checkout
       And it exits 1
 
     Scenario: Lines in the installed copy that git has no record of do not count as unchanged
@@ -867,6 +867,7 @@ Feature: Finding classification
         | init             |
         | prepare-wave     |
         | prepare-story    |
+        | add              |
         | mark-dispatching |
         | mark-dispatched  |
         | re-dispatch      |
@@ -886,17 +887,20 @@ Feature: Finding classification
         | plan               |
         | suggest-merge-args |
         | verify-story       |
-        | mark-done          |
         | mark-blocked       |
         | mark-failed        |
         | clear-manifest     |
+        | return-story       |
+        | close              |
+        | close --drop       |
+        | close --orphans    |
 
     Scenario: The scripts read the findings of the working tree they run in
       Given the feature worktree of feature/core-artifact-ownership holds an uncommitted BUG-0037 with severity critical and status open
-      And the main checkout on dev does not hold BUG-0037
+      And the primary checkout on dev does not hold BUG-0037
       When the orchestrator runs premerge-check in the feature worktree
       Then premerge-check stops on BUG-0037
-      And premerge-check run in the main checkout does not stop on BUG-0037
+      And premerge-check run in the primary checkout does not stop on BUG-0037
 
     Scenario: premerge-check refuses to run
       Given docs/findings/BUG-0037.md has severity critical, status open, and no stop_confirmed_by

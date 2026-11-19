@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0037",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:1406-1452",
+  "story": "ST-0420",
+  "finding": "An orchestrated prepare-story refuses a returned seams-first story with the wrong reason. The operator reads \"seams-first story ST-0351 requires a completed seam session\" and is not told that ST-0351 was returned and waits for the end of the run, as BR-113 and the interface contract of prepare-story require. The cause is the order in cmd_prepare_story: the seams-first branch at line 1406 runs before _pending_entry_error at line 1452, so a pending entry with returned true never reaches the return check. The review reproduced it in a scratch repository: a ledger with ST-0351 pending, returned true, and strategy seams-first in its backlog file, and prepare-story ST-0351 printed the seam message and exited 1. The refusal itself is right, so the gap looks unintended in the message only. The smallest fix is in cmd_prepare_story: call _pending_entry_error for a pending entry before the seams-first branch, or check entry.returned at the top of that branch, and add a test row with a seams-first story under RL-07-CT-03.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "prepare-story still refuses the returned story and changes no state, and no story in backlog/ uses strategy seams-first, so the path is not reached in this project today (no to fails_purpose). An operator who meets it follows the wrong message to the seam session and must find the return in the ledger by hand. The code exists only on the story branch, so in_use is false.",
+  "commit": "8db2a3cca31c3ec9388c3aaf92639e1848ae1622",
+  "status": "resolved"
+}

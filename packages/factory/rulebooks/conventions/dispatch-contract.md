@@ -92,7 +92,7 @@ the session knows.
 ### Brief File
 
 Before the parent starts a fresh agent, it writes the brief to
-`.current-work/<branch>/briefs/<task>.md` in the main checkout, never to
+`.current-work/<branch>/briefs/<task>.md` in the primary checkout, never to
 `/tmp`, which the system can empty. The prompt says only: "Read
 `<absolute brief path>` and follow it." Scratch files go to
 `.current-work/<branch>/scratch/<agent-or-story>/` there, never into a
@@ -108,7 +108,7 @@ A brief holds:
    current before each round.
 4. **Inputs.** The documents to read, with sections where a whole file is
    not needed. Factory files by absolute path under
-   `<main checkout>/.agent-factory/factory/`: a linked worktree has none.
+   `<primary checkout>/.agent-factory/factory/`: a linked worktree has none.
 5. **Output.** The report format, its length limit, and the instance ID to
    report to (see Sub-Agent Addressing).
 6. **Stop conditions.** When the child stops and asks instead of deciding.
@@ -157,7 +157,7 @@ For a mechanized implementation dispatch, the script-enforced checkpoints are:
 2. `dispatch verify-story <story-id> --sha <sha>` confirms the reported commit object exists and belongs to the expected story branch.
 3. `dispatch merge-story <story-id>` runs `premerge-check <target> <branch> --scope ...` immediately before merge, then runs the post-merge test command.
 
-`dispatch refresh-story <story-id>` merges the invocation branch into the story branch inside the story's worktree. Run it when the invocation branch has moved, for example after another story of the wave merged. It refuses a dirty worktree and a worktree on another branch. After an interrupted `merge-story` it refuses and points to a rerun of `merge-story`. On a conflict it aborts the merge and blocks the story. `merge-story` runs the same step before `premerge-check`.
+`dispatch refresh-story <story-id>` merges the feature branch into the story branch inside the story's worktree. Run it when the feature branch has moved, for example after another story of the wave merged. It refuses a dirty worktree and a worktree on another branch. After an interrupted `merge-story` it refuses and points to a rerun of `merge-story`. On a conflict it aborts the merge and blocks the story. `merge-story` runs the same step before `premerge-check`.
 
 Any failed checkpoint means the report is false or incomplete, or the work landed somewhere unexpected — investigate before merging or closing the story.
 
@@ -201,20 +201,20 @@ Motivating example: in the 2026-07-21 session a developer-agent committed on a s
 
 ### Wave Boundary As Hard Gate
 
-File-disjoint stories fan out in parallel within a wave — that concurrency is the dispatcher's strength. The constraint is between waves, not within them: **every story in a wave must reach a terminal state before the next wave launches**. A terminal state is a verified merge or an explicit blocked/failed record in the dispatch ledger.
+File-disjoint stories fan out in parallel within a wave — that concurrency is the dispatcher's strength. The constraint is between waves, not within them: **the next wave launches only after the wave record exists**. `dispatch close-wave` writes it once every unit of work of the wave is `done`, `blocked`, `failed` and stopped, or `pending` and held back by a return, and once the wave's drift rows are handled. `dispatch prepare-wave` and `dispatch prepare-story` refuse until the previous wave has its record (BR-113).
 
 This eliminates the drift pattern (wave N+1 dispatching against stale state) without sacrificing the throughput of parallel fan-out. The concurrent wave cap from [Model Tier And Wave Size](#model-tier-and-wave-size) (default six) still applies within each wave.
 
 ### Hard Checkpoint Per Story
 
-Every story in a wave must reach a terminal state — merged commit on the target branch, or an explicit blocked/failed record — before the next wave launches. `prepared` is the required pre-spawn state: the story branch/worktree exists, the declared base SHA is recorded, the step manifest exists, and the dispatch script already ran `verify-base` successfully. "Terminal state" means:
+Every story in a wave merges or stops before `dispatch close-wave` writes the wave record, and the next wave launches only after that record exists, as [Wave Boundary As Hard Gate](#wave-boundary-as-hard-gate) defines. A failed story with a retry left has not stopped, so it keeps its wave open (BR-062, BR-113). `prepared` is the required pre-spawn state: the story branch/worktree exists, the declared base SHA is recorded, the step manifest exists, and the dispatch script already ran `verify-base` successfully. A story has merged or stopped when:
 
 1. The story reached `dispatched` only after the dispatcher marked the handoff around a real subagent spawn.
 2. The story's reported commit SHA passed `dispatch verify-story`.
-3. `dispatch merge-story` ran `premerge-check --scope ...`, the merge completed, and the post-merge tests passed, OR the story was recorded as blocked/failed with a reason.
+3. `dispatch merge-story` ran `premerge-check --scope ...`, the merge completed, and the post-merge tests passed, OR the story stopped as `blocked`, or as `failed` with no retry left, with a reason.
 4. The story file's `status` field is updated in the same commit that delivers the implementation (for done) or in a dedicated status-update commit (for blocked/failed).
 
-No new wave may launch while any story from the prior wave is in an unresolved state. This eliminates the drift pattern where later waves dispatch against progressively staler bases.
+No new wave may launch while the prior wave has no wave record. This eliminates the drift pattern where later waves dispatch against progressively staler bases.
 
 ### Story Status Commit Rule
 
@@ -222,9 +222,9 @@ The story file's `status` field must be updated to `done` in the **same commit**
 
 This ensures the backlog file is always consistent with the repository's actual state: if the commit is present, the status is `done`; if the status is `done`, the commit is present.
 
-### Drift Rows After A Merge
+### Drift Rows At The Wave Close
 
-After a story merges, the implementation agent handles each row of the story's spec-feedback report, `docs/spec/work/spec-feedback-<story-id>.md`. It works in two passes:
+The drift sessions run at the wave close, never after a merge. Once the last unit of work of a wave has merged or stopped, the implementation agent runs `dispatch close-wave <wave>`. `close-wave` reads the spec-feedback report of each story of the wave, `docs/spec/work/spec-feedback-<story-id>.md`. It refuses while a row is `open`, or `fixed` about an artifact on the core list `rulebooks/core-artifacts.yaml`, and lists each such row with its owner (BR-062). The implementation agent handles each listed row in two passes:
 
 1. The implementation agent dispatches the owner of each `open` row. The owner is the agent in the row's Owner column. The owner changes the artifact and sets the row to `fixed`.
 2. The implementation agent then dispatches the owner's reviewer for each `fixed` row. The reviewer is the `reviewed_by:` entry of the owner's declaration that matches the row's artifact. The reviewer sets the row to `confirmed` or `rejected`.
@@ -235,42 +235,60 @@ When the reviewer is the stakeholder, the implementation agent dispatches no rev
 
 A reviewer sets `rejected` when the code breaks an accepted requirement. The reviewer that rejects the row files a `BUG` finding, `docs/findings/BUG-NNNN.md`, with `owner: developer-agent`. When the stakeholder rejects, the agent that ran the session files the `BUG` finding. A `rejected` row does not block the wave. The implementation agent states this rule in the brief of each owner and each reviewer.
 
-### Manual Mode
+Owners and reviewers commit each row status on the feature branch (ADR-0029). After every dispatch has returned, the implementation agent runs `close-wave` again, and repeats the two passes until it passes. It does not wait for the User's go, because the wave close starts, merges and destroys nothing.
 
-Manual mode (`--manual`) disables all mechanized dispatch infrastructure. No dispatch scripts, no ledger, no automated SHA verification, no wave boundaries. The implementation-agent dispatches stories serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. A code-review-agent reviews each committed story before the next dispatch. When defects are found, the implementation-agent dispatches a fresh developer-agent with the findings for remediation. The human commits fixes.
+### Run By Hand
 
-Manual mode has no waves, so the drift-row rule holds per story. After the human commits a story, the implementation agent handles the story's report as [Drift Rows After A Merge](#drift-rows-after-a-merge) describes. The human does not close a story while its report has an `open` row, or a `fixed` row about an artifact on the core list. The core list is `rulebooks/core-artifacts.yaml`. At each story's close, the implementation agent routes the open `QA` findings, as step 6 of the automated workflow does after `close-wave` (CAO-G31).
+A run by hand (`--manual`) keeps the same ledger, story workflow and checks as an orchestrated run, and it runs one story at a time in the primary checkout.
 
-The following sections do not apply in manual mode: Dispatch Ledger, Wave Boundary As Hard Gate, Hard Checkpoint Per Story, Wave Closeout Record, Story Status Commit Rule, QA-in-Worktree Divergence.
+Each story is a wave of its own (BR-064), so the drift-row rule holds per story. After the story merges or stops, the implementation agent runs `dispatch close-wave <wave>` and handles each listed row as [Drift Rows At The Wave Close](#drift-rows-at-the-wave-close) describes. `close-wave` refuses while the story's report has an `open` row, or a `fixed` row about an artifact on the core list. The core list is `rulebooks/core-artifacts.yaml`. `dispatch prepare-story` refuses the next story until the wave has its record. The human closes no story, because `close-wave` checks the rows. At each story's wave close, the implementation agent routes the open `QA` findings, as step 6 of the orchestrated workflow does after `close-wave` (CAO-G31).
+
+QA-in-Worktree Divergence does not apply in a run by hand, because the story runs in the primary checkout.
 
 ### Dispatch Ledger
 
-The dispatch ledger applies to **automated mode only**.
+Both ways of driving a run keep a ledger: an orchestrated run and a run by hand. `dispatch init --mode orchestrated|by-hand` writes it, and without `--mode` the run is orchestrated.
 
-The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `.agent-factory/factory/scripts/dispatch` subcommands mutate it. The ledger is saved after each mechanically observable transition. It lives under the ignored `.current-work/` and is never committed.
+The dispatcher must maintain a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story in the current dispatch. The ledger is **script-owned runtime state**: agents read it to resume and report, but only `.agent-factory/factory/scripts/dispatch` subcommands mutate it. The ledger is saved after each mechanically observable transition. It lives under the ignored `.current-work/` and is never committed. A ledger exists only while its run is active, so it has no field that marks the run closed.
 
-Schema:
+Schema, with every field that `dispatch` writes:
 
 ```yaml
 ---
-mode: automated
-closed: false | true
-invocation_branch: <branch-name>
-branch_root: <40-char SHA>
+mode: orchestrated | by-hand
+feature_branch: <branch-name>
+branch_root: <40-char SHA>  # tip of the feature branch at init
 branch_head: <40-char SHA>  # updated after each merge or wave closeout
 stories:
-  - id: <story-id>
-    branch: <feature-branch-name>
-    worktree: <worktree-path>
-    declared_base: <40-char SHA>
-    verify_base: pass | fail | pending
-    premerge_check: pass | fail | pending
-    commit_sha: <40-char SHA or null>
-    merge_sha: <40-char SHA or null>
+  <story-id>:
+    id: <story-id>
+    wave: <wave-number or null>
     status: pending | prepared | dispatching | dispatched | done | blocked | failed
-    wave: <wave-number>
-    reason: <null or explanation for blocked/failed>
+    deps: [<story-id>, ...]
+    branch: <story branch or null>
+    worktree: <worktree path or null>
+    feature_branch: <branch-name or null>
+    base_sha: <40-char SHA or null>
+    tier: <economy | standard | strong or null>
+    reason: <null or explanation for blocked/failed>  # or "escalate refused: verify-base" or "escalate refused: scope"
+    # The fields below appear only once they hold a value.
+    attempts: [<attempt record>, ...]
+    escalation_granted: true
+    attempt_grants: [{tier: <tier>, attempt_count: <number of attempts at the grant>}, ...]
+    verify_base: <verify-base result>
+    commit_sha: <40-char SHA>
+    failure_class: <failure class>
+    evidence: <evidence path>
+    manifest_recoveries: [<recovery record>, ...]
+    active_session: seam | impl
+    active_tier: <economy | standard | strong>
+    returned: true  # dispatch return-story set the entry back to pending
+waves: [<wave closeout record>, ...]  # see Wave Closeout Record
 ```
+
+Only the User runs `dispatch return-story <id>`, and the guardrail refuses it to agents. It sets a `failed` or `blocked` story to `pending`, sets `returned: true` in its entry, and sets `status: pending` in `backlog/<id>.md` of the current checkout. It refuses a story in any other state and commits nothing (BR-116).
+
+`dispatch` also reads a ledger with the old names `invocation_branch` and `mode: automated`. It reads them as `feature_branch` and `mode: orchestrated`, and its next write holds only the new names.
 
 The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads it to determine which stories completed, which failed, what is merely prepared, and what the current base SHA is, rather than reconstructing state from git log heuristics.
 
@@ -303,45 +321,51 @@ waves:
 
 ## Close
 
-A dispatch that begins without ending is a leak. Every dispatch must conclude as either completed or abandoned, with worktrees removed, branches handled according to their terminal state, and the ledger saved.
+A run ends with `dispatch close`. Only the User runs it, and a run ends in one of two ways (BR-119):
 
-### Completed Close
+| End      | Precondition                                                                                     | Command                 |
+| -------- | ------------------------------------------------------------------------------------------------ | ----------------------- |
+| Finished | The User has merged the feature branch into `dev`.                                               | `dispatch close`        |
+| Dropped  | The User drops the feature and has returned every unfinished story with `dispatch return-story`. | `dispatch close --drop` |
 
-The dispatch completed successfully — all stories in the wave reached terminal states (merged or blocked with a reason recorded). To close a completed dispatch:
+### Refusals
 
-1. Verify every story in the dispatch has a terminal status in the ledger — `done` (merged), `blocked`, or `failed`.
-2. Run `git worktree prune` to remove stale worktree references.
-3. For each worktree owned by the dispatch:
-   - If the story's branch was merged to the target: `git worktree remove` and `git branch -d` the story branch (safe delete — the commit already exists on the target branch).
-   - If the story's branch is blocked: record the block reason in the ledger and leave the branch and worktree for manual resolution — the developer who owns the block decides whether to resume or abandon it.
-4. Save the final ledger state.
+Both forms refuse a run with a unit of work that is not `done` or `pending`. The message names each such unit of work and its state, such as `ST-0360 is failed`. BR-119 names `failed` and `blocked`. A unit of work in progress is refused too, because its worktree holds work that the close would remove. `dispatch close` without `--drop` also refuses a feature branch that is not merged into `dev`, and names `dispatch close --drop`. Both forms refuse a feature branch that `git check-ref-format --branch` rejects, such as `feature/../feature/other`, and a run folder with a symlink on the way to it, because either can lead to the folder of another run. A refusal exits `1` and changes nothing.
 
-The key distinction: **merged branches are safe to delete** (the work is on the target branch), **blocked branches are left in place** (the developer may resume), and the ledger preserves the reason for future reference.
+### What The Close Removes
 
-### Abandoned Close
+The close acts only on what its ledger names and on the folder `.current-work/<feature-branch>/` of the primary checkout. It runs every git command on the primary checkout or on the worktree it removes, so the folder it is called from does not matter.
 
-The dispatch was abandoned before completion — the work is not being merged. To close an abandoned dispatch:
+1. The worktrees of the run, in this order: the worktree of each story, each temporary worktree of `premerge-check` under `.current-work/<feature-branch>/premerge/`, and the worktree of the feature branch. A worktree counts only when `git worktree list` names it, it lies under `.current-work/` of the primary checkout, and it is not the primary checkout.
+2. Before it removes a worktree, the close reads `git worktree list` again. When another registered worktree lies below the path, the close names it, stops with exit `1`, and keeps the ledger, because git would delete that worktree with the folder. The close checks for uncommitted work with `git status --porcelain --untracked-files=all`, so the git config of the User does not hide an untracked file. Before it removes a worktree with uncommitted work, the close runs `git stash push --include-untracked`. The stash holds the untracked files and the changes to tracked files, under a name such as `run feature/login ST-0350 2026-11-24`. The label is the story ID, `premerge/<id>` for a temporary worktree of `premerge-check`, and `feature` for the worktree of the feature branch. The close never applies or drops a stash. A clean worktree gets no stash. The close then runs `git worktree remove` without `--force`. When the stash, the removal, or a `git worktree list` fails, the close stops with exit `1` and keeps the ledger, so the User can fix the cause and run it again.
+3. The ledger.
+4. The markers of the run in the primary checkout: `.current-work/premerge-check-ok` when its `branch=` line names the feature branch or a story branch of the run, and `.current-work/verify-base-ok` for a run by hand. A marker inside a removed worktree goes with that worktree, and a marker of another run stays.
+5. The gate result files `.current-work/<gate>/<id>.json` of each unit of work of the ledger.
+6. The briefs and scratch files: the folder `.current-work/<feature-branch>/`. When a worktree that the ledger does not name is left in it, the close keeps the folder and names that worktree.
+7. Each branch of the run, with `git branch -d`: the story branches of the ledger and the feature branch. Git refuses an unmerged branch, and the guardrail refuses agents a forced delete, so the User deletes it.
 
-1. Record the abandonment reason in the ledger: add an entry under `abandonment:` with the reason (e.g., "deprioritized", "replaced by alternative approach", "blocked by external dependency"). If no ledger exists, create one with all stories set to `abandoned` and the reason.
-2. For each worktree owned by the dispatch: `git worktree remove --force` and `git branch -D` (force-delete branches, because the work is abandoned, not preserved for manual resolution).
-3. Save the ledger.
+The output names each stash with `stash: <name>`, each deleted branch with `deleted branch: <branch>`, and each unmerged branch with `unmerged branch: <branch>`. A branch that git keeps for another reason, such as a checkout, appears as `kept branch: <branch>` with git's message. The last line is `dispatch close: closed the run on <feature-branch>`.
+
+A stop on a critical finding allows `close` and `close --drop`, because they start and merge nothing (BR-091). The guardrail refuses `dispatch close --drop` to agents. The close reads a ledger with the old names `invocation_branch` and `mode: automated` like any other.
+
+After the close, the record of the run is the merge commits in `dev` and the status `done` in each story file. The ledger held nothing that a later step reads.
 
 ## QA-in-Worktree Divergence
 
-QA that runs inside a story worktree validates against `packages/factory/` (source), because the worktree shares the repository's source tree. Pre-commit hooks in the main checkout, however, load scripts and tests from `factory/` (the installed copy). These are two different directory trees with independent content: `packages/factory/` is always current with the branch, while `factory/` reflects whichever version was last synced by `update-factory`.
+QA that runs inside a story worktree validates against `packages/factory/` (source), because the worktree shares the repository's source tree. Pre-commit hooks in the primary checkout, however, load scripts and tests from `factory/` (the installed copy). These are two different directory trees with independent content: `packages/factory/` is always current with the branch, while `factory/` reflects whichever version was last synced by `update-factory`.
 
-When a dispatch touches files under `packages/factory/`, QA can pass in the worktree while the post-merge test suite fails in the main checkout — the installed copy is stale.
+When a dispatch touches files under `packages/factory/`, QA can pass in the worktree while the post-merge test suite fails in the primary checkout — the installed copy is stale.
 
-**Mitigation.** Before the final `dispatch merge-story` of any wave that modified `packages/factory/` files, the dispatcher (or stakeholder) must run `.agent-factory/factory/scripts/update-factory` on the main checkout to sync the installed copy from source. This is a manual step; no automated hook exists yet.
+**Mitigation.** Before the final `dispatch merge-story` of any wave that modified `packages/factory/` files, the dispatcher (or stakeholder) must run `.agent-factory/factory/scripts/update-factory` on the primary checkout to sync the installed copy from source. This is a manual step; no automated hook exists yet.
 
 ## Enforcement
 
-Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. In automated mode, mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. In manual mode, none of these script commands apply. See [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) for the current concrete application.
+Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. On both ways, the `dispatch` script adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. A run by hand uses `prepare-story` and no `prepare-wave`, because each story is a wave of its own (BR-064). See [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) and [§ Workflow — Run By Hand](../../agents/implementation-agent.md#workflow--run-by-hand) for the current concrete application.
 
 ## References
 
 - [rules.md § Dispatch](../rules.md#dispatch)
 - [branching-policy.md](branching-policy.md) — the branch/worktree half of the dispatch contract (Verify-Base Preamble, Declared Base SHA, Pre-Merge Diff Check)
-- [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) — the current dispatcher applying this contract
+- [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) — the current dispatcher applying this contract
 - [reconciliation-agent.md](../../agents/reconciliation-agent.md) — the agent whose incident motivated the Sub-Agent Addressing rule
 - [docs/reviews/retro-2026-07-12.md](../../../../docs/reviews/retro-2026-07-12.md) — the session that motivated both rules

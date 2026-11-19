@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0034",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/rulebooks/rules.md:152",
+  "story": "ST-0411",
+  "finding": "rules.md still exempts a run by hand from premerge-check. Line 152 marks the rule 'MUST run premerge-check before git merge' as (automated only). In a run by hand, merge-story runs premerge-check before it checks out the feature branch (BR-124), and the stop before the merge into dev names premerge-check dev <feature-branch>. So the rule now applies on both ways. The story removed the sentence of the Dispatch section that defined the marker, so a reader of the Git section meets the marker with no definition and reads it as a live exemption. Line 97 has the same drift: it says that in manual mode 'no worktrees are created', but premerge-check adds a temporary worktree on both ways (BR-123). The smallest fix is in rules.md: drop (automated only) from line 152, and on line 97 say that a run by hand checks out each story branch in the primary checkout and that only premerge-check adds a temporary worktree.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Both lines exist unchanged on dev, but there they are correct, because dev has no run by hand that uses dispatch (no to harms_downstream). In a run by hand the agent never runs git merge itself: merge-story runs premerge-check, and the stop table names premerge-check dev, so no merge skips the check (no to fails_purpose). A reader of rules.md gets a rule that contradicts implementation-agent.md and must check BR-124 to learn which one holds.",
+  "commit": "0c410ccab9bce30722e41757d08a3305d99934b9",
+  "status": "resolved"
+}

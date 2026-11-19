@@ -21,7 +21,8 @@ date: <YYYY-MM-DD>
 status: pass | defects | block
 reviewer: <agent name>
 findings_filed: <integer>
-story: <story or artifact ID, when applicable>
+story: <story ID of a story's code review; ID of the reviewed artifact in a doc-scoped review>
+run: <feature branch of a report of the feature checks; empty otherwise>  # branch-scoped
 branch: <branch under review>              # branch-scoped
 branch_base: <full 40-char SHA>            # branch-scoped
 branch_head: <full 40-char SHA>            # branch-scoped
@@ -33,6 +34,22 @@ scope: <what is being reviewed>            # doc-scoped
 - `branch-head` is the branch tip at the time of review.
 - Both must be full 40-character SHAs per [rules.md § Git workflow](../rules.md#git-workflow).
 - `scope` describes the reviewed artifacts in plain language when no branch diff applies.
+
+## Story and run
+
+A report names the review it belongs to, as its findings do ([finding-format.md § Story and run](finding-format.md#story-and-run)). The name of the report and the fields `story`, `run`, and `branch_head` depend on what the review covered (BR-122).
+
+| Review                                      | File name                                                                                                         | `story`  | `run`          | `branch_head`                       |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------- | -------------- | ----------------------------------- |
+| Code review of a story                      | `docs/reviews/code-review-<story-id>-YYYY-MM-DD.md`                                                               | story ID | empty          | head of the story branch reviewed   |
+| Code review of the whole feature            | `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`, with the slash of the branch name replaced by a hyphen | empty    | feature branch | head of the feature branch reviewed |
+| Fagan, security, and bug-hunt reports of QA | the name the skill gives                                                                                          | empty    | feature branch | head of the feature branch reviewed |
+
+For example, the code review of `story/ST-0350` on 2026-11-24 writes `docs/reviews/code-review-ST-0350-2026-11-24.md` with `story: ST-0350`. The code review of `feature/login` on the same day writes `docs/reviews/code-review-feature-login-2026-11-24.md` with `run: feature/login`. Because the story ID is in the name, two stories reviewed on the same day merge into one feature branch without a conflict on their reports.
+
+A second code review of the same story on the same day adds `-2` to the name, such as `code-review-ST-0350-2026-11-24-2.md`, and a third adds `-3`. The code-review agent adds the number; no script does.
+
+The developer agent commits the report of a story's review on the story branch, also when the review filed no finding.
 
 ## Finding table
 

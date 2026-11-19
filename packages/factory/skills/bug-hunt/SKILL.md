@@ -43,3 +43,9 @@ For each bug finding, in priority order:
 5. Set the `status` of the finding file to `resolved`. A `minor` bug has a register file instead, and the commit of step 4 sets its `status` to `resolved`.
 
 After fixing all bugs, return to the Hunt phase. Repeat until a full hunt cycle finds zero new bugs.
+
+## Phase: Report
+
+After the last hunt cycle, save the report as `docs/reviews/bug-hunt-YYYY-MM-DD.md` per [report-format.md](../../rulebooks/conventions/report-format.md). It lists each bug the hunt found, its finding ID, and its status. A hunt that found no bug still writes the report.
+
+In the feature checks of a feature branch, such as `feature/login`, the report sets `run` to the feature branch and `branch_head` to the full SHA of the head of the feature branch it hunted, as [report-format.md § Story and run](../../rulebooks/conventions/report-format.md#story-and-run) says. It leaves `story` empty. `premerge-check dev <feature-branch>` refuses the merge into `dev` until this report exists (BR-122). Format the report via `scripts/mdformat --number <path>` per [markdown-formatting.md](../../rulebooks/conventions/markdown-formatting.md).

@@ -64,13 +64,13 @@ Use **Conventional Commits** (see [commit-conventions.md](../../rulebooks/conven
 git commit -m "feat: <description> (ST-NNNN)"
 ```
 
-One commit per vertical slice or per full story. Set the story's `status` to `done` when the story is complete.
+One commit per vertical slice or per full story. Do not change the story's `status`; `dispatch merge-story` sets it in the merge commit (BR-118).
 
-If invoked with `--no-commit` alone: stage all changed files, skip the commit, and return. Do not set `status: done`.
+If invoked with `--no-commit` alone: stage all changed files, skip the commit, and return.
 
-If invoked with `--no-stage --no-commit`: leave all changes unstaged, skip the commit, and return. Do not set `status: done`; the human owns staging, the status update, and the commit.
+If invoked with `--no-stage --no-commit`: leave all changes unstaged, skip the commit, and return. The human owns staging and the commit.
 
-**Completion**: committed, story id referenced, `status: done`, all tests pass. With `--no-commit`: all changes staged, all tests pass. With `--no-stage --no-commit`: all changes unstaged, all tests pass.
+**Completion**: committed, story id referenced, `status` unchanged, all tests pass. With `--no-commit`: all changes staged, all tests pass. With `--no-stage --no-commit`: all changes unstaged, all tests pass.
 
 ## Step 5 — Check docs
 

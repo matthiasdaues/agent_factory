@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0044",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_run_lifecycle_close.py:122-451",
+  "story": "ST-0425",
+  "finding": "No test checks that a failed `git stash push` or a failed `git worktree remove` stops the close with exit 1 and keeps the ledger, although step 3 of the story's Analysis and the Close section of dispatch-contract.md promise it. No test checks the path guards of the close either: a worktree outside .current-work/, a registered worktree that the ledger does not name, or a feature branch that resolves outside its run. The partitions of the QA strategy list a worktree with only untracked files, one with only a tracked change, and a failed unit of work for which HasStopped holds; the tests cover the combined worktree and a failed unit of work with a retry left. The review checked both stops in a scratch repository, with a lock on refs/stash and with a locked worktree, and both kept the ledger and the files. The gap starts in the test file; the code behaves as the contract says. The smallest fix is one test per stop and one per guard in tests/factory/test_run_lifecycle_close.py under RL-14-IT-01 and RL-14-IT-03.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The owned rows RL-14-IT-01 to RL-14-IT-08 each have a test, and the probes show that both stops work today (no to fails_purpose). A later change can drop a stop or a guard of a command that deletes files, and no test fails. The lines exist only on the story branch, so in_use is false.",
+  "commit": "74be6f10bde528c41b8d2a2f1bc30cf755022e76",
+  "status": "resolved"
+}

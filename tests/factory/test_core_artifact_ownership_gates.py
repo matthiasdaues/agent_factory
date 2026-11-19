@@ -3,7 +3,9 @@
 CAO-11-IT-01 and CAO-11-IT-02 (Rule: Implementation agent blocks a merge on
 a failing test guardrail): the gate fails without a command and names the
 test-strategy agent, fails on a non-zero exit, stops a command that runs past
-its limit, and `premerge-check` blocks the merge on the failing result file.
+its limit, and `premerge-check` blocks the merge when the gate fails at the
+branch head. RL-09-IT-02 adds the key with hyphens and the case with both keys
+beside the old key `gates.mutation_testing` (BR-055).
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import SOURCE_SCRIPTS_DIR, load_script
+from conftest import SOURCE_SCRIPTS_DIR, load_script, write_review_report
 
 GATE = SOURCE_SCRIPTS_DIR / "mutation-testing"
 PREMERGE = SOURCE_SCRIPTS_DIR / "premerge-check"
@@ -80,6 +82,7 @@ def _fixture(tmp_path: Path, testing_yaml: str, mutate: str | None) -> Path:
         script.parent.mkdir()
         script.write_text(mutate)
         script.chmod(0o755)
+    write_review_report(repo, STORY_ID)
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "story")
     dep_dir = repo / ".current-work" / "dependency-check"
@@ -170,7 +173,7 @@ class TestSt0365MutationGateFixtures:
         assert result["exit_code"] == 1
         merge = _premerge(repo)
         assert merge.returncode != 0, merge.stdout + merge.stderr
-        assert "mutation-testing (failed)" in merge.stdout
+        assert "BLOCK semantic-gates: mutation-testing (exit 1" in merge.stdout
 
     def test_st_0365_report_dir_puts_the_result_where_premerge_reads_it(self, tmp_path):
         repo = _fixture(tmp_path, WITH_COMMAND, MUTATE_FAILS)
@@ -209,7 +212,10 @@ class TestSt0365MutationGateTimeLimit:
         assert proc.returncode == 1, proc.stdout + proc.stderr
         assert "timeout_minutes" in _result(repo)["message"]
 
-    def test_st_0365_slow_command_is_stopped_with_its_child_and_blocks_the_merge(self, tmp_path):
+    def test_st_0365_slow_command_is_stopped_with_its_child(self, tmp_path):
+        """premerge-check reruns the gate at the branch head, so the merge part
+        of this test would wait for the 1-minute limit. The exit-1 test above
+        covers the refused merge."""
         repo = _fixture(tmp_path, SLOW, MUTATE_SLOW)
         gate = load_script("mutation-testing")
         report_dir = repo / ".current-work" / "mutation-testing"
@@ -230,6 +236,69 @@ class TestSt0365MutationGateTimeLimit:
         assert result["timed_out"] is True
         child = int((repo / "child.pid").read_text())
         assert _gone_within(child, 5)
-        merge = _premerge(repo)
-        assert merge.returncode != 0, merge.stdout + merge.stderr
-        assert "mutation-testing (failed)" in merge.stdout
+
+
+# --- ST-0415: mutation-testing reads both key forms (BR-055) ---------------
+
+NEW_KEY = """\
+gates:
+  mutation-testing:
+    enabled: true
+    command: scripts/mutate.sh
+    timeout_minutes: 45
+"""
+
+OLD_KEY = NEW_KEY.replace("mutation-testing:", "mutation_testing:")
+
+BOTH_KEYS = """\
+gates:
+  mutation_testing:
+    enabled: true
+    command: scripts/fails.sh
+    timeout_minutes: 5
+  mutation-testing:
+    enabled: true
+    command: scripts/mutate.sh
+    timeout_minutes: 45
+"""
+
+
+@pytest.mark.spec("RL-09-IT-02")
+class TestSt0415MutationGateKeys:
+    """RL-09-IT-02: mutation-testing reads command and timeout_minutes from both keys."""
+
+    @pytest.mark.parametrize("testing_yaml", [NEW_KEY, OLD_KEY], ids=["hyphens", "underscores"])
+    def test_st_0415_mutation_testing_reads_the_key(self, tmp_path, testing_yaml):
+        """Scenario: mutation-testing reads the old key mutation_testing."""
+        repo = _fixture(tmp_path, testing_yaml, MUTATE_PASSES)
+        proc = _gate(repo)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        result = _result(repo)
+        assert result["command"] == "scripts/mutate.sh"
+        assert result["timeout_seconds"] == 45 * 60
+        assert "warning" not in proc.stderr
+
+    def test_st_0415_with_both_keys_the_key_with_hyphens_wins(self, tmp_path):
+        repo = _fixture(tmp_path, BOTH_KEYS, MUTATE_PASSES)
+        proc = _gate(repo)
+        assert proc.returncode == 0, proc.stdout + proc.stderr
+        result = _result(repo)
+        assert result["command"] == "scripts/mutate.sh"
+        assert result["timeout_seconds"] == 45 * 60
+        assert "gates.mutation_testing" in proc.stderr
+
+    def test_st_0415_the_old_key_stops_the_command_at_its_limit(self, tmp_path):
+        repo = _fixture(tmp_path, OLD_KEY, MUTATE_SLOW)
+        gate = load_script("mutation-testing")
+        section = gate.read_section(repo / "docs" / "testing.yaml")
+        assert gate.timeout_seconds(section) == 45 * 60
+        code = gate.run_gate(
+            story_id=STORY_ID,
+            testing_yaml=repo / "docs" / "testing.yaml",
+            report_dir=repo / ".current-work" / "mutation-testing",
+            cwd=repo,
+            limit_seconds=1,
+        )
+        assert code == 1
+        assert _result(repo)["timed_out"] is True
+        assert _gone_within(int((repo / "child.pid").read_text()), 5)

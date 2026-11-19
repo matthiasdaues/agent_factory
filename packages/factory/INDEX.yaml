@@ -65,7 +65,7 @@ agents:
     description: Review architecture against quality attributes using ATAM in a separate session from the architecture author.
     path: agents/architecture-review-agent.md
     tokens: 1070
-    total_tokens: 8263
+    total_tokens: 9003
     inputs:
       required:
         - type: feature
@@ -152,8 +152,8 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 1181
-    total_tokens: 8139
+    tokens: 1583
+    total_tokens: 9281
     inputs:
       required:
         - type: story
@@ -185,8 +185,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 2333
-    total_tokens: 5748
+    tokens: 2254
+    total_tokens: 5656
     inputs:
       required:
         - type: feature
@@ -279,10 +279,10 @@ agents:
   - name: implementation-agent
     title: Implementation Agent (Dispatcher)
     tier: standard
-    description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
+    description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in an orchestrated run, or serial human-driven work in the primary checkout in a run by hand. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 4735
-    total_tokens: 14252
+    tokens: 7731
+    total_tokens: 18908
     inputs:
       required:
         - type: story
@@ -384,8 +384,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1553
-    total_tokens: 12246
+    tokens: 1771
+    total_tokens: 13408
     inputs:
       required:
         - type: feature
@@ -413,6 +413,9 @@ agents:
         - path_pattern: docs/reviews/security-review-*.md
           validator: ""
           required: false
+        - path_pattern: docs/reviews/bug-hunt-*.md
+          validator: ""
+          required: false
         - path_pattern: tests/**/*
           validator: ""
           required: false
@@ -424,8 +427,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2527
-    total_tokens: 15910
+    tokens: 2536
+    total_tokens: 17957
     inputs:
       required:
         - type: scope-map
@@ -516,7 +519,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1364
-    total_tokens: 9005
+    total_tokens: 10303
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -600,7 +603,7 @@ agents:
     description: Review the specification for consistency, completeness, and traceability using spec-lint plus semantic inspection, in a separate session from the author.
     path: agents/spec-review-agent.md
     tokens: 1138
-    total_tokens: 7397
+    total_tokens: 8137
     inputs:
       required:
         - type: feature
@@ -646,8 +649,8 @@ agents:
     tier: strong
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
-    tokens: 1306
-    total_tokens: 11856
+    tokens: 1346
+    total_tokens: 12357
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -862,7 +865,7 @@ skills:
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
     path: skills/implement-issue/SKILL.md
-    tokens: 925
+    tokens: 912
   - name: reconcile-spec
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
@@ -887,7 +890,7 @@ skills:
     category: quality
     description: Exploratory testing followed by a TDD bug-fix loop. Find bugs, file findings, fix with regression tests, retest.
     path: skills/bug-hunt/SKILL.md
-    tokens: 886
+    tokens: 1090
   - name: explain-review-finding
     category: quality
     description: When the user asks what a review finding, bug report, failing test, or architecture concern means, explain it to a newcomer, starting with a short chain of cause and effect.
@@ -902,7 +905,7 @@ skills:
     category: quality
     description: Set up project-owned mutation testing to verify behavioral coverage, classify survivors, and — when a QA strategy contract-owner table exists — classify each mutant's contract ownership.
     path: skills/mutation-testing/SKILL.md
-    tokens: 1396
+    tokens: 1857
   - name: security-review
     category: quality
     description: Security-focused code review against OWASP Top 10 with minimised false positives.
@@ -1035,7 +1038,7 @@ playbooks:
       - architecture-agent
       - architecture-review-agent
     tokens: 1279
-    total_tokens: 18500
+    total_tokens: 19240
   - name: brownfield-onboarding
     title: Brownfield Onboarding Playbook
     category: orchestration
@@ -1052,7 +1055,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 60222
+    total_tokens: 63749
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1062,7 +1065,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 907
-    total_tokens: 18901
+    total_tokens: 19971
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1073,8 +1076,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 1676
-    total_tokens: 47498
+    tokens: 1701
+    total_tokens: 55706
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1088,10 +1091,10 @@ playbooks:
       - planning-agent
       - implementation-agent
       - code-review-agent
-      - reconciliation-agent
       - qa-agent
-    tokens: 4995
-    total_tokens: 106285
+      - reconciliation-agent
+    tokens: 5224
+    total_tokens: 117001
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1105,11 +1108,11 @@ playbooks:
       - planning-agent
       - implementation-agent
       - code-review-agent
-      - reconciliation-agent
       - qa-agent
+      - reconciliation-agent
       - coaching-agent
-    tokens: 3024
-    total_tokens: 105799
+    tokens: 3170
+    total_tokens: 116432
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1125,7 +1128,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1358
-    total_tokens: 19352
+    total_tokens: 20422
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1138,7 +1141,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1455
-    total_tokens: 14431
+    total_tokens: 15729
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -1159,7 +1162,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 18324
+    total_tokens: 19622
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -1170,7 +1173,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 5121
+    tokens: 5093
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1182,7 +1185,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3056
+    tokens: 3418
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md
@@ -1202,7 +1205,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 5785
+    tokens: 7083
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md
@@ -1214,7 +1217,7 @@ rulebooks:
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md
-    tokens: 2288
+    tokens: 2561
   - name: foundational-principles
     category: conventions
     path: rulebooks/conventions/foundational-principles.md
@@ -1222,7 +1225,7 @@ rulebooks:
   - name: git-workflow
     category: conventions
     path: rulebooks/conventions/git-workflow.md
-    tokens: 1442
+    tokens: 1461
   - name: handoff-format
     category: conventions
     path: rulebooks/conventions/handoff-format.md
@@ -1242,7 +1245,7 @@ rulebooks:
   - name: report-format
     category: conventions
     path: rulebooks/conventions/report-format.md
-    tokens: 1282
+    tokens: 1749
   - name: research-claim-admission-policy
     category: conventions
     path: rulebooks/conventions/research-claim-admission-policy.md

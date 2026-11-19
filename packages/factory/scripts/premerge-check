@@ -27,21 +27,80 @@ Checks
   2. File-count blowout: `git diff --name-only <target>...<branch>` must
      not exceed `--max-files` (default 20) — a large, unscoped diff is the
      signature of a stale-base run that touched far more than intended.
+     On a story branch `story/<id>`, where `<id>` is a story ID or a
+     finding ID, the unit's own files in `docs/reviews/` and
+     `docs/findings/` do not count. A file there belongs to the unit when
+     its name holds the ID or its `story` field names the ID. For a file
+     that exists at the merge base, the field counts at the merge base, so
+     a branch cannot take a file of another story by rewriting the field
+     (IMPL-0027). For a file new on the branch, it counts at the head.
+     A finding file whose `run` at the head names `<target>` also belongs to
+     the story when a `file-qa-finding` entry of the story's stored
+     `mutation-testing` result names it (BR-066).
   3. Out-of-scope paths (only if `--scope` given): every changed file must
-     fall under at least one declared `--scope` prefix.
-  4. Semantic gates (story branches only): if `<branch>` matches the pattern
-     `story/ST-NNNN`, requires a passing result in
-     `.current-work/<gate>/<story-id>.json` for every gate below (BR-066).
-     Each gate is a hard gate — failure of any one blocks the merge.
-       - `dependency-check`: always.
+     fall under at least one declared `--scope` prefix. The finding files of
+     the story's stored `mutation-testing` result, as check 2 names them,
+     are inside the scope.
+  4. Code review ran (story branches only): a report
+     `docs/reviews/code-review-*.md` at the branch head sets `story` to the
+     story ID and `branch_head` to a full SHA that is an ancestor of the
+     branch head (BR-122, IMPL-0025).
+  5. Findings are closed (story branches only): no finding file
+     `docs/findings/<ID>.md` at the branch head with `story` set to the
+     story ID is open and blocking (BR-085). Register files never block.
+     Checks 4 and 5 read the branch head through git, never the folder
+     premerge-check runs in.
+  6. Semantic gates (story branches only): if `<branch>` matches the pattern
+     `story/<id>`, with a story ID or a finding ID, premerge-check adds a detached worktree at the branch
+     head under `.current-work/<target>/premerge/<story-id>` of the primary
+     checkout and removes it afterwards (BR-123, ADR-0038). Before the add,
+     it removes a worktree that a crashed run left at that path. The gate
+     list comes from the story file at the branch head (BR-066). Each gate
+     is a hard gate — failure of any one blocks the merge.
+       - `dependency-check`: when `docs/spec/dependency-rules.dsl` exists at
+         the branch head; otherwise premerge-check prints the skip. Reruns
+         in the worktree.
        - `test-design-verify`: when the story has a Test Design or Prior
-         Tests heading.
-       - Test guardrails `crap-score` and `mutation-testing`: picked by the
-         story's `quality-gates` field, else by the enabled entries of the
-         `gates` section of `docs/testing.yaml`, else `crap-score` alone.
-         No default picks `mutation-testing`.
+         Tests heading. Reruns in the worktree.
+       - Every entry under `gates` in `docs/testing.yaml` with
+         `enabled: true`, plus each gate of the story's `quality-gates`
+         field. The field only adds gates. premerge-check builds the calls
+         of `crap-score` and `mutation-testing`; every other gate runs its
+         `command` through the shell. A gate without an entry or without a
+         command fails and is named. The old keys `crap_score`,
+         `mutation_testing`, and `test_design_verify` count as the entries
+         of their gates; with both forms, the key with hyphens wins with a
+         warning (BR-055). Without the field and without a `gates` section,
+         `crap-score` runs alone. No default picks `mutation-testing`.
+       - `mutation-testing` passes after an exit 0. After a non-zero exit
+         premerge-check takes the list `mutants` from the stored result
+         `.current-work/mutation-testing/<story-id>.json` of the folder it
+         runs in, and the rule `judge` of the `mutation-testing` script
+         decides (BR-066, RL-G25).
+       - The test suite: `test_command` of `docs/testing.yaml`. A non-zero
+         exit fails and names the test suite. Without `test_command`,
+         premerge-check prints the skip.
+     A built-in gate runs from `.agent-factory/factory/scripts/` of the
+     primary checkout, or from the folder of premerge-check when that copy
+     lacks the script. The worktree is its source root, and `uv` builds the
+     worktree's own environment (OI-10). No file of a checkout changes, and
+     no stash is made.
      `default_quality_gates` in `docs/charter/house-rules.md` is no gate
      source; when found, premerge-check prints a warning that names the file.
+  7. Feature merge (`premerge-check dev <feature-branch>`; the target may
+     also be `refs/heads/dev`, but not a SHA): the ledger
+     `.current-work/<feature-branch>/dispatch-ledger.yaml` of the primary
+     checkout holds no `failed` or `blocked` unit of work, no `pending` one
+     that a return does not hold back (BR-113), and a wave record for each
+     wave. At the branch head, the code-review report of the whole
+     feature and the Fagan, security, and bug-hunt reports set `run` to the
+     feature branch and `branch_head` to a full SHA that is an ancestor of
+     the head (BR-122). No blocking finding file is open whose `run` names
+     the feature branch or whose `story` names a unit of work of the run.
+     `test_command` passes in a temporary worktree at
+     `.current-work/<feature-branch>/premerge/feature`, which premerge-check
+     removes afterwards (BR-123). The file limit applies only with
+     `--max-files`, and no semantic gate runs.
 
 Usage
   premerge-check <target> <branch> [--scope PATH ...] [--max-files N]
@@ -63,20 +122,27 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import _load_yaml, glob_match, stop_notice
+from dispatch_lib import Ledger, StoryState, _load_yaml, glob_match, held_back, stop_notice
 
 try:
     import yaml
 except ImportError:
     yaml = None  # type: ignore[assignment]
+
+YAML_ERRORS: tuple[type[Exception], ...] = (ValueError, KeyError) + (
+    (yaml.YAMLError,) if yaml else ()
+)
 
 
 def run_git(args: list[str]) -> tuple[int, str, str]:
@@ -117,7 +183,9 @@ def check_stale_base(target: str, branch: str) -> tuple[bool, str]:
 
 
 def changed_files(target: str, branch: str) -> tuple[int, list[str], str]:
-    code, out, err = run_git(["diff", "--name-only", f"{target}...{branch}"])
+    # --no-renames keeps the old name of a renamed file in the list, so a
+    # renamed finding of another story still needs a scope entry (IMPL-0057).
+    code, out, err = run_git(["diff", "--name-only", "--no-renames", f"{target}...{branch}"])
 
     if code != 0:
         return 2, [], err
@@ -126,16 +194,26 @@ def changed_files(target: str, branch: str) -> tuple[int, list[str], str]:
     return 0, files, ""
 
 
-def check_blowout(files: list[str], max_files: int) -> tuple[bool, str]:
-    if len(files) > max_files:
+def check_blowout(
+    files: list[str], max_files: int, uncounted: list[str] | None = None
+) -> tuple[bool, str]:
+    """Count the changed files without *uncounted*, the story's own files."""
+    skipped = set(uncounted or [])
+    count = len([f for f in files if f not in skipped])
+    note = (
+        f", not counting {len(skipped)} review or finding file(s) of the story"
+        if skipped
+        else ""
+    )
+    if count > max_files:
         return False, (
-            f"BLOCK file-count-blowout: {len(files)} files changed, "
+            f"BLOCK file-count-blowout: {count} files changed{note}, "
             f"exceeds --max-files {max_files}"
         )
 
     return (
         True,
-        f"PASS file-count-blowout: {len(files)} files changed (limit {max_files})",
+        f"PASS file-count-blowout: {count} files changed{note} (limit {max_files})",
     )
 
 
@@ -166,8 +244,9 @@ def check_out_of_scope(
 
 
 def extract_story_id(branch: str) -> str | None:
-    """Extract story ID from branch name (e.g., 'story/ST-0105' -> 'ST-0105')."""
-    match = re.match(r"^story/(ST-\d+)$", branch)
+    """Extract the ID of a unit of work from its branch name: a story ID, as in
+    'story/ST-0105' -> 'ST-0105', or a finding ID, as in 'story/BUG-0090'."""
+    match = re.match(r"^story/([A-Z]+-\d+)$", branch)
     return match.group(1) if match else None
 
 
@@ -230,60 +309,531 @@ def read_story_file(story_id: str, top: Path) -> dict | None:
         return None
 
     try:
-        content = story_file.read_text()
-        # Extract YAML frontmatter between --- delimiters
-        if not content.startswith("---"):
-            return None
-        end_of_front = content.find("\n---\n", 3)
-        if end_of_front == -1:
-            return None
-        frontmatter = content[3:end_of_front]
-
-        # Try to use yaml library if available, fall back to simple parser
-        if yaml:
-            return yaml.safe_load(frontmatter)
-        else:
-            return _parse_yaml_frontmatter(frontmatter)
-    except (OSError, ValueError, KeyError):
+        return parse_frontmatter(story_file.read_text())
+    except OSError:
         return None
 
 
-# Test guardrails the story field and the gates section may pick (CAO-G25).
-# dependency-check and test-design-verify run without a pick (BR-066).
-GUARDRAILS = ("crap-score", "mutation-testing")
-GATES_SECTION_KEYS = {"crap-score": "crap_score", "mutation-testing": "mutation_testing"}
-DEFAULT_GUARDRAILS = ["crap-score"]
+def parse_frontmatter(content: str) -> dict | None:
+    """Return the YAML frontmatter between the `---` lines, or None without one."""
+    if not content.startswith("---"):
+        return None
+    end_of_front = content.find("\n---\n", 3)
+    if end_of_front == -1:
+        return None
+    frontmatter = content[3:end_of_front]
+    try:
+        # Try to use yaml library if available, fall back to simple parser
+        data = yaml.safe_load(frontmatter) if yaml else _parse_yaml_frontmatter(frontmatter)
+    except YAML_ERRORS:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+# --- Review and finding checks at the branch head (BR-085, BR-121, BR-122) ---
+
+REVIEWS_DIR = "docs/reviews/"
+FINDINGS_DIR = "docs/findings/"
+REGISTER_DIR = "docs/findings/register/"
+BLOCKING_CATEGORIES = ("defect", "risk")
+BLOCKING_SEVERITIES = ("critical", "major")
+
+
+class GitReadError(Exception):
+    """git cannot read a file at the branch head."""
+
+
+def files_at_head(branch: str, folder: str) -> list[str]:
+    """The tracked files under *folder* at the head of *branch*."""
+    # --full-tree reads *folder* from the top of the repository, also when
+    # premerge-check runs in a subfolder (IMPL-0026).
+    code, out, err = run_git(
+        ["ls-tree", "-r", "--full-tree", "--name-only", branch, "--", folder]
+    )
+    if code != 0:
+        raise GitReadError(f"git ls-tree {branch} {folder}: {err}")
+    return [line for line in out.splitlines() if line]
+
+
+def read_at_head(branch: str, paths: list[str]) -> dict[str, str]:
+    """Read each of *paths* at the head of *branch* in one `git cat-file` call."""
+    if not paths:
+        return {}
+    request = "".join(f"{branch}:{path}\n" for path in paths).encode()
+    result = subprocess.run(
+        ["git", "cat-file", "--batch"], input=request, capture_output=True, check=False
+    )
+    if result.returncode != 0:
+        raise GitReadError(f"git cat-file --batch: {result.stderr.decode().strip()}")
+    texts: dict[str, str] = {}
+    out, pos = result.stdout, 0
+    for path in paths:
+        end = out.index(b"\n", pos)
+        header = out[pos:end].decode()
+        if header.endswith((" missing", " ambiguous")):
+            raise GitReadError(f"git cat-file: {branch}:{path} {header.rsplit(' ', 1)[1]}")
+        size = int(header.rsplit(" ", 1)[1])
+        texts[path] = out[end + 1 : end + 1 + size].decode(errors="replace")
+        pos = end + 1 + size + 1
+    return texts
+
+
+def parse_record(path: str, text: str) -> dict:
+    """The fields of a review report, finding file, or register file."""
+    if path.endswith(".json"):
+        try:
+            data = json.loads(text)
+        except ValueError:
+            return {}
+        return data if isinstance(data, dict) else {}
+    return parse_frontmatter(text) or {}
+
+
+def _field(record: dict, key: str) -> str:
+    value = record.get(key)
+    return "" if value is None else str(value).strip()
+
+
+def is_blocking(record: dict) -> bool:
+    """The blocking rule of finding-classification.md (BR-085)."""
+    return (
+        _field(record, "category") in BLOCKING_CATEGORIES
+        and _field(record, "severity") in BLOCKING_SEVERITIES
+    )
+
+
+def _is_finding_file(path: str) -> bool:
+    """A finding file is `docs/findings/<ID>.md`, not a register file."""
+    name = path[len(FINDINGS_DIR):] if path.startswith(FINDINGS_DIR) else ""
+    return name.endswith(".md") and "/" not in name
+
+
+def _records_with(branch: str, key: str, value: str, paths: list[str]) -> dict[str, dict]:
+    """The records among *paths* whose field *key* is *value* at the head."""
+    records = {}
+    for path, text in read_at_head(branch, paths).items():
+        if value not in text:
+            continue
+        record = parse_record(path, text)
+        if _field(record, key) == value:
+            records[path] = record
+    return records
+
+
+def _records_of_story(branch: str, story_id: str, paths: list[str]) -> dict[str, dict]:
+    """The records among *paths* whose `story` field names *story_id*."""
+    return _records_with(branch, "story", story_id, paths)
+
+
+def merge_base(target: str, branch: str) -> str:
+    """The merge base of *target* and *branch*; GitReadError without one."""
+    code, out, err = run_git(["merge-base", target, branch])
+    if code != 0 or not out:
+        raise GitReadError(f"git merge-base {target} {branch}: {err or 'no merge base'}")
+    return out
+
+
+def _review_and_finding_files(rev: str) -> set[str]:
+    return set(files_at_head(rev, REVIEWS_DIR) + files_at_head(rev, FINDINGS_DIR))
+
+
+def story_owned_files(
+    target: str, branch: str, story_id: str, files: list[str]
+) -> list[str]:
+    """The files of *files* in docs/reviews/ and docs/findings/ that belong to
+    the unit of work: the name holds the ID, or the `story` field names it.
+
+    For a file that exists at the merge base of *target* and *branch*, the
+    field counts at the merge base, so a branch cannot take a file of
+    another story by rewriting the field (IMPL-0027). For a file new on the
+    branch, the field counts at the head of *branch*.
+    """
+    candidates = [f for f in files if f.startswith((REVIEWS_DIR, FINDINGS_DIR))]
+    if not candidates:
+        return []
+    base = merge_base(target, branch)
+    at_base = _review_and_finding_files(base)
+    at_head = _review_and_finding_files(branch)
+    by_name = [f for f in candidates if story_id in Path(f).name]
+    rest = [f for f in candidates if f not in by_name]
+    by_field = _records_of_story(base, story_id, [f for f in rest if f in at_base])
+    by_field |= _records_of_story(
+        branch, story_id, [f for f in rest if f not in at_base and f in at_head]
+    )
+    filed = mutant_finding_files(target, branch, story_id, [f for f in rest if f in at_head])
+    return [f for f in candidates if f in by_name or f in by_field or f in filed]
+
+
+# --- The stored result of mutation-testing (BR-066, RL-G25) ---
+
+STORED_MUTATION_RESULTS = Path(".current-work") / "mutation-testing"
+
+
+def _mutation_gate():
+    """Load the mutation-testing script, which holds the result rule `judge`."""
+    loader = SourceFileLoader("mutation_testing", str(SCRIPT_DIR / "mutation-testing"))
+    module = module_from_spec(spec_from_loader("mutation_testing", loader))
+    loader.exec_module(module)
+    return module
+
+
+def stored_mutation_result(story_id: str) -> dict:
+    """The stored result of the gate-check step, or an empty mapping.
+
+    It lies in `.current-work/mutation-testing/<story-id>.json` at the top of
+    the folder premerge-check runs in, the invocation worktree in an
+    orchestrated run and the primary checkout by hand.
+    """
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    if code != 0:
+        return {}
+    try:
+        data = json.loads((Path(top) / STORED_MUTATION_RESULTS / f"{story_id}.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def filed_finding_ids(result: dict) -> set[str]:
+    """The `finding` of each `file-qa-finding` entry of `mutants`."""
+    mutants = result.get("mutants")
+    return {
+        str(m["finding"])
+        for m in (mutants if isinstance(mutants, list) else [])
+        if isinstance(m, dict)
+        and m.get("resolution_action") == "file-qa-finding"
+        and isinstance(m.get("finding"), str)
+    }
+
+
+def mutant_finding_files(
+    target: str, branch: str, story_id: str, paths: list[str]
+) -> set[str]:
+    """The finding files of *paths* that the stored result names and whose
+    `run` at the head of *branch* is *target* (BR-066)."""
+    named = filed_finding_ids(stored_mutation_result(story_id))
+    files = [f for f in paths if _is_finding_file(f) and Path(f).stem in named]
+    return set(_records_with(branch, "run", target, files)) if files else set()
+
+
+def filed_scope(story_id: str | None, owned: list[str], args: argparse.Namespace) -> list[str]:
+    """The story's own files that its stored mutation result names; they are
+    inside a declared scope (BR-066). Without a declared scope, none."""
+    if not story_id or not (args.scope or args.scope_glob):
+        return []
+    named = filed_finding_ids(stored_mutation_result(story_id))
+    return [f for f in owned if _is_finding_file(f) and Path(f).stem in named]
+
+
+def finding_exists_at(branch: str):
+    """Tell whether `docs/findings/<ID>.md` is at the head of *branch*."""
+    def exists(finding_id: str) -> bool:
+        return f"{FINDINGS_DIR}{finding_id}.md" in files_at_head(branch, FINDINGS_DIR)
+    return exists
+
+
+def _is_ancestor(commit: str, branch: str) -> bool:
+    if not commit:
+        return False
+    code, _, _ = run_git(["merge-base", "--is-ancestor", commit, branch])
+    return code == 0
+
+
+FULL_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def reviewed_report(branch: str, records: dict[str, dict]) -> tuple[str | None, list[str]]:
+    """The first report of *records* that reviewed an ancestor of the head, and
+    one problem per report whose `branch_head` is no full SHA (IMPL-0025).
+
+    git resolves a ref name such as `story/ST-0350` to the current tip, which
+    is always its own ancestor, so only a full 40-character SHA counts.
+    """
+    problems = []
+    for path, record in sorted(records.items()):
+        head = _field(record, "branch_head")
+        if not FULL_SHA.fullmatch(head):
+            problems.append(
+                f"{path} has branch_head {head!r}, which is not a full 40-character SHA"
+            )
+        elif _is_ancestor(head, branch):
+            return path, problems
+    return None, problems
+
+
+def _with_problems(line: str, problems: list[str]) -> str:
+    return line + ("; " + "; ".join(problems) if problems else "")
+
+
+def check_code_review(branch: str, story_id: str) -> tuple[bool, str]:
+    """Pass when a code-review report of the story reviewed an ancestor of the head."""
+    reports = [
+        f for f in files_at_head(branch, REVIEWS_DIR)
+        if Path(f).name.startswith("code-review-") and f.endswith(".md")
+    ]
+    path, problems = reviewed_report(branch, _records_of_story(branch, story_id, reports))
+    if path is not None:
+        return True, f"PASS code-review: {path} reviewed an ancestor of the head of {branch}"
+    return False, _with_problems(
+        f"BLOCK code-review: no report {REVIEWS_DIR}code-review-{story_id}-YYYY-MM-DD.md "
+        f"at the head of {branch} has story {story_id} and a branch_head that is "
+        f"an ancestor of the head (BR-122)",
+        problems,
+    )
+
+
+def check_open_findings(branch: str, story_id: str) -> tuple[bool, str]:
+    """Refuse while a blocking finding file of the story is open at the head."""
+    finding_files = [f for f in files_at_head(branch, FINDINGS_DIR) if _is_finding_file(f)]
+    open_ids = [
+        _field(record, "id") or Path(path).stem
+        for path, record in sorted(_records_of_story(branch, story_id, finding_files).items())
+        if _field(record, "status") == "open" and is_blocking(record)
+    ]
+    if open_ids:
+        return False, (
+            f"BLOCK open-findings: {', '.join(open_ids)} of {story_id} "
+            f"{'is' if len(open_ids) == 1 else 'are'} open and blocking at the head of {branch}"
+        )
+    return True, f"PASS open-findings: no open blocking finding of {story_id} at the head of {branch}"
+
+
+# --- The feature merge: premerge-check dev <feature-branch> (BR-122, BR-123) ---
+
+FEATURE_TARGET = "dev"
+FEATURE_UNIT = "feature"
+STOPPED_STATES = (StoryState.FAILED, StoryState.BLOCKED)
+
+
+def is_feature_merge(target: str, branch: str) -> bool:
+    """A branch other than a story branch that merges into dev is a feature merge."""
+    return extract_story_id(branch) is None and names_dev(target)
+
+
+def names_dev(target: str) -> bool:
+    """True when *target* names the branch dev, such as `dev` or `refs/heads/dev`
+    (IMPL-0052). A SHA is no name of dev, also when dev points at it: a wave base
+    SHA can equal the head of dev (IMPL-0054)."""
+    if target == FEATURE_TARGET:
+        return True
+    code, name, _ = run_git(["rev-parse", "--symbolic-full-name", target])
+    return code == 0 and name == f"refs/heads/{FEATURE_TARGET}"
+
+
+def ledger_path(primary: Path, feature_branch: str) -> Path:
+    return primary / ".current-work" / feature_branch / "dispatch-ledger.yaml"
+
+
+def check_run_state(path: Path, branch: str) -> tuple[list[tuple[bool, str]], list[str]]:
+    """Check the units of work and the waves of the ledger at *path*.
+
+    Return the results and the IDs of the units of work of the run.
+    """
+    try:
+        ledger = Ledger.load(path)
+    except FileNotFoundError:
+        return [(False, (
+            f"BLOCK run-state: no ledger {path}, so the check cannot show that "
+            f"no unit of work of {branch} is failed or blocked"
+        ))], []
+    except (OSError, ValueError, KeyError, TypeError) + YAML_ERRORS as exc:
+        return [(False, f"BLOCK run-state: cannot read the ledger {path}: {exc}")], []
+    results = []
+    stopped = [entry for entry in ledger.stories.values() if entry.status in STOPPED_STATES]
+    for entry in stopped:
+        reason = f" ({entry.reason})" if entry.reason else ""
+        results.append((False, f"BLOCK run-state: {entry.id} is {entry.status.value}{reason}"))
+    # A pending entry that a return does not hold back has not run yet. In a
+    # run by hand it has no wave, so the wave check cannot see it (IMPL-0050).
+    unstarted = [
+        entry for entry in ledger.stories.values()
+        if entry.status == StoryState.PENDING and not held_back(ledger, entry)
+    ]
+    for entry in unstarted:
+        results.append((False, f"BLOCK run-state: {entry.id} is pending and has not run"))
+    if not stopped and not unstarted:
+        results.append((True, (
+            f"PASS run-state: no unit of work of {branch} is failed, blocked, "
+            f"or pending without a return"
+        )))
+    recorded = {record.number for record in ledger.waves}
+    open_waves = sorted(
+        {entry.wave for entry in ledger.stories.values() if entry.wave is not None} - recorded
+    )
+    for wave in open_waves:
+        results.append((False, f"BLOCK waves: wave {wave} of {branch} has no wave record"))
+    if not open_waves:
+        results.append((True, f"PASS waves: every wave of {branch} has a wave record"))
+    return results, list(ledger.stories)
+
+
+def feature_reports(branch: str) -> list[tuple[str, str, str]]:
+    """The name, file prefix and name pattern of each report of the feature checks."""
+    review = f"code-review-{branch.replace('/', '-')}-"
+    return [
+        ("the end-of-feature review", review, f"{review}YYYY-MM-DD.md"),
+        ("the Fagan report", "fagan-review-", "fagan-review-YYYY-MM-DD.md"),
+        ("the security report", "security-review-", "security-review-YYYY-MM-DD.md"),
+        ("the bug-hunt report", "bug-hunt-", "bug-hunt-YYYY-MM-DD.md"),
+    ]
+
+
+def check_feature_reports(branch: str) -> list[tuple[bool, str]]:
+    """Refuse while a report of the feature checks is missing or outdated (BR-122)."""
+    reviews = files_at_head(branch, REVIEWS_DIR)
+    results = []
+    for name, prefix, pattern in feature_reports(branch):
+        candidates = [
+            f for f in reviews if Path(f).name.startswith(prefix) and f.endswith(".md")
+        ]
+        path, problems = reviewed_report(
+            branch, _records_with(branch, "run", branch, candidates)
+        )
+        if path is not None:
+            results.append((True, (
+                f"PASS feature-reports: {path} is {name} of {branch} "
+                f"at an ancestor of the head"
+            )))
+            continue
+        results.append((False, _with_problems(
+            f"BLOCK feature-reports: {name} is missing: no report {REVIEWS_DIR}{pattern} "
+            f"at the head of {branch} has run {branch} and a branch_head that is "
+            f"an ancestor of the head (BR-122)",
+            problems,
+        )))
+    return results
+
+
+def check_feature_findings(branch: str, unit_ids: list[str]) -> tuple[bool, str]:
+    """Refuse while a blocking finding of the run is open at the head (BR-085).
+
+    A finding belongs to the run when its `run` names the branch or its
+    `story` names a unit of work of the run.
+    """
+    finding_files = [f for f in files_at_head(branch, FINDINGS_DIR) if _is_finding_file(f)]
+    units = set(unit_ids)
+    named = []
+    for path, text in sorted(read_at_head(branch, finding_files).items()):
+        record = parse_record(path, text)
+        if _field(record, "status") != "open" or not is_blocking(record):
+            continue
+        finding_id = _field(record, "id") or Path(path).stem
+        if _field(record, "run") == branch:
+            named.append(f"{finding_id} (run {branch})")
+        elif _field(record, "story") in units:
+            named.append(f"{finding_id} (story {_field(record, 'story')})")
+    if named:
+        return False, (
+            f"BLOCK open-findings: {', '.join(named)} "
+            f"{'is' if len(named) == 1 else 'are'} open and blocking at the head of {branch}"
+        )
+    return True, f"PASS open-findings: no open blocking finding of the run on {branch}"
+
+
+def check_feature_merge(branch: str, primary: Path) -> list[tuple[bool, str]]:
+    """Run the checks of the feature merge; the test suite runs in a temporary
+    worktree at `.current-work/<feature-branch>/premerge/feature` (BR-123)."""
+    results, unit_ids = check_run_state(ledger_path(primary, branch), branch)
+    results += check_feature_reports(branch)
+    results.append(check_feature_findings(branch, unit_ids))
+    worktree = premerge_path(primary, branch, FEATURE_UNIT)
+    added, err = add_worktree(worktree, branch)
+    if not added:
+        remove_worktree(worktree)
+        raise GitReadError(f"cannot add worktree {worktree}: {err}")
+    try:
+        results.append(check_test_suite(worktree, branch, required=True))
+    finally:
+        remove_worktree(worktree)
+    return results
+
+
+# Gates whose call premerge-check builds; every other gate needs a command.
+BUILT_IN_GATES = ("crap-score", "mutation-testing")
+# Gates that run by their own condition and have no entry to pick (BR-066).
+CONDITIONAL_GATES = ("dependency-check", "test-design-verify")
+# Old keys with underscores and the gate each one names (BR-055).
+OLD_GATE_KEYS = {
+    "crap_score": "crap-score",
+    "mutation_testing": "mutation-testing",
+    "test_design_verify": "test-design-verify",
+}
+DEFAULT_GATES = ["crap-score"]
+DEFAULT_MAX_FILES = 20
 HOUSE_RULES = "docs/charter/house-rules.md"
 TEST_DESIGN_HEADING = re.compile(r"^#{1,6}\s+(Test Design|Prior Tests)\s*$", re.MULTILINE)
+DEPENDENCY_RULES = "docs/spec/dependency-rules.dsl"
+TESTING_YAML = "docs/testing.yaml"
+INSTALLED_SCRIPTS = Path(".agent-factory") / "factory" / "scripts"
+# Variables that point uv at the caller's environment instead of the worktree's.
+FOREIGN_ENVIRONMENT = ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT")
 
 
-def _read_gates_section(top: Path) -> dict | None:
-    """Return the `gates` section of docs/testing.yaml, or None without one."""
-    path = top / "docs" / "testing.yaml"
+def _read_testing_yaml(top: Path) -> dict:
+    """Return docs/testing.yaml as a mapping, or an empty mapping without one."""
+    path = top / TESTING_YAML
     if not path.is_file():
-        return None
+        return {}
     try:
         data = _load_yaml(path.read_text())
     except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def gate_entries(top: Path) -> tuple[dict[str, dict] | None, list[str]]:
+    """Return the entries of the `gates` section by gate name, and the warnings.
+
+    An old key with underscores counts as the entry of its gate. With both
+    forms, the key with hyphens wins and a warning names the old key (BR-055).
+    A scalar such as `attempts` is no gate. Without a `gates` section, the
+    entries are None.
+    """
+    gates = _read_testing_yaml(top).get("gates")
+    if not isinstance(gates, dict):
+        return None, []
+    entries: dict[str, dict] = {}
+    warnings: list[str] = []
+    for key, value in gates.items():
+        if not isinstance(value, dict) or key in OLD_GATE_KEYS:
+            continue
+        entries[str(key)] = value
+    for old, name in OLD_GATE_KEYS.items():
+        value = gates.get(old)
+        if not isinstance(value, dict):
+            continue
+        if name in entries:
+            warnings.append(
+                f"WARN semantic-gates: {TESTING_YAML} has gates.{old} and gates.{name}; "
+                f"premerge-check uses gates.{name}, so delete gates.{old}"
+            )
+            continue
+        entries[name] = value
+    return entries, warnings
+
+
+def _quality_gates(story_data: dict | None) -> list[str] | None:
+    """Return the story's `quality-gates` field as a list, or None without one."""
+    if not story_data or story_data.get("quality-gates") is None:
         return None
-    gates = data.get("gates") if isinstance(data, dict) else None
-    return gates if isinstance(gates, dict) else None
+    field = story_data["quality-gates"]
+    return [str(g) for g in (field if isinstance(field, list) else [field])]
 
 
-def _picked_guardrails(story_data: dict | None, gates_section: dict | None) -> list[str]:
-    """Story field first, then the gates section, then the crap-score default."""
-    if story_data and story_data.get("quality-gates") is not None:
-        field = story_data["quality-gates"]
-        picked = set(field if isinstance(field, list) else [field])
-        return [g for g in GUARDRAILS if g in picked]
-    if gates_section is not None:
-        return [
-            g
-            for g in GUARDRAILS
-            if isinstance(gates_section.get(GATES_SECTION_KEYS[g]), dict)
-            and gates_section[GATES_SECTION_KEYS[g]].get("enabled") is True
-        ]
-    return list(DEFAULT_GUARDRAILS)
+def _picked_gates(story_data: dict | None, entries: dict[str, dict] | None) -> list[str]:
+    """Every enabled entry, then the gates the story's field adds (BR-066)."""
+    field = _quality_gates(story_data)
+    if field is None and entries is None:
+        return list(DEFAULT_GATES)
+    picked = [
+        name
+        for name, entry in (entries or {}).items()
+        if entry.get("enabled") is True and name not in CONDITIONAL_GATES
+    ]
+    for name in field or []:
+        if name not in picked and name not in CONDITIONAL_GATES:
+            picked.append(name)
+    return picked
 
 
 def _house_rules_warning(top: Path) -> list[str]:
@@ -300,9 +850,9 @@ def _house_rules_warning(top: Path) -> list[str]:
 
 
 def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
-    """Return the gates whose results the merge requires, and any warnings."""
-    story_data = read_story_file(story_id, top)
-    gates = _picked_guardrails(story_data, _read_gates_section(top))
+    """Return the gates the merge requires, and any warnings."""
+    entries, warnings = gate_entries(top)
+    gates = _picked_gates(read_story_file(story_id, top), entries)
     story_path = top / "backlog" / f"{story_id}.md"
     try:
         story_text = story_path.read_text() if story_path.is_file() else ""
@@ -310,8 +860,45 @@ def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
         story_text = ""
     if TEST_DESIGN_HEADING.search(story_text):
         gates.append("test-design-verify")
-    gates.append("dependency-check")
-    return gates, _house_rules_warning(top)
+    if (top / DEPENDENCY_RULES).is_file():
+        gates.append("dependency-check")
+    return gates, warnings + _house_rules_warning(top)
+
+
+def gate_refusal(gate: str, entries: dict[str, dict] | None) -> str | None:
+    """Name why docs/testing.yaml cannot run *gate*, or None when it can.
+
+    A built-in or conditional gate needs no command. Every other gate needs
+    an entry with a command (BR-066, RL-G09, OI-15).
+    """
+    if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
+        return None
+    entry = (entries or {}).get(gate)
+    if entry is None:
+        return f"no entry gates.{gate} in {TESTING_YAML}"
+    command = entry.get("command")
+    if not isinstance(command, str) or not command.strip():
+        return f"gates.{gate} in {TESTING_YAML} has no command"
+    return None
+
+
+def dependency_skip_notice(top: Path) -> list[str]:
+    """Name the skip of dependency-check when *top* has no rules file (BR-066)."""
+    if (top / DEPENDENCY_RULES).is_file():
+        return []
+    return [f"SKIP dependency-check: {DEPENDENCY_RULES} does not exist"]
+
+
+def changed_python_files(top: Path, files: list[str]) -> list[str]:
+    """The `.py` files of the story's diff that still exist in *top* (BR-066)."""
+    return [f for f in files if f.endswith(".py") and (top / f).is_file()]
+
+
+def crap_score_skip_notice(gates: list[str], py_files: list[str], story_id: str) -> list[str]:
+    """Name the empty run of crap-score when the story changed no `.py` file."""
+    if "crap-score" not in gates or py_files:
+        return []
+    return [f"PASS crap-score: {story_id} changed no .py file, so it scored nothing"]
 
 
 def _describe_row(row: dict) -> str:
@@ -321,16 +908,20 @@ def _describe_row(row: dict) -> str:
     return str(name)
 
 
-def read_gate_result(path: Path) -> tuple[bool, str]:
+def read_gate_result(path: Path, branch: str | None = None) -> tuple[bool, str]:
     """Read one gate result file.
 
     crap-score and dependency-check write a list of rows with `pass_fail`;
-    test-design-verify writes an object with `passed`.
+    test-design-verify writes an object with `passed`. A result of
+    mutation-testing, an object with `timed_out` or `mutants`, goes to the
+    rule `judge`, which looks up each named finding at the head of *branch*.
     """
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError):
         return False, "invalid result"
+    if isinstance(data, dict) and ("timed_out" in data or "mutants" in data):
+        return judge_mutation_result(data, branch)
     if isinstance(data, list):
         failing = [r for r in data if not isinstance(r, dict) or r.get("pass_fail") != "pass"]
         if not failing:
@@ -343,18 +934,246 @@ def read_gate_result(path: Path) -> tuple[bool, str]:
     return False, "invalid result"
 
 
-def check_semantic_gates(top: Path, gates: list[str], story_id: str) -> list[str]:
-    """Return one entry per gate whose result is missing or not passing."""
+def judge_mutation_result(data: dict, branch: str | None) -> tuple[bool, str]:
+    """Apply the result rule of mutation-testing; without *branch* no finding exists."""
+    exists = finding_exists_at(branch) if branch else (lambda _id: False)
+    try:
+        return _mutation_gate().judge(data, exists)
+    except GitReadError as exc:
+        return False, f"failed: {exc}"
+
+
+def mutation_rerun_result(
+    report: Path, story_id: str, branch: str | None
+) -> tuple[bool, str]:
+    """Judge the rerun after a non-zero exit with the stored list `mutants`.
+
+    The rerun gives the exit code and the time-out. The gate-check step wrote
+    the list into the stored result, which the rerun cannot hold (BR-066).
+    """
+    try:
+        data = json.loads(report.read_text())
+    except (OSError, ValueError):
+        return False, "result not found"
+    if not isinstance(data, dict):
+        return False, "invalid result"
+    stored = stored_mutation_result(story_id)
+    data.pop("mutants", None)
+    if "mutants" in stored:
+        data["mutants"] = stored["mutants"]
+    return judge_mutation_result(data, branch)
+
+
+def primary_checkout() -> Path | None:
+    """Return the top folder of the primary checkout, also from a linked worktree."""
+    code, common, _ = run_git(["rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if code != 0:
+        return None
+    common_dir = Path(common)
+    if common_dir.name == ".git":
+        return common_dir.parent
+    code, top, _ = run_git(["rev-parse", "--show-toplevel"])
+    return Path(top) if code == 0 else None
+
+
+def premerge_path(primary: Path, feature_branch: str, unit_id: str) -> Path:
+    """Path of the temporary worktree of one unit of work (BR-123)."""
+    return primary / ".current-work" / feature_branch / "premerge" / unit_id
+
+
+def remove_worktree(path: Path) -> None:
+    """Remove the worktree at *path*, if any, and prune its record (BR-123)."""
+    run_git(["worktree", "remove", "--force", str(path)])
+    run_git(["worktree", "prune"])
+
+
+def add_worktree(path: Path, branch: str) -> tuple[bool, str]:
+    """Remove a leftover at *path*, then add a detached worktree at *branch*'s head."""
+    remove_worktree(path)
+    code, _, err = run_git(["worktree", "add", "--detach", str(path), branch])
+    return code == 0, err
+
+
+def gate_script(primary: Path, gate: str) -> Path:
+    """The installed copy of the primary checkout, else the folder of this script."""
+    installed = primary / INSTALLED_SCRIPTS / gate
+    return installed if installed.is_file() else SCRIPT_DIR / gate
+
+
+def _threshold(entries: dict[str, dict] | None) -> object:
+    return (entries or {}).get("crap-score", {}).get("threshold")
+
+
+def gate_command(
+    script: Path,
+    gate: str,
+    worktree: Path,
+    story_id: str,
+    entries: dict[str, dict] | None = None,
+    py_files: list[str] | None = None,
+) -> list[str]:
+    """Build the call of a gate that premerge-check names (BR-066, RL-G17).
+
+    crap-score scores only *py_files*, the `.py` files of the story's diff.
+    """
+    report_dir = worktree / ".current-work" / gate
+    if gate == "dependency-check":
+        return [
+            str(script),
+            "--dsl-path", str(worktree / DEPENDENCY_RULES),
+            "--source-root", str(worktree),
+            "--story-id", story_id,
+            "--report-dir", str(report_dir),
+        ]
+    if gate == "crap-score":
+        threshold = _threshold(entries)
+        extra = ["--threshold", str(threshold)] if threshold is not None else []
+        return [
+            str(script),
+            "--source-root", str(worktree),
+            "--story-id", story_id,
+            "--report-dir", str(report_dir),
+            *extra,
+            "--",
+            *(str(worktree / f) for f in py_files or []),
+        ]
+    if gate == "mutation-testing":
+        return [
+            str(script),
+            "--story-id", story_id,
+            "--testing-yaml", str(worktree / TESTING_YAML),
+            "--report-dir", str(report_dir),
+        ]
+    return [
+        str(script),
+        "--story", str(worktree / "backlog" / f"{story_id}.md"),
+        "--story-id", story_id,
+        "--scope-map", str(worktree / "docs" / "spec" / "scope-map.md"),
+        "--spec-dir", str(worktree / "docs" / "spec" / "features"),
+        "--repo-root", str(worktree),
+        "--epics", str(worktree / "backlog" / "epics.md"),
+        "--report-dir", str(report_dir),
+    ]
+
+
+def _worktree_environment() -> dict[str, str]:
+    """The caller's environment without the variables that point uv elsewhere."""
+    return {k: v for k, v in os.environ.items() if k not in FOREIGN_ENVIRONMENT}
+
+
+def _failure_detail(result: subprocess.CompletedProcess, report: Path | None) -> str:
+    if report is not None and report.is_file():
+        ok, detail = read_gate_result(report)
+        if not ok and detail != "failed":
+            return detail
+    lines = (result.stderr or result.stdout).strip().splitlines()
+    return f"exit {result.returncode}" + (f": {lines[-1]}" if lines else "")
+
+
+def rerun_gate(
+    primary: Path,
+    gate: str,
+    worktree: Path,
+    story_id: str,
+    entries: dict[str, dict] | None = None,
+    py_files: list[str] | None = None,
+    branch: str | None = None,
+) -> tuple[bool, str]:
+    """Run *gate* in *worktree* and judge it by its exit code.
+
+    After a non-zero exit of mutation-testing, the result rule decides with
+    the stored list `mutants` (BR-066).
+
+    premerge-check builds the call of a gate it names. Every other gate runs
+    the `command` of its entry through the shell.
+    """
+    refusal = gate_refusal(gate, entries)
+    if refusal is not None:
+        return False, refusal
+    if gate == "crap-score" and not py_files:
+        return True, "scored nothing"
+    env = _worktree_environment()
+    if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
+        script = gate_script(primary, gate)
+        call: list[str] | str = gate_command(
+            script, gate, worktree, story_id, entries, py_files
+        )
+        shell = False
+        report: Path | None = worktree / ".current-work" / gate / f"{story_id}.json"
+    else:
+        call = str((entries or {})[gate]["command"])
+        shell = True
+        report = None
+    try:
+        result = subprocess.run(
+            call, shell=shell, cwd=worktree, env=env,
+            capture_output=True, text=True, check=False,
+        )
+    except OSError as exc:
+        return False, f"cannot run {call}: {exc}"
+    if result.returncode == 0:
+        return True, "passed"
+    if gate == "mutation-testing" and report is not None:
+        ok, detail = mutation_rerun_result(report, story_id, branch)
+        return ok, detail if ok else f"exit {result.returncode}: {detail}"
+    return False, _failure_detail(result, report)
+
+
+def check_semantic_gates(
+    gates: list[str],
+    story_id: str,
+    worktree: Path,
+    primary: Path,
+    py_files: list[str] | None = None,
+    branch: str | None = None,
+) -> list[str]:
+    """Run each gate in *worktree* and return one entry per gate that fails."""
+    entries, _ = gate_entries(worktree)
     failed_gates = []
     for gate in gates:
-        result_file = top / ".current-work" / gate / f"{story_id}.json"
-        if not result_file.exists():
-            failed_gates.append(f"{gate} (result not found)")
-            continue
-        ok, detail = read_gate_result(result_file)
+        ok, detail = rerun_gate(primary, gate, worktree, story_id, entries, py_files, branch)
         if not ok:
             failed_gates.append(f"{gate} ({detail})")
     return failed_gates
+
+
+def read_test_command(top: Path) -> str | None:
+    """Return `test_command` of docs/testing.yaml, or None without one."""
+    command = _read_testing_yaml(top).get("test_command")
+    return command.strip() if isinstance(command, str) and command.strip() else None
+
+
+def check_test_suite(
+    worktree: Path, story_id: str, required: bool = False
+) -> tuple[bool, str]:
+    """Run the test suite in *worktree* with its own uv environment (OI-10).
+
+    Without `test_command`, a story merge skips the suite. The feature merge
+    passes *required*, because it must show that the full suite passes.
+    """
+    command = read_test_command(worktree)
+    if command is None and required:
+        return False, (
+            f"BLOCK test-suite: {TESTING_YAML} has no test_command, so the check "
+            f"cannot run the test suite for {story_id}"
+        )
+    if command is None:
+        return True, f"SKIP test-suite: {TESTING_YAML} has no test_command"
+    try:
+        result = subprocess.run(
+            command, shell=True, cwd=worktree, env=_worktree_environment(),
+            capture_output=True, text=True, check=False,
+        )
+    except OSError as exc:
+        return False, f"BLOCK test-suite: cannot run {command!r}: {exc}"
+    if result.returncode != 0:
+        lines = (result.stdout + result.stderr).strip().splitlines()
+        tail = f": {lines[-1]}" if lines else ""
+        return False, (
+            f"BLOCK test-suite: the test suite {command!r} exited "
+            f"{result.returncode} for {story_id}{tail}"
+        )
+    return True, f"PASS test-suite: the test suite {command!r} passed for {story_id}"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -378,9 +1197,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--max-files",
         type=int,
-        default=20,
+        default=None,
         metavar="N",
-        help="file-count blowout threshold (default 20)",
+        help="file-count blowout threshold (default 20; the feature merge has "
+        "no limit without it)",
     )
     args = ap.parse_args(argv)
 
@@ -409,33 +1229,94 @@ def main(argv: list[str] | None = None) -> int:
         print(f"premerge-check: {err}", file=sys.stderr)
         return 2
 
-    ok, line = check_blowout(files, args.max_files)
+    story_id = extract_story_id(args.branch)
+    try:
+        owned = (
+            story_owned_files(args.target, args.branch, story_id, files)
+            if story_id
+            else []
+        )
+    except GitReadError as exc:
+        print(f"premerge-check: {exc}", file=sys.stderr)
+        return 2
+
+    feature_merge = is_feature_merge(args.target, args.branch)
+    if feature_merge and args.max_files is None:
+        print("SKIP file-count-blowout: the feature merge has no file limit without --max-files")
+    else:
+        max_files = DEFAULT_MAX_FILES if args.max_files is None else args.max_files
+        ok, line = check_blowout(files, max_files, owned)
+        print(line)
+        findings.append(ok)
+
+    ok, line = check_out_of_scope(
+        files, args.scope + filed_scope(story_id, owned, args), args.scope_glob
+    )
     print(line)
     findings.append(ok)
 
-    ok, line = check_out_of_scope(files, args.scope, args.scope_glob)
-    print(line)
-    findings.append(ok)
+    if feature_merge:
+        code, top, err = run_git(["rev-parse", "--show-toplevel"])
+        if code != 0:
+            print(f"premerge-check: {err}", file=sys.stderr)
+            return 2
+        try:
+            results = check_feature_merge(args.branch, primary_checkout() or Path(top))
+        except GitReadError as exc:
+            print(f"premerge-check: {exc}", file=sys.stderr)
+            return 2
+        for ok, line in results:
+            print(line)
+            findings.append(ok)
+
+    if story_id:
+        try:
+            for check in (check_code_review, check_open_findings):
+                ok, line = check(args.branch, story_id)
+                print(line)
+                findings.append(ok)
+        except GitReadError as exc:
+            print(f"premerge-check: {exc}", file=sys.stderr)
+            return 2
 
     # Check semantic gates if branch is a story branch
-    story_id = extract_story_id(args.branch)
     if story_id:
         code, top, err = run_git(["rev-parse", "--show-toplevel"])
         if code != 0:
             print(f"premerge-check: {err}", file=sys.stderr)
             return 2
-        gates, warnings = resolve_gates(Path(top), story_id)
-        for warning in warnings:
-            print(warning)
-        failed_gates = check_semantic_gates(Path(top), gates, story_id)
+        primary = primary_checkout() or Path(top)
+        worktree = premerge_path(primary, args.target, story_id)
+        added, err = add_worktree(worktree, args.branch)
+        if not added:
+            remove_worktree(worktree)
+            print(f"premerge-check: cannot add worktree {worktree}: {err}", file=sys.stderr)
+            return 2
+        try:
+            gates, warnings = resolve_gates(worktree, story_id)
+            py_files = changed_python_files(worktree, files)
+            notices = dependency_skip_notice(worktree)
+            notices += crap_score_skip_notice(gates, py_files, story_id)
+            for warning in warnings + notices:
+                print(warning)
+            failed_gates = check_semantic_gates(
+                gates, story_id, worktree, primary, py_files, args.branch
+            )
+            suite_ok, suite_line = check_test_suite(worktree, story_id)
+        finally:
+            remove_worktree(worktree)
         if failed_gates:
             print(f"BLOCK semantic-gates: {', '.join(failed_gates)} for {story_id}")
-        else:
+        elif gates:
             print(f"PASS semantic-gates: {', '.join(gates)} passed for {story_id}")
+        else:
+            print(f"PASS semantic-gates: no gate applies to {story_id}")
         findings.append(not failed_gates)
-    else:
+        print(suite_line)
+        findings.append(suite_ok)
+    elif not feature_merge:
         # Non-story branches skip semantic gates
-        print("SKIP semantic-gates: branch does not match story/ST-NNNN pattern")
+        print("SKIP semantic-gates: branch does not match the pattern story/<id>")
 
     if all(findings):
         print(

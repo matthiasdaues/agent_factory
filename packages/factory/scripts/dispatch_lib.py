@@ -54,9 +54,13 @@ VALID_TRANSITIONS: dict[StoryState, set[StoryState]] = {
     },
     StoryState.DISPATCHED: {StoryState.DONE, StoryState.BLOCKED, StoryState.FAILED},
     StoryState.DONE: set(),
-    StoryState.FAILED: {StoryState.PREPARED},
-    StoryState.BLOCKED: {StoryState.PREPARED},
+    StoryState.FAILED: {StoryState.PREPARED, StoryState.PENDING},
+    StoryState.BLOCKED: {StoryState.PREPARED, StoryState.PENDING},
 }
+
+# The states from which `dispatch return-story` sets an entry back to
+# pending (BR-116). The User runs it; the guardrail refuses it to agents.
+RETURNABLE_STATES = frozenset({StoryState.FAILED, StoryState.BLOCKED})
 
 
 FAILURE_CLASSES: tuple[str, ...] = (
@@ -125,56 +129,221 @@ def latest_attempt_for_session(
 
 
 def _coerce_sequence(value: Any) -> list[Any]:
-    """Return *value* as a list, accepting legacy stringified list payloads."""
+    """Return *value* as a list, accepting a JSON flow sequence, as the
+    stdlib writer writes one, and a legacy stringified Python list."""
     if isinstance(value, list):
         return value
     if isinstance(value, str):
         try:
-            parsed = ast.literal_eval(value)
-        except (ValueError, SyntaxError):
-            return []
+            parsed = json.loads(value)
+        except ValueError:
+            try:
+                parsed = ast.literal_eval(value)
+            except (ValueError, SyntaxError):
+                return []
         if isinstance(parsed, list):
             return parsed
     return []
 
 
-def failure_class_for_re_dispatch(entry: StoryEntry) -> str | None:
-    """Return the failure class that governs *entry*'s next re-dispatch.
+# The attempt cap of the gate-check step (BR-114, BR-115, BR-116).
+COUNTED_FAILURE_CLASSES = QUALIFYING_ESCALATION_FAILURE_CLASSES
+DEFAULT_GATE_ATTEMPTS = 3
+# The records that `escalate` writes into `reason` after a check of the branch.
+ESCALATE_REFUSED_VERIFY_BASE = "escalate refused: verify-base"
+ESCALATE_REFUSED_SCOPE = "escalate refused: scope"
+ESCALATE_REFUSED_RECORDS = (ESCALATE_REFUSED_VERIFY_BASE, ESCALATE_REFUSED_SCOPE)
 
-    The direct field wins because ``mark-failed`` records it explicitly.
-    Falling back to the latest attempt keeps legacy ledgers and partially
-    reconstructed entries usable.
+
+@dataclass(frozen=True)
+class AttemptLimits:
+    """`gates.attempts` and `gates.attempts_escalated` of docs/testing.yaml."""
+
+    attempts: int = DEFAULT_GATE_ATTEMPTS
+    attempts_escalated: int = DEFAULT_GATE_ATTEMPTS
+
+
+def attempt_limits(gates: Any) -> AttemptLimits:
+    """Read the two attempt counts from the `gates` section.
+
+    An absent key takes the default 3. `attempts_escalated: 0` stays 0,
+    because it turns escalation off. Any other value than a whole number,
+    or a number below the minimum, raises ValueError that names the key.
     """
-    if entry.failure_class is not None:
-        return entry.failure_class
-    latest_attempt = latest_attempt_for_session(entry)
-    if latest_attempt is None:
-        return None
-    failure_class = latest_attempt.get("failure_class")
-    return failure_class if isinstance(failure_class, str) else None
+    section = gates if isinstance(gates, dict) else {}
+    values = {}
+    for key, minimum in (("attempts", 1), ("attempts_escalated", 0)):
+        value = section.get(key, DEFAULT_GATE_ATTEMPTS)
+        if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+            raise ValueError(
+                f"gates.{key} must be a whole number of at least {minimum}, "
+                f"got {value!r}"
+            )
+        values[key] = value
+    return AttemptLimits(**values)
 
 
-def re_dispatch_disposition(entry: StoryEntry) -> str:
-    """Classify whether the story may re-dispatch now.
+def entry_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
+    """Return the tier the entry runs on now.
+
+    `escalate` writes `tier`. Before an escalation, the tier is the declared
+    one, which `mark-failed` also records on each attempt.
+    """
+    if entry.tier:
+        return entry.tier
+    if declared_tier:
+        return declared_tier
+    for attempt in reversed(entry.attempts):
+        if isinstance(attempt, dict) and attempt.get("tier"):
+            return str(attempt["tier"])
+    return "economy"
+
+
+def counted_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
+    """Return the tier on which `mark-failed` records an attempt and dispatch counts it.
+
+    It is the tier the entry runs on now: `active_tier`, else `entry_tier`.
+    A seams-first implementation session sets `active_tier` one tier below
+    the story's tier, so its attempts count on that lower tier (BR-114).
+    """
+    return entry.active_tier or entry_tier(entry, declared_tier)
+
+
+def _last_grant(entry: StoryEntry) -> dict[str, Any] | None:
+    grants = [grant for grant in entry.attempt_grants if isinstance(grant, dict)]
+    return grants[-1] if grants else None
+
+
+def counted_attempts_on_tier(entry: StoryEntry, tier: str) -> int:
+    """Count the counted attempts on *tier* after the last grant (BR-114, BR-116)."""
+    grant = _last_grant(entry)
+    start = int(grant.get("attempt_count") or 0) if grant else 0
+    return sum(
+        1
+        for attempt in entry.attempts[start:]
+        if isinstance(attempt, dict)
+        and attempt.get("failure_class") in COUNTED_FAILURE_CLASSES
+        and attempt.get("tier") == tier
+    )
+
+
+def tier_attempt_limit(entry: StoryEntry, tier: str, limits: AttemptLimits) -> int:
+    """Return the number of counted attempts the entry gets on *tier*.
+
+    A grant of `re-dispatch` gives `gates.attempts` new attempts. Otherwise
+    the tier after an escalation gets `gates.attempts_escalated`, and the
+    first tier gets `gates.attempts`.
+    """
+    grant = _last_grant(entry)
+    if grant is not None and grant.get("tier") == tier:
+        return limits.attempts
+    if entry.escalation_granted:
+        return limits.attempts_escalated
+    return limits.attempts
+
+
+def attempts_used_up(entry: StoryEntry, tier: str, limits: AttemptLimits) -> bool:
+    """Return True when the counted attempts on *tier* reached the limit."""
+    return counted_attempts_on_tier(entry, tier) >= tier_attempt_limit(
+        entry, tier, limits
+    )
+
+
+def ledger_escalation_refusal(
+    entry: StoryEntry, tier: str, limits: AttemptLimits
+) -> str | None:
+    """Name the reason of BR-115 that the ledger alone shows, or None.
+
+    These are the tier `strong`, an earlier escalation, and
+    `gates.attempts_escalated: 0`. The checks of the branch, `verify-base`
+    and the scope, need git, so `dispatch` runs them.
+    """
+    if tier == "strong" or next_tier(tier) is None:
+        return f"it runs on the tier {tier}, which does not escalate"
+    if entry.escalation_granted:
+        return "it has already escalated"
+    if limits.attempts_escalated == 0:
+        return "gates.attempts_escalated is 0 in docs/testing.yaml, so escalation is off"
+    return None
+
+
+def cannot_escalate(entry: StoryEntry, tier: str, limits: AttemptLimits) -> bool:
+    """Return True when `escalate` refuses the entry for a reason of BR-115.
+
+    The reasons of the branch come from the record in `reason` that
+    `escalate` wrote, so this reads only the ledger.
+    """
+    return (
+        ledger_escalation_refusal(entry, tier, limits) is not None
+        or entry.reason in ESCALATE_REFUSED_RECORDS
+    )
+
+
+def contract_violation_count(entry: StoryEntry) -> int:
+    return sum(
+        1
+        for attempt in entry.attempts
+        if isinstance(attempt, dict)
+        and attempt.get("failure_class") == RE_DISPATCH_TERMINAL_FAILURE_CLASS
+    )
+
+
+def has_stopped(
+    entry: StoryEntry, limits: AttemptLimits, tier: str | None = None
+) -> bool:
+    """The predicate HasStopped of the Ledger Entry Lifecycle (BR-116).
+
+    It holds for every `blocked` entry. A `failed` entry has stopped when
+    two of its attempts are `contract_violation`, or when its counted
+    attempts on its tier reached the limit and it cannot escalate any more.
+    Every other entry still has a retry, or does not wait for the User.
+    """
+    if entry.status == StoryState.BLOCKED:
+        return True
+    if entry.status != StoryState.FAILED:
+        return False
+    if contract_violation_count(entry) >= 2:
+        return True
+    current = tier or counted_tier(entry)
+    return attempts_used_up(entry, current, limits) and cannot_escalate(
+        entry, current, limits
+    )
+
+
+def re_dispatch_disposition(
+    entry: StoryEntry,
+    tier: str,
+    limits: AttemptLimits,
+    branch_allows_escalation: Callable[[], bool],
+) -> str:
+    """Classify what `re-dispatch` does with the entry.
 
     Returns one of:
 
-    - ``same_tier`` — proceed normally.
-    - ``requires_escalation`` — block until escalation is granted.
-    - ``terminal`` — block because the failure is terminal.
+    - ``same_tier`` — set `prepared` on the same tier.
+    - ``requires_escalation`` — refuse and name `dispatch escalate`.
+    - ``grant`` — record a grant of new attempts, then set `prepared`.
+    - ``terminal`` — refuse after two `contract_violation` attempts.
+
+    *branch_allows_escalation* runs the checks of the branch. It is called
+    only when the ledger alone allows an escalation.
     """
-    failure_class = failure_class_for_re_dispatch(entry)
-    if failure_class in QUALIFYING_ESCALATION_FAILURE_CLASSES:
-        return "same_tier" if entry.escalation_granted else "requires_escalation"
-    if failure_class == RE_DISPATCH_TERMINAL_FAILURE_CLASS:
-        terminal_count = sum(
-            1
-            for attempt in entry.attempts
-            if attempt.get("failure_class") == RE_DISPATCH_TERMINAL_FAILURE_CLASS
-        )
-        if terminal_count >= 2:
-            return "terminal"
-    return "same_tier"
+    if entry.status != StoryState.FAILED:
+        return "same_tier"
+    if contract_violation_count(entry) >= 2:
+        return "terminal"
+    if not attempts_used_up(entry, tier, limits):
+        return "same_tier"
+    if ledger_escalation_refusal(entry, tier, limits) is not None:
+        return "grant"
+    return "requires_escalation" if branch_allows_escalation() else "grant"
+
+
+def grant_attempts(entry: StoryEntry, tier: str) -> dict[str, Any]:
+    """Append one item to `attempt_grants` and return it (BR-116, OI-13)."""
+    grant = {"tier": tier, "attempt_count": len(entry.attempts)}
+    entry.attempt_grants.append(grant)
+    return grant
 
 
 def append_attempt(
@@ -214,9 +383,9 @@ class StoryEntry:
     base_sha: str | None = None
     tier: str | None = None
     reason: str | None = None
-    gate_results: dict[str, Any] = field(default_factory=dict)
     attempts: list[dict[str, Any]] = field(default_factory=list)
     escalation_granted: bool = False
+    attempt_grants: list[dict[str, Any]] = field(default_factory=list)
     verify_base: str | None = None
     commit_sha: str | None = None
     failure_class: str | None = None
@@ -224,6 +393,7 @@ class StoryEntry:
     manifest_recoveries: list[dict[str, Any]] = field(default_factory=list)
     active_session: str | None = None
     active_tier: str | None = None
+    returned: bool = False
 
     def __post_init__(self) -> None:
         if self.base_sha is not None:
@@ -247,12 +417,13 @@ class StoryEntry:
             "base_sha": self.base_sha,
             "tier": self.tier,
             "reason": self.reason,
-            "gate_results": self.gate_results,
         }
         if self.attempts:
             d["attempts"] = self.attempts
         if self.escalation_granted:
             d["escalation_granted"] = self.escalation_granted
+        if self.attempt_grants:
+            d["attempt_grants"] = self.attempt_grants
         if self.verify_base is not None:
             d["verify_base"] = self.verify_base
         if self.commit_sha is not None:
@@ -267,6 +438,8 @@ class StoryEntry:
             d["active_session"] = self.active_session
         if self.active_tier is not None:
             d["active_tier"] = self.active_tier
+        if self.returned:
+            d["returned"] = self.returned
         return d
 
     @classmethod
@@ -282,9 +455,9 @@ class StoryEntry:
             base_sha=data.get("base_sha"),
             tier=data.get("tier"),
             reason=data.get("reason"),
-            gate_results=data.get("gate_results", {}),
             attempts=_coerce_sequence(data.get("attempts", [])),
             escalation_granted=bool(data.get("escalation_granted", False)),
+            attempt_grants=_coerce_sequence(data.get("attempt_grants", [])),
             verify_base=data.get("verify_base"),
             commit_sha=data.get("commit_sha"),
             failure_class=data.get("failure_class"),
@@ -292,6 +465,7 @@ class StoryEntry:
             manifest_recoveries=_coerce_sequence(data.get("manifest_recoveries", [])),
             active_session=data.get("active_session"),
             active_tier=data.get("active_tier"),
+            returned=bool(data.get("returned", False)),
         )
 
 
@@ -328,11 +502,15 @@ class WaveCloseout:
         )
 
 
+LEDGER_MODES = ("orchestrated", "by-hand")
+# Old ledger names that dispatch reads and never writes (BR-111, OI-09).
+OLD_MODE_NAMES = {"automated": "orchestrated"}
+
+
 class Ledger:
     def __init__(self) -> None:
-        self.mode: str = "automated"
-        self.closed: bool = False
-        self.invocation_branch: str | None = None
+        self.mode: str = "orchestrated"
+        self.feature_branch: str | None = None
         self.branch_root: str | None = None
         self.branch_head: str | None = None
         self.stories: dict[str, StoryEntry] = {}
@@ -350,6 +528,82 @@ class Ledger:
             )
         entry.status = target
 
+    def return_story(self, story_id: str) -> None:
+        """Set a failed or blocked entry back to pending and mark it returned.
+
+        Raises TransitionError for an entry in any other state (BR-116)."""
+        entry = self.stories[story_id]
+        if entry.status not in RETURNABLE_STATES:
+            raise TransitionError(
+                f"{story_id} is {entry.status.value}; return-story returns only "
+                "a failed or blocked story"
+            )
+        self.transition(story_id, StoryState.PENDING)
+        entry.returned = True
+
+    def returned_refusal(self, story_id: str) -> str | None:
+        """Name the return of a returned entry, which waits for the end of the run (BR-113)."""
+        if not self.stories[story_id].returned:
+            return None
+        return (
+            f"dispatch: {story_id} was returned and waits for the end of the run"
+        )
+
+    def next_free_wave(self) -> int:
+        """The wave after every wave of an entry and of a wave record."""
+        taken = [e.wave for e in self.stories.values() if e.wave is not None]
+        taken += [record.number for record in self.waves]
+        return max(taken, default=0) + 1
+
+    def add_finding(self, finding_id: str) -> StoryEntry:
+        """Put a finding into the next free wave and return its entry (BR-117).
+
+        A new ID gets a new entry without dependencies and without a tier, so
+        it runs on the default tier. A `pending` entry, such as one after a
+        return, is reused: its attempts restart on the default tier, `returned`
+        goes back to false, and its branch stays. Any other state raises
+        TransitionError that names the state.
+        """
+        wave = self.next_free_wave()
+        entry = self.stories.get(finding_id)
+        if entry is None:
+            entry = StoryEntry(id=finding_id, feature_branch=self.feature_branch)
+            self.stories[finding_id] = entry
+        elif entry.status != StoryState.PENDING:
+            raise TransitionError(
+                f"{finding_id} is {entry.status.value}; add takes back only "
+                "a pending entry"
+            )
+        else:
+            entry.deps = []
+            entry.tier = None
+            entry.active_tier = None
+            entry.active_session = None
+            entry.escalation_granted = False
+            entry.attempts = []
+            entry.attempt_grants = []
+            entry.reason = None
+            entry.failure_class = None
+            entry.evidence = None
+            entry.returned = False
+        entry.wave = wave
+        return entry
+
+    def lets_its_wave_close(self, entry: StoryEntry, limits: AttemptLimits) -> bool:
+        """True when *entry* is in one of the five states that let its wave
+        close: done, blocked, failed and stopped, or held back (BR-113)."""
+        if entry.status in {StoryState.DONE, StoryState.BLOCKED}:
+            return True
+        if entry.status == StoryState.FAILED:
+            return has_stopped(entry, limits)
+        return held_back(self, entry)
+
+    @staticmethod
+    def _open_state(entry: StoryEntry) -> str:
+        if entry.status == StoryState.FAILED:
+            return "failed with a retry left"
+        return entry.status.value
+
     def is_terminal(self, story_id: str) -> bool:
         """Return True when the story is in a terminal lifecycle state."""
         return self.stories[story_id].status in {
@@ -363,32 +617,39 @@ class Ledger:
         wave: int,
         branch_head: str,
         drift_check: Callable[[list[str]], list[str]] | None = None,
+        limits: AttemptLimits | None = None,
     ) -> tuple[WaveCloseout, bool]:
-        """Record a terminal wave closeout and return (record, created).
+        """Record a wave closeout and return (record, created).
 
-        *drift_check* takes the ids of the wave's stories and returns one
-        problem per unhandled or unreadable drift row (BR-062). Any problem
-        keeps the wave open."""
+        A unit of work lets its wave close only in one of five states:
+        `done`, `blocked`, `failed` when HasStopped holds under *limits*,
+        `pending` after a return, and `pending` behind a returned
+        dependency (BR-062, BR-113). *drift_check* takes the ids of the
+        wave's stories and returns one problem per unhandled or unreadable
+        drift row (BR-062). Any problem keeps the wave open. A wave
+        without entries closes with empty lists."""
         for record in self.waves:
             if record.number == wave:
                 return record, False
 
+        # A wave without entries, for example after `add` moved its only
+        # entry to a later wave, has nothing that can go on and closes with
+        # empty lists.
         wave_stories = [entry for entry in self.stories.values() if entry.wave == wave]
-        if not wave_stories:
-            raise TransitionError(f"wave {wave} has no stories")
 
-        non_terminal = [
-            entry.id
+        limits = limits or AttemptLimits()
+        can_go_on = [
+            f"{entry.id} ({self._open_state(entry)})"
             for entry in wave_stories
-            if entry.status
-            not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+            if not self.lets_its_wave_close(entry, limits)
         ]
-        if non_terminal:
+        if can_go_on:
             raise TransitionError(
-                f"wave {wave} still has non-terminal stories: {', '.join(non_terminal)}"
+                f"wave {wave} has units of work that can still go on: "
+                + ", ".join(can_go_on)
             )
 
-        if drift_check is not None:
+        if drift_check is not None and wave_stories:
             problems = drift_check([entry.id for entry in wave_stories])
             if problems:
                 raise TransitionError(
@@ -434,9 +695,9 @@ class Ledger:
             if entry.base_sha is not None:
                 _validate_sha(entry.base_sha)
         path.parent.mkdir(parents=True, exist_ok=True)
-        data: dict[str, Any] = {"mode": self.mode, "closed": self.closed}
-        if self.invocation_branch is not None:
-            data["invocation_branch"] = self.invocation_branch
+        data: dict[str, Any] = {"mode": self.mode}
+        if self.feature_branch is not None:
+            data["feature_branch"] = self.feature_branch
         if self.branch_root is not None:
             data["branch_root"] = self.branch_root
         if self.branch_head is not None:
@@ -452,9 +713,11 @@ class Ledger:
             raise FileNotFoundError(path)
         raw = _load_yaml(path.read_text())
         ledger = cls()
-        ledger.mode = raw.get("mode", "automated")
-        ledger.closed = bool(raw.get("closed", False))
-        ledger.invocation_branch = raw.get("invocation_branch")
+        mode = raw.get("mode", "orchestrated")
+        ledger.mode = OLD_MODE_NAMES.get(mode, mode)
+        ledger.feature_branch = raw.get("feature_branch") or raw.get(
+            "invocation_branch"
+        )
         ledger.branch_root = raw.get("branch_root")
         ledger.branch_head = raw.get("branch_head")
         for sid, sdata in raw.get("stories", {}).items():
@@ -464,11 +727,12 @@ class Ledger:
         return ledger
 
     def format_status_table(self) -> str:
+        run = f"mode: {self.mode}\nfeature_branch: {self.feature_branch or ''}\n"
         if not self.stories:
-            return "No stories in ledger."
+            return run + "No stories in ledger."
         header = f"{'ID':<12} {'Wave':<6} {'Status':<14} {'Branch':<40} {'SHA':<42}"
         sep = "-" * len(header)
-        lines = [header, sep]
+        lines = [run, header, sep]
         for entry in self.stories.values():
             sha_display = entry.base_sha or ""
             branch_display = entry.branch or ""
@@ -478,6 +742,115 @@ class Ledger:
                 f"{branch_display:<40} {sha_display:<42}"
             )
         return "\n".join(lines)
+
+
+DEPENDENCY_NOT_DONE = "dispatch: a dependency inside the run is not done"
+
+
+def returned_dependencies(ledger: Ledger, story_id: str) -> list[str]:
+    """Return the returned stories that *story_id* waits on inside the run,
+    directly or through another story that is not done (BR-113).
+
+    Reads only the ledger. A dependency outside the run does not count."""
+    found: set[str] = set()
+    seen: set[str] = set()
+    todo = list(ledger.stories[story_id].deps)
+    while todo:
+        dep = todo.pop()
+        if dep in seen or dep not in ledger.stories:
+            continue
+        seen.add(dep)
+        entry = ledger.stories[dep]
+        if entry.status == StoryState.DONE:
+            continue
+        if entry.returned:
+            found.add(dep)
+        todo.extend(entry.deps)
+    return sorted(found)
+
+
+def dependency_refusals(ledger: Ledger, entry: StoryEntry) -> list[str]:
+    """Name each dependency of *entry* inside the run that is not done, and
+    the return that holds it back (BR-113). Empty when the entry may start."""
+    refusals = []
+    for dep in entry.deps:
+        if dep not in ledger.stories:
+            continue
+        dep_entry = ledger.stories[dep]
+        if dep_entry.status == StoryState.DONE:
+            continue
+        text = f"{entry.id} depends on {dep}, which is {dep_entry.status.value}"
+        if dep_entry.returned:
+            text += " and returned"
+        behind = returned_dependencies(ledger, dep)
+        if behind:
+            text += f" and waits on the returned {', '.join(behind)}"
+        refusals.append(text)
+    return refusals
+
+
+def held_back(ledger: Ledger, entry: StoryEntry) -> bool:
+    """True for a pending entry that can never start in this run: it was
+    returned, or it waits on a returned story (BR-113)."""
+    return entry.status == StoryState.PENDING and (
+        entry.returned or bool(returned_dependencies(ledger, entry.id))
+    )
+
+
+# A close accepts a run whose units of work are done or pending (BR-119).
+CLOSE_ACCEPTED_STATES = frozenset({StoryState.DONE, StoryState.PENDING})
+
+
+def close_refusals(ledger: Ledger) -> list[str]:
+    """Name each unit of work that keeps `dispatch close` from ending the run.
+
+    BR-119 refuses failed and blocked. A unit of work in progress is refused
+    too, because its worktree holds work that the close would remove."""
+    return [
+        f"dispatch close: {entry.id} is {entry.status.value}; close accepts "
+        "only done and pending units of work"
+        for entry in ledger.stories.values()
+        if entry.status not in CLOSE_ACCEPTED_STATES
+    ]
+
+
+def stash_name(feature_branch: str, label: str, day: str) -> str:
+    """The name of the stash a close makes of one worktree (BR-119)."""
+    return f"run {feature_branch} {label} {day}"
+
+
+def orphan_stash_name(branch: str, day: str) -> str:
+    """The name of the stash `close --orphans` makes of a worktree of no ledger."""
+    return f"orphan {branch} {day}"
+
+
+def orphan_ledger_verdict(ledger: Ledger, branch_state: str) -> tuple[bool, str | None]:
+    """Decide what `close --orphans` does with *ledger* (BR-120).
+
+    *branch_state* says whether the feature branch that the ledger names
+    "exists", is "gone", is "invalid" as a branch name, or is "none" at all.
+    Return whether to remove the ledger, and the reason to list a ledger
+    that stays. A ledger whose feature branch exists belongs to an active
+    run, so it stays without a line. Every case that dispatch cannot decide
+    keeps the ledger."""
+    if branch_state == "exists":
+        return False, None
+    if branch_state == "none" or not ledger.feature_branch:
+        return False, "it names no feature branch"
+    if branch_state == "invalid":
+        return False, (
+            f"its feature branch {ledger.feature_branch!r} is not a valid branch name"
+        )
+    if branch_state != "gone":
+        return False, f"dispatch cannot tell whether {ledger.feature_branch} exists"
+    unfinished = [
+        f"{entry.id} is {entry.status.value}"
+        for entry in ledger.stories.values()
+        if entry.status != StoryState.DONE
+    ]
+    if not unfinished:
+        return True, None
+    return False, f"{ledger.feature_branch} is gone; " + ", ".join(unfinished)
 
 
 # ---------------------------------------------------------------------------
@@ -551,11 +924,17 @@ def _stdlib_dump(data: dict[str, Any], indent: int = 0) -> str:
                 if isinstance(item, dict):
                     first = True
                     for k, v in item.items():
+                        # A list or a mapping inside an item, such as the
+                        # `blocked` list of a wave record, is a JSON flow
+                        # collection, which YAML reads unchanged.
+                        text = (
+                            json.dumps(v) if isinstance(v, (list, dict)) else _scalar(v)
+                        )
                         if first:
-                            lines.append(f"{prefix}  - {k}: {_scalar(v)}")
+                            lines.append(f"{prefix}  - {k}: {text}")
                             first = False
                         else:
-                            lines.append(f"{prefix}    {k}: {_scalar(v)}")
+                            lines.append(f"{prefix}    {k}: {text}")
                 else:
                     lines.append(f"{prefix}  - {_scalar(item)}")
         elif isinstance(value, list):
@@ -576,21 +955,35 @@ def _scalar(value: Any) -> str:
         return str(value)
     if not isinstance(value, str):
         return str(value)
-    text = value
-    # Quote a string that the loader would not read back unchanged, such as
-    # "123", "null", "a #b", ">-", or a quoted string. The loader reads a
-    # block scalar header before _parse_scalar sees the value. JSON quoting
-    # is valid YAML.
+    # Write a string plain only when both loaders read it back unchanged:
+    # it holds only safe characters, and no YAML 1.1 resolver of PyYAML
+    # reads it as a bool, null, number, or date. JSON quoting is valid YAML,
+    # so every other string is quoted (IMPL-0032).
     if (
-        not text
-        or text != text.strip()
-        or "\n" in text
-        or text in ("[]", "{}")
-        or _BLOCK_HEADER_RE.match(text)
-        or _parse_scalar(text) != text
+        _PLAIN_RE.fullmatch(value)
+        and value == value.rstrip()
+        and not _YAML11_IMPLICIT_RE.fullmatch(value)
+        and _parse_scalar(value) == value
     ):
-        return json.dumps(text)
-    return text
+        return value
+    return json.dumps(value)
+
+
+# A conservative set of strings that YAML reads as plain strings.
+_PLAIN_RE = re.compile(r"[A-Za-z0-9_./][A-Za-z0-9 _./,;()+-]*")
+# The implicit resolvers of PyYAML for YAML 1.1 bool, null, int, float,
+# and timestamp, with y and n added as YAML 1.1 keywords.
+_YAML11_IMPLICIT_RE = re.compile(
+    r"""(?x)
+    y|Y|n|N|yes|Yes|YES|no|No|NO|true|True|TRUE|false|False|FALSE
+    |on|On|ON|off|Off|OFF|null|Null|NULL|~
+    |[-+]?0b[0-1_]+|[-+]?0[0-7_]+|[-+]?(?:0|[1-9][0-9_]*)|[-+]?0x[0-9a-fA-F_]+
+    |[-+]?[1-9][0-9_]*(?::[0-5]?[0-9])+
+    |[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+]?[0-9]+)?|\.[0-9][0-9_]*(?:[eE][-+]?[0-9]+)?
+    |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN)
+    |[0-9][0-9][0-9][0-9]-[0-9][0-9]?-[0-9][0-9]?.*
+    """
+)
 
 
 def _stdlib_load(text: str) -> dict[str, Any]:
@@ -869,6 +1262,12 @@ def _parse_scalar(text: str) -> Any:
             return value
     if text.startswith("#"):
         return None
+    if text.startswith(("[", "{")):
+        # The stdlib writer writes a nested collection as JSON flow.
+        try:
+            return json.loads(text)
+        except ValueError:
+            pass
     comment = text.find(" #")
     if comment != -1:
         text = text[:comment].rstrip()
@@ -944,7 +1343,7 @@ def _plain(cell: str) -> str:
 
 
 def parse_report_rows(text: str) -> list[dict[str, str]]:
-    """Return the Artifact and Status of every row of a drift report.
+    """Return the Artifact, Owner and Status of every row of a drift report.
 
     The rows come from every Markdown table whose header holds the five
     report columns. Raises ReportError on a report without such a table,
@@ -967,6 +1366,7 @@ def parse_report_rows(text: str) -> list[dict[str, str]]:
         found_table = True
         artifact_at = header.index("Artifact")
         status_at = header.index("Status")
+        owner_at = header.index("Owner")
         index += 1  # the separator line
         while index < len(lines) and lines[index].lstrip().startswith("|"):
             number = index + 1
@@ -974,6 +1374,7 @@ def parse_report_rows(text: str) -> list[dict[str, str]]:
             index += 1
             artifact = _plain(cells[artifact_at]) if artifact_at < len(cells) else ""
             status = _plain(cells[status_at]) if status_at < len(cells) else ""
+            owner = _plain(cells[owner_at]) if owner_at < len(cells) else ""
             artifact = artifact.split("#", 1)[0]
             if not artifact:
                 raise ReportError(f"line {number} has no path in the Artifact column")
@@ -982,7 +1383,7 @@ def parse_report_rows(text: str) -> list[dict[str, str]]:
                     f"line {number} has the unknown status '{status}'; "
                     f"allowed: {', '.join(ROW_STATUSES)}"
                 )
-            rows.append({"artifact": artifact, "status": status})
+            rows.append({"artifact": artifact, "owner": owner, "status": status})
     if not found_table:
         raise ReportError(
             "has no row table with the columns " + ", ".join(REPORT_COLUMNS)
@@ -1037,14 +1438,15 @@ def drift_row_problems(
             continue
         for row in rows:
             artifact, status = row["artifact"], row["status"]
+            owner = row["owner"] or "no owner named"
             if status == "open":
                 problems.append(
-                    f"{report}: {artifact} is open; its owner has not fixed it"
+                    f"{report}: {artifact} is open; its owner {owner} has not fixed it"
                 )
             elif status == "fixed" and is_core_artifact(artifact, core_patterns):
                 problems.append(
-                    f"{report}: {artifact} is fixed on a core artifact; "
-                    "its reviewer has not confirmed or rejected it"
+                    f"{report}: {artifact} is fixed on a core artifact; the reviewer "
+                    f"of its owner {owner} has not confirmed or rejected it"
                 )
     return problems
 
@@ -1727,6 +2129,7 @@ def compute_wave_plan(
 STOP_SUBCOMMANDS = frozenset(
     {
         "init",
+        "add",
         "prepare-wave",
         "prepare-story",
         "mark-dispatching",
@@ -1744,14 +2147,51 @@ READ_SUBCOMMANDS = frozenset(
         "plan",
         "suggest-merge-args",
         "verify-story",
-        "mark-done",
         "mark-blocked",
         "mark-failed",
         "clear-manifest",
+        # return-story and close start and merge no work, so a stop allows
+        # them (BR-091).
+        "return-story",
+        "close",
     }
 )
 
 FINDINGS_DIR = "docs/findings"
+# A story ID; every other ID of a unit of work is a finding ID (BR-117).
+STORY_ID_RE = re.compile(r"ST-\d+")
+# The blocking rule of BR-085: these categories at these severities block.
+BLOCKING_CATEGORIES = ("defect", "risk")
+BLOCKING_SEVERITIES = ("critical", "major")
+
+
+def is_story_id(unit_id: str) -> bool:
+    """True for a story ID such as ST-0350, False for a finding ID."""
+    return bool(STORY_ID_RE.fullmatch(unit_id))
+
+
+def finding_add_refusal(
+    finding_id: str, fields: dict[str, str | None] | None
+) -> str | None:
+    """Name why `dispatch add` refuses the finding, or None (BR-117).
+
+    *fields* are the top-level keys of docs/findings/<id>.md, or None when
+    the file is missing or has no frontmatter.
+    """
+    if fields is None:
+        return f"{FINDINGS_DIR}/{finding_id}.md does not exist or has no frontmatter"
+    status = fields.get("status")
+    if status != "open":
+        return f"{finding_id} has the status {status}, and add takes only an open finding"
+    category, severity = fields.get("category"), fields.get("severity")
+    if category not in BLOCKING_CATEGORIES or severity not in BLOCKING_SEVERITIES:
+        return (
+            f"{finding_id} does not block: its category is {category} and its "
+            f"severity is {severity} (BR-085)"
+        )
+    return None
+
+
 _TOP_KEY_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):(?:\s+(.*))?$")
 _SENTENCE_END_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z`])")
 _CHECK_SEPARATOR = " — check: "

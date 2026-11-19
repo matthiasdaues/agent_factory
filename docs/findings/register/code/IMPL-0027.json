@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0027",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:385-397",
+  "story": "ST-0413",
+  "finding": "A story branch can take a finding of another story into its own scope by rewriting the story field. story_owned_files reads the story field only at the branch head. The review checked this in a scratch repository: BUG-0092 with story ST-0351 and status open on the target, rewritten on story/ST-0350 to story ST-0350 and status resolved, counts as a file of ST-0350. merge-story then passes it as --scope, so the scope check of RL-08-IT-08 does not refuse it, and the open blocking finding of ST-0351 disappears from the merge checks of both stories. finding-lint does not guard the story field either. The code follows the contract line of merge-story, which says the story field names the owner, and the contract does not say at which commit. The behavior looks undocumented. The smallest fix is in story_owned_files: a file that exists at the merge base belongs to the story only when its name holds the story ID or its story field at the merge base already names the story. The domain-modeling agent should add that commit to the merge-story contract line.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every Scenario of RL-08 holds, and the path needs an agent that edits the story field of another story's finding, which no agent definition asks for (no to fails_purpose). If it happens, a blocking finding is closed outside its review loop, and someone must find it in the history.",
+  "commit": "3cdf55bf3b2aa1d745ebc50decc8484eb75b1226",
+  "status": "resolved"
+}

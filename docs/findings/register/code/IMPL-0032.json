@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0032",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch_lib.py:760-787",
+  "story": "ST-0419",
+  "finding": "The stdlib ledger writer still writes free text that PyYAML misreads or cannot parse. dispatch runs through uv run --script without PyYAML, so _scalar writes every ledger, and the reason of mark-blocked --reason is free text from the operator. _scalar quotes a string only when the stdlib loader would read it differently, and since this story also when it holds \": \" or ends with \":\". The review wrote 61 strings with _stdlib_dump and read them back. The stdlib loader returned every string unchanged. PyYAML failed or changed 37 of them, for example: \"[WIP] waits on ST-0418\" gives ParserError; \"- see the CI log\", \"`uv sync` fails\", \"*.lock conflict\" and \"@reviewer asked\" give ScannerError or ComposerError; \"no\" and \"on\" become booleans; \"2026-11-19\" becomes a date; \"1:30\" becomes 90. So any tool or test that loads a ledger with PyYAML, as the ST-0418 review did, fails or reads a wrong value. The fix of this story covers the records that dispatch writes itself, and those round-trip. The gap for free text looks unintended. The smallest fix is in _scalar: write a string plain only when it matches a conservative pattern, for example ^[A-Za-z0-9_./][A-Za-z0-9 _./,;()+-]*$, and is not a YAML 1.1 keyword such as yes, no, on, off, true, null, or a number or date form; quote every other string with json.dumps. Add a test that writes such strings with yaml set to None and reads them with yaml.safe_load.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "dispatch reads every ledger with its own stdlib loader, which returns each probed string unchanged, and every record that dispatch writes now round-trips through PyYAML (no to fails_purpose). A test, a review probe, or a python3 run with PyYAML installed fails on a ledger that holds such a reason, and the operator must find and quote the value by hand. The quoting rule exists unchanged in the installed copy, so in_use is true, but no installed tool reads a ledger with PyYAML, so harms_downstream is false.",
+  "commit": "348c85f2c42f46384634a2c3425e9b2658bfb001",
+  "status": "resolved"
+}

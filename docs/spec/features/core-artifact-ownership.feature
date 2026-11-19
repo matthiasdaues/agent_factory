@@ -571,7 +571,7 @@ Feature: Core artifact ownership
       Then each mutant ends as removed dead code, a new test, or a QA finding
       # @packages/factory/skills/mutation-testing/SKILL.md
 
-  Rule: Test-strategy agent resolves the surviving mutants that a developer agent cannot resolve
+  Rule: Test-strategy agent resolves a filed mutant that no test should kill, and the planning agent owns a filed mutant that needs a test
     # actor: Test-strategy agent
     # @packages/factory/skills/mutation-testing/SKILL.md
 
@@ -580,7 +580,7 @@ Feature: Core artifact ownership
     # Scenario Outline "The gate-check step files a blocking QA finding for
     # a mutant it cannot resolve".
 
-    Scenario: The implementation agent dispatches the test-strategy agent for each open QA finding
+    Scenario: The implementation agent dispatches the test-strategy agent for each open QA finding with owner test-strategy-agent
       Given ST-0318 has merged and QA-0003 is open with owner: test-strategy-agent
       When the implementation agent closes the wave
       Then it dispatches the test-strategy agent for QA-0003

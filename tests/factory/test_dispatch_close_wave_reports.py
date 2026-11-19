@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 from test_dispatch_merge_safety import _dispatch, _git, dispatched  # noqa: F401
 
 import dispatch_lib as lib
@@ -55,7 +55,7 @@ def wave_two(tmp_path: Path) -> dict[str, Path]:
     _git(repo, "worktree", "add", "-q", "-b", "feat/x", str(inv))
     ledger_path = repo / ".current-work" / "feat" / "x" / "dispatch-ledger.yaml"
     ledger = lib.Ledger()
-    ledger.invocation_branch = "feat/x"
+    ledger.feature_branch = "feat/x"
     ledger.waves.append(lib.WaveCloseout(number=1, branch_head="a" * 40))
     for story_id in WAVE:
         ledger.stories[story_id] = lib.StoryEntry(
@@ -272,6 +272,206 @@ def test_st_0361_a_missing_core_list_fails_and_names_the_path(
     assert _closed_waves(wave_two) == [1]
 
 
+# -- RL-11-IT: the next wave starts only after the wave close (ST-0421) -----
+
+GLOSSARY = "docs/spec/glossary.md"
+RUNTIME_VIEW = "docs/arc42/06_runtime_view.md"
+STORY = """---
+id: {id}
+title: {id}
+tier: economy
+status: open
+deps: []
+touches: ["src/{id}.txt"]
+quality-gates: []
+---
+# {id}
+"""
+
+
+def _owned_report(*rows: tuple[str, str, str]) -> str:
+    """A report whose rows are (artifact, owner, status)."""
+    body = "".join(
+        f"| `{artifact}` | The rule differs. | `src/x.py:1` | `{owner}` | `{status}` |\n"
+        for artifact, owner, status in rows
+    )
+    return "# Spec feedback\n\n" + HEADER + body
+
+
+@pytest.fixture()
+def run_on_login(tmp_path: Path):
+    """A repository with backlog stories and the feature branch feature/login.
+
+    Call the returned builder with ledger entries to write the ledger of an
+    orchestrated run, or of a run by hand in the primary checkout."""
+    repo = tmp_path / "repo"
+    for folder in ("backlog", "docs", "src"):
+        (repo / folder).mkdir(parents=True)
+    _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
+    for story_id in ("ST-0350", "ST-0351", "ST-0352"):
+        (repo / "backlog" / f"{story_id}.md").write_text(STORY.format(id=story_id))
+    (repo / "docs" / "testing.yaml").write_text('test_command: "true"\n')
+    (repo / ".gitignore").write_text(".current-work/\n")
+    (repo / "src" / ".keep").write_text("")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    ledger_path = repo / ".current-work" / "feature" / "login" / "dispatch-ledger.yaml"
+
+    def build(*entries: lib.StoryEntry, mode: str = "orchestrated") -> dict[str, Path]:
+        if mode == "by-hand":
+            _git(repo, "checkout", "-q", "-b", "feature/login")
+            feature = repo
+        else:
+            feature = repo / ".current-work" / "feature" / "login" / "inv"
+            _git(repo, "worktree", "add", "-q", "-b", "feature/login", str(feature))
+        ledger = lib.Ledger()
+        ledger.mode = mode
+        ledger.feature_branch = "feature/login"
+        ledger.branch_root = _git(repo, "rev-parse", "feature/login")
+        for entry in entries:
+            ledger.stories[entry.id] = entry
+        ledger.save(ledger_path)
+        return {"repo": repo, "inv": feature, "ledger": ledger_path}
+
+    return build
+
+
+def _entry(story_id: str, wave: int | None, status=lib.StoryState.PENDING, **fields):
+    if status == lib.StoryState.DONE:
+        fields.setdefault("commit_sha", "b" * 40)
+    return lib.StoryEntry(
+        id=story_id, wave=wave, status=status, feature_branch="feature/login",
+        deps=fields.pop("deps", []), **fields,
+    )
+
+
+def _status(r: dict[str, Path], story_id: str) -> str:
+    return yaml.safe_load(r["ledger"].read_text())["stories"][story_id]["status"]
+
+
+def _branch_exists(r: dict[str, Path], branch: str) -> bool:
+    return bool(_git(r["repo"], "branch", "--list", branch))
+
+
+@pytest.mark.spec("RL-11-IT-01")
+def test_RL_11_IT_01_close_wave_lists_each_unhandled_row_with_its_owner(run_on_login):
+    """Scenario: close-wave refuses while a drift row is not handled."""
+    r = run_on_login(
+        _entry("ST-0350", 1, lib.StoryState.DONE),
+        _entry("ST-0351", 1, lib.StoryState.BLOCKED, reason="red suite"),
+    )
+    _commit_reports(r, {
+        "ST-0350": _owned_report((RUNTIME_VIEW, "architecture-agent", "open")),
+        "ST-0351": _owned_report((GLOSSARY, "domain-modeling-agent", "fixed")),
+    })
+
+    result = _dispatch(r["repo"], r["ledger"], "close-wave", "1")
+
+    assert result.returncode != 0
+    lines = result.stderr.splitlines()
+    open_row = next(line for line in lines if RUNTIME_VIEW in line)
+    fixed_row = next(line for line in lines if GLOSSARY in line)
+    assert "spec-feedback-ST-0350.md" in open_row
+    assert "architecture-agent" in open_row and "open" in open_row
+    assert "spec-feedback-ST-0351.md" in fixed_row
+    assert "domain-modeling-agent" in fixed_row and "fixed" in fixed_row
+    assert _closed_waves(r) == []
+
+
+@pytest.mark.spec("RL-11-IT-02")
+def test_RL_11_IT_02_the_next_wave_waits_for_the_wave_record(run_on_login):
+    """Scenario: The next wave waits for the wave record. Demo Scenario steps
+    1 to 3: the drift sessions handle the row, close-wave passes, and only
+    then prepare-wave 2 prepares ST-0352."""
+    r = run_on_login(
+        _entry("ST-0350", 1, lib.StoryState.DONE),
+        _entry("ST-0352", 2),
+    )
+    _commit_reports(r, {
+        "ST-0350": _owned_report((RUNTIME_VIEW, "architecture-agent", "open")),
+    })
+
+    before = _dispatch(r["repo"], r["ledger"], "prepare-wave", "2")
+
+    assert before.returncode != 0
+    assert "wave 1 has no wave record" in before.stderr
+    assert _status(r, "ST-0352") == "pending"
+    assert not _branch_exists(r, "story/ST-0352")
+
+    refused = _dispatch(r["repo"], r["ledger"], "close-wave", "1")
+    assert refused.returncode != 0
+    assert "architecture-agent" in refused.stderr
+    # The owner fixes the row and the architecture is no core artifact.
+    _commit_reports(r, {
+        "ST-0350": _owned_report((RUNTIME_VIEW, "architecture-agent", "fixed")),
+    })
+    closed = _dispatch(r["repo"], r["ledger"], "close-wave", "1")
+    assert closed.returncode == 0, closed.stderr
+    after = _dispatch(r["repo"], r["ledger"], "prepare-wave", "2")
+
+    assert after.returncode == 0, after.stderr
+    assert _status(r, "ST-0352") == "prepared"
+
+
+@pytest.mark.spec("RL-11-IT-03")
+def test_RL_11_IT_03_by_hand_each_story_is_a_wave_of_its_own(run_on_login):
+    """Scenario: In a run by hand, each story is a wave of its own."""
+    r = run_on_login(
+        _entry("ST-0350", 1, lib.StoryState.DONE),
+        _entry("ST-0351", None),
+        mode="by-hand",
+    )
+    _commit_reports(r, {
+        "ST-0350": _owned_report((GLOSSARY, "domain-modeling-agent", "open")),
+    })
+
+    refused = _dispatch(r["repo"], r["ledger"], "prepare-story", "ST-0351")
+    still_open = _dispatch(r["repo"], r["ledger"], "close-wave", "1")
+
+    assert refused.returncode != 0
+    assert "wave 1 has no wave record" in refused.stderr
+    assert _status(r, "ST-0351") == "pending"
+    assert not _branch_exists(r, "story/ST-0351")
+    assert still_open.returncode != 0
+    assert "domain-modeling-agent" in still_open.stderr
+    assert _closed_waves(r) == []
+
+    _commit_reports(r, {
+        "ST-0350": _owned_report((GLOSSARY, "domain-modeling-agent", "confirmed")),
+    })
+    closed = _dispatch(r["repo"], r["ledger"], "close-wave", "1")
+    started = _dispatch(r["repo"], r["ledger"], "prepare-story", "ST-0351")
+
+    assert closed.returncode == 0, closed.stderr
+    assert _closed_waves(r) == [1]
+    assert started.returncode == 0, started.stderr
+    entry = yaml.safe_load(r["ledger"].read_text())["stories"]["ST-0351"]
+    assert (entry["status"], entry["wave"]) == ("prepared", 2)
+
+
+@pytest.mark.spec("RL-11-IT-04")
+def test_RL_11_IT_04_a_wave_with_a_returned_story_closes_and_the_next_story_starts(
+    run_on_login,
+):
+    """Scenario: A wave that holds a returned story closes, and the next
+    independent story starts."""
+    r = run_on_login(
+        _entry("ST-0350", 1, lib.StoryState.DONE),
+        _entry("ST-0351", 1, returned=True),
+        _entry("ST-0352", 2),
+    )
+
+    closed = _dispatch(r["repo"], r["ledger"], "close-wave", "1")
+    started = _dispatch(r["repo"], r["ledger"], "prepare-wave", "2")
+
+    assert closed.returncode == 0, closed.stderr
+    assert _closed_waves(r) == [1]
+    entry = yaml.safe_load(r["ledger"].read_text())["stories"]["ST-0351"]
+    assert (entry["status"], entry["wave"], entry["returned"]) == ("pending", 1, True)
+    assert started.returncode == 0, started.stderr
+    assert _status(r, "ST-0352") == "prepared"
+
+
 # -- merge-story accepts the story's own spec-feedback report ----------------
 
 
@@ -279,6 +479,7 @@ def _commit_report_only(story: Path, story_id: str) -> str:
     path = story / _report_path(story_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(_report((CORE, "open")))
+    write_review_report(story, "ST-0001")
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "spec feedback")
     return _git(story, "rev-parse", "HEAD")

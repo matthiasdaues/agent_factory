@@ -47,7 +47,6 @@ triggers:
   - "does the spec match the code"
   - "sync documentation"
 handoff-to:
-  - qa-agent
   - implementation-agent
   - spec-review-agent
 version: 0.7.0
@@ -73,7 +72,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 **Invoke skill:** `reconcile-spec`
 
-**Timing:** One reconciliation pass per feature branch, at Phase 5, pre-merge to dev. Do not run per story merge — that surfaces partial-Rule noise before the slice's `.feature` file is complete.
+**Timing:** One reconciliation pass per feature, at Phase 5, on `dev` after the User merges the feature branch into `dev`. Do not run per story merge — that surfaces partial-Rule noise before the slice's `.feature` file is complete.
 
 1. **Read everything** — `src/`, `tests/` (actual behavior); `docs/spec/scope-map.md`, `docs/spec/features/*.feature`, `docs/spec/architecture.dsl` (the canonical triad); the models in `docs/spec/` and `docs/spec/areas/`; `docs/arc42/05_building_block_view.md`, `docs/adr/`; `docs/spec/glossary.md`; the current slice's `docs/spec/features/<feature-name>.feature`, when one governs the slice. A story's behaviour lives in its scope-map row and the feature file that row names.
 2. **Reconcile** — Build truth maps from code and spec, diff them, and classify discrepancies. Write each drift as a row of the run's report, with the owner of the artifact. Change no other file. File a drift that you record as a finding with tag `RECON`. This agent classifies findings of the review class `document`, by [Class: document](../rulebooks/conventions/finding-classification.md#class-document). The rule of the class computes each severity from the recorded basis. A `critical` or `major` finding of the category `defect` or `risk` becomes a finding file. A `minor` finding becomes the register file `docs/findings/register/document/<ID>.json` with `status: open`, and the commit that fixes it sets `status` to `resolved`. A `note` stays a row of the report, and a `question` becomes an entry of `docs/spec/work/todo.md`. A code defect belongs to [Class: code](../rulebooks/conventions/finding-classification.md#class-code). Run `.agent-factory/factory/scripts/next-id RECON` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. File code defects as `BUG` findings per [finding-format.md](../rulebooks/conventions/finding-format.md). Run `.agent-factory/factory/scripts/next-id BUG` and read the ID from its standard output, because a shell variable does not survive from one agent command to the next. When `next-id` fails, stop and report its message; never pick a number by hand. Write the report to `docs/reviews/reconciliation-<date>.md` per [interface-contracts.md § Report rows](../../../docs/spec/interface-contracts.md#report-rows-spec-feedback-and-reconciliation). A second run on the same day writes `-2`, a third `-3`; earlier reports stay unchanged. Commit per [commit-conventions.md](../rulebooks/conventions/commit-conventions.md): `docs: <description>`.
@@ -81,7 +80,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    - For each Scenario without an `@`-ref, inspect the step definitions and code, then write a row for the requirements agent with the proposed `# @<path>::<Symbol>` (or `.<member>`, or bare `@<path>`) as the drift. Edit no `.feature` file.
    - After backfill, every Rule MUST have at least one `@`-ref (its own or from a Scenario). A Rule with none is a row for the requirements agent.
    - A Scenario still without an `@`-ref means no implementing code was found — write a separate row for the requirements agent.
-4. **Reconcile the scope map** (pre-merge to dev, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
+4. **Reconcile the scope map** (on `dev` after the merge, when `docs/spec/scope-map.md` exists) — Per [Design 2 — Scope map reconciliation](../../../docs/proposals/implemented/agentic-quality-gates-and-specification-consolidation.md#2-specification-as-gherkin-feature-file--derive-feature):
    - Grep every live `.feature` file on the branch for `^  Rule:` lines and diff the resulting Rule set against the scope map's Rule column.
    - **Skip rows without a `.feature` link**: they have no feature file to compare against.
    - **Discovery** — a Rule in the `.feature` file but absent from the scope map means a new actor-goal pair was found during implementation. Write a row for the requirements agent, who adds it as `implemented` with its `.feature` link.
@@ -115,4 +114,4 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 **Open rows** → the backfeed step of `documentation-update`: _"Reconciliation wrote [N] rows. Run the backfeed step."_
 
-**No discrepancies** → QA Agent: _"Spec reconciled. Run QA agent."_
+**No discrepancies** → the User: _"Spec reconciled on `dev`. The feature is done."_

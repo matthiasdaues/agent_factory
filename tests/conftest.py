@@ -60,6 +60,42 @@ def load_script(name: str):
     return mod
 
 
+REVIEW_REPORT = """---
+type: code-review
+title: Code review of {story_id}
+date: 2026-11-18
+status: pass
+reviewer: code-review-agent
+findings_filed: 0
+story: {story_id}
+run:
+branch: story/{story_id}
+branch_base: {head}
+branch_head: {head}
+---
+
+# Code review of {story_id}
+
+No finding.
+"""
+
+
+def write_review_report(checkout: Path, story_id: str) -> Path:
+    """Write a code-review report of *story_id* for the head of *checkout*.
+
+    Commit it with the story's work: its `branch_head` is then an ancestor
+    of the branch head, so premerge-check's review check passes (BR-122).
+    """
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=checkout, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+    path = checkout / "docs" / "reviews" / f"code-review-{story_id}-2026-11-18.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(REVIEW_REPORT.format(story_id=story_id, head=head))
+    return path
+
+
 @pytest.fixture(autouse=True)
 def _scrub_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Remove GIT_* env vars leaked by pre-commit hooks."""

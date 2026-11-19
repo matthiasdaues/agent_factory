@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0119",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "untraced",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:966",
+  "story": null,
+  "finding": "Commit ec0db6a3 adds two rules that no Scenario of run-lifecycle.feature traces. First, BR-115 lets escalate refuse a diff beyond the file limit of merge-story and record 'escalate refused: scope', also for a finding, which declares no scope. The Scenario 'A story whose diff leaves its scope stops when dispatch escalate refuses it' covers only a file outside the declared outputs. Second, BR-117 and BR-116 define the next attempt of a reused entry: the refresh of the branch, the refusal when the worktree is missing or the checkout is dirty, and the block with the reason refresh conflict. The Scenario 'Adding a returned finding again reuses its entry' ends with 'the next attempt runs on the existing branch story/BUG-0090' and names none of these outcomes. Add one Scenario for a finding whose diff exceeds the file limit at escalate, and one Scenario for a refresh conflict of story/BUG-0090 at prepare-wave that sets BUG-0090 blocked. Owner: requirements-agent. The test-strategy agent then adds the matching QA rows.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "BR-115 and BR-117 define each outcome with its exit code and ledger state, and the code of ST-0422 follows them, so an implementer and a test writer can act (no to fails_purpose); a reader who looks for these outcomes in the feature file finds nothing and must turn to the rules (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "c8a5e531f144ac145f36a6a0e3bc5ab420062e9c",
+  "status": "open"
+}

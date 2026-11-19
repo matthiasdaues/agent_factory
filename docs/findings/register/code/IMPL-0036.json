@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0036",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/implementation-agent.md:305-313",
+  "story": "ST-0411",
+  "finding": "The fix-iteration prompt template of the Gate-Check Loop does not fit a run by hand, although step 5 of the run by hand sends the gate-check step to that loop. The template tells the fresh developer agent 'Your worktree was prepared by dispatch' and 'Fix the gate failures on branch <feature-branch>'. By hand there is no worktree, and the developer agent works on story/ST-NNNN in the primary checkout. The story rewrote the other two prompts for a run by hand, and both name story/ST-NNNN, so this third prompt is the only one left with the old wording. An agent that fills <feature-branch> with feature/login sends the retry to the wrong branch. The smallest fix is in implementation-agent.md: name the branch story/ST-NNNN in the template and say where the agent works on each way, as the fix prompt of the story workflow does.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "dispatch verify-story checks with git branch --contains that each reported commit lies on the story branch, so a retry committed on the feature branch is refused before any merge (no to fails_purpose). The refused retry still costs a counted attempt and a second spawn, and the developer agent must work out the right branch alone.",
+  "commit": "0c410ccab9bce30722e41757d08a3305d99934b9",
+  "status": "resolved"
+}

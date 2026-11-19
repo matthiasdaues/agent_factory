@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0118",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md:33",
+  "story": null,
+  "finding": "Commit ec0db6a3 adds to BR-117 how prepare-wave and prepare-story start the next attempt of a reused entry. In an orchestrated run, prepare-wave keeps the worktree and refuses when git worktree list reports no worktree of the branch at the path of the entry. Both commands then merge the feature branch into the branch, refuse a dirty checkout, and set the entry blocked with the reason refresh conflict on a conflict. The bullet 'prepare-wave and prepare-story' of the dispatch contract still says that in an orchestrated run they create a story worktree, and it points only to BR-113 for their checks. A reader of the contract alone expects a new worktree for a reused entry. Add one sentence to the bullet: for a reused entry, the commands keep the branch and, in an orchestrated run, its worktree, refresh the branch, and refuse or block as BR-117 defines. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "BR-117 defines the reuse in full, and the code of ST-0422 follows it, so an implementer who reads the rule the bullet sits beside reaches the right behavior (no to fails_purpose); a reader of the contract alone must find BR-117 to learn that the worktree stays (raises_cost). No story or code outside the run encodes the bullet.",
+  "commit": "c8a5e531f144ac145f36a6a0e3bc5ab420062e9c",
+  "status": "open"
+}

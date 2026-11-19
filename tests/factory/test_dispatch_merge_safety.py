@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 
 DISPATCH = SOURCE_SCRIPTS_DIR / "dispatch"
 STORY = """---
@@ -67,11 +67,11 @@ def dispatched(tmp_path: Path) -> dict[str, Path]:
     """A repo with story ST-0001 dispatched from invocation branch feat/x."""
     repo = tmp_path / "repo"
     (repo / "backlog").mkdir(parents=True)
-    (repo / "config").mkdir()
+    (repo / "docs").mkdir()
     (repo / "src").mkdir()
     _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
     (repo / "backlog" / "ST-0001.md").write_text(STORY.format(id="ST-0001"))
-    (repo / "config" / "project.json").write_text('{"test_command": "true"}')
+    (repo / "docs" / "testing.yaml").write_text('test_command: "true"\n')
     (repo / ".gitignore").write_text(".current-work/\n")
     (repo / "src" / ".keep").write_text("")
     _git(repo, "add", "-A")
@@ -97,6 +97,7 @@ def dispatched(tmp_path: Path) -> dict[str, Path]:
 
 def _commit_story_work(story: Path) -> str:
     (story / "src" / "ST-0001.txt").write_text("work\n")
+    write_review_report(story, "ST-0001")
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "story work")
     return _git(story, "rev-parse", "HEAD")
@@ -104,9 +105,7 @@ def _commit_story_work(story: Path) -> str:
 
 def _set_test_command(repo: Path, inv: Path, command: str) -> None:
     for root in (repo, inv):
-        (root / "config" / "project.json").write_text(
-            '{"test_command": "%s"}' % command
-        )
+        (root / "docs" / "testing.yaml").write_text(f"test_command: '{command}'\n")
 
 
 def test_merge_story_refuses_outside_the_invocation_branch(dispatched):

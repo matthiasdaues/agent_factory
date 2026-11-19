@@ -25,12 +25,12 @@ HOOK = REPO_ROOT / "packages" / "factory" / "config" / "hooks" / "block-dangerou
 CONTRACTS = REPO_ROOT / "docs" / "spec" / "interface-contracts.md"
 
 STOP_SUBCOMMANDS = [
-    "init", "prepare-wave", "prepare-story", "mark-dispatching", "mark-dispatched",
+    "init", "add", "prepare-wave", "prepare-story", "mark-dispatching", "mark-dispatched",
     "re-dispatch", "escalate", "refresh-story", "merge-story", "close-wave",
 ]
 READ_SUBCOMMANDS = [
-    "status", "plan", "suggest-merge-args", "verify-story", "mark-done",
-    "mark-blocked", "mark-failed", "clear-manifest",
+    "status", "plan", "suggest-merge-args", "verify-story",
+    "mark-blocked", "mark-failed", "clear-manifest", "return-story", "close",
 ]
 
 BUG_0037 = """\
@@ -256,6 +256,43 @@ def test_st_0397_dispatch_refuses_work_during_a_stop(stopped_run, subcommand):
     assert state(r) == before
 
 
+# -- RL-12-IT-05: a stop refuses dispatch add (ST-0422) ----------------------
+
+FEATURE_FINDING = """---
+id: BUG-0090
+category: defect
+severity: major
+status: open
+story:
+run: feat/x
+---
+
+# BUG-0090
+"""
+
+
+@pytest.mark.spec("RL-12-IT-05")
+def test_RL_12_IT_05_a_stop_refuses_dispatch_add(tmp_path):
+    """Scenario: A stop refuses dispatch add."""
+    r = _repo(tmp_path)
+    assert _init(r).returncode == 0
+    write_finding(r["repo"], FEATURE_FINDING, "BUG-0090")
+    stopper = write_finding(r["repo"], finding())
+    before = state(r)
+
+    result = _dispatch(r["repo"], r["ledger"], "add", "BUG-0090")
+
+    assert result.returncode == 1, result.stderr
+    assert result.stdout == contract_example()
+    assert state(r) == before
+    assert "BUG-0090" not in r["ledger"].read_text()
+    # Without the stop, the same call adds the finding.
+    stopper.unlink()
+    added = _dispatch(r["repo"], r["ledger"], "add", "BUG-0090")
+    assert added.returncode == 0, added.stdout + added.stderr
+    assert "BUG-0090" in yaml.safe_load(r["ledger"].read_text())["stories"]
+
+
 # -- FC-14-IT-02: dispatch answers reads during a stop ------------------------
 
 
@@ -280,7 +317,9 @@ def _read_run(tmp_path: Path, subcommand: str, *, stop: bool):
         "status": ["status"],
         "verify-story": ["verify-story", "ST-0001", "--sha", sha],
         "mark-blocked": ["mark-blocked", "ST-0001", "--reason", "waits"],
+        "mark-failed": ["mark-failed", "ST-0001", "--class", "acceptance_unmet"],
         "clear-manifest": ["clear-manifest", "--force", "--worktree", str(story)],
+        "close": ["close"],
     }.get(subcommand, [subcommand, "ST-0001"])
     result = _dispatch(r["repo"], r["ledger"], *args)
     return result.returncode, _normal(result.stdout, tmp_path), _normal(
@@ -401,7 +440,9 @@ def test_st_0397_stop_reads_only_the_worktree_it_runs_in(tmp_path):
     assert in_feature.returncode == 1
     assert in_feature.stdout == contract_example()
     assert "STOP:" not in in_main.stdout
-    assert in_main.returncode == 0, in_main.stdout
+    # Without the stop the checks run. The feature merge into dev refuses this
+    # repository, which has no ledger and no feature reports (ST-0424).
+    assert "PASS stale-base-signature" in in_main.stdout, in_main.stdout
 
 
 # -- FC-14-IT-06: both scripts print the same notice ---------------------------

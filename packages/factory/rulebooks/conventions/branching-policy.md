@@ -19,7 +19,7 @@ Shared integration files (a composition root, a domain-entities module, a ports 
 
 ### Every Branch Has A Worktree
 
-In automated mode, creating a branch and creating its linked worktree are one atomic operation. This applies to **every** local branch type: invocation, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. Sequential work or a branch used by only one agent does not qualify for an exception. In manual mode, the primary checkout is used directly; see [Manual-Mode Primary-Checkout Usage](#manual-mode-primary-checkout-usage).
+In an orchestrated run, creating a branch and creating its linked worktree are one atomic operation. This applies to **every** local branch type: feature, story, bug, review, reconciliation, fix, experiment, spike, release-preparation, and manually created branches. Sequential work or a branch used by only one agent does not qualify for an exception. In a run by hand, the primary checkout is used directly; see [Story Branches In A Run By Hand](#story-branches-in-a-run-by-hand).
 
 ```bash
 git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>
@@ -28,13 +28,13 @@ git worktree list --porcelain
 
 All worktrees live under `.current-work/<feature-branch>/`, named after their branch. This directory is gitignored and holds project-work ephemera. Never place a worktree in the repository root, a sibling directory, or an arbitrary path.
 
-In automated mode, do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B`) and do not create a branch in the current checkout before adding a worktree later. Existing branches may be attached with `git worktree add .current-work/<feature-branch>/<branch> <branch>` when recovering or resuming work, but new branches must use the atomic `worktree add -b` form. Verify the branch-to-path mapping before doing work there.
+In an orchestrated run, do not use standalone branch creation (`git branch <name>`, `git switch -c/-C`, or `git checkout -b/-B`) and do not create a branch in the current checkout before adding a worktree later. Existing branches may be attached with `git worktree add .current-work/<feature-branch>/<branch> <branch>` when recovering or resuming work, but new branches must use the atomic `worktree add -b` form. Verify the branch-to-path mapping before doing work there.
 
 The checkout in which a command starts remains on its existing branch. Work on the new branch happens only in the new worktree. This prevents branch switching from moving or contaminating a shared checkout and makes branch ownership observable from Git state.
 
-### Manual-Mode Primary-Checkout Usage
+### Story Branches In A Run By Hand
 
-In manual mode, the implementation-agent works in the primary checkout without dispatch scripts, ledgers, or worktrees. The human creates a feature branch from `dev` with `git checkout -b feature/<name>` or adopts the branch already checked out. No story branches are created. Stories dispatch serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. The git guardrail's standalone-branch-creation block does not apply in manual mode because the human — not an agent — owns the branch operation.
+In a run by hand, the implementation agent works in the primary checkout and creates no worktree. `dispatch init --mode by-hand` cuts the feature branch from `dev` and writes the ledger. For each story, `dispatch prepare-story` cuts `story/<story-id>` from the tip of the feature branch and checks it out in the primary checkout. The developer agent commits on the story branch. `dispatch merge-story` checks the feature branch out again and merges the story branch into it. One story runs at a time, so the feature branch does not move under a story, and no story branch needs `dispatch refresh-story`. `dispatch` creates every branch, so no agent runs a standalone branch command.
 
 ### Indexed Artifacts On Any Branch
 
@@ -43,21 +43,21 @@ An indexed artifact — a backlog story (`ST-NNNN`), a finding (`BUG-NNNN`), a p
 The usual sequence is:
 
 1. **Planning agent** commits proposals and indexed artifacts (all `status: pending`) on the branch where it makes them.
-2. **Implementation agent** creates the invocation branch from `dev` (automated mode uses `dispatch init`; manual mode uses `git checkout -b`).
-3. Story branches are cut from the invocation branch.
-4. After all stories pass gates, the invocation branch merges back to `dev`.
+2. **Implementation agent** creates the feature branch from `dev` with `dispatch init`, in an orchestrated run and in a run by hand.
+3. Story branches are cut from the feature branch.
+4. After all stories pass gates, the feature branch merges back to `dev`.
 
-### Invocation Branch
+### Feature Branch
 
-New invocation branches use `feature/<proposal-title>` and start from `dev`.
-In automated mode, every story branch starts from the invocation branch and
-uses linked worktrees. In manual mode, the human creates or adopts the branch
-in the primary checkout. The invocation branch defines the branch-root and
+New feature branches use `feature/<proposal-title>` and start from `dev`.
+Every story branch starts from the feature branch. In an orchestrated run, it
+uses a linked worktree. In a run by hand, `dispatch prepare-story` checks it
+out in the primary checkout. The feature branch defines the branch-root and
 branch-head pair below.
 
 ### Worktree Isolation
 
-A feature branch name is not a working directory. The universal branch/worktree rule above guarantees that every new branch is born in a dedicated worktree; dispatch adds the requirement to confirm — via `git worktree list --porcelain`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow — Automated Mode, Step 3](../../agents/implementation-agent.md#workflow--automated-mode) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared main checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
+A feature branch name is not a working directory. The universal branch/worktree rule above guarantees that every new branch is born in a dedicated worktree; dispatch adds the requirement to confirm — via `git worktree list --porcelain`, not the subagent's own report — that the worktree exists and is checked out to the correct branch before considering that subagent dispatched. See [implementation-agent.md § Workflow — Orchestrated Run, Step 3](../../agents/implementation-agent.md#workflow--orchestrated-run) for the enforcing workflow step. Motivating example: the 2026-07-10 `implementation-agent` dispatch, where a subagent's first git command ran against the shared primary checkout instead of its own worktree, chain-renaming the main branch through four story names before being caught.
 
 ### Verify-Base Preamble
 
@@ -96,10 +96,21 @@ Exit `0` means clean to merge. Exit non-zero means **block the merge** and inves
 
 `premerge-check`'s pass marker is one slot per checkout, keyed to the branch just checked — so each `premerge-check <branch>` call must be immediately followed by that branch's own `git merge`, one pair at a time, before checking the next branch. Batching checks ahead of merges overwrites the marker and the earlier merges get denied. This isn't a new constraint: a single working tree can only merge one branch at a time anyway (git's own index lock serializes it); the marker just now enforces the ordering mechanically instead of assuming the dispatcher follows it.
 
+### Merge Into Dev
+
+The feature checks start after the last wave of a run closes, on both ways, and run in this order:
+
+1. The code-review agent reviews the whole feature and writes `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`.
+2. The QA agent then explores the feature branch and writes the Fagan, security, and bug-hunt reports.
+3. The implementation agent runs `.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows the result. When it passes, the User merges the feature branch into `dev`. No agent merges into `dev`.
+4. The reconciliation agent reconciles the specification and the architecture against the code on `dev`.
+
+`premerge-check dev <feature-branch>` refuses while a unit of work of the run is `failed` or `blocked`, a unit of work is `pending` and no return holds it back (BR-113), a wave has no wave record, one of the four reports lacks `run` set to the feature branch and a `branch_head` that is an ancestor of the feature branch head, or a blocking finding of the run is open (BR-122). It runs the full test suite in a temporary worktree at `.current-work/<feature-branch>/premerge/feature` and removes it afterwards (BR-123).
+
 ### Two SHAs Tracked Per Invocation
 
-- **branch root** — the SHA on `main`/trunk the invocation branch was cut from.
-- **branch head** — the SHA of the last merge commit on the invocation branch, once every feature branch for the invocation has merged.
+- **branch root** — the SHA of the tip of the feature branch at `dispatch init` (BR-112). `dispatch init` cuts a new feature branch from `dev`, so the root of a new feature branch is the tip of `dev` at that moment.
+- **branch head** — the SHA of the last merge commit on the feature branch, once every story branch for the invocation has merged.
 
 Downstream review/QA agents are invoked with `--base <branch-root> --head <branch-head>` so they inspect exactly the delta this invocation introduced.
 
@@ -140,7 +151,7 @@ story/ST-0021, story/ST-0051, story/ST-0054, story/ST-0056          # parallel: 
 - [commit-conventions.md](commit-conventions.md) — commit format on feature branches
 - [versioning-policy.md](versioning-policy.md) — related but distinct: governs release tags, not in-progress branches
 - [dispatch-contract.md](dispatch-contract.md) — sub-agent addressing and dispatch scope/checkpointing, the non-branching half of the dispatch contract this rulebook's Verify-Base Preamble and Pre-Merge Diff Check sections belong to
-- [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) — the enforcing agent's workflow
+- [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) — the enforcing agent's workflow
 - [verify-base](../../scripts/verify-base) — Verify-Base Preamble / Declared Base SHA enforcement
 - [premerge-check](../../scripts/premerge-check) — Pre-Merge Diff Check enforcement
 - [docs/reviews/retro-2026-07-12.md](../../../../docs/reviews/retro-2026-07-12.md) and [docs/reviews/retro-2026-07-10.md](../../../../docs/reviews/retro-2026-07-10.md) — the sessions that motivated these sections

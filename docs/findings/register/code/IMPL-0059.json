@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0059",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:946-964",
+  "story": "ST-0423",
+  "finding": "premerge-check accepts the stored list mutants without a check that it belongs to the code it reruns. mutation_rerun_result takes the exit code from the rerun at the branch head and the list from .current-work/mutation-testing/<story-id>.json, but it compares neither a commit, the story_id field, nor the number of survivors. A list written for an earlier head, whose survivors are all resolved, therefore passes a rerun that fails on new survivors or on a crash of the mutation tool. The documented flow closes most of this path, because each run of the gate-check step rewrites the file without mutants, and the implementation agent writes the list after the last run. premerge-check is meant as an independent second gate, though, and here it trusts the gate-check step. The interface contract does not say which file it reads, as row 1 of spec-feedback-ST-0423.md records. The smallest fix has two parts. The gate-check step writes branch_head into the stored result, and mutation_rerun_result fails when branch_head is not the head of the story branch or story_id is not the story.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the feature branch, and the gate is off in this repository (no to in_use). The story's Analysis prescribes the stored list, and each gate-check run rewrites the file, so a stale list needs a skipped step (no to fails_purpose). Until the fix, the dispatcher must make sure that the list it writes comes from the last run.",
+  "commit": "6aee3022b31b942630e43affbf94ee3f060ed1ea",
+  "status": "open"
+}

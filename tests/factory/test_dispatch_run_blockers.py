@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import SOURCE_SCRIPTS_DIR
+from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 from test_dispatch_merge_safety import (
     STORY,
     _dispatch,
@@ -28,15 +28,15 @@ def _repo(
     tmp_path: Path,
     *,
     testing_yaml: str | None = None,
-    project_json: bool = True,
+    test_command_file: bool = True,
     first_story: str = STORY,
     second_story: str = DEPENDENT_STORY,
 ) -> dict[str, Path]:
     """A repo with ST-0001 and ST-0002 (which depends on ST-0001).
 
     *testing_yaml* is committed as docs/testing.yaml when given. Without it,
-    config/project.json carries the test command, unless *project_json* is
-    False. *first_story* and *second_story* are the backlog templates for
+    docs/testing.yaml holds the test command `true`, unless
+    *test_command_file* is False. *first_story* and *second_story* are the backlog templates for
     ST-0001 and ST-0002.
     """
     repo = tmp_path / "repo"
@@ -50,9 +50,9 @@ def _repo(
     if testing_yaml is not None:
         (repo / "docs").mkdir()
         (repo / "docs" / "testing.yaml").write_text(testing_yaml)
-    elif project_json:
-        (repo / "config").mkdir()
-        (repo / "config" / "project.json").write_text('{"test_command": "true"}')
+    elif test_command_file:
+        (repo / "docs").mkdir()
+        (repo / "docs" / "testing.yaml").write_text('test_command: "true"\n')
     (repo / ".gitignore").write_text(".current-work/\n")
     (repo / "src" / ".keep").write_text("")
     _git(repo, "add", "-A")
@@ -180,30 +180,30 @@ def test_an_unreadable_testing_yaml_still_yields_its_test_command(tmp_path):
     assert "explicit indentation indicator" in result.stderr
 
 
-def test_a_null_testing_yaml_command_falls_back_to_project_json(tmp_path):
-    r = _repo(tmp_path, testing_yaml="test_command: null\ntest_all: null\n")
+@pytest.mark.spec("RL-01-CT-01")
+@pytest.mark.parametrize(
+    "testing_yaml", ["test_command: null\ntest_all: null\n", None],
+    ids=["no-command", "no-file"],
+)
+def test_RL_01_CT_01_init_takes_the_test_command_only_from_testing_yaml(
+    tmp_path, testing_yaml
+):
+    """Scenario: The test command comes from docs/testing.yaml.
+
+    A config/project.json with a test command no longer counts."""
+    r = _repo(tmp_path, testing_yaml=testing_yaml, test_command_file=False)
     (r["repo"] / "config").mkdir()
-    (r["repo"] / "config" / "project.json").write_text(
-        '{"test_command": "from-project-json"}'
-    )
+    (r["repo"] / "config" / "project.json").write_text('{"test_command": "true"}')
 
-    result = _prepare_wave_one(r)
+    result = _init(r)
 
-    assert result.returncode == 0, result.stderr
-    assert _contract_test_command(r, "ST-0001") == "from-project-json"
-
-
-def test_project_json_is_the_fallback_without_testing_yaml(tmp_path):
-    r = _repo(tmp_path)
-
-    result = _prepare_wave_one(r)
-
-    assert result.returncode == 0, result.stderr
-    assert _contract_test_command(r, "ST-0001") == "true"
+    assert result.returncode != 0
+    assert "docs/testing.yaml" in result.stderr
+    assert not r["ledger"].exists()
 
 
 def test_testing_yaml_is_read_from_the_main_checkout(tmp_path):
-    r = _repo(tmp_path, project_json=False)
+    r = _repo(tmp_path, test_command_file=False)
     # Untracked in the main checkout, so the invocation worktree lacks it.
     (r["repo"] / "docs").mkdir()
     (r["repo"] / "docs" / "testing.yaml").write_text("test_command: main-cmd\n")
@@ -266,6 +266,10 @@ def test_close_wave_does_not_list_a_story_whose_dependency_failed(tmp_path):
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
     ledger = lib.Ledger.load(r["ledger"])
     ledger.stories["ST-0001"].status = lib.StoryState.FAILED
+    # Only a failed story that has stopped lets its wave close (ST-0421).
+    ledger.stories["ST-0001"].attempts = [
+        {"failure_class": "contract_violation"}, {"failure_class": "contract_violation"},
+    ]
 
     record, _ = ledger.close_wave(1, "a" * 40)
 
@@ -278,6 +282,8 @@ def test_prepare_wave_skips_a_story_whose_dependency_is_blocked(tmp_path):
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
     assert _dispatch(r["repo"], r["ledger"], "prepare-wave", "1").returncode == 0
     _block_story(r, "ST-0001")
+    # The next wave waits for the wave record (BR-113, ST-0421).
+    assert _dispatch(r["repo"], r["ledger"], "close-wave", "1").returncode == 0
 
     result = _dispatch(r["repo"], r["ledger"], "prepare-wave", "2")
 
@@ -315,19 +321,26 @@ def test_prepare_wave_retry_succeeds_after_verify_base_fails(tmp_path):
     assert _init(r, "ST-0001").returncode == 0
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
 
-    # Make verify-base fail once: move the invocation branch ahead of the
-    # ledger's base, so the story worktree would start behind its target.
-    (r["inv"] / "src" / "ahead.txt").write_text("ahead\n")
-    _git(r["inv"], "add", "-A")
-    _git(r["inv"], "commit", "-qm", "ahead")
+    # Make verify-base fail once: the first checkout of a story worktree
+    # moves the invocation branch ahead, so the worktree starts behind its
+    # target. prepare-wave cuts from the tip of the branch (ST-0431), so the
+    # move has to happen after the cut.
+    marker = r["repo"] / ".git" / "ahead-once"
+    hook = r["repo"] / ".git" / "hooks" / "post-checkout"
+    hook.write_text(
+        "#!/bin/sh\n"
+        f'[ -e "{marker}" ] && exit 0\n'
+        f'touch "{marker}"\n'
+        'ahead=$(git -c user.name=t -c user.email=t@t commit-tree '
+        '"feat/x^{tree}" -p feat/x -m ahead)\n'
+        'git update-ref refs/heads/feat/x "$ahead"\n'
+    )
+    hook.chmod(0o755)
     failed = _dispatch(r["repo"], r["ledger"], "prepare-wave", "1")
     assert failed.returncode != 0
+    assert "verify-base failed for ST-0001" in failed.stderr
     assert _git(r["repo"], "branch", "--list", "story/ST-0001") == ""
 
-    # Bring the ledger's base up to the branch, then retry.
-    data = _ledger(r)
-    data["branch_head"] = _git(r["repo"], "rev-parse", "feat/x")
-    r["ledger"].write_text(yaml.safe_dump(data))
     retry = _dispatch(r["repo"], r["ledger"], "prepare-wave", "1")
 
     assert retry.returncode == 0, retry.stderr
@@ -386,7 +399,7 @@ def test_prepare_wave_rolls_back_when_the_manifest_step_fails(tmp_path):
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
     # Without a test command the handoff contract, and so the manifest
     # step, fails after the workspace exists.
-    (r["repo"] / "config" / "project.json").unlink()
+    (r["repo"] / "docs" / "testing.yaml").unlink()
 
     result = _dispatch(r["repo"], r["ledger"], "prepare-wave", "1")
 
@@ -442,6 +455,7 @@ def _commit_story_work(
     for rel in (f"src/{story_id}.txt", *extra_paths):
         (story / rel).parent.mkdir(parents=True, exist_ok=True)
         (story / rel).write_text("work\n")
+    write_review_report(story, story_id)
     _git(story, "add", "-A")
     _git(story, "commit", "-qm", "story work")
     sha = _git(story, "rev-parse", "HEAD")
@@ -464,6 +478,8 @@ def chain(tmp_path: Path) -> dict[str, Path]:
     assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
     assert _dispatch(r["repo"], r["ledger"], "prepare-wave", "1").returncode == 0
     _finish_story(r, "ST-0001")
+    # ST-0002 lies in wave 2, which waits for the record of wave 1 (ST-0421).
+    assert _dispatch(r["repo"], r["ledger"], "close-wave", "1").returncode == 0
     return r
 
 
@@ -505,7 +521,7 @@ def test_prepare_story_points_a_failed_story_to_re_dispatch(chain):
 
 
 def test_prepare_story_rolls_back_when_the_manifest_step_fails(chain):
-    (chain["repo"] / "config" / "project.json").unlink()
+    (chain["repo"] / "docs" / "testing.yaml").unlink()
 
     result = _dispatch(chain["repo"], chain["ledger"], "prepare-story", "ST-0002")
 
@@ -710,11 +726,14 @@ def test_refresh_story_refuses_a_worktree_on_another_branch(parallel):
 
 
 def _interrupt_merge_story(r: dict[str, Path], tmp_path: Path) -> None:
-    """Run merge-story for ST-0002 and kill it after the merge commit."""
+    """Run merge-story for ST-0002 and kill it after the merge commit.
+
+    The killing test command is an uncommitted change in the feature
+    worktree, so the key turns off the refusal of BR-124 (ST-0416)."""
     sentinel = tmp_path / "killed"
-    (r["inv"] / "config" / "project.json").write_text(
-        '{"test_command": "test -f %s || { touch %s; kill -9 $PPID; }"}'
-        % (sentinel, sentinel)
+    (r["inv"] / "docs" / "testing.yaml").write_text(
+        f"test_command: 'test -f {sentinel} || {{ touch {sentinel}; kill -9 $PPID; }}'\n"
+        "dispatch:\n  refuse_dirty_feature_worktree: false\n"
     )
     _dispatch(r["inv"], r["ledger"], "merge-story", "ST-0002")
     assert _git(r["inv"], "rev-parse", "HEAD^2") == _git(r["repo"], "rev-parse", "story/ST-0002")

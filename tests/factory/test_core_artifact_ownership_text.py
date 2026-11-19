@@ -293,8 +293,8 @@ class TestSt0357TestStrategyAgentDefinition:
     def test_st_0357_mutation_testing_records_only_enabled_and_command(self):
         workflow = _flat(_section(TEST_STRATEGY_AGENT.read_text(encoding="utf-8"), "Workflow"))
         assert (
-            "only `gates.mutation_testing.enabled` and "
-            "`gates.mutation_testing.command`" in workflow
+            "only `gates.mutation-testing.enabled` and "
+            "`gates.mutation-testing.command`" in workflow
         )
         assert "writes no configuration file of the mutation tool" in workflow
 
@@ -695,7 +695,7 @@ def _resolve_qa_step() -> str:
 
 def _post_wave_step() -> str:
     workflow = _section(
-        IMPLEMENTATION_AGENT.read_text(encoding="utf-8"), "Workflow — Automated Mode"
+        IMPLEMENTATION_AGENT.read_text(encoding="utf-8"), "Workflow — Orchestrated Run"
     )
     match = re.search(
         r"^\d+\. \*\*Route the QA findings\*\*.*?(?=^\d+\. \*\*|\Z)",
@@ -711,10 +711,20 @@ class TestSt0358MutationTestingFilesAQaFinding:
     """CAO-12-LN-01: an unresolved mutant becomes a QA finding with its owner."""
 
     def test_st_0358_file_qa_finding_names_path_and_owner(self):
+        """The owner follows the cause (RL-12-LN-02, settled OI-17, ST-0423)."""
         text = _flat(MUTATION_TESTING.read_text(encoding="utf-8"))
         assert "`docs/findings/QA-NNNN.md`" in text
-        assert "`owner: test-strategy-agent`" in text
         assert "`status: open`" in text
+        assert "The owner follows the cause (RL-G24)" in text
+        assert (
+            "| The mutant needs a test that the gate-check step could not write "
+            "within its attempts | `owner: planning-agent` |"
+        ) in text
+        assert (
+            "| The mutant does not change behaviour, or a gate setting is wrong, "
+            "so no test should kill it | `owner: test-strategy-agent` |"
+        ) in text
+        assert "Set `owner: test-strategy-agent`" not in text
 
 
 @pytest.mark.spec("CAO-12-LN-01")
@@ -795,25 +805,17 @@ MUTATION_SCRIPT = ".agent-factory/factory/scripts/mutation-testing"
 
 def _gate_check_loop() -> str:
     text = IMPLEMENTATION_AGENT.read_text(encoding="utf-8")
-    match = re.search(r"^### Gate-Check Loop\n(.*?)(?=^## |\Z)", text, re.M | re.S)
-    assert match, "section '### Gate-Check Loop' missing"
+    match = re.search(r"^### Gate-Check Step\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    assert match, "section '### Gate-Check Step' missing"
     return _flat(match.group(1))
-
-
-def _run_the_gates_step() -> str:
-    workflow = _section(DEVELOPER_AGENT.read_text(encoding="utf-8"), "Workflow")
-    match = re.search(
-        r"^\d+\. \*\*Run the gates\*\*.*?(?=^\d+\. \*\*|^\*\*Pause point|\Z)",
-        workflow,
-        re.M | re.S,
-    )
-    assert match, "no step 'Run the gates'"
-    return _flat(match.group(0))
 
 
 @pytest.mark.spec("CAO-11-LN-01")
 class TestSt0365FourGatesInBothModes:
-    """CAO-11-LN-01: the gate section and the manual-mode step name the four gates."""
+    """CAO-11-LN-01: the gate section names the four gates and runs them on both ways.
+
+    The developer agent runs no gate (RL-02-LN-02), so its gate step and the
+    tests of that step are gone (ST-0411)."""
 
     @pytest.mark.parametrize("gate", FOUR_GATES)
     def test_st_0365_gate_section_names_the_gate(self, gate):
@@ -823,27 +825,18 @@ class TestSt0365FourGatesInBothModes:
         section = _gate_check_loop()
         assert MUTATION_SCRIPT in section
         assert "in the background" in section
-        assert "`gates.mutation_testing.timeout_minutes`, 30 when unset" in section
+        assert "`gates.mutation-testing.timeout_minutes`, 30 when unset" in section
         assert "Set no limit of your own" in section
         assert "names the test-strategy agent" in section
 
-    def test_st_0365_gate_section_hands_manual_mode_to_the_developer_agent(self):
+    def test_st_0365_gate_section_keeps_the_gates_from_the_developer_agent(self):
         section = _gate_check_loop()
-        assert "In manual mode, the developer agent runs the same gates" in section
+        assert "The developer agent runs no gate script." in section
+        assert "the developer agent runs the same gates" not in section
         assert "replaces the mechanized gate-check loop" not in section
 
     def test_st_0365_mutation_script_is_a_context_input(self):
         assert MUTATION_SCRIPT in _frontmatter(IMPLEMENTATION_AGENT)["inputs"]["context"]
-
-    @pytest.mark.parametrize("gate", FOUR_GATES)
-    def test_st_0365_manual_mode_step_names_the_gate(self, gate):
-        assert f"`{gate}`" in _run_the_gates_step()
-
-    def test_st_0365_manual_mode_step_runs_before_the_handback(self):
-        step = _run_the_gates_step()
-        assert "Manual mode only (`--no-stage --no-commit`)" in step
-        assert "Before you hand the story back" in step
-        assert "Run `mutation-testing` in the background" in step
 
 
 # --- ST-0351: the stakeholder confirms term candidates per domain area ----
@@ -1056,12 +1049,12 @@ class TestSt0360DriftBecomesAReportRow:
         assert "Write only into the report of your own story." in step
 
     def test_st_0360_harness_mismatch_becomes_a_test_strategy_row(self):
-        step = _workflow_step(DEVELOPER_AGENT, 6)
+        step = _workflow_step(DEVELOPER_AGENT, 5)
         assert "the Owner is `test-strategy-agent`" in step
         assert "Update the QA strategy" not in step
 
     def test_st_0360_developer_spec_feedback_step_writes_rows_only(self):
-        step = _workflow_step(DEVELOPER_AGENT, 6)
+        step = _workflow_step(DEVELOPER_AGENT, 5)
         assert "Update docs if needed" not in step
         assert SPEC_FEEDBACK_REPORT in step
 
@@ -1232,19 +1225,19 @@ DISPATCH_CONTRACT = RULEBOOKS / "conventions" / "dispatch-contract.md"
 def _drift_rows_rule() -> str:
     return _flat(
         _subsection(
-            DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Drift Rows After A Merge"
+            DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Drift Rows At The Wave Close"
         )
     )
 
 
 def _manual_mode_rule() -> str:
     return _flat(
-        _subsection(DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Manual Mode")
+        _subsection(DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Run By Hand")
     )
 
 
-def _automated_step_4() -> str:
-    return _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", 4)
+def _automated_step(number: int) -> str:
+    return _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run", number)
 
 
 def _workflow_step_in(path, section: str, number: int) -> str:
@@ -1275,16 +1268,19 @@ class TestSt0362PostMergeDispatchOrder:
         assert "`reviewed_by:` entry of the owner's declaration" in rule
         assert "closes at `fixed`" in rule
 
-    def test_st_0362_implementation_agent_runs_the_rule_after_each_merge(self):
-        step = _automated_step_4()
+    def test_st_0362_implementation_agent_runs_the_rule_at_the_wave_close(self):
+        # The drift sessions moved from the merge to the wave close (OI-18,
+        # RL-11-LN-01; ST-0421).
+        step = _automated_step(5)
         owner = step.index("dispatches the owner of each `open` row")
         reviewer = step.index("dispatches the owner's reviewer for each `fixed` row")
-        assert step.index("merge-story") < owner < reviewer
-        assert "Drift Rows After A Merge" in step
-        assert "before `close-wave`" in step
+        assert step.index("dispatch close-wave") < owner < reviewer
+        assert "Drift Rows At The Wave Close" in step
+        assert "run `close-wave` again until it passes" in step
+        assert "Drift rows" not in _automated_step(4)
 
     def test_st_0362_route_the_qa_findings_stays_step_6(self):
-        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", 6)
+        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run", 6)
         assert step.startswith("6. **Route the QA findings**")
 
 
@@ -1319,27 +1315,34 @@ class TestSt0362ManualModeHoldsPerStory:
     """CAO-14-LN-01 and CAO-G31: per-story rule and QA routing at story close."""
 
     def test_st_0362_manual_mode_keeps_the_story_open(self):
+        # By hand each story is a wave of its own, so `close-wave` checks the
+        # rows and the human closes no story (RL-11-IT-03; ST-0421).
         rule = _manual_mode_rule()
         assert "the drift-row rule holds per story" in rule
         assert (
-            "The human does not close a story while its report has an `open` "
+            "`close-wave` refuses while the story's report has an `open` "
             "row, or a `fixed` row about an artifact on the core list." in rule
         )
+        assert "The human closes no story" in rule
+        assert "no ledger" not in rule
 
     def test_st_0362_manual_mode_routes_qa_findings_at_story_close(self):
         rule = _manual_mode_rule()
-        assert "At each story's close, the implementation agent routes the open `QA` findings" in rule
+        assert (
+            "At each story's wave close, the implementation agent routes the "
+            "open `QA` findings" in rule
+        )
         assert "CAO-G31" in rule
 
-    def test_st_0362_manual_workflow_closes_the_story_after_its_rows(self):
-        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Manual Mode", 8)
-        assert "Drift Rows After A Merge" in step
-        assert "§ Manual Mode" in step
-        assert "route the open `QA` findings" in step
-
-    def test_st_0362_manual_human_sets_done_only_at_close(self):
-        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Manual Mode", 5)
-        assert "step 8 closes the story" in step
+    def test_st_0362_run_by_hand_handles_the_rows_at_the_wave_close(self):
+        # A run by hand closes a wave per story; the human closes no story and
+        # sets no `done` (RL-11-IT-03, RL-02-LN-02; ST-0411). `close-wave`
+        # lists the rows first (OI-18; ST-0421).
+        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Run By Hand", 7)
+        assert "spec-feedback report" in step
+        assert step.index("dispatch close-wave") < step.index("spec-feedback report")
+        assert "route the `QA` findings" in step
+        assert "sets `status: done`" not in step
 
 
 @pytest.mark.spec("CAO-13-LN-01")
@@ -1350,7 +1353,7 @@ class TestSt0362DeveloperWritesNoAdr:
         assert "docs/adr/*.md" not in _declarations(_frontmatter(DEVELOPER_AGENT))
 
     def test_st_0362_adr_drift_is_a_row_for_the_architecture_agent(self):
-        step = _workflow_step(DEVELOPER_AGENT, 6)
+        step = _workflow_step(DEVELOPER_AGENT, 5)
         assert "A stale or missing ADR is drift" in step
         assert "the Owner is `architecture-agent`" in step
         assert "write-adr" not in step

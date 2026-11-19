@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0062",
+  "source": "code-review-agent",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/work/spec-feedback-ST-0431.md:6",
+  "story": "ST-0431",
+  "finding": "The spec-feedback report of ST-0431 misses one contract text that the re-dispatch fix changes. The first bullet of validation-rules.md § Dispatch ledger (line 169) says that re-dispatch is an idempotent no-op when the entry is already in the target state. Before ST-0431, re-dispatch of a prepared entry exited 0 and wrote nothing, because Ledger.transition returns early for the same state. Now cmd_re_dispatch refuses a prepared entry with exit 1, as the Contract table of the story asks. Row 2 of the report names only the re-dispatch bullet of interface-contracts.md § dispatch, so the domain-modeling agent can fix that bullet and leave the idempotency line as it is. Fix: add a row for docs/spec/validation-rules.md, Owner domain-modeling-agent, which says that re-dispatch is no longer a no-op on prepared and refuses it like pending, dispatching, dispatched and done, and that re-dispatch leaves the list of idempotent subcommands. Owner: developer-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The report already records that re-dispatch refuses prepared, so the owner who reads it learns the new behavior and no story builds from the stale line (no to fails_purpose); the idempotency line of validation-rules.md then contradicts the code until reconciliation finds it, and a reader must compare both to see which one holds (raises_cost). The report and the code exist only on story/ST-0431.",
+  "commit": "83403f1cdfc0cf0ceca7a6dff878c6e38ef3ae67",
+  "status": "resolved"
+}

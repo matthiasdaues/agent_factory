@@ -31,9 +31,9 @@ BRIEF_FILE = _section(CONTRACT.read_text(encoding="utf-8"), "Brief File")
 
 
 class TestBriefFileRule:
-    def test_briefs_go_under_current_work_in_the_main_checkout(self):
+    def test_briefs_go_under_current_work_in_the_primary_checkout(self):
         assert "`.current-work/<branch>/briefs/<task>.md`" in BRIEF_FILE
-        assert "main checkout" in BRIEF_FILE
+        assert "primary checkout" in BRIEF_FILE
 
     def test_scratch_files_go_under_current_work(self):
         assert "`.current-work/<branch>/scratch/<agent-or-story>/`" in BRIEF_FILE
@@ -44,9 +44,9 @@ class TestBriefFileRule:
     def test_prompt_names_the_brief_by_absolute_path(self):
         assert "absolute path" in BRIEF_FILE
 
-    def test_factory_inputs_come_from_the_main_checkout(self):
+    def test_factory_inputs_come_from_the_primary_checkout(self):
         """BUG-0092."""
-        assert "`<main checkout>/.agent-factory/factory/`" in BRIEF_FILE
+        assert "`<primary checkout>/.agent-factory/factory/`" in BRIEF_FILE
 
 
 class TestPiWorktreePath:
@@ -63,8 +63,9 @@ class TestPiWorktreePath:
         assert "join(worktreeDir(cwd, params.target), sanitizeBranch(item.branch))" in source
 
     def test_guard_accepts_any_path_under_current_work(self):
-        source = (EXTENSIONS / "block-dangerous-git.ts").read_text(encoding="utf-8")
-        assert 'wtPath.startsWith(".current-work/")' in source
+        # ST-0427, ADR-0039: the rule left pi's extension for the shared script.
+        source = (REPO_ROOT / "packages/factory/config/hooks/block-dangerous-git.sh").read_text(encoding="utf-8")
+        assert ".current-work/*) ;; # allowed" in source
         assert ".current-work/<feature-branch>/<branch>" in source
 
 

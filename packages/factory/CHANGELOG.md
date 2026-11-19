@@ -341,7 +341,7 @@ gate selection in `premerge-check` takes effect only after the update.
 - **The mutation command is a gate.** The new script `mutation-testing`
   runs the project's mutation command from `docs/testing.yaml`. A merge
   is blocked when the command fails, is missing, or exceeds its time
-  limit. The developer agent runs the same gates in manual mode before it
+  limit. The developer agent runs the same gates in a run by hand before it
   hands a story back (ST-0365).
 - **Drift goes to the artifact's owner.** The developer agent writes
   each drift into its story's spec-feedback report and changes no
@@ -456,15 +456,15 @@ one.
 
 ### Fixes
 
-- **Briefs stay in the main checkout.** On every CLI, the dispatch
-  contract puts briefs and scratch files in the main checkout. A brief
+- **Briefs stay in the primary checkout.** On every CLI, the dispatch
+  contract puts briefs and scratch files in the primary checkout. A brief
   goes to `.current-work/<branch>/briefs/<task>.md`, and a scratch file to
   `.current-work/<branch>/scratch/<agent-or-story>/`. The prompt names the
   brief by absolute path. Briefs no longer sit under `/tmp`, which the
   system can empty.
-- **Briefs name factory files in the main checkout.** A linked worktree
+- **Briefs name factory files in the primary checkout.** A linked worktree
   holds no `.agent-factory/`. So a brief names each factory input by
-  absolute path under `<main checkout>/.agent-factory/factory/`
+  absolute path under `<primary checkout>/.agent-factory/factory/`
   (BUG-0092).
 - **Pi worktrees follow the rulebook.** Pi's `dispatch-wave` cuts
   worktrees under `.current-work/<target>/`, and its git guard accepts any
@@ -579,7 +579,7 @@ one.
 ### Fixes
 
 - **Brownfield checks hold.** `scope-lint` reads workstream IDs from the
-  main checkout when it runs in a linked worktree. A `.dsl` file declares
+  primary checkout when it runs in a linked worktree. A `.dsl` file declares
   its scope with `# scope:` on line 1, and `// scope:` still passes.
   Agent definitions accept an `any_of` form for required inputs, and
   `index-lint` rejects a malformed one. The architecture agent does not
