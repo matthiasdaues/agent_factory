@@ -735,6 +735,28 @@ def held_back(ledger: Ledger, entry: StoryEntry) -> bool:
     )
 
 
+# A close accepts a run whose units of work are done or pending (BR-119).
+CLOSE_ACCEPTED_STATES = frozenset({StoryState.DONE, StoryState.PENDING})
+
+
+def close_refusals(ledger: Ledger) -> list[str]:
+    """Name each unit of work that keeps `dispatch close` from ending the run.
+
+    BR-119 refuses failed and blocked. A unit of work in progress is refused
+    too, because its worktree holds work that the close would remove."""
+    return [
+        f"dispatch close: {entry.id} is {entry.status.value}; close accepts "
+        "only done and pending units of work"
+        for entry in ledger.stories.values()
+        if entry.status not in CLOSE_ACCEPTED_STATES
+    ]
+
+
+def stash_name(feature_branch: str, label: str, day: str) -> str:
+    """The name of the stash a close makes of one worktree (BR-119)."""
+    return f"run {feature_branch} {label} {day}"
+
+
 # ---------------------------------------------------------------------------
 # Minimal YAML handling (stdlib only, no PyYAML dependency)
 # ---------------------------------------------------------------------------
@@ -2028,8 +2050,10 @@ READ_SUBCOMMANDS = frozenset(
         "mark-blocked",
         "mark-failed",
         "clear-manifest",
-        # return-story starts and merges no work, so a stop allows it (BR-091).
+        # return-story and close start and merge no work, so a stop allows
+        # them (BR-091).
         "return-story",
+        "close",
     }
 )
 
