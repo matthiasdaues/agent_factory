@@ -1135,8 +1135,12 @@ On Prepare:
     RejectCommand("dispatch: the unit of work was returned and waits for the end of the run")
   else if a dependency inside the run is not done
     RejectCommand("dispatch: a dependency inside the run is not done")
-  else if the previous wave has no wave record
+  else if the run is by hand and the previous wave has no wave record
+    # prepare-story by hand (BR-113)
     RejectCommand("dispatch: the previous wave has no wave record")
+  else if prepare-wave runs and an earlier wave holds an entry that can still start or is in progress
+    # an entry that is prepared, dispatching, dispatched, or pending and not held back (BR-113)
+    RejectCommand("dispatch: an earlier wave holds an entry that is not finished")
   else
     ChangeState(PREPARED)
 On Block:
@@ -1231,6 +1235,7 @@ stateDiagram-v2
 #### Notes
 
 - **PENDING** is also where a returned unit of work ends a run. **Return** sets the field `returned` of the entry to `true`, and **Added** sets it back to `false`. **Prepare** refuses an entry with `returned: true`. So a returned story stays **PENDING** until the run ends, and a returned finding starts again only after `dispatch add` (BR-113, BR-117). `dispatch close` accepts a **PENDING** entry, and a returned story stays in the backlog with `status: pending` (BR-116, BR-119).
+- **Prepare** checks the earlier waves in two ways. By hand, `prepare-story` refuses until the previous wave has a wave record. In an orchestrated run, `prepare-wave <N>` reads the states of the entries of the earlier waves instead. A **DONE**, **FAILED**, or **BLOCKED** entry lets wave N start, and so does a held-back entry. A held-back entry is a **PENDING** entry with `returned: true` or one that depends on a returned story, directly or through another story. It can never start in this run, so it holds back no later wave. Orchestrated `prepare-story` prepares the next link of a serial chain and checks no wave (BR-113).
 - **Added** applies only to a finding. `dispatch add` refuses an ID in any state other than **PENDING** and names that state (BR-117).
 - A refused merge is no edge. When `premerge-check` refuses, or the worktree of the feature branch in an orchestrated run holds an uncommitted change, `dispatch merge-story` merges nothing, and the entry stays **DISPATCHED** (BR-124). By hand, a checkout or a merge that git refuses keeps the entry **DISPATCHED** too. In an orchestrated run, a merge that git refuses goes to **BLOCKED** with the reason `merge conflict` (BR-116). A red test suite after the merge goes to **BLOCKED** on both ways, because the merge ran (BR-116). Two refusals after the merge are no edge. When a hook refuses the amend that writes `status: done` into the merge commit, or git refuses the reset after a red test suite, `merge-story` exits `1`, and the entry stays **DISPATCHED** until a rerun (BR-118). The rerun finds the merge commit at `HEAD`. It runs no `premerge-check` and no merge, and it does not refuse the uncommitted change that the refused amend left (BR-124).
 - **Escalate** is no edge. `dispatch escalate` changes the tier of the entry and leaves its state. A refusal leaves the state too. After a failed attempt, the next **ReDispatch** runs on the new tier (BR-115).
