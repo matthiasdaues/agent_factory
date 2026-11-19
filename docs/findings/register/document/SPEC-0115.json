@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The states after prepare-wave match BR-113, because the chain link stays pending and prepare-story prepares it as BR-113 says, so an implementer reaches the right behavior (no to fails_purpose); a test writer who asserts the message for a chain link must read the code to learn that none is printed (raises_cost).",
   "commit": "c127c4c7c68e8eca50eda874d944e7c96cefb50b",
-  "status": "open"
+  "status": "resolved"
 }
