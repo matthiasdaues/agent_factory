@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0057",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:665-693",
+  "story": "ST-0422",
+  "finding": "A story branch can still take a finding of another story into its own files by renaming the file. git diff --name-only detects renames by default, so the diff lists only the new name and not the deleted old one. The new name does not exist at the merge base, so story_owned_files reads the story field at the branch head. The review checked this in a scratch repository: docs/findings/BUG-0092.md with story ST-0351 and status open on feature/login, renamed on story/ST-0350 to docs/findings/BUG-0092-fixed.md with story ST-0350 and status resolved. The diff listed only docs/findings/BUG-0092-fixed.md, and story_owned_files returned it as a file of ST-0350. The rewrite in place, the case of IMPL-0027, now returns no owned file. finding-lint refuses the removal of an open finding file that carries review_class, so the path stays open for a finding file without review_class or a commit that skips the hooks. The behavior looks unintended. The smallest fix is to pass --no-renames to the git diff --name-only calls in premerge-check and in _story_owned_scope and _story_scope_violation of dispatch, so the deleted old name stays in the diff and needs a scope entry.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The fix of IMPL-0027 holds for the case that the story names, and the rename needs an agent that deletes another story's finding, which no agent definition asks for and finding-lint refuses for a file with review_class (no to fails_purpose). If it happens, a blocking finding leaves the merge checks, and someone must find it in the history. The lines exist only on story/ST-0422, so in_use is false.",
+  "commit": "2e0a7861c034a3a2a95d0c8860e598de190ff051",
+  "status": "open"
+}
