@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -2109,6 +2110,63 @@ def _checkout_feature_branch_by_hand(
     return 1
 
 
+# The hooks that run on ``git commit --amend`` and can refuse it.
+AMEND_HOOKS = ("pre-commit", "prepare-commit-msg", "commit-msg")
+
+
+def _merge_commit_story_status(story_path: Path, project_root: Path) -> str | None:
+    """Return the ``status:`` of the story file in HEAD, or None without one."""
+    rel = story_path.relative_to(project_root).as_posix()
+    code, text, _ = _git("show", f"HEAD:{rel}")
+    if code != 0:
+        return None
+    fm = parse_story_frontmatter(text)
+    return (fm or {}).get("status")
+
+
+def _amend_hook_names() -> list[str]:
+    """Name the executable hooks that can refuse an amend, in the order git runs them."""
+    code, hooks_dir, _ = _git("rev-parse", "--git-path", "hooks")
+    if code != 0 or not hooks_dir:
+        return []
+    folder = Path(hooks_dir)
+    if not folder.is_absolute():
+        folder = Path.cwd() / folder
+    return [
+        name for name in AMEND_HOOKS
+        if (folder / name).is_file() and os.access(folder / name, os.X_OK)
+    ]
+
+
+def _amend_status_into_merge_commit(
+    project_root: Path, story_id: str, story_path: Path
+) -> int:
+    """Write ``status: done`` into the merge commit by amending it (BR-118).
+
+    A refused amend exits 1 and names the hook that refused it. The caller
+    then leaves the entry ``dispatched``; a rerun amends again.
+    """
+    _update_story_status_in_file(project_root, story_id, "done")
+    _git("add", "--", str(story_path.relative_to(project_root)))
+    amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
+    if amend_code == 0:
+        return 0
+    hooks = _amend_hook_names()
+    if len(hooks) == 1:
+        who = f"the {hooks[0]} hook refused"
+    elif hooks:
+        who = f"one of the hooks {', '.join(hooks)} refused"
+    else:
+        who = "git refused"
+    print(
+        f"error: {who} the amend that writes status: done into the merge "
+        f"commit; {story_id} is not done. Fix the cause, then run "
+        f"merge-story {story_id} again ({amend_err})",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
@@ -2187,9 +2245,6 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         return 1
 
     story_path = project_root / "backlog" / f"{entry.id}.md"
-    fm = (
-        parse_story_frontmatter(story_path.read_text()) if story_path.exists() else None
-    )
     outputs = _story_output_globs(project_root, entry.id)
 
     # Interrupted-merge recovery: a prior run created the merge commit (and
@@ -2287,14 +2342,13 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
 
     if already_merged:
         pre_merge_sha = _git("rev-parse", "HEAD^1")[1]
-        if (fm or {}).get("status") != "done" and _update_story_status_in_file(
-            project_root, entry.id, "done"
+        # Read the status from the merge commit, not from the working tree:
+        # after a refused amend the file already says done (BR-118).
+        if (
+            _merge_commit_story_status(story_path, project_root) != "done"
+            and _amend_status_into_merge_commit(project_root, entry.id, story_path) != 0
         ):
-            _git("add", "--", str(story_path.relative_to(project_root)))
-            amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
-            if amend_code != 0:
-                print(f"error: failed to amend merge commit: {amend_err}", file=sys.stderr)
-                return 1
+            return 1
         merge_sha = _git("rev-parse", "HEAD")[1]
     else:
         pre_merge_sha = _git("rev-parse", "HEAD")[1]
@@ -2330,11 +2384,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             )
             return 1
 
-        _update_story_status_in_file(project_root, entry.id, "done")
-        _git("add", "--", str(story_path.relative_to(project_root)))
-        amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
-        if amend_code != 0:
-            print(f"error: failed to amend merge commit: {amend_err}", file=sys.stderr)
+        if _amend_status_into_merge_commit(project_root, entry.id, story_path) != 0:
             return 1
 
         merge_sha = _git("rev-parse", "HEAD")[1]
@@ -2355,7 +2405,18 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             print(test_result.stderr, file=sys.stderr)
 
         if test_result.returncode != 0:
-            _git("reset", "--hard", pre_merge_sha)
+            # --keep moves the branch and the files the merge changed, and
+            # keeps an uncommitted change to any other file (IMPL-0031).
+            reset_code, _, reset_err = _git("reset", "--keep", pre_merge_sha)
+            if reset_code != 0:
+                print(
+                    f"error: test suite failed after merging {entry.branch}, and "
+                    f"git refused to move {target_branch} back to {pre_merge_sha} "
+                    f"without losing a local change; {entry.id} stays dispatched "
+                    f"({reset_err})",
+                    file=sys.stderr,
+                )
+                return 1
             entry.reason = "post-merge test failure"
             try:
                 ledger.transition(entry.id, StoryState.BLOCKED)

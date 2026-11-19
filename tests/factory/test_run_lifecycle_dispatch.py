@@ -608,16 +608,19 @@ echo "[]" > "$report_dir/ST-0350.json"
 """
 
 
-def _dispatched_by_hand(tmp_path: Path, *, code: str, rules: bool) -> dict[str, Path]:
+def _dispatched_by_hand(
+    tmp_path: Path, *, code: str, rules: bool, testing: str = TESTING_YAML
+) -> dict[str, Path]:
     """A run by hand on feature/login whose ST-0350 is dispatched and reviewed
-    in the primary checkout; *code* becomes src/ST-0350.py."""
+    in the primary checkout; *code* becomes src/ST-0350.py, and *testing*
+    becomes docs/testing.yaml."""
     repo = tmp_path / "repo"
     for folder in ("backlog", "docs/spec", "src"):
         (repo / folder).mkdir(parents=True)
     _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
     for story_id in ("ST-0350", "ST-0351"):
         (repo / "backlog" / f"{story_id}.md").write_text(MERGE_STORY.format(id=story_id))
-    (repo / "docs" / "testing.yaml").write_text(TESTING_YAML)
+    (repo / "docs" / "testing.yaml").write_text(testing)
     (repo / ".gitignore").write_text(".current-work/\n/.agent-factory/\n")
     (repo / "src" / ".keep").write_text("")
     if rules:
@@ -792,3 +795,107 @@ def test_RL_17_IT_01_commit_sha_holds_the_merge_commit(tmp_path):
     assert prepared.returncode == 0, prepared.stdout + prepared.stderr
     assert _ledger(repo, "feature/login")["stories"]["ST-0351"]["base_sha"] == merge_commit
     assert _git(repo, "rev-parse", "story/ST-0351") == merge_commit
+
+
+# A suite that fails only with feature/login checked out, so premerge-check
+# passes in its temporary worktree and the run after the merge fails.
+RED_ON_FEATURE = (
+    'test_command: "test \\"$(git branch --show-current)\\" != feature/login"\n'
+)
+
+
+@pytest.mark.spec("RL-06-IT-02")
+def test_RL_06_IT_02_a_red_suite_by_hand_keeps_a_change_outside_the_story(tmp_path):
+    """Scenario: A red test suite after a merge moves the feature branch back.
+
+    By hand, the rollback keeps an uncommitted change to a file that the story
+    did not touch (IMPL-0031)."""
+    run = _dispatched_by_hand(
+        tmp_path, code="import os\n", rules=False, testing=RED_ON_FEATURE
+    )
+    repo, ledger = run["repo"], run["ledger"]
+    tip = _git(repo, "rev-parse", "feature/login")
+    untouched = repo / "src" / ".keep"
+    untouched.write_text("my uncommitted work\n")
+
+    result = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "test suite failed after merging" in result.stderr
+    assert untouched.read_text() == "my uncommitted work\n"
+    assert _git(repo, "rev-parse", "feature/login") == tip
+    entry = _ledger(repo, "feature/login")["stories"]["ST-0350"]
+    assert entry["status"] == "blocked"
+    assert entry["reason"] == "post-merge test failure"
+
+
+# The hook prints no name of its own, so the name in the message comes from
+# merge-story.
+REFUSING_PRE_COMMIT = "#!/bin/sh\necho 'refused' >&2\nexit 1\n"
+
+
+def _refuse_commits(repo: Path) -> Path:
+    """Install a pre-commit hook that refuses every commit, so also the amend."""
+    hook = Path(_git(repo, "rev-parse", "--absolute-git-dir")) / "hooks" / "pre-commit"
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    hook.write_text(REFUSING_PRE_COMMIT)
+    hook.chmod(0o755)
+    return hook
+
+
+@pytest.mark.spec("RL-02-IT-02")
+def test_RL_02_IT_02_a_refused_amend_by_hand_leaves_the_story_not_done(tmp_path):
+    """Scenario: Only dispatch merge-story sets a story to done.
+
+    A refused amend of the merge commit exits 1, names the hook, and keeps the
+    entry from done; the rerun puts status: done into the merge commit."""
+    run = _dispatched_by_hand(tmp_path, code="import os\n", rules=False)
+    repo, ledger = run["repo"], run["ledger"]
+    hook = _refuse_commits(repo)
+
+    refused = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert refused.returncode == 1, refused.stdout + refused.stderr
+    assert "the pre-commit hook refused" in refused.stderr
+    assert _ledger(repo, "feature/login")["stories"]["ST-0350"]["status"] != "done"
+
+    hook.unlink()
+    rerun = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    merged = _git(repo, "show", "feature/login:backlog/ST-0350.md")
+    assert "status: done" in merged.splitlines()
+    assert _git(repo, "status", "--porcelain", "--", "backlog") == ""
+    assert _ledger(repo, "feature/login")["stories"]["ST-0350"]["status"] == "done"
+
+
+@pytest.mark.spec("RL-02-IT-02")
+def test_RL_02_IT_02_a_refused_amend_in_an_orchestrated_run_leaves_the_story_not_done(
+    factory_repo,
+):
+    """The orchestrated path shares the amend, so it refuses the same way."""
+    repo, feature, ledger = (
+        factory_repo["repo"], factory_repo["feature"], factory_repo["ledger"],
+    )
+    story = factory_repo["story"]
+    (story / "src" / "ST-0350.txt").write_text("work\n")
+    write_review_report(story, "ST-0350")
+    _git(story, "add", "-A")
+    _git(story, "commit", "-qm", "story work")
+    sha = _git(story, "rev-parse", "HEAD")
+    assert _dispatch(repo, ledger, "verify-story", "ST-0350", "--sha", sha).returncode == 0
+    hook = _refuse_commits(repo)
+
+    refused = _dispatch(feature, ledger, "merge-story", "ST-0350")
+
+    assert refused.returncode == 1, refused.stdout + refused.stderr
+    assert "the pre-commit hook refused" in refused.stderr
+    assert yaml.safe_load(ledger.read_text())["stories"]["ST-0350"]["status"] != "done"
+
+    hook.unlink()
+    rerun = _dispatch(feature, ledger, "merge-story", "ST-0350")
+
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    merged = _git(feature, "show", "feat/x:backlog/ST-0350.md")
+    assert "status: done" in merged.splitlines()
+    assert yaml.safe_load(ledger.read_text())["stories"]["ST-0350"]["status"] == "done"
