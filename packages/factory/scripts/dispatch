@@ -14,6 +14,7 @@ Usage
   dispatch status
   dispatch init --base <branch> --stories ST-001,ST-002 [--mode orchestrated|by-hand]
   dispatch plan --backlog-dir backlog
+  dispatch close [--drop]
 
 Exit code: 0 on success, 1 on error, 2 on usage error.
 """
@@ -24,9 +25,11 @@ import argparse
 import importlib.util
 import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
@@ -54,6 +57,7 @@ from dispatch_lib import (
     append_attempt,
     attempt_limits,
     clear_manifest_force,
+    close_refusals,
     compute_wave_plan,
     counted_attempts_on_tier,
     counted_tier,
@@ -75,6 +79,7 @@ from dispatch_lib import (
     remove_manifest,
     render_handoff_contract,
     spec_feedback_path,
+    stash_name,
     stop_notice,
     suggest_tier,
     tier_attempt_limit,
@@ -2673,6 +2678,264 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     return 0
 
 
+# -- dispatch close: the end of a run (BR-119) --------------------------------
+
+# A finished run has merged its feature branch into this branch (RL-G05).
+CLOSE_TARGET = "dev"
+_UNIT_ID_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def _git_in(cwd: Path, *args: str) -> tuple[int, str, str]:
+    """Run git on the checkout at *cwd*, whatever folder dispatch runs in."""
+    return _git("-C", str(cwd), *args)
+
+
+def _registered_worktrees(main_root: Path) -> dict[Path, str | None] | None:
+    """Map each worktree that git lists to its branch, or None when detached."""
+    code, out, _ = _git_in(main_root, "worktree", "list", "--porcelain")
+    if code != 0:
+        return None
+    trees: dict[Path, str | None] = {}
+    path: Path | None = None
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            path = Path(line[len("worktree "):]).resolve()
+            trees[path] = None
+        elif line.startswith("branch refs/heads/") and path is not None:
+            trees[path] = line[len("branch refs/heads/"):]
+    return trees
+
+
+def _close_run_dir(current: Path, feature_branch: str) -> Path | None:
+    """The folder of the run under .current-work/, or None when it lies outside."""
+    run_dir = (current / feature_branch).resolve()
+    if run_dir == current or not run_dir.is_relative_to(current):
+        return None
+    return run_dir
+
+
+def _branch_exists(main_root: Path, branch: str) -> bool:
+    code, _, _ = _git_in(main_root, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}")
+    return code == 0
+
+
+def _unmerged_feature_refusal(main_root: Path, feature_branch: str) -> str | None:
+    """Name a feature branch that a close without --drop cannot end (BR-119)."""
+    for branch in (feature_branch, CLOSE_TARGET):
+        if not _branch_exists(main_root, branch):
+            return (
+                f"dispatch close: branch {branch} does not exist, so close cannot "
+                f"check that {feature_branch} is merged into {CLOSE_TARGET}; "
+                "to drop the run, run dispatch close --drop"
+            )
+    code, _, _ = _git_in(
+        main_root, "merge-base", "--is-ancestor",
+        f"refs/heads/{feature_branch}", f"refs/heads/{CLOSE_TARGET}",
+    )
+    if code == 0:
+        return None
+    return (
+        f"dispatch close: {feature_branch} is not merged into {CLOSE_TARGET}; "
+        "merge it first, or run dispatch close --drop to drop the run"
+    )
+
+
+def _run_worktrees(
+    main_root: Path,
+    current: Path,
+    run_dir: Path,
+    ledger: Ledger,
+    trees: dict[Path, str | None],
+) -> list[tuple[str, Path]]:
+    """The worktrees of the run, each with the label of its stash.
+
+    A worktree counts only when git lists it, it lies under .current-work/
+    of the primary checkout, and it is not the primary checkout. The story
+    worktrees come first and the worktree of the feature branch last,
+    because an old run nests the others inside it."""
+    picked: dict[Path, str] = {}
+
+    def take(path: Path, label: str) -> None:
+        if path in picked or path not in trees or not path.is_dir():
+            return
+        if path == main_root or not path.is_relative_to(current):
+            return
+        picked[path] = label
+
+    for entry in ledger.stories.values():
+        if entry.worktree:
+            take(Path(entry.worktree).resolve(), entry.id)
+        for path, branch in trees.items():
+            if entry.branch and branch == entry.branch:
+                take(path, entry.id)
+    premerge = run_dir / "premerge"
+    for path in trees:
+        if path != premerge and path.is_relative_to(premerge):
+            take(path, f"premerge/{path.relative_to(premerge)}")
+    for path, branch in trees.items():
+        if branch == ledger.feature_branch:
+            take(path, "feature")
+    return [(label, path) for path, label in picked.items()]
+
+
+def _stash_and_remove(
+    main_root: Path, path: Path, name: str
+) -> tuple[str | None, str | None]:
+    """Stash the changes of the worktree at *path*, then remove the worktree.
+
+    Return the stash name, when a stash was made, and the error, if any.
+    The stash is never applied (BR-119)."""
+    code, changes, err = _git_in(path, "status", "--porcelain")
+    if code != 0:
+        return None, f"git status failed in {path}: {err}"
+    stashed = None
+    if changes:
+        code, _, err = _git_in(path, "stash", "push", "--include-untracked", "-m", name)
+        if code != 0:
+            return None, f"git stash failed in {path}: {err}"
+        stashed = name
+    code, _, err = _git_in(main_root, "worktree", "remove", str(path))
+    if code != 0:
+        return stashed, f"git worktree remove failed for {path}: {err}"
+    return stashed, None
+
+
+def _marker_branch(text: str) -> str | None:
+    for line in text.splitlines():
+        if line.startswith("branch="):
+            return line[len("branch="):]
+    return None
+
+
+def _remove_run_markers(current: Path, ledger: Ledger, run_branches: list[str]) -> None:
+    """Remove the markers of the primary checkout that belong to the run.
+
+    Each marker inside a removed worktree went with that worktree. Only a
+    run by hand runs verify-base in the primary checkout (BR-112)."""
+    marker = current / "premerge-check-ok"
+    if marker.is_file() and _marker_branch(marker.read_text()) in run_branches:
+        marker.unlink()
+    if ledger.mode == "by-hand":
+        (current / "verify-base-ok").unlink(missing_ok=True)
+
+
+def _remove_gate_results(current: Path, ledger: Ledger) -> None:
+    """Remove .current-work/<gate>/<id>.json of each unit of work of the run."""
+    if not current.is_dir():
+        return
+    unit_ids = [uid for uid in ledger.stories if _UNIT_ID_RE.match(uid)]
+    for folder in current.iterdir():
+        if folder.is_symlink() or not folder.is_dir():
+            continue
+        for unit_id in unit_ids:
+            result = folder / f"{unit_id}.json"
+            if result.is_file() and not result.is_symlink():
+                result.unlink()
+
+
+def _remove_run_dir(main_root: Path, current: Path, run_dir: Path) -> list[Path]:
+    """Remove the folder of the run, unless a worktree that git lists is left in it.
+
+    Return the worktrees left, which keep the folder."""
+    trees = _registered_worktrees(main_root) or {}
+    left = [path for path in trees if path.is_relative_to(run_dir)]
+    if left:
+        return left
+    if run_dir.is_dir():
+        shutil.rmtree(run_dir)
+    parent = run_dir.parent
+    while parent != current and parent.is_relative_to(current):
+        try:
+            parent.rmdir()
+        except OSError:
+            break
+        parent = parent.parent
+    return []
+
+
+def _delete_run_branches(main_root: Path, branches: list[str]) -> None:
+    """Delete each merged branch with git branch -d, and list the others."""
+    for branch in branches:
+        if not _branch_exists(main_root, branch):
+            continue
+        code, _, err = _git_in(main_root, "branch", "-d", branch)
+        if code == 0:
+            print(f"deleted branch: {branch}")
+            continue
+        merged, _, _ = _git_in(main_root, "merge-base", "--is-ancestor", branch, "HEAD")
+        if merged != 0:
+            print(f"unmerged branch: {branch}")
+        else:
+            print(f"kept branch: {branch} ({err})")
+
+
+def _run_branches(ledger: Ledger) -> list[str]:
+    branches = [entry.branch for entry in ledger.stories.values() if entry.branch]
+    if ledger.feature_branch:
+        branches.append(ledger.feature_branch)
+    return list(dict.fromkeys(branches))
+
+
+def cmd_close(args: argparse.Namespace) -> int:
+    """End a finished run, or with --drop a dropped run (BR-119).
+
+    The close acts only on the worktrees, files and branches its own ledger
+    names, and on the run's folder under .current-work/ of the primary
+    checkout."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    feature_branch = ledger.feature_branch
+    main_root = _main_worktree_root().resolve()
+    current = (main_root / ".current-work").resolve()
+    run_dir = _close_run_dir(current, feature_branch) if feature_branch else None
+    if feature_branch is None or run_dir is None:
+        print(
+            f"error: the ledger {ledger_path} names no feature branch under {current}",
+            file=sys.stderr,
+        )
+        return 1
+    refusals = close_refusals(ledger)
+    if not args.drop:
+        refusal = _unmerged_feature_refusal(main_root, feature_branch)
+        refusals += [refusal] if refusal else []
+    if refusals:
+        for refusal in refusals:
+            print(f"error: {refusal}", file=sys.stderr)
+        return 1
+    trees = _registered_worktrees(main_root)
+    if trees is None:
+        print(f"error: git worktree list failed in {main_root}", file=sys.stderr)
+        return 1
+
+    day = datetime.now().astimezone().date().isoformat()
+    for label, path in _run_worktrees(main_root, current, run_dir, ledger, trees):
+        stashed, error = _stash_and_remove(
+            main_root, path, stash_name(feature_branch, label, day)
+        )
+        if stashed:
+            print(f"stash: {stashed}")
+        if error:
+            print(
+                f"error: {error}; the ledger stays, so run dispatch close again "
+                "after you fix the cause",
+                file=sys.stderr,
+            )
+            return 1
+    _git_in(main_root, "worktree", "prune")
+
+    run_branches = _run_branches(ledger)
+    ledger_path.unlink(missing_ok=True)
+    _remove_run_markers(current, ledger, run_branches)
+    _remove_gate_results(current, ledger)
+    for path in _remove_run_dir(main_root, current, run_dir):
+        print(f"kept {run_dir}: it holds the worktree {path}, which the ledger does not name")
+    _delete_run_branches(main_root, run_branches)
+    print(f"dispatch close: closed the run on {feature_branch}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the dispatch parser; every subcommand is in one list of BR-091."""
     parser = argparse.ArgumentParser(
@@ -2775,6 +3038,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser(
+        "close", help="end a finished run, or with --drop a dropped run"
+    ).add_argument(
+        "--drop",
+        action="store_true",
+        help="end a run whose feature branch is not merged into dev",
+    )
+
+    sub.add_parser(
         "suggest-merge-args",
         help="print recommended --max-files for the final feature-to-dev merge",
     )
@@ -2834,6 +3105,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_close_wave(args)
     if args.subcommand == "suggest-merge-args":
         return cmd_suggest_merge_args(args)
+    if args.subcommand == "close":
+        return cmd_close(args)
     return cmd_not_implemented(args)
 
 

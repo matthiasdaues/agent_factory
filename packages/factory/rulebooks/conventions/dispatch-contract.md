@@ -319,28 +319,34 @@ waves:
 
 ## Close
 
-A dispatch that begins without ending is a leak. Every dispatch must conclude as either completed or abandoned, with worktrees removed, branches handled according to their terminal state, and the ledger saved.
+A run ends with `dispatch close`. Only the User runs it, and a run ends in one of two ways (BR-119):
 
-### Completed Close
+| End      | Precondition                                                                                     | Command                 |
+| -------- | ------------------------------------------------------------------------------------------------ | ----------------------- |
+| Finished | The User has merged the feature branch into `dev`.                                               | `dispatch close`        |
+| Dropped  | The User drops the feature and has returned every unfinished story with `dispatch return-story`. | `dispatch close --drop` |
 
-The dispatch completed successfully — all stories in the wave reached terminal states (merged or blocked with a reason recorded). To close a completed dispatch:
+### Refusals
 
-1. Verify every story in the dispatch has a terminal status in the ledger — `done` (merged), `blocked`, or `failed`.
-2. Run `git worktree prune` to remove stale worktree references.
-3. For each worktree owned by the dispatch:
-   - If the story's branch was merged to the target: `git worktree remove` and `git branch -d` the story branch (safe delete — the commit already exists on the target branch).
-   - If the story's branch is blocked: record the block reason in the ledger and leave the branch and worktree for manual resolution — the developer who owns the block decides whether to resume or abandon it.
-4. Save the final ledger state.
+Both forms refuse a run with a unit of work that is not `done` or `pending`. The message names each such unit of work and its state, such as `ST-0360 is failed`. BR-119 names `failed` and `blocked`. A unit of work in progress is refused too, because its worktree holds work that the close would remove. `dispatch close` without `--drop` also refuses a feature branch that is not merged into `dev`, and names `dispatch close --drop`. A refusal exits `1` and changes nothing.
 
-The key distinction: **merged branches are safe to delete** (the work is on the target branch), **blocked branches are left in place** (the developer may resume), and the ledger preserves the reason for future reference.
+### What The Close Removes
 
-### Abandoned Close
+The close acts only on what its ledger names and on the folder `.current-work/<feature-branch>/` of the primary checkout. It runs every git command on the primary checkout or on the worktree it removes, so the folder it is called from does not matter.
 
-The dispatch was abandoned before completion — the work is not being merged. To close an abandoned dispatch:
+1. The worktrees of the run, in this order: the worktree of each story, each temporary worktree of `premerge-check` under `.current-work/<feature-branch>/premerge/`, and the worktree of the feature branch. A worktree counts only when `git worktree list` names it, it lies under `.current-work/` of the primary checkout, and it is not the primary checkout.
+2. Before it removes a worktree with uncommitted work, the close runs `git stash push --include-untracked`. The stash holds the untracked files and the changes to tracked files, under a name such as `run feature/login ST-0350 2026-11-24`. The label is the story ID, `premerge/<id>` for a temporary worktree of `premerge-check`, and `feature` for the worktree of the feature branch. The close never applies or drops a stash. A clean worktree gets no stash. The close then runs `git worktree remove` without `--force`. When the stash or the removal fails, the close stops with exit `1` and keeps the ledger, so the User can fix the cause and run it again.
+3. The ledger.
+4. The markers of the run in the primary checkout: `.current-work/premerge-check-ok` when its `branch=` line names the feature branch or a story branch of the run, and `.current-work/verify-base-ok` for a run by hand. A marker inside a removed worktree goes with that worktree, and a marker of another run stays.
+5. The gate result files `.current-work/<gate>/<id>.json` of each unit of work of the ledger.
+6. The briefs and scratch files: the folder `.current-work/<feature-branch>/`. When a worktree that the ledger does not name is left in it, the close keeps the folder and names that worktree.
+7. Each branch of the run, with `git branch -d`: the story branches of the ledger and the feature branch. Git refuses an unmerged branch, and the guardrail refuses agents a forced delete, so the User deletes it.
 
-1. Record the abandonment reason in the ledger: add an entry under `abandonment:` with the reason (e.g., "deprioritized", "replaced by alternative approach", "blocked by external dependency"). If no ledger exists, create one with all stories set to `abandoned` and the reason.
-2. For each worktree owned by the dispatch: `git worktree remove --force` and `git branch -D` (force-delete branches, because the work is abandoned, not preserved for manual resolution).
-3. Save the ledger.
+The output names each stash with `stash: <name>`, each deleted branch with `deleted branch: <branch>`, and each unmerged branch with `unmerged branch: <branch>`. A branch that git keeps for another reason, such as a checkout, appears as `kept branch: <branch>` with git's message. The last line is `dispatch close: closed the run on <feature-branch>`.
+
+A stop on a critical finding allows `close` and `close --drop`, because they start and merge nothing (BR-091). The guardrail refuses `dispatch close --drop` to agents. The close reads a ledger with the old names `invocation_branch` and `mode: automated` like any other.
+
+After the close, the record of the run is the merge commits in `dev` and the status `done` in each story file. The ledger held nothing that a later step reads.
 
 ## QA-in-Worktree Divergence
 
