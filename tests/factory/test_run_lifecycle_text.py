@@ -5,6 +5,7 @@ These tests read files of this repository and check their text.
 
 from __future__ import annotations
 
+import ast
 import re
 from dataclasses import fields
 from pathlib import Path
@@ -297,7 +298,7 @@ IMPLEMENTATION_AGENT = FACTORY / "agents" / "implementation-agent.md"
 
 
 def _gate_check_loop() -> str:
-    return _section(IMPLEMENTATION_AGENT, "Gate-Check Loop")
+    return _section(IMPLEMENTATION_AGENT, "Gate-Check Step")
 
 
 @pytest.mark.spec("RL-05-LN-01")
@@ -397,10 +398,10 @@ def test_RL_02_LN_03_the_story_workflow_runs_its_five_steps_in_order() -> None:
     assert "implements the story with TDD and commits" in implement
     assert "`docs/reviews/code-review-<story-id>-YYYY-MM-DD.md`" in review
     assert "also when the review files no finding" in review
-    assert "[Gate-Check Loop](#gate-check-loop)" in gates
+    assert "[Gate-Check Step](#gate-check-step)" in gates
     assert "`dispatch merge-story <story-id>`" in merge
     assert "sets `status: done` in the merge commit" in merge
-    for heading in ("Workflow — Automated Mode", "Workflow — Run By Hand"):
+    for heading in ("Workflow — Orchestrated Run", "Workflow — Run By Hand"):
         assert "steps 2 and 3 of the [story workflow](#story-workflow)" in _block(IMPLEMENTATION_AGENT, heading)
     place = _block(DEVELOPER_AGENT, "Place in the story workflow")
     order = ["implement and commit", "review", "fix each open blocking finding",
@@ -534,7 +535,7 @@ def test_RL_03_LN_02_the_user_runs_only_three_commands() -> None:
 
 
 def _orchestrated_merge_step() -> str:
-    workflow = _section(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    workflow = _section(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     return workflow.split("d. **Merge**")[1].split("e. **Failed/blocked stories**")[0]
 
 
@@ -592,7 +593,7 @@ def test_RL_08_LN_01_a_refused_merge_by_hand_waits_for_the_user() -> None:
 def test_RL_11_LN_01_the_drift_sessions_run_at_the_wave_close_without_a_stop() -> None:
     """Scenarios: The implementation agent runs the drift sessions and closes the
     wave; The wave close does not wait for the User's go."""
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     close = next(step for step in steps if step.startswith("**Close the wave**"))
     marks = (
         "dispatch close-wave <wave-number>",
@@ -755,7 +756,7 @@ MUTATION_SKILL = FACTORY / "skills" / "mutation-testing" / "SKILL.md"
 
 
 def _route_step() -> str:
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     return next(step for step in steps if step.startswith("**Route the QA findings**"))
 
 
@@ -763,7 +764,7 @@ def _route_step() -> str:
 def test_RL_12_LN_01_the_wave_close_routes_the_qa_findings_by_owner() -> None:
     """Scenarios: The wave close routes the open QA findings by owner; The next
     wave waits until every spawn of the test-strategy agent returns."""
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     titles = [step.split("**")[1] for step in steps]
     assert titles.index("Route the QA findings") == titles.index("Close the wave") + 1
     route = _route_step()
@@ -841,7 +842,7 @@ def test_RL_05_LN_02_the_fix_prompt_names_the_story_branch_and_the_place_of_work
 def test_RL_11_LN_01_the_wave_record_is_the_boundary_of_the_next_wave() -> None:
     """IMPL-0055: steps 2, 4 and 4e and § Hard Checkpoint Per Story name the wave
     record, and no passage calls a failed story with a retry left terminal."""
-    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run")
     plan = next(step for step in steps if step.startswith("**Plan wave**"))
     verify = next(step for step in steps if step.startswith("**Verify, review"))
     assert "launches only after the **prior** wave has its wave record" in plan
@@ -854,3 +855,119 @@ def test_RL_11_LN_01_the_wave_record_is_the_boundary_of_the_next_wave() -> None:
     assert "A failed story with a retry left has not stopped, so it keeps its wave open" in checkpoint
     for text in (plan, verify, checkpoint):
         assert "terminal state" not in text
+
+
+# --- RL-19: one vocabulary in every living Factory document (ST-0430) --------
+
+# The terms the proposal's § Terms replaces. A line break may fall between
+# the two words of a term.
+REPLACED_TERMS = re.compile(
+    r"\b(?:automated\s+mode|manual\s+mode|mechani[sz]ed\s+dispatch|invocation\s+branch"
+    r"|gate-check\s+loop|drift\s+report|main\s+checkout)",
+    re.IGNORECASE,
+)
+SPEC = REPO_ROOT / "docs" / "spec"
+GLOSSARY = SPEC / "glossary.md"
+RUN_LIFECYCLE_FEATURE = SPEC / "features" / "run-lifecycle.feature"
+# Scenarios that name the replaced terms only to forbid them.
+FORBIDDING_SCENARIOS = (
+    "Scenario: No living Factory document uses a replaced term",
+    "Scenario: No error message uses a replaced term",
+)
+MESSAGE_SCRIPTS = tuple(
+    FACTORY / "scripts" / name for name in ("dispatch", "dispatch_lib.py", "premerge-check")
+)
+MESSAGE_TERMS = re.compile(r"\b(?:invocation\s+branch|main\s+checkout)", re.IGNORECASE)
+
+
+def _living_documents() -> list[Path]:
+    """Every Markdown file under packages/factory/ and docs/spec/ outside
+    docs/spec/work/, and every .feature file under docs/spec/features/."""
+    work = SPEC / "work"
+    documents = [*FACTORY.rglob("*.md"), *SPEC.rglob("*.md"), *(SPEC / "features").rglob("*.feature")]
+    return sorted(path for path in documents if work not in path.parents)
+
+
+def _forbidding_text_removed(path: Path, text: str) -> str:
+    """Drop the text that names a replaced term only to forbid it: the Avoid
+    column of the glossary, and the two Scenarios of RL-19 that list the terms."""
+    if path == GLOSSARY:
+        return "\n".join(
+            line.rsplit("|", 2)[0] if line.startswith("|") else line for line in text.splitlines()
+        )
+    if path == RUN_LIFECYCLE_FEATURE:
+        for title in FORBIDDING_SCENARIOS:
+            start = text.index(title)
+            end = text.find("\n    Scenario", start + 1)
+            text = text[:start] + text[end:]
+    return text
+
+
+def replaced_terms_in(path: Path, text: str) -> list[str]:
+    """Return each replaced term the living text of a document uses, with its line."""
+    text = _forbidding_text_removed(path, text)
+    return [
+        f"{text.count(chr(10), 0, match.start()) + 1}: {match.group(0)}"
+        for match in REPLACED_TERMS.finditer(text)
+    ]
+
+
+@pytest.mark.spec("RL-19-LN-01")
+def test_RL_19_LN_01_no_living_factory_document_uses_a_replaced_term() -> None:
+    """Scenario: No living Factory document uses a replaced term."""
+    documents = _living_documents()
+    assert FACTORY / "agents" / "implementation-agent.md" in documents
+    assert RUN_LIFECYCLE_FEATURE in documents
+    assert not any(SPEC / "work" in path.parents for path in documents)
+    found = {
+        str(path.relative_to(REPO_ROOT)): hits
+        for path in documents
+        if (hits := replaced_terms_in(path, path.read_text(encoding="utf-8")))
+    }
+    assert found == {}
+
+
+@pytest.mark.spec("RL-19-LN-01")
+def test_RL_19_LN_01_the_check_finds_a_term_in_prose_and_skips_names() -> None:
+    """The check matches a term case-insensitively and across a line break,
+    and leaves file names, link targets and the forbidding text alone."""
+    other = FACTORY / "agents" / "example.md"
+    assert replaced_terms_in(other, "In Manual Mode the agent waits.")
+    assert replaced_terms_in(other, "the moved invocation\n   branch")
+    assert replaced_terms_in(other, "[Gate-Check Loop](#gate-check-step)")
+    assert replaced_terms_in(other, "See [the contract](mechanized-dispatch.md).") == []
+    assert replaced_terms_in(other, "[step](agent.md#gate-check-loop)") == []
+    assert replaced_terms_in(GLOSSARY, "| **Primary Checkout** | The main folder. | main checkout |") == []
+    assert replaced_terms_in(GLOSSARY, "| **Primary Checkout** | The main checkout. | |")
+    feature = RUN_LIFECYCLE_FEATURE.read_text(encoding="utf-8")
+    assert replaced_terms_in(RUN_LIFECYCLE_FEATURE, feature) == []
+
+
+def message_strings(source: str) -> list[str]:
+    """Every string constant of a Python source, f-string parts included."""
+    return [
+        node.value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+
+
+@pytest.mark.spec("RL-19-LN-02")
+def test_RL_19_LN_02_no_message_of_dispatch_or_premerge_check_uses_a_replaced_term() -> None:
+    """Scenario: No error message uses a replaced term."""
+    found = {
+        path.name: hits
+        for path in MESSAGE_SCRIPTS
+        if (hits := [text for text in message_strings(path.read_text(encoding="utf-8")) if MESSAGE_TERMS.search(text)])
+    }
+    assert found == {}
+    dispatch = message_strings(MESSAGE_SCRIPTS[0].read_text(encoding="utf-8"))
+    assert any("must run on the feature branch" in text for text in dispatch)
+
+
+@pytest.mark.spec("RL-19-LN-02")
+def test_RL_19_LN_02_the_check_reads_the_parts_of_an_f_string() -> None:
+    """The check finds a term in a part of an f-string, and ignores a ledger key."""
+    sample = 'print(f"error: run on the invocation branch {name!r}")\nraw.get("invocation_branch")\n'
+    hits = [text for text in message_strings(sample) if MESSAGE_TERMS.search(text)]
+    assert hits == ["error: run on the invocation branch "]

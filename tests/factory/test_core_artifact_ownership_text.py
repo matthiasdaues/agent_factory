@@ -695,7 +695,7 @@ def _resolve_qa_step() -> str:
 
 def _post_wave_step() -> str:
     workflow = _section(
-        IMPLEMENTATION_AGENT.read_text(encoding="utf-8"), "Workflow — Automated Mode"
+        IMPLEMENTATION_AGENT.read_text(encoding="utf-8"), "Workflow — Orchestrated Run"
     )
     match = re.search(
         r"^\d+\. \*\*Route the QA findings\*\*.*?(?=^\d+\. \*\*|\Z)",
@@ -805,8 +805,8 @@ MUTATION_SCRIPT = ".agent-factory/factory/scripts/mutation-testing"
 
 def _gate_check_loop() -> str:
     text = IMPLEMENTATION_AGENT.read_text(encoding="utf-8")
-    match = re.search(r"^### Gate-Check Loop\n(.*?)(?=^## |\Z)", text, re.M | re.S)
-    assert match, "section '### Gate-Check Loop' missing"
+    match = re.search(r"^### Gate-Check Step\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    assert match, "section '### Gate-Check Step' missing"
     return _flat(match.group(1))
 
 
@@ -1232,12 +1232,12 @@ def _drift_rows_rule() -> str:
 
 def _manual_mode_rule() -> str:
     return _flat(
-        _subsection(DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Manual Mode")
+        _subsection(DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Run By Hand")
     )
 
 
 def _automated_step(number: int) -> str:
-    return _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", number)
+    return _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run", number)
 
 
 def _workflow_step_in(path, section: str, number: int) -> str:
@@ -1280,7 +1280,7 @@ class TestSt0362PostMergeDispatchOrder:
         assert "Drift rows" not in _automated_step(4)
 
     def test_st_0362_route_the_qa_findings_stays_step_6(self):
-        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Automated Mode", 6)
+        step = _workflow_step_in(IMPLEMENTATION_AGENT, "Workflow — Orchestrated Run", 6)
         assert step.startswith("6. **Route the QA findings**")
 
 

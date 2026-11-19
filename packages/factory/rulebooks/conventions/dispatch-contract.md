@@ -92,7 +92,7 @@ the session knows.
 ### Brief File
 
 Before the parent starts a fresh agent, it writes the brief to
-`.current-work/<branch>/briefs/<task>.md` in the main checkout, never to
+`.current-work/<branch>/briefs/<task>.md` in the primary checkout, never to
 `/tmp`, which the system can empty. The prompt says only: "Read
 `<absolute brief path>` and follow it." Scratch files go to
 `.current-work/<branch>/scratch/<agent-or-story>/` there, never into a
@@ -108,7 +108,7 @@ A brief holds:
    current before each round.
 4. **Inputs.** The documents to read, with sections where a whole file is
    not needed. Factory files by absolute path under
-   `<main checkout>/.agent-factory/factory/`: a linked worktree has none.
+   `<primary checkout>/.agent-factory/factory/`: a linked worktree has none.
 5. **Output.** The report format, its length limit, and the instance ID to
    report to (see Sub-Agent Addressing).
 6. **Stop conditions.** When the child stops and asks instead of deciding.
@@ -157,7 +157,7 @@ For a mechanized implementation dispatch, the script-enforced checkpoints are:
 2. `dispatch verify-story <story-id> --sha <sha>` confirms the reported commit object exists and belongs to the expected story branch.
 3. `dispatch merge-story <story-id>` runs `premerge-check <target> <branch> --scope ...` immediately before merge, then runs the post-merge test command.
 
-`dispatch refresh-story <story-id>` merges the invocation branch into the story branch inside the story's worktree. Run it when the invocation branch has moved, for example after another story of the wave merged. It refuses a dirty worktree and a worktree on another branch. After an interrupted `merge-story` it refuses and points to a rerun of `merge-story`. On a conflict it aborts the merge and blocks the story. `merge-story` runs the same step before `premerge-check`.
+`dispatch refresh-story <story-id>` merges the feature branch into the story branch inside the story's worktree. Run it when the feature branch has moved, for example after another story of the wave merged. It refuses a dirty worktree and a worktree on another branch. After an interrupted `merge-story` it refuses and points to a rerun of `merge-story`. On a conflict it aborts the merge and blocks the story. `merge-story` runs the same step before `premerge-check`.
 
 Any failed checkpoint means the report is false or incomplete, or the work landed somewhere unexpected — investigate before merging or closing the story.
 
@@ -237,13 +237,13 @@ A reviewer sets `rejected` when the code breaks an accepted requirement. The rev
 
 Owners and reviewers commit each row status on the feature branch (ADR-0029). After every dispatch has returned, the implementation agent runs `close-wave` again, and repeats the two passes until it passes. It does not wait for the User's go, because the wave close starts, merges and destroys nothing.
 
-### Manual Mode
+### Run By Hand
 
-Manual mode (`--manual`) is the run by hand. It keeps the same ledger, story workflow and checks as an orchestrated run, and it runs one story at a time in the primary checkout.
+A run by hand (`--manual`) keeps the same ledger, story workflow and checks as an orchestrated run, and it runs one story at a time in the primary checkout.
 
-Each story is a wave of its own (BR-064), so the drift-row rule holds per story. After the story merges or stops, the implementation agent runs `dispatch close-wave <wave>` and handles each listed row as [Drift Rows At The Wave Close](#drift-rows-at-the-wave-close) describes. `close-wave` refuses while the story's report has an `open` row, or a `fixed` row about an artifact on the core list. The core list is `rulebooks/core-artifacts.yaml`. `dispatch prepare-story` refuses the next story until the wave has its record. The human closes no story, because `close-wave` checks the rows. At each story's wave close, the implementation agent routes the open `QA` findings, as step 6 of the automated workflow does after `close-wave` (CAO-G31).
+Each story is a wave of its own (BR-064), so the drift-row rule holds per story. After the story merges or stops, the implementation agent runs `dispatch close-wave <wave>` and handles each listed row as [Drift Rows At The Wave Close](#drift-rows-at-the-wave-close) describes. `close-wave` refuses while the story's report has an `open` row, or a `fixed` row about an artifact on the core list. The core list is `rulebooks/core-artifacts.yaml`. `dispatch prepare-story` refuses the next story until the wave has its record. The human closes no story, because `close-wave` checks the rows. At each story's wave close, the implementation agent routes the open `QA` findings, as step 6 of the orchestrated workflow does after `close-wave` (CAO-G31).
 
-QA-in-Worktree Divergence does not apply in manual mode, because the story runs in the primary checkout.
+QA-in-Worktree Divergence does not apply in a run by hand, because the story runs in the primary checkout.
 
 ### Dispatch Ledger
 
@@ -352,20 +352,20 @@ After the close, the record of the run is the merge commits in `dev` and the sta
 
 ## QA-in-Worktree Divergence
 
-QA that runs inside a story worktree validates against `packages/factory/` (source), because the worktree shares the repository's source tree. Pre-commit hooks in the main checkout, however, load scripts and tests from `factory/` (the installed copy). These are two different directory trees with independent content: `packages/factory/` is always current with the branch, while `factory/` reflects whichever version was last synced by `update-factory`.
+QA that runs inside a story worktree validates against `packages/factory/` (source), because the worktree shares the repository's source tree. Pre-commit hooks in the primary checkout, however, load scripts and tests from `factory/` (the installed copy). These are two different directory trees with independent content: `packages/factory/` is always current with the branch, while `factory/` reflects whichever version was last synced by `update-factory`.
 
-When a dispatch touches files under `packages/factory/`, QA can pass in the worktree while the post-merge test suite fails in the main checkout — the installed copy is stale.
+When a dispatch touches files under `packages/factory/`, QA can pass in the worktree while the post-merge test suite fails in the primary checkout — the installed copy is stale.
 
-**Mitigation.** Before the final `dispatch merge-story` of any wave that modified `packages/factory/` files, the dispatcher (or stakeholder) must run `.agent-factory/factory/scripts/update-factory` on the main checkout to sync the installed copy from source. This is a manual step; no automated hook exists yet.
+**Mitigation.** Before the final `dispatch merge-story` of any wave that modified `packages/factory/` files, the dispatcher (or stakeholder) must run `.agent-factory/factory/scripts/update-factory` on the primary checkout to sync the installed copy from source. This is a manual step; no automated hook exists yet.
 
 ## Enforcement
 
-Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. In automated mode, mechanized implementation dispatch adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. In manual mode, none of these script commands apply. See [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) for the current concrete application.
+Human/agent-authored discipline, not a git hook or lint gate — a sub-agent's addressing choice and a dispatcher's scope-splitting decision both happen inside the dispatching agent's own prompt-composition step, before any tool call a hook could intercept. In an orchestrated run, the `dispatch` script adds a stricter runtime rule: the ledger under `.current-work/` is script-owned, and the dispatcher must advance story state through `dispatch init`, `dispatch prepare-wave` / `prepare-story`, `dispatch mark-dispatching`, `dispatch mark-dispatched`, `dispatch verify-story`, `dispatch merge-story`, and `dispatch close-wave` instead of handwritten bookkeeping. In a run by hand, none of these script commands apply. See [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) for the current concrete application.
 
 ## References
 
 - [rules.md § Dispatch](../rules.md#dispatch)
 - [branching-policy.md](branching-policy.md) — the branch/worktree half of the dispatch contract (Verify-Base Preamble, Declared Base SHA, Pre-Merge Diff Check)
-- [implementation-agent.md § Workflow — Automated Mode](../../agents/implementation-agent.md#workflow--automated-mode) — the current dispatcher applying this contract
+- [implementation-agent.md § Workflow — Orchestrated Run](../../agents/implementation-agent.md#workflow--orchestrated-run) — the current dispatcher applying this contract
 - [reconciliation-agent.md](../../agents/reconciliation-agent.md) — the agent whose incident motivated the Sub-Agent Addressing rule
 - [docs/reviews/retro-2026-07-12.md](../../../../docs/reviews/retro-2026-07-12.md) — the session that motivated both rules

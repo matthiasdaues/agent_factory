@@ -110,7 +110,7 @@ Every story goes through these steps on its own branch:
 1. Implement the story with TDD and commit.
 2. Run the code-review agent on the story's branch diff. Each finding becomes a file under `docs/findings/` with a `story` field, as [Findings name their story](#findings-name-their-story) describes.
 3. Fix each open finding, commit, and get a repeat review until no finding for the story is open.
-4. Run the gates of the [gate-check step](../../packages/factory/agents/implementation-agent.md#gate-check-loop), fix what they report, and commit.
+4. Run the gates of the [gate-check step](../../packages/factory/agents/implementation-agent.md#gate-check-step), fix what they report, and commit.
 5. Hand the branch over for the merge.
 
 The story is done when step 5 succeeds, not when the developer agent stops writing code.

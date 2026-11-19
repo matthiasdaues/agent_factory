@@ -67,11 +67,11 @@ CLAIM_PUSH_EXCEPTION = re.compile(
 
 
 @pytest.mark.spec("CID-09-LN-01")
-def test_st_0374_dispatch_states_claim_push_exception_for_manual_mode():
+def test_st_0374_dispatch_states_claim_push_exception_for_a_run_by_hand():
     section = _section(RULES.read_text(), "Dispatch")
     match = CLAIM_PUSH_EXCEPTION.search(section)
     assert match is not None
-    assert "manual" in match.group(0).lower()
+    assert "a run by hand" in match.group(0).lower()
 
 
 @pytest.mark.spec("CID-09-LN-01")
@@ -80,7 +80,7 @@ def test_st_0374_git_workflow_states_claim_push_exception_for_both_modes():
     match = CLAIM_PUSH_EXCEPTION.search(section)
     assert match is not None
     line = match.group(0).lower()
-    assert "manual" in line and "automated" in line
+    assert "a run by hand" in line and "an orchestrated run" in line
 
 
 @pytest.mark.spec("CID-09-LN-01")

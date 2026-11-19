@@ -68,7 +68,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 ## Workflow
 
 1. **Scope** — Identify the implementation diff. Fallback order: explicit
-   `base_sha`/`head_sha` from handoff, merge base against the invocation
+   `base_sha`/`head_sha` from handoff, merge base against the feature
    branch, merge base against `dev`.
 
 2. **Read context** — Read the QA strategy document

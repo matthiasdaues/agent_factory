@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0060",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:3580",
+  "story": "ST-0430",
+  "finding": "dispatch --help now uses \"feature branch\" for two different branches. The help of refresh-story says \"merge the feature branch into a story branch\", where the feature branch is feature/<proposal-title>. The help of merge-story still says \"merge a story's feature branch\", where the feature branch is story/<story-id>. The docstring of cmd_merge_story has the same old phrase on line 2488, two lines above the new phrase \"lacks the feature branch tip\". Before ST-0430, \"feature branch\" meant the story branch in these lines, so the old phrase was correct. The rename gave \"feature branch\" its new meaning and left these two lines in the old one. RL-19-LN-02 cannot see them, because \"feature branch\" is not a replaced term. The smallest fix is in packages/factory/scripts/dispatch: say \"merge a story branch into the feature branch\" in the help of merge-story, and \"Merge a story branch into the current branch\" in the docstring.",
+  "basis": {
+    "in_use": true,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The help line of merge-story exists unchanged on dev, so it is in use. The command still does what its name says, and the seven replaced terms of the story's Goal are gone from every message (no to fails_purpose). No caller reads the help text, so nothing downstream breaks. ST-0430 gave \"feature branch\" its new meaning, so a reader of dispatch --help now meets one term for two branches, which the Domain Rule of ST-0430 forbids.",
+  "commit": "3cedd9afcc9e7595d20192e70aff0d4b076f8b3a",
+  "status": "open"
+}

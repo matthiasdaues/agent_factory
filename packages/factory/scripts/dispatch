@@ -2373,7 +2373,7 @@ def _refresh_story_branch(
 
 
 def cmd_refresh_story(args: argparse.Namespace) -> int:
-    """Bring a story branch up to the invocation branch tip (BUG-0089)."""
+    """Bring a story branch up to the feature branch tip (BUG-0089)."""
     ledger_path = Path(args.ledger)
     ledger = _load_orchestrated_ledger(ledger_path)
     if ledger is None:
@@ -2488,7 +2488,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
     Refreshes the story branch first (see ``cmd_refresh_story``) when it
-    lacks the invocation tip; a refresh conflict blocks the story. Then runs
+    lacks the feature branch tip; a refresh conflict blocks the story. Then runs
     ``premerge-check`` with the story's declared scope entries
     (``outputs``, else ``touches``) immediately before merging: plain entries as
     ``--scope`` path prefixes, entries with ``*`` or ``?`` as ``--scope-glob``.
@@ -2560,7 +2560,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         location = _worktree_for_branch(target_branch)
         where = f" Run it from {location}." if location else ""
         print(
-            f"error: merge-story must run on the invocation branch '{target_branch}', "
+            f"error: merge-story must run on the feature branch '{target_branch}', "
             f"but the current checkout is on '{current_branch}'.{where}",
             file=sys.stderr,
         )
@@ -2791,7 +2791,7 @@ CORE_LIST_PATH = SCRIPT_DIR.parent / "rulebooks" / "core-artifacts.yaml"
 def _drift_check(branch_head: str):
     """Return the close-wave check of the reports at *branch_head* (BR-062).
 
-    Owner and reviewer sessions commit each row status on the invocation
+    Owner and reviewer sessions commit each row status on the feature
     branch (ADR-0029), so the check reads the committed reports."""
 
     def check(story_ids: list[str]) -> list[str]:
@@ -2825,7 +2825,7 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     if limits is None:
         return 1
 
-    # Read the invocation branch by name, so the result does not depend on
+    # Read the feature branch by name, so the result does not depend on
     # which checkout the caller runs from.
     head_ref = (
         f"refs/heads/{ledger.feature_branch}" if ledger.feature_branch else "HEAD"
@@ -3573,7 +3573,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_es.add_argument("story_id")
 
     p_rs = sub.add_parser(
-        "refresh-story", help="merge the invocation branch into a story branch"
+        "refresh-story", help="merge the feature branch into a story branch"
     )
     p_rs.add_argument("story_id")
 
