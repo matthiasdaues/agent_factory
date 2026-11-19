@@ -30,11 +30,13 @@ SCOPE_LINT_LINK = re.compile(r"""symlink_to\(\s*REPO_ROOT\s*/\s*["']\.agent-fact
 
 def installed_copy_reads(text: str) -> list[str]:
     """Return each expression of text that reads this repository's installed copy."""
-    links = {match.start() for match in SCOPE_LINT_LINK.finditer(text)}
+    links = [match.span() for match in SCOPE_LINT_LINK.finditer(text)]
     reads = []
     for match in REPO_PATH.finditer(text):
-        link_start = text.rfind("symlink_to(", 0, match.start())
-        is_link = link_start in links and not match["rest"] and not match["next"]
+        # Only a match that starts inside the span of a scope-lint link is that
+        # link; a later read in the same file still counts (IMPL-0020).
+        in_link = any(start <= match.start() < end for start, end in links)
+        is_link = in_link and not match["rest"] and not match["next"]
         if not is_link:
             reads.append(match.group(0))
     return reads
@@ -74,6 +76,12 @@ def test_RL_18_LN_01_a_read_of_the_installed_copy_counts() -> None:
     assert installed_copy_reads('p.symlink_to(REPO_ROOT / ".agent-factory" / "factory")')
     assert installed_copy_reads('x = tmp_path / ".agent-factory" / "factory"') == []
     assert installed_copy_reads('x = target / ".agent-factory/factory"') == []
+    # A read below the scope-lint link counts, although a link call comes first (IMPL-0020).
+    below_the_link = (
+        '(baseline / ".agent-factory").symlink_to(REPO_ROOT / ".agent-factory")\n'
+        'installed = REPO_ROOT / ".agent-factory"'
+    )
+    assert installed_copy_reads(below_the_link) == ['REPO_ROOT / ".agent-factory"']
 
 
 @pytest.mark.spec("RL-18-LN-02")
@@ -250,6 +258,7 @@ def test_RL_17_LN_01_the_dispatch_contract_lists_exactly_the_written_fields(tmp_
 FACTORY = REPO_ROOT / "packages" / "factory"
 GATE_KEY_TEXTS = (
     FACTORY / "agents" / "test-strategy-agent.md",
+    FACTORY / "agents" / "implementation-agent.md",
     FACTORY / "skills" / "detect-test-regime" / "SKILL.md",
     FACTORY / "skills" / "crap-score" / "SKILL.md",
     FACTORY / "skills" / "mutation-testing" / "SKILL.md",
@@ -260,7 +269,9 @@ OLD_GATE_KEY = re.compile(r"\bgates\.(?:crap_score|mutation_testing|test_design_
 
 
 @pytest.mark.spec("RL-09-LN-01")
-@pytest.mark.parametrize("path", GATE_KEY_TEXTS, ids=lambda p: p.parent.name)
+@pytest.mark.parametrize(
+    "path", GATE_KEY_TEXTS, ids=lambda p: p.parent.name if p.name == "SKILL.md" else p.stem
+)
 def test_RL_09_LN_01_the_gate_texts_name_only_keys_with_hyphens(path: Path) -> None:
     """Scenario: The test-strategy agent writes gate keys with hyphens."""
     assert OLD_GATE_KEY.findall(path.read_text(encoding="utf-8")) == []
@@ -331,3 +342,174 @@ def test_RL_05_LN_03_dispatch_counts_the_attempts_on_both_ways() -> None:
     for old in ("Maximum fix iterations per tier", "wave escalation slot", "**6** developer spawns",
                 "applies to **automated mode only**"):
         assert old not in loop
+
+
+# --- RL-02 and RL-03: the story workflow and the stops by hand (ST-0411) -----
+
+DEVELOPER_AGENT = FACTORY / "agents" / "developer-agent.md"
+GATE_SCRIPTS = ("crap-score", "mutation-testing", "test-design-verify", "dependency-check")
+
+
+def _raw_block(path: Path, heading: str) -> str:
+    """Return the raw text under *heading*, up to the next heading of level 1 to 3."""
+    text = path.read_text(encoding="utf-8")
+    match = re.search(
+        rf"^#+ {re.escape(heading)}\n(?P<body>.*?)(?=^#{{1,3}} |\Z)", text, re.M | re.S
+    )
+    assert match, f"{path.name} has no section {heading!r}"
+    return match["body"]
+
+
+def _block(path: Path, heading: str) -> str:
+    """Return the folded text under *heading*, up to the next heading of level 1 to 3."""
+    return " ".join(_raw_block(path, heading).split())
+
+
+def _table_rows(path: Path, heading: str) -> list[list[str]]:
+    """Return the cells of each body row of the tables under *heading*."""
+    lines = [line for line in _raw_block(path, heading).splitlines() if line.startswith("|")]
+    rows = [[cell.strip() for cell in line.strip().strip("|").split("|")] for line in lines]
+    return [
+        cells for index, cells in enumerate(rows)
+        if not set("".join(cells)) <= {"-", " "}
+        and not (index + 1 < len(rows) and set("".join(rows[index + 1])) <= {"-", " "})
+    ]
+
+
+def _numbered_steps(path: Path, heading: str) -> list[str]:
+    """Return the folded text of each numbered step under *heading*."""
+    steps = re.split(r"^\d+\. ", _raw_block(path, heading), flags=re.M)[1:]
+    return [" ".join(step.split()) for step in steps]
+
+
+STORY_WORKFLOW_STEPS = ("**Implement.**", "**Review.**", "**Fix.**", "**Gate-check step.**", "**Merge.**")
+
+
+@pytest.mark.spec("RL-02-LN-03")
+def test_RL_02_LN_03_the_story_workflow_runs_its_five_steps_in_order() -> None:
+    """Scenario: The story workflow runs its steps in order on the story branch."""
+    assert "in an orchestrated run and in a run by hand" in _block(IMPLEMENTATION_AGENT, "Story workflow")
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Story workflow")
+    assert len(steps) == len(STORY_WORKFLOW_STEPS)
+    for step, title in zip(steps, STORY_WORKFLOW_STEPS):
+        assert step.startswith(title), step
+    implement, review, fix, gates, merge = steps
+    assert "implements the story with TDD and commits" in implement
+    assert "`docs/reviews/code-review-<story-id>-YYYY-MM-DD.md`" in review
+    assert "also when the review files no finding" in review
+    assert "[Gate-Check Loop](#gate-check-loop)" in gates
+    assert "`dispatch merge-story <story-id>`" in merge
+    assert "sets `status: done` in the merge commit" in merge
+    for heading in ("Workflow — Automated Mode", "Workflow — Run By Hand"):
+        assert "steps 2 and 3 of the [story workflow](#story-workflow)" in _block(IMPLEMENTATION_AGENT, heading)
+    place = _block(DEVELOPER_AGENT, "Place in the story workflow")
+    order = ["implement and commit", "review", "fix each open blocking finding",
+             "gate-check step", "`dispatch merge-story`"]
+    positions = [place.index(step) for step in order]
+    assert positions == sorted(positions)
+    assert "implementation-agent.md#story-workflow" in place
+
+
+@pytest.mark.spec("RL-02-LN-01")
+def test_RL_02_LN_01_a_repeat_review_follows_each_fix_of_a_blocking_finding() -> None:
+    """Scenario: A repeat review follows each fix of a blocking finding."""
+    fix = _numbered_steps(IMPLEMENTATION_AGENT, "Story workflow")[2]
+    assert "A fresh developer agent fixes each open blocking finding of the story and commits." in fix
+    assert "The code-review agent then reviews the story branch again." in fix
+    assert "until no blocking finding with the story's ID is open" in fix
+    assert "finding-classification.md#shared-severity-scale-and-blocking-rule" in fix
+
+
+@pytest.mark.spec("RL-02-LN-02")
+def test_RL_02_LN_02_the_developer_agent_runs_no_gate_and_sets_no_done() -> None:
+    """Scenarios: The developer agent runs no gate script; Only dispatch merge-story
+    sets a story to done."""
+    text = _text(DEVELOPER_AGENT)
+    assert "**Run the gates**" not in text
+    for gate in GATE_SCRIPTS:
+        assert f"scripts/{gate}" not in text, gate
+    assert "You never run a gate script" in text
+    commit = _numbered_steps(DEVELOPER_AGENT, "Workflow")[3]
+    assert commit.startswith("**Commit**")
+    assert "Do not set `status: done`; `dispatch merge-story` sets it in the merge commit (BR-118)." in commit
+    assert "set `status: done`." not in text.replace("Do not set `status: done`", "")
+    criteria = _block(DEVELOPER_AGENT, "Completion Criteria")
+    assert "`status` unchanged" in criteria
+    assert "every gate of the gate list has run" not in criteria
+    loop = _gate_check_loop()
+    assert "The developer agent runs no gate script." in loop
+    assert "the developer agent runs the same gates" not in loop
+
+
+STOPS = [
+    ("Before a story starts", "`dispatch prepare-story <story-id>`"),
+    ("Before a finding becomes a unit of work", "`dispatch add <finding-id>`"),
+    ("Before a story merges", "`dispatch merge-story <story-id>`"),
+    ("A story stops as `blocked`", "`dispatch re-dispatch <story-id>`"),
+    (
+        "A story stops as `failed` when its counted attempts are used up and `dispatch escalate` refuses it",
+        "`dispatch re-dispatch <story-id>`",
+    ),
+    (
+        "A story stops as `failed` after its second `contract_violation` attempt",
+        "`dispatch re-dispatch <story-id>`",
+    ),
+    ("Before the merge into `dev`", "`premerge-check dev <feature-branch>`"),
+]
+
+
+@pytest.mark.spec("RL-03-LN-01")
+@pytest.mark.parametrize(("point", "command"), STOPS, ids=[s[0][:30] for s in STOPS])
+def test_RL_03_LN_01_the_agent_stops_before_each_decision_point(point: str, command: str) -> None:
+    """Scenario Outline: The implementation agent stops and waits before a decision point."""
+    rows = {cells[0]: cells[1] for cells in _table_rows(IMPLEMENTATION_AGENT, "Stops by hand")}
+    assert point in rows
+    assert command in rows[point]
+
+
+@pytest.mark.spec("RL-03-LN-01")
+def test_RL_03_LN_01_each_stop_shows_the_decision_and_waits_for_the_go() -> None:
+    """Scenario: A failed attempt with a retry left is no decision point."""
+    stops = _block(IMPLEMENTATION_AGENT, "Stops by hand")
+    assert len(_table_rows(IMPLEMENTATION_AGENT, "Stops by hand")) == len(STOPS)
+    assert (
+        "show the story and the head of its branch, the findings of the story with "
+        "their status, and the output of `premerge-check` where it applies"
+    ) in stops
+    assert "Then name the command you run after the go, and wait." in stops
+    assert "Run no command of the stop before the User's go." in stops
+    assert "`dispatch merge-story <story-id> --dry-run`" in stops
+    assert (
+        "A failed attempt with a retry left is no stop: run `dispatch re-dispatch` "
+        "or `dispatch escalate` without the User (BR-116)."
+    ) in stops
+    assert "The wave close is no stop" in stops
+    workflow = _block(IMPLEMENTATION_AGENT, "Workflow — Run By Hand")
+    assert "[Stops by hand](#stops-by-hand)" in workflow
+    order = [workflow.index(command) for command in (
+        "dispatch init --mode by-hand", "dispatch prepare-story <story-id>",
+        "dispatch mark-dispatching <story-id>", "dispatch mark-dispatched <story-id>",
+        "dispatch merge-story <story-id>", "dispatch close-wave <wave>",
+    )]
+    assert order == sorted(order)
+    assert "--no-stage --no-commit" not in workflow
+
+
+@pytest.mark.spec("RL-03-LN-02")
+def test_RL_03_LN_02_the_user_runs_only_three_commands() -> None:
+    """Scenarios: The User runs only three commands in a run by hand; A run by hand
+    needs no refresh of the story branch."""
+    section = _block(IMPLEMENTATION_AGENT, "Who runs each dispatch command")
+    rows = {cells[0]: cells[1:] for cells in _table_rows(IMPLEMENTATION_AGENT, "Who runs each dispatch command")}
+    users = [name for name, cells in rows.items() if "The User." in cells]
+    assert users == ["`return-story`, `close --drop`, `close`"]
+    assert rows[users[0]] == ["The User.", "The User."]
+    assert rows["`init`"] == ["The implementation agent.", "The implementation agent."]
+    assert rows["`refresh-story`"] == ["The implementation agent.", "Not used."]
+    for name, (orchestrated, by_hand) in rows.items():
+        if name != users[0]:
+            assert orchestrated == "The implementation agent.", name
+            assert by_hand.startswith(("The implementation agent", "Not used.")), name
+    assert "with `!` in Claude Code or in a terminal of their own" in section
+    workflow = _block(IMPLEMENTATION_AGENT, "Workflow — Run By Hand")
+    assert "refresh-story" not in workflow
