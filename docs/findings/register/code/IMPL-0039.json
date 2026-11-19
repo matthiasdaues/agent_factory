@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0039",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:345-352",
+  "story": "ST-0416",
+  "finding": "The dirty-worktree refusal tells the User to \"set dispatch.refuse_dirty_feature_worktree: false in docs/testing.yaml\" without naming the checkout whose docs/testing.yaml counts. merge-story reads the key from the worktree of the feature branch, and from the primary checkout only when the feature worktree has no docs/testing.yaml. In this repository docs/testing.yaml is tracked, so the feature worktree always has it. A User who edits docs/testing.yaml in the primary checkout, where they usually work, changes nothing and meets the same refusal on the next run. The information is lost in the message text of _refuse_dirty_feature_worktree; the lookup itself is right, and a story branch cannot change the key for its own merge, because the key is read before the merge. The smallest fix is in the same message: name the file as docs/testing.yaml in the worktree it already prints, for example \"or set ... false in <worktree>/docs/testing.yaml\".",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The refusal stops the merge, names the files and the worktree, and the key works as BR-124 defines (no to fails_purpose). A User who edits the wrong copy of docs/testing.yaml loses one run and has to find out which file dispatch reads. The code exists only on the story branch, so in_use is false.",
+  "commit": "a431dd800cdd0f385aad5e210116c69846519559",
+  "status": "open"
+}
