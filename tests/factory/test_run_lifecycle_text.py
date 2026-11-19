@@ -513,3 +513,33 @@ def test_RL_03_LN_02_the_user_runs_only_three_commands() -> None:
     assert "with `!` in Claude Code or in a terminal of their own" in section
     workflow = _block(IMPLEMENTATION_AGENT, "Workflow — Run By Hand")
     assert "refresh-story" not in workflow
+
+
+# --- RL-08: a refused premerge-check returns to the gate-check step (ST-0416) ---
+
+
+def _orchestrated_merge_step() -> str:
+    workflow = _section(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    return workflow.split("d. **Merge**")[1].split("e. **Failed/blocked stories**")[0]
+
+
+@pytest.mark.spec("RL-08-LN-01")
+def test_RL_08_LN_01_a_refused_premerge_check_returns_to_the_gate_check_step() -> None:
+    """Scenario: A refused premerge-check sends a story in an orchestrated run
+    back to the gate-check step."""
+    merge = _orchestrated_merge_step()
+    assert "**Refused `premerge-check`**" in merge
+    assert "Send the story back to the gate-check step" in merge
+    assert "[fix-iteration loop](#fix-iteration-loop) on the story branch" in merge
+    assert "gets the `premerge-check` output as its gate output" in merge
+
+
+@pytest.mark.spec("RL-08-LN-01")
+def test_RL_08_LN_01_a_dirty_feature_worktree_goes_to_the_user_unchanged() -> None:
+    """Scenario: An uncommitted change in the worktree of the feature branch
+    stops merge-story in an orchestrated run."""
+    merge = _orchestrated_merge_step()
+    assert "**Dirty feature worktree**" in merge
+    assert "Report its message to the User unchanged" in merge
+    assert "do not change that worktree" in merge
+    assert "`dispatch.refuse_dirty_feature_worktree: false`" in merge
