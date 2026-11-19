@@ -1735,9 +1735,9 @@ def _unit_in_state(tmp_path: Path, state: str) -> tuple[dict[str, Path], str]:
     return run, BUG
 
 
-@pytest.mark.spec("RL-06-IT-03")
+@pytest.mark.spec("RL-06-IT-06")
 @pytest.mark.parametrize("state", RE_DISPATCH_REFUSES)
-def test_RL_06_IT_03_re_dispatch_refuses_a_unit_of_work_that_has_not_stopped(
+def test_RL_06_IT_06_re_dispatch_refuses_a_unit_of_work_that_has_not_stopped(
     tmp_path, state
 ):
     """ST-0431: re-dispatch continues only a failed or blocked unit of work
@@ -1756,8 +1756,8 @@ def test_RL_06_IT_03_re_dispatch_refuses_a_unit_of_work_that_has_not_stopped(
         assert (_unit(run).branch, _unit(run).worktree) == (None, None)
 
 
-@pytest.mark.spec("RL-12-IT-01")
-def test_RL_12_IT_01_prepare_wave_cuts_the_branch_from_the_tip_of_the_feature_branch(
+@pytest.mark.spec("RL-12-IT-09")
+def test_RL_12_IT_09_prepare_wave_cuts_the_branch_from_the_tip_of_the_feature_branch(
     tmp_path,
 ):
     """ST-0431: a commit on the feature branch after the wave record, such as
@@ -1784,8 +1784,8 @@ def test_RL_12_IT_01_prepare_wave_cuts_the_branch_from_the_tip_of_the_feature_br
     assert "BASE_OK" in verify.stdout
 
 
-@pytest.mark.spec("RL-11-CT-01")
-def test_RL_11_CT_01_close_wave_records_a_wave_whose_only_entry_add_moved(tmp_path):
+@pytest.mark.spec("RL-11-IT-05")
+def test_RL_11_IT_05_close_wave_records_a_wave_whose_only_entry_add_moved(tmp_path):
     """ST-0431: add moves the returned BUG-0090 out of wave 2 before its close.
     close-wave 2 records the empty wave, and prepare-wave 3 finds the record."""
     run = _returned_finding(tmp_path)
@@ -1803,8 +1803,8 @@ def test_RL_11_CT_01_close_wave_records_a_wave_whose_only_entry_add_moved(tmp_pa
     assert _unit(run).status.value == "prepared"
 
 
-@pytest.mark.spec("RL-11-IT-02")
-def test_RL_11_IT_02_close_wave_refuses_an_empty_wave_before_the_record_of_the_wave_before_it(
+@pytest.mark.spec("RL-11-IT-06")
+def test_RL_11_IT_06_close_wave_refuses_an_empty_wave_before_the_record_of_the_wave_before_it(
     tmp_path,
 ):
     """IMPL-0061: close-wave 3 while BUG-0090 runs in wave 2 refuses and names

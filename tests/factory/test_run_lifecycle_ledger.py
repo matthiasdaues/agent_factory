@@ -354,8 +354,8 @@ def test_RL_05_CT_02_escalate_refuses_an_unreadable_attempt_count(run):
     assert run.entry().tier == "standard"
 
 
-@pytest.mark.spec("RL-05-CT-02")
-def test_RL_05_CT_02_mark_failed_without_a_class_writes_no_attempt(run):
+@pytest.mark.spec("RL-05-CT-08")
+def test_RL_05_CT_08_mark_failed_without_a_class_writes_no_attempt(run):
     """ST-0431: an attempt without a failure class counts against no limit,
     so mark-failed requires --class and leaves the ledger as it was."""
     run.write(failed_entry(status=lib.StoryState.DISPATCHED))
