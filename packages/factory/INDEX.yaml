@@ -185,8 +185,8 @@ agents:
     title: Developer Agent
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
-    tokens: 2333
-    total_tokens: 5748
+    tokens: 2254
+    total_tokens: 5669
     inputs:
       required:
         - type: feature
@@ -281,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 5158
-    total_tokens: 15046
+    tokens: 6185
+    total_tokens: 16112
     inputs:
       required:
         - type: story
@@ -1062,7 +1062,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 907
-    total_tokens: 19788
+    total_tokens: 19709
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1074,7 +1074,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1676
-    total_tokens: 50883
+    total_tokens: 51949
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1091,7 +1091,7 @@ playbooks:
       - reconciliation-agent
       - qa-agent
     tokens: 4995
-    total_tokens: 111650
+    total_tokens: 112716
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1109,7 +1109,7 @@ playbooks:
       - qa-agent
       - coaching-agent
     tokens: 3024
-    total_tokens: 111164
+    total_tokens: 112230
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1125,7 +1125,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1358
-    total_tokens: 20239
+    total_tokens: 20160
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1170,7 +1170,7 @@ playbooks:
 rulebooks:
   - name: rules
     path: rulebooks/rules.md
-    tokens: 5121
+    tokens: 5010
   - name: agent-context-composition
     category: conventions
     path: rulebooks/conventions/agent-context-composition.md
@@ -1182,7 +1182,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3056
+    tokens: 3095
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md

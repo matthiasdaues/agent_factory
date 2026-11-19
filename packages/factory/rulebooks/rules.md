@@ -111,21 +111,20 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 
 → [dispatch-contract.md](conventions/dispatch-contract.md)
 
-Rules in this section apply to both modes unless marked **(automated only)**. In **manual** mode, the human owns all commits, pushes, and gate decisions; dispatch scripts, ledgers, and mechanized verification are not used.
+Rules in this section apply to an orchestrated run and to a run by hand.
 
 - **MUST** give any sub-agent a resolvable instance ID to report back to, never the parent's agent-type name.
 - **MUST** start a sub-agent fresh, with a [brief file](conventions/dispatch-contract.md#brief-file), unless it needs the conversation itself; after a context compaction, always fresh. This holds for every CLI ([Fresh Agent Or Inherited Context](conventions/dispatch-contract.md#fresh-agent-or-inherited-context)).
 - **MUST NOT** block indefinitely on a sub-agent's reply — do the work yourself if it declines or doesn't respond.
 - **MUST** split a whole-codebase dispatch into smaller, independently mergeable dispatches rather than run it as one.
 - **MUST** checkpoint a long-running dispatch with commits between rounds.
-- **MUST** verify a sub-agent's reported result against observable state (git, tests, gates) before treating the work as done — the mechanical gates, not the self-report, are authoritative. **(automated only)**
-- **MUST** verify every reported commit SHA exists (`git cat-file -e <sha>^{commit}`) and lives on the expected branch (`git branch --contains <sha>`) before accepting a sub-agent's completion claim. **(automated only)**
+- **MUST** verify a sub-agent's reported result against observable state (git, tests, gates) before treating the work as done — the mechanical gates, not the self-report, are authoritative.
+- **MUST** verify every reported commit SHA exists (`git cat-file -e <sha>^{commit}`) and lives on the expected branch (`git branch --contains <sha>`) before accepting a sub-agent's completion claim.
 - **MUST NOT** launch a new agent for the same role while a prior instance is still running — the prior instance cannot be cancelled and will consume tokens against stale state.
-- **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave. **(automated only)**
-- **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed. **(automated only)**
-- **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak. **(automated only)**
-- **MUST** maintain a dispatch ledger (`.current-work/<feature-branch>/dispatch-ledger.yaml`) tracking each story's branch, worktree, declared base, gate results, commit SHA, merge SHA, and status. **(automated only)**
-- **MUST** update the story file's `status` field in the same commit that delivers the story's implementation. **(automated only)** In manual mode, the human owns this commit.
+- **MUST** verify every story in a wave has reached a terminal state (merged or explicitly blocked/failed in the dispatch ledger) before launching the next wave.
+- **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
+- **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak.
+- **MUST** leave the story file's `status: done` to `dispatch merge-story`, which sets it in the merge commit; no other commit sets it (BR-118).
 - **MAY** run `next-id` in manual mode and let it push the claim ref. The claim push by `next-id` is the one exception to the human's ownership of pushes. Every other push stays with the human.
 
 ## Step boundaries
@@ -149,7 +148,7 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 → [git-workflow.md](conventions/git-workflow.md)
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
-- **MUST NOT** switch the current checkout to create a branch in automated mode; automated branches use a dedicated linked worktree with `git worktree add -b`. In manual mode, the human may create or adopt a branch in the primary checkout directly.
+- **MUST NOT** switch the current checkout to create a branch in automated mode; automated branches use a dedicated linked worktree with `git worktree add -b`. In a run by hand, `dispatch init` creates the feature branch, and `dispatch prepare-story` checks out each story branch in the primary checkout.
 - **MUST** run `.agent-factory/factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker. **(automated only)**
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `.agent-factory/factory/scripts/commit-safe`.
