@@ -1,0 +1,327 @@
+{
+  "extractor": "ollama qwen3:8b",
+  "model_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "spans_file": "out/spans-2026-11-15.jsonl",
+  "seconds": 5296.2,
+  "calls": [
+    {
+      "window": 1,
+      "spans": [
+        "S001",
+        "S020"
+      ],
+      "found": 3,
+      "seconds": 347.6,
+      "prompt_tokens": 3158,
+      "output_tokens": 296
+    },
+    {
+      "window": 2,
+      "spans": [
+        "S021",
+        "S033"
+      ],
+      "found": 5,
+      "seconds": 532.8,
+      "prompt_tokens": 3087,
+      "output_tokens": 381
+    },
+    {
+      "window": 3,
+      "spans": [
+        "S034",
+        "S048"
+      ],
+      "found": 1,
+      "seconds": 321.7,
+      "prompt_tokens": 3228,
+      "output_tokens": 121
+    },
+    {
+      "window": 4,
+      "spans": [
+        "S049",
+        "S063"
+      ],
+      "found": 1,
+      "seconds": 263.1,
+      "prompt_tokens": 3182,
+      "output_tokens": 77
+    },
+    {
+      "window": 5,
+      "spans": [
+        "S064",
+        "S079"
+      ],
+      "found": 1,
+      "seconds": 234.5,
+      "prompt_tokens": 2548,
+      "output_tokens": 92
+    },
+    {
+      "window": 6,
+      "spans": [
+        "S080",
+        "S086"
+      ],
+      "found": 4,
+      "seconds": 780.6,
+      "prompt_tokens": 2914,
+      "output_tokens": 410
+    },
+    {
+      "window": 7,
+      "spans": [
+        "S087",
+        "S096"
+      ],
+      "found": 1,
+      "seconds": 271.0,
+      "prompt_tokens": 3083,
+      "output_tokens": 46
+    },
+    {
+      "window": 8,
+      "spans": [
+        "S097",
+        "S115"
+      ],
+      "found": 5,
+      "seconds": 728.3,
+      "prompt_tokens": 3153,
+      "output_tokens": 337
+    },
+    {
+      "window": 9,
+      "spans": [
+        "S116",
+        "S134"
+      ],
+      "found": 5,
+      "seconds": 672.4,
+      "prompt_tokens": 3095,
+      "output_tokens": 381
+    },
+    {
+      "window": 10,
+      "spans": [
+        "S135",
+        "S153"
+      ],
+      "found": 6,
+      "seconds": 634.2,
+      "prompt_tokens": 3124,
+      "output_tokens": 503
+    },
+    {
+      "window": 11,
+      "spans": [
+        "S154",
+        "S172"
+      ],
+      "found": 4,
+      "seconds": 417.3,
+      "prompt_tokens": 3027,
+      "output_tokens": 319
+    },
+    {
+      "window": 12,
+      "spans": [
+        "S173",
+        "S175"
+      ],
+      "found": 1,
+      "seconds": 92.7,
+      "prompt_tokens": 754,
+      "output_tokens": 68
+    }
+  ],
+  "decisions": [
+    {
+      "statement": "The `story-workflow.md` proposal will include a rule that `premerge-check` reads the code-review report and the finding files from the branch head with git, not from the folder it runs in, and reruns the gates in the story's checkout.",
+      "quote": "The proposal says `premerge-check` reruns the gates \"on the branch head\", but it does not say where. Today `premerge-check` runs in the invocation checkout and reads everything from that folder: the story file, the gate results under `.current-work/`.",
+      "span_id": "S007"
+    },
+    {
+      "statement": "The `story-workflow.md` proposal will be accepted and processed by the agent to update the primer and start the lector's structural pass.",
+      "quote": "Shall I add the rule above and start with the primer?",
+      "span_id": "S008"
+    },
+    {
+      "statement": "The `story-workflow.md` proposal will be updated with the rule about `premerge-check` and the primer will be generated.",
+      "quote": "I added the rule to the \"Checks at the merge\" section, along with one completion criterion for it. A fresh agent is now writing the primer.",
+      "span_id": "S009"
+    },
+    {
+      "statement": "The Summary will be revised to list what the proposal delivers, including one workflow, the three merge checks, the `story` field, the `dependency-check` hook, the split of the guardrail, and the deferred rule about which findings must be fixed.",
+      "quote": "The Summary retells the primer. The lector proposes a new Summary that lists what the proposal delivers instead: one workflow, the three merge checks, the `story` field, the `dependency-check` hook, the split of the guardrail, and the deferred rule about which findings must be fixed.",
+      "span_id": "S028"
+    },
+    {
+      "statement": "The gate list appears twice, but it will stay under step 4, and the merge check table will link to it.",
+      "quote": "The gate list appears twice. It stays under step 4, and the merge check table links to it.",
+      "span_id": "S028"
+    },
+    {
+      "statement": "The Bypass item will keep only the new fact that a human can still skip the hooks.",
+      "quote": "The Bypass item keeps only the new fact, that a human can still bypass the hooks.",
+      "span_id": "S028"
+    },
+    {
+      "statement": "The section 'Relation to the ownership proposal' will be removed, and its content will be merged into the Motivation paragraph.",
+      "quote": "The section 'Relation to the ownership proposal' goes. Its quote joins the Motivation, and its sentence about the test-strategy agent moves under the gate list.",
+      "span_id": "S028"
+    },
+    {
+      "statement": "The primer will lose the sentence 'The proposal has no open questions.'",
+      "quote": "The primer loses the sentence 'The proposal has no open questions.'",
+      "span_id": "S028"
+    },
+    {
+      "statement": "The Design sections now follow a specific order including the story workflow, two ways to drive it, findings naming their story, fast gates as pre-commit hooks, checks at the merge, and the git guardrail by path.",
+      "quote": "The Design sections now run: The story workflow, Two ways to drive it, Findings name their story, Fast gates as pre-commit hooks, Checks at the merge, The git guardrail by path (items 1.1 and 1.2).",
+      "span_id": "S034"
+    },
+    {
+      "statement": "The stakeholder recommends that story branches driven by hand should use the name `story/ST-NNNN` to ensure `premerge-check` checks them.",
+      "quote": "I recommend that a story driven by hand also uses the name `story/ST-NNNN`.",
+      "span_id": "S063"
+    },
+    {
+      "statement": "The dispatch process should be defined consistently, covering the entire lifecycle from start to end of a run, including cleanup.",
+      "quote": "I recommend this order: 1. Put the story workflow on hold. 2. Write one proposal that defines the whole dispatch process, from the start of a run to its end, on both ways of driving it.",
+      "span_id": "S074"
+    },
+    {
+      "statement": "The orchestrated mode requires that the `init` command creates a feature branch and a worktree, and refuses if any ledger has a non-terminal story or lacks a `test_command` in `docs/testing.yaml`.",
+      "quote": "It refuses while any ledger anywhere has a non-terminal story (`_active_ledger`, :733-746). It also refuses when there is no `test_command` in `docs/testing.yaml`.",
+      "span_id": "S080"
+    },
+    {
+      "statement": "In the orchestrated mode, `merge-story` must run on the invocation branch and handles conflicts by aborting and blocking the story.",
+      "quote": "merge-story must run on the invocation branch (:1774-1985). In order, it: ... On a conflict it aborts and blocks the story.",
+      "span_id": "S081"
+    },
+    {
+      "statement": "The `premerge-check` command writes a marker file and reads gate results only for branches named `story/ST-\n\\d+`.",
+      "quote": "premerge-check writes `<toplevel>/.current-work/premerge-check-ok` with `branch=` and `head=` (premerge-check:87-96). It reads gate results only for branches named `story/ST-\n\\d+` (:170, :420-438).",
+      "span_id": "S082"
+    },
+    {
+      "statement": "In the manual mode, there are no story branches, worktrees, ledger, or scripts, and the human handles all steps manually.",
+      "quote": "The human creates `feature/<name>` from `dev` with `git checkout -b` or adopts the current branch. There are no story branches, worktrees, ledger, or scripts (bp:35-37, ia:157-158).",
+      "span_id": "S083"
+    },
+    {
+      "statement": "The process has a defined start but no defined end.",
+      "quote": "The process has a defined start and no defined end.",
+      "span_id": "S094"
+    },
+    {
+      "statement": "Both ways of running a feature share one frame, with the human driving by hand starting from the feature branch.",
+      "quote": "Settled: both ways share one frame. The person who drives by hand gets thorough guidance, which will become its own part of the proposal.",
+      "span_id": "S100"
+    },
+    {
+      "statement": "The human merges the feature branch into `dev` on both ways after the check command passes.",
+      "quote": "Settled: the human merges into `dev` on both ways, after the check command passes.",
+      "span_id": "S103"
+    },
+    {
+      "statement": "The `dispatch close` command removes all run state and keeps no record beyond git history and the story files.",
+      "quote": "Settled: `dispatch close` removes everything of the run and keeps no record beyond git history and the story files.",
+      "span_id": "S106"
+    },
+    {
+      "statement": "A run ends either finished or dropped, with no run state remaining except unmerged branches that the human deletes.",
+      "quote": "Settled: a run ends either finished or dropped. In both cases nothing of the run remains except unmerged branches, and the human deletes those.",
+      "span_id": "S109"
+    },
+    {
+      "statement": "One run may be active per feature branch, with each run's ledger read only by its own branch.",
+      "quote": "Settled: one run per feature branch. Every check that asks whether a run is active reads only the ledger of its own branch.",
+      "span_id": "S111"
+    },
+    {
+      "statement": "The merge sets `done` on both ways, and the human who drives by hand merges with `dispatch merge-story`.",
+      "quote": "Settled: the merge sets `done` on both ways, and the human who drives by hand merges with `dispatch merge-story`.",
+      "span_id": "S116"
+    },
+    {
+      "statement": "The feature branch moves back to the commit before the failed merge, and the spec changes to match the code.",
+      "quote": "Settled: the feature branch moves back to the commit before the failed merge, and the spec changes to match the code.",
+      "span_id": "S123"
+    },
+    {
+      "statement": "The next wave starts only after the previous wave is closed, and by hand each story is a wave of its own.",
+      "quote": "Settled: the next wave starts only after the previous wave is closed, and by hand each story is a wave of its own.",
+      "span_id": "S125"
+    },
+    {
+      "statement": "The implementation agent runs the gates on both ways, and the developer agent never runs a gate script.",
+      "quote": "Settled: the implementation agent runs the gates on both ways, and the developer agent never runs a gate script.",
+      "span_id": "S128"
+    },
+    {
+      "statement": "Where a document and the code disagree with no design question behind it, the document changes to match the code.",
+      "quote": "Recorded: where a document and the code disagree with no design question behind it, the document changes to match the code.",
+      "span_id": "S129"
+    },
+    {
+      "statement": "The code review at the end of the feature and QA run inside the run, on the feature branch. The check before the merge into `dev` requires both to have finished with no open finding.",
+      "quote": "yes. Development -> Test -> Code Review -> CRAP -> Mutaiton Testing -> QA and their fixing loops belong inside one run.",
+      "span_id": "S136"
+    },
+    {
+      "statement": "The code review at the end of the feature stays and is part of the feature-level process.",
+      "quote": "yes. Also: Security (either with the OWASP skill or as a deterministic gate in the pre-commits) scanning should happen per story.",
+      "span_id": "S139"
+    },
+    {
+      "statement": "A deterministic scanner gate runs per story, configured per project, and the setup proposal will cover the tools.",
+      "quote": "Recorded: a deterministic scanner gate per story, configured per project. Each project chooses whether to enable it and which scanners to run. The setup proposal will cover the tools.",
+      "span_id": "S144"
+    },
+    {
+      "statement": "Drift sessions run at the close of each wave, not after each merge.",
+      "quote": "I take \"BZ\" as B: the drift sessions run at the close of each wave.",
+      "span_id": "S146"
+    },
+    {
+      "statement": "Every ledger field must have a command that reads it. Fields without a reader are removed, and the dispatch contract describes exactly the fields the code writes.",
+      "quote": "Recorded: every ledger field must have a command that reads it. Fields without a reader go: `gate_results` because the gates are rerun, `closed` because the ledger's existence already says the run is active, and the audit requirement in the rules because the ledger is deleted at the close anyway.",
+      "span_id": "S148"
+    },
+    {
+      "statement": "The agent asks at each point where a person decides, and runs the command on your yes.",
+      "quote": "Settled: the agent asks at each point where a person decides, and runs the command on your yes.",
+      "span_id": "S153"
+    },
+    {
+      "statement": "The ledger records the mode, and in a run driven by hand the guardrail asks you before each command that needs a person.",
+      "quote": "Settled: the ledger records the mode, and in a run driven by hand the guardrail asks you before each command that needs a person.",
+      "span_id": "S156"
+    },
+    {
+      "statement": "In a run driven by hand, the git guardrail refuses agents the commands that need a person, and you run those commands yourself. OpenCode gets the git guardrail as part of this work.",
+      "quote": "Settled: in a run driven by hand, the git guardrail refuses agents the commands that need a person, and you run those commands yourself. OpenCode gets the git guardrail as part of this work.",
+      "span_id": "S164"
+    },
+    {
+      "statement": "The proposal uses only the proposed vocabulary for terms.",
+      "quote": "Settled: the proposal uses only that vocabulary.",
+      "span_id": "S167"
+    },
+    {
+      "statement": "`dispatch close` also closes the old runs, and `--orphans` lists what has no ledger.",
+      "quote": "Settled: `dispatch close` also closes the old runs, and `--orphans` lists what has no ledger.",
+      "span_id": "S169"
+    },
+    {
+      "statement": "The proposal document is written and marked as a draft, with all twenty decisions presented in the present tense.",
+      "quote": "I have written the proposal as `docs/proposals/run-lifecycle.md`, with `status: draft`.",
+      "span_id": "S173"
+    }
+  ]
+}

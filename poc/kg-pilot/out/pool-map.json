@@ -1,0 +1,266 @@
+{
+  "P001": {
+    "extractor": "claude",
+    "index": 9
+  },
+  "P002": {
+    "extractor": "local",
+    "index": 27
+  },
+  "P003": {
+    "extractor": "local",
+    "index": 25
+  },
+  "P004": {
+    "extractor": "claude",
+    "index": 26
+  },
+  "P005": {
+    "extractor": "local",
+    "index": 16
+  },
+  "P006": {
+    "extractor": "claude",
+    "index": 16
+  },
+  "P007": {
+    "extractor": "local",
+    "index": 35
+  },
+  "P008": {
+    "extractor": "local",
+    "index": 6
+  },
+  "P009": {
+    "extractor": "local",
+    "index": 34
+  },
+  "P010": {
+    "extractor": "local",
+    "index": 10
+  },
+  "P011": {
+    "extractor": "claude",
+    "index": 22
+  },
+  "P012": {
+    "extractor": "claude",
+    "index": 14
+  },
+  "P013": {
+    "extractor": "local",
+    "index": 30
+  },
+  "P014": {
+    "extractor": "claude",
+    "index": 28
+  },
+  "P015": {
+    "extractor": "claude",
+    "index": 15
+  },
+  "P016": {
+    "extractor": "local",
+    "index": 8
+  },
+  "P017": {
+    "extractor": "claude",
+    "index": 4
+  },
+  "P018": {
+    "extractor": "claude",
+    "index": 3
+  },
+  "P019": {
+    "extractor": "claude",
+    "index": 27
+  },
+  "P020": {
+    "extractor": "local",
+    "index": 9
+  },
+  "P021": {
+    "extractor": "claude",
+    "index": 12
+  },
+  "P022": {
+    "extractor": "claude",
+    "index": 23
+  },
+  "P023": {
+    "extractor": "local",
+    "index": 7
+  },
+  "P024": {
+    "extractor": "claude",
+    "index": 24
+  },
+  "P025": {
+    "extractor": "claude",
+    "index": 21
+  },
+  "P026": {
+    "extractor": "local",
+    "index": 5
+  },
+  "P027": {
+    "extractor": "claude",
+    "index": 11
+  },
+  "P028": {
+    "extractor": "local",
+    "index": 26
+  },
+  "P029": {
+    "extractor": "local",
+    "index": 23
+  },
+  "P030": {
+    "extractor": "claude",
+    "index": 1
+  },
+  "P031": {
+    "extractor": "local",
+    "index": 13
+  },
+  "P032": {
+    "extractor": "local",
+    "index": 21
+  },
+  "P033": {
+    "extractor": "local",
+    "index": 11
+  },
+  "P034": {
+    "extractor": "claude",
+    "index": 13
+  },
+  "P035": {
+    "extractor": "local",
+    "index": 31
+  },
+  "P036": {
+    "extractor": "claude",
+    "index": 29
+  },
+  "P037": {
+    "extractor": "local",
+    "index": 15
+  },
+  "P038": {
+    "extractor": "local",
+    "index": 1
+  },
+  "P039": {
+    "extractor": "claude",
+    "index": 17
+  },
+  "P040": {
+    "extractor": "local",
+    "index": 14
+  },
+  "P041": {
+    "extractor": "claude",
+    "index": 5
+  },
+  "P042": {
+    "extractor": "local",
+    "index": 36
+  },
+  "P043": {
+    "extractor": "local",
+    "index": 20
+  },
+  "P044": {
+    "extractor": "local",
+    "index": 22
+  },
+  "P045": {
+    "extractor": "local",
+    "index": 33
+  },
+  "P046": {
+    "extractor": "local",
+    "index": 32
+  },
+  "P047": {
+    "extractor": "claude",
+    "index": 18
+  },
+  "P048": {
+    "extractor": "local",
+    "index": 2
+  },
+  "P049": {
+    "extractor": "local",
+    "index": 19
+  },
+  "P050": {
+    "extractor": "claude",
+    "index": 10
+  },
+  "P051": {
+    "extractor": "local",
+    "index": 12
+  },
+  "P052": {
+    "extractor": "claude",
+    "index": 6
+  },
+  "P053": {
+    "extractor": "claude",
+    "index": 7
+  },
+  "P054": {
+    "extractor": "claude",
+    "index": 20
+  },
+  "P055": {
+    "extractor": "claude",
+    "index": 2
+  },
+  "P056": {
+    "extractor": "local",
+    "index": 18
+  },
+  "P057": {
+    "extractor": "local",
+    "index": 4
+  },
+  "P058": {
+    "extractor": "claude",
+    "index": 19
+  },
+  "P059": {
+    "extractor": "local",
+    "index": 24
+  },
+  "P060": {
+    "extractor": "local",
+    "index": 29
+  },
+  "P061": {
+    "extractor": "claude",
+    "index": 8
+  },
+  "P062": {
+    "extractor": "local",
+    "index": 37
+  },
+  "P063": {
+    "extractor": "local",
+    "index": 17
+  },
+  "P064": {
+    "extractor": "local",
+    "index": 3
+  },
+  "P065": {
+    "extractor": "local",
+    "index": 28
+  },
+  "P066": {
+    "extractor": "claude",
+    "index": 25
+  }
+}

@@ -26,7 +26,7 @@ create table edge_rule (
   primary key (type, source_kind, target_kind)
 );
 insert into edge_type values
-  ('part_of'), ('replies_to'), ('quotes'), ('criticises'), ('rests_on'), ('similar_to');
+  ('part_of'), ('replies_to'), ('quotes'), ('criticises'), ('rests_on'), ('similar_to'), ('written_in');
 insert into edge_rule values
   ('part_of', 'span', 'source'),
   ('replies_to', 'span', 'span'),
@@ -35,7 +35,8 @@ insert into edge_rule values
   ('criticises', 'criticism', 'conjecture'),
   ('rests_on', 'decision', 'conjecture'),
   ('similar_to', 'span', 'span'),
-  ('similar_to', 'conjecture', 'conjecture');
+  ('similar_to', 'conjecture', 'conjecture'),
+  ('written_in', 'source', 'span');
 
 -- Nodes. A claimed relation that can be criticised is a node of its own.
 create table node (

@@ -4,6 +4,9 @@
 # ///
 """Import one Claude Code session as spans anchored to its messages.
 
+Write and Edit calls to markdown files also become sources, one per file version,
+anchored to the message that wrote them.
+
 Run: uv run --script import_session.py <path-to-session.jsonl>
 
 Claude Code keeps session files under ~/.claude/projects/<project>/<session-id>.jsonl.
@@ -49,6 +52,29 @@ def chunks(text: str) -> list[str]:
     if current:
         out.append(current)
     return [c.strip() for c in out if c.strip()]
+
+
+def file_writes(record: dict) -> list[dict]:
+    content = (record.get("message") or {}).get("content")
+    if not isinstance(content, list):
+        return []
+    out = []
+    for b in content:
+        if not (isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") in ("Write", "Edit")):
+            continue
+        args = b.get("input") or {}
+        path = str(args.get("file_path", ""))
+        text = args.get("content") if b["name"] == "Write" else args.get("new_string")
+        if path.endswith(".md") and isinstance(text, str) and text.strip():
+            out.append({"tool": b["name"], "call": b.get("id"), "path": relative(path), "text": text})
+    return out
+
+
+def relative(path: str) -> str:
+    marker = "/agent_factory/"
+    if marker in path:
+        return path.split(marker, 1)[1]
+    return Path(path).name
 
 
 def language(text: str) -> str:
@@ -117,6 +143,35 @@ async def main() -> None:
                             "insert into edge (source_id, target_id, type, status, asserted_by) "
                             "values ($1, $2, 'part_of', 'confirmed', 'import_session')", nid, source)
                     span_of_message.setdefault(uid, nid)
+        # Written files: one source per Write or Edit call, linked to the writing message.
+        writes = 0
+        for record in records:
+            uid = record["uuid"]
+            for w in file_writes(record):
+                external = f"write:{uid}:{w['call']}"
+                anchor = {"session": session_id, "message_uuid": uid, "timestamp": record.get("timestamp"),
+                          "tool": w["tool"], "tool_call": w["call"], "file": w["path"]}
+                fid = await con.fetchval(
+                    "insert into node (kind, body, external_id, anchor) values ('source', $1, $2, $3::jsonb) "
+                    "on conflict (external_id) do nothing returning id",
+                    f"{w['tool']} of {w['path']}", external, json.dumps(anchor))
+                if fid is None:
+                    continue
+                writes += 1
+                for c, piece in enumerate(chunks(w["text"])):
+                    nid = await con.fetchval(
+                        "insert into node (kind, body, lang, external_id, anchor) values ('span', $1, $2, $3, $4::jsonb) "
+                        "returning id", piece, language(piece), f"{external}:{c}", json.dumps({**anchor, "chunk": c}))
+                    await con.execute(
+                        "insert into edge (source_id, target_id, type, status, asserted_by) "
+                        "values ($1, $2, 'part_of', 'confirmed', 'import_session')", nid, fid)
+                writer = uid
+                while writer and writer not in span_of_message:
+                    writer = parents.get(writer)
+                if writer:
+                    await con.execute(
+                        "insert into edge (source_id, target_id, type, status, asserted_by) "
+                        "values ($1, $2, 'written_in', 'confirmed', 'import_session')", fid, span_of_message[writer])
         # Reply edges: from a message's first span to the nearest imported ancestor's first span.
         existing = {(r["source_id"], r["target_id"]) for r in await con.fetch(
             "select source_id, target_id from edge where type = 'replies_to' and valid_to is null")}
@@ -170,6 +225,7 @@ async def main() -> None:
     print(f"spans in store {spans}, rows added this run {after - before}, vectors computed {len(missing) - reused}, "
           f"reused by content hash {reused}, embedding took {embed_seconds:.1f}s, total {time.time() - started:.1f}s")
     print(f"span anchors {len(anchors)}, anchors not found in the session file {len(unknown)}")
+    print(f"file versions added this run {writes}")
     print(f"model {MODEL_NAME}, version {MODEL_VERSION}")
 
 
