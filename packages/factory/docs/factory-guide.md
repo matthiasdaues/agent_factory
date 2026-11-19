@@ -32,7 +32,7 @@ You never memorise the full list. Your assistant reads a catalogue — [`INDEX.y
 
 ### How you run it
 
-Agent Factory runs in **manual mode**: you drive a playbook yourself, one step at a time. Each step ends with a set of defined artifacts — a specification, an architecture document, a slice of code — and those artifacts are the visible marker that the step is done. You read them, decide whether the work is good, and start the next step. Nothing moves without you.
+Agent Factory runs **by hand**: you drive a playbook yourself, one step at a time. Each step ends with a set of defined artifacts — a specification, an architecture document, a slice of code — and those artifacts are the visible marker that the step is done. You read them, decide whether the work is good, and start the next step. Nothing moves without you.
 
 ### Why two agents, not one
 
@@ -484,7 +484,7 @@ Once a project has been onboarded, these playbooks describe reference paths for 
 
 | Playbook                                                        | For                                                                                                                                                                                                                                  |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`feature-addition.md`](../playbooks/feature-addition.md)       | Adding a feature to a managed project from an accepted proposal. Declared impact routes the required specification and architecture work. Runs the mechanical architecture check; the implementation agent runs the gate-check loop. |
+| [`feature-addition.md`](../playbooks/feature-addition.md)       | Adding a feature to a managed project from an accepted proposal. Declared impact routes the required specification and architecture work. Runs the mechanical architecture check; the implementation agent runs the gate-check step. |
 | [`refactoring.md`](../playbooks/refactoring.md)                 | Restructuring code without changing behaviour, with a measured baseline and a safety net.                                                                                                                                            |
 | [`architecture-review.md`](../playbooks/architecture-review.md) | Reviewing existing architecture documentation against quality attributes.                                                                                                                                                            |
 
@@ -550,7 +550,7 @@ A gate is a deterministic script — no LLM judgement involved — that catches 
 | `.agent-factory/factory/scripts/concern-lint` | `agent-context.md` edit                 | Section structure, `Read:`/`Boundary:` path resolution, concern-reference integrity against story frontmatter, no legacy YAML residue                 |
 | `.agent-factory/factory/scripts/matrix-lint`  | `.agent-factory/config/model.conf` edit | Syntax, required fields, valid tier/model mappings                                                                                                    |
 
-In manual mode (driving each agent by hand, one session at a time), the reviewer agent runs its gate as its first step. Run any gate yourself the same way:
+When you drive each agent by hand, one session at a time, the reviewer agent runs its gate as its first step. Run any gate yourself the same way:
 
 ```bash
 .agent-factory/factory/scripts/spec-lint --spec-dir docs/spec/
@@ -580,7 +580,7 @@ An artifact must pass stage 1, then stage 2, then stage 3 before the next playbo
 
 ### Semantic quality gates
 
-Four semantic gates fire between a developer's commit and merge. The implementation agent's gate-check loop runs them, and `premerge-check` blocks the merge of a story branch without a passing result for each gate that applies (BR-066):
+Four semantic gates fire between a developer's commit and merge. The implementation agent's gate-check step runs them, and `premerge-check` blocks the merge of a story branch without a passing result for each gate that applies (BR-066):
 
 | Gate               | Script                                              | When it runs                                            | What it checks                                                                                                                                     |
 | ------------------ | --------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -589,13 +589,13 @@ Four semantic gates fire between a developer's commit and merge. The implementat
 | CRAP score         | `.agent-factory/factory/scripts/crap-score`         | When picked as a test guardrail                         | Composite structural risk (cyclomatic complexity weighted against coverage). The gate threshold is on the composite score, not on coverage itself. |
 | Mutation testing   | `.agent-factory/factory/scripts/mutation-testing`   | When picked as a test guardrail                         | Runs the mutation command from the `gates` section of `docs/testing.yaml` within its time limit.                                                   |
 
-The test guardrails `crap-score` and `mutation-testing` come from the first source that declares them: the story's `quality-gates` field, then the enabled entries of the `gates` section of `docs/testing.yaml`, then `crap-score` alone. No default picks `mutation-testing`. The planning agent fills each story's `quality-gates` field from the enabled entries of that section. `docs/charter/house-rules.md` is no gate source. The gate-check loop allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
+The test guardrails `crap-score` and `mutation-testing` come from the first source that declares them: the story's `quality-gates` field, then the enabled entries of the `gates` section of `docs/testing.yaml`, then `crap-score` alone. No default picks `mutation-testing`. The planning agent fills each story's `quality-gates` field from the enabled entries of that section. `docs/charter/house-rules.md` is no gate source. The gate-check step allows a maximum of three fix iterations per tier and escalates to tier+1 on failure, with a ceiling of six total developer spawns per story.
 
 ### Step isolation
 
 Per-step manifests at `.current-work/<feature-branch>/<story-branch>/current-step.yml` declare each step's inputs, outputs, and `max_input_tokens`. The `step-guard` hook is installed but does not enforce these boundaries yet. It does not find the manifests. Agents keep to their step boundary by discipline.
 
-### Mechanized dispatch
+### Dispatch runs
 
 The `.agent-factory/factory/scripts/dispatch` script owns the git state, ledger, and branch/worktree lifecycle for implementation. The LLM sequences script calls; the scripts own state transitions. The dispatcher maintains a machine-readable ledger at `.current-work/<feature-branch>/dispatch-ledger.yaml` tracking every story's preparation, dispatch, verification, and merge state. Key subcommands:
 
@@ -605,7 +605,7 @@ The `.agent-factory/factory/scripts/dispatch` script owns the git state, ledger,
 - `dispatch merge-story <story-id>` — run `premerge-check`, merge, and run post-merge tests.
 - `dispatch close-wave <wave>` — append a closeout record with completed, blocked, and next-ready stories.
 
-Manual mode (`--manual`) disables the mechanized dispatch infrastructure. No dispatch scripts, no ledger, no worktrees. The implementation-agent dispatches stories serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. A code-review-agent reviews each committed story. When defects are found, the implementation-agent dispatches a fresh developer-agent with the findings. The human commits fixes.
+A run by hand (`--manual`) disables the dispatch infrastructure. No dispatch scripts, no ledger, no worktrees. The implementation-agent dispatches stories serially to developer-agents with `--no-stage --no-commit`. The human reviews, commits, and pushes. A code-review-agent reviews each committed story. When defects are found, the implementation-agent dispatches a fresh developer-agent with the findings. The human commits fixes.
 
 Every story in a wave must reach a terminal state (merged or explicitly blocked/failed) before the next wave launches. The tier rubric in [dispatch-contract.md](../rulebooks/conventions/dispatch-contract.md) is the single authoritative source for economy/standard/strong tier assignment.
 
@@ -668,7 +668,7 @@ Every hook that calls a `.agent-factory/factory/scripts/*` gate starts with a sh
 bash -c 'AF=.agent-factory; [ -d "$AF" ] || AF="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)/.." 2>/dev/null && pwd)/.agent-factory"; [ -d "$AF" ] || { [ "$(git config --bool agent-factory.installed)" = true ] || exit 0; echo ".agent-factory/ missing. Run update-factory, or set SKIP=<hook id>." >&2; exit 1; }; exec "$AF"/factory/scripts/<gate> "$@"' --
 ```
 
-The guard looks for `.agent-factory/` in the current checkout first. A linked worktree has no copy of its own, so the guard then looks in the main checkout. If neither has the factory, the guard asks the clone whether it installed the factory.
+The guard looks for `.agent-factory/` in the current checkout first. A linked worktree has no copy of its own, so the guard then looks in the primary checkout. If neither has the factory, the guard asks the clone whether it installed the factory.
 
 `init-factory` answers that question once per clone. It sets the key `agent-factory.installed` in the clone's local `.git/config`, which git never commits or shares. Linked worktrees read the same file. `remove-factory` unsets the key.
 
