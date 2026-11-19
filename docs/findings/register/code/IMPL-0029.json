@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Every Scenario of RL-03 holds, and the path needs a second checkout with the feature branch together with an explicit --ledger that the agents do not pass (no to fails_purpose). If it happens, the ledger and the checkout disagree, and the User must find the story branch in the other checkout and repair both by hand.",
   "commit": "63a171063b29108901d8e789fb0c2c0675145319",
-  "status": "open"
+  "status": "resolved"
 }

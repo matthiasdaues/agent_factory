@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Every Scenario of RL-03 and RL-02 holds, and the path needs a failing post-checkout hook, which this project does not install (no to fails_purpose). If it happens, the User must find out without a message that the primary checkout moved, and check the earlier branch out by hand.",
   "commit": "63a171063b29108901d8e789fb0c2c0675145319",
-  "status": "open"
+  "status": "resolved"
 }
