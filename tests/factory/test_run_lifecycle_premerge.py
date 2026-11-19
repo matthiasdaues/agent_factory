@@ -929,20 +929,37 @@ def test_RL_13_IT_01_a_story_held_back_by_a_return_does_not_block(tmp_path, stat
 
 
 @pytest.mark.spec("RL-13-IT-01")
-@pytest.mark.parametrize("target", ["refs/heads/dev", "sha of dev"])
-def test_RL_13_IT_01_every_name_of_dev_gets_the_feature_checks(tmp_path, target):
-    """IMPL-0052: the target refs/heads/dev or the SHA of dev is a feature merge too."""
+def test_RL_13_IT_01_the_full_name_of_dev_gets_the_feature_checks(tmp_path):
+    """IMPL-0052: the target refs/heads/dev is a feature merge too."""
     run = _feature_run(tmp_path)
     ledger = run["repo"] / ".current-work" / "feature" / "login" / "dispatch-ledger.yaml"
     ledger.unlink()
-    if target == "sha of dev":
-        target = _git(run["repo"], "rev-parse", "dev")
 
-    result = _premerge_dev(run["repo"], target)
+    result = _premerge_dev(run["repo"], "refs/heads/dev")
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "dispatch-ledger.yaml" in _block_lines(result)[0]
     assert not (run["repo"] / ".current-work" / "premerge-check-ok").exists()
+
+
+@pytest.mark.spec("RL-13-IT-01")
+def test_RL_13_IT_01_a_wave_base_sha_equal_to_dev_is_no_feature_merge(tmp_path):
+    """IMPL-0054: dispatch-wave passes the wave base SHA with an item branch; in the
+    first wave that SHA is the head of dev, and still no feature check runs."""
+    run = _feature_run(tmp_path)
+    repo = run["repo"]
+    _git(repo, "branch", "item/a", FEATURE)
+    dev_sha = _git(repo, "rev-parse", "dev")
+
+    result = subprocess.run(
+        [str(PREMERGE), dev_sha, "item/a"],
+        cwd=repo, env=_env(), capture_output=True, text=True, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "run-state" not in result.stdout
+    assert "feature-reports" not in result.stdout
+    assert "SKIP semantic-gates" in result.stdout
 
 
 @pytest.mark.spec("RL-13-IT-01")

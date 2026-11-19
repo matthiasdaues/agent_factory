@@ -74,7 +74,7 @@ Checks
      `default_quality_gates` in `docs/charter/house-rules.md` is no gate
      source; when found, premerge-check prints a warning that names the file.
   7. Feature merge (`premerge-check dev <feature-branch>`; the target may
-     also be `refs/heads/dev` or the SHA of `dev`): the ledger
+     also be `refs/heads/dev`, but not a SHA): the ledger
      `.current-work/<feature-branch>/dispatch-ledger.yaml` of the primary
      checkout holds no `failed` or `blocked` unit of work, no `pending` one
      that a return does not hold back (BR-113), and a wave record for each
@@ -500,17 +500,13 @@ def is_feature_merge(target: str, branch: str) -> bool:
 
 
 def names_dev(target: str) -> bool:
-    """True when *target* names the branch dev: `dev`, `refs/heads/dev`, or
-    the commit that dev points at (IMPL-0052)."""
+    """True when *target* names the branch dev, such as `dev` or `refs/heads/dev`
+    (IMPL-0052). A SHA is no name of dev, also when dev points at it: a wave base
+    SHA can equal the head of dev (IMPL-0054)."""
     if target == FEATURE_TARGET:
         return True
-    dev_ref = f"refs/heads/{FEATURE_TARGET}"
     code, name, _ = run_git(["rev-parse", "--symbolic-full-name", target])
-    if code == 0 and name:
-        return name == dev_ref
-    code, sha, _ = run_git(["rev-parse", "--verify", "--quiet", f"{target}^{{commit}}"])
-    dev_code, dev_sha, _ = run_git(["rev-parse", "--verify", "--quiet", f"{dev_ref}^{{commit}}"])
-    return code == 0 and dev_code == 0 and sha == dev_sha
+    return code == 0 and name == f"refs/heads/{FEATURE_TARGET}"
 
 
 def ledger_path(primary: Path, feature_branch: str) -> Path:
