@@ -29,7 +29,7 @@ STOP_SUBCOMMANDS = [
     "re-dispatch", "escalate", "refresh-story", "merge-story", "close-wave",
 ]
 READ_SUBCOMMANDS = [
-    "status", "plan", "suggest-merge-args", "verify-story", "mark-done",
+    "status", "plan", "suggest-merge-args", "verify-story",
     "mark-blocked", "mark-failed", "clear-manifest",
 ]
 
