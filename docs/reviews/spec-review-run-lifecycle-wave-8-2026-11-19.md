@@ -2,7 +2,7 @@
 type: inspect-spec
 title: Spec review of the run-lifecycle wave-8 close
 date: 2026-11-19
-status: defects
+status: pass
 reviewer: spec-review-agent
 findings_filed: 2
 story: run-lifecycle
@@ -11,9 +11,9 @@ scope: The specification changes of d71c2eb5..072cd152 on feature/run-lifecycle,
 
 # Spec review of the run-lifecycle wave-8 close
 
-The wave-8 specification changes do not pass yet, because one major finding blocks. § Gate result files, BR-066, and the renamed CAO-12 Rule agree with each other, with RL-12, and with the code that ST-0423 built. The code under `packages/` did not change after `d71c2eb5`. One older statement in the interface contracts now contradicts the new BR-066:
+The wave-8 specification changes pass after the repeat pass, because SPEC-0120 is resolved. § Gate result files, BR-066, and the renamed CAO-12 Rule agree with each other, with RL-12, and with the code that ST-0423 built. The code under `packages/` did not change after `d71c2eb5`. The first pass found one older statement in the interface contracts that contradicted the new BR-066, and `a53b4444` fixed it:
 
-- SPEC-0120, major: the Gates pass row of `premerge-check` still lists the old conditions of a pass. Under that row, a survivor with `resolution_action: none-required` passes, while BR-066 and the code fail it. The domain-modeling agent adds the missing condition.
+- SPEC-0120, major, now resolved: the Gates pass row of `premerge-check` listed the old conditions of a pass. Under that row, a survivor with `resolution_action: none-required` passed, while BR-066 and the code failed it. The domain-modeling agent added the missing condition.
 
 One minor finding is a register file:
 
@@ -58,7 +58,7 @@ Two known items are out of scope and have no finding:
 | SPEC-0120 | major    | defect   | inconsistent | Consistent     | `docs/spec/interface-contracts.md:64`                      | The Gates pass row lists the conditions of a pass without "every survivor has one of the three actions". A survivor with `none-required` passes under the row and fails under BR-066 and the code. | domain-modeling-agent |
 | SPEC-0121 | minor    | defect   | inconsistent | Consistent     | `docs/spec/work/core-artifact-ownership-qa-strategy.md:84` | The CAO-12 row says that a filed mutant gets the test-strategy agent as owner. The renamed Rule, RL-12, and the skill let the owner follow the cause.                                              | test-strategy-agent   |
 
-Four notes stay rows of this report and need no change now:
+Five notes stay rows of this report and need no change now. The repeat pass added the fifth:
 
 | Note                                                                                                                                                                                                                                                                                          | Artifact                                                 | Severity |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------- |
@@ -66,6 +66,7 @@ Four notes stay rows of this report and need no change now:
 | The skill says that the gate-check step writes the list into the result file of the invocation worktree. § Gate result files adds the primary checkout for a run by hand. In a run by hand, the primary checkout is the folder where the run works, so the skill's text is narrow, not wrong. | `packages/factory/skills/mutation-testing/SKILL.md:136`  | note     |
 | § Gate result files says that a file that is not valid JSON fails as `invalid result`. `mutation_rerun_result` reports `result not found` for a rerun file that is not valid JSON. Both messages fail the gate, so only the wording differs.                                                  | `packages/factory/scripts/premerge-check:957`            | note     |
 | The QA row of `read_gate_result` says "no entry is `unresolved`". The skill uses `unresolved` for every survivor without one of the three actions, so the row reads correctly with the skill's meaning. SPEC-0120 fixes the contract row, and the QA row can take the same words then.        | `docs/spec/work/run-lifecycle-qa-strategy.md:191`        | note     |
+| The row RL-12-IT-07 plans a test for an entry with `resolution_action: unresolved` only. It does not name a survivor with another action, such as `none-required`, which BR-066 and the Gates pass row also fail. The test-strategy agent can add that case when it fixes SPEC-0121.          | `docs/spec/work/run-lifecycle-qa-strategy.md:189`        | note     |
 
 ## Structure checks
 
@@ -110,6 +111,18 @@ The report holds no row on `docs/testing.yaml`.
 ## Prior findings
 
 SPEC-0111, SPEC-0116, SPEC-0117, SPEC-0118, and SPEC-0119 stay `open`, because the range changes none of their artifacts. The open register files SPEC-0056 to SPEC-0070 concern the counter-ids feature and lie outside this range. This pass inspected the reviewed artifacts fresh and did not only check the prior list.
+
+## Repeat pass
+
+The repeat pass reviews `a59b856b..a53b4444`, the commit `a53b4444` of the domain-modeling agent. SPEC-0120 is now `resolved`, and no new finding is filed. So the wave-8 specification changes pass.
+
+| ID        | Verdict    | Evidence                                                                                                                                                                                                                                  |
+| --------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SPEC-0120 | `resolved` | The Gates pass row now names "every survivor has one of the three actions of the `mutation-testing` skill" and says that a survivor with `none-required` fails the gate. The row, § Gate result files, BR-066 and `_entry_problem` agree. |
+
+The domain-modeling agent pointed to a third copy of the pass conditions, the row RL-12-IT-07 at `docs/spec/work/run-lifecycle-qa-strategy.md:189`. That row misses the survivor with `none-required`. It is a QA plan for the test-strategy agent, so the review records it as a note beside SPEC-0121 and does not block. SPEC-0121 stays `open`.
+
+This repeat pass checks only SPEC-0120 and the QA row the coordinator named, as the coordinator asked. It does not run the full inspection again.
 
 ## Traceability summary
 
