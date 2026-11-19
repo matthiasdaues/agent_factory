@@ -119,3 +119,24 @@ SPEC-0109 and SPEC-0110 of the wave-4 review are `resolved`. SPEC-0111, the miss
 ## Traceability summary
 
 BR-113 and BR-119 each trace to Scenarios of `run-lifecycle.feature` and to the code. The Scenario at line 930 traces to BR-113 but states the old rule (SPEC-0112). `docs/spec/scope-map.md` was read only, and the review files nothing on its content. No orphan or gap was found in the BR cross-references of the range.
+
+## Repeat pass
+
+The repeat pass reviews `8737eb88..87cc12ca`, the commit `87cc12ca` of the domain-modeling agent. All three majors and the minor finding are now `resolved`, and no new finding is filed. So the wave-5 specification changes pass.
+
+The three majors had one cause. The first pass read the rewrite of BR-113 in `47618a65` as the rule, but that rewrite described the code before ST-0421. The pending ST-0421 builds the wave-record check for both prepare commands, under its Domain Rule and BR-064. So `87cc12ca` puts BR-113 and `On Prepare` back to the target rule, and it leaves the feature file, the glossary, and the QA strategy unchanged.
+
+| ID        | Verdict    | Evidence                                                                                                                                                                                                                           |
+| --------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SPEC-0112 | `resolved` | BR-113 and `On Prepare` say that both commands refuse until the previous wave has a wave record. The Scenario at `run-lifecycle.feature:930` says the same.                                                                        |
+| SPEC-0113 | `resolved` | The glossary definition of Wave Record and BR-113 state the same rule.                                                                                                                                                             |
+| SPEC-0114 | `resolved` | The row RL-11-IT-02 and the Evidence line of ST-0421 plan the check that BR-113 now defines and that ST-0421 builds.                                                                                                               |
+| SPEC-0115 | `resolved` | BR-113 now says that `prepare-wave` names a dependency in an earlier wave and prints nothing for a dependency in the same wave, with the ST-0350, ST-0351 example. This matches the `same_wave_deps` branch of `cmd_prepare_wave`. |
+
+Until ST-0421 merges, `cmd_prepare_wave` still reads the states of the earlier waves and not the wave record. That gap is the known work of ST-0421, so this review files no finding on it.
+
+The two rows of `spec-feedback-ST-0420.md` stay `confirmed`. `87cc12ca` adds the sentence "ST-0421 builds the check for `prepare-wave` and the orchestrated `prepare-story` (BR-064)" to each row. The fix now holds as a target rule with the story that builds it.
+
+One verdict of the first pass is corrected. The `docs/testing.yaml` row of `spec-feedback-ST-0416.md` goes back to `fixed`. The test-strategy agent declares `reviewed_by: [stakeholder]` for that file, so the stakeholder confirms the row, not the spec reviewer. The row keeps the wave open until the stakeholder sets it. The other nine verdicts on core artifacts stand.
+
+This repeat pass checks only the four findings and the changed rows, as the coordinator asked. It does not run the full inspection again.
