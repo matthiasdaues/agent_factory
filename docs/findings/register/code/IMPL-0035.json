@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0035",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/implementation-agent.md:207",
+  "story": "ST-0411",
+  "finding": "Step 6 of the run by hand tells the agent what to do only when merge-story records the story as blocked. It says nothing about the other refusal by hand: merge-story exits 1, merges nothing, and keeps the entry dispatched when premerge-check refuses or git refuses the checkout or the merge (BR-124). In that case the primary checkout holds the User's uncommitted change, and BR-124 says the User commits or reverts it before the next merge-story. The agent text gives no instruction, so an agent may rerun merge-story at once or try to clean the checkout itself. The smallest fix is one sentence in step 6: when merge-story exits 1 and the story stays dispatched, show its message unchanged, change no file in the primary checkout, and wait for the User before the next merge-story.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "merge-story itself keeps the checkout, the feature branch tip, and the entry unchanged on this path, and the stop before the merge already showed the dry-run output, so the refusal loses no work and merges nothing (no to fails_purpose). The agent must still guess its next step, and the User may have to repeat the explanation in every run by hand.",
+  "commit": "0c410ccab9bce30722e41757d08a3305d99934b9",
+  "status": "open"
+}
