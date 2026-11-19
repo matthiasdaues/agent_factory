@@ -1858,6 +1858,21 @@ class TestBackupPreservedDirs:
         assert backup_records.exists()
         assert backup_records.read_text() == '{"tokens": 42}\n'
 
+    def test_moves_usage_aside_inside_agent_factory(self, tmp_path):
+        """T-0011: a rename next to the original, not a copy into /tmp."""
+        af = tmp_path / ".agent-factory"
+        records = af / "usage" / "records"
+        records.mkdir(parents=True)
+        data = records / "session-001.jsonl"
+        data.write_text('{"tokens": 42}\n')
+        inode = data.stat().st_ino
+        result = inf.backup_preserved_dirs(tmp_path, [])
+        moved = result["usage"] / "records" / "session-001.jsonl"
+        assert not (af / "usage").exists()
+        assert result["usage"].parent.parent == af
+        assert result["usage"].parent.name.startswith(".preserve-usage-")
+        assert moved.stat().st_ino == inode
+
     def test_backs_up_non_empty_user_changes(self, tmp_path):
         af = tmp_path / ".agent-factory"
         uc = af / "user-changes" / "20260901-120000"
@@ -1879,106 +1894,95 @@ class TestBackupPreservedDirs:
         assert result == {}
 
 
-class TestOfferRestorePreservedDirs:
-    """offer_restore_preserved_dirs compares structure and restores."""
+class TestRestorePreservedDirs:
+    """restore_preserved_dirs moves the data back and keeps the new runtime."""
 
-    def _make_backup(self, tmp_path, name, subdirs, files=None):
-        """Create a backup directory with given subdirs and optional files."""
-        import tempfile
-
-        backup_root = Path(tempfile.mkdtemp(
-            prefix=f"af-preserve-{name}-", dir=tmp_path
-        ))
-        backup = backup_root / name
-        backup.mkdir()
-        for sd in subdirs:
-            (backup / sd).mkdir(parents=True)
-        for fname, content in (files or {}).items():
-            (backup / fname).write_text(content)
-        return backup
-
-    def test_restores_when_structure_matches(self, tmp_path, monkeypatch):
+    @staticmethod
+    def _moved(tmp_path, files):
         af = tmp_path / ".agent-factory"
         usage = af / "usage"
-        for sd in ("records", "transcripts", "control", "runtime"):
-            (usage / sd).mkdir(parents=True)
+        for rel, content in files.items():
+            (usage / rel).parent.mkdir(parents=True, exist_ok=True)
+            (usage / rel).write_text(content)
+        return af, inf.backup_preserved_dirs(tmp_path, [])
 
-        backup = self._make_backup(
-            tmp_path, "usage",
-            ["records", "transcripts", "control"],
-            {"records/session.jsonl": '{"tokens": 99}\n'},
+    def test_renames_back_when_install_did_not_recreate(self, tmp_path):
+        af, backups = self._moved(tmp_path, {"records/s.jsonl": "old\n"})
+        inf.restore_preserved_dirs(tmp_path, backups, [])
+        assert (af / "usage" / "records" / "s.jsonl").read_text() == "old\n"
+        assert not list(af.glob(".preserve-*"))
+
+    def test_data_replaces_what_the_install_wrote(self, tmp_path):
+        af, backups = self._moved(
+            tmp_path,
+            {"records/s.jsonl": "old\n", "control/state.json": '{"generation": "old"}'},
+        )
+        (af / "usage" / "records").mkdir(parents=True)
+        (af / "usage" / "control").mkdir(parents=True)
+        (af / "usage" / "control" / "state.json").write_text('{"generation": "new"}')
+        inf.restore_preserved_dirs(tmp_path, backups, [])
+        assert (af / "usage" / "records" / "s.jsonl").read_text() == "old\n"
+        assert (af / "usage" / "control" / "state.json").read_text() == (
+            '{"generation": "old"}'
         )
 
-        monkeypatch.setattr("sys.stdin", type("FakeTTY", (), {
-            "isatty": lambda self: True,
-            "readline": lambda self: "y\n",
-        })())
-        monkeypatch.setattr("builtins.input", lambda prompt: "y")
-
-        report: list[str] = []
-        inf.offer_restore_preserved_dirs(
-            tmp_path, {"usage": backup}, report
+    def test_keeps_the_runtime_the_install_rebuilt(self, tmp_path):
+        af, backups = self._moved(
+            tmp_path, {"records/s.jsonl": "old\n", "runtime/pyvenv.cfg": "old runtime"}
         )
-        assert (usage / "records" / "session.jsonl").exists()
-        assert (usage / "records" / "session.jsonl").read_text() == '{"tokens": 99}\n'
+        (af / "usage" / "runtime").mkdir(parents=True)
+        (af / "usage" / "runtime" / "pyvenv.cfg").write_text("new runtime")
+        inf.restore_preserved_dirs(tmp_path, backups, [])
+        assert (af / "usage" / "runtime" / "pyvenv.cfg").read_text() == "new runtime"
+        assert (af / "usage" / "records" / "s.jsonl").read_text() == "old\n"
+        assert not list(af.glob(".preserve-*"))
 
-    def test_prints_path_when_structure_mismatches(self, tmp_path, capsys):
+    def test_keeps_entries_only_the_install_created(self, tmp_path):
+        af, backups = self._moved(tmp_path, {"records/s.jsonl": "old\n"})
+        (af / "usage" / "analysis").mkdir(parents=True)
+        (af / "usage" / "analysis" / "component.json").write_text("{}")
+        inf.restore_preserved_dirs(tmp_path, backups, [])
+        assert (af / "usage" / "analysis" / "component.json").exists()
+        assert (af / "usage" / "records" / "s.jsonl").exists()
+
+    def test_a_second_call_changes_nothing(self, tmp_path):
+        af, backups = self._moved(tmp_path, {"records/s.jsonl": "old\n"})
+        inf.restore_preserved_dirs(tmp_path, backups, [])
+        inf.restore_preserved_dirs(tmp_path, backups, [])
+        assert (af / "usage" / "records" / "s.jsonl").read_text() == "old\n"
+
+    def test_an_early_exit_of_the_install_restores_the_data(
+        self, tmp_path, monkeypatch
+    ):
+        """T-0011: every exit path moves the data back, also `return 1`."""
         af = tmp_path / ".agent-factory"
-        usage = af / "usage"
-        (usage / "records").mkdir(parents=True)
+        (af / "usage" / "records").mkdir(parents=True)
+        (af / "usage" / "records" / "s.jsonl").write_text("old\n")
+        seen = {}
 
-        backup = self._make_backup(
-            tmp_path, "usage",
-            ["records", "transcripts", "control", "new-subdir"],
-        )
+        def failing_install(args, target, *rest):
+            seen["usage_during_install"] = (target / ".agent-factory" / "usage").exists()
+            return 1
 
-        report: list[str] = []
-        inf.offer_restore_preserved_dirs(
-            tmp_path, {"usage": backup}, report
-        )
-        captured = capsys.readouterr()
-        assert "structure changed" in captured.out
-        assert str(backup) in captured.out
-        assert not list((usage / "records").glob("*"))
+        monkeypatch.setattr(inf, "_install", failing_install)
+        rc = inf.main(["--target", str(tmp_path), "--source", str(REPO_ROOT)])
+        assert rc == 1
+        assert seen["usage_during_install"] is False
+        assert (af / "usage" / "records" / "s.jsonl").read_text() == "old\n"
+        assert not list(af.glob(".preserve-*"))
 
-    def test_prints_path_when_dir_not_recreated(self, tmp_path, capsys):
+    def test_an_error_in_the_install_restores_the_data(self, tmp_path, monkeypatch):
         af = tmp_path / ".agent-factory"
-        af.mkdir()
+        (af / "usage" / "records").mkdir(parents=True)
+        (af / "usage" / "records" / "s.jsonl").write_text("old\n")
 
-        backup = self._make_backup(
-            tmp_path, "usage",
-            ["records"],
-            {"records/data.jsonl": "content"},
-        )
+        def broken_install(*_args):
+            raise RuntimeError("install broke")
 
-        report: list[str] = []
-        inf.offer_restore_preserved_dirs(
-            tmp_path, {"usage": backup}, report
-        )
-        captured = capsys.readouterr()
-        assert "not recreated" in captured.out
-        assert str(backup) in captured.out
-
-    def test_non_interactive_restores_automatically(self, tmp_path, monkeypatch):
-        af = tmp_path / ".agent-factory"
-        usage = af / "usage"
-        (usage / "records").mkdir(parents=True)
-
-        backup = self._make_backup(
-            tmp_path, "usage",
-            ["records"],
-            {"records/session.jsonl": '{"data": true}\n'},
-        )
-
-        monkeypatch.setattr("sys.stdin", type("NoTTY", (), {
-            "isatty": lambda self: False,
-        })())
-
-        report: list[str] = []
-        inf.offer_restore_preserved_dirs(
-            tmp_path, {"usage": backup}, report
-        )
-        assert (usage / "records" / "session.jsonl").read_text() == '{"data": true}\n'
+        monkeypatch.setattr(inf, "_install", broken_install)
+        with pytest.raises(RuntimeError):
+            inf.main(["--target", str(tmp_path), "--source", str(REPO_ROOT)])
+        assert (af / "usage" / "records" / "s.jsonl").read_text() == "old\n"
 
 
 # ── CAL-07: the layout migration runs inside the factory update ─────────

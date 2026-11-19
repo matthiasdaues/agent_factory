@@ -321,6 +321,13 @@ KNOWN_COMPONENTS = ("usage",)
 COMPONENT_INSTALL_DIR = ".agent-factory/usage/analysis"
 
 PRESERVE_DIRS = ("usage", "user-changes")
+# A preserved directory is moved aside into a hidden folder next to it, so the
+# move is a rename on one file system and copies no data (T-0011).
+PRESERVE_PREFIX = ".preserve-"
+# Entries the install rebuilds and that the restore must not replace with the
+# old copy: the usage runtime is a virtual environment built from the current
+# requirements.
+PRESERVE_KEEP_NEW = {"usage": ("runtime",)}
 
 
 def _read_factory_version(target: Path) -> str:
@@ -577,90 +584,72 @@ def _dir_has_content(path: Path) -> bool:
     return False
 
 
-def _subdir_names(path: Path) -> set[str]:
-    """Return the set of immediate subdirectory names under path."""
-    if not path.is_dir():
-        return set()
-    return {e.name for e in path.iterdir() if e.is_dir() and not e.is_symlink()}
-
-
 def backup_preserved_dirs(
     target: Path, report: list[str]
 ) -> dict[str, Path]:
-    """Back up PRESERVE_DIRS from .agent-factory/ before a reinstall.
+    """Move PRESERVE_DIRS aside before a reinstall.
 
-    Returns a mapping from directory name to the backup copy path.
-    Only non-empty, non-symlink directories are backed up.
+    Each non-empty, non-symlink directory is renamed into a new hidden folder
+    `.agent-factory/.preserve-<name>-<random>/`. The folder sits next to the
+    original, so the rename never crosses a file system and copies no data.
+    Returns a mapping from directory name to the moved directory.
     """
     backups: dict[str, Path] = {}
     af = target / ".agent-factory"
     for name in PRESERVE_DIRS:
         src = af / name
         if _dir_has_content(src):
-            backup_root = Path(
-                tempfile.mkdtemp(prefix=f"af-preserve-{name}-")
-            )
-            dest = backup_root / name
-            shutil.copytree(src, dest, symlinks=False)
+            root = Path(tempfile.mkdtemp(prefix=f"{PRESERVE_PREFIX}{name}-", dir=af))
+            dest = root / name
+            os.rename(src, dest)
             backups[name] = dest
-            log(report, f".agent-factory/{name}/: backed up to {dest}")
+            log(report, f".agent-factory/{name}/: moved aside to {dest}")
     return backups
 
 
-def offer_restore_preserved_dirs(
+def _remove(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def restore_preserved_dirs(
     target: Path, backups: dict[str, Path], report: list[str]
 ) -> None:
-    """Compare backed-up directory structure against the new install.
+    """Move the preserved directories back after the install.
 
-    If the subdirectory layout matches, offer to restore.  If it does not
-    match (e.g. a version upgrade changed the structure), print the backup
-    path and leave restoration to the user.
+    Runs on every exit of the install, so it skips a backup that is already
+    back in place. When the install did not recreate a directory, the backup
+    is renamed into place. When it did, each entry of the backup replaces the
+    entry the install wrote, except the entries in PRESERVE_KEEP_NEW, which
+    the install rebuilt. The empty backup folder is then removed.
     """
     af = target / ".agent-factory"
-    for name, backup_path in backups.items():
-        new_path = af / name
-        backup_structure = _subdir_names(backup_path)
-        new_structure = _subdir_names(new_path)
-
-        if not new_path.exists():
-            print(f"\n  .agent-factory/{name}/ was not recreated by this install.")
-            print(f"  Backup preserved at: {backup_path}")
-            log(report, f".agent-factory/{name}/: not recreated; backup at {backup_path}")
+    for name, backup in backups.items():
+        if not backup.exists():
             continue
-
-        if backup_structure <= new_structure:
-            # Backed-up subdirs are a subset of (or equal to) the new layout.
-            print(f"\n  .agent-factory/{name}/ structure matches the new install.")
-            if sys.stdin.isatty():
-                answer = input(f"  Restore backed-up {name} data? [Y/n] ").strip().lower()
-                if answer in ("", "y", "yes"):
-                    _do_restore(af, name, backup_path, report)
-                else:
-                    print(f"  Skipped. Backup preserved at: {backup_path}")
-                    log(report, f".agent-factory/{name}/: restore declined; backup at {backup_path}")
+        dest = af / name
+        try:
+            if not dest.exists():
+                os.rename(backup, dest)
             else:
-                _do_restore(af, name, backup_path, report)
-        else:
-            missing = backup_structure - new_structure
-            print(f"\n  .agent-factory/{name}/ structure changed (missing: {', '.join(sorted(missing))}).")
-            print(f"  Backup preserved at: {backup_path}")
-            log(report, f".agent-factory/{name}/: structure mismatch; backup at {backup_path}")
-
-
-def _do_restore(
-    af: Path, name: str, backup_path: Path, report: list[str]
-) -> None:
-    """Replace the newly created directory with the backed-up copy."""
-    dest = af / name
-    try:
-        shutil.rmtree(dest)
-        shutil.copytree(backup_path, dest, symlinks=False)
-        shutil.rmtree(backup_path.parent)
-        log(report, f".agent-factory/{name}/: restored from backup")
-    except OSError as exc:
-        print(f"  Restore failed: {exc}", file=sys.stderr)
-        print(f"  Backup preserved at: {backup_path}")
-        log(report, f".agent-factory/{name}/: restore failed; backup at {backup_path}")
+                keep = PRESERVE_KEEP_NEW.get(name, ())
+                for entry in sorted(backup.iterdir()):
+                    current = dest / entry.name
+                    if entry.name in keep and current.exists():
+                        _remove(entry)
+                        continue
+                    if current.exists() or current.is_symlink():
+                        _remove(current)
+                    os.rename(entry, current)
+                backup.rmdir()
+            backup.parent.rmdir()
+            log(report, f".agent-factory/{name}/: restored")
+        except OSError as exc:
+            print(f"  Restore of .agent-factory/{name}/ failed: {exc}", file=sys.stderr)
+            print(f"  Your data is at: {backup}", file=sys.stderr)
+            log(report, f".agent-factory/{name}/: restore failed; data at {backup}")
 
 
 # --------------------------------------------------------------------------- #
@@ -4837,6 +4826,22 @@ def main(argv: list[str] | None = None) -> int:
 
     report: list[str] = []
     preserved = backup_preserved_dirs(target, report)
+    try:
+        return _install(args, target, source_root, source_factory, report, preserved)
+    finally:
+        # A move leaves the data aside until it is moved back, so every exit
+        # path restores it, an early return and an error included.
+        restore_preserved_dirs(target, preserved, report)
+
+
+def _install(
+    args: argparse.Namespace,
+    target: Path,
+    source_root: Path,
+    source_factory: Path,
+    report: list[str],
+    preserved: dict[str, Path],
+) -> int:
     install: dict = {
         "_target": target,
         "remove_paths": [],
@@ -5006,8 +5011,7 @@ def main(argv: list[str] | None = None) -> int:
     _out.quiet = False
 
     # ── Restore preserved data directories ─────────────────────────────
-    if preserved:
-        offer_restore_preserved_dirs(target, preserved, report)
+    restore_preserved_dirs(target, preserved, report)
 
     # ── Section 9: Layout migration (last step, updates only) ──────────
     if install.get("layout_migration"):

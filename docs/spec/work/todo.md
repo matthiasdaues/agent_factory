@@ -142,7 +142,7 @@ the plain exit-0 check in CAL-14-IT-01.
 
 ## T-0011 — The usage backup of `init-factory` copies instead of moving
 
-- status: open
+- status: resolved
 - source: ST-0343, the factory's own update (2026-11-02)
 
 Before a reinstall, `init-factory` copies `.agent-factory/usage/` and
@@ -155,6 +155,18 @@ removed: 125 `af-preserve-usage-*` folders had piled up in `/tmp`.
 **Action:** move the preserved folders with a rename when the backup folder is
 on the same file system, and copy only across file systems; remove the backup
 after a successful update and after a rollback; add a test for each case.
+
+**Resolution:** resolved on 2026-11-19. `backup_preserved_dirs` renames each
+preserved folder into a hidden folder `.agent-factory/.preserve-<name>-<random>/`
+next to it. The rename stays on one file system, so it copies no data, and the
+cross-file-system case cannot occur. `restore_preserved_dirs` moves the data
+back and keeps the `runtime/` that the install rebuilt. It runs on every exit of
+the install, an early return or an error included, and removes the backup
+folder. The interactive restore question is gone, because declining it would
+leave the moved data aside. Tests in `tests/factory/test_init_factory.py` cover
+the move, the restore, the kept runtime, an early exit, and an error. At the
+time of the fix, `usage/` held 57 GB, and one interrupted copy had left 12.7 GB
+in `/tmp`.
 
 ## T-0012 — Usage transcripts grow without a limit
 
