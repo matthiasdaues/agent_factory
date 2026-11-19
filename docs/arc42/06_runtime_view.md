@@ -1021,8 +1021,10 @@ sequenceDiagram
   version critical, so it does not end the stop. Only a confirmation in
   either version ends it.
 - During a stop, `dispatch` still runs `status`, `plan`, `suggest-merge-args`,
-  `verify-story`, `mark-done`, `mark-blocked`, `mark-failed`, and
-  `clear-manifest`, so the orchestrator can report and record.
+  `verify-story`, `mark-blocked`, `mark-failed`, and `clear-manifest`, so
+  the orchestrator can report and record. It also runs `return-story`,
+  `close`, `close --drop`, and `close --orphans`, because they start and
+  merge no work (BR-091).
 - In an interactive session, the orchestrator explains each stopping finding
   with `explain-review-finding`. A headless run ends and carries the stop
   notice in its final summary.
