@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.10.1 — 2026-11-19
+
+This release stops an update from copying the usage data. Run
+`update-factory` to receive it.
+
+### Fixes
+
+- **An update no longer copies `.agent-factory/usage/` (T-0011).**
+  `init-factory` copied `usage/` and `user-changes/` into `/tmp` before a
+  reinstall and copied them back afterwards. With large usage transcripts,
+  the copy filled the disk and the update rolled back, and the backup folders
+  stayed in `/tmp`. Now each folder is renamed into a hidden folder next to it
+  and renamed back, so no data is copied. The data comes back on every exit of
+  the install, an error included, and the backup folder is removed. The usage
+  runtime that the install rebuilt is no longer replaced by the old one.
+
 ## 1.10.0 — 2026-11-19
 
 This release makes two reviewers on different AI models rate a finding the
