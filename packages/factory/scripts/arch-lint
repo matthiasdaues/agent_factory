@@ -303,15 +303,61 @@ def _structurizr_env(docs_root: Path, dsl_path: Path) -> dict[str, str] | None:
     return env
 
 
+def _git_says_stale(dsl_path: Path, images: list[Path]) -> bool | None:
+    """Decide staleness from git history while the DSL equals HEAD.
+
+    A checkout, a pull, or a fresh worktree sets file times to the time git
+    wrote the files, so file times say nothing about which file changed
+    last. Commit times do. Returns None when git cannot decide: no
+    repository, an untracked DSL or image, or a DSL with uncommitted edits.
+    The caller then compares file times, which do reflect edits in the
+    working tree.
+    """
+
+    def git(*args: str) -> subprocess.CompletedProcess | None:
+        try:
+            return subprocess.run(
+                ["git", "-C", str(dsl_path.parent), *args],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+
+    dsl_path = dsl_path.resolve()
+    images = [p.resolve() for p in images]
+    changed = git("diff", "--quiet", "HEAD", "--", str(dsl_path))
+    if changed is None or changed.returncode != 0:
+        return None
+    dsl_log = git("log", "-1", "--format=%ct", "--", str(dsl_path))
+    image_log = git("log", "-1", "--format=%ct", "--", *(str(p) for p in images))
+    if dsl_log is None or image_log is None:
+        return None
+    dsl_time, image_time = dsl_log.stdout.strip(), image_log.stdout.strip()
+    if not (dsl_time.isdigit() and image_time.isdigit()):
+        return None
+    return int(dsl_time) > int(image_time)
+
+
 def check_staleness(
     rep: Report, dsl_path: Path, images: list[Path], docs_root: Path
 ) -> None:
     """Check if diagrams are stale and auto-export if needed (UC-09, deterministic validation)."""
     needs_export = False
+    from_git = _git_says_stale(dsl_path, images) if images else None
 
     if not images:
         rep.info("ARCH-STALE", "no exported images found; will export now")
         needs_export = True
+    elif from_git is not None:
+        if from_git:
+            rep.info(
+                "ARCH-STALE",
+                "architecture.dsl was committed after the last image export. Will re-export.",
+            )
+            needs_export = True
     else:
         dsl_mtime = dsl_path.stat().st_mtime
         newest_svg_mtime = max(p.stat().st_mtime for p in images)

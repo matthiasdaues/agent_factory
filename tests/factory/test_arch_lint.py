@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from conftest import load_script
 
 al = load_script("arch-lint")
@@ -360,3 +362,104 @@ class TestStructurizrHandover:
         al.check_validate(rep, tmp_path / "docs", tmp_path / "architecture.dsl")
         assert calls == []
         assert ("ERROR", "ARCH-VALIDATE") in {(s, c) for s, c, _ in rep.items}
+
+
+class TestStalenessFromGit:
+    """Export runs only when the DSL really changed after the images.
+
+    A checkout or a fresh worktree gives the files the time git wrote them.
+    arch-lint used to compare those times, so it exported every diagram again
+    after a checkout and rewrote all images.
+    """
+
+    @staticmethod
+    def _exports(monkeypatch):
+        calls = []
+        real_run = al.subprocess.run
+
+        class Done:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        def run(cmd, **kwargs):
+            if cmd[0] == "git":
+                return real_run(cmd, **kwargs)
+            calls.append(cmd)
+            return Done()
+
+        monkeypatch.setattr(al.subprocess, "run", run)
+        return calls
+
+    @staticmethod
+    def _repo(tmp_path):
+        import subprocess
+
+        docs = tmp_path / "docs"
+        (docs / "spec").mkdir(parents=True)
+        (docs / "assets" / "images").mkdir(parents=True)
+        dsl = docs / "spec" / "architecture.dsl"
+        dsl.write_text("workspace { }\n")
+        image = docs / "assets" / "images" / "Containers.svg"
+        image.write_text("<svg/>")
+
+        def git(*args):
+            subprocess.run(
+                ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                check=True,
+                capture_output=True,
+            )
+
+        git("init", "-q")
+        git("add", ".")
+        git("commit", "-q", "-m", "dsl and images")
+        return docs, dsl, image, git
+
+    def test_checkout_times_do_not_trigger_an_export(self, tmp_path, monkeypatch):
+        docs, dsl, image, _ = self._repo(tmp_path)
+        later = image.stat().st_mtime + 600
+        os.utime(dsl, (later, later))
+        calls = self._exports(monkeypatch)
+        al.check_staleness(al.Report(), dsl, [image], docs)
+        assert calls == []
+
+    def test_an_edit_of_the_dsl_triggers_an_export(self, tmp_path, monkeypatch):
+        docs, dsl, image, _ = self._repo(tmp_path)
+        dsl.write_text("workspace { model { } }\n")
+        later = image.stat().st_mtime + 600
+        os.utime(dsl, (later, later))
+        calls = self._exports(monkeypatch)
+        al.check_staleness(al.Report(), dsl, [image], docs)
+        assert [c[-1] for c in calls] == ["export-all"]
+
+    def test_a_dsl_commit_after_the_images_triggers_an_export(self, tmp_path, monkeypatch):
+        import subprocess
+
+        docs, dsl, image, _ = self._repo(tmp_path)
+        dsl.write_text("workspace { model { } }\n")
+        later = "@4000000000 +0000"
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t",
+             "commit", "-q", "-a", "-m", "dsl only"],
+            check=True,
+            capture_output=True,
+            env={**os.environ, "GIT_AUTHOR_DATE": later, "GIT_COMMITTER_DATE": later},
+        )
+        calls = self._exports(monkeypatch)
+        al.check_staleness(al.Report(), dsl, [image], docs)
+        assert [c[-1] for c in calls] == ["export-all"]
+
+    def test_relative_paths_reach_git(self, tmp_path, monkeypatch):
+        """arch-lint passes paths relative to the project root, as the hook does."""
+        docs, dsl, image, _ = self._repo(tmp_path)
+        later = image.stat().st_mtime + 600
+        os.utime(dsl, (later, later))
+        monkeypatch.chdir(tmp_path)
+        calls = self._exports(monkeypatch)
+        al.check_staleness(
+            al.Report(),
+            dsl.relative_to(tmp_path),
+            [image.relative_to(tmp_path)],
+            docs.relative_to(tmp_path),
+        )
+        assert calls == []
