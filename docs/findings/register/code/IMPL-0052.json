@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Every agent text and playbook names premerge-check dev <feature-branch>, and the User, not an agent, merges into dev, so the documented path refuses an unready run (no to fails_purpose). A caller who spells the target another way gets a PASS and a marker without any feature check, and must know the rule to notice. The lines exist only on story/ST-0424, so in_use is false.",
   "commit": "8b78b5c01db700b89ba0054ed3f70e7d2319fd17",
-  "status": "open"
+  "status": "resolved"
 }

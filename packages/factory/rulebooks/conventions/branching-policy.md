@@ -105,7 +105,7 @@ The feature checks start after the last wave of a run closes, on both ways, and 
 3. The implementation agent runs `.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows the result. When it passes, the User merges the feature branch into `dev`. No agent merges into `dev`.
 4. The reconciliation agent reconciles the specification and the architecture against the code on `dev`.
 
-`premerge-check dev <feature-branch>` refuses while a unit of work of the run is `failed` or `blocked`, a wave has no wave record, one of the four reports lacks `run` set to the feature branch and a `branch_head` that is an ancestor of the feature branch head, or a blocking finding of the run is open (BR-122). It runs the full test suite in a temporary worktree at `.current-work/<feature-branch>/premerge/feature` and removes it afterwards (BR-123).
+`premerge-check dev <feature-branch>` refuses while a unit of work of the run is `failed` or `blocked`, a unit of work is `pending` and no return holds it back (BR-113), a wave has no wave record, one of the four reports lacks `run` set to the feature branch and a `branch_head` that is an ancestor of the feature branch head, or a blocking finding of the run is open (BR-122). It runs the full test suite in a temporary worktree at `.current-work/<feature-branch>/premerge/feature` and removes it afterwards (BR-123).
 
 ### Two SHAs Tracked Per Invocation
 

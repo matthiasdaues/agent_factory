@@ -101,4 +101,4 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 **If defects** → Implementation Agent: _"Review found [N] defects. Fix and re-submit for QA."_
 
-**If clean** → _"QA passed. PR ready to merge."_
+**If clean** → Implementation Agent: _"QA passed. Run `premerge-check dev <feature-branch>`, show the result, and leave the merge into `dev` to the User."_

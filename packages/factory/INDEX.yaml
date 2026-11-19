@@ -152,8 +152,8 @@ agents:
     tier: strong
     description: "Bounded code review on the implementation diff — correctness, architecture compliance, and maintainability — before the reconciliation run. Narrower than the QA agent: changed files only, no security review, no bug hunt."
     path: agents/code-review-agent.md
-    tokens: 1534
-    total_tokens: 9232
+    tokens: 1583
+    total_tokens: 9281
     inputs:
       required:
         - type: story
@@ -281,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in automated mode, or serial human-driven work in the primary checkout in manual mode. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 6866
-    total_tokens: 17719
+    tokens: 6881
+    total_tokens: 17753
     inputs:
       required:
         - type: story
@@ -384,8 +384,8 @@ agents:
     tier: strong
     description: Review code with Fagan Inspection, run OWASP security review, and execute exploratory bug-hunt-fix-retest loop.
     path: agents/qa-agent.md
-    tokens: 1745
-    total_tokens: 13382
+    tokens: 1771
+    total_tokens: 13408
     inputs:
       required:
         - type: feature
@@ -427,8 +427,8 @@ agents:
     tier: strong
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
-    tokens: 2527
-    total_tokens: 17687
+    tokens: 2536
+    total_tokens: 17696
     inputs:
       required:
         - type: scope-map
@@ -1055,7 +1055,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 63479
+    total_tokens: 63488
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1065,7 +1065,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 907
-    total_tokens: 19958
+    total_tokens: 19984
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1076,8 +1076,8 @@ playbooks:
       - implementation-agent
       - spec-review-agent
       - architecture-review-agent
-    tokens: 1676
-    total_tokens: 54222
+    tokens: 1701
+    total_tokens: 54290
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1094,7 +1094,7 @@ playbooks:
       - qa-agent
       - reconciliation-agent
     tokens: 5224
-    total_tokens: 115467
+    total_tokens: 115585
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1112,7 +1112,7 @@ playbooks:
       - reconciliation-agent
       - coaching-agent
     tokens: 3170
-    total_tokens: 114898
+    total_tokens: 115016
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1128,7 +1128,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1358
-    total_tokens: 20409
+    total_tokens: 20435
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration
@@ -1185,7 +1185,7 @@ rulebooks:
   - name: branching-policy
     category: conventions
     path: rulebooks/conventions/branching-policy.md
-    tokens: 3355
+    tokens: 3374
   - name: cache-hygiene
     category: conventions
     path: rulebooks/conventions/cache-hygiene.md

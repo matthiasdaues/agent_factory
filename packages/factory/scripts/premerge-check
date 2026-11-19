@@ -73,10 +73,12 @@ Checks
      no stash is made.
      `default_quality_gates` in `docs/charter/house-rules.md` is no gate
      source; when found, premerge-check prints a warning that names the file.
-  7. Feature merge (`premerge-check dev <feature-branch>`): the ledger
+  7. Feature merge (`premerge-check dev <feature-branch>`; the target may
+     also be `refs/heads/dev` or the SHA of `dev`): the ledger
      `.current-work/<feature-branch>/dispatch-ledger.yaml` of the primary
-     checkout holds no `failed` or `blocked` unit of work and a wave record
-     for each wave. At the branch head, the code-review report of the whole
+     checkout holds no `failed` or `blocked` unit of work, no `pending` one
+     that a return does not hold back (BR-113), and a wave record for each
+     wave. At the branch head, the code-review report of the whole
      feature and the Fagan, security, and bug-hunt reports set `run` to the
      feature branch and `branch_head` to a full SHA that is an ancestor of
      the head (BR-122). No blocking finding file is open whose `run` names
@@ -115,7 +117,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from dispatch_lib import Ledger, StoryState, _load_yaml, glob_match, stop_notice
+from dispatch_lib import Ledger, StoryState, _load_yaml, glob_match, held_back, stop_notice
 
 try:
     import yaml
@@ -494,7 +496,21 @@ STOPPED_STATES = (StoryState.FAILED, StoryState.BLOCKED)
 
 def is_feature_merge(target: str, branch: str) -> bool:
     """A branch other than a story branch that merges into dev is a feature merge."""
-    return target == FEATURE_TARGET and extract_story_id(branch) is None
+    return extract_story_id(branch) is None and names_dev(target)
+
+
+def names_dev(target: str) -> bool:
+    """True when *target* names the branch dev: `dev`, `refs/heads/dev`, or
+    the commit that dev points at (IMPL-0052)."""
+    if target == FEATURE_TARGET:
+        return True
+    dev_ref = f"refs/heads/{FEATURE_TARGET}"
+    code, name, _ = run_git(["rev-parse", "--symbolic-full-name", target])
+    if code == 0 and name:
+        return name == dev_ref
+    code, sha, _ = run_git(["rev-parse", "--verify", "--quiet", f"{target}^{{commit}}"])
+    dev_code, dev_sha, _ = run_git(["rev-parse", "--verify", "--quiet", f"{dev_ref}^{{commit}}"])
+    return code == 0 and dev_code == 0 and sha == dev_sha
 
 
 def ledger_path(primary: Path, feature_branch: str) -> Path:
@@ -520,8 +536,19 @@ def check_run_state(path: Path, branch: str) -> tuple[list[tuple[bool, str]], li
     for entry in stopped:
         reason = f" ({entry.reason})" if entry.reason else ""
         results.append((False, f"BLOCK run-state: {entry.id} is {entry.status.value}{reason}"))
-    if not stopped:
-        results.append((True, f"PASS run-state: no unit of work of {branch} is failed or blocked"))
+    # A pending entry that a return does not hold back has not run yet. In a
+    # run by hand it has no wave, so the wave check cannot see it (IMPL-0050).
+    unstarted = [
+        entry for entry in ledger.stories.values()
+        if entry.status == StoryState.PENDING and not held_back(ledger, entry)
+    ]
+    for entry in unstarted:
+        results.append((False, f"BLOCK run-state: {entry.id} is pending and has not run"))
+    if not stopped and not unstarted:
+        results.append((True, (
+            f"PASS run-state: no unit of work of {branch} is failed, blocked, "
+            f"or pending without a return"
+        )))
     recorded = {record.number for record in ledger.waves}
     open_waves = sorted(
         {entry.wave for entry in ledger.stories.values() if entry.wave is not None} - recorded

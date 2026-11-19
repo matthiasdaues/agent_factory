@@ -601,6 +601,29 @@ def test_RL_13_LN_01_the_agent_and_the_policy_order_the_feature_checks() -> None
     assert "Reconciliation runs on `dev` after the merge" in handoff
 
 
+RECONCILIATION_AGENT = FACTORY / "agents" / "reconciliation-agent.md"
+DOCUMENTATION_UPDATE = PLAYBOOKS / "documentation-update.md"
+
+
+@pytest.mark.spec("RL-13-LN-01")
+def test_RL_13_LN_01_the_handoffs_order_review_qa_merge_reconciliation() -> None:
+    """IMPL-0051: the handoffs of the code-review, QA and reconciliation agents
+    follow code review, QA, merge, then reconciliation on `dev`."""
+    review = _section(CODE_REVIEW_AGENT, "Handoff")
+    assert "Run reconciliation" not in review
+    assert "the QA Agent" in review
+    qa = _section(QA_AGENT, "Handoff")
+    assert "PR ready to merge" not in qa
+    assert "premerge-check dev <feature-branch>" in qa
+    reconciliation = _text(RECONCILIATION_AGENT)
+    assert "pre-merge to dev" not in reconciliation
+    assert "Run QA agent" not in reconciliation
+    assert "on `dev` after the User merges the feature branch into `dev`" in reconciliation
+    backfeed = _text(DOCUMENTATION_UPDATE)
+    assert "before its merge into `dev`" not in backfeed
+    assert "the owners of reconciliation rows commit on `dev`" in backfeed
+
+
 @pytest.mark.spec("RL-13-LN-02")
 def test_RL_13_LN_02_the_agent_shows_the_result_and_leaves_the_merge_to_the_user() -> None:
     """Scenario: The User merges after the implementation agent shows the result."""

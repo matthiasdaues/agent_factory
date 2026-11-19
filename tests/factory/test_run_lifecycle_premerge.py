@@ -757,19 +757,27 @@ traces: [BR-085]
 SUITE = "#!/bin/sh\necho \"$PWD\" > {log}\nexit {code}\n"
 
 
-def _ledger_text(statuses: dict[str, str], waves: list[int]) -> str:
+def _ledger_text(
+    statuses: dict[str, str],
+    waves: list[int],
+    mode: str = "orchestrated",
+    entries: dict[str, dict] | None = None,
+) -> str:
+    """The ledger of the run; *entries* overrides fields of a story's entry."""
     import yaml
 
     stories = {
         sid: {"id": sid, "wave": wave, "status": status, "deps": [], "branch": f"story/{sid}"}
         for wave, (sid, status) in enumerate(statuses.items(), start=1)
     }
+    for sid, fields in (entries or {}).items():
+        stories[sid].update(fields)
     records = [
         {"number": n, "completed": [], "blocked": [], "failed": [], "next_ready": []}
         for n in waves
     ]
     return yaml.safe_dump(
-        {"mode": "orchestrated", "feature_branch": FEATURE, "stories": stories, "waves": records},
+        {"mode": mode, "feature_branch": FEATURE, "stories": stories, "waves": records},
         sort_keys=False,
     )
 
@@ -783,6 +791,8 @@ def _feature_run(
     findings: dict[str, str] | None = None,
     suite_exit: int = 0,
     head_of_report: str | None = None,
+    mode: str = "orchestrated",
+    entries: dict[str, dict] | None = None,
 ) -> dict[str, Path | str]:
     """A run on feature/login with ST-0350 in wave 1 and ST-0351 in wave 2.
 
@@ -823,14 +833,16 @@ def _feature_run(
     _git(feature, "commit", "-qm", "docs: feature checks")
     ledger = repo / ".current-work" / "feature" / "login" / "dispatch-ledger.yaml"
     ledger.write_text(
-        _ledger_text(statuses or {"ST-0350": "done", "ST-0351": "done"}, list(waves))
+        _ledger_text(
+            statuses or {"ST-0350": "done", "ST-0351": "done"}, list(waves), mode, entries,
+        )
     )
     return {"repo": repo, "feature": feature, "log": log}
 
 
-def _premerge_dev(cwd: Path) -> subprocess.CompletedProcess:
+def _premerge_dev(cwd: Path, target: str = "dev") -> subprocess.CompletedProcess:
     return subprocess.run(
-        [str(PREMERGE), "dev", FEATURE],
+        [str(PREMERGE), target, FEATURE],
         cwd=cwd, env=_env(), capture_output=True, text=True, check=False,
     )
 
@@ -868,6 +880,68 @@ def test_RL_13_IT_01_a_stopped_story_or_an_open_wave_is_refused(tmp_path, status
     blocks = _block_lines(result)
     assert len(blocks) == 1, result.stdout
     assert named in blocks[0]
+    assert not (run["repo"] / ".current-work" / "premerge-check-ok").exists()
+
+
+@pytest.mark.spec("RL-13-IT-01")
+def test_RL_13_IT_01_a_story_that_never_started_in_a_run_by_hand_is_refused(tmp_path):
+    """IMPL-0050: in a run by hand, a story gets its wave only when it starts, so
+    an unstarted story is pending with no wave and must still refuse the merge."""
+    run = _feature_run(
+        tmp_path,
+        statuses={"ST-0350": "done", "ST-0351": "pending"},
+        waves=(1,),
+        mode="by-hand",
+        entries={"ST-0351": {"wave": None}},
+    )
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    blocks = _block_lines(result)
+    assert blocks == ["BLOCK run-state: ST-0351 is pending and has not run"], result.stdout
+    assert not (run["repo"] / ".current-work" / "premerge-check-ok").exists()
+
+
+@pytest.mark.spec("RL-13-IT-01")
+@pytest.mark.parametrize(
+    ("statuses", "entries"),
+    [
+        (
+            {"ST-0350": "done", "ST-0351": "pending"},
+            {"ST-0351": {"returned": True}},
+        ),
+        (
+            {"ST-0350": "pending", "ST-0351": "pending"},
+            {"ST-0350": {"returned": True}, "ST-0351": {"wave": None, "deps": ["ST-0350"]}},
+        ),
+    ],
+    ids=["returned", "waits on a returned story"],
+)
+def test_RL_13_IT_01_a_story_held_back_by_a_return_does_not_block(tmp_path, statuses, entries):
+    """A returned story, and a story that waits on one, wait for the end of the run
+    and leave the feature merge open (BR-113)."""
+    run = _feature_run(tmp_path, statuses=statuses, mode="by-hand", entries=entries)
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.spec("RL-13-IT-01")
+@pytest.mark.parametrize("target", ["refs/heads/dev", "sha of dev"])
+def test_RL_13_IT_01_every_name_of_dev_gets_the_feature_checks(tmp_path, target):
+    """IMPL-0052: the target refs/heads/dev or the SHA of dev is a feature merge too."""
+    run = _feature_run(tmp_path)
+    ledger = run["repo"] / ".current-work" / "feature" / "login" / "dispatch-ledger.yaml"
+    ledger.unlink()
+    if target == "sha of dev":
+        target = _git(run["repo"], "rev-parse", "dev")
+
+    result = _premerge_dev(run["repo"], target)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "dispatch-ledger.yaml" in _block_lines(result)[0]
     assert not (run["repo"] / ".current-work" / "premerge-check-ok").exists()
 
 
