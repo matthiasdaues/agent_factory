@@ -54,9 +54,13 @@ VALID_TRANSITIONS: dict[StoryState, set[StoryState]] = {
     },
     StoryState.DISPATCHED: {StoryState.DONE, StoryState.BLOCKED, StoryState.FAILED},
     StoryState.DONE: set(),
-    StoryState.FAILED: {StoryState.PREPARED},
-    StoryState.BLOCKED: {StoryState.PREPARED},
+    StoryState.FAILED: {StoryState.PREPARED, StoryState.PENDING},
+    StoryState.BLOCKED: {StoryState.PREPARED, StoryState.PENDING},
 }
+
+# The states from which `dispatch return-story` sets an entry back to
+# pending (BR-116). The User runs it; the guardrail refuses it to agents.
+RETURNABLE_STATES = frozenset({StoryState.FAILED, StoryState.BLOCKED})
 
 
 FAILURE_CLASSES: tuple[str, ...] = (
@@ -385,6 +389,7 @@ class StoryEntry:
     manifest_recoveries: list[dict[str, Any]] = field(default_factory=list)
     active_session: str | None = None
     active_tier: str | None = None
+    returned: bool = False
 
     def __post_init__(self) -> None:
         if self.base_sha is not None:
@@ -429,6 +434,8 @@ class StoryEntry:
             d["active_session"] = self.active_session
         if self.active_tier is not None:
             d["active_tier"] = self.active_tier
+        if self.returned:
+            d["returned"] = self.returned
         return d
 
     @classmethod
@@ -454,6 +461,7 @@ class StoryEntry:
             manifest_recoveries=_coerce_sequence(data.get("manifest_recoveries", [])),
             active_session=data.get("active_session"),
             active_tier=data.get("active_tier"),
+            returned=bool(data.get("returned", False)),
         )
 
 
@@ -515,6 +523,19 @@ class Ledger:
                 f"for story {story_id}"
             )
         entry.status = target
+
+    def return_story(self, story_id: str) -> None:
+        """Set a failed or blocked entry back to pending and mark it returned.
+
+        Raises TransitionError for an entry in any other state (BR-116)."""
+        entry = self.stories[story_id]
+        if entry.status not in RETURNABLE_STATES:
+            raise TransitionError(
+                f"{story_id} is {entry.status.value}; return-story returns only "
+                "a failed or blocked story"
+            )
+        self.transition(story_id, StoryState.PENDING)
+        entry.returned = True
 
     def is_terminal(self, story_id: str) -> bool:
         """Return True when the story is in a terminal lifecycle state."""
@@ -757,6 +778,10 @@ def _scalar(value: Any) -> str:
         or text in ("[]", "{}")
         or _BLOCK_HEADER_RE.match(text)
         or _parse_scalar(text) != text
+        # YAML reads "a: b" as a mapping, such as the record
+        # "escalate refused: scope", though the stdlib loader does not.
+        or ": " in text
+        or text.endswith(":")
     ):
         return json.dumps(text)
     return text
@@ -1916,6 +1941,8 @@ READ_SUBCOMMANDS = frozenset(
         "mark-blocked",
         "mark-failed",
         "clear-manifest",
+        # return-story starts and merges no work, so a stop allows it (BR-091).
+        "return-story",
     }
 )
 

@@ -69,6 +69,7 @@ def full_ledger() -> lib.Ledger:
         manifest_recoveries=[{"at": "now"}],
         active_session="impl",
         active_tier="economy",
+        returned=True,
     )
     ledger.waves.append(lib.WaveCloseout(number=1, branch_head=SHA))
     return ledger
@@ -717,3 +718,107 @@ def test_RL_02_CT_01_dispatch_has_no_mark_done_subcommand(tmp_path):
     assert "mark-done" not in usage.stdout
     assert "mark-done" not in lib.STOP_SUBCOMMANDS | lib.READ_SUBCOMMANDS
     assert yaml.safe_load(ledger.read_text())["stories"]["ST-0350"]["status"] == "dispatched"
+
+
+# --- RL-06: the User returns a stopped story to the backlog (ST-0419) ---------
+
+S = lib.StoryState
+# The edges of state-machines.md § Ledger Entry Lifecycle. Added is the
+# self-edge of PENDING, which Ledger.transition accepts without an entry here.
+LIFECYCLE_EDGES = {
+    S.PENDING: {S.PREPARED, S.BLOCKED},
+    S.PREPARED: {S.DISPATCHING, S.BLOCKED},
+    S.DISPATCHING: {S.DISPATCHED, S.FAILED, S.BLOCKED},
+    S.DISPATCHED: {S.DONE, S.FAILED, S.BLOCKED},
+    S.DONE: set(),
+    S.FAILED: {S.PREPARED, S.PENDING},
+    S.BLOCKED: {S.PREPARED, S.PENDING},
+}
+RETURNED_STORY = """---
+id: ST-0350
+tier: standard
+status: {status}
+---
+
+# ST-0350
+"""
+
+
+@pytest.mark.spec("RL-06-CT-01")
+def test_RL_06_CT_01_the_transitions_are_the_edges_of_the_lifecycle():
+    """Scenario Outline: return-story sets a stopped story back to pending.
+
+    Return adds the edges from failed and blocked to pending, and no state."""
+    assert lib.VALID_TRANSITIONS == LIFECYCLE_EDGES
+    assert set(lib.StoryState) == set(LIFECYCLE_EDGES)
+
+
+@pytest.mark.spec("RL-06-CT-01")
+@pytest.mark.parametrize("state", list(lib.StoryState), ids=lambda s: s.value)
+def test_RL_06_CT_01_return_story_reaches_pending_only_from_failed_and_blocked(
+    run, state
+):
+    """Scenario Outline: return-story sets a stopped story back to pending."""
+    story = run.root / "backlog" / "ST-0350.md"
+    story.parent.mkdir()
+    story.write_text(RETURNED_STORY.format(status="open"))
+    run.write(failed_entry(status=state, classes=(AU,)))
+    returns = state in {S.FAILED, S.BLOCKED}
+
+    code, out, err = run("return-story", "ST-0350")
+
+    entry = run.entry()
+    if returns:
+        assert code == 0, err
+        assert (entry.status, entry.returned) == (S.PENDING, True)
+        assert story.read_text() == RETURNED_STORY.format(status="pending")
+        assert "ST-0350" in out
+    else:
+        assert code == 1
+        assert (entry.status, entry.returned) == (state, False)
+        assert story.read_text() == RETURNED_STORY.format(status="open")
+        assert f"ST-0350 is {state.value}" in err
+        assert "failed or blocked" in err
+
+
+@pytest.mark.spec("RL-06-CT-01")
+def test_RL_06_CT_01_return_story_refuses_a_story_without_a_backlog_file(run):
+    """The return changes the ledger only together with the backlog file."""
+    run.write(failed_entry(classes=(AU,)))
+
+    code, _, err = run("return-story", "ST-0350")
+
+    assert code == 1
+    assert "backlog/ST-0350.md" in err
+    assert (run.entry().status, run.entry().returned) == (S.FAILED, False)
+
+
+@pytest.mark.spec("RL-06-CT-01")
+def test_RL_06_CT_01_returned_is_written_only_when_true(tmp_path):
+    """The field `returned` appears in the ledger once it holds a value."""
+    ledger = lib.Ledger()
+    ledger.stories["ST-0350"] = failed_entry()
+
+    assert "returned" not in written(ledger, tmp_path / "a.yaml")["stories"]["ST-0350"]
+    ledger.stories["ST-0350"].returned = True
+    data = written(ledger, tmp_path / "b.yaml")
+    assert data["stories"]["ST-0350"]["returned"] is True
+    assert lib.Ledger.load(tmp_path / "b.yaml").stories["ST-0350"].returned is True
+
+
+@pytest.mark.spec("RL-06-CT-01")
+@pytest.mark.parametrize("record", sorted(lib.ESCALATE_REFUSED_RECORDS))
+def test_RL_06_CT_01_the_stdlib_writer_keeps_a_record_with_a_colon_valid(
+    tmp_path, monkeypatch, record
+):
+    """dispatch runs without PyYAML, so its own writer must write YAML that
+    PyYAML reads: the record of an escalate refusal holds ": "."""
+    ledger = lib.Ledger()
+    ledger.stories["ST-0350"] = failed_entry(reason=record, returned=True)
+    monkeypatch.setattr(lib, "yaml", None)
+    path = tmp_path / "dispatch-ledger.yaml"
+
+    ledger.save(path)
+
+    assert yaml.safe_load(path.read_text())["stories"]["ST-0350"]["reason"] == record
+    assert lib.Ledger.load(path).stories["ST-0350"].reason == record

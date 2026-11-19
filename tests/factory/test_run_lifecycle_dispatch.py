@@ -16,6 +16,8 @@ import yaml
 
 from conftest import SOURCE_SCRIPTS_DIR, write_review_report
 
+import dispatch_lib as lib
+
 DISPATCH = SOURCE_SCRIPTS_DIR / "dispatch"
 STORY = """---
 id: {id}
@@ -899,3 +901,323 @@ def test_RL_02_IT_02_a_refused_amend_in_an_orchestrated_run_leaves_the_story_not
     merged = _git(feature, "show", "feat/x:backlog/ST-0350.md")
     assert "status: done" in merged.splitlines()
     assert yaml.safe_load(ledger.read_text())["stories"]["ST-0350"]["status"] == "done"
+
+
+# -- RL-06: User decides how a stopped story continues (ST-0419) --------------
+
+AU = "acceptance_unmet"
+CV = "contract_violation"
+GATES_3_3 = 'test_command: "true"\ngates:\n  attempts: 3\n  attempts_escalated: 3\n'
+
+
+def _orchestrated_on_login(
+    tmp_path: Path, *, tier: str = "economy", testing: str = TESTING_YAML
+) -> dict[str, Path]:
+    """An orchestrated run on feature/login whose ST-0350 is dispatched in its
+    own worktree; backlog/ST-0350.md reads status: open."""
+    repo = tmp_path / "repo"
+    for folder in ("backlog", "docs", "src"):
+        (repo / folder).mkdir(parents=True)
+    _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
+    (repo / "backlog" / "ST-0350.md").write_text(
+        STORY.format(id="ST-0350").replace("tier: economy", f"tier: {tier}")
+    )
+    (repo / "docs" / "testing.yaml").write_text(testing)
+    (repo / ".gitignore").write_text(".current-work/\n")
+    (repo / "src" / ".keep").write_text("")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    feature = repo / ".current-work" / "feature" / "login" / "inv"
+    _git(repo, "worktree", "add", "-q", "-b", "feature/login", str(feature))
+    ledger = _ledger_path(repo, "feature/login")
+    for root in (repo, feature):
+        _write_passing_dependency_results(root, "ST-0350")
+    base = _git(repo, "rev-parse", "HEAD")
+    for args in (
+        ("init", "--base", base, "--stories", "ST-0350",
+         "--feature-branch", "feature/login", "--yes"),
+        ("plan", "--backlog-dir", "backlog"),
+        ("prepare-wave", "1"),
+        ("mark-dispatching", "ST-0350"),
+        ("mark-dispatched", "ST-0350"),
+    ):
+        result = _dispatch(repo, ledger, *args)
+        assert result.returncode == 0, (args, result.stdout, result.stderr)
+    story = repo / ".current-work" / "feature" / "login" / "story" / "ST-0350"
+    return {"repo": repo, "feature": feature, "story": story, "ledger": ledger}
+
+
+def _commit_story_work(run: dict[str, Path], *extra: str) -> str:
+    """Commit the work and the review of ST-0350, plus each file in *extra*."""
+    story = run["story"]
+    for name in ("src/ST-0350.txt", *extra):
+        (story / name).write_text("work\n")
+    write_review_report(story, "ST-0350")
+    _git(story, "add", "-A")
+    _git(story, "commit", "-qm", "feat: story work (ST-0350)")
+    sha = _git(story, "rev-parse", "HEAD")
+    result = _dispatch(run["repo"], run["ledger"], "verify-story", "ST-0350", "--sha", sha)
+    assert result.returncode == 0, result.stdout + result.stderr
+    return sha
+
+
+def _commit_on_feature(run: dict[str, Path], name: str, text: str) -> str:
+    (run["feature"] / name).write_text(text)
+    _git(run["feature"], "add", name)
+    _git(run["feature"], "commit", "-qm", f"chore: change {name}")
+    return _git(run["feature"], "rev-parse", "HEAD")
+
+
+def _fail(run: dict[str, Path], failure_class: str, times: int) -> subprocess.CompletedProcess:
+    """Fail ST-0350 *times* times, with a re-dispatch before each retry."""
+    repo, ledger = run["repo"], run["ledger"]
+    result = None
+    for attempt in range(times):
+        if attempt:
+            for step in ("re-dispatch", "mark-dispatching", "mark-dispatched"):
+                done = _dispatch(repo, ledger, step, "ST-0350")
+                assert done.returncode == 0, (step, done.stdout, done.stderr)
+        result = _dispatch(repo, ledger, "mark-failed", "ST-0350", "--class", failure_class)
+        assert result.returncode == 0, result.stdout + result.stderr
+    return result
+
+
+def _entry(run: dict[str, Path]) -> lib.StoryEntry:
+    return lib.Ledger.load(run["ledger"]).stories["ST-0350"]
+
+
+def _merge(run: dict[str, Path]) -> subprocess.CompletedProcess:
+    return _dispatch(run["feature"], run["ledger"], "merge-story", "ST-0350")
+
+
+def _last_attempt_on_strong(tmp_path: Path) -> dict[str, Path]:
+    run = _orchestrated_on_login(tmp_path, tier="strong")
+    out = _fail(run, AU, 3).stdout
+    assert "ST-0350 has stopped as failed and waits for the User" in out, out
+    assert _entry(run).tier == "strong"
+    return run
+
+
+def _second_contract_violation(tmp_path: Path) -> dict[str, Path]:
+    run = _orchestrated_on_login(tmp_path)
+    out = _fail(run, CV, 2).stdout
+    assert "ST-0350 has stopped as failed and waits for the User" in out, out
+    return run
+
+
+def _merge_conflict(tmp_path: Path) -> dict[str, Path]:
+    """git refuses the merge itself: the feature worktree holds an untracked
+    file that the merge would overwrite. A content conflict shows up in the
+    refresh first, because the refresh merges the feature branch in."""
+    run = _orchestrated_on_login(tmp_path)
+    _commit_story_work(run)
+    (run["feature"] / "src" / "ST-0350.txt").write_text("not committed\n")
+    assert _merge(run).returncode == 1
+    return run
+
+
+def _refresh_conflict(tmp_path: Path) -> dict[str, Path]:
+    run = _orchestrated_on_login(tmp_path)
+    _commit_story_work(run)
+    _commit_on_feature(run, "src/ST-0350.txt", "other\n")
+    assert _merge(run).returncode == 1
+    return run
+
+
+def _red_suite_after_the_merge(tmp_path: Path) -> dict[str, Path]:
+    run = _orchestrated_on_login(tmp_path)
+    _commit_story_work(run)
+    run["commit_a"] = _commit_on_feature(run, "docs/testing.yaml", RED_ON_FEATURE)
+    result = _merge(run)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "test suite failed after merging" in result.stderr
+    return run
+
+
+STOP_CAUSES = {
+    "last-attempt-on-strong": (_last_attempt_on_strong, "failed", None),
+    "second-contract-violation": (_second_contract_violation, "failed", None),
+    "merge-conflict": (_merge_conflict, "blocked", "merge conflict"),
+    "refresh-conflict": (_refresh_conflict, "blocked", "refresh conflict"),
+    "red-suite-after-the-merge": (
+        _red_suite_after_the_merge, "blocked", "post-merge test failure"
+    ),
+}
+
+
+@pytest.mark.spec("RL-06-IT-01")
+@pytest.mark.parametrize("cause", list(STOP_CAUSES))
+def test_RL_06_IT_01_a_story_stops_in_the_state_that_names_its_cause(tmp_path, cause):
+    """Scenario Outline: A story stops in the state that names its cause."""
+    build, state, reason = STOP_CAUSES[cause]
+
+    run = build(tmp_path)
+
+    entry = _entry(run)
+    assert entry.status.value == state
+    if reason is not None:
+        assert entry.reason == reason
+    assert entry.feature_branch == "feature/login"
+    assert lib.has_stopped(entry, lib.AttemptLimits())
+
+
+@pytest.mark.spec("RL-06-IT-02")
+def test_RL_06_IT_02_a_red_suite_moves_the_feature_branch_back(tmp_path):
+    """Scenario: A red test suite after a merge moves the feature branch back.
+
+    The orchestrated run merges in the worktree of the feature branch."""
+    run = _red_suite_after_the_merge(tmp_path)
+
+    commit_a = run["commit_a"]
+    assert _git(run["repo"], "rev-parse", "feature/login") == commit_a
+    assert _git(run["repo"], "rev-list", f"{commit_a}..feature/login") == ""
+    subjects = _git(run["repo"], "log", "--format=%s", "feature/login").splitlines()
+    assert not [s for s in subjects if s.startswith("Revert")]
+    entry = _entry(run)
+    assert (entry.status.value, entry.reason) == ("blocked", "post-merge test failure")
+
+
+@pytest.mark.spec("RL-06-IT-03")
+def test_RL_06_IT_03_a_fixed_cause_lets_the_story_continue_in_the_same_run(tmp_path):
+    """Scenario: A fixed cause lets the story continue in the same run."""
+    run = _merge_conflict(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    before = _entry(run)
+    assert (before.status.value, before.reason) == ("blocked", "merge conflict")
+    tip = _git(repo, "rev-parse", "story/ST-0350")
+    (run["feature"] / "src" / "ST-0350.txt").unlink()
+
+    result = _dispatch(repo, ledger, "re-dispatch", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    entry = _entry(run)
+    assert entry.status.value == "prepared"
+    assert (entry.branch, entry.worktree) == (before.branch, before.worktree)
+    assert entry.feature_branch == "feature/login"
+    assert _git(run["story"], "branch", "--show-current") == "story/ST-0350"
+    assert _git(repo, "rev-parse", "story/ST-0350") == tip
+    for step in ("mark-dispatching", "mark-dispatched"):
+        assert _dispatch(repo, ledger, step, "ST-0350").returncode == 0
+    merged = _merge(run)
+    assert merged.returncode == 0, merged.stdout + merged.stderr
+    assert _entry(run).status.value == "done"
+    assert _git(repo, "rev-parse", "feature/login^2") == tip
+
+
+@pytest.mark.spec("RL-06-IT-04")
+@pytest.mark.parametrize("state", ["failed", "blocked"])
+def test_RL_06_IT_04_return_story_sets_a_stopped_story_back_to_pending(tmp_path, state):
+    """Scenario Outline: return-story sets a stopped story back to pending."""
+    run = _orchestrated_on_login(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    if state == "failed":
+        _fail(run, AU, 1)
+    else:
+        assert _dispatch(
+            repo, ledger, "mark-blocked", "ST-0350", "--reason", "merge conflict"
+        ).returncode == 0
+    assert _entry(run).status.value == state
+
+    result = _dispatch(repo, ledger, "return-story", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    entry = _ledger(repo, "feature/login")["stories"]["ST-0350"]
+    assert (entry["status"], entry["returned"]) == ("pending", True)
+    front = (repo / "backlog" / "ST-0350.md").read_text().split("---")[1]
+    assert yaml.safe_load(front)["status"] == "pending"
+    status = _dispatch(repo, ledger, "status")
+    assert re.search(r"ST-0350\s+1\s+pending", status.stdout), status.stdout
+
+
+@pytest.mark.spec("RL-06-IT-04")
+def test_RL_06_IT_04_return_story_refuses_a_dispatched_story(tmp_path):
+    """return-story refuses a story that has not stopped and changes no file."""
+    run = _orchestrated_on_login(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    story_file = (repo / "backlog" / "ST-0350.md").read_text()
+    ledger_text = ledger.read_text()
+
+    result = _dispatch(repo, ledger, "return-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert "ST-0350 is dispatched" in result.stderr
+    assert (repo / "backlog" / "ST-0350.md").read_text() == story_file
+    assert ledger.read_text() == ledger_text
+
+
+def _three_failed_attempts_on_standard(tmp_path: Path, *extra: str) -> dict[str, Path]:
+    run = _orchestrated_on_login(tmp_path, tier="standard", testing=GATES_3_3)
+    _commit_story_work(run, *extra)
+    out = _fail(run, AU, 3).stdout
+    assert "run `dispatch escalate ST-0350`" in out, out
+    return run
+
+
+@pytest.mark.spec("RL-06-IT-05")
+def test_RL_06_IT_05_a_diff_outside_the_scope_stops_the_story(tmp_path):
+    """Scenario: A story whose diff leaves its scope stops when dispatch
+    escalate refuses it. Once the User moves the diff back inside the scope,
+    escalate grants and clears the record."""
+    run = _three_failed_attempts_on_standard(tmp_path, "README.md")
+    repo, ledger = run["repo"], run["ledger"]
+
+    refused = _dispatch(repo, ledger, "escalate", "ST-0350")
+
+    assert refused.returncode != 0
+    entry = _entry(run)
+    assert (entry.status.value, entry.tier) == ("failed", "standard")
+    assert entry.reason == "escalate refused: scope"
+    assert lib.has_stopped(entry, lib.AttemptLimits())
+    assert "waits for the User" in refused.stderr
+
+    _git(run["story"], "rm", "-q", "README.md")
+    _git(run["story"], "commit", "-qm", "fix: keep the diff inside the scope (ST-0350)")
+    granted = _dispatch(repo, ledger, "escalate", "ST-0350")
+
+    assert granted.returncode == 0, granted.stdout + granted.stderr
+    entry = _entry(run)
+    assert (entry.tier, entry.reason) == ("strong", None)
+    assert not lib.has_stopped(entry, lib.AttemptLimits())
+
+
+@pytest.mark.spec("RL-06-IT-05")
+def test_RL_06_IT_05_a_failing_verify_base_stops_the_story(tmp_path):
+    """The same refusal with a failing verify-base writes its own record."""
+    run = _three_failed_attempts_on_standard(tmp_path)
+    _git(run["story"], "checkout", "-q", "--detach", "HEAD~1")
+
+    refused = _dispatch(run["repo"], run["ledger"], "escalate", "ST-0350")
+
+    assert refused.returncode != 0
+    entry = _entry(run)
+    assert (entry.status.value, entry.tier) == ("failed", "standard")
+    assert entry.reason == "escalate refused: verify-base"
+    assert lib.has_stopped(entry, lib.AttemptLimits())
+
+
+@pytest.mark.spec("RL-06-IT-05")
+@pytest.mark.parametrize("case", ["strong", "escalated", "escalation-off"])
+def test_RL_06_IT_05_a_refusal_of_the_ledger_writes_no_record(tmp_path, case):
+    """A refusal for the tier, an earlier escalation or
+    gates.attempts_escalated: 0 writes no record, because the ledger shows it."""
+    testing = GATES_3_3.replace("attempts_escalated: 3", "attempts_escalated: 0")
+    run = _orchestrated_on_login(
+        tmp_path,
+        tier="strong" if case == "strong" else "standard",
+        testing=testing if case == "escalation-off" else GATES_3_3,
+    )
+    _commit_story_work(run, "README.md")
+    if case == "escalated":
+        data = _ledger(run["repo"], "feature/login")
+        data["stories"]["ST-0350"]["escalation_granted"] = True
+        run["ledger"].write_text(yaml.safe_dump(data, sort_keys=False))
+    _fail(run, AU, 3)
+
+    refused = _dispatch(run["repo"], run["ledger"], "escalate", "ST-0350")
+
+    assert refused.returncode != 0
+    entry = _entry(run)
+    assert entry.status.value == "failed"
+    assert entry.reason is None
+    assert lib.has_stopped(entry, lib.AttemptLimits(attempts_escalated=0)
+                           if case == "escalation-off" else lib.AttemptLimits())

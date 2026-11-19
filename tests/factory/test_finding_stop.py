@@ -30,7 +30,7 @@ STOP_SUBCOMMANDS = [
 ]
 READ_SUBCOMMANDS = [
     "status", "plan", "suggest-merge-args", "verify-story",
-    "mark-blocked", "mark-failed", "clear-manifest",
+    "mark-blocked", "mark-failed", "clear-manifest", "return-story",
 ]
 
 BUG_0037 = """\
