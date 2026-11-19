@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The work stays in a named stash that the output lists, and the branch stays, so nothing is lost (no to fails_purpose). The User must notice the stash and apply it in the locked worktree by hand. The lines exist only on the story branch, so in_use is false.",
   "commit": "48a890b3f7e7813a1d15cbd43711cf42e48e74ac",
-  "status": "open"
+  "status": "resolved"
 }

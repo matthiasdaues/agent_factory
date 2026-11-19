@@ -16,5 +16,5 @@
   },
   "why_this_severity": "dispatch never creates a symlinked run folder, and a worktree that dispatch puts inside such a folder resolves outside `.current-work/`, so `--orphans` never takes it (no to fails_purpose). The removal needs a hand-made link together with worktrees outside the run folder. A reader must still know that the walk skips links without a word. The lines exist only on the story branch, so in_use is false.",
   "commit": "48a890b3f7e7813a1d15cbd43711cf42e48e74ac",
-  "status": "open"
+  "status": "resolved"
 }

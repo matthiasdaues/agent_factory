@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The code paths work in the probes, apart from IMPL-0045, which has its own finding (no to fails_purpose). Without the tests, a later change to the walk or the claims can break the fail-closed paths without a red test. The lines exist only on the story branch, so in_use is false.",
   "commit": "48a890b3f7e7813a1d15cbd43711cf42e48e74ac",
-  "status": "open"
+  "status": "resolved"
 }

@@ -1052,3 +1052,217 @@ def test_RL_15_IT_03_the_verdict_on_a_ledger_of_no_active_run(
         ledger.stories[story_id] = lib.StoryEntry(id=story_id, status=lib.StoryState(state))
 
     assert lib.orphan_ledger_verdict(ledger, branch_state) == expected
+
+
+def _stashes(repo: Path) -> list[str]:
+    return _git(repo, "stash", "list", "--format=%s").splitlines()
+
+
+def _nested_run(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
+    """A live run on feature/x whose ledger cmd_init wrote in the linked
+    worktree W, while the run's worktrees lie in the primary checkout."""
+    repo = _orphan_repo(tmp_path)
+    host = tmp_path / "W"
+    _git(repo, "worktree", "add", "-q", "-b", "wbranch", str(host), "dev")
+    feature = _tree(repo, "feature/x/invocation", "feature/x")
+    story = _tree(repo, "feature/x/story/ST-1", "story/ST-1")
+    (story / "wip.txt").write_text("agent at work\n")
+    ledger = host / ".current-work/feature/x/dispatch-ledger.yaml"
+    ledger.parent.mkdir(parents=True)
+    return repo, ledger, feature, story
+
+
+@pytest.mark.spec("RL-15-IT-01")
+def test_RL_15_IT_01_orphans_keeps_a_live_run_whose_ledger_lies_in_a_linked_worktree(
+    tmp_path,
+):
+    """IMPL-0049: a readable ledger in a linked worktree owns the run's
+    worktrees in the primary checkout."""
+    repo, ledger, feature, story = _nested_run(tmp_path)
+    _write_ledger(ledger, "feature/x", {"ST-1": "dispatched"})
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert feature.is_dir()
+    assert (story / "wip.txt").read_text() == "agent at work\n"
+    assert _stashes(repo) == []
+
+
+@pytest.mark.spec("RL-15-IT-04")
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "---\nmode: orchestrated\nfeature_branch: feature/x\nstories:\n  ST-1:\n    id: ST-1\n    wa",
+        "---\nmode: orchestrated\nstories: {}\n",
+    ],
+    ids=["empty", "truncated", "no feature branch"],
+)
+def test_RL_15_IT_04_orphans_keeps_the_run_folder_of_a_nested_ledger_without_a_feature_branch(
+    tmp_path, text,
+):
+    """IMPL-0045: a ledger that stays claims the matching folder under the
+    primary checkout's .current-work/, also when it yields no feature branch."""
+    repo, ledger, feature, story = _nested_run(tmp_path)
+    ledger.write_text(text)
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ledger.read_text() == text
+    assert f"kept ledger: {ledger}" in result.stdout
+    assert feature.is_dir()
+    assert (story / "wip.txt").read_text() == "agent at work\n"
+    assert _stashes(repo) == []
+
+
+@pytest.mark.spec("RL-15-IT-03")
+def test_RL_15_IT_03_orphans_keeps_a_project_file_named_like_a_ledger(tmp_path):
+    """IMPL-0046: the walk reads only .current-work/ folders, so a tracked
+    file named dispatch-ledger.yaml in a worktree's checkout stays."""
+    repo = _orphan_repo(tmp_path)
+    fixture = _write_ledger(
+        repo / "tests/fixtures/dispatch-ledger.yaml", "feature/example", {"ST-1": "done"},
+    )
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "fixture")
+    feature = _tree(repo, "feature/x/invocation", "feature/x")
+    _write_ledger(
+        repo / ".current-work/feature/x/dispatch-ledger.yaml", "feature/x",
+        {"ST-1": "dispatched"},
+    )
+    copy = feature / "tests/fixtures/dispatch-ledger.yaml"
+    edited = copy.read_text() + "# local edit\n"
+    copy.write_text(edited)
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert copy.read_text() == edited
+    assert fixture.is_file()
+    assert "removed ledger" not in result.stdout
+
+
+@pytest.mark.spec("RL-15-IT-03")
+def test_RL_15_IT_03_orphans_keeps_a_ledger_that_git_tracks(tmp_path):
+    """IMPL-0046: --orphans never deletes a file that git tracks."""
+    repo = _orphan_repo(tmp_path)
+    ledger = _write_ledger(
+        repo / ".current-work/feature/example/dispatch-ledger.yaml", "feature/example",
+        {"ST-1": "done"},
+    )
+    _git(repo, "add", "-f", str(ledger))
+    _git(repo, "commit", "-qm", "example ledger")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ledger.is_file()
+    assert f"kept ledger: {ledger} (git tracks it in {repo})" in result.stdout
+
+
+@pytest.mark.spec("RL-15-IT-02")
+def test_RL_15_IT_02_orphans_keeps_a_locked_worktree_before_any_stash(tmp_path):
+    """IMPL-0047: a locked worktree stays with its changes, and no stash exists."""
+    repo = _orphan_repo(tmp_path)
+    locked = _tree(repo, "feature/old/story/ST-1", "story/ST-1")
+    (locked / "w.txt").write_text("w\n")
+    _git(repo, "worktree", "lock", str(locked))
+    free = _tree(repo, "feature/old/story/ST-2", "story/ST-2")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (locked / "w.txt").read_text() == "w\n"
+    assert f"kept worktree: {locked} (story/ST-1; it is locked)" in result.stdout
+    assert not free.exists()
+    assert not any("story/ST-1" in line for line in _stashes(repo))
+
+
+@pytest.mark.spec("RL-15-IT-04")
+def test_RL_15_IT_04_orphans_reads_the_ledger_behind_a_symlinked_run_folder(tmp_path):
+    """IMPL-0048: a symlinked folder under .current-work/ gets a line, and the
+    live ledger behind it keeps its worktrees."""
+    repo = _orphan_repo(tmp_path)
+    outside = tmp_path / "outside"
+    ledger = _write_ledger(outside / "dispatch-ledger.yaml", "feature/x", {"ST-1": "dispatched"})
+    link = repo / ".current-work/feature/x"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(outside)
+    story = _tree(repo, "story-x/ST-1", "story/ST-1")
+    feature = _tree(repo, "inv-x", "feature/x")
+    before = ledger.read_text()
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"kept link: {link}" in result.stdout
+    assert ledger.read_text() == before
+    assert story.is_dir()
+    assert feature.is_dir()
+
+
+@pytest.mark.spec("RL-15-IT-04")
+def test_RL_15_IT_04_orphans_keeps_a_symlinked_ledger_and_its_folder(tmp_path):
+    """IMPL-0049: a ledger that is a symlink stays and is listed; it owns its folder."""
+    repo = _orphan_repo(tmp_path)
+    target = _write_ledger(tmp_path / "elsewhere/dispatch-ledger.yaml", "feature/old", {})
+    link = repo / ".current-work/feature/old/dispatch-ledger.yaml"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(target)
+    story = _tree(repo, "feature/old/story/ST-1", "story/ST-1")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert link.is_symlink()
+    assert target.is_file()
+    assert f"kept ledger: {link} (dispatch cannot read it: it is a symlink" in result.stdout
+    assert story.is_dir()
+
+
+def _git_that_fails_worktree_remove(tmp_path: Path) -> dict[str, str]:
+    """An environment whose git fails every git worktree remove."""
+    real = subprocess.run(
+        ["which", "git"], capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    wrapper = bin_dir / "git"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        'case " $* " in\n'
+        '  *" worktree remove "*) echo "fatal: refused" >&2; exit 128 ;;\n'
+        "esac\n"
+        f'exec "{real}" "$@"\n'
+    )
+    wrapper.chmod(0o755)
+    env = _env()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
+    return env
+
+
+@pytest.mark.spec("RL-15-IT-01")
+def test_RL_15_IT_01_orphans_stops_after_a_failed_removal_and_names_the_stash(tmp_path):
+    """IMPL-0049: a failed git worktree remove stops the run with exit 1,
+    after the stash line, and the next orphan stays."""
+    repo = _orphan_repo(tmp_path)
+    deep = _tree(repo, "feature/old/story/ST-1", "story/ST-1")
+    (deep / "notes.txt").write_text("draft\n")
+    shallow = _tree(repo, "feature/older", "feature/older")
+
+    result = subprocess.run(
+        [str(DISPATCH), "close", "--orphans"],
+        cwd=repo, env=_git_that_fails_worktree_remove(tmp_path),
+        capture_output=True, text=True, check=False,
+    )
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    name = f"orphan story/ST-1 {_today()}"
+    assert f"stash: {name}" in result.stdout
+    assert any(line.endswith(f": {name}") for line in _stashes(repo))
+    assert f"git worktree remove failed for {deep}" in result.stderr
+    assert "dispatch close --orphans: done" not in result.stdout
+    assert shallow.is_dir()
+    assert deep.is_dir()
