@@ -280,8 +280,11 @@ stories:
     manifest_recoveries: [<recovery record>, ...]
     active_session: seam | impl
     active_tier: <economy | standard | strong>
+    returned: true  # dispatch return-story set the entry back to pending
 waves: [<wave closeout record>, ...]  # see Wave Closeout Record
 ```
+
+Only the User runs `dispatch return-story <id>`, and the guardrail refuses it to agents. It sets a `failed` or `blocked` story to `pending`, sets `returned: true` in its entry, and sets `status: pending` in `backlog/<id>.md` of the current checkout. It refuses a story in any other state and commits nothing (BR-116).
 
 `dispatch` also reads a ledger with the old names `invocation_branch` and `mode: automated`. It reads them as `feature_branch` and `mode: orchestrated`, and its next write holds only the new names.
 

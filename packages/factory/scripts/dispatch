@@ -34,7 +34,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from dispatch_lib import (
-    COUNTED_FAILURE_CLASSES,
     ESCALATE_REFUSED_RECORDS,
     ESCALATE_REFUSED_SCOPE,
     ESCALATE_REFUSED_VERIFY_BASE,
@@ -393,32 +392,45 @@ def _attempt_session_for_story(
     return "impl"
 
 
-def _commit_changed_paths(commit_sha: str) -> list[str]:
-    """Return the tracked paths changed by *commit_sha*."""
-    if not commit_sha:
-        return []
-    code, out, _ = _git("show", "--name-only", "--format=", commit_sha)
-    if code != 0:
-        return []
-    return [line.strip() for line in out.splitlines() if line.strip()]
+def _in_declared_scope(entry_path: str, path: str) -> bool:
+    """Match *path* the way merge-story passes *entry_path* to premerge-check:
+    an entry with ``*`` or ``?`` is a glob, any other entry a path prefix."""
+    if any(c in entry_path for c in "*?"):
+        return glob_match(entry_path, path)
+    prefix = entry_path.rstrip("/")
+    return path == prefix or path.startswith(prefix + "/")
 
 
-def _story_scope_violation(
-    project_root: Path, story_id: str, commit_sha: str | None
-) -> bool:
-    """Return True when a commit touches files outside the story's outputs."""
-    if not commit_sha:
+def _story_scope_violation(project_root: Path, entry: StoryEntry) -> bool:
+    """Return True when the diff of the story branch leaves its scope (BR-115).
+
+    The diff runs from the feature branch to the story branch, as in
+    merge-story, so a fix that the User commits on the branch counts. The
+    scope is the one merge-story checks: the declared outputs, the story's
+    backlog file and spec-feedback report, the INDEX.yaml that a hook
+    rewrites, and the review and finding files of the story.
+    """
+    outputs = _story_output_globs(project_root, entry.id)
+    target = entry.feature_branch or entry.base_sha
+    if not outputs or not entry.branch or not target:
         return True
-    outputs = _story_output_globs(project_root, story_id)
-    if not outputs:
+    code, out, _ = _git("diff", "--name-only", f"{target}...{entry.branch}")
+    changed = [line for line in out.splitlines() if line]
+    if code != 0 or not changed:
         return True
-    changed_paths = _commit_changed_paths(commit_sha)
-    if not changed_paths:
+    owned = _story_owned_scope(target, entry.branch, entry.id)
+    if owned is None:
         return True
-    for path in changed_paths:
-        if not any(glob_match(pattern, path) for pattern in outputs):
-            return True
-    return False
+    scope = [
+        *outputs,
+        f"backlog/{entry.id}.md",
+        spec_feedback_path(entry.id),
+        HOOK_REWRITTEN_INDEX,
+        *owned,
+    ]
+    return any(
+        not any(_in_declared_scope(item, path) for item in scope) for path in changed
+    )
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -1706,18 +1718,6 @@ class _BranchCheckError(Exception):
     """The checks of the branch could not run."""
 
 
-def _latest_counted_commit(entry: StoryEntry) -> str | None:
-    """Return the commit of the latest counted attempt, else the entry's commit."""
-    for attempt in reversed(entry.attempts):
-        if (
-            isinstance(attempt, dict)
-            and attempt.get("failure_class") in COUNTED_FAILURE_CLASSES
-            and attempt.get("commit_sha")
-        ):
-            return str(attempt["commit_sha"])
-    return entry.commit_sha
-
-
 def _branch_escalation_refusal(
     project_root: Path, entry: StoryEntry
 ) -> tuple[str | None, str]:
@@ -1736,7 +1736,7 @@ def _branch_escalation_refusal(
     code, output = _run_verify_base(worktree, entry.branch, entry.base_sha)
     if code != 0:
         return ESCALATE_REFUSED_VERIFY_BASE, output
-    if _story_scope_violation(project_root, entry.id, _latest_counted_commit(entry)):
+    if _story_scope_violation(project_root, entry):
         return ESCALATE_REFUSED_SCOPE, (
             f"the diff of {entry.branch} leaves the declared outputs of {entry.id}"
         )
@@ -1807,6 +1807,39 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
             f"dispatch re-dispatch: {args.story_id} gets {limits.attempts} new "
             f"counted attempts on the tier {tier}"
         )
+    return 0
+
+
+def cmd_return_story(args: argparse.Namespace) -> int:
+    """Set a failed or blocked story back to pending in the ledger and the
+    backlog (BR-116). The backlog file changes in the working tree of the
+    current checkout; return-story commits nothing."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    if args.story_id not in ledger.stories:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    try:
+        ledger.return_story(args.story_id)
+    except TransitionError as e:
+        print(f"error: dispatch return-story refuses: {e}", file=sys.stderr)
+        return 1
+    story_file = f"backlog/{args.story_id}.md"
+    if not _update_story_status_in_file(_project_root(), args.story_id, "pending"):
+        print(
+            f"error: dispatch return-story found no status line in {story_file}; "
+            f"the ledger keeps {args.story_id} unchanged",
+            file=sys.stderr,
+        )
+        return 1
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch return-story: {args.story_id} is pending in the ledger and "
+        f"in {story_file}"
+    )
     return 0
 
 
@@ -2611,6 +2644,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
     p_rd.add_argument("story_id")
 
+    p_ret = sub.add_parser(
+        "return-story", help="set a failed or blocked story back to pending (User only)"
+    )
+    p_ret.add_argument("story_id")
+
     p_vs = sub.add_parser("verify-story", help="verify a story's commit SHA")
     p_vs.add_argument("story_id")
     p_vs.add_argument("--sha", required=True)
@@ -2681,6 +2719,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_failed(args)
     if args.subcommand == "re-dispatch":
         return cmd_re_dispatch(args)
+    if args.subcommand == "return-story":
+        return cmd_return_story(args)
     if args.subcommand == "verify-story":
         return cmd_verify_story(args)
     if args.subcommand == "escalate":
