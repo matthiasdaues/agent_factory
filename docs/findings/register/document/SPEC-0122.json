@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0122",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/entity-model.md:127",
+  "story": null,
+  "finding": "Commit 2495af06 adds to the Writes row of docs/spec/interface-contracts.md § dispatch that 'the field branch_head of the ledger does not set the base, because it holds only the commit of the last merge or wave close'. DISPATCH_LEDGER in docs/spec/entity-model.md lists mode, feature_branch, branch_root, the entries, and the wave records, and names branch_head only as a field of a wave record. The code writes ledger.branch_head at init, at each merge of merge-story, and at each wave close. Add branch_head to the attributes of DISPATCH_LEDGER: the commit of the last merge or wave close on the feature branch, which sets no base. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The contract says what the field holds and that it sets no base, so an implementer reaches the right behavior (no to fails_purpose); a reader who looks the field up in the entity model finds only the field of a wave record and must read the code to learn the ledger's own field (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "0157683c935bdb637cc7ac34bde0c5a377cfc5ad",
+  "status": "open"
+}
