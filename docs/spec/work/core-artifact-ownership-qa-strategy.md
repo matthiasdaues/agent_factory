@@ -26,7 +26,7 @@ Generated from:
   - CAO-09 `Rule: Architecture-review agent reviews the dependency rules`
   - CAO-10 `Rule: Test-strategy agent owns the test practice family`
   - CAO-11 `Rule: Implementation agent blocks a merge on a failing test guardrail`
-  - CAO-12 `Rule: Test-strategy agent resolves the surviving mutants that a developer agent cannot resolve`
+  - CAO-12 `Rule: Test-strategy agent resolves a filed mutant that no test should kill, and the planning agent owns a filed mutant that needs a test`
   - CAO-13 `Rule: Developer agent reports specification drift without editing the specification`
   - CAO-14 `Rule: Implementation agent closes a wave only after the owners have handled every drift row`
   - CAO-15 `Rule: Reconciliation agent reports drift to each artifact's owner`

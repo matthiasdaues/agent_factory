@@ -5,7 +5,7 @@ scope: global
 # EPICs — Core Artifact Ownership
 
 Proposal trace: [core-artifact-ownership.md](../docs/proposals/core-artifact-ownership.md)
-Specification trace: [core-artifact-ownership.feature](../docs/spec/features/core-artifact-ownership.feature), [gaps report](../docs/spec/work/core-artifact-ownership-gaps.md), [interface-contracts.md § Core Artifact Ownership Contracts](../docs/spec/interface-contracts.md#core-artifact-ownership-contracts), [validation-rules.md § Ownership and drift reports](../docs/spec/validation-rules.md#ownership-and-drift-reports-core-artifact-ownership-br-056br-066)
+Specification trace: [core-artifact-ownership.feature](../docs/spec/features/core-artifact-ownership.feature), [gaps report](../docs/spec/work/core-artifact-ownership-gaps.md), [interface-contracts.md § Core Artifact Ownership Contracts](../docs/spec/interface-contracts.md#core-artifact-ownership-contracts), [validation-rules.md § Ownership and spec-feedback reports](../docs/spec/validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066)
 Architecture trace: [ADR-0027](../docs/adr/0027-split-the-requirements-agent-by-artifact-family.md), [ADR-0028](../docs/adr/0028-declared-review-and-core-list-check-ownership.md), [ADR-0029](../docs/adr/0029-per-story-drift-reports-block-the-wave-close.md), [arc42 § 8.17](../docs/arc42/08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review), [arc42 § 5.10](../docs/arc42/05_building_block_view.md#510-level-2-component-view----factory-agents), [arc42 § 6.11](../docs/arc42/06_runtime_view.md#611-specification-handoff-between-producers), [arc42 § 6.12](../docs/arc42/06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-0030](../docs/adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md), [arc42 § 6.13](../docs/arc42/06_runtime_view.md#613-reconciliation-backfeed)
 QA strategy trace: [core-artifact-ownership-qa-strategy.md](../docs/spec/work/core-artifact-ownership-qa-strategy.md)
 
@@ -533,7 +533,7 @@ Today Virgil writes `testing.yaml` during the fitting, the requirements agent wr
 ### Actor Goals
 
 - Test-strategy agent owns the test practice family.
-- Test-strategy agent resolves the surviving mutants that a developer agent cannot resolve.
+- Test-strategy agent resolves a filed mutant that no test should kill, and the planning agent owns a filed mutant that needs a test.
 
 ### Demo
 
@@ -597,13 +597,13 @@ The declarations, the eligibility, and the planning agent's stop are observable 
 
 ### Ownership Resolution
 
-| Contract                                                                                                         | .feature Rule                                                                                                            | Owner   | Rationale                                    |
-| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------- | -------------------------------------------- |
-| CAO-10-LN-01: the agent's definition and workflow, Virgil's outputs and step 2b, the planning agent's pre-flight | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                        | ST-0357 | introduces the agent                         |
-| CAO-10-LN-02: only the test-strategy agent declares `testing.yaml` and the QA strategies                         | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                        | ST-0357 | removes the other declarations               |
-| CAO-10-IT-01: `intent select` reports the agent as eligible without a feature file                               | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                        | ST-0357 | introduces the agent without required inputs |
-| CAO-10-AC-01: the first run proposes `testing.yaml` and writes nothing before the stakeholder confirms           | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                        | ST-0357 | introduces the pause point                   |
-| CAO-12-LN-01: `QA` filing, owned-only work, the planning agent reads `QA` findings                               | core-artifact-ownership.feature#Test-strategy agent resolves the surviving mutants that a developer agent cannot resolve | ST-0358 | introduces the `QA` loop                     |
+| Contract                                                                                                         | .feature Rule                                                                                                                                                      | Owner   | Rationale                                    |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | -------------------------------------------- |
+| CAO-10-LN-01: the agent's definition and workflow, Virgil's outputs and step 2b, the planning agent's pre-flight | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                                                                  | ST-0357 | introduces the agent                         |
+| CAO-10-LN-02: only the test-strategy agent declares `testing.yaml` and the QA strategies                         | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                                                                  | ST-0357 | removes the other declarations               |
+| CAO-10-IT-01: `intent select` reports the agent as eligible without a feature file                               | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                                                                  | ST-0357 | introduces the agent without required inputs |
+| CAO-10-AC-01: the first run proposes `testing.yaml` and writes nothing before the stakeholder confirms           | core-artifact-ownership.feature#Test-strategy agent owns the test practice family                                                                                  | ST-0357 | introduces the pause point                   |
+| CAO-12-LN-01: `QA` filing, owned-only work, the planning agent reads `QA` findings                               | core-artifact-ownership.feature#Test-strategy agent resolves a filed mutant that no test should kill, and the planning agent owns a filed mutant that needs a test | ST-0358 | introduces the `QA` loop                     |
 
 ## E8: Block a merge on a failing test guardrail
 
