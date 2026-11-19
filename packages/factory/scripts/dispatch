@@ -2853,6 +2853,14 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
         return 1
 
     wave = args.wave
+    # A wave closes only after the wave before it, so an empty later wave
+    # cannot let the next wave start early (BR-113, IMPL-0061). A rerun on
+    # a recorded wave stays a no-op.
+    if not any(record.number == wave for record in ledger.waves):
+        missing = _missing_wave_record(ledger, wave, f"close-wave {wave}")
+        if missing:
+            print(missing, file=sys.stderr)
+            return 1
     try:
         _record, created = ledger.close_wave(
             wave, branch_head, drift_check=_drift_check(branch_head), limits=limits

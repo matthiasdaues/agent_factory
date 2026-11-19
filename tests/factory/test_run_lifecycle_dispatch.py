@@ -1803,6 +1803,22 @@ def test_RL_11_CT_01_close_wave_records_a_wave_whose_only_entry_add_moved(tmp_pa
     assert _unit(run).status.value == "prepared"
 
 
+@pytest.mark.spec("RL-11-IT-02")
+def test_RL_11_IT_02_close_wave_refuses_an_empty_wave_before_the_record_of_the_wave_before_it(
+    tmp_path,
+):
+    """IMPL-0061: close-wave 3 while BUG-0090 runs in wave 2 refuses and names
+    the missing record of wave 2, so no later wave can start (BR-113)."""
+    run = _dispatched_finding(tmp_path)
+    before = run["ledger"].read_bytes()
+
+    result = _dispatch(run["repo"], run["ledger"], "close-wave", "3")
+
+    assert result.returncode != 0
+    assert "wave 2 has no wave record" in result.stderr
+    assert run["ledger"].read_bytes() == before
+
+
 # -- RL-12: a filed surviving mutant runs in the next wave (ST-0423) ----------
 
 MUTATION_GATE = (

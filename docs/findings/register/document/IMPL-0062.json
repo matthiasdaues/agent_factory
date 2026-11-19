@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The report already records that re-dispatch refuses prepared, so the owner who reads it learns the new behavior and no story builds from the stale line (no to fails_purpose); the idempotency line of validation-rules.md then contradicts the code until reconciliation finds it, and a reader must compare both to see which one holds (raises_cost). The report and the code exist only on story/ST-0431.",
   "commit": "83403f1cdfc0cf0ceca7a6dff878c6e38ef3ae67",
-  "status": "open"
+  "status": "resolved"
 }
