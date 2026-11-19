@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0111",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "untraced",
+  "severity": "minor",
+  "artifact": "docs/spec/features/run-lifecycle.feature:477",
+  "story": null,
+  "finding": "Commit 0e53d6aa adds three refusals to BR-118 and to the merge-story and return-story bullets of the interface contracts, and no Scenario of run-lifecycle.feature traces any of them. First, a hook refuses the amend that writes status: done into the merge commit, merge-story exits 1, names the hooks, and leaves the entry dispatched. Second, git refuses the reset --keep after a red test suite, and the entry stays dispatched until a rerun. Third, return-story finds no status line in backlog/<id>.md, exits 1, and saves no change to the ledger. The tests RL-02-IT-02 in tests/factory/test_run_lifecycle_dispatch.py cover the first refusal without a Scenario to point to. Add one Scenario for each refusal to RL-02 or RL-06, next to 'A red test suite after a merge moves the feature branch back' and the return-story Outline. Owner: requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The contract bullets define each refusal with its exit code, message and ledger state, so an implementer and a test writer can act (no to fails_purpose); a reader who looks for the behavior in the feature file finds nothing and must turn to the contract (raises_cost).",
+  "commit": "8537e7471e72b0b0de6fe1e6c7dade59818c9e4a",
+  "status": "open"
+}
