@@ -1416,7 +1416,7 @@ sequenceDiagram
 
 Derived from dynamic view `PremergeStoryRefused` in [`architecture.dsl`](../spec/architecture.dsl).
 
-A refused merge changes no state (BR-124). `merge-story` merges nothing, a failed `premerge-check` writes no marker, and the entry of the unit of work stays `dispatched`. By hand, the story branch also stays checked out in the primary checkout. The cause of the refusal decides the next step of the implementation agent:
+For each cause in the table below, a refused merge changes no state (BR-124). `merge-story` merges nothing, a failed `premerge-check` writes no marker, the feature branch does not move, and the entry of the unit of work stays `dispatched`. By hand, the story branch also stays checked out in the primary checkout. One refusal does change state: in an orchestrated run, when git refuses the merge itself, `merge-story` sets the entry `blocked` with the reason `merge conflict` (BR-116). The cause of the refusal decides the next step of the implementation agent:
 
 | Cause of the refusal                                                                                                                                 | Next step of the implementation agent                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1457,7 +1457,7 @@ sequenceDiagram
 
 **Key Points:**
 
-- The Ledger Entry Lifecycle has no transition for a refused merge, because the entry keeps its state. A gate failure reaches `failed` through the gate-check step, where the state machine allows **Fail** from `dispatched`.
+- The Ledger Entry Lifecycle has no transition for a merge that `premerge-check` refuses, because the entry keeps its state. A gate failure reaches `failed` through the gate-check step, where the state machine allows **Fail** from `dispatched`.
 - In an orchestrated run, the steps are the same without the stops for the User's go.
 
 The two rows on an uncommitted change share a sequence. Derived from dynamic view `MergeCheckoutRefused` in [`architecture.dsl`](../spec/architecture.dsl).
