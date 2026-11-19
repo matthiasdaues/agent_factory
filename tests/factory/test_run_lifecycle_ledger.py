@@ -695,3 +695,25 @@ def test_RL_03_CT_01_escalate_records_a_refusal_of_the_branch(run, field, record
     assert entry.reason is None
     assert entry.tier == "strong"
     assert not lib.has_stopped(entry, run.limits())
+
+
+@pytest.mark.spec("RL-02-CT-01")
+def test_RL_02_CT_01_dispatch_has_no_mark_done_subcommand(tmp_path):
+    """Scenario: dispatch has no mark-done subcommand (BR-118)."""
+    ledger = tmp_path / "dispatch-ledger.yaml"
+    ledger.write_text(OLD_LEDGER)
+
+    result = subprocess.run(
+        [str(DISPATCH), "--ledger", str(ledger), "mark-done", "ST-0350"],
+        capture_output=True, text=True, check=False,
+    )
+    usage = subprocess.run(
+        [str(DISPATCH), "--help"], capture_output=True, text=True, check=False,
+    )
+
+    assert result.returncode != 0
+    assert "invalid choice: 'mark-done'" in result.stderr
+    assert usage.returncode == 0
+    assert "mark-done" not in usage.stdout
+    assert "mark-done" not in lib.STOP_SUBCOMMANDS | lib.READ_SUBCOMMANDS
+    assert yaml.safe_load(ledger.read_text())["stories"]["ST-0350"]["status"] == "dispatched"

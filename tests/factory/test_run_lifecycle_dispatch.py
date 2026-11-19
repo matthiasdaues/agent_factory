@@ -579,3 +579,216 @@ def test_RL_03_IT_01_prepare_story_by_hand_refuses_a_ledger_of_another_checkout(
     assert _git(clone, "branch", "--list", "story/ST-0350") == ""
     assert _git(run_repo, "branch", "--show-current") == "dev"
     assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+
+# -- RL-03 and RL-02: merge-story in a run by hand ------------------------------
+
+RULES = "docs/spec/dependency-rules.dsl"
+MERGE_STORY = """---
+id: {id}
+title: {id}
+tier: economy
+status: pending
+deps: []
+touches: ["src/{id}.txt", "src/{id}.py"]
+outputs: ["src/{id}.txt", "src/{id}.py"]
+quality-gates: []
+---
+# {id}
+"""
+RECORDING_GATE = """#!/usr/bin/env bash
+git -C {repo} branch --show-current >> {log}
+report_dir=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "--report-dir" ]; then report_dir="$2"; fi
+  shift
+done
+mkdir -p "$report_dir"
+echo "[]" > "$report_dir/ST-0350.json"
+"""
+
+
+def _dispatched_by_hand(tmp_path: Path, *, code: str, rules: bool) -> dict[str, Path]:
+    """A run by hand on feature/login whose ST-0350 is dispatched and reviewed
+    in the primary checkout; *code* becomes src/ST-0350.py."""
+    repo = tmp_path / "repo"
+    for folder in ("backlog", "docs/spec", "src"):
+        (repo / folder).mkdir(parents=True)
+    _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
+    for story_id in ("ST-0350", "ST-0351"):
+        (repo / "backlog" / f"{story_id}.md").write_text(MERGE_STORY.format(id=story_id))
+    (repo / "docs" / "testing.yaml").write_text(TESTING_YAML)
+    (repo / ".gitignore").write_text(".current-work/\n/.agent-factory/\n")
+    (repo / "src" / ".keep").write_text("")
+    if rules:
+        (repo / RULES).write_text("src must_not_depend_on infra\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    ledger = _by_hand_run(repo)
+    for args in (("prepare-story", "ST-0350"), ("mark-dispatching", "ST-0350")):
+        result = _dispatch(repo, ledger, *args)
+        assert result.returncode == 0, (args, result.stdout, result.stderr)
+    (repo / "src" / "ST-0350.txt").write_text("work\n")
+    (repo / "src" / "ST-0350.py").write_text(code)
+    _git(repo, "add", "src")
+    _git(repo, "commit", "-qm", "feat: story work (ST-0350)")
+    write_review_report(repo, "ST-0350")
+    _git(repo, "add", "docs/reviews")
+    _git(repo, "commit", "-qm", "docs: review ST-0350")
+    result = _dispatch(repo, ledger, "mark-dispatched", "ST-0350")
+    assert result.returncode == 0, result.stdout + result.stderr
+    return {"repo": repo, "ledger": ledger}
+
+
+def _record_gate_branch(repo: Path, log: Path) -> None:
+    """Install a passing dependency-check that logs the primary checkout's branch."""
+    script = repo / ".agent-factory" / "factory" / "scripts" / "dependency-check"
+    script.parent.mkdir(parents=True)
+    script.write_text(RECORDING_GATE.format(repo=repo, log=log))
+    script.chmod(0o755)
+
+
+def _tracked_files(repo: Path) -> dict[str, tuple[bytes, int]]:
+    return {
+        name: ((repo / name).read_bytes(), (repo / name).stat().st_mtime_ns)
+        for name in _git(repo, "ls-files").splitlines()
+    }
+
+
+@pytest.mark.spec("RL-03-IT-03")
+def test_RL_03_IT_03_merge_story_runs_premerge_check_before_the_checkout(tmp_path):
+    """Scenario: merge-story runs premerge-check before it checks out the
+    feature branch."""
+    run = _dispatched_by_hand(tmp_path, code="import os\n", rules=True)
+    repo, ledger = run["repo"], run["ledger"]
+    log = tmp_path / "gate.log"
+    _record_gate_branch(repo, log)
+    story_tip = _git(repo, "rev-parse", "story/ST-0350")
+
+    result = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert log.read_text().splitlines() == ["story/ST-0350"]
+    assert _git(repo, "branch", "--show-current") == "feature/login"
+    assert _git(repo, "rev-parse", "feature/login^2") == story_tip
+
+
+@pytest.mark.spec("RL-03-IT-04")
+def test_RL_03_IT_04_a_refused_premerge_check_leaves_the_story_branch(tmp_path):
+    """Scenario: A refused premerge-check leaves the primary checkout on the
+    story branch."""
+    run = _dispatched_by_hand(tmp_path, code="import infra\n", rules=True)
+    repo, ledger = run["repo"], run["ledger"]
+    tip = _git(repo, "rev-parse", "feature/login")
+    files = _tracked_files(repo)
+
+    result = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK semantic-gates: dependency-check" in result.stdout
+    assert _git(repo, "branch", "--show-current") == "story/ST-0350"
+    assert _tracked_files(repo) == files
+    assert _git(repo, "rev-parse", "feature/login") == tip
+    assert _ledger(repo, "feature/login")["stories"]["ST-0350"]["status"] == "dispatched"
+
+
+@pytest.mark.spec("RL-03-IT-04")
+def test_RL_03_IT_04_a_changed_tracked_file_does_not_hide_a_failing_gate(tmp_path):
+    """Scenario: A changed tracked file in the primary checkout does not hide a
+    failing gate."""
+    run = _dispatched_by_hand(tmp_path, code="import infra\n", rules=True)
+    repo, ledger = run["repo"], run["ledger"]
+    tip = _git(repo, "rev-parse", "feature/login")
+    changed = repo / "src" / "ST-0350.py"
+    changed.write_text("import infra\nchanged = True\n")
+
+    result = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    output = result.stdout + result.stderr
+    assert result.returncode == 1, output
+    assert "BLOCK semantic-gates: dependency-check" in result.stdout
+    assert "would be overwritten" not in output
+    assert "Your local changes" not in output
+    assert _git(repo, "branch", "--show-current") == "story/ST-0350"
+    assert changed.read_text() == "import infra\nchanged = True\n"
+    assert _git(repo, "rev-parse", "feature/login") == tip
+
+
+@pytest.mark.spec("RL-03-IT-05")
+def test_RL_03_IT_05_a_refused_checkout_stops_merge_story_by_hand(tmp_path):
+    """Scenario: A refused checkout of the feature branch stops merge-story in a
+    run by hand."""
+    run = _dispatched_by_hand(tmp_path, code="import os\n", rules=True)
+    repo, ledger = run["repo"], run["ledger"]
+    log = tmp_path / "gate.log"
+    _record_gate_branch(repo, log)
+    tip = _git(repo, "rev-parse", "feature/login")
+    changed = repo / "src" / "ST-0350.py"
+    changed.write_text("import os\nchanged = True\n")
+
+    refused = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert refused.returncode == 1, refused.stdout + refused.stderr
+    assert "PASS" in refused.stdout
+    assert "src/ST-0350.py" in refused.stderr
+    assert f"primary checkout {repo}" in refused.stderr
+    assert _ledger(repo, "feature/login")["stories"]["ST-0350"]["status"] == "dispatched"
+    assert _git(repo, "branch", "--show-current") == "story/ST-0350"
+    assert changed.read_text() == "import os\nchanged = True\n"
+    assert _git(repo, "rev-parse", "feature/login") == tip
+    assert log.read_text().splitlines() == ["story/ST-0350"]
+
+    _git(repo, "checkout", "--", "src/ST-0350.py")
+    second = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert log.read_text().splitlines() == ["story/ST-0350", "story/ST-0350"]
+    assert _git(repo, "branch", "--show-current") == "feature/login"
+
+
+@pytest.mark.spec("RL-02-IT-02")
+def test_RL_02_IT_02_only_merge_story_sets_the_story_to_done(tmp_path):
+    """Scenario: Only dispatch merge-story sets a story to done."""
+    run = _dispatched_by_hand(tmp_path, code="import os\n", rules=False)
+    repo, ledger = run["repo"], run["ledger"]
+    story_commits = _git(repo, "rev-list", "feature/login..story/ST-0350").splitlines()
+
+    result = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    merged = _git(repo, "show", "feature/login:backlog/ST-0350.md")
+    assert "status: done" in merged.splitlines()
+    assert _git(repo, "rev-parse", "feature/login^2") == story_commits[0]
+    for sha in story_commits:
+        story_file = _git(repo, "show", f"{sha}:backlog/ST-0350.md")
+        assert "status: done" not in story_file.splitlines(), sha
+    status = _dispatch(repo, ledger, "status")
+    assert re.search(r"ST-0350\s+1\s+done", status.stdout), status.stdout
+
+
+@pytest.mark.spec("RL-17-IT-01")
+def test_RL_17_IT_01_commit_sha_holds_the_merge_commit(tmp_path):
+    """Scenario: After a merge, commit_sha holds the merge commit."""
+    run = _dispatched_by_hand(tmp_path, code="import os\n", rules=False)
+    repo, ledger = run["repo"], run["ledger"]
+
+    result = _dispatch(repo, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    merge_commit = _git(repo, "rev-parse", "feature/login")
+    assert _git(repo, "rev-parse", "feature/login^2")
+    data = _ledger(repo, "feature/login")
+    assert data["stories"]["ST-0350"]["commit_sha"] == merge_commit
+    # close-wave by hand belongs to ST-0421, so the test writes the wave record.
+    data["waves"] = [{
+        "number": 1, "completed": [{"id": "ST-0350", "merge_sha": merge_commit}],
+        "blocked": [], "failed": [], "next_ready": ["ST-0351"],
+        "branch_head": merge_commit,
+    }]
+    ledger.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    prepared = _dispatch(repo, ledger, "prepare-story", "ST-0351")
+
+    assert prepared.returncode == 0, prepared.stdout + prepared.stderr
+    assert _ledger(repo, "feature/login")["stories"]["ST-0351"]["base_sha"] == merge_commit
+    assert _git(repo, "rev-parse", "story/ST-0351") == merge_commit

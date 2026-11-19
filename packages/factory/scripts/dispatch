@@ -1566,32 +1566,6 @@ def cmd_mark_dispatched(args: argparse.Namespace) -> int:
     return _transition(args, StoryState.DISPATCHED)
 
 
-def cmd_mark_done(args: argparse.Namespace) -> int:
-    """Mark a story done and remove its step manifest (guards deactivate)."""
-    ledger_path = Path(args.ledger)
-    ledger = _load_ledger(ledger_path)
-    if ledger is None:
-        return 1
-    entry = ledger.stories.get(args.story_id)
-    if entry is None:
-        print(f"error: story not found: {args.story_id}", file=sys.stderr)
-        return 1
-
-    try:
-        ledger.transition(args.story_id, StoryState.DONE)
-    except TransitionError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-
-    entry.active_session = None
-    entry.active_tier = None
-
-    if entry.worktree and entry.feature_branch and entry.branch:
-        remove_manifest(Path(entry.worktree), entry.feature_branch, entry.branch)
-
-    return _save_ledger(ledger, ledger_path)
-
-
 def cmd_clear_manifest(args: argparse.Namespace) -> int:
     """Force-remove a stale step manifest under a given worktree."""
     if not args.force:
@@ -2107,6 +2081,34 @@ def cmd_refresh_story(args: argparse.Namespace) -> int:
     return code
 
 
+def _checkout_feature_branch_by_hand(
+    project_root: Path, entry: StoryEntry, target_branch: str
+) -> int:
+    """Check out *target_branch* in the primary checkout after premerge-check.
+
+    Git's own refusal stays: its message names the files, and the story
+    branch stays checked out (BR-124).
+    """
+    if _current_branch_name() == target_branch:
+        return 0
+    code, _, err = _git("checkout", "-q", target_branch)
+    if code == 0:
+        return 0
+    # A failing post-checkout hook switches the branch and still fails.
+    if _current_branch_name() != entry.branch:
+        _git("checkout", "-q", entry.branch)
+    if err:
+        print(err, file=sys.stderr)
+    print(
+        f"error: git refused the checkout of {target_branch} in the primary "
+        f"checkout {project_root}; {entry.id} stays dispatched and "
+        f"{entry.branch} stays checked out. Commit or revert the changes, "
+        f"then run merge-story {entry.id} again",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
@@ -2126,11 +2128,18 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     interrupted before the test suite finished), the merge is not repeated.
     The story file's status is set to done if the interrupted run did not get
     that far, and the test suite runs against the existing merge commit.
+
+    By hand, the primary checkout has the story branch checked out. There is
+    no refresh. ``premerge-check`` runs first, and only after its exit 0 is
+    the feature branch checked out. A refused check, checkout or merge exits
+    1, keeps the story branch checked out and the entry ``dispatched``, and
+    leaves the feature branch where it was (BR-124).
     """
     ledger_path = Path(args.ledger)
-    ledger = _load_orchestrated_ledger(ledger_path)
+    ledger = _load_ledger(ledger_path)
     if ledger is None:
         return 1
+    by_hand = ledger.mode == "by-hand"
 
     entry = ledger.stories.get(args.story_id)
     if entry is None:
@@ -2159,7 +2168,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         return 1
 
     current_branch = _current_branch_name()
-    if current_branch != target_branch:
+    if by_hand and current_branch not in (entry.branch, target_branch):
+        print(
+            f"error: by hand, merge-story runs in the primary checkout with "
+            f"'{entry.branch}' checked out, but the current checkout is on "
+            f"'{current_branch}'",
+            file=sys.stderr,
+        )
+        return 1
+    if not by_hand and current_branch != target_branch:
         location = _worktree_for_branch(target_branch)
         where = f" Run it from {location}." if location else ""
         print(
@@ -2182,9 +2199,13 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     # an ancestor of HEAD in any other way has no commits of its own, and
     # merging it would record unrelated history as the story's work.
     _, branch_tip, _ = _git("rev-parse", entry.branch)
-    second_parent_code, second_parent, _ = _git("rev-parse", "--verify", "-q", "HEAD^2")
+    second_parent_code, second_parent, _ = _git(
+        "rev-parse", "--verify", "-q", f"{target_branch}^2"
+    )
     already_merged = second_parent_code == 0 and second_parent == branch_tip
-    contained_code, _, _ = _git("merge-base", "--is-ancestor", entry.branch, "HEAD")
+    contained_code, _, _ = _git(
+        "merge-base", "--is-ancestor", entry.branch, target_branch
+    )
     if contained_code == 0 and not already_merged:
         if entry.base_sha and branch_tip == entry.base_sha:
             reason = "it has no commits of its own; nothing to merge"
@@ -2197,7 +2218,17 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
               file=sys.stderr)
         return 1
 
-    if not already_merged and not args.dry_run:
+    if by_hand and current_branch != entry.branch and not already_merged:
+        print(
+            f"error: by hand, merge-story checks out {target_branch} itself; "
+            f"check out {entry.branch} in the primary checkout first",
+            file=sys.stderr,
+        )
+        return 1
+
+    # By hand only one story runs at a time, so the feature branch has not
+    # moved under the story branch and needs no refresh.
+    if not already_merged and not args.dry_run and not by_hand:
         if _refresh_story_branch(ledger, entry, target_branch) != 0:
             if entry.status == StoryState.BLOCKED:
                 _save_ledger(ledger, ledger_path)
@@ -2249,6 +2280,11 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             )
         return 0
 
+    if by_hand and _checkout_feature_branch_by_hand(
+        project_root, entry, target_branch
+    ) != 0:
+        return 1
+
     if already_merged:
         pre_merge_sha = _git("rev-parse", "HEAD^1")[1]
         if (fm or {}).get("status") != "done" and _update_story_status_in_file(
@@ -2271,6 +2307,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         )
         if merge_code != 0:
             _git("merge", "--abort")
+            if by_hand:
+                _git("checkout", "-q", entry.branch)
+                print(
+                    f"error: git refused the merge of {entry.branch} into "
+                    f"{target_branch} in the primary checkout {project_root}; "
+                    f"{entry.id} stays dispatched ({merge_err})",
+                    file=sys.stderr,
+                )
+                return 1
             entry.reason = "merge conflict"
             try:
                 ledger.transition(entry.id, StoryState.BLOCKED)
@@ -2481,11 +2526,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_mdd = sub.add_parser("mark-dispatched", help="mark story as dispatched")
     p_mdd.add_argument("story_id")
 
-    p_mdn = sub.add_parser(
-        "mark-done", help="mark story as done, remove its step manifest"
-    )
-    p_mdn.add_argument("story_id")
-
     p_cm = sub.add_parser("clear-manifest", help="force-remove a stale step manifest")
     p_cm.add_argument(
         "--force", action="store_true", help="required: confirms forced recovery"
@@ -2572,8 +2612,6 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_dispatching(args)
     if args.subcommand == "mark-dispatched":
         return cmd_mark_dispatched(args)
-    if args.subcommand == "mark-done":
-        return cmd_mark_done(args)
     if args.subcommand == "clear-manifest":
         return cmd_clear_manifest(args)
     if args.subcommand == "mark-blocked":
