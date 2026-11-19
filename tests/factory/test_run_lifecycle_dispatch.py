@@ -1545,7 +1545,9 @@ def test_RL_12_IT_02_a_refused_amend_leaves_the_finding_dispatched(tmp_path):
 
 
 def _returned_finding(tmp_path: Path) -> dict[str, Path]:
+    """BUG-0090 returned after a failed attempt that committed src/fix.txt."""
     run = _dispatched_finding(tmp_path)
+    run["attempt_one"] = _commit_finding_fix(run, "src/fix.txt")
     _steps(run, ("mark-failed", BUG, "--class", AU), ("return-story", BUG))
     return run
 
@@ -1602,6 +1604,90 @@ def test_RL_12_IT_04_adding_a_returned_finding_again_reuses_its_entry(tmp_path):
     assert (entry.branch, entry.worktree) == (before.branch, before.worktree)
     assert _git(repo, "rev-parse", "story/BUG-0090") == tip
     assert list(lib.Ledger.load(ledger).stories) == ["ST-0350", BUG]
+
+    # IMPL-0056: the next attempt starts on the existing branch, brought up
+    # to the feature branch by a merge, in the registered worktree.
+    feature_tip = _commit_on_feature(run, "docs/notes.md", "moved on\n")
+    prepared = _dispatch(repo, ledger, "prepare-wave", "3")
+
+    assert prepared.returncode == 0, prepared.stdout + prepared.stderr
+    entry = _unit(run)
+    assert entry.status.value == "prepared"
+    assert (entry.branch, entry.worktree) == (before.branch, before.worktree)
+    assert entry.base_sha == lib.Ledger.load(ledger).branch_head
+    story = run["finding_story"]
+    assert _git(story, "branch", "--show-current") == "story/BUG-0090"
+    for commit in (run["attempt_one"], feature_tip):
+        _git(repo, "merge-base", "--is-ancestor", commit, "story/BUG-0090")
+    assert _git(repo, "rev-parse", "story/BUG-0090^1") == tip
+    assert (story / "src" / "fix.txt").read_text() == "fix\n"
+    for step in ("mark-dispatching", "mark-dispatched"):
+        assert _dispatch(repo, ledger, step, BUG).returncode == 0
+
+
+@pytest.mark.spec("RL-12-IT-04")
+def test_RL_12_IT_04_a_conflicting_refresh_blocks_the_reused_finding(tmp_path):
+    """IMPL-0056: when the merge of the feature branch into the existing
+    branch conflicts, prepare-wave aborts it and blocks the entry, as
+    refresh-story does; the branch keeps its commits."""
+    run = _returned_finding(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    tip = _git(repo, "rev-parse", "story/BUG-0090")
+    _steps(run, ("close-wave", "2"), ("add", BUG))
+    (run["feature"] / "src" / "fix.txt").write_text("other\n")
+    _git(run["feature"], "add", "src/fix.txt")
+    _git(run["feature"], "commit", "-qm", "chore: conflict")
+
+    result = _dispatch(repo, ledger, "prepare-wave", "3")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    entry = _unit(run)
+    assert (entry.status.value, entry.reason) == ("blocked", "refresh conflict")
+    assert _git(repo, "rev-parse", "story/BUG-0090") == tip
+    assert _git(run["finding_story"], "status", "--porcelain") == ""
+
+
+@pytest.mark.spec("RL-12-IT-04")
+def test_RL_12_IT_04_by_hand_the_next_attempt_runs_on_the_existing_branch(run_repo):
+    """IMPL-0056 by hand: prepare-story checks out the existing branch in the
+    primary checkout and merges the feature branch into it."""
+    repo = run_repo
+    ledger = _by_hand_run(repo, "ST-0350")
+    _git(repo, "checkout", "-q", "feature/login")
+    (repo / "docs" / "findings").mkdir(parents=True)
+    (repo / "docs" / "findings" / f"{BUG}.md").write_text(
+        FEATURE_FINDING.format(id=BUG, severity="major", status="open")
+    )
+    _git(repo, "add", "docs/findings")
+    _git(repo, "commit", "-qm", "docs: file BUG-0090")
+    _git(repo, "checkout", "-q", "dev")
+    _close_wave_one(repo, ledger, record=True)
+    run = {"repo": repo, "ledger": ledger}
+    _steps(run, ("add", BUG), ("prepare-story", BUG), ("mark-dispatching", BUG))
+    (repo / "src" / "fix.txt").write_text("fix\n")
+    _git(repo, "add", "src/fix.txt")
+    _git(repo, "commit", "-qm", "fix: attempt one (BUG-0090)")
+    attempt_one = _git(repo, "rev-parse", "HEAD")
+    _steps(run, ("mark-dispatched", BUG), ("mark-failed", BUG, "--class", AU),
+           ("return-story", BUG))
+    _git(repo, "checkout", "-q", "feature/login")
+    (repo / "docs" / "notes.md").write_text("moved on\n")
+    _git(repo, "add", "docs/notes.md")
+    _git(repo, "commit", "-qm", "chore: move on")
+    feature_tip = _git(repo, "rev-parse", "HEAD")
+    data = yaml.safe_load(ledger.read_text())
+    data["waves"].append({**data["waves"][0], "number": 2})
+    ledger.write_text(yaml.safe_dump(data, sort_keys=False))
+    _steps(run, ("add", BUG))
+
+    result = _dispatch(repo, ledger, "prepare-story", BUG)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _git(repo, "branch", "--show-current") == "story/BUG-0090"
+    assert _git(repo, "rev-parse", "HEAD^1") == attempt_one
+    _git(repo, "merge-base", "--is-ancestor", feature_tip, "HEAD")
+    entry = _ledger(repo, "feature/login")["stories"][BUG]
+    assert (entry["status"], entry["wave"], entry["base_sha"]) == ("prepared", 3, feature_tip)
 
 
 @pytest.mark.spec("RL-06-IT-05")

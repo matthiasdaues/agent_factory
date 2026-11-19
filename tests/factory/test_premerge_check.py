@@ -797,6 +797,42 @@ def test_st_0422_a_rewritten_story_field_takes_no_file_of_another_story(
     assert owned == ["docs/findings/BUG-0093.md", "docs/findings/BUG-0094.md"]
 
 
+@pytest.mark.spec("RL-08-IT-08")
+def test_st_0422_a_renamed_finding_of_another_story_keeps_its_old_name_in_the_diff(
+    tmp_path, monkeypatch
+):
+    """IMPL-0057: the branch renames BUG-0092 of ST-0002 and rewrites its story
+    field. The diff lists the old name too, and the old name is no file of
+    the story, so the scope check sees it."""
+    body = "A long body line one.\nA long body line two.\nA long body line three.\n"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.com")
+    _git(repo, "config", "user.name", "Fixture")
+    _write(repo, "docs/findings/BUG-0092.md",
+           f"---\nid: BUG-0092\nstatus: open\nstory: ST-0002\n---\n\n{body}")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "init")
+    _git(repo, "checkout", "-q", "-b", BRANCH)
+    (repo / "docs/findings/BUG-0092.md").unlink()
+    _write(repo, "docs/findings/BUG-0092-fixed.md",
+           f"---\nid: BUG-0092\nstatus: resolved\nstory: {STORY_ID}\n---\n\n{body}")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "rename")
+    monkeypatch.chdir(repo)
+
+    code, files, _ = pm.changed_files("main", BRANCH)
+    owned = pm.story_owned_files("main", BRANCH, STORY_ID, files)
+
+    assert code == 0
+    assert sorted(files) == ["docs/findings/BUG-0092-fixed.md", "docs/findings/BUG-0092.md"]
+    assert "docs/findings/BUG-0092.md" not in owned
+    ok, line = pm.check_out_of_scope(files, owned)
+    assert not ok
+    assert "docs/findings/BUG-0092.md" in line
+
+
 @pytest.mark.spec("RL-08-IT-07")
 def test_st_0413_the_storys_own_files_do_not_count_toward_the_limit():
     files = [f"src/f{n}.py" for n in range(20)] + ["docs/findings/BUG-0091.md"]

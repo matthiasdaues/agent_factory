@@ -464,7 +464,10 @@ def _story_owned_scope(target_branch: str, branch: str, story_id: str) -> list[s
     merge base for a file that exists there (IMPL-0027). Prints the git
     error and returns None when git cannot read a file.
     """
-    code, out, err = _git("diff", "--name-only", f"{target_branch}...{branch}")
+    # --no-renames keeps the old name of a renamed file in the list (IMPL-0057).
+    code, out, err = _git(
+        "diff", "--name-only", "--no-renames", f"{target_branch}...{branch}"
+    )
     if code != 0:
         print(f"error: cannot list the changed files of {branch}: {err}", file=sys.stderr)
         return None
@@ -572,7 +575,9 @@ def _story_scope_violation(project_root: Path, entry: StoryEntry) -> bool:
     target = entry.feature_branch or entry.base_sha
     if not entry.branch or not target:
         return True
-    code, out, _ = _git("diff", "--name-only", f"{target}...{entry.branch}")
+    code, out, _ = _git(
+        "diff", "--name-only", "--no-renames", f"{target}...{entry.branch}"
+    )
     changed = [line for line in out.splitlines() if line]
     if code != 0 or not changed:
         return True
@@ -1199,6 +1204,34 @@ def _remove_story_workspace(
         _git("branch", "-D", branch_name)
 
 
+def _reuse_story_workspace(
+    ledger: Ledger, entry: StoryEntry, target_branch: str
+) -> str:
+    """Bring the existing branch of a reused entry onto the feature branch.
+
+    `add` keeps the branch and the worktree of a finding that it takes back
+    (BR-117). The next attempt runs there: the worktree stays, and the
+    feature branch is merged into the branch, as `refresh-story` does, so
+    the work of the earlier attempt stays (IMPL-0056). Returns "ok",
+    "blocked" after a refresh conflict, or "error".
+    """
+    registered = _worktree_for_branch(entry.branch) if entry.branch else None
+    if (
+        not entry.worktree
+        or registered is None
+        or Path(registered).resolve() != Path(entry.worktree).resolve()
+    ):
+        print(
+            f"error: {entry.id} holds the branch {entry.branch}, but git worktree "
+            f"list reports no worktree of it at {entry.worktree}",
+            file=sys.stderr,
+        )
+        return "error"
+    if _refresh_story_branch(ledger, entry, target_branch) == 0:
+        return "ok"
+    return "blocked" if entry.status == StoryState.BLOCKED else "error"
+
+
 def cmd_prepare_wave(args: argparse.Namespace) -> int:
     """Prepare every eligible story in one wave."""
     ledger_path = Path(args.ledger)
@@ -1266,20 +1299,33 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
             )
             continue
 
-        branch_name = f"story/{entry.id}"
-        worktree_path = (
-            main_root / ".current-work" / target_branch / branch_name
-        )
-
-        workspace = _create_story_workspace(branch_name, worktree_path, base_sha)
-        if workspace.error:
-            _remove_story_workspace(branch_name, worktree_path, workspace)
-            print(
-                f"error: failed to create {branch_name!r} and its worktree "
-                f"for {entry.id}: {workspace.error}",
-                file=sys.stderr,
+        if entry.branch:
+            # A reused entry keeps its branch and worktree (IMPL-0056).
+            reused = _reuse_story_workspace(ledger, entry, target_branch)
+            if reused == "blocked":
+                if _save_ledger(ledger, ledger_path) != 0:
+                    return 1
+                refused_return = True
+                continue
+            if reused == "error":
+                return 1
+            branch_name, worktree_path = entry.branch, Path(entry.worktree)
+            workspace = _StoryWorkspace(False, False, "")
+            remove_manifest(worktree_path, target_branch, branch_name)
+        else:
+            branch_name = f"story/{entry.id}"
+            worktree_path = (
+                main_root / ".current-work" / target_branch / branch_name
             )
-            return 1
+            workspace = _create_story_workspace(branch_name, worktree_path, base_sha)
+            if workspace.error:
+                _remove_story_workspace(branch_name, worktree_path, workspace)
+                print(
+                    f"error: failed to create {branch_name!r} and its worktree "
+                    f"for {entry.id}: {workspace.error}",
+                    file=sys.stderr,
+                )
+                return 1
 
         if not _verify_worktree_registration(worktree_path):
             _remove_story_workspace(branch_name, worktree_path, workspace)
@@ -1471,7 +1517,9 @@ def _prepare_story_by_hand(
         return 1
     branch_name = f"story/{entry.id}"
     tip = _branch_tip(branch_name)
-    if tip is not None and tip != base_sha:
+    # A reused entry keeps its branch, and the next attempt runs on it (IMPL-0056).
+    reused = entry.branch == branch_name and tip is not None
+    if tip is not None and tip != base_sha and not reused:
         print(
             f"error: branch {branch_name!r} already exists with commits that are "
             f"not on the feature branch; inspect it, then delete it or resume it",
@@ -1498,6 +1546,13 @@ def _prepare_story_by_hand(
             file=sys.stderr,
         )
         return 1
+    if reused and _refresh_story_branch(
+        ledger, entry, feature_branch, str(main_root)
+    ) != 0:
+        _undo_checkout_by_hand(main_root, previous, branch_name, created)
+        if entry.status == StoryState.BLOCKED:
+            _save_ledger(ledger, ledger_path)
+        return 1
 
     verify_code, verify_output = _run_verify_base(main_root, feature_branch, base_sha)
     if verify_code != 0:
@@ -1510,6 +1565,8 @@ def _prepare_story_by_hand(
     entry.branch = branch_name
     entry.worktree = None
     entry.base_sha = base_sha
+    if reused:
+        remove_manifest(main_root, feature_branch, branch_name)
     manifest_code, manifest_err = _write_story_manifest(
         project_root, entry, feature_branch, main_root
     )
@@ -2241,8 +2298,13 @@ def _update_status_in_file(story_path: Path, status: str) -> bool:
 REFRESHABLE_STATES = {StoryState.PREPARED, StoryState.DISPATCHING, StoryState.DISPATCHED}
 
 
-def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str) -> int:
+def _refresh_story_branch(
+    ledger: Ledger, entry: StoryEntry, target_branch: str, worktree: str | None = None
+) -> int:
     """Merge *target_branch* into the story branch inside its worktree.
+
+    *worktree* names the checkout that has the branch checked out when it is
+    not the entry's worktree, as in a run by hand.
 
     Returns 0 when the branch already contains the target tip or the merge
     succeeds, 1 otherwise. It refuses, unchanged, a dirty worktree, a
@@ -2251,7 +2313,8 @@ def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str)
     conflict the merge is aborted and the story is marked ``blocked`` with
     reason "refresh conflict"; the caller saves the ledger.
     """
-    if not entry.branch or not entry.worktree:
+    worktree = worktree or entry.worktree
+    if not entry.branch or not worktree:
         print(f"error: story {entry.id} has no branch or worktree recorded", file=sys.stderr)
         return 1
     _, branch_tip, _ = _git("rev-parse", entry.branch)
@@ -2267,7 +2330,6 @@ def _refresh_story_branch(ledger: Ledger, entry: StoryEntry, target_branch: str)
     if contained == 0:
         print(f"{entry.branch} already contains {target_branch}")
         return 0
-    worktree = entry.worktree
     head_code, head_branch, _ = _git("-C", worktree, "symbolic-ref", "-q", "--short", "HEAD")
     if head_code != 0 or head_branch != entry.branch:
         checked_out = head_branch if head_code == 0 else "a detached HEAD"

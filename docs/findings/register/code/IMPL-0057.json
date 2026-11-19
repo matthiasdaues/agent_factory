@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The fix of IMPL-0027 holds for the case that the story names, and the rename needs an agent that deletes another story's finding, which no agent definition asks for and finding-lint refuses for a file with review_class (no to fails_purpose). If it happens, a blocking finding leaves the merge checks, and someone must find it in the history. The lines exist only on story/ST-0422, so in_use is false.",
   "commit": "2e0a7861c034a3a2a95d0c8860e598de190ff051",
-  "status": "open"
+  "status": "resolved"
 }

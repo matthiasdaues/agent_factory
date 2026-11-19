@@ -171,7 +171,9 @@ def check_stale_base(target: str, branch: str) -> tuple[bool, str]:
 
 
 def changed_files(target: str, branch: str) -> tuple[int, list[str], str]:
-    code, out, err = run_git(["diff", "--name-only", f"{target}...{branch}"])
+    # --no-renames keeps the old name of a renamed file in the list, so a
+    # renamed finding of another story still needs a scope entry (IMPL-0057).
+    code, out, err = run_git(["diff", "--name-only", "--no-renames", f"{target}...{branch}"])
 
     if code != 0:
         return 2, [], err
