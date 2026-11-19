@@ -706,3 +706,349 @@ def test_RL_14_IT_01_a_failed_worktree_list_keeps_the_run_folder(tmp_path):
     assert "git worktree list failed" in result.stderr
     assert _ledger_of(repo).exists()
     assert brief.read_text() == "brief\n"
+
+
+# -- RL-15: User cleans up the runs that no active run owns --------------------
+
+
+def _orphan_repo(root: Path) -> Path:
+    """A repository on dev whose .current-work/ git ignores."""
+    repo = root / "repo"
+    repo.mkdir(parents=True)
+    _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
+    (repo / ".gitignore").write_text(".current-work/\n")
+    (repo / "README.md").write_text("repo\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    return repo
+
+
+def _tree(repo: Path, rel: str, branch: str | None, base: str = "dev") -> Path:
+    """Add a worktree at .current-work/<rel>, on a new branch or detached."""
+    path = repo / ".current-work" / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if branch is None:
+        _git(repo, "worktree", "add", "-q", "--detach", str(path), base)
+    else:
+        _git(repo, "worktree", "add", "-q", "-b", branch, str(path), base)
+    return path
+
+
+def _unmerged(tree: Path) -> None:
+    (tree / "work.txt").write_text("work\n")
+    _git(tree, "add", "-A")
+    _git(tree, "commit", "-qm", "work")
+
+
+def _write_ledger(
+    path: Path,
+    feature_branch: str,
+    stories: dict[str, str],
+    *,
+    old_names: bool = False,
+    worktrees: dict[str, str] | None = None,
+) -> Path:
+    """A ledger naming *feature_branch*, with each story in its state."""
+    entries = {}
+    for story_id, state in stories.items():
+        entries[story_id] = {
+            "id": story_id, "wave": 1, "status": state, "deps": [],
+            "branch": f"story/{story_id}",
+            "worktree": (worktrees or {}).get(story_id),
+            "feature_branch": feature_branch,
+        }
+    data = {
+        "mode": "automated" if old_names else "orchestrated",
+        ("invocation_branch" if old_names else "feature_branch"): feature_branch,
+        "stories": entries,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("---\n" + yaml.safe_dump(data, sort_keys=False))
+    return path
+
+
+def _orphans(repo: Path, cwd: Path | None = None) -> subprocess.CompletedProcess:
+    """dispatch close --orphans, without --ledger, as the User runs it."""
+    return subprocess.run(
+        [str(DISPATCH), "close", "--orphans"],
+        cwd=cwd or repo, env=_env(), capture_output=True, text=True, check=False,
+    )
+
+
+def _today() -> str:
+    return datetime.now().astimezone().date().isoformat()
+
+
+@pytest.mark.spec("RL-15-IT-01")
+def test_RL_15_IT_01_orphans_removes_a_worktree_whose_branch_is_merged_into_dev(tmp_path):
+    """Scenario: --orphans removes a worktree whose branch is merged into dev."""
+    repo = _orphan_repo(tmp_path)
+    tree = _tree(repo, "feature/old/story/ST-0800", "story/ST-0800")
+    (tree / "notes.txt").write_text("draft\n")
+    (tree / ".gitignore").write_text("secret.env\n")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not tree.exists()
+    assert str(tree) not in _worktrees(repo)
+    assert f"removed worktree: {tree} (story/ST-0800)" in result.stdout
+    name = f"orphan story/ST-0800 {_today()}"
+    assert f"stash: {name}" in result.stdout
+    stashes = _git(repo, "stash", "list", "--format=%s").splitlines()
+    assert any(line.endswith(f": {name}") for line in stashes), stashes
+    assert "story/ST-0800" in _branches(repo)
+
+
+@pytest.mark.spec("RL-15-IT-01")
+def test_RL_15_IT_01_orphans_keeps_every_worktree_of_a_live_run(tmp_path):
+    """A ledger whose feature branch exists owns its worktrees, its branches and
+    its folder, even when every branch is merged into dev."""
+    repo = _run_repo(tmp_path)
+    _start(repo)
+    _dispatched(repo, "ST-0350", "ST-0351")
+    story = _story_tree(repo, "ST-0350")
+    (story / "notes.txt").write_text("agent at work\n")
+    leftover = _tree(repo, f"{BRANCH}/premerge/ST-0351", None)
+    before = _ledger_of(repo).read_text()
+    trees = _worktrees(repo)
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _ledger_of(repo).read_text() == before
+    assert _worktrees(repo) == trees
+    assert (story / "notes.txt").read_text() == "agent at work\n"
+    assert leftover.is_dir()
+    assert str(repo / ".current-work" / BRANCH) not in result.stdout
+    assert _git(repo, "stash", "list") == ""
+
+
+@pytest.mark.spec("RL-15-IT-02")
+@pytest.mark.parametrize("merge_state", ["no branch", "feature/login", "detached"])
+def test_RL_15_IT_02_orphans_lists_a_worktree_whose_branch_is_not_merged_into_dev(
+    tmp_path, merge_state,
+):
+    """Scenario Outline: --orphans lists a worktree whose branch is not merged into dev."""
+    repo = _orphan_repo(tmp_path)
+    branch = None if merge_state == "detached" else "story/ST-0900"
+    tree = _tree(repo, "feature/poc/story/ST-0900", branch)
+    if merge_state != "detached":
+        _unmerged(tree)
+    if merge_state == "feature/login":
+        _git(repo, "branch", "feature/login", "story/ST-0900")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert tree.is_dir()
+    assert str(tree) in _worktrees(repo)
+    assert f"kept worktree: {tree}" in result.stdout
+    if branch:
+        assert "story/ST-0900 is not merged into dev" in result.stdout
+    else:
+        assert "detached HEAD" in result.stdout
+
+
+@pytest.mark.spec("RL-15-IT-03")
+def test_RL_15_IT_03_orphans_removes_a_ledger_without_a_branch_whose_stories_are_all_done(
+    tmp_path,
+):
+    """Scenario: --orphans removes a ledger without a branch whose stories are all done.
+    Scenario: --orphans handles an old ledger with mode automated."""
+    repo = _orphan_repo(tmp_path)
+    current = repo / ".current-work"
+    old = _write_ledger(
+        current / "feature/onboarding/dispatch-ledger.yaml", "feature/onboarding",
+        {"ST-0100": "done", "ST-0101": "done"}, old_names=True,
+    )
+    host = _tree(repo, "feature/fitting", "feature/fitting")
+    _unmerged(host)
+    nested = _write_ledger(
+        host / ".current-work/feature/gone/dispatch-ledger.yaml", "feature/gone",
+        {"ST-0200": "done"},
+    )
+    layout = _write_ledger(
+        current / "feature/layout/dispatch-ledger.yaml", "feature/layout",
+        {"ST-0343": "done", "ST-0344": "blocked"}, old_names=True,
+    )
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not old.exists()
+    assert not nested.exists()
+    assert host.is_dir()
+    assert f"removed ledger: {old}" in result.stdout
+    assert f"removed ledger: {nested}" in result.stdout
+    left = sorted(p for p in current.rglob("dispatch-ledger.yaml"))
+    assert left == [layout]
+
+
+@pytest.mark.spec("RL-15-IT-04")
+def test_RL_15_IT_04_orphans_lists_a_ledger_without_a_branch_that_holds_an_unfinished_story(
+    tmp_path,
+):
+    """Scenario: --orphans lists a ledger without a branch that holds an unfinished story.
+    The ledger still owns its worktree, so the worktree stays too."""
+    repo = _orphan_repo(tmp_path)
+    tree = _tree(repo, "feature/layout/story/ST-0344", "story/ST-0344")
+    ledger = _write_ledger(
+        repo / ".current-work/feature/layout/dispatch-ledger.yaml", "feature/layout",
+        {"ST-0343": "done", "ST-0344": "blocked"}, old_names=True,
+        worktrees={"ST-0344": str(tree)},
+    )
+    before = ledger.read_text()
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ledger.read_text() == before
+    assert (
+        f"kept ledger: {ledger} (feature/layout is gone; ST-0344 is blocked)"
+        in result.stdout
+    )
+    assert tree.is_dir()
+    assert str(tree) not in result.stdout
+
+
+@pytest.mark.spec("RL-15-IT-04")
+def test_RL_15_IT_04_orphans_keeps_a_ledger_it_cannot_read_and_what_it_may_own(tmp_path):
+    """A ledger that dispatch cannot read stays and is listed. Each worktree whose
+    branch or path its text names stays too, wherever it lies."""
+    repo = _orphan_repo(tmp_path)
+    by_branch = _tree(repo, "elsewhere/one", "story/ST-0700")
+    by_path = _tree(repo, "elsewhere/two", "story/ST-0701")
+    in_folder = _tree(repo, "feature/broken/story/ST-0702", "story/ST-0702")
+    ledger = repo / ".current-work/feature/broken/dispatch-ledger.yaml"
+    ledger.write_text(
+        "---\nfeature_branch: feature/broken\nstories:\n"
+        "  ST-0700:\n    id: ST-0700\n    status: not-a-state\n"
+        "    branch: story/ST-0700\n"
+        f"  ST-0701:\n    id: ST-0701\n    status: done\n    worktree: {by_path}\n"
+    )
+    stray = _tree(repo, "elsewhere/three", "story/ST-0703")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ledger.exists()
+    assert f"kept ledger: {ledger} (dispatch cannot read it" in result.stdout
+    for tree in (by_branch, by_path, in_folder):
+        assert tree.is_dir()
+    assert not stray.exists()
+
+
+@pytest.mark.spec("RL-15-IT-04")
+def test_RL_15_IT_04_orphans_keeps_a_worktree_that_holds_a_ledger_it_keeps(tmp_path):
+    """Removing the worktree would delete the nested ledger with it."""
+    repo = _orphan_repo(tmp_path)
+    host = _tree(repo, "feature/host", "feature/host")
+    ledger = _write_ledger(
+        host / ".current-work/feature/gone/dispatch-ledger.yaml", "feature/gone",
+        {"ST-0344": "blocked"},
+    )
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert ledger.exists()
+    assert host.is_dir()
+    assert f"kept worktree: {host} (feature/host; it holds the ledger {ledger})" in result.stdout
+
+
+@pytest.mark.spec("RL-15-IT-01")
+def test_RL_15_IT_01_orphans_keeps_a_worktree_that_holds_one_it_keeps(tmp_path):
+    """git would delete the inner worktree with the outer one."""
+    repo = _orphan_repo(tmp_path)
+    outer = _tree(repo, "feature/outer", "feature/outer")
+    inner = _tree(repo, "feature/outer/.current-work/inner", "story/ST-0901")
+    _unmerged(inner)
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (inner / "work.txt").is_file()
+    assert outer.is_dir()
+    assert f"kept worktree: {outer} (feature/outer; it holds the worktree {inner})" in result.stdout
+
+
+@pytest.mark.spec("RL-15-IT-01")
+def test_RL_15_IT_01_orphans_removes_nested_merged_worktrees_inner_first(tmp_path):
+    repo = _orphan_repo(tmp_path)
+    outer = _tree(repo, "feature/outer", "feature/outer")
+    inner = _tree(repo, "feature/outer/.current-work/inner", "story/ST-0902")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert not inner.exists()
+    assert not outer.exists()
+
+
+@pytest.mark.spec("RL-15-IT-01")
+def test_RL_15_IT_01_orphans_keeps_the_worktree_it_runs_in(tmp_path):
+    repo = _orphan_repo(tmp_path)
+    tree = _tree(repo, "feature/here", "feature/here")
+
+    result = _orphans(repo, cwd=tree)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert tree.is_dir()
+    assert f"kept worktree: {tree} (feature/here; dispatch runs inside it)" in result.stdout
+
+
+@pytest.mark.spec("RL-15-IT-02")
+def test_RL_15_IT_02_orphans_keeps_every_worktree_when_dev_is_missing(tmp_path):
+    repo = _orphan_repo(tmp_path)
+    tree = _tree(repo, "feature/old", "feature/old")
+    _git(repo, "branch", "-m", "dev", "main")
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert tree.is_dir()
+    assert "dev does not exist" in result.stdout
+
+
+@pytest.mark.spec("RL-14-IT-08")
+def test_RL_14_IT_08_a_stop_allows_dispatch_close_orphans(tmp_path):
+    """BR-091 lets close --orphans run during a stop."""
+    repo = _orphan_repo(tmp_path)
+    tree = _tree(repo, "feature/old", "feature/old")
+    write_finding(repo, finding())
+
+    result = _orphans(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "STOP:" not in result.stdout
+    assert not tree.exists()
+
+
+@pytest.mark.spec("RL-15-IT-03")
+@pytest.mark.parametrize(
+    ("branch_state", "stories", "expected"),
+    [
+        ("exists", {"ST-1": "blocked"}, (False, None)),
+        ("gone", {"ST-1": "done", "ST-2": "done"}, (True, None)),
+        ("gone", {}, (True, None)),
+        ("gone", {"ST-1": "done", "ST-2": "dispatched"},
+         (False, "feature/x is gone; ST-2 is dispatched")),
+        ("invalid", {"ST-1": "done"},
+         (False, "its feature branch 'feature/x' is not a valid branch name")),
+        ("none", {"ST-1": "done"}, (False, "it names no feature branch")),
+    ],
+)
+def test_RL_15_IT_03_the_verdict_on_a_ledger_of_no_active_run(
+    branch_state, stories, expected,
+):
+    """BR-120: only a ledger whose valid feature branch is gone and whose
+    stories are all done goes. A live ledger stays without a line."""
+    import dispatch_lib as lib
+
+    ledger = lib.Ledger()
+    ledger.feature_branch = None if branch_state == "none" else "feature/x"
+    for story_id, state in stories.items():
+        ledger.stories[story_id] = lib.StoryEntry(id=story_id, status=lib.StoryState(state))
+
+    assert lib.orphan_ledger_verdict(ledger, branch_state) == expected
