@@ -1292,6 +1292,8 @@ def test_RL_08_IT_16_a_changed_tracked_file_in_the_feature_worktree_stops_the_me
     assert "PASS" in result.stdout
     assert "src/.keep" in result.stderr
     assert str(run["feature"]) in result.stderr
+    # IMPL-0039: the message names the docs/testing.yaml that merge-story reads.
+    assert f"false in {run['feature'] / 'docs' / 'testing.yaml'}:" in result.stderr
     assert changed.read_text() == "my uncommitted work\n"
     assert _git(run["repo"], "rev-parse", "feature/login") == tip
     assert _entry(run).status.value == "dispatched"
@@ -1387,3 +1389,242 @@ def test_RL_08_IT_16_a_key_that_is_no_bool_stops_the_merge(tmp_path):
     assert "dispatch.refuse_dirty_feature_worktree must be true or false" in result.stderr
     assert "docs/testing.yaml" in result.stderr
     assert _entry(run).status.value == "dispatched"
+
+
+# -- RL-12: a blocking finding of the feature checks runs as a unit of work (ST-0422)
+
+BUG = "BUG-0090"
+FEATURE_FINDING = """---
+id: {id}
+source: qa-agent
+review_class: code
+category: defect
+type: function
+severity: {severity}
+artifact: src/ST-0350.txt:1
+status: {status}
+owner: developer-agent
+story:
+run: feature/login
+---
+
+# {id}
+"""
+
+
+def _commit_feature_finding(
+    run: dict[str, Path], finding_id: str = BUG, *, severity: str = "major",
+    status: str = "open",
+) -> None:
+    (run["feature"] / "docs" / "findings").mkdir(parents=True, exist_ok=True)
+    _commit_on_feature(
+        run, f"docs/findings/{finding_id}.md",
+        FEATURE_FINDING.format(id=finding_id, severity=severity, status=status),
+    )
+
+
+def _wave_one_merged(tmp_path: Path, *, testing: str = TESTING_YAML) -> dict[str, Path]:
+    """The run on feature/login after ST-0350 merged and wave 1 closed. The
+    feature checks committed BUG-0090, open and blocking, on feature/login."""
+    run = _orchestrated_on_login(tmp_path, testing=testing)
+    _commit_feature_finding(run)
+    _commit_story_work(run)
+    merged = _merge(run)
+    assert merged.returncode == 0, merged.stdout + merged.stderr
+    closed = _dispatch(run["repo"], run["ledger"], "close-wave", "1")
+    assert closed.returncode == 0, closed.stdout + closed.stderr
+    run["finding_story"] = (
+        run["repo"] / ".current-work" / "feature" / "login" / "story" / BUG
+    )
+    return run
+
+
+def _unit(run: dict[str, Path], unit_id: str = BUG) -> lib.StoryEntry:
+    return lib.Ledger.load(run["ledger"]).stories[unit_id]
+
+
+def _steps(run: dict[str, Path], *steps: tuple[str, ...]) -> None:
+    for args in steps:
+        result = _dispatch(run["repo"], run["ledger"], *args)
+        assert result.returncode == 0, (args, result.stdout, result.stderr)
+
+
+def _dispatched_finding(tmp_path: Path, *, testing: str = TESTING_YAML) -> dict[str, Path]:
+    """BUG-0090 added in wave 2 and dispatched on story/BUG-0090."""
+    run = _wave_one_merged(tmp_path, testing=testing)
+    _steps(
+        run, ("add", BUG), ("prepare-wave", "2"),
+        ("mark-dispatching", BUG), ("mark-dispatched", BUG),
+    )
+    return run
+
+
+def _commit_finding_fix(run: dict[str, Path], *names: str) -> str:
+    """Commit each file of *names* and the review of BUG-0090 on its branch."""
+    story = run["finding_story"]
+    for name in names:
+        (story / name).parent.mkdir(parents=True, exist_ok=True)
+        (story / name).write_text("fix\n")
+    write_review_report(story, BUG)
+    _git(story, "add", "-A")
+    _git(story, "commit", "-qm", f"fix: {BUG}")
+    sha = _git(story, "rev-parse", "HEAD")
+    _steps(run, ("verify-story", BUG, "--sha", sha))
+    return sha
+
+
+def _merge_finding(run: dict[str, Path]) -> subprocess.CompletedProcess:
+    return _dispatch(run["feature"], run["ledger"], "merge-story", BUG)
+
+
+def _finding_front(text: str) -> dict:
+    return yaml.safe_load(text.split("---")[1])
+
+
+@pytest.mark.spec("RL-12-IT-01")
+def test_RL_12_IT_01_dispatch_add_puts_an_open_finding_into_a_new_wave(tmp_path):
+    """Scenario: dispatch add puts an open finding into a new wave."""
+    run = _wave_one_merged(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+
+    result = _dispatch(repo, ledger, "add", BUG)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "BUG-0090 is pending in wave 2 of feature/login" in result.stdout
+    entry = _unit(run)
+    assert (entry.status.value, entry.wave, entry.deps, entry.tier) == ("pending", 2, [], None)
+    assert lib.Ledger.load(ledger).feature_branch == "feature/login"
+    status = _dispatch(repo, ledger, "status")
+    assert re.search(r"BUG-0090\s+2\s+pending", status.stdout), status.stdout
+
+    _steps(run, ("prepare-wave", "2"))
+
+    entry = _unit(run)
+    assert (entry.branch, entry.active_tier) == ("story/BUG-0090", "economy")
+    assert _git(run["finding_story"], "branch", "--show-current") == "story/BUG-0090"
+    assert not (repo / "backlog" / f"{BUG}.md").exists()
+
+
+@pytest.mark.spec("RL-12-IT-02")
+def test_RL_12_IT_02_the_merge_of_a_finding_sets_it_resolved(tmp_path):
+    """Scenario: The merge of a finding sets it resolved."""
+    run = _dispatched_finding(tmp_path)
+    _commit_finding_fix(run, "src/fix.txt", "tests/test_fix.txt")
+
+    result = _merge_finding(run)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    merged = _git(run["feature"], "show", f"HEAD:docs/findings/{BUG}.md")
+    assert _finding_front(merged)["status"] == "resolved"
+    assert _git(run["feature"], "log", "-1", "--format=%s") == (
+        "merge: story/BUG-0090 into feature/login"
+    )
+    assert _unit(run).status.value == "done"
+    assert _git(run["feature"], "status", "--porcelain") == ""
+
+
+@pytest.mark.spec("RL-12-IT-02")
+def test_RL_12_IT_02_a_refused_amend_leaves_the_finding_dispatched(tmp_path):
+    """A hook that refuses the amend stops merge-story, names the hook, and
+    leaves the entry dispatched; the rerun writes status: resolved (BR-118)."""
+    run = _dispatched_finding(tmp_path)
+    _commit_finding_fix(run, "src/fix.txt")
+    hook = _refuse_commits(run["repo"])
+
+    refused = _merge_finding(run)
+
+    assert refused.returncode == 1, refused.stdout + refused.stderr
+    assert "the pre-commit hook refused the amend that writes status: resolved" in refused.stderr
+    assert _unit(run).status.value == "dispatched"
+    hook.unlink()
+    rerun = _merge_finding(run)
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    merged = _git(run["feature"], "show", f"HEAD:docs/findings/{BUG}.md")
+    assert _finding_front(merged)["status"] == "resolved"
+    assert _unit(run).status.value == "done"
+
+
+def _returned_finding(tmp_path: Path) -> dict[str, Path]:
+    run = _dispatched_finding(tmp_path)
+    _steps(run, ("mark-failed", BUG, "--class", AU), ("return-story", BUG))
+    return run
+
+
+@pytest.mark.spec("RL-12-IT-03")
+def test_RL_12_IT_03_returning_a_finding_changes_only_its_ledger_entry(tmp_path):
+    """Scenario: Returning a finding changes only its ledger entry."""
+    run = _dispatched_finding(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    _steps(run, ("mark-failed", BUG, "--class", AU))
+    decoy = repo / "backlog" / f"{BUG}.md"
+    decoy.write_text("---\nstatus: open\n---\n")
+    tracked = _git(run["feature"], "status", "--porcelain")
+    finding_before = (run["feature"] / "docs" / "findings" / f"{BUG}.md").read_text()
+
+    result = _dispatch(repo, ledger, "return-story", BUG)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    entry = _ledger(repo, "feature/login")["stories"][BUG]
+    assert (entry["status"], entry["returned"]) == ("pending", True)
+    assert decoy.read_text() == "---\nstatus: open\n---\n"
+    finding = (run["feature"] / "docs" / "findings" / f"{BUG}.md").read_text()
+    assert finding == finding_before
+    front = _finding_front(_git(repo, "show", f"feature/login:docs/findings/{BUG}.md"))
+    assert (front["status"], front["run"]) == ("open", "feature/login")
+    assert _git(run["feature"], "status", "--porcelain") == tracked
+    feature_merge = subprocess.run(
+        [str(SOURCE_SCRIPTS_DIR / "premerge-check"), "dev", "feature/login"],
+        cwd=repo, env=_env(), capture_output=True, text=True, check=False,
+    )
+    assert feature_merge.returncode != 0, feature_merge.stdout
+    assert BUG in feature_merge.stdout
+
+
+@pytest.mark.spec("RL-12-IT-04")
+def test_RL_12_IT_04_adding_a_returned_finding_again_reuses_its_entry(tmp_path):
+    """Scenario: Adding a returned finding again reuses its entry."""
+    run = _returned_finding(tmp_path)
+    repo, ledger = run["repo"], run["ledger"]
+    before = _unit(run)
+    assert (before.returned, len(before.attempts)) == (True, 1)
+    tip = _git(repo, "rev-parse", "story/BUG-0090")
+    _steps(run, ("close-wave", "2"))
+
+    result = _dispatch(repo, ledger, "add", BUG)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    entry = _unit(run)
+    assert (entry.status.value, entry.wave, entry.returned) == ("pending", 3, False)
+    assert (entry.attempts, entry.attempt_grants, entry.tier) == ([], [], None)
+    assert not entry.escalation_granted
+    assert lib.counted_tier(entry) == "economy"
+    assert lib.counted_attempts_on_tier(entry, "economy") == 0
+    assert (entry.branch, entry.worktree) == (before.branch, before.worktree)
+    assert _git(repo, "rev-parse", "story/BUG-0090") == tip
+    assert list(lib.Ledger.load(ledger).stories) == ["ST-0350", BUG]
+
+
+@pytest.mark.spec("RL-06-IT-05")
+@pytest.mark.parametrize(("files", "granted"), [(1, True), (21, False)])
+def test_RL_06_IT_05_escalate_of_a_finding_checks_only_the_file_limit(
+    tmp_path, files, granted
+):
+    """IMPL-0033: a finding declares no file scope, so escalate refuses its
+    diff only beyond the file limit that merge-story passes."""
+    run = _dispatched_finding(tmp_path, testing=GATES_3_3)
+    _commit_finding_fix(run, "README.md", *(f"src/fix{n:02}.txt" for n in range(files)))
+    for attempt in range(3):
+        if attempt:
+            _steps(run, ("re-dispatch", BUG), ("mark-dispatching", BUG),
+                   ("mark-dispatched", BUG))
+        _steps(run, ("mark-failed", BUG, "--class", AU))
+
+    result = _dispatch(run["repo"], run["ledger"], "escalate", BUG)
+
+    entry = _unit(run)
+    if granted:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert (entry.tier, entry.reason) == ("standard", None)
+    else:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert (entry.tier, entry.reason) == (None, "escalate refused: scope")

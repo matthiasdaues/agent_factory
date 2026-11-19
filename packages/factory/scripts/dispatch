@@ -64,10 +64,12 @@ from dispatch_lib import (
     DEPENDENCY_NOT_DONE,
     dependency_refusals,
     drift_row_problems,
-    glob_match,
+    finding_add_refusal,
+    finding_fields,
     grant_attempts,
     has_stopped,
     implementation_session_tier,
+    is_story_id,
     ledger_escalation_refusal,
     load_core_patterns,
     load_project_config,
@@ -321,6 +323,16 @@ def _read_refuse_dirty_feature_worktree(project_root: Path) -> bool:
     return True
 
 
+def _testing_yaml_path(project_root: Path) -> Path:
+    """The docs/testing.yaml that dispatch reads: the one of the checkout,
+    else the one of the main tree, else the path in the checkout (IMPL-0039)."""
+    for root in _checkout_roots(project_root):
+        path = root / "docs" / "testing.yaml"
+        if path.is_file():
+            return path
+    return project_root / "docs" / "testing.yaml"
+
+
 def _refuse_dirty_feature_worktree(project_root: Path, entry: StoryEntry) -> bool:
     """Refuse a new merge when the feature worktree holds a tracked change (BR-124).
 
@@ -352,7 +364,8 @@ def _refuse_dirty_feature_worktree(project_root: Path, entry: StoryEntry) -> boo
         f"error: the worktree of the feature branch {project_root} holds "
         f"uncommitted changes to tracked files; {entry.id} stays dispatched "
         f"and nothing was merged. Commit or revert them, or set "
-        f"dispatch.refuse_dirty_feature_worktree: false in docs/testing.yaml:",
+        f"dispatch.refuse_dirty_feature_worktree: false in "
+        f"{_testing_yaml_path(project_root)}:",
         file=sys.stderr,
     )
     # _git strips the output, so the status letters of the first line may
@@ -372,7 +385,11 @@ def _attempt_limits_or_error(project_root: Path) -> AttemptLimits | None:
 
 
 def _story_frontmatter(project_root: Path, story_id: str) -> dict | None:
-    """Return the parsed frontmatter for one backlog story, if available."""
+    """Return the parsed frontmatter for one backlog story, if available.
+
+    A finding ID has no backlog file, so dispatch reads none (BR-117)."""
+    if not is_story_id(story_id):
+        return None
     story_path = project_root / "backlog" / f"{story_id}.md"
     if not story_path.exists():
         return None
@@ -416,6 +433,17 @@ def _story_output_globs(project_root: Path, story_id: str) -> list[str]:
 
 DEFAULT_MAX_FILES = 20
 
+
+def _unit_file(project_root: Path, unit_id: str) -> tuple[Path, str]:
+    """The file whose status merge-story sets, and the status it writes (BR-118).
+
+    A story sets `status: done` in backlog/<id>.md, a finding sets
+    `status: resolved` in docs/findings/<id>.md.
+    """
+    if is_story_id(unit_id):
+        return project_root / "backlog" / f"{unit_id}.md", "done"
+    return project_root / "docs" / "findings" / f"{unit_id}.md", "resolved"
+
 # The index-lint pre-commit hook rewrites this file during a story commit.
 HOOK_REWRITTEN_INDEX = "packages/factory/INDEX.yaml"
 
@@ -431,9 +459,10 @@ def _load_premerge_check():
 def _story_owned_scope(target_branch: str, branch: str, story_id: str) -> list[str] | None:
     """The changed review and finding files that belong to *story_id*.
 
-    A file in docs/reviews/ or docs/findings/ belongs to the story when its
-    name holds the story ID or its `story` field at the branch head names the
-    story. Prints the git error and returns None when git cannot read a file.
+    A file in docs/reviews/ or docs/findings/ belongs to the unit of work
+    when its name holds the ID or its `story` field names it, read at the
+    merge base for a file that exists there (IMPL-0027). Prints the git
+    error and returns None when git cannot read a file.
     """
     code, out, err = _git("diff", "--name-only", f"{target_branch}...{branch}")
     if code != 0:
@@ -442,11 +471,66 @@ def _story_owned_scope(target_branch: str, branch: str, story_id: str) -> list[s
     premerge = _load_premerge_check()
     files = [line for line in out.splitlines() if line]
     try:
-        return premerge.story_owned_files(branch, story_id, files)
+        return premerge.story_owned_files(target_branch, branch, story_id, files)
     except premerge.GitReadError as exc:
         print(f"error: cannot read the scope of {story_id} at {branch}: {exc}",
               file=sys.stderr)
         return None
+
+
+@dataclass(frozen=True)
+class _UnitScope:
+    """The scope of a unit of work as merge-story passes it to premerge-check.
+
+    *entries* are (flag, path) pairs, with the flag `--scope` or
+    `--scope-glob`. A finding declares no file scope, so its list is empty
+    and only *max_files* limits its diff (RL-G20). *owned* are the unit's
+    own review and finding files, which do not count toward the limit.
+    """
+
+    entries: tuple[tuple[str, str], ...]
+    max_files: int
+    owned: tuple[str, ...]
+
+    def arguments(self) -> list[str]:
+        args: list[str] = []
+        for flag, path in self.entries:
+            args += [flag, path]
+        return args + ["--max-files", str(self.max_files)]
+
+
+def _unit_scope(
+    project_root: Path, unit_id: str, target_branch: str, branch: str
+) -> _UnitScope | None:
+    """Build the scope of one unit of work (IMPL-0033).
+
+    merge-story turns it into the arguments of premerge-check, and
+    _story_scope_violation matches the diff against it, so both apply one
+    rule. For a story the scope is its declared `outputs`, else its
+    `touches`, plus its backlog file, its spec-feedback report, the
+    INDEX.yaml that a hook rewrites, and its own review and finding files.
+    An entry with `*` or `?` is a glob, any other entry a path prefix.
+    Returns None when git cannot read the scope.
+    """
+    owned = _story_owned_scope(target_branch, branch, unit_id)
+    if owned is None:
+        return None
+    if not is_story_id(unit_id):
+        return _UnitScope((), DEFAULT_MAX_FILES, tuple(owned))
+    outputs = _story_output_globs(project_root, unit_id)
+    # glob_match has no bracket classes, so ``[`` stays literal.
+    entries = [
+        ("--scope-glob" if any(c in path for c in "*?") else "--scope", path)
+        for path in outputs
+    ]
+    entries += [
+        ("--scope-glob", f"backlog/{unit_id}.md"),
+        # The story's own drift report is part of its work (ADR-0029).
+        ("--scope-glob", spec_feedback_path(unit_id)),
+        ("--scope-glob", HOOK_REWRITTEN_INDEX),
+    ]
+    entries += [("--scope", path) for path in owned]
+    return _UnitScope(tuple(entries), _scaled_max_files(len(outputs)), tuple(owned))
 
 
 def _scaled_max_files(output_count: int) -> int:
@@ -475,45 +559,32 @@ def _attempt_session_for_story(
     return "impl"
 
 
-def _in_declared_scope(entry_path: str, path: str) -> bool:
-    """Match *path* the way merge-story passes *entry_path* to premerge-check:
-    an entry with ``*`` or ``?`` is a glob, any other entry a path prefix."""
-    if any(c in entry_path for c in "*?"):
-        return glob_match(entry_path, path)
-    prefix = entry_path.rstrip("/")
-    return path == prefix or path.startswith(prefix + "/")
-
-
 def _story_scope_violation(project_root: Path, entry: StoryEntry) -> bool:
-    """Return True when the diff of the story branch leaves its scope (BR-115).
+    """Return True when the diff of the branch fails the scope or the file
+    limit that merge-story checks (BR-115).
 
-    The diff runs from the feature branch to the story branch, as in
+    The diff runs from the feature branch to the branch of the unit, as in
     merge-story, so a fix that the User commits on the branch counts. The
-    scope is the one merge-story checks: the declared outputs, the story's
-    backlog file and spec-feedback report, the INDEX.yaml that a hook
-    rewrites, and the review and finding files of the story.
+    scope comes from _unit_scope, and the match uses the checks of
+    premerge-check, so escalate and merge-story agree. A finding declares
+    no file scope, so only the file limit applies to it.
     """
-    outputs = _story_output_globs(project_root, entry.id)
     target = entry.feature_branch or entry.base_sha
-    if not outputs or not entry.branch or not target:
+    if not entry.branch or not target:
         return True
     code, out, _ = _git("diff", "--name-only", f"{target}...{entry.branch}")
     changed = [line for line in out.splitlines() if line]
     if code != 0 or not changed:
         return True
-    owned = _story_owned_scope(target, entry.branch, entry.id)
-    if owned is None:
+    scope = _unit_scope(project_root, entry.id, target, entry.branch)
+    if scope is None:
         return True
-    scope = [
-        *outputs,
-        f"backlog/{entry.id}.md",
-        spec_feedback_path(entry.id),
-        HOOK_REWRITTEN_INDEX,
-        *owned,
-    ]
-    return any(
-        not any(_in_declared_scope(item, path) for item in scope) for path in changed
-    )
+    premerge = _load_premerge_check()
+    scopes = [path for flag, path in scope.entries if flag == "--scope"]
+    globs = [path for flag, path in scope.entries if flag == "--scope-glob"]
+    in_scope, _ = premerge.check_out_of_scope(changed, scopes, globs)
+    in_limit, _ = premerge.check_blowout(changed, scope.max_files, list(scope.owned))
+    return not (in_scope and in_limit)
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -586,10 +657,7 @@ def _story_meta_for_manifest(project_root: Path, story_id: str) -> dict:
     ``max_input_tokens``. Missing or unparsable backlog files yield an empty
     dict — the manifest is still written, just with empty declarations.
     """
-    story_path = project_root / "backlog" / f"{story_id}.md"
-    if not story_path.exists():
-        return {}
-    fm = parse_story_frontmatter(story_path.read_text())
+    fm = _story_frontmatter(project_root, story_id)
     if fm is None:
         return {}
     raw_traces = fm.get("traces")
@@ -623,10 +691,8 @@ def _story_handoff_contract(
     session: str = "impl",
 ) -> tuple[object | None, str | None]:
     """Render and persist the story's seven-part handoff contract."""
-    story_path = project_root / "backlog" / f"{entry.id}.md"
-    story_fm = (
-        parse_story_frontmatter(story_path.read_text()) if story_path.exists() else {}
-    )
+    story_path, _ = _unit_file(project_root, entry.id)
+    story_fm = _story_frontmatter(project_root, entry.id) or {}
     story_title = (story_fm or {}).get("title") or entry.id
     touches = list((story_fm or {}).get("touches") or [])
     strategy = (story_fm or {}).get("strategy")
@@ -1834,7 +1900,8 @@ def _branch_escalation_refusal(
         return ESCALATE_REFUSED_VERIFY_BASE, output
     if _story_scope_violation(project_root, entry):
         return ESCALATE_REFUSED_SCOPE, (
-            f"the diff of {entry.branch} leaves the declared outputs of {entry.id}"
+            f"the diff of {entry.branch} leaves the scope or the file limit "
+            f"of {entry.id}"
         )
     return None, ""
 
@@ -1909,7 +1976,8 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
 def cmd_return_story(args: argparse.Namespace) -> int:
     """Set a failed or blocked story back to pending in the ledger and the
     backlog (BR-116). The backlog file changes in the working tree of the
-    current checkout; return-story commits nothing."""
+    current checkout; return-story commits nothing. For a finding, only the
+    ledger entry changes, and dispatch reads no backlog file."""
     ledger_path = Path(args.ledger)
     ledger = _load_ledger(ledger_path)
     if ledger is None:
@@ -1922,6 +1990,15 @@ def cmd_return_story(args: argparse.Namespace) -> int:
     except TransitionError as e:
         print(f"error: dispatch return-story refuses: {e}", file=sys.stderr)
         return 1
+    if not is_story_id(args.story_id):
+        # A finding keeps its file unchanged; only its entry changes (BR-116).
+        if _save_ledger(ledger, ledger_path) != 0:
+            return 1
+        print(
+            f"dispatch return-story: {args.story_id} is pending in the ledger; "
+            f"docs/findings/{args.story_id}.md keeps its status"
+        )
+        return 0
     story_file = f"backlog/{args.story_id}.md"
     if not _update_story_status_in_file(_project_root(), args.story_id, "pending"):
         print(
@@ -1935,6 +2012,50 @@ def cmd_return_story(args: argparse.Namespace) -> int:
     print(
         f"dispatch return-story: {args.story_id} is pending in the ledger and "
         f"in {story_file}"
+    )
+    return 0
+
+
+def _finding_text(
+    project_root: Path, feature_branch: str | None, finding_id: str
+) -> str | None:
+    """The finding file at the head of the feature branch, where the feature
+    checks commit it; else the file in the current checkout; else None."""
+    rel = f"docs/findings/{finding_id}.md"
+    if feature_branch:
+        code, text, _ = _git("show", f"refs/heads/{feature_branch}:{rel}")
+        if code == 0:
+            return text
+    path = project_root / rel
+    return path.read_text() if path.is_file() else None
+
+
+def cmd_add(args: argparse.Namespace) -> int:
+    """Put an open blocking finding into the next free wave (BR-117)."""
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    project_root = _project_root()
+    finding_id = args.finding_id
+    if is_story_id(finding_id) or (project_root / "backlog" / f"{finding_id}.md").exists():
+        refusal = f"{finding_id} is a story, and add takes only a finding"
+    else:
+        text = _finding_text(project_root, ledger.feature_branch, finding_id)
+        refusal = finding_add_refusal(finding_id, finding_fields(text))
+    if refusal is None:
+        try:
+            entry = ledger.add_finding(finding_id)
+        except TransitionError as e:
+            refusal = str(e)
+    if refusal is not None:
+        print(f"error: dispatch add refuses {finding_id}: {refusal}", file=sys.stderr)
+        return 1
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch add: {finding_id} is pending in wave {entry.wave} of "
+        f"{ledger.feature_branch}, on the branch story/{finding_id}"
     )
     return 0
 
@@ -2085,13 +2206,17 @@ def cmd_verify_story(args: argparse.Namespace) -> int:
 def _update_story_status_in_file(
     project_root: Path, story_id: str, status: str
 ) -> bool:
-    """Rewrite the ``status:`` frontmatter field in the story's backlog file.
+    """Rewrite the ``status:`` frontmatter field in the story's backlog file."""
+    return _update_status_in_file(project_root / "backlog" / f"{story_id}.md", status)
+
+
+def _update_status_in_file(story_path: Path, status: str) -> bool:
+    """Rewrite the ``status:`` frontmatter field of a story or finding file.
 
     Returns True if the file was found, parsed, and rewritten; False otherwise.
     Only the frontmatter ``status:`` line is touched — the rest of the file
     (including the frontmatter delimiters) is left byte-for-byte identical.
     """
-    story_path = project_root / "backlog" / f"{story_id}.md"
     if not story_path.exists():
         return False
     text = story_path.read_text()
@@ -2267,16 +2392,17 @@ def _amend_hook_names() -> list[str]:
     ]
 
 
-def _amend_status_into_merge_commit(
-    project_root: Path, story_id: str, story_path: Path
-) -> int:
-    """Write ``status: done`` into the merge commit by amending it (BR-118).
+def _amend_status_into_merge_commit(project_root: Path, story_id: str) -> int:
+    """Write the status into the merge commit by amending it (BR-118):
+    ``status: done`` in backlog/<id>.md for a story, ``status: resolved`` in
+    docs/findings/<id>.md for a finding.
 
     A refused amend exits 1 and names the hook that refused it. The caller
     then leaves the entry ``dispatched``; a rerun amends again.
     """
-    _update_story_status_in_file(project_root, story_id, "done")
-    _git("add", "--", str(story_path.relative_to(project_root)))
+    unit_path, status = _unit_file(project_root, story_id)
+    _update_status_in_file(unit_path, status)
+    _git("add", "--", str(unit_path.relative_to(project_root)))
     amend_code, _, amend_err = _git("commit", "--amend", "--no-edit")
     if amend_code == 0:
         return 0
@@ -2288,7 +2414,7 @@ def _amend_status_into_merge_commit(
     else:
         who = "git refused"
     print(
-        f"error: {who} the amend that writes status: done into the merge "
+        f"error: {who} the amend that writes status: {status} into the merge "
         f"commit; {story_id} is not done. Fix the cause, then run "
         f"merge-story {story_id} again ({amend_err})",
         file=sys.stderr,
@@ -2378,8 +2504,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         )
         return 1
 
-    story_path = project_root / "backlog" / f"{entry.id}.md"
-    outputs = _story_output_globs(project_root, entry.id)
+    unit_path, unit_status = _unit_file(project_root, entry.id)
 
     # Interrupted-merge recovery: a prior run created the merge commit (and
     # may have amended the status update into it) but was interrupted before
@@ -2424,28 +2549,13 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             return 1
 
     if not already_merged:
-        premerge_cmd = [str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch]
-        # An entry without ``*`` or ``?`` is a path or folder prefix
-        # (``--scope``); only real patterns go through ``--scope-glob``.
-        # glob_match has no bracket classes, so ``[`` stays literal.
-        for entry_path in outputs:
-            flag = "--scope-glob" if any(c in entry_path for c in "*?") else "--scope"
-            premerge_cmd += [flag, entry_path]
-        # The dispatch contract requires updating the story's own backlog file
-        # (status: done) in the implementation commit — always in scope. The
-        # index-lint hook rewrites INDEX.yaml during commits — also in scope.
-        premerge_cmd += ["--scope-glob", f"backlog/{entry.id}.md"]
-        # The story's own drift report is part of its work (ADR-0029).
-        premerge_cmd += ["--scope-glob", spec_feedback_path(entry.id)]
-        premerge_cmd += ["--scope-glob", HOOK_REWRITTEN_INDEX]
-        # The story's own review reports, finding files and register files
-        # are part of its work, and premerge-check does not count them.
-        owned = _story_owned_scope(target_branch, entry.branch, entry.id)
-        if owned is None:
+        scope = _unit_scope(project_root, entry.id, target_branch, entry.branch)
+        if scope is None:
             return 1
-        for path in owned:
-            premerge_cmd += ["--scope", path]
-        premerge_cmd += ["--max-files", str(_scaled_max_files(len(outputs)))]
+        premerge_cmd = [
+            str(SCRIPT_DIR / "premerge-check"), target_branch, entry.branch,
+            *scope.arguments(),
+        ]
 
         premerge_result = subprocess.run(
             premerge_cmd, capture_output=True, text=True, cwd=project_root, check=False
@@ -2488,8 +2598,8 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         # Read the status from the merge commit, not from the working tree:
         # after a refused amend the file already says done (BR-118).
         if (
-            _merge_commit_story_status(story_path, project_root) != "done"
-            and _amend_status_into_merge_commit(project_root, entry.id, story_path) != 0
+            _merge_commit_story_status(unit_path, project_root) != unit_status
+            and _amend_status_into_merge_commit(project_root, entry.id) != 0
         ):
             return 1
         merge_sha = _git("rev-parse", "HEAD")[1]
@@ -2527,7 +2637,7 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             )
             return 1
 
-        if _amend_status_into_merge_commit(project_root, entry.id, story_path) != 0:
+        if _amend_status_into_merge_commit(project_root, entry.id) != 0:
             return 1
 
         merge_sha = _git("rev-parse", "HEAD")[1]
@@ -3392,6 +3502,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_vs.add_argument("story_id")
     p_vs.add_argument("--sha", required=True)
 
+    p_add = sub.add_parser(
+        "add", help="put an open blocking finding into a new wave of the run"
+    )
+    p_add.add_argument("finding_id")
+
     p_es = sub.add_parser("escalate", help="escalate a story to the next tier")
     p_es.add_argument("story_id")
 
@@ -3480,6 +3595,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_verify_story(args)
     if args.subcommand == "escalate":
         return cmd_escalate(args)
+    if args.subcommand == "add":
+        return cmd_add(args)
     if args.subcommand == "refresh-story":
         return cmd_refresh_story(args)
     if args.subcommand == "merge-story":

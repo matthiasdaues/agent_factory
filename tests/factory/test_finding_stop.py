@@ -25,7 +25,7 @@ HOOK = REPO_ROOT / "packages" / "factory" / "config" / "hooks" / "block-dangerou
 CONTRACTS = REPO_ROOT / "docs" / "spec" / "interface-contracts.md"
 
 STOP_SUBCOMMANDS = [
-    "init", "prepare-wave", "prepare-story", "mark-dispatching", "mark-dispatched",
+    "init", "add", "prepare-wave", "prepare-story", "mark-dispatching", "mark-dispatched",
     "re-dispatch", "escalate", "refresh-story", "merge-story", "close-wave",
 ]
 READ_SUBCOMMANDS = [
@@ -254,6 +254,43 @@ def test_st_0397_dispatch_refuses_work_during_a_stop(stopped_run, subcommand):
     assert result.returncode == 1, result.stderr
     assert result.stdout == contract_example()
     assert state(r) == before
+
+
+# -- RL-12-IT-05: a stop refuses dispatch add (ST-0422) ----------------------
+
+FEATURE_FINDING = """---
+id: BUG-0090
+category: defect
+severity: major
+status: open
+story:
+run: feat/x
+---
+
+# BUG-0090
+"""
+
+
+@pytest.mark.spec("RL-12-IT-05")
+def test_RL_12_IT_05_a_stop_refuses_dispatch_add(tmp_path):
+    """Scenario: A stop refuses dispatch add."""
+    r = _repo(tmp_path)
+    assert _init(r).returncode == 0
+    write_finding(r["repo"], FEATURE_FINDING, "BUG-0090")
+    stopper = write_finding(r["repo"], finding())
+    before = state(r)
+
+    result = _dispatch(r["repo"], r["ledger"], "add", "BUG-0090")
+
+    assert result.returncode == 1, result.stderr
+    assert result.stdout == contract_example()
+    assert state(r) == before
+    assert "BUG-0090" not in r["ledger"].read_text()
+    # Without the stop, the same call adds the finding.
+    stopper.unlink()
+    added = _dispatch(r["repo"], r["ledger"], "add", "BUG-0090")
+    assert added.returncode == 0, added.stdout + added.stderr
+    assert "BUG-0090" in yaml.safe_load(r["ledger"].read_text())["stories"]
 
 
 # -- FC-14-IT-02: dispatch answers reads during a stop ------------------------

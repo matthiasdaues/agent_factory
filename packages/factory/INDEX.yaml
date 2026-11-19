@@ -186,7 +186,7 @@ agents:
     description: Implement a single backlog story using TDD with spec traceability and feedback loop to documentation. Spawned as a subagent by the implementation-agent dispatcher.
     path: agents/developer-agent.md
     tokens: 2254
-    total_tokens: 5669
+    total_tokens: 5656
     inputs:
       required:
         - type: feature
@@ -865,7 +865,7 @@ skills:
     category: implementation
     description: Implement a single backlog story with TDD — analyse, red-green, commit, check docs.
     path: skills/implement-issue/SKILL.md
-    tokens: 925
+    tokens: 912
   - name: reconcile-spec
     category: implementation
     description: Comprehensive code-vs-spec reconciliation — build truth maps, diff, update or flag every discrepancy.
@@ -1065,7 +1065,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 907
-    total_tokens: 19984
+    total_tokens: 19971
   - name: documentation-update
     title: Documentation Update Playbook
     category: orchestration
@@ -1128,7 +1128,7 @@ playbooks:
       - developer-agent
       - qa-agent
     tokens: 1358
-    total_tokens: 20435
+    total_tokens: 20422
   - name: research-survey
     title: Research Survey Playbook
     category: orchestration

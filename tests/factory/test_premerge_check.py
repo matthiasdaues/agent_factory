@@ -53,15 +53,30 @@ class TestCheckOutOfScope:
         assert "docs/README.md" in msg
 
 
+@pytest.mark.spec("RL-08-CT-01")
 class TestExtractStoryId:
-    def test_story_branch_extracts_id(self):
-        assert pm.extract_story_id("story/ST-0190") == "ST-0190"
+    """The branch pattern yields a story ID or a finding ID (ST-0422)."""
 
-    def test_non_story_branch_returns_none(self):
-        assert pm.extract_story_id("feature/agent-context") is None
+    @pytest.mark.parametrize(
+        ("branch", "unit_id"),
+        [
+            ("story/ST-0190", "ST-0190"),
+            ("story/BUG-0090", "BUG-0090"),
+            ("story/QA-0012", "QA-0012"),
+        ],
+    )
+    def test_story_branch_extracts_id(self, branch, unit_id):
+        assert pm.extract_story_id(branch) == unit_id
 
-    def test_nested_story_branch_returns_none(self):
-        assert pm.extract_story_id("story/ST-0190/fix") is None
+    @pytest.mark.parametrize("branch", ["feature/agent-context", "feature/BUG-0090"])
+    def test_non_story_branch_returns_none(self, branch):
+        assert pm.extract_story_id(branch) is None
+
+    @pytest.mark.parametrize(
+        "branch", ["story/ST-0190/fix", "story/BUG-0090/fix", "story/bug-0090"]
+    )
+    def test_nested_story_branch_returns_none(self, branch):
+        assert pm.extract_story_id(branch) is None
 
 
 # --- ST-0359: gate list from the story, then from testing.yaml ------------
@@ -742,13 +757,44 @@ def test_st_0413_a_file_belongs_to_the_story_by_its_name_or_its_story_field(
     }
     _owned_repo(tmp_path, monkeypatch, files)
 
-    owned = pm.story_owned_files(BRANCH, STORY_ID, [*files, "docs/findings/BUG-0099.md"])
+    owned = pm.story_owned_files(
+        "main", BRANCH, STORY_ID, [*files, "docs/findings/BUG-0099.md"]
+    )
 
     assert owned == [
         f"docs/reviews/code-review-{STORY_ID}-2026-11-18.md",
         "docs/findings/BUG-0091.md",
         "docs/findings/register/code/IMPL-0093.json",
     ]
+
+
+@pytest.mark.spec("RL-08-IT-08")
+def test_st_0422_a_rewritten_story_field_takes_no_file_of_another_story(
+    tmp_path, monkeypatch
+):
+    """IMPL-0027: for a file that exists at the merge base, the `story` field
+    counts at the merge base, and a file new on the branch counts at the head."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "fixture@example.com")
+    _git(repo, "config", "user.name", "Fixture")
+    _write(repo, "docs/findings/BUG-0092.md", "---\nid: BUG-0092\nstory: ST-0002\n---\n")
+    _write(repo, "docs/findings/BUG-0093.md", f"---\nid: BUG-0093\nstory: {STORY_ID}\n---\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "init")
+    _git(repo, "checkout", "-q", "-b", BRANCH)
+    _write(repo, "docs/findings/BUG-0092.md", f"---\nid: BUG-0092\nstory: {STORY_ID}\n---\n")
+    _write(repo, "docs/findings/BUG-0093.md", "---\nid: BUG-0093\nstory: ST-0002\n---\n")
+    _write(repo, "docs/findings/BUG-0094.md", f"---\nid: BUG-0094\nstory: {STORY_ID}\n---\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "story")
+    monkeypatch.chdir(repo)
+    files = [f"docs/findings/BUG-009{n}.md" for n in (2, 3, 4)]
+
+    owned = pm.story_owned_files("main", BRANCH, STORY_ID, files)
+
+    assert owned == ["docs/findings/BUG-0093.md", "docs/findings/BUG-0094.md"]
 
 
 @pytest.mark.spec("RL-08-IT-07")

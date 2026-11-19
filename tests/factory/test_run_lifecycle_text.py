@@ -441,6 +441,21 @@ def test_RL_02_LN_02_the_developer_agent_runs_no_gate_and_sets_no_done() -> None
     assert "the developer agent runs the same gates" not in loop
 
 
+IMPLEMENT_ISSUE = FACTORY / "skills" / "implement-issue" / "SKILL.md"
+
+
+@pytest.mark.spec("RL-02-LN-02")
+def test_RL_02_LN_02_the_implement_issue_skill_sets_no_done() -> None:
+    """Scenario: Only dispatch merge-story sets a story to done. The developer
+    agent invokes implement-issue, so its step 4 names no status update either
+    (BR-118, spec-feedback-ST-0411.md)."""
+    commit = _block(IMPLEMENT_ISSUE, "Step 4 — Commit")
+    assert "`dispatch merge-story` sets it in the merge commit (BR-118)" in commit
+    assert "status: done" not in commit
+    assert "to `done`" not in commit
+    assert "`status` unchanged" in commit
+
+
 STOPS = [
     ("Before a story starts", "`dispatch prepare-story <story-id>`"),
     ("Before a finding becomes a unit of work", "`dispatch add <finding-id>`"),

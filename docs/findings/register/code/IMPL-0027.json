@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Every Scenario of RL-08 holds, and the path needs an agent that edits the story field of another story's finding, which no agent definition asks for (no to fails_purpose). If it happens, a blocking finding is closed outside its review loop, and someone must find it in the history.",
   "commit": "3cdf55bf3b2aa1d745ebc50decc8484eb75b1226",
-  "status": "open"
+  "status": "resolved"
 }

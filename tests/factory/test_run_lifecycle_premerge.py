@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 from conftest import SOURCE_SCRIPTS_DIR
+from test_run_lifecycle_dispatch import _commit_finding_fix, _dispatched_finding, _merge_finding
 
 DISPATCH = SOURCE_SCRIPTS_DIR / "dispatch"
 PREMERGE = SOURCE_SCRIPTS_DIR / "premerge-check"
@@ -709,6 +710,106 @@ def test_RL_08_IT_02_the_check_reads_the_head_from_a_subfolder(tmp_path):
     assert from_packages == from_root
     assert from_root[0].startswith(f"PASS code-review: {REPORT_PATH}")
     assert from_root[1].startswith("BLOCK open-findings: BUG-0091 of ST-0350")
+
+
+# --- ST-0422: a finding branch runs the story workflow ---
+
+
+@pytest.mark.spec("RL-08-IT-08")
+def test_RL_08_IT_08_a_rewritten_story_field_takes_no_finding_of_another_story(tmp_path):
+    """IMPL-0027: BUG-0092 of ST-0351 is open on the target. story/ST-0350
+    rewrites its story field to ST-0350, so the field at the head would name
+    ST-0350. The field counts at the merge base, so the scope check refuses it."""
+    run = _build_wave_repo(
+        tmp_path, {"docs/findings/BUG-0092.md": _finding("BUG-0092", story="ST-0351")}
+    )
+    repo, feature, ledger = run["repo"], run["feature"], run["ledger"]
+    _work_and_review(repo, ledger, run["base"], "ST-0350")
+    sha = _commit_on_story(
+        repo,
+        {"docs/findings/BUG-0092.md": _finding("BUG-0092", story="ST-0350", status="resolved")},
+    )
+    assert _dispatch(repo, ledger, "verify-story", "ST-0350", "--sha", sha).returncode == 0
+    tip = _git(feature, "rev-parse", "HEAD")
+
+    result = _dispatch(feature, ledger, "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK out-of-scope-paths: docs/findings/BUG-0092.md" in result.stdout
+    assert _git(feature, "rev-parse", "HEAD") == tip
+
+
+NO_DEFAULT_GATE = "test_command: \"true\"\ngates:\n  crap-score:\n    enabled: false\n"
+
+
+@pytest.mark.spec("RL-08-IT-09")
+@pytest.mark.parametrize("unit_id", ["ST-0350", "BUG-0090"])
+@pytest.mark.parametrize(("code", "passes"), [("import os\n", True), ("import infra\n", False)])
+def test_RL_08_IT_09_the_semantic_gates_run_on_every_story_branch_name(
+    tmp_path, unit_id, code, passes
+):
+    """Scenario Outline: The semantic gates run on every story branch name."""
+    repo = tmp_path / "repo"
+    (repo / "src").mkdir(parents=True)
+    _git(repo.parent, "init", "-q", "-b", "dev", str(repo))
+    (repo / RULES).parent.mkdir(parents=True)
+    (repo / RULES).write_text(RULE)
+    (repo / "docs" / "testing.yaml").write_text(NO_DEFAULT_GATE)
+    (repo / ".gitignore").write_text(".current-work/\n.agent-factory/\n")
+    (repo / "src" / ".keep").write_text("")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    _git(repo, "branch", "feat/login")
+    base = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "switch", "-q", "-c", f"story/{unit_id}")
+    (repo / "src" / "fix.py").write_text(code)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "fix")
+    head = _git(repo, "rev-parse", "HEAD")
+    report = repo / "docs" / "reviews" / f"code-review-{unit_id}-{REVIEW_DAY}.md"
+    report.parent.mkdir(parents=True)
+    report.write_text(REPORT.format(id=unit_id, day=REVIEW_DAY, base=base, head=head))
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "review")
+
+    result = _premerge(repo, f"story/{unit_id}")
+
+    assert (result.returncode == 0) is passes, result.stdout + result.stderr
+    assert "SKIP semantic-gates" not in result.stdout
+    if passes:
+        assert f"PASS semantic-gates: dependency-check passed for {unit_id}" in result.stdout
+    else:
+        assert "BLOCK semantic-gates: dependency-check" in result.stdout
+        assert f"for {unit_id}" in result.stdout
+
+
+@pytest.mark.spec("RL-08-IT-11")
+def test_RL_08_IT_11_merge_story_declares_no_file_scope_for_a_finding(tmp_path):
+    """Scenario: merge-story declares no file scope for a finding."""
+    run = _dispatched_finding(tmp_path)
+    _commit_finding_fix(run, "README.md", "docs/notes.md", "src/fix.txt")
+
+    result = _merge_finding(run)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "SKIP out-of-scope-paths: no --scope declared" in result.stdout
+    assert "(limit 20)" in result.stdout
+    assert "premerge-check: PASS" in result.stdout
+
+
+@pytest.mark.spec("RL-08-IT-12")
+def test_RL_08_IT_12_the_file_limit_still_applies_to_a_finding(tmp_path):
+    """Scenario: The file limit still applies to a finding."""
+    run = _dispatched_finding(tmp_path)
+    _commit_finding_fix(run, *(f"src/fix{n:02}.txt" for n in range(21)))
+    tip = _git(run["feature"], "rev-parse", "HEAD")
+
+    result = _merge_finding(run)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK file-count-blowout: 21 files changed" in result.stdout
+    assert "exceeds --max-files 20" in result.stdout
+    assert _git(run["feature"], "rev-parse", "HEAD") == tip
 
 
 # --- ST-0424: premerge-check dev <feature-branch>, the feature merge check ---
