@@ -367,3 +367,215 @@ def test_RL_17_IT_02_a_new_session_continues_an_interrupted_run(factory_repo):
     assert verify.returncode == 0, verify.stderr
     entry = yaml.safe_load(factory_repo["ledger"].read_text())["stories"]["ST-0350"]
     assert entry["commit_sha"] == sha
+
+
+# -- RL-03: User approves each step that needs a person in a run driven by hand --
+
+
+def _by_hand_run(repo: Path, stories: str = "ST-0350,ST-0351") -> Path:
+    """Start a run by hand on feature/login and return its ledger path."""
+    result = _init(repo, "feature/login", stories, "--mode", "by-hand")
+    assert result.returncode == 0, result.stderr
+    return _ledger_path(repo, "feature/login")
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_checks_out_the_story_branch_by_hand(run_repo):
+    """Scenario: prepare-story checks out the story branch in the primary checkout.
+    Scenario: By hand, prepare-story writes the manifest and the contract
+    without a worktree."""
+    ledger = _by_hand_run(run_repo)
+    tip = _git(run_repo, "rev-parse", "feature/login")
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert _git(run_repo, "branch", "--show-current") == "story/ST-0350"
+    assert _git(run_repo, "rev-parse", "story/ST-0350") == tip
+    assert _worktree_branches(run_repo) == ["story/ST-0350"]
+    folder = run_repo / ".current-work" / "feature" / "login" / "story" / "ST-0350"
+    assert (folder / "current-step.yml").is_file()
+    assert (folder / "handoff-contract.md").is_file()
+    entry = _ledger(run_repo, "feature/login")["stories"]["ST-0350"]
+    assert entry["status"] == "prepared"
+    assert entry["branch"] == "story/ST-0350"
+    assert entry["worktree"] is None
+    assert entry["base_sha"] == tip
+    status = _dispatch(run_repo, ledger, "status")
+    assert re.search(r"ST-0350\s+1\s+prepared", status.stdout), status.stdout
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_refuses_an_open_dependency(run_repo):
+    """BR-113: a story starts only when every dependency inside the run is done."""
+    story = run_repo / "backlog" / "ST-0351.md"
+    story.write_text(story.read_text().replace("deps: []", "deps: [ST-0350]"))
+    _git(run_repo, "commit", "-qam", "ST-0351 depends on ST-0350")
+    ledger = _by_hand_run(run_repo)
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0351")
+
+    assert result.returncode != 0
+    assert "ST-0350" in result.stderr
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _git(run_repo, "branch", "--list", "story/ST-0351") == ""
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0351"]["status"] == "pending"
+
+
+def _close_wave_one(repo: Path, ledger: Path, *, record: bool) -> None:
+    """Record ST-0350 as done in wave 1, with or without a wave record."""
+    data = yaml.safe_load(ledger.read_text())
+    data["stories"]["ST-0350"].update(status="done", wave=1)
+    if record:
+        data["waves"] = [{
+            "number": 1, "completed": [{"id": "ST-0350", "merge_sha": None}],
+            "blocked": [], "failed": [], "next_ready": ["ST-0351"],
+            "branch_head": data["branch_root"],
+        }]
+    ledger.write_text(yaml.safe_dump(data, sort_keys=False))
+
+
+@pytest.mark.spec("RL-03-IT-02")
+def test_RL_03_IT_02_prepare_story_by_hand_records_the_next_free_wave(run_repo):
+    """Scenario: By hand, prepare-story records the next free wave number."""
+    ledger = _by_hand_run(run_repo)
+    _close_wave_one(run_repo, ledger, record=True)
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0351")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    entry = _ledger(run_repo, "feature/login")["stories"]["ST-0351"]
+    assert entry["wave"] == 2
+    assert entry["status"] == "prepared"
+
+
+@pytest.mark.spec("RL-03-IT-02")
+def test_RL_03_IT_02_prepare_story_by_hand_waits_for_the_wave_record(run_repo):
+    """BR-113: prepare-story refuses until the previous wave has a wave record."""
+    ledger = _by_hand_run(run_repo)
+    _close_wave_one(run_repo, ledger, record=False)
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0351")
+
+    assert result.returncode != 0
+    assert "close-wave 1" in result.stderr
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    entry = _ledger(run_repo, "feature/login")["stories"]["ST-0351"]
+    assert entry["status"] == "pending"
+    assert entry["wave"] is None
+
+
+@pytest.mark.spec("RL-02-IT-01")
+def test_RL_02_IT_01_a_story_reaches_dispatched_in_a_run_by_hand(run_repo):
+    """Scenario: A story reaches dispatched in a run by hand."""
+    ledger = _by_hand_run(run_repo)
+    assert _dispatch(run_repo, ledger, "prepare-story", "ST-0350").returncode == 0
+
+    dispatching = _dispatch(run_repo, ledger, "mark-dispatching", "ST-0350")
+    (run_repo / "src" / "ST-0350.txt").write_text("work\n")
+    _git(run_repo, "add", "src/ST-0350.txt")
+    _git(run_repo, "commit", "-qm", "feat: story work (ST-0350)")
+    dispatched = _dispatch(run_repo, ledger, "mark-dispatched", "ST-0350")
+
+    assert dispatching.returncode == 0, dispatching.stderr
+    assert dispatched.returncode == 0, dispatched.stderr
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "dispatched"
+    status = _dispatch(run_repo, ledger, "status")
+    assert re.search(r"ST-0350\s+1\s+dispatched", status.stdout), status.stdout
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_refuses_uncommitted_tracked_changes(run_repo):
+    """Decision of 2026-11-18: by hand, prepare-story refuses an uncommitted
+    change to a tracked file and names the file. Untracked files do not count."""
+    ledger = _by_hand_run(run_repo)
+    (run_repo / "src" / ".keep").write_text("edited\n")
+    (run_repo / "src" / "draft.txt").write_text("untracked\n")
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert "src/.keep" in result.stderr
+    assert "draft.txt" not in result.stderr
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert (run_repo / "src" / ".keep").read_text() == "edited\n"
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+    (run_repo / "src" / ".keep").write_text("")
+    retry = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+    assert retry.returncode == 0, retry.stderr
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_refuses_a_staged_change_reverted_in_the_tree(
+    run_repo,
+):
+    """Review note N4: a change that is staged and then reverted in the working
+    tree is still uncommitted, so prepare-story refuses it and names the file."""
+    ledger = _by_hand_run(run_repo)
+    (run_repo / "src" / ".keep").write_text("staged\n")
+    _git(run_repo, "add", "src/.keep")
+    (run_repo / "src" / ".keep").write_text("")
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert "  src/.keep" in result.stderr
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_fails_closed_when_git_status_fails(run_repo):
+    """Review note N5: when git cannot report the state of the primary
+    checkout, prepare-story refuses with exit 1 and names the git error."""
+    ledger = _by_hand_run(run_repo)
+    (run_repo / ".git" / "index").write_bytes(b"garbage")
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert "git status failed" in result.stderr
+    assert "index file" in result.stderr
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_a_failing_post_checkout_hook_restores_the_earlier_branch(run_repo):
+    """IMPL-0028: git switches the branch and then returns the hook's exit
+    status, so prepare-story checks the earlier branch out again."""
+    ledger = _by_hand_run(run_repo)
+    hook = run_repo / ".git" / "hooks" / "post-checkout"
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+
+    result = _dispatch(run_repo, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode != 0
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _git(run_repo, "branch", "--list", "story/ST-0350") == ""
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"
+
+
+@pytest.mark.spec("RL-03-IT-01")
+def test_RL_03_IT_01_prepare_story_by_hand_refuses_a_ledger_of_another_checkout(
+    run_repo, tmp_path
+):
+    """IMPL-0029: the ledger must lie under .current-work of the primary
+    checkout the command runs against."""
+    ledger = _by_hand_run(run_repo)
+    clone = tmp_path / "clone"
+    _git(tmp_path, "clone", "-q", "-b", "dev", str(run_repo), str(clone))
+    _git(clone, "branch", "feature/login", "origin/feature/login")
+
+    result = _dispatch(clone, ledger, "prepare-story", "ST-0350")
+
+    assert result.returncode == 1
+    assert ".current-work" in result.stderr
+    assert _git(clone, "branch", "--show-current") == "dev"
+    assert _git(clone, "branch", "--list", "story/ST-0350") == ""
+    assert _git(run_repo, "branch", "--show-current") == "dev"
+    assert _ledger(run_repo, "feature/login")["stories"]["ST-0350"]["status"] == "pending"

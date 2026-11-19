@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0029",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch:1225-1233",
+  "story": "ST-0409",
+  "finding": "prepare-story by hand can record a story as prepared in one repository while it checks out the story branch in another one. The command takes the primary checkout from the current directory through _main_worktree_root, and it reads the branch tips there too. It saves the ledger that --ledger names, and nothing checks that this ledger lies under the .current-work folder of that primary checkout. The review checked this in a scratch repository A with a run by hand and a clone B with a local feature/login branch. prepare-story ST-0350, run in B with the ledger of A, exited 0. B was then on story/ST-0350 and held the manifest and the contract, A stayed on dev, and the ledger of A said prepared. The default ledger always comes from the current primary checkout, so the path needs an explicit --ledger. The contract says that prepare-story by hand works in the primary checkout of the run (RL-G03), so the behavior looks unintended. init and the orchestrated path take the root the same way. The smallest fix is a check in _prepare_story_by_hand: refuse, before any git command, when the resolved ledger path does not lie under _main_worktree_root() / '.current-work'.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every Scenario of RL-03 holds, and the path needs a second checkout with the feature branch together with an explicit --ledger that the agents do not pass (no to fails_purpose). If it happens, the ledger and the checkout disagree, and the User must find the story branch in the other checkout and repair both by hand.",
+  "commit": "63a171063b29108901d8e789fb0c2c0675145319",
+  "status": "resolved"
+}
