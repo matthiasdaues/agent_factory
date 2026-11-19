@@ -1232,7 +1232,7 @@ def _drift_rows_rule() -> str:
 
 def _manual_mode_rule() -> str:
     return _flat(
-        _subsection(DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Manual Mode")
+        _subsection(DISPATCH_CONTRACT.read_text(encoding="utf-8"), "Run By Hand")
     )
 
 

@@ -97,14 +97,14 @@ One-line rules, phrased as aphorisms or per **RFC 2119** (MUST / MUST NOT / SHOU
 - **MUST** create every new local branch atomically with its own linked worktree using `git worktree add -b <branch> .current-work/<feature-branch>/<branch> <base>`. **(automated only)** A run by hand checks out each story branch in the primary checkout. Only `premerge-check` adds a worktree there: a temporary one under `.current-work/<feature-branch>/premerge/`, which it removes afterwards (BR-123).
 - **MUST** place every worktree under `.current-work/<feature-branch>/` — never in the repository root, a sibling directory, or an arbitrary path.
 - **MUST** verify every new branch-to-worktree mapping with `git worktree list --porcelain` before doing work on that branch.
-- **MUST** create exactly one feature branch per story or bug — never per EPIC, sprint, or wave.
+- **MUST** create exactly one story or bug branch per story or bug — never per EPIC, sprint, or wave.
 - **MAY** create and commit an indexed artifact (backlog story, finding, proposal, or any other file with a sequential ID) on any branch. `next-id` hands out the ID of each prefix it serves from one counter for all branches, so IDs do not collide. The prefixes are listed in [id-prefixes.md](conventions/id-prefixes.md). `PROP` rows in a proposal, the split letters of a story, and other IDs keep their own numbering rule and stay outside the counter.
-- **MUST** create every new invocation branch from `dev` (not `main`), using `feature/<proposal-title>` as the branch name. An adopted review branch keeps its existing name and ancestry and records current `HEAD` as its review root. Story branches are cut from the invocation branch.
-- **MUST** create every feature branch and worktree from the invocation branch, recording its origin commit as the branch root.
+- **MUST** create every new feature branch from `dev` (not `main`), using `feature/<proposal-title>` as the branch name. An adopted review branch keeps its existing name and ancestry and records current `HEAD` as its review root. Story branches are cut from the feature branch.
+- **MUST** create every story or bug branch and its worktree from the feature branch, recording its origin commit as the branch root.
 - **MUST** determine merge order from real file-overlap analysis, not a grouping label — file-disjoint branches merge in parallel, overlapping branches merge serially in dependency order.
 - **MUST** run the full test suite after every merge, before the next.
 - **MUST** track exactly two commit IDs per invocation — branch root and branch head.
-- **MUST** run the main checkout's `.agent-factory/factory/scripts/verify-base` (a linked worktree has no copy of its own) as a worktree-isolated subagent's first tool call, against its target branch and its declared base SHA; halt on any non-zero exit before reading, editing, or committing anything.
+- **MUST** run the primary checkout's `.agent-factory/factory/scripts/verify-base` (a linked worktree has no copy of its own) as a worktree-isolated subagent's first tool call, against its target branch and its declared base SHA; halt on any non-zero exit before reading, editing, or committing anything.
 - **MUST** run `.agent-factory/factory/scripts/premerge-check` on a finished branch before merging it; a non-zero exit blocks the merge until investigated.
 
 ## Dispatch
@@ -125,7 +125,7 @@ Rules in this section apply to an orchestrated run and to a run by hand.
 - **MUST** commit or explicitly record each story's outcome (merged SHA or blocked reason) before the wave is considered closed.
 - **MUST** close every dispatch as completed or abandoned — a dispatch that begins without ending is a leak.
 - **MUST** leave the story file's `status: done` to `dispatch merge-story`, which sets it in the merge commit; no other commit sets it (BR-118).
-- **MAY** run `next-id` in manual mode and let it push the claim ref. The claim push by `next-id` is the one exception to the human's ownership of pushes. Every other push stays with the human.
+- **MAY** run `next-id` in a run by hand and let it push the claim ref. The claim push by `next-id` is the one exception to the human's ownership of pushes. Every other push stays with the human.
 
 ## Step boundaries
 
@@ -148,13 +148,13 @@ No hook enforces these rules yet. The `step-guard` hook is installed, but it doe
 → [git-workflow.md](conventions/git-workflow.md)
 
 - **MUST** issue git as a lone command — never chained after `cd` or another command (the working directory persists; the guardrail mis-parses compound lines).
-- **MUST NOT** switch the current checkout to create a branch in automated mode; automated branches use a dedicated linked worktree with `git worktree add -b`. In a run by hand, `dispatch init` creates the feature branch, and `dispatch prepare-story` checks out each story branch in the primary checkout.
+- **MUST NOT** switch the current checkout to create a branch in an orchestrated run; its branches use a dedicated linked worktree with `git worktree add -b`. In a run by hand, `dispatch init` creates the feature branch, and `dispatch prepare-story` checks out each story branch in the primary checkout.
 - **MUST** run `.agent-factory/factory/scripts/premerge-check <target> <branch>` before `git merge <branch>` — the merge is blocked without the resulting `.current-work/premerge-check-ok` marker. This holds on both ways: a run by hand runs it through `dispatch merge-story`, and before the merge into `dev` as `premerge-check dev <feature-branch>` (BR-124).
 - **MUST NOT** bypass a failing pre-commit hook (`--no-verify`, `core.hooksPath`); fix the hook. Discard with `git checkout HEAD -- <path>`, not `git checkout .`.
 - **SHOULD** commit through the hooks with the two-pass sequence — `add` → `commit`; on "files were modified by this hook", `add -u` → recommit — or use `.agent-factory/factory/scripts/commit-safe`.
 - **MUST** remove a clean worktree and safely delete its merged branch after its target passes verification, unless the branch remains a named active review base.
 - **MUST** use full 40-character SHAs in machine-consumed gates, markers, dispatch records, and handoffs; abbreviated SHAs are display-only.
-- **MUST** claim every ID of a prefix that `next-id` serves through `next-id` in manual and in automated mode. The claim push by `next-id` is the one exception to the human's ownership of pushes; every other push stays with the human in manual mode. A push outside `next-id`, such as `git -C . push` with a hand-written claim commit, can set a line back, and then IDs repeat.
+- **MUST** claim every ID of a prefix that `next-id` serves through `next-id` in a run by hand and in an orchestrated run. The claim push by `next-id` is the one exception to the human's ownership of pushes; every other push stays with the human in a run by hand. A push outside `next-id`, such as `git -C . push` with a hand-written claim commit, can set a line back, and then IDs repeat.
 
 ## Handoffs
 

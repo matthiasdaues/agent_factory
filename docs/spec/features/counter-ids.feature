@@ -310,9 +310,9 @@ Feature: Counter IDs
       And the exception holds for <modes>
 
       Examples:
-        | section      | modes                     |
-        | Dispatch     | manual mode               |
-        | Git workflow | manual and automated mode |
+        | section      | modes                                 |
+        | Dispatch     | a run by hand                         |
+        | Git workflow | a run by hand and an orchestrated run |
 
     Scenario: The guardrail hook lets next-id pass
       Given the guardrail hook block-dangerous-git.sh
