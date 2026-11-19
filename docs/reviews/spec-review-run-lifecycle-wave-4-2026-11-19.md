@@ -2,7 +2,7 @@
 type: inspect-spec
 title: Spec review of the run-lifecycle wave-4 close
 date: 2026-11-19
-status: defects
+status: pass
 reviewer: spec-review-agent
 findings_filed: 3
 story: run-lifecycle
@@ -99,3 +99,15 @@ DISPATCH_LEDGER holds `reason`, `returned` and `commit_sha`, which the changed r
 ## Next step
 
 The domain-modeling agent fixes SPEC-0109 and SPEC-0110. The requirements agent adds the Scenarios of SPEC-0111. A repeat pass of the spec review then checks both majors.
+
+## Repeat pass
+
+The repeat pass checked only `11dbeaac..b421bdad`, as the coordinator set the scope. Both major findings are now `resolved`, so no blocking finding stays open. The stakeholder approved the resolutions on 2026-11-19. SPEC-0111 and the two `note` rows go to the reconciliation after the run and stay as they are.
+
+| ID        | Severity | Verdict  | What the review checked                                                                                                                                                                                                                                                                         |
+| --------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SPEC-0109 | major    | resolved | `affcf8aa` limits the refused checkout and merge of BR-124 to a run by hand and points to BR-116 for the orchestrated `blocked` case. The state-machine note and the `merge-story` bullet say the same. `a97692ea` adds the case to arc42 § 6.24.1. The rules now agree with `cmd_merge_story`. |
+| SPEC-0110 | major    | resolved | `affcf8aa` states in BR-118, BR-124, the state-machine note and the `merge-story` bullet that the rerun runs no refresh, no `premerge-check`, no merge and no dirty-worktree refusal. By hand, it starts on the feature branch. `b421bdad` adds the rule and RL-08-IT-16 to ST-0416.            |
+| SPEC-0111 | minor    | deferred | The finding goes to the reconciliation after the run, by the coordinator's instruction. The register file stays `open`.                                                                                                                                                                         |
+
+The three commits change no other statement, and the pass found no new defect in them. The next step is the architecture agent, or the next wave of the run.
