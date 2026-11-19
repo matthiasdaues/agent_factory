@@ -1141,6 +1141,7 @@ On Prepare:
   else
     ChangeState(PREPARED)
 On Block:
+  # prepare-wave or prepare-story on a refresh conflict of a reused branch (BR-117)
   ChangeState(BLOCKED)
 
 State: PREPARED
