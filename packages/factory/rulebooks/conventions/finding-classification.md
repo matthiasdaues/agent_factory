@@ -204,6 +204,17 @@ story owns the code.
 | `fails_purpose`    | A planner or implementer cannot act on the statement without asking the author. Two statements in the reviewed artifact contradict each other. A requirement has no check. Deciding question: does a person or tool that follows the statement as written reach a wrong result or report a false one? A "yes" answers `fails_purpose`, also when a later check would catch it. |
 | `raises_cost`      | The reader can act and reaches the right result, but only after a second reading. Examples are an unclear sentence, a missing cross-link, or two terms for one concept.                                                                                                                                                                                                        |
 
+A side text repeats a main rule of the reviewed documents: a summary, a
+table or column comment, a diagram label, or a component description. When
+the main rule is correct and the side text leaves out a case that the main
+rule states, the finding answers `raises_cost` and not `fails_purpose`. When
+the side text states something that the main rule contradicts, or names
+something that does not exist, it answers `fails_purpose`.
+A link or cross-reference that points to the wrong target answers
+`raises_cost`: the reader lands near the right place and finds it on a second
+look. A table or list that states the rule itself is a main rule, not a side
+text, also when it leaves something open.
+
 `finding-lint` does not check `in_use` of a document against git. So the
 `**Why this severity:**` line names the story or code that encodes the
 statement, or says that none does.

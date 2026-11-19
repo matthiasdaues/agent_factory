@@ -29,9 +29,12 @@ in only 30 to 32 of 38, so the rulebook's claim fails for reviewers on
 different models. Most of the gap comes from one rule: when a story or code
 encodes the statement of a document. Three more runs tested designs for that
 rule. A list of named cases, built from four stakeholder decisions, aligned
-both models on `in_use` for all 28 document findings. It is R3 in
-[Recommendations](#recommendations), and it is in the rulebook with R1 and
-R2. See [Cross-model run](#cross-model-run).
+both models on `in_use` for all 28 document findings. A rule for side
+texts, such as summaries and comments, then aligned the last two splits.
+With both rules, two Sonnet and two Codex raters agree on severity and
+category for 28 of 28 document findings. The rules are R3 and R4 in
+[Recommendations](#recommendations), and they are in the rulebook with R1
+and R2. See [Cross-model run](#cross-model-run).
 
 The test files no finding in this repository. Every number below comes from
 the rater output files listed in [Data](#data).
@@ -294,6 +297,38 @@ as that text stands now", and the defect did not recur. The 22 new findings
 were easy for `in_use`, so the eighth run shows that the cases do no harm, not
 that they decide a new hard case.
 
+### R4: A side text counts by what it does to the reader
+
+**Change.** Add to
+[§ Class: document](../../packages/factory/rulebooks/conventions/finding-classification.md#class-document),
+after the table of the consequence tree: a side text repeats a main rule,
+for example a summary, a table or column comment, a diagram label, or a
+component description. When the main rule is correct, a side text that leaves
+out a case answers `raises_cost`, and a side text that states something the
+main rule contradicts, or names something that does not exist, answers
+`fails_purpose`. A link that points to the wrong target answers
+`raises_cost`. A table or list that states the rule itself is a main rule.
+
+**Case.** With R3, the models still split on SPEC-0023: five summaries leave
+out `COMMAND_REJECTED`, which the main rule names. Codex read two texts that
+disagree as a contradiction and gave `major`. Sonnet read a correct main rule
+and a second look and gave `minor`. SPEC-0024, a column comment that names a
+column `TASK_INSTANCE` does not have, split within Codex. The stakeholder
+decided: an omission is `minor`, a false statement `major`.
+
+**Test and result.** The ninth run tested the paragraph without its last two
+sentences. SPEC-0023 and SPEC-0024 agreed on both models, but the rule moved
+two other findings: a wrong glossary link (SPEC-0025) split by model, and
+one rater read a main rule table (SPEC-0011) as a side text. The stakeholder
+decided that a wrong link costs a second look. The tenth run added the two
+sentences. Two Sonnet and two Codex raters per batch agreed on severity,
+category, and `in_use` for 28 of 28 document findings, and every prediction
+held.
+
+**Limit.** The paragraph was written for SPEC-0011, SPEC-0023, SPEC-0024, and
+SPEC-0025. The tenth run shows that it decides these and moves no other
+gigacron finding, not that it decides the findings of another project.
+
 ## Candidates that failed
 
 - **Harm needs the encoded statement to be wrong.** This candidate added to
@@ -379,15 +414,14 @@ category for one of two raters. Two raters are too few to judge the row.
 These gaps are real in the rule text, but no candidate rule has been tested
 for them yet.
 
-| Gap                                                                                            | Finding    | Observed effect                                                               | Next step                                                                                               |
-| ---------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Code class: a wrong result that only unusual input to a public API reaches, against FAGAN-0032 | FAGAN-0003 | Severity split, two `minor` and two `major`. Blocking flips.                  | Write a rule that decides the case, then retest with four raters on FAGAN-0003 as filed and FAGAN-0032. |
-| Document `fails_purpose`: does a parser that refuses the whole file give a "wrong result"?     | SPEC-0007  | None. All raters gave `major`.                                                | None until a case splits.                                                                               |
-| Security: effects `secrets` and `disclosure` both fit an arbitrary file read                   | FAGAN-0002 | None. Both raters chose `secrets` and `critical`.                             | None until a case splits.                                                                               |
-| Class table lists code under both the code and the security class                              | FAGAN-0002 | None. Both raters chose security.                                             | None until a case splits.                                                                               |
-| No calibration for a specification that runs ahead of planned code                             | RECON-0001 | In the fifth run, Sonnet gave `note` and Codex gave `major`. Blocking flips.  | Decide with the `in_use` rule for documents.                                                            |
-| Document `fails_purpose`: does a summary that leaves out a case contradict the full text?      | SPEC-0023  | In the fifth run, Sonnet gave `minor` and Codex gave `major`. Blocking flips. | Write a rule that decides the case, then retest on both models.                                         |
-| Contradiction with a row that describes an open proposal                                       | SPEC-0026  | None. Both raters gave `major`, with low confidence.                          | None until a case splits.                                                                               |
+| Gap                                                                                            | Finding    | Observed effect                                                              | Next step                                                                                               |
+| ---------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Code class: a wrong result that only unusual input to a public API reaches, against FAGAN-0032 | FAGAN-0003 | Severity split, two `minor` and two `major`. Blocking flips.                 | Write a rule that decides the case, then retest with four raters on FAGAN-0003 as filed and FAGAN-0032. |
+| Document `fails_purpose`: does a parser that refuses the whole file give a "wrong result"?     | SPEC-0007  | None. All raters gave `major`.                                               | None until a case splits.                                                                               |
+| Security: effects `secrets` and `disclosure` both fit an arbitrary file read                   | FAGAN-0002 | None. Both raters chose `secrets` and `critical`.                            | None until a case splits.                                                                               |
+| Class table lists code under both the code and the security class                              | FAGAN-0002 | None. Both raters chose security.                                            | None until a case splits.                                                                               |
+| No calibration for a specification that runs ahead of planned code                             | RECON-0001 | In the fifth run, Sonnet gave `note` and Codex gave `major`. Blocking flips. | Decide with the `in_use` rule for documents.                                                            |
+| Contradiction with a row that describes an open proposal                                       | SPEC-0026  | None. Both raters gave `major`, with low confidence.                         | None until a case splits.                                                                               |
 
 ## Cross-model run
 
@@ -427,7 +461,7 @@ The full table is in
 [run-5-results.md](../../poc/spikes/finding-classification/key/run-5-results.md).
 The runs that followed, and R3, are described in
 [R3](#r3-named-cases-decide-whether-a-document-is-in-use), with their data
-in `run-6/` to `run-8/`.
+in `run-6/` to `run-8/`. R4 followed in `run-9/` and `run-10/`.
 
 ## Limits of the test
 
@@ -465,16 +499,18 @@ compares rater pairs.
 - `run-6/` to `run-8/`: the designs for the `in_use` rule. Run 6 tested three
   wordings, run 7 the case list, and run 8 the case list with corrected
   wording on all 28 document findings.
+- `run-9/` and `run-10/`: the side-text rule. Run 9 tested it without the
+  sentences on links and main rules, run 10 with them.
 - `run-3/` and `run-4/`: the retests of the draft calibration rows and of the
   exposure candidate, with their predictions and results in `key/`.
 
 ## Next steps
 
-1. R1, R2, and R3 are in
+1. R1 to R4 are in
    [finding-classification.md](../../packages/factory/rulebooks/conventions/finding-classification.md).
-   The next alignment target is the `fails_purpose` line for a document:
-   SPEC-0023 splits by model and SPEC-0024 within Codex. Name the cases with
-   the stakeholder, then test them on both models.
+   R3 and R4 were written for the gigacron findings. A run on the findings of
+   another project, with raters on both models, would test whether they
+   decide new findings.
 2. The raters recorded the deciding case in a field `in_use_case`. The
    finding format and `finding-lint` do not know that field yet. Adding it is
    a separate change.
