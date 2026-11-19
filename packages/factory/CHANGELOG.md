@@ -1,8 +1,46 @@
 # Changelog
 
-## Unreleased
+## 1.10.0 — 2026-11-19
+
+This release makes two reviewers on different AI models rate a finding the
+same way. Four rules in the finding classification settle the points where
+Sonnet and Codex raters split in a blind test on 38 findings of another
+project. With them, both models agreed on severity and category for 28 of
+28 document findings. Some findings now block where they did not before.
+Run `update-factory` to receive it.
+
+### Changes
+
+- **The statement of a document is the text that the Fix changes (R1).**
+  A syntax defect is in use only when a tool outside the run reads that
+  syntax, such as a Gherkin runner in CI.
+- **An ATAM finding is architecture class only when it names a quality
+  scenario (R2).** It must show how a decision threatens that scenario's
+  response. Every other ATAM finding is document class.
+- **Named cases decide whether a document is in use (R3).** The reviewer
+  takes the first of seven cases that applies and records it: `syntax`,
+  `built`, `done-story`, `other-side`, `deferral`, `open-story`, or `none`.
+  A story that defers work to the text, or code that follows the other side
+  of a contradiction, no longer counts as in use. A Fix with options is in
+  use only when every option is. A correct Scenario whose story is planned
+  but not done is a `suggestion` with severity `note`.
+- **A side text counts by what it does to the reader (R4).** A summary, a
+  comment, a diagram label, or a component description that leaves out a
+  case of a correct main rule answers `raises_cost` (`minor`). One that
+  states something false, or names something that does not exist, answers
+  `fails_purpose` (`major`). A link to the wrong target answers
+  `raises_cost`. A table that states the rule itself is a main rule.
+
+The test report is `docs/reviews/classification-test-2026-11-18-gigacron.md`
+in the Agent Factory repository.
 
 ### Fixes
+
+- **arch-lint no longer rewrites every diagram after a checkout.** It judged
+  staleness by file times, which git resets on checkout, and the structurizr
+  wrapper kept the render time in each SVG. So every export changed all
+  images. The wrapper now removes the render time, and arch-lint compares
+  commit times while the DSL equals HEAD.
 
 - **Source quotation marks no longer hide a quote (BUG-0129).**
   `concept-history-check` paired the quotation marks of a record's whole
