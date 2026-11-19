@@ -1,0 +1,14 @@
+---
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: owner
+      POSTGRES_PASSWORD: owner
+      POSTGRES_DB: kg
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - kgdata:/var/lib/postgresql
+volumes:
+  kgdata:
