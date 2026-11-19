@@ -14,7 +14,7 @@ Usage
   dispatch status
   dispatch init --base <branch> --stories ST-001,ST-002 [--mode orchestrated|by-hand]
   dispatch plan --backlog-dir backlog
-  dispatch close [--drop]
+  dispatch close [--drop|--orphans]
 
 Exit code: 0 on success, 1 on error, 2 on usage error.
 """
@@ -74,6 +74,8 @@ from dispatch_lib import (
     load_project_config,
     load_stories,
     next_tier,
+    orphan_ledger_verdict,
+    orphan_stash_name,
     parse_story_frontmatter,
     re_dispatch_disposition,
     remove_manifest,
@@ -2706,6 +2708,21 @@ def _registered_worktrees(main_root: Path) -> dict[Path, str | None] | None:
     return trees
 
 
+def _locked_worktrees(main_root: Path) -> set[Path] | None:
+    """Each worktree that git lists as locked, or None when the list fails."""
+    code, out, _ = _git_in(main_root, "worktree", "list", "--porcelain")
+    if code != 0:
+        return None
+    locked: set[Path] = set()
+    path: Path | None = None
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            path = Path(line[len("worktree "):]).resolve()
+        elif (line == "locked" or line.startswith("locked ")) and path is not None:
+            locked.add(path)
+    return locked
+
+
 def _close_run_dir(
     main_root: Path, current: Path, feature_branch: str
 ) -> tuple[Path | None, str | None]:
@@ -2970,6 +2987,324 @@ def cmd_close(args: argparse.Namespace) -> int:
     return 0
 
 
+# -- dispatch close --orphans: what no active run owns (BR-120) ---------------
+
+LEDGER_FILENAME = "dispatch-ledger.yaml"
+
+
+@dataclass
+class _FoundLedger:
+    """A ledger file, with its folder relative to the .current-work/ it lies in.
+
+    *link* is the symlinked folder that the walk passed to reach it, if any."""
+
+    path: Path
+    folder: Path
+    link: Path | None = None
+
+
+def _untracked_ledgers(tree: Path) -> list[Path]:
+    """Each ledger file in the checkout of *tree* that git does not track.
+
+    cmd_init writes a ledger to .current-work/<branch>/ of the checkout it
+    runs in, and that folder can be a registered worktree or lie inside one,
+    as after an init without --feature-branch (IMPL-0053). A tracked file of
+    that name is a project file (IMPL-0046). The .current-work/ of *tree* is
+    a root of the walk of its own. When git cannot list the files, the
+    ledger path at the root stands for the checkout, so its claim keeps
+    the worktree."""
+    code, out, _ = _git_in(
+        tree, "ls-files", "--others", "-z", "--",
+        f":(glob)**/{LEDGER_FILENAME}", ":(exclude,glob).current-work/**",
+    )
+    if code != 0:
+        return [Path(LEDGER_FILENAME)]
+    return [Path(rel) for rel in out.split("\0") if rel]
+
+
+def _find_ledgers(
+    roots: list[Path], trees: dict[Path, str | None]
+) -> tuple[list[_FoundLedger], list[Path]]:
+    """Every ledger file below the .current-work/ folders in *roots*, and the
+    symlinked folders that the walk met.
+
+    The walk skips each registered worktree, whose own .current-work/ is a
+    root of its own, so it never reads the files of a checkout (IMPL-0046).
+    It reads the folder behind a symlink, because a ledger there may own
+    worktrees (IMPL-0048); a ledger behind a link is never removed."""
+    found: dict[Path, _FoundLedger] = {}
+    links: list[Path] = []
+    walked: set[Path] = set()
+    pending = [(root, root, None) for root in roots]
+    while pending:
+        start, root, link = pending.pop(0)
+        if start.is_symlink() and link is None:
+            links.append(start)
+            link = start
+        if not start.is_dir() or start.resolve() in walked or start.resolve() in trees:
+            continue
+        walked.add(start.resolve())
+        for folder, subfolders, files in os.walk(start):
+            here = Path(folder)
+            if here.resolve() in walked and here != start:
+                subfolders[:] = []
+                continue
+            walked.add(here.resolve())
+            kept = []
+            for name in subfolders:
+                sub = here / name
+                if name == ".git":
+                    continue
+                if sub.is_symlink():
+                    links.append(sub)
+                    pending.append((sub, root, link or sub))
+                elif sub.resolve() not in trees:
+                    kept.append(name)
+                else:
+                    base = start.relative_to(root) / here.relative_to(start) / name
+                    for rel in _untracked_ledgers(sub):
+                        path = sub / rel
+                        found.setdefault(path, _FoundLedger(path, base / rel.parent, link))
+            subfolders[:] = kept
+            if LEDGER_FILENAME in files:
+                path = here / LEDGER_FILENAME
+                logical = start.relative_to(root) / here.relative_to(start)
+                found.setdefault(path, _FoundLedger(path, logical, link))
+    return sorted(found.values(), key=lambda item: item.path), links
+
+
+@dataclass
+class _LedgerClaim:
+    """What a ledger that stays owns, so that --orphans leaves it alone.
+
+    *text* is set only for a ledger that dispatch cannot read. Then each
+    worktree whose path or branch appears in that text counts as owned."""
+
+    path: Path
+    folders: list[Path]
+    worktrees: set[Path] = field(default_factory=set)
+    branches: set[str] = field(default_factory=set)
+    text: str | None = None
+
+    def owns(self, main_root: Path, path: Path, branch: str | None) -> bool:
+        if any(path == folder or path.is_relative_to(folder) for folder in self.folders):
+            return True
+        if path in self.worktrees or (branch is not None and branch in self.branches):
+            return True
+        if self.text is None:
+            return False
+        names = [str(path), str(path.relative_to(main_root))]
+        if branch is not None:
+            names.append(branch)
+        return any(name in self.text for name in names)
+
+
+def _ledger_branch_state(main_root: Path, ledger: Ledger) -> str:
+    """Whether the feature branch of *ledger* exists, for orphan_ledger_verdict."""
+    branch = ledger.feature_branch
+    if not branch:
+        return "none"
+    code, out, _ = _git_in(main_root, "check-ref-format", "--branch", branch)
+    if code != 0 or out != branch:
+        return "invalid"
+    return "exists" if _branch_exists(main_root, branch) else "gone"
+
+
+def _claim_of(main_root: Path, current: Path, path: Path, ledger: Ledger) -> _LedgerClaim:
+    claim = _LedgerClaim(path=path, folders=[path.parent])
+    if ledger.feature_branch:
+        claim.branches.add(ledger.feature_branch)
+        if _ledger_branch_state(main_root, ledger) in ("exists", "gone"):
+            claim.folders.append(current / ledger.feature_branch)
+    for entry in ledger.stories.values():
+        claim.branches.add(f"story/{entry.id}")
+        for branch in (entry.branch, entry.feature_branch):
+            if branch:
+                claim.branches.add(branch)
+        if entry.worktree:
+            claim.worktrees.add(Path(entry.worktree).resolve())
+            claim.worktrees.add((main_root / entry.worktree).resolve())
+    return claim
+
+
+def _tracked_by(path: Path, trees: dict[Path, str | None]) -> tuple[Path | None, str | None]:
+    """The worktree whose git tracks the file at *path*, and the error, if any.
+
+    The file belongs to the deepest registered worktree that holds it."""
+    holders = [tree for tree in trees if path.resolve().is_relative_to(tree)]
+    if not holders:
+        return None, None
+    tree = max(holders, key=lambda item: len(item.parts))
+    code, _, err = _git_in(tree, "ls-files", "--error-unmatch", "--", str(path.resolve()))
+    if code == 0:
+        return tree, None
+    if code == 1:
+        return None, None
+    return None, f"git ls-files failed in {tree}: {err}"
+
+
+def _removal_refusal(
+    found: _FoundLedger, trees: dict[Path, str | None], behind_links: set[Path]
+) -> str | None:
+    """The reason to keep a ledger of no active run, or None to remove it."""
+    if found.link is not None or found.path.resolve() in behind_links:
+        link = found.link or "a symlinked folder"
+        return f"it lies behind {link}, and dispatch removes nothing behind a symlink"
+    tracker, error = _tracked_by(found.path, trees)
+    if error is not None:
+        return error
+    if tracker is not None:
+        return f"git tracks it in {tracker}"
+    return None
+
+
+def _sort_ledgers(
+    main_root: Path,
+    current: Path,
+    ledgers: list[_FoundLedger],
+    trees: dict[Path, str | None],
+) -> tuple[list[Path], list[_LedgerClaim]]:
+    """Split the ledgers into those to remove and the claims of those that stay.
+
+    Each ledger that stays is listed, unless it belongs to an active run.
+    Each one also claims the folder of the primary checkout's .current-work/
+    that matches its own folder, because cmd_init writes a ledger to
+    .current-work/<feature-branch>/ of the checkout it runs in, and every
+    worktree of the run goes to that folder of the primary checkout. So the
+    claim holds when the ledger yields no feature branch (IMPL-0045)."""
+    behind_links = {found.path.resolve() for found in ledgers if found.link is not None}
+    remove: list[Path] = []
+    claims: list[_LedgerClaim] = []
+    for found in ledgers:
+        path = found.path
+        mirror = current / found.folder
+        ledger = None
+        error = "it is a symlink" if path.is_symlink() else None
+        if error is None:
+            try:
+                ledger = Ledger.load(path)
+            except Exception as e:  # noqa: BLE001 - every failure keeps the ledger
+                error = str(e).splitlines()[0] if str(e) else type(e).__name__
+        if ledger is None:
+            try:
+                text = path.read_text(errors="replace")
+            except OSError:
+                text = ""
+            claims.append(_LedgerClaim(path=path, folders=[path.parent, mirror], text=text))
+            print(
+                f"kept ledger: {path} (dispatch cannot read it: {error}; "
+                "it keeps every worktree it may own)"
+            )
+            continue
+        gone, reason = orphan_ledger_verdict(ledger, _ledger_branch_state(main_root, ledger))
+        if gone:
+            reason = _removal_refusal(found, trees, behind_links)
+            if reason is None:
+                remove.append(path)
+                continue
+        claim = _claim_of(main_root, current, path, ledger)
+        claim.folders.append(mirror)
+        claims.append(claim)
+        if reason is not None:
+            print(f"kept ledger: {path} ({reason})")
+    return remove, claims
+
+
+def _orphan_keep_reason(
+    main_root: Path,
+    path: Path,
+    branch: str | None,
+    claims: list[_LedgerClaim],
+    trees: dict[Path, str | None],
+    locked: set[Path],
+) -> str | None:
+    """The reason to keep a worktree of no ledger, or None to remove it.
+
+    A locked worktree stays before any stash, because git worktree remove
+    refuses it and the stash would empty its checkout (IMPL-0047)."""
+    if Path.cwd().resolve().is_relative_to(path):
+        return "dispatch runs inside it"
+    if path in locked:
+        return "it is locked"
+    if branch is None:
+        return "detached HEAD, so it has no branch to check"
+    if not _branch_exists(main_root, CLOSE_TARGET):
+        return f"{CLOSE_TARGET} does not exist, so dispatch cannot check the merge"
+    code, _, err = _git_in(
+        main_root, "merge-base", "--is-ancestor",
+        f"refs/heads/{branch}", f"refs/heads/{CLOSE_TARGET}",
+    )
+    if code == 1:
+        return f"{branch} is not merged into {CLOSE_TARGET}"
+    if code != 0:
+        return f"git merge-base failed: {err}"
+    for claim in claims:
+        if claim.path.is_relative_to(path):
+            return f"it holds the ledger {claim.path}"
+    for other in trees:
+        if other != path and other.is_relative_to(path):
+            return f"it holds the worktree {other}"
+    return None
+
+
+def cmd_close_orphans(args: argparse.Namespace) -> int:
+    """Clean up what no active run owns (BR-120).
+
+    A ledger stays when its feature branch exists, when a story in it is not
+    done, or when dispatch cannot read it. Each ledger that stays owns its
+    worktrees. A worktree under .current-work/ that no such ledger owns goes
+    only when its branch is merged into dev; every other one is listed.
+    Whatever dispatch cannot decide, it keeps."""
+    main_root = _main_worktree_root().resolve()
+    current = (main_root / ".current-work").resolve()
+    trees = _registered_worktrees(main_root)
+    if trees is None:
+        print(f"error: git worktree list failed in {main_root}", file=sys.stderr)
+        return 1
+    roots = [current] + [path / ".current-work" for path in trees if path != main_root]
+    ledgers, links = _find_ledgers(roots, trees)
+    for link in links:
+        print(f"kept link: {link} (a symlink; dispatch reads the ledgers behind it "
+              "and removes none of them)")
+    remove, claims = _sort_ledgers(main_root, current, ledgers, trees)
+    for path in remove:
+        try:
+            path.unlink()
+        except OSError as e:
+            print(f"error: cannot remove the ledger {path}: {e}", file=sys.stderr)
+            return 1
+        print(f"removed ledger: {path}")
+
+    orphans = [
+        (path, branch) for path, branch in trees.items()
+        if path != main_root and path != current and path.is_relative_to(current)
+        and path.is_dir()
+        and not any(claim.owns(main_root, path, branch) for claim in claims)
+    ]
+    orphans.sort(key=lambda item: len(item[0].parts), reverse=True)
+    day = datetime.now().astimezone().date().isoformat()
+    for path, branch in orphans:
+        trees = _registered_worktrees(main_root)
+        locked = _locked_worktrees(main_root)
+        if trees is None or locked is None:
+            print(f"error: git worktree list failed in {main_root}", file=sys.stderr)
+            return 1
+        reason = _orphan_keep_reason(main_root, path, branch, claims, trees, locked)
+        if reason is not None:
+            print(f"kept worktree: {path} ({branch + '; ' if branch else ''}{reason})")
+            continue
+        stashed, error = _stash_and_remove(main_root, path, orphan_stash_name(branch, day))
+        if stashed:
+            print(f"stash: {stashed}")
+        if error:
+            print(f"error: {error}; run dispatch close --orphans again after you "
+                  "fix the cause", file=sys.stderr)
+            return 1
+        print(f"removed worktree: {path} ({branch})")
+    print("dispatch close --orphans: done")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the dispatch parser; every subcommand is in one list of BR-091."""
     parser = argparse.ArgumentParser(
@@ -3071,12 +3406,18 @@ def build_parser() -> argparse.ArgumentParser:
         "wave", type=int
     )
 
-    sub.add_parser(
+    p_close = sub.add_parser(
         "close", help="end a finished run, or with --drop a dropped run"
-    ).add_argument(
+    ).add_mutually_exclusive_group()
+    p_close.add_argument(
         "--drop",
         action="store_true",
         help="end a run whose feature branch is not merged into dev",
+    )
+    p_close.add_argument(
+        "--orphans",
+        action="store_true",
+        help="clean up the worktrees and ledgers that no active run owns",
     )
 
     sub.add_parser(
@@ -3096,7 +3437,9 @@ def main(argv: list[str] | None = None) -> int:
             sys.stdout.write(notice)
             return 1
     # init creates its ledger and reads no existing one, so it needs no default.
-    if args.ledger is None and args.subcommand != "init":
+    # close --orphans reads every ledger, so it needs none either.
+    orphans = args.subcommand == "close" and args.orphans
+    if args.ledger is None and args.subcommand != "init" and not orphans:
         try:
             args.ledger = _default_ledger()
         except LedgerChoiceError as e:
@@ -3139,6 +3482,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_close_wave(args)
     if args.subcommand == "suggest-merge-args":
         return cmd_suggest_merge_args(args)
+    if orphans:
+        return cmd_close_orphans(args)
     if args.subcommand == "close":
         return cmd_close(args)
     return cmd_not_implemented(args)

@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0052",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:495-497",
+  "story": "ST-0424",
+  "finding": "premerge-check runs the feature merge checks only when the target is the literal string dev. With the target refs/heads/dev or the SHA of dev, it runs none of them, prints PASS, and writes the marker .current-work/premerge-check-ok for the feature branch. The hook block-dangerous-git.sh compares only the branch and its head with the marker, not the target, so that marker lets an agent's git merge of the feature branch into dev through. The review checked this in a scratch repository with no ledger and no feature report: premerge-check dev feature/x exited 1, and premerge-check refs/heads/dev feature/x and premerge-check <dev-sha> feature/x each exited 0 and wrote the marker. The decision starts in is_feature_merge, which compares the target text with dev. The behavior looks unintended. The smallest fix is in is_feature_merge: compare git rev-parse --symbolic-full-name <target> with refs/heads/dev, so that every name of the branch dev counts. A bare SHA has no branch name; the marker could record the target, and the hook could compare it with the checked-out branch. Resolution: is_feature_merge counts dev and every name that git rev-parse --symbolic-full-name resolves to refs/heads/dev, so the target refs/heads/dev gets the feature checks. The SHA of dev stays a known limit: it gets no feature checks, because no flow merges into dev by SHA and dispatch-wave passes a wave base SHA that can equal the head of dev (IMPL-0054).",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Every agent text and playbook names premerge-check dev <feature-branch>, and the User, not an agent, merges into dev, so the documented path refuses an unready run (no to fails_purpose). A caller who spells the target another way gets a PASS and a marker without any feature check, and must know the rule to notice. The lines exist only on story/ST-0424, so in_use is false.",
+  "commit": "8b78b5c01db700b89ba0054ed3f70e7d2319fd17",
+  "status": "resolved"
+}

@@ -100,7 +100,7 @@ A `rejected` row becomes a `BUG` finding with `owner: developer-agent`. The revi
 
 A `fixed` row on an artifact outside the core list closes at `fixed`, because the artifact has no declared review (DEC-35). An ADR is such an artifact.
 
-The owner and the reviewer commit on the branch that holds the report, normally the feature branch before its merge into `dev`. A row stays in the report that first wrote it, and only its Status changes. No script reads the reports, so an unhandled row blocks no merge and no reconciliation run.
+The owner and the reviewer commit on the branch that holds the report. Reconciliation runs on `dev` after the merge of the feature branch, and `dispatch close` has ended the run, so the owners of reconciliation rows commit on `dev`. A row stays in the report that first wrote it, and only its Status changes. No script reads the reports, so an unhandled row blocks no merge and no reconciliation run.
 
 Go to Step 2.
 

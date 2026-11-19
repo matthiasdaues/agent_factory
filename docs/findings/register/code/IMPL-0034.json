@@ -16,5 +16,5 @@
   },
   "why_this_severity": "Both lines exist unchanged on dev, but there they are correct, because dev has no run by hand that uses dispatch (no to harms_downstream). In a run by hand the agent never runs git merge itself: merge-story runs premerge-check, and the stop table names premerge-check dev, so no merge skips the check (no to fails_purpose). A reader of rules.md gets a rule that contradicts implementation-agent.md and must check BR-124 to learn which one holds.",
   "commit": "0c410ccab9bce30722e41757d08a3305d99934b9",
-  "status": "open"
+  "status": "resolved"
 }

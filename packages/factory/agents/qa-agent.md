@@ -36,6 +36,9 @@ outputs:
     - path_pattern: "docs/reviews/security-review-*.md"
       validator:
       required: false
+    - path_pattern: "docs/reviews/bug-hunt-*.md"
+      validator:
+      required: false
     - path_pattern: "tests/**/*"
       validator:
       required: false
@@ -82,7 +85,7 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
    - **Contract-to-test cross-referencing:** Read the story's `tests:` field and cross-reference each listed test module against the story's traced contracts. Every traced contract owned by this story must have a corresponding test, or a justified exclusion (structural contracts are linter-owned). Flag gaps as `FAGAN` findings.
    - **Testability flag follow-up:** If the testability probe flagged red flags for this story's EPIC in `backlog/epics.md`, check whether the flagged criteria now have test coverage at story level. Unaddressed flags are `FAGAN` findings.
 3. **Security Review** — Invoke `security-review`: OWASP Top 10, realistic vectors only, scoped by Boundary Cases and Severity Triage. File `SEC` findings by their computed severity.
-4. **Bug Hunt** — Invoke `bug-hunt` using the `.feature` file as the contract source. Each Scenario is a contract; `@`-references locate the code. Hunt → Fix (Red → Green → commit `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs.
+4. **Bug Hunt** — Invoke `bug-hunt` using the `.feature` file as the contract source. Each Scenario is a contract; `@`-references locate the code. Hunt → Fix (Red → Green → commit `fix: ... (BUG-NNNN)` → `status: resolved`) → Retest until a full cycle finds zero bugs. Save the bug-hunt report `docs/reviews/bug-hunt-YYYY-MM-DD.md`.
 
 ## Completion Criteria
 
@@ -98,4 +101,4 @@ Follow the [agent lifecycle protocol](../rulebooks/conventions/agent-lifecycle-p
 
 **If defects** → Implementation Agent: _"Review found [N] defects. Fix and re-submit for QA."_
 
-**If clean** → _"QA passed. PR ready to merge."_
+**If clean** → Implementation Agent: _"QA passed. Run `premerge-check dev <feature-branch>`, show the result, and leave the merge into `dev` to the User."_

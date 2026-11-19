@@ -402,7 +402,9 @@ def test_st_0397_stop_reads_only_the_worktree_it_runs_in(tmp_path):
     assert in_feature.returncode == 1
     assert in_feature.stdout == contract_example()
     assert "STOP:" not in in_main.stdout
-    assert in_main.returncode == 0, in_main.stdout
+    # Without the stop the checks run. The feature merge into dev refuses this
+    # repository, which has no ledger and no feature reports (ST-0424).
+    assert "PASS stale-base-signature" in in_main.stdout, in_main.stdout
 
 
 # -- FC-14-IT-06: both scripts print the same notice ---------------------------

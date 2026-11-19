@@ -96,6 +96,17 @@ Exit `0` means clean to merge. Exit non-zero means **block the merge** and inves
 
 `premerge-check`'s pass marker is one slot per checkout, keyed to the branch just checked — so each `premerge-check <branch>` call must be immediately followed by that branch's own `git merge`, one pair at a time, before checking the next branch. Batching checks ahead of merges overwrites the marker and the earlier merges get denied. This isn't a new constraint: a single working tree can only merge one branch at a time anyway (git's own index lock serializes it); the marker just now enforces the ordering mechanically instead of assuming the dispatcher follows it.
 
+### Merge Into Dev
+
+The feature checks start after the last wave of a run closes, on both ways, and run in this order:
+
+1. The code-review agent reviews the whole feature and writes `docs/reviews/code-review-<feature-branch>-YYYY-MM-DD.md`.
+2. The QA agent then explores the feature branch and writes the Fagan, security, and bug-hunt reports.
+3. The implementation agent runs `.agent-factory/factory/scripts/premerge-check dev <feature-branch>` and shows the result. When it passes, the User merges the feature branch into `dev`. No agent merges into `dev`.
+4. The reconciliation agent reconciles the specification and the architecture against the code on `dev`.
+
+`premerge-check dev <feature-branch>` refuses while a unit of work of the run is `failed` or `blocked`, a unit of work is `pending` and no return holds it back (BR-113), a wave has no wave record, one of the four reports lacks `run` set to the feature branch and a `branch_head` that is an ancestor of the feature branch head, or a blocking finding of the run is open (BR-122). It runs the full test suite in a temporary worktree at `.current-work/<feature-branch>/premerge/feature` and removes it afterwards (BR-123).
+
 ### Two SHAs Tracked Per Invocation
 
 - **branch root** — the SHA on `main`/trunk the invocation branch was cut from.
