@@ -67,7 +67,6 @@ from dispatch_lib import (
     glob_match,
     grant_attempts,
     has_stopped,
-    held_back,
     implementation_session_tier,
     ledger_escalation_refusal,
     load_core_patterns,
@@ -1145,25 +1144,9 @@ def cmd_prepare_wave(args: argparse.Namespace) -> int:
     if not any(entry.wave == wave for entry in ledger.stories.values()):
         print(f"error: no story in the ledger carries wave {wave}", file=sys.stderr)
         return 1
-    blocking = [
-        entry
-        for entry in ledger.stories.values()
-        if entry.wave is not None
-        and entry.wave < wave
-        and entry.status not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
-        # A returned story and a story that waits on one never start in
-        # this run, so they hold back no later wave (BR-113).
-        and not held_back(ledger, entry)
-    ]
-    if blocking:
-        blockers = ", ".join(
-            f"{entry.id} ({entry.status.value})"
-            for entry in sorted(blocking, key=lambda e: e.id)
-        )
-        print(
-            f"error: wave {wave} blocked by non-terminal prior-wave stories: {blockers}",
-            file=sys.stderr,
-        )
+    missing = _missing_wave_record(ledger, wave, f"prepare-wave {wave}")
+    if missing:
+        print(missing, file=sys.stderr)
         return 1
 
     target_branch = ledger.feature_branch
@@ -1327,13 +1310,22 @@ def _wave_by_hand(ledger: Ledger, entry: StoryEntry) -> tuple[int | None, str | 
     if wave is None:
         taken = [e.wave for e in ledger.stories.values() if e.wave is not None]
         wave = max(taken, default=0) + 1
-    recorded = {record.number for record in ledger.waves}
-    if wave > 1 and wave - 1 not in recorded:
-        return None, (
-            f"error: wave {wave - 1} has no wave record; run "
-            f"`dispatch close-wave {wave - 1}` before prepare-story {entry.id}"
-        )
-    return wave, None
+    return wave, _missing_wave_record(ledger, wave, f"prepare-story {entry.id}")
+
+
+def _missing_wave_record(ledger: Ledger, wave: int | None, command: str) -> str | None:
+    """Name the missing record of the wave before *wave*, or None (BR-113).
+
+    `dispatch close-wave` writes the record once the wave's units of work
+    and drift rows let it close, so the record stands for the whole check."""
+    if wave is None or wave <= 1:
+        return None
+    if any(record.number == wave - 1 for record in ledger.waves):
+        return None
+    return (
+        f"error: wave {wave - 1} has no wave record; run "
+        f"`dispatch close-wave {wave - 1}` before {command}"
+    )
 
 
 def _undo_checkout_by_hand(
@@ -1482,6 +1474,12 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
     if ledger.mode == "by-hand":
         return _prepare_story_by_hand(ledger, ledger_path, entry)
 
+    # A returned entry waits for the end of the run, whatever its strategy,
+    # so the return is named before the seams-first branch (IMPL-0037).
+    if entry.status == StoryState.PENDING and entry.returned:
+        print(_pending_entry_error(entry), file=sys.stderr)
+        return 1
+
     project_root = _project_root()
     story_meta = _story_meta_for_manifest(project_root, story_id)
     if story_meta.get("strategy") == "seams-first":
@@ -1542,6 +1540,10 @@ def cmd_prepare_story(args: argparse.Namespace) -> int:
         )
         return 1
     if _print_dependency_refusals(ledger, entry):
+        return 1
+    missing = _missing_wave_record(ledger, entry.wave, f"prepare-story {entry.id}")
+    if missing:
+        print(missing, file=sys.stderr)
         return 1
 
     predecessor_id = entry.deps[0]
@@ -2642,9 +2644,13 @@ def _drift_check(branch_head: str):
 
 
 def cmd_close_wave(args: argparse.Namespace) -> int:
+    """Record the close of one wave, on both ways of a run (BR-062, BR-064)."""
     ledger_path = Path(args.ledger)
-    ledger = _load_orchestrated_ledger(ledger_path)
+    ledger = _load_ledger(ledger_path)
     if ledger is None:
+        return 1
+    limits = _attempt_limits_or_error(_project_root())
+    if limits is None:
         return 1
 
     # Read the invocation branch by name, so the result does not depend on
@@ -2663,7 +2669,7 @@ def cmd_close_wave(args: argparse.Namespace) -> int:
     wave = args.wave
     try:
         _record, created = ledger.close_wave(
-            wave, branch_head, drift_check=_drift_check(branch_head)
+            wave, branch_head, drift_check=_drift_check(branch_head), limits=limits
         )
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)

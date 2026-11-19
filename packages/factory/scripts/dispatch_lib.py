@@ -549,6 +549,21 @@ class Ledger:
             f"dispatch: {story_id} was returned and waits for the end of the run"
         )
 
+    def lets_its_wave_close(self, entry: StoryEntry, limits: AttemptLimits) -> bool:
+        """True when *entry* is in one of the five states that let its wave
+        close: done, blocked, failed and stopped, or held back (BR-113)."""
+        if entry.status in {StoryState.DONE, StoryState.BLOCKED}:
+            return True
+        if entry.status == StoryState.FAILED:
+            return has_stopped(entry, limits)
+        return held_back(self, entry)
+
+    @staticmethod
+    def _open_state(entry: StoryEntry) -> str:
+        if entry.status == StoryState.FAILED:
+            return "failed with a retry left"
+        return entry.status.value
+
     def is_terminal(self, story_id: str) -> bool:
         """Return True when the story is in a terminal lifecycle state."""
         return self.stories[story_id].status in {
@@ -562,12 +577,16 @@ class Ledger:
         wave: int,
         branch_head: str,
         drift_check: Callable[[list[str]], list[str]] | None = None,
+        limits: AttemptLimits | None = None,
     ) -> tuple[WaveCloseout, bool]:
-        """Record a terminal wave closeout and return (record, created).
+        """Record a wave closeout and return (record, created).
 
-        *drift_check* takes the ids of the wave's stories and returns one
-        problem per unhandled or unreadable drift row (BR-062). Any problem
-        keeps the wave open."""
+        A unit of work lets its wave close only in one of five states:
+        `done`, `blocked`, `failed` when HasStopped holds under *limits*,
+        `pending` after a return, and `pending` behind a returned
+        dependency (BR-062, BR-113). *drift_check* takes the ids of the
+        wave's stories and returns one problem per unhandled or unreadable
+        drift row (BR-062). Any problem keeps the wave open."""
         for record in self.waves:
             if record.number == wave:
                 return record, False
@@ -576,15 +595,16 @@ class Ledger:
         if not wave_stories:
             raise TransitionError(f"wave {wave} has no stories")
 
-        non_terminal = [
-            entry.id
+        limits = limits or AttemptLimits()
+        can_go_on = [
+            f"{entry.id} ({self._open_state(entry)})"
             for entry in wave_stories
-            if entry.status
-            not in {StoryState.DONE, StoryState.FAILED, StoryState.BLOCKED}
+            if not self.lets_its_wave_close(entry, limits)
         ]
-        if non_terminal:
+        if can_go_on:
             raise TransitionError(
-                f"wave {wave} still has non-terminal stories: {', '.join(non_terminal)}"
+                f"wave {wave} has units of work that can still go on: "
+                + ", ".join(can_go_on)
             )
 
         if drift_check is not None:
@@ -1281,7 +1301,7 @@ def _plain(cell: str) -> str:
 
 
 def parse_report_rows(text: str) -> list[dict[str, str]]:
-    """Return the Artifact and Status of every row of a drift report.
+    """Return the Artifact, Owner and Status of every row of a drift report.
 
     The rows come from every Markdown table whose header holds the five
     report columns. Raises ReportError on a report without such a table,
@@ -1304,6 +1324,7 @@ def parse_report_rows(text: str) -> list[dict[str, str]]:
         found_table = True
         artifact_at = header.index("Artifact")
         status_at = header.index("Status")
+        owner_at = header.index("Owner")
         index += 1  # the separator line
         while index < len(lines) and lines[index].lstrip().startswith("|"):
             number = index + 1
@@ -1311,6 +1332,7 @@ def parse_report_rows(text: str) -> list[dict[str, str]]:
             index += 1
             artifact = _plain(cells[artifact_at]) if artifact_at < len(cells) else ""
             status = _plain(cells[status_at]) if status_at < len(cells) else ""
+            owner = _plain(cells[owner_at]) if owner_at < len(cells) else ""
             artifact = artifact.split("#", 1)[0]
             if not artifact:
                 raise ReportError(f"line {number} has no path in the Artifact column")
@@ -1319,7 +1341,7 @@ def parse_report_rows(text: str) -> list[dict[str, str]]:
                     f"line {number} has the unknown status '{status}'; "
                     f"allowed: {', '.join(ROW_STATUSES)}"
                 )
-            rows.append({"artifact": artifact, "status": status})
+            rows.append({"artifact": artifact, "owner": owner, "status": status})
     if not found_table:
         raise ReportError(
             "has no row table with the columns " + ", ".join(REPORT_COLUMNS)
@@ -1374,14 +1396,15 @@ def drift_row_problems(
             continue
         for row in rows:
             artifact, status = row["artifact"], row["status"]
+            owner = row["owner"] or "no owner named"
             if status == "open":
                 problems.append(
-                    f"{report}: {artifact} is open; its owner has not fixed it"
+                    f"{report}: {artifact} is open; its owner {owner} has not fixed it"
                 )
             elif status == "fixed" and is_core_artifact(artifact, core_patterns):
                 problems.append(
-                    f"{report}: {artifact} is fixed on a core artifact; "
-                    "its reviewer has not confirmed or rejected it"
+                    f"{report}: {artifact} is fixed on a core artifact; the reviewer "
+                    f"of its owner {owner} has not confirmed or rejected it"
                 )
     return problems
 

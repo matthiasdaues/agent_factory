@@ -16,5 +16,5 @@
   },
   "why_this_severity": "prepare-story still refuses the returned story and changes no state, and no story in backlog/ uses strategy seams-first, so the path is not reached in this project today (no to fails_purpose). An operator who meets it follows the wrong message to the seam session and must find the return in the ledger by hand. The code exists only on the story branch, so in_use is false.",
   "commit": "8db2a3cca31c3ec9388c3aaf92639e1848ae1622",
-  "status": "open"
+  "status": "resolved"
 }

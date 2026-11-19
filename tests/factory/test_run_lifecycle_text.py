@@ -545,6 +545,74 @@ def test_RL_08_LN_01_a_dirty_feature_worktree_goes_to_the_user_unchanged() -> No
     assert "`dispatch.refuse_dirty_feature_worktree: false`" in merge
 
 
+@pytest.mark.spec("RL-08-LN-01")
+def test_RL_08_LN_01_step_4d_runs_again_after_the_user_has_acted() -> None:
+    """IMPL-0038: after a refusal for an uncommitted change, and after a refused
+    amend, the agent runs step 4d again once the User has acted."""
+    merge = " ".join(_orchestrated_merge_step().split())
+    dirty = merge.index("`dispatch.refuse_dirty_feature_worktree: false`")
+    assert merge.index("After the User has acted, run step 4d again.") > dirty
+    amend = merge.index("When a hook refuses the amend")
+    assert "the story stays `dispatched`" in merge[amend:]
+    assert "Report its message to the User, and run step 4d again after the User has fixed the cause." in merge[amend:]
+
+
+@pytest.mark.spec("RL-08-LN-01")
+def test_RL_08_LN_01_a_refused_merge_by_hand_waits_for_the_user() -> None:
+    """IMPL-0035: by hand, a merge-story that exits 1 and keeps the story
+    dispatched goes to the User unchanged, and the agent touches no file."""
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Run By Hand")
+    merge = next(step for step in steps if step.startswith("**Merge**"))
+    assert (
+        "When `merge-story` exits `1` and the story stays `dispatched`, show its "
+        "message unchanged, change no file in the primary checkout, and wait for "
+        "the User before the next `merge-story`." in merge
+    )
+
+
+# --- RL-11: the next wave starts only after the wave close (ST-0421) ----------
+
+
+@pytest.mark.spec("RL-11-LN-01")
+def test_RL_11_LN_01_the_drift_sessions_run_at_the_wave_close_without_a_stop() -> None:
+    """Scenarios: The implementation agent runs the drift sessions and closes the
+    wave; The wave close does not wait for the User's go."""
+    steps = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Automated Mode")
+    close = next(step for step in steps if step.startswith("**Close the wave**"))
+    marks = (
+        "dispatch close-wave <wave-number>",
+        "dispatches the owner of each `open` row",
+        "dispatches the owner's reviewer for each `fixed` row",
+        "run `close-wave` again until it passes",
+        "The next wave starts only after the wave record exists",
+    )
+    found = _positions(close, marks)
+    assert found == sorted(found), dict(zip(marks, found))
+    assert "without a stop for the User" in close
+    assert "never after a merge" in close
+    merge_step = next(step for step in steps if step.startswith("**Verify, review"))
+    assert "spec-feedback" not in merge_step
+
+    by_hand = _numbered_steps(IMPLEMENTATION_AGENT, "Workflow — Run By Hand")
+    by_hand_close = next(step for step in by_hand if step.startswith("**Close the wave**"))
+    assert by_hand_close.index("dispatch close-wave") < by_hand_close.index("drift rows")
+    assert "without a stop" in by_hand_close
+    assert "The wave close is no stop" in _block(IMPLEMENTATION_AGENT, "Stops by hand")
+
+    rule = _block(DISPATCH_CONTRACT, "Drift Rows At The Wave Close")
+    marks = (
+        "runs `dispatch close-wave <wave>`",
+        "lists each such row with its owner",
+        "dispatches the owner of each `open` row",
+        "dispatches the owner's reviewer for each `fixed` row",
+        "runs `close-wave` again",
+    )
+    found = _positions(rule, marks)
+    assert found == sorted(found), dict(zip(marks, found))
+    assert "It does not wait for the User's go" in rule
+    assert "Drift Rows After A Merge" not in DISPATCH_CONTRACT.read_text(encoding="utf-8")
+
+
 # --- RL-13: the feature checks and the merge into dev (ST-0424) ---------------
 
 PLAYBOOKS = FACTORY / "playbooks"
