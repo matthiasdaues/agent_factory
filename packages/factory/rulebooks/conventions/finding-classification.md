@@ -51,13 +51,13 @@ The review class names the rule that classifies a finding, not the review that
 found it. The reviewed material decides the class, for a review and for any
 other source, such as a diagnosis, a bug report, or a dispatch run.
 
-| Class        | Material                                                     | Reviews that usually produce it                                                                    | Rule                                                                                                | Basis fields                                                 |
-| ------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| document     | Specifications, proposals, ADRs, and arc42 chapters          | `inspect-spec`, `proposal-review-agent`, `reconcile-spec`, and the document defects of ATAM review | [Consequence tree](#the-consequence-tree); [proposal rows](#proposal-review-rows) use two questions | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost` |
-| code         | Code, and the text that agents execute                       | `fagan-review` and `code-review-agent`                                                             | [Consequence tree](#the-consequence-tree)                                                           | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost` |
-| security     | Code and configuration lines                                 | `security-review` and the security step of `qa-agent`                                              | [Bug bar](#class-security)                                                                          | `effect`, the four preconditions, `confidence`, `in_use`     |
-| architecture | Architectural decisions, measured against a quality scenario | `atam-review`                                                                                      | [Matrix of importance and exposure](#class-architecture), raised by `in_use`                        | `importance`, `exposure`, `in_use`                           |
-| runtime      | Observed behavior                                            | `bug-hunt` and the exploratory testing of `qa-agent`                                               | [Consequence tree](#the-consequence-tree)                                                           | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost` |
+| Class        | Material                                                     | Reviews that usually produce it                                                                    | Rule                                                                                                | Basis fields                                                                             |
+| ------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| document     | Specifications, proposals, ADRs, and arc42 chapters          | `inspect-spec`, `proposal-review-agent`, `reconcile-spec`, and the document defects of ATAM review | [Consequence tree](#the-consequence-tree); [proposal rows](#proposal-review-rows) use two questions | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost`, `in_use_case`, `side_text` |
+| code         | Code, and the text that agents execute                       | `fagan-review` and `code-review-agent`                                                             | [Consequence tree](#the-consequence-tree)                                                           | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost`                             |
+| security     | Code and configuration lines                                 | `security-review` and the security step of `qa-agent`                                              | [Bug bar](#class-security)                                                                          | `effect`, the four preconditions, `confidence`, `in_use`                                 |
+| architecture | Architectural decisions, measured against a quality scenario | `atam-review`                                                                                      | [Matrix of importance and exposure](#class-architecture), raised by `in_use`                        | `importance`, `exposure`, `in_use`                                                       |
+| runtime      | Observed behavior                                            | `bug-hunt` and the exploratory testing of `qa-agent`                                               | [Consequence tree](#the-consequence-tree)                                                           | `in_use`, `harms_downstream`, `fails_purpose`, `raises_cost`                             |
 
 Text that agents execute is code: playbooks, skills, agent definitions,
 rulebooks, and hook configuration. Take a diagnosis that finds a playbook step
@@ -144,7 +144,8 @@ that applies, and records the case by its name:
 
 When the Fix offers options, the reviewer applies the cases to the text of
 each option. The statement is in use only when it is in use under every
-option.
+option. The reviewer records the cases in `in_use_case` of the basis, one
+per option, for example `[built, other-side]`.
 
 The reviewer checks "in use" as a fact, for example in the git state. The
 reviewer does not predict which later gate might catch the defect. For a code,
@@ -213,7 +214,12 @@ something that does not exist, it answers `fails_purpose`.
 A link or cross-reference that points to the wrong target answers
 `raises_cost`: the reader lands near the right place and finds it on a second
 look. A table or list that states the rule itself is a main rule, not a side
-text, also when it leaves something open.
+text, also when it leaves something open. The reviewer records the verdict in
+`side_text` of the basis: `omission`, `false-statement`, or `none` when the
+finding is not about a side text.
+
+`finding-lint` checks both fields against the other answers. It requires them
+on a document finding that is new or whose basis changed (BR-126).
 
 `finding-lint` does not check `in_use` of a document against git. So the
 `**Why this severity:**` line names the story or code that encodes the

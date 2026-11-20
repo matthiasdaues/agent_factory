@@ -222,7 +222,12 @@ INSTALLED = ".agent-factory/factory/scripts/premerge-check"
 SETTINGS = "docs/factory-settings.yaml"
 ON_DEV = f"{FAGAN_PATH}: BR-088 in use: artifact lines exist unchanged on dev"
 IN_USE_FALSE = {
-    "document": _tree(False, False, True, False),
+    # A new document finding records its cases (BR-126).
+    "document": {
+        **_tree(False, False, True, False),
+        "in_use_case": ["none"],
+        "side_text": "none",
+    },
     "code": _tree(False, False, True, False),
     "runtime": _tree(False, False, True, False),
     "security": _bar("execution", 1, "proven", False),

@@ -80,6 +80,21 @@ MATRIX = {
 NOTE_TYPES = ("non-risk", "sensitivity-point", "tradeoff-point")
 
 TREE_CLASSES = ("document", "code", "runtime")
+# The named cases that decide in_use of a document (finding-classification.md
+# § In use), and the two cases that mean "in use". in_use_case holds one case
+# per option of the Fix (BR-126).
+IN_USE_CASES = (
+    "syntax",
+    "built",
+    "done-story",
+    "other-side",
+    "deferral",
+    "open-story",
+    "none",
+)
+CASES_IN_USE = ("built", "done-story")
+# How a side text counts (finding-classification.md § Class: document).
+SIDE_TEXT_VALUES = ("omission", "false-statement", "none")
 
 
 def tree_severity(basis: dict) -> str:
@@ -508,6 +523,8 @@ def _check_answers(path: str, record: dict, basis: dict) -> list[str]:
                     "a suggestion describes material that works, so it answers false to harms_downstream and fails_purpose",
                 )
             )
+    if review_class == "document":
+        out += _check_recorded_cases(path, basis)
     if (
         review_class == "security"
         and basis["effect"] == "hardening"
@@ -520,6 +537,43 @@ def _check_answers(path: str, record: dict, basis: dict) -> list[str]:
                 "a finding with the effect hardening is a suggestion",
             )
         )
+    return out
+
+
+def _check_recorded_cases(path: str, basis: dict) -> list[str]:
+    """The recorded cases agree with the answers of the basis (BR-126)."""
+    out: list[str] = []
+    cases = basis.get("in_use_case")
+    if cases and "syntax" not in cases:
+        in_use = all(case in CASES_IN_USE for case in cases)
+        if basis["in_use"] != in_use:
+            out.append(
+                _message(
+                    path,
+                    "BR-126 in use case",
+                    f"in_use_case {cases} gives in_use {str(in_use).lower()}, "
+                    f"but in_use is {str(basis['in_use']).lower()}",
+                )
+            )
+        if "other-side" in cases and basis["harms_downstream"]:
+            out.append(
+                _message(
+                    path,
+                    "BR-126 in use case",
+                    "the case other-side gives harms_downstream false",
+                )
+            )
+    side_text = basis.get("side_text")
+    if side_text in ("omission", "false-statement"):
+        fails = side_text == "false-statement"
+        if basis["fails_purpose"] != fails:
+            out.append(
+                _message(
+                    path,
+                    "BR-126 side text",
+                    f"side_text {side_text} gives fails_purpose {str(fails).lower()}",
+                )
+            )
     return out
 
 
@@ -1120,7 +1174,56 @@ def lint_files(files: dict[str, str], head: dict[str, str], schemas: dict) -> li
                 )
                 continue
             out += check_register_file(path, data, schemas)
-    return out + _check_ids(finding_ids, register_ids) + compare_with_head(files, head)
+    return (
+        out
+        + _check_ids(finding_ids, register_ids)
+        + compare_with_head(files, head)
+        + check_cases_recorded(files, head)
+    )
+
+
+def _record(path: str, text: str) -> dict | None:
+    """The classified record of a finding file or a register file, or None."""
+    if is_finding_path(path):
+        return _meta(text)
+    if is_register_path(path):
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        return data if isinstance(data, dict) else None
+    return None
+
+
+def check_cases_recorded(files: dict[str, str], head: dict[str, str]) -> list[str]:
+    """A new or changed document finding records in_use_case and side_text.
+
+    A document finding that is new against HEAD, or whose basis differs from
+    HEAD, carries both fields in its basis. A finding that HEAD holds with
+    the same basis keeps its earlier shape, so the findings filed before the
+    fields existed stay valid (BR-126).
+    """
+    out: list[str] = []
+    for path in sorted(files):
+        record = _record(path, files[path])
+        if not record or record.get("review_class") != "document":
+            continue
+        basis = record.get("basis")
+        if not isinstance(basis, dict):
+            continue
+        before = _record(path, head[path]) if path in head else None
+        if before and before.get("basis") == basis:
+            continue
+        missing = [k for k in ("in_use_case", "side_text") if k not in basis]
+        if missing:
+            out.append(
+                _message(
+                    path,
+                    "BR-126 recorded cases",
+                    f"a new or changed document finding records {' and '.join(missing)} in its basis",
+                )
+            )
+    return out
 
 
 # --- Reading the versions ------------------------------------------------------

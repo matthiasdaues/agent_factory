@@ -71,15 +71,18 @@ BAR_BASIS = {
     "in_use": True,
 }
 MATRIX_BASIS = {"importance": "medium", "exposure": "uncertain", "in_use": False}
+# A new document finding records the cases that decided its answers (BR-126).
+DOCUMENT_BASIS = {**TREE_BASIS, "in_use_case": ["built"], "side_text": "none"}
 BASIS_OF_CLASS = {
-    "document": TREE_BASIS,
+    "document": DOCUMENT_BASIS,
     "code": TREE_BASIS,
     "runtime": TREE_BASIS,
     "security": BAR_BASIS,
     "architecture": MATRIX_BASIS,
 }
-# Index of the matching shape in the oneOf list of finding-basis.json.
-SHAPE_INDEX = {"document": 0, "code": 0, "runtime": 0, "security": 1, "architecture": 2}
+# Index of the matching shape in the anyOf list of finding-basis.json. The
+# document shape adds the recorded cases to the consequence tree (BR-126).
+SHAPE_INDEX = {"document": 3, "code": 0, "runtime": 0, "security": 1, "architecture": 2}
 CLASSES = tuple(BASIS_OF_CLASS)
 OTHER_CLASS = {
     "document": "security",
@@ -161,7 +164,7 @@ def test_st_0387_schema_requires_the_first_thirteen_keys(class_name):
 @pytest.mark.spec("FC-07-LN-02")
 @pytest.mark.parametrize("class_name", CLASSES)
 def test_st_0387_schema_basis_takes_the_shape_of_its_class(class_name):
-    shape = json.loads(BASIS_SCHEMA.read_text(encoding="utf-8"))["oneOf"][
+    shape = json.loads(BASIS_SCHEMA.read_text(encoding="utf-8"))["anyOf"][
         SHAPE_INDEX[class_name]
     ]
     basis = _schema(class_name)["properties"]["basis"]
@@ -259,7 +262,7 @@ def test_st_0387_schema_validate_accepts_a_null_story(tmp_path):
 FINDING_LINT = FACTORY / "scripts" / "finding-lint"
 # A register basis per class whose severity is minor, so finding-lint passes it.
 MINOR_BASIS = {
-    "document": TREE_BASIS,
+    "document": DOCUMENT_BASIS,
     "code": TREE_BASIS,
     "runtime": TREE_BASIS,
     "security": BAR_BASIS,

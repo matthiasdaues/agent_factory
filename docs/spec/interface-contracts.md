@@ -1387,26 +1387,26 @@ A value that the stakeholder settled on a gap carries the identifier in
 A reviewer agent writes a finding file for each `critical` or `major`
 finding. The frontmatter holds these fields:
 
-| Field                   | Contract                                                                                                                                                              |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                    | The ID that `next-id` printed, such as `FAGAN-0042`. The file name is `<id>.md`                                                                                       |
-| `source`                | The review or session that found the finding, such as `fagan-review` or `diagnosis`                                                                                   |
-| `review_class`          | `document`, `code`, `security`, `architecture`, or `runtime` (BR-079)                                                                                                 |
-| `category`              | `defect`, `risk`, or `suggestion` (BR-079)                                                                                                                            |
-| `type`                  | A type from the vocabulary of the class (BR-079)                                                                                                                      |
-| `severity`              | `critical` or `major`, computed from `basis` (BR-081 to BR-085)                                                                                                       |
-| `basis`                 | A YAML mapping with the shape of the class, as [schemas/finding-basis.json](schemas/finding-basis.json) defines (BR-080)                                              |
-| `rating`                | The bug-bar level `Critical`, `High`, `Medium`, or `Low` of a security finding; `null` in every other class (BR-082)                                                  |
-| `override_by`           | `null`, or the stakeholder who waived or lowered the finding. Human field (BR-092, BR-109)                                                                            |
-| `override_reason`       | `null`, or why the finding stays unfixed or why it was lowered. Human field                                                                                           |
-| `stop_confirmed_by`     | `null`, or the stakeholder who confirmed the stop of a `critical` finding. Human field                                                                                |
-| `stop_confirmed_reason` | `null`, or what the stakeholder checked and found. Human field                                                                                                        |
-| `artifact`              | `path:line`, `path:start-end`, or `path#anchor` (BR-086)                                                                                                              |
-| `status`                | `open` or `resolved`, set by an agent. `waived`, set only by the stakeholder. `deferred`, set only by the migration on a file without `review_class` (BR-086, DEC-55) |
-| `owner`                 | The agent that acts on the finding next, as [Finding frontmatter `owner:`](#finding-frontmatter-owner) defines                                                        |
-| `story`                 | The ID of the story whose review filed the finding, such as `ST-0350`. Empty for a finding of the feature checks and outside any run (BR-121)                         |
-| `run`                   | The feature branch whose feature checks filed the finding, such as `feature/login`. Empty for a finding of a story's review and outside any run (BR-121)              |
-| `traces`                | Optional list of related IDs, such as `[ST-0351]`. It does not count at the merges                                                                                    |
+| Field                   | Contract                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                    | The ID that `next-id` printed, such as `FAGAN-0042`. The file name is `<id>.md`                                                                                                                  |
+| `source`                | The review or session that found the finding, such as `fagan-review` or `diagnosis`                                                                                                              |
+| `review_class`          | `document`, `code`, `security`, `architecture`, or `runtime` (BR-079)                                                                                                                            |
+| `category`              | `defect`, `risk`, or `suggestion` (BR-079)                                                                                                                                                       |
+| `type`                  | A type from the vocabulary of the class (BR-079)                                                                                                                                                 |
+| `severity`              | `critical` or `major`, computed from `basis` (BR-081 to BR-085)                                                                                                                                  |
+| `basis`                 | A YAML mapping with the shape of the class, as [schemas/finding-basis.json](schemas/finding-basis.json) defines (BR-080). A document finding also records `in_use_case` and `side_text` (BR-126) |
+| `rating`                | The bug-bar level `Critical`, `High`, `Medium`, or `Low` of a security finding; `null` in every other class (BR-082)                                                                             |
+| `override_by`           | `null`, or the stakeholder who waived or lowered the finding. Human field (BR-092, BR-109)                                                                                                       |
+| `override_reason`       | `null`, or why the finding stays unfixed or why it was lowered. Human field                                                                                                                      |
+| `stop_confirmed_by`     | `null`, or the stakeholder who confirmed the stop of a `critical` finding. Human field                                                                                                           |
+| `stop_confirmed_reason` | `null`, or what the stakeholder checked and found. Human field                                                                                                                                   |
+| `artifact`              | `path:line`, `path:start-end`, or `path#anchor` (BR-086)                                                                                                                                         |
+| `status`                | `open` or `resolved`, set by an agent. `waived`, set only by the stakeholder. `deferred`, set only by the migration on a file without `review_class` (BR-086, DEC-55)                            |
+| `owner`                 | The agent that acts on the finding next, as [Finding frontmatter `owner:`](#finding-frontmatter-owner) defines                                                                                   |
+| `story`                 | The ID of the story whose review filed the finding, such as `ST-0350`. Empty for a finding of the feature checks and outside any run (BR-121)                                                    |
+| `run`                   | The feature branch whose feature checks filed the finding, such as `feature/login`. Empty for a finding of a story's review and outside any run (BR-121)                                         |
+| `traces`                | Optional list of related IDs, such as `[ST-0351]`. It does not count at the merges                                                                                                               |
 
 A new finding written from the template carries `null` in all four human
 fields. The body holds three lines in this order: `**What is wrong:**`,
@@ -1447,7 +1447,7 @@ The file holds one JSON object with these keys:
 | `artifact`          | `path:line`, `path:start-end`, or `path#anchor`                                                                                                                                                   |
 | `story`             | The story ID the review ran for, such as `ST-0370`, or `null` when no story exists yet                                                                                                            |
 | `finding`           | What is wrong and the fix, as plain text                                                                                                                                                          |
-| `basis`             | A JSON object with the shape of the class                                                                                                                                                         |
+| `basis`             | A JSON object with the shape of the class. A document finding also records `in_use_case` and `side_text` (BR-126)                                                                                 |
 | `why_this_severity` | The Why this severity sentence. In the consequence tree classes it holds `no to fails_purpose` (BR-087)                                                                                           |
 | `commit`            | The reviewed commit as 40 hexadecimal characters                                                                                                                                                  |
 | `status`            | `open`, written by the reviewer agent, the migration, or the stakeholder who lowers a filed finding. `resolved`, set by the fixing commit. `waived`, set only by the stakeholder (BR-110, DEC-63) |

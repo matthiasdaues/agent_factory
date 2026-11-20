@@ -88,6 +88,32 @@
         "raises_cost": {
           "type": "boolean",
           "description": "true when the artifact works, but the finding makes later reading, change, or testing harder."
+        },
+        "in_use_case": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "syntax",
+              "built",
+              "done-story",
+              "other-side",
+              "deferral",
+              "open-story",
+              "none"
+            ]
+          },
+          "description": "The named case of finding-classification.md § In use that decided in_use, one per option of the Fix. A new or changed document finding records it (BR-126)."
+        },
+        "side_text": {
+          "type": "string",
+          "enum": [
+            "omission",
+            "false-statement",
+            "none"
+          ],
+          "description": "How a side text counts: omission when it leaves out a case of a correct main rule, false-statement when it states something false or names something that does not exist, none when the finding is not about a side text. A new or changed document finding records it (BR-126)."
         }
       },
       "description": "The basis of the document class, as docs/spec/schemas/finding-basis.json defines it."

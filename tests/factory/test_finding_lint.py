@@ -1765,3 +1765,120 @@ def test_st_0412_finding_lint_exits_1_on_the_demo_finding_bug_0092(tmp_path):
     assert len(lines) == 1, result.stdout
     assert lines[0].startswith("docs/findings/BUG-0092.md: ")
     assert "BUG-0092" in lines[0] and "story" in lines[0] and "run" in lines[0]
+
+
+# --- BR-126: a document finding records the cases that decided it ---------------
+
+DOC_PATH = "docs/findings/SPEC-0042.md"
+
+
+def _document_text(**basis) -> str:
+    fields = _finding_fields(
+        "document",
+        id="SPEC-0042",
+        source="spec-review",
+        artifact="docs/spec/validation-rules.md:12",
+        owner="requirements-agent",
+        basis={**_tree(False, False, True, False), **basis},
+    )
+    return _finding_text(fields)
+
+
+def _br_126(messages: list[str]) -> list[str]:
+    return [m for m in messages if "BR-126" in m]
+
+
+def test_br_126_a_new_document_finding_without_the_cases_fails():
+    messages = lint.lint_files({DOC_PATH: _document_text()}, {}, SCHEMAS)
+    _assert_rule(messages, DOC_PATH, "BR-126 recorded cases")
+
+
+def test_br_126_a_new_document_finding_with_the_cases_passes():
+    text = _document_text(in_use_case=["none"], side_text="none")
+    assert lint.lint_files({DOC_PATH: text}, {}, SCHEMAS) == []
+
+
+def test_br_126_an_unchanged_finding_from_before_the_fields_passes():
+    text = _document_text()
+    assert _br_126(lint.lint_files({DOC_PATH: text}, {DOC_PATH: text}, SCHEMAS)) == []
+
+
+def test_br_126_a_changed_basis_needs_the_cases():
+    before = _document_text(raises_cost=True)
+    after = _document_text()
+    messages = lint.lint_files({DOC_PATH: after}, {DOC_PATH: before}, SCHEMAS)
+    _assert_rule(messages, DOC_PATH, "BR-126 recorded cases")
+
+
+def test_br_126_a_new_document_register_file_without_the_cases_fails():
+    path = "docs/findings/register/document/SPEC-0043.json"
+    data = {
+        "id": "SPEC-0043",
+        "source": "spec-review",
+        "review_class": "document",
+        "category": "defect",
+        "type": "incomplete",
+        "severity": "minor",
+        "artifact": "docs/spec/validation-rules.md:12",
+        "story": None,
+        "finding": "What is wrong, and the fix.",
+        "basis": _tree(False, False, False, True),
+        "why_this_severity": "A reader acts on it (no to fails_purpose).",
+        "commit": "d0a78a5c40327c1f7e4c9a204ab5e766a7e0c44b",
+        "status": "open",
+    }
+    messages = lint.lint_files({path: json.dumps(data)}, {}, SCHEMAS)
+    _assert_rule(messages, path, "BR-126 recorded cases")
+
+
+@pytest.mark.parametrize(
+    ("cases", "in_use", "passes"),
+    [
+        (["built"], True, True),
+        (["built"], False, False),
+        (["done-story"], True, True),
+        (["deferral"], False, True),
+        (["deferral"], True, False),
+        (["built", "other-side"], False, True),
+        (["built", "done-story"], True, True),
+        (["syntax"], True, True),
+        (["syntax"], False, True),
+    ],
+)
+def test_br_126_the_case_gives_in_use(cases, in_use, passes):
+    text = _document_text(in_use=in_use, in_use_case=cases, side_text="none")
+    messages = _br_126(lint.check_finding_file(DOC_PATH, text, SCHEMAS))
+    assert (messages == []) is passes, messages
+
+
+def test_br_126_other_side_gives_no_harm():
+    text = _document_text(
+        in_use=True, harms_downstream=True, in_use_case=["other-side"], side_text="none"
+    )
+    messages = lint.check_finding_file(DOC_PATH, text, SCHEMAS)
+    assert any("other-side gives harms_downstream false" in m for m in messages)
+
+
+@pytest.mark.parametrize(
+    ("side_text", "fails_purpose", "passes"),
+    [
+        ("false-statement", True, True),
+        ("false-statement", False, False),
+        ("omission", True, False),
+        ("none", True, True),
+    ],
+)
+def test_br_126_the_side_text_gives_fails_purpose(side_text, fails_purpose, passes):
+    text = _document_text(
+        fails_purpose=fails_purpose,
+        raises_cost=not fails_purpose,
+        in_use_case=["none"],
+        side_text=side_text,
+    )
+    messages = _br_126(lint.check_finding_file(DOC_PATH, text, SCHEMAS))
+    assert (messages == []) is passes, messages
+
+
+def test_br_126_an_unknown_case_breaks_the_basis_shape():
+    text = _document_text(in_use_case=["maybe"], side_text="none")
+    _assert_rule(lint.check_finding_file(DOC_PATH, text, SCHEMAS), DOC_PATH, "BR-080 basis")

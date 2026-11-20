@@ -1,12 +1,17 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Finding basis",
-  "description": "The answers a reviewer records for one finding. The field review_class of the finding file or register line picks the shape: the consequence tree for document, code, and runtime, the bug bar for security, and the matrix for architecture. The rule of the class computes the severity from these answers (validation-rules.md BR-081 to BR-083). schema-validate supports no oneOf, so each register schema in packages/factory/rulebooks/schemas/ inlines the one shape of its class.",
-  "oneOf": [
+  "description": "The answers a reviewer records for one finding. The field review_class of the finding file or register line picks the shape: the consequence tree for code and runtime, the consequence tree with the recorded cases for document, the bug bar for security, and the matrix for architecture. The rule of the class computes the severity from these answers (validation-rules.md BR-081 to BR-083). schema-validate supports no oneOf, so each register schema in packages/factory/rulebooks/schemas/ inlines the one shape of its class.",
+  "anyOf": [
     {
-      "title": "Consequence tree basis (document, code, runtime)",
+      "title": "Consequence tree basis (code, runtime)",
       "type": "object",
-      "required": ["in_use", "harms_downstream", "fails_purpose", "raises_cost"],
+      "required": [
+        "in_use",
+        "harms_downstream",
+        "fails_purpose",
+        "raises_cost"
+      ],
       "additionalProperties": false,
       "properties": {
         "in_use": {
@@ -73,7 +78,10 @@
         },
         "confidence": {
           "type": "string",
-          "enum": ["proven", "plausible"],
+          "enum": [
+            "proven",
+            "plausible"
+          ],
           "description": "proven when the attack path is reproduced or traced from the input to the sink in the code; plausible otherwise."
         },
         "in_use": {
@@ -85,22 +93,88 @@
     {
       "title": "Matrix basis (architecture)",
       "type": "object",
-      "required": ["importance", "exposure", "in_use"],
+      "required": [
+        "importance",
+        "exposure",
+        "in_use"
+      ],
       "additionalProperties": false,
       "properties": {
         "importance": {
           "type": "string",
-          "enum": ["high", "medium", "low"],
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
           "description": "The importance of the threatened quality scenario. Priority 1 in arc42 section 10.2 is high, priority 2 is medium."
         },
         "exposure": {
           "type": "string",
-          "enum": ["fails", "uncertain"],
+          "enum": [
+            "fails",
+            "uncertain"
+          ],
           "description": "fails when the analysis shows the decision cannot meet the response measure of the scenario; uncertain when no evidence exists either way."
         },
         "in_use": {
           "type": "boolean",
           "description": "true when something built from the decision is in use. It raises a major risk to critical."
+        }
+      }
+    },
+    {
+      "title": "Document basis",
+      "type": "object",
+      "required": [
+        "in_use",
+        "harms_downstream",
+        "fails_purpose",
+        "raises_cost"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "in_use": {
+          "type": "boolean",
+          "description": "true when something outside the current playbook run depends on the artifact. finding-lint checks it against git for code and runtime findings."
+        },
+        "harms_downstream": {
+          "type": "boolean",
+          "description": "true when the finding causes a wrong result, data loss, a security breach, or a broken contract, and the artifact is in use. true only when in_use is true."
+        },
+        "fails_purpose": {
+          "type": "boolean",
+          "description": "true when the reviewed artifact fails the job it exists for."
+        },
+        "raises_cost": {
+          "type": "boolean",
+          "description": "true when the artifact works, but the finding makes later reading, change, or testing harder."
+        },
+        "in_use_case": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "syntax",
+              "built",
+              "done-story",
+              "other-side",
+              "deferral",
+              "open-story",
+              "none"
+            ]
+          },
+          "description": "The named case of finding-classification.md § In use that decided in_use, one per option of the Fix. A new or changed document finding records it (BR-126)."
+        },
+        "side_text": {
+          "type": "string",
+          "enum": [
+            "omission",
+            "false-statement",
+            "none"
+          ],
+          "description": "How a side text counts: omission when it leaves out a case of a correct main rule, false-statement when it states something false or names something that does not exist, none when the finding is not about a side text. A new or changed document finding records it (BR-126)."
         }
       }
     }

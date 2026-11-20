@@ -1213,7 +1213,7 @@ rulebooks:
   - name: finding-classification
     category: conventions
     path: rulebooks/conventions/finding-classification.md
-    tokens: 9959
+    tokens: 10072
   - name: finding-format
     category: conventions
     path: rulebooks/conventions/finding-format.md

@@ -22,6 +22,7 @@ basis:                       # the shape of the class, as docs/spec/schemas/find
   harms_downstream: false    # security: effect, second_breach, trusted_access, non_default, user_action, confidence, in_use
   fails_purpose: true        # architecture: importance, exposure, in_use
   raises_cost: false
+                             # document also: in_use_case: [none], side_text: none (BR-126)
 rating:                      # Critical | High | Medium | Low for a security finding; null in every other class
 override_by:                 # human field, null when written by an agent
 override_reason:             # human field, null when written by an agent
