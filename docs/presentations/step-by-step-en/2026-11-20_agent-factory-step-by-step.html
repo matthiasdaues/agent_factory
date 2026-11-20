@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Agent Factory Step by Step</title>
+<style>
+@font-face { font-family: "SCP"; font-weight: 200; src: url("fonts/SourceCodePro-ExtraLight.woff2") format("woff2"); }
+@font-face { font-family: "SCP"; font-weight: 500; src: url("fonts/SourceCodePro-Medium.woff2") format("woff2"); }
+@font-face { font-family: "CG"; font-weight: 300; src: url("fonts/CormorantGaramond-Light.woff2") format("woff2"); }
+
+/* Grid geometry. remark draws a 16:9 slide at 1210 x 681 px and scales it to the window.
+   Every grid fills the whole slide: cell width = 1210 / cols, row height = 681 / rows.
+   Source Code Pro advances 0.6 em per character, so the font size follows the cell width. */
+:root {
+  --ink: #24292E;
+  --dim: #747373;
+  --red: #FF0000;
+  --paper: #FFFFFF;
+}
+body { margin: 0; background: var(--paper); }
+.remark-slide-content {
+  padding: 0; background: var(--paper); color: var(--ink);
+  font-family: "SCP", monospace;
+}
+.remark-slide-number { display: none; }
+.grid {
+  --cw: calc(1210px / var(--cols));
+  --rh: calc(681px / var(--rows));
+  --fs: calc(var(--cw) / 0.6);
+  position: absolute; left: 0; top: 0; width: 1210px; height: 681px;
+}
+.row {
+  height: var(--rh); line-height: var(--rh);
+  font-size: var(--fs); font-weight: 200;
+  white-space: pre; font-kerning: none; font-variant-ligatures: none;
+}
+.row b { font-weight: 500; }
+.row .dim { color: var(--dim); }
+.row .red { color: var(--red); }
+/* Every character above U+00FF gets exactly one cell, even if a fallback font draws it. */
+.row .c { display: inline-block; width: var(--cw); text-align: center; vertical-align: top; overflow: visible; }
+/* Box characters with a vertical stroke span the font's line box (1.257 em).
+   Stretch them to the full row height so vertical lines join from row to row. */
+.row .v { transform: scaleY(calc(var(--rh) / (1.257 * var(--fs)))); }
+.cell { position: absolute;
+  left: calc(var(--c) * var(--cw)); top: calc(var(--r) * var(--rh));
+  width: calc(var(--w) * var(--cw)); height: calc(var(--h) * var(--rh)); }
+img.cell { object-fit: contain; }
+img.cell.cover { object-fit: cover; }
+div.cell.blank { background: var(--paper); }
+svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
+.footer {
+  position: absolute; right: 12px; bottom: 6px;
+  font: 300 17.6px "CG", serif; color: #A6A6A6;
+}
+
+/* Press "g" to show the grid. */
+.show-grid .grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 110, 255, .18) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 110, 255, .18) 1px, transparent 1px);
+  background-size: var(--cw) var(--rh);
+}
+.grid.bad { outline: 3px solid var(--red); outline-offset: -3px; }
+.grid-error {
+  position: absolute; left: 8px; bottom: 8px; max-width: 1190px;
+  font: 12px/1.3 sans-serif; color: var(--red); background: var(--paper); white-space: normal;
+}
+</style>
+</head>
+<body>
+<!--
+  Slide source format
+  -------------------
+  Slides are separated by a line "---". Remark slide properties (class:, name:)
+  and presenter notes (after "???") work as usual.
+
+  ```grid COLSxROWS ... ```  one source line = one grid row, one character = one cell.
+                             Without a size the grid is 62x14. Every size fills the slide.
+                             Proven sizes: 40x10 title, 62x14 text and split layouts,
+                             80x24 terminal, 99x25 diagram and wide split, 132x36 dense.
+  **text**                   bold          ~~text~~   grey
+  __text__                   underline     !!text!!   red
+  %%text%%                   italic
+  @img PATH COL ROW W H      image fitted into a cell rectangle (whole cells, 0-based)
+  @img PATH COL ROW W H cover  image fills the rectangle and is cropped
+  @blank COL ROW W H         paper-colored rectangle that hides the cells below it
+  @cross COL ROW W H         red cross over a cell rectangle
+  @footer TEXT               small serif line in the bottom right corner
+
+  Split layouts on 62x14: text in columns 2-28, image @img PATH 31 0 31 14 cover,
+  or mirrored: image @img PATH 0 0 31 14 cover, text from column 33.
+  Split layouts on 99x25: text in columns 4-45, image @img PATH 50 0 49 25 cover,
+  or mirrored: image @img PATH 0 0 49 25 cover, text from column 53.
+
+  Markup markers take no cells. The page checks every slide on load, marks a
+  slide with a red frame when it breaks the grid, and lists the problem on it.
+-->
+<script type="text/plain" id="deck-source">
+```grid 40x10
+
+
+   **AGENT FACTORY**
+   **STEP BY STEP**
+
+   %%How an idea becomes%%
+   code you can trust
+
+   ~~an introduction~~
+
+```
+@footer 20 November 2026
+---
+```grid 62x14
+
+
+   **YOU DECIDE.**
+   **THE ASSISTANT DOES THE WORK.**
+   **YOU APPROVE EACH STEP.**
+
+   The factory never builds everything at once.
+   It works in small, visible steps
+   and stops after each one.
+
+   %%An AI works fast, but noisily.%%
+   %%The cure is frequent, cheap checking:%%
+   %%by a tool, a test, or you.%%
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **FIVE WORDS**
+    %%all the vocabulary you need to start%%
+
+
+    ┌──────────────────┐ calls  ┌──────────────────┐delivers┌──────────────┐     ┌─────────────┐
+    │     PLAYBOOK     │───────►│      AGENT       │───────►│   ARTEFACT   │────►│    GATE     │
+    │    the recipe    │    ┌──►│     one job      │        │  a document  │     │  checks it  │
+    └──────────────────┘    │   └──────────────────┘        └──────────────┘     └─────────────┘
+                            │             │ follows
+              knowledge     │             ▼
+    ┌──────────────────┐    │   ┌──────────────────┐
+    │     CONTEXT      │────┘   │      SKILL       │
+    │  the fact sheet  │        │  the procedure   │
+    └──────────────────┘        └──────────────────┘
+
+
+    **Agent**      one job: write the requirements, review the architecture, fix one bug
+    **Skill**      the written procedure an agent follows to do its job well
+    **Playbook**   the recipe: which agents run, in what order, for a common situation
+    **Gate**       an automatic check that catches mistakes before they cost you time
+    **Context**    a few files where the project declares its stack, workflow and rules
+
+    ~~The assistant reads the catalogue itself: INDEX.yaml lists every agent, skill and playbook.~~
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **WHOEVER WORKS DOES NOT CHECK**
+    %%the author and the reviewer are never the same agent%%
+
+
+    ┌────────────────────┐         ┌────────────────────────┐        ┌────────────────────────┐
+    │       AUTHOR       │         │        ARTEFACT        │        │        REVIEWER        │
+    │     session 1      │────────►│  a specification, an   │───────►│  a new, empty session  │
+    │                    │         │   architecture, code   │        │ sees only the artefact │
+    └────────────────────┘         └────────────────────────┘        └────────────────────────┘
+               ▲                                                                  │
+               │                        ~~findings go back to the author~~            │
+               ┌──────────────────────────────────────────────────────────────────┘
+
+    Why: you cannot catch the mistake you cannot see.
+    The same blind spot that made it also hides it.
+
+    **Author**                       **Reviewer**
+    requirements-agent     ──►   spec-review-agent
+    architecture-agent     ──►   architecture-review-agent
+    implementation-agent   ──►   code-review-agent, qa-agent
+    the software as built  ──►   reconciliation-agent
+
+    **You make the separation: open a new session for every review.**
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **YOUR FIRST SESSION**
+    %%VIRGIL greets you and offers four doors%%
+
+                                  ┌─────────────────────────────┐
+                                  │           VIRGIL            │
+                                  │ guide, instructor, liaison  │
+                                  └─────────────────────────────┘
+                                                 │
+                                                 │
+             ┌───────────────────────┬───────────┴───────────┬───────────────────────┐
+             ▼                       ▼                       ▼                       ▼
+   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+   │      H: HELP      │   │  K: HOUSEKEEPING  │   │  P: PROJECT WORK  │   │   O: OPEN STAGE   │
+   │   I am new and    │   │   check state,    │   │     start or      │   │    just talk,     │
+   │   need to find    │   │      re-fit,      │   │  continue work:   │   │  until the idea   │
+   │      my way       │   │      update       │   │    a playbook     │   │    takes shape    │
+   └───────────────────┘   └───────────────────┘   └───────────────────┘   └───────────────────┘
+
+
+    Ask at any time: "where am I?" or "what is a gate?"
+
+    The best first step is **poc-spike**: one idea, one small thing that runs, in minutes.
+    You watch the loop work before you commit to anything real.
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **SETTING UP**
+    %%once per project: install, then fit%%
+
+                                   ┌─** THE FITTING: SIX STEPS **───────────┐
+   ┌─────────────────────────┐     │                                    │       ┌───────────────┐
+   │      INIT-FACTORY       │     │ 1  model matrix: which model for what      │     READY     │
+   │  wires in the factory   │────►│ 2  confirm the project fingerprint │──────►│ for the first │
+   │  and scans the project  │     │ 3  agent context: where knowledge is       │   playbook    │
+   │                         │     │ 4  test regime: how the project tests      └───────────────┘
+   └─────────────────────────┘     │ 5  decide on pre-commit hooks      │
+                                   │ 6  seed the counter for finding IDs│
+                                   └────────────────────────────────────┘
+
+
+
+
+    **What is on your disk afterwards**
+
+    model.conf              maps tiers such as economy, standard, strong to real models
+    project-context.json    what the scan found: languages, frameworks, CI, linters, tests
+    docs/agent-context.md   the switchboard: where each agent looks things up
+    docs/testing.yaml       the test commands and the thresholds of the gates
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **THE WAY OF AN IDEA**
+    %%five kinds of work and a reconciliation, each with an author and a reviewer%%
+
+
+   ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+   │ REQUIREMENT │ │   DESIGN    │ │  PLANNING   │ │  BUILDING   │ │   QUALITY   │ │  RECONCILE  │
+   │ What do we  │►│ What shape  │►│   small,    │►│ test first, │►│ review and  │►│  the docs   │
+   │ build, and  │ │   does it   │ │ independent │ │  then code  │ │  hunt bugs  │ │   against   │
+   │  for whom?  │ │    take?    │ │   stories   │ │             │ │             │ │  the code   │
+   └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+
+   ~~Author~~
+   requirements    architecture    planning        implementation  qa              reconciliation
+
+   ~~Reviewer~~
+   spec-review     architecture-   backlog-lint    code-review     bug hunt        findings to
+                   review (ATAM)   and you                         with tests      their owner
+
+
+    **You approve every handover.**
+    Small tasks use shorter playbooks that touch only the kinds of work they need.
+    If something needs rework, you fix the artefact directly.
+    There is no "going back to an earlier phase".
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **1  REQUIREMENTS**
+    %%first settle what gets built; then check that it holds together%%
+
+                                             ┌────────────────────────┐    ┌───────────────────┐
+   ┌───────────────┐    ┌───────────────┐    │   REQUIREMENTS-AGENT   │    │    SPEC REVIEW    │
+   │     IDEA      │    │   PROPOSAL    │    │  PRD · .feature file   │    │    new session    │
+   │   explored    │───►│  ready for a  │───►│       scope map        │───►│  spec-lint, then  │
+   │  with VIRGIL  │    │   decision    │    │      gaps report       │    │    by content     │
+   └───────────────┘    └───────────────┘    │                        │    │                   │
+                                             └────────────────────────┘    └───────────────────┘
+                                                         │
+                                             ┌───────────┴─────────┐           ~~SPEC findings go~~
+                                             ▼                     ▼           ~~to their owner~~
+                                 ┌──────────────────────┐ ┌─────────────────┐
+                                 │   DOMAIN MODELLING   │ │  TEST STRATEGY  │
+                                 │ glossary, entities,  │ │   QA strategy   │
+                                 │    state machines    │ │   per feature   │
+                                 └──────────────────────┘ └─────────────────┘
+
+    The .feature file is the acceptance specification, in Gherkin. It belongs to the
+    stakeholder, not to the developer, and later runs as tests.
+
+    **Open SPEC findings? Then loop: fix, review again. Otherwise move on.**
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **2  ARCHITECTURE**
+    %%make the big decisions on purpose, and record them before code locks them in%%
+
+
+   ┌────────────────────────────┐       ┌────────────────────────┐
+   │     ARCHITECTURE-AGENT     │       │  ARCHITECTURE REVIEW   │       ┌─────────────────────┐
+   │                            │       │                        │       │    AGENT CONTEXT    │
+   │       arc42 chapters       │──────►│      new session       │──────►│ brought up to date, │
+   │   Structurizr model (C4)   │       │ arch-lint, then ATAM:  │       │    concern-lint,    │
+   │    ADRs, a Pugh matrix     │       │ quality goals against  │       │    your approval    │
+   │   for real alternatives    │       │     the decisions      │       └─────────────────────┘
+   └────────────────────────────┘       └────────────────────────┘
+                  ▲                                  │
+                  │                                  │
+                  ┌──────────────────────────────────┘
+                    ~~ATAM findings: loop until none is open~~
+
+    The model in architecture.dsl is the single source. Diagrams and chapters
+    are derived from it, never the other way round.
+
+    **Planning may start only when the agent context is clean and you approve it.**
+
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **3  PLANNING**
+    %%specification and architecture become small stories%%
+
+    ~~planning-agent, create-backlog in phases; you approve after each phase~~
+   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐
+   │     EPICS      │   │  TESTABILITY   │   │     SLICES     │   │    STORIES     │
+   │   slice the    │─► │    who owns    │─► │  stories per   │─► │   ST-NNNN.md   │
+   │  capabilities  │   │  which test?   │   │ epic, sketched │   │    written     │
+   └────────────────┘   └────────────────┘   └────────────────┘   └────────────────┘
+                                                                           │
+                                                                           ▼
+                                                              ┌─────────────────────────┐
+    **Every story has:**                                          │      BACKLOG-LINT       │
+      · a goal and acceptance criteria                        │  schema, dependencies   │
+      · a MoSCoW priority                                     └─────────────────────────┘
+      · dependencies on other stories                                      │
+      · the files it touches                                               ▼
+      · a tier and its gates                                  ┌─────────────────────────┐
+                                                              │      YOUR APPROVAL      │
+                                                              └─────────────────────────┘
+    Good stories are INVEST: independent, negotiable, valuable, estimable, small, testable.
+
+    ~~Set-up such as a test runner or CI goes into the first story that needs it.~~
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **4  BUILDING**
+    %%test first, gates after every story, one review over the whole feature%%
+                                                           ┌────────────────────┐
+   ┌──────────────────────┐     ┌────────────────────┐     │       GATES        │     ┌────────┐
+   │    IMPLEMENTATION    │     │     DEVELOPER      │     │     crap-score     │     │ MERGE  │
+   │  hands out stories   │────►│  red, green, tidy  │────►│  mutation-testing  │────►│  the   │
+   │       in waves       │     │     per story      │     │ test-design-verify │     │ story  │
+   └──────────────────────┘     └────────────────────┘     │  dependency-check  │     └────────┘
+                                           ▲               └────────────────────┘
+                                           │                          │
+                                           │    fail                  │
+                                           ┌──────────────────────────┘
+    **FRESH DEVELOPER:** only the gate report and the affected files
+    ~~3 attempts, then one model tier up, 3 more~~
+
+   ┌────────────────────────────────┐     ┌───────────────────────┐     ┌──────────────────────┐
+   │      AFTER THE LAST WAVE       │     │     IMPL FINDINGS     │     │      BLOCKING?       │
+   │    CODE REVIEW of the whole    │────►│ reviewer gives facts, │────►│   fix, then review   │
+   │      feature, new session      │     │ a rule sets severity  │     │   again, all fresh   │
+   └────────────────────────────────┘     └───────────────────────┘     └──────────────────────┘
+
+    A repeat review checks every earlier finding, then inspects everything again:
+    ~~a fix can bring in a defect the first pass never saw.~~
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **5  QUALITY AND RECONCILIATION**
+    %%review independently, hunt bugs, then match the docs to the code%%
+
+   ┌────────────────────────────┐     ┌────────────────────┐     ┌─────────────────────────────┐
+   │          QA AGENT          │     │   PREMERGE-CHECK   │     │       RECONCILIATION        │
+   │        new session         │     │   then you merge   │     │     on dev, new session     │
+   │      Fagan inspection      │────►│      into dev      │────►│      specification and      │
+   │   OWASP security review    │     │                    │     │    architecture against     │
+   │          bug hunt          │     │                    │     │      the code as built      │
+   │                            │     │                    │     │                             │
+   └────────────────────────────┘     └────────────────────┘     └─────────────────────────────┘
+
+
+    **The bug hunt, one bug at a time:**
+      1  write a test that shows the bug: it fails
+      2  fix the code: the test passes, and stays
+      3  hunt again, until a full round finds nothing
+
+    **Every drift found in reconciliation goes to its owner:**
+      code defects to the developer, document drift to the document's author.
+
+    **No open findings left: done. The project is ready for the next feature.**
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **WHAT THE MACHINES CHECK**
+    %%a gate catches the mistake before you look%%
+
+   ┌─** ON EVERY COMMIT **────────────────────────┐   ┌─** AFTER EVERY STORY **────────────────────────┐
+   │                                          │   │                                            │
+   │ mdformat           uniform Markdown      │   │ crap-score         complexity and coverage │
+   │ link-check         links resolve         │   │ mutation-testing   do the tests catch bugs?│
+   │ mermaid-lint       diagrams do not break │   │ test-design-verify prescribed tests exist? │
+   │ spec-lint          the spec is consistent│   │ dependency-check   dependency rules        │
+   │ arch-lint          architecture and model│   │                                            │
+   │ backlog-lint       stories are complete  │   └────────────────────────────────────────────┘
+   │ concern-lint       agent context is valid│
+   │ matrix-lint        model matrix is valid │   ┌─** BEFORE THE MERGE **─────────────────────────┐
+   │ statemachine-lint  state machines agree  │   │                                            │
+   │ finding-lint       severity by the rule  │   │ premerge-check: every gate passed,         │
+   │ index-lint         catalogue is current  │   │ base up to date, only allowed files        │
+   │                                          │   │                                            │
+   └──────────────────────────────────────────┘   └────────────────────────────────────────────┘
+
+
+    **When a gate fires, the system is working.**
+    Fix the cause. Do not route around the alarm.
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **WHICH PLAYBOOK, WHEN**
+    %%the recipe that matches your situation%%
+
+    **You want to …**                                             **Start with**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    See whether a rough idea works at all                     poc-spike
+    Validate a technical risk before committing to it         technical-poc
+    Fix one reported bug                                      bug-fix
+    Bring the docs back in line with the code                 documentation-update
+    Build a new project properly, start to finish             greenfield-development
+    Add the factory to code that already exists               brownfield-onboarding
+    Add a feature to a project the factory manages            feature-addition
+    Restructure code without changing behaviour               refactoring
+    Evaluate an architecture against quality goals            architecture-review
+    Survey a topic with sourced citations                     research-survey
+    Test a specific claim by trying to refute it              research-topic
+
+
+    A playbook describes a typical path, not a fixed one. Which agents may run next
+    follows from the artefacts that already exist.
+
+    ~~Not sure? Choose P in the menu. VIRGIL asks and suggests the recipe.~~
+
+
+```
+@footer agent factory · step by step
+---
+```grid 62x14
+
+   **THREE HABITS**
+
+   **1  Read before you approve.**
+      Your yes is the last gate. It matters most.
+
+   **2  Let the gates do their job.**
+      An alarm is not a fault. Fix the cause.
+
+   **3  One small step at a time.**
+      Noise gets corrected before it compounds.
+
+   ~~To begin: one poc-spike. The rest comes by doing.~~
+
+```
+@footer agent factory · step by step
+</script>
+
+<script src="remark.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var DEFAULT_GRID = "62x14";
+  var COLS, ROWS;
+  var MARKERS = [["**", "b"], ["~~", "dim"], ["__", "u"], ["!!", "red"], ["%%", "i"]];
+  var VERTICAL = "│┌┐└┘├┤┬┴┼╭╮╰╯║╔╗╚╝╠╣╦╩╬";
+  var GRID_OPEN = /^```grid(?:\s+(\d+)x(\d+))?$/;
+  var report = [];
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function visible(raw) { return raw.replace(/\*\*|~~|__|!!|%%/g, ""); }
+
+  function renderRow(raw) {
+    var h = Array.from(raw).map(function (ch) {
+      var e = esc(ch);
+      if (ch.codePointAt(0) <= 0xFF) return e;
+      return '<span class="c' + (VERTICAL.indexOf(ch) >= 0 ? " v" : "") + '">' + e + "</span>";
+    }).join("");
+    h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+         .replace(/~~(.+?)~~/g, '<span class="dim">$1</span>')
+         .replace(/__(.+?)__/g, "<u>$1</u>")
+         .replace(/!!(.+?)!!/g, '<span class="red">$1</span>')
+         .replace(/%%(.+?)%%/g, "<i>$1</i>");
+    return '<div class="row">' + h + "</div>";
+  }
+
+  function rect(kind, args, errs, line) {
+    var n = args.map(Number);
+    if (n.length !== 4 || n.some(function (v) { return !Number.isInteger(v) || v < 0; })) {
+      errs.push(kind + ": needs four whole numbers COL ROW W H (" + line + ")");
+      return null;
+    }
+    if (n[0] + n[2] > COLS || n[1] + n[3] > ROWS) {
+      errs.push(kind + " leaves the grid: cols " + n[0] + "-" + (n[0] + n[2] - 1) +
+                ", rows " + n[1] + "-" + (n[1] + n[3] - 1));
+    }
+    return 'style="--c:' + n[0] + ";--r:" + n[1] + ";--w:" + n[2] + ";--h:" + n[3] + '"';
+  }
+
+  function buildSlide(text, index) {
+    var lines = text.split("\n");
+    var head = [], tail = [], rows = [], items = [], errs = [];
+    var inGrid = false, inNotes = false, footer = null, size = DEFAULT_GRID;
+
+    lines.forEach(function (line) {
+      if (inNotes) { tail.push(line); return; }
+      if (inGrid) {
+        if (line.trim() === "```") { inGrid = false; return; }
+        rows.push(line);
+        return;
+      }
+      var g = line.trim().match(GRID_OPEN);
+      if (g) {
+        inGrid = true;
+        if (g[1]) size = g[1] + "x" + g[2];
+        return;
+      }
+      if (line.trim() === "???") { inNotes = true; tail.push(line); return; }
+      var m = line.match(/^@(\w+)\s*(.*)$/);
+      if (m) {
+        var args = m[2].trim().split(/\s+/).filter(Boolean);
+        COLS = +size.split("x")[0]; ROWS = +size.split("x")[1];
+        if (m[1] === "img") {
+          var cover = args[5] === "cover";
+          var a = rect("@img", args.slice(1, 5), errs, line);
+          if (args.length > 6 || (args.length === 6 && !cover)) errs.push("@img: unknown option " + args.slice(5).join(" "));
+          if (a) items.push('<img class="cell' + (cover ? " cover" : "") + '" ' + a + ' src="' + esc(args[0]) + '" alt="">');
+        } else if (m[1] === "blank") {
+          var b = rect("@blank", args, errs, line);
+          if (b) items.push('<div class="cell blank" ' + b + "></div>");
+        } else if (m[1] === "cross") {
+          var c = rect("@cross", args, errs, line);
+          if (c) items.push('<svg class="cell" ' + c + ' viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">' +
+                            '<line x1="8" y1="8" x2="92" y2="92"/><line x1="92" y1="8" x2="8" y2="92"/></svg>');
+        } else if (m[1] === "footer") {
+          footer = m[2].trim();
+        } else {
+          errs.push("unknown directive " + line);
+        }
+        return;
+      }
+      if (line.trim() !== "") head.push(line);
+    });
+    if (inGrid) errs.push("grid block is not closed");
+    COLS = +size.split("x")[0]; ROWS = +size.split("x")[1];
+    if (!(COLS > 0 && ROWS > 0)) { errs.push("grid size " + size + " is not valid"); size = DEFAULT_GRID; COLS = 62; ROWS = 14; }
+
+    while (rows.length && rows[rows.length - 1].trim() === "") rows.pop();
+    if (rows.length > ROWS) errs.push(rows.length + " rows, the grid has " + ROWS);
+    rows.forEach(function (raw, r) {
+      var w = Array.from(visible(raw).replace(/\s+$/, "")).length;
+      if (w > COLS) errs.push("row " + r + " is " + w + " columns wide, the grid has " + COLS);
+      MARKERS.forEach(function (mk) {
+        if (raw.split(mk[0]).length % 2 === 0) errs.push("row " + r + ": unpaired " + mk[0]);
+      });
+    });
+
+    if (errs.length) report.push({ slide: index + 1, problems: errs });
+    var html = '<div class="grid' + (errs.length ? " bad" : "") + '" data-grid="' + size +
+      '" style="--cols:' + COLS + ";--rows:" + ROWS + '">' +
+      rows.map(renderRow).join("") + items.join("") +
+      (footer ? '<div class="footer">' + esc(footer) + "</div>" : "") +
+      (errs.length ? '<div class="grid-error">' + errs.map(esc).join(" · ") + "</div>" : "") +
+      "</div>";
+    return head.concat([html]).concat(tail).join("\n");
+  }
+
+  var src = document.getElementById("deck-source").textContent.replace(/^\n/, "");
+  var slides = [], cur = [], inGrid = false;
+  src.split("\n").forEach(function (line) {
+    var t = line.trim();
+    if (!inGrid && GRID_OPEN.test(t)) inGrid = true;
+    else if (inGrid && t === "```") inGrid = false;
+    if (!inGrid && t === "---") { slides.push(cur.join("\n")); cur = []; return; }
+    cur.push(line);
+  });
+  slides.push(cur.join("\n"));
+
+  var source = slides.map(buildSlide).join("\n---\n");
+  window.gridReport = report;
+  document.documentElement.setAttribute("data-grid-errors", String(report.length));
+  if (report.length) console.warn("Grid violations:", report);
+  else console.info("All " + slides.length + " slides fit their grids.");
+
+  remark.create({ source: source, ratio: "16:9", highlightLanguage: "no-highlight", navigation: { scroll: false } });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) document.body.classList.toggle("show-grid");
+  });
+})();
+</script>
+</body>
+</html>

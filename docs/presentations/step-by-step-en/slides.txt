@@ -1,0 +1,401 @@
+% title: Agent Factory Step by Step
+% topic: agent-factory-step-by-step
+% date: 2026-11-20
+% lang: en
+```grid 40x10
+
+
+   **AGENT FACTORY**
+   **STEP BY STEP**
+
+   %%How an idea becomes%%
+   code you can trust
+
+   ~~an introduction~~
+
+```
+@footer 20 November 2026
+---
+```grid 62x14
+
+
+   **YOU DECIDE.**
+   **THE ASSISTANT DOES THE WORK.**
+   **YOU APPROVE EACH STEP.**
+
+   The factory never builds everything at once.
+   It works in small, visible steps
+   and stops after each one.
+
+   %%An AI works fast, but noisily.%%
+   %%The cure is frequent, cheap checking:%%
+   %%by a tool, a test, or you.%%
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **FIVE WORDS**
+    %%all the vocabulary you need to start%%
+
+
+    ┌──────────────────┐ calls  ┌──────────────────┐delivers┌──────────────┐     ┌─────────────┐
+    │     PLAYBOOK     │───────►│      AGENT       │───────►│   ARTEFACT   │────►│    GATE     │
+    │    the recipe    │    ┌──►│     one job      │        │  a document  │     │  checks it  │
+    └──────────────────┘    │   └──────────────────┘        └──────────────┘     └─────────────┘
+                            │             │ follows
+              knowledge     │             ▼
+    ┌──────────────────┐    │   ┌──────────────────┐
+    │     CONTEXT      │────┘   │      SKILL       │
+    │  the fact sheet  │        │  the procedure   │
+    └──────────────────┘        └──────────────────┘
+
+
+    **Agent**      one job: write the requirements, review the architecture, fix one bug
+    **Skill**      the written procedure an agent follows to do its job well
+    **Playbook**   the recipe: which agents run, in what order, for a common situation
+    **Gate**       an automatic check that catches mistakes before they cost you time
+    **Context**    a few files where the project declares its stack, workflow and rules
+
+    ~~The assistant reads the catalogue itself: INDEX.yaml lists every agent, skill and playbook.~~
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **WHOEVER WORKS DOES NOT CHECK**
+    %%the author and the reviewer are never the same agent%%
+
+
+    ┌────────────────────┐         ┌────────────────────────┐        ┌────────────────────────┐
+    │       AUTHOR       │         │        ARTEFACT        │        │        REVIEWER        │
+    │     session 1      │────────►│  a specification, an   │───────►│  a new, empty session  │
+    │                    │         │   architecture, code   │        │ sees only the artefact │
+    └────────────────────┘         └────────────────────────┘        └────────────────────────┘
+               ▲                                                                  │
+               │                        ~~findings go back to the author~~            │
+               ┌──────────────────────────────────────────────────────────────────┘
+
+    Why: you cannot catch the mistake you cannot see.
+    The same blind spot that made it also hides it.
+
+    **Author**                       **Reviewer**
+    requirements-agent     ──►   spec-review-agent
+    architecture-agent     ──►   architecture-review-agent
+    implementation-agent   ──►   code-review-agent, qa-agent
+    the software as built  ──►   reconciliation-agent
+
+    **You make the separation: open a new session for every review.**
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **YOUR FIRST SESSION**
+    %%VIRGIL greets you and offers four doors%%
+
+                                  ┌─────────────────────────────┐
+                                  │           VIRGIL            │
+                                  │ guide, instructor, liaison  │
+                                  └─────────────────────────────┘
+                                                 │
+                                                 │
+             ┌───────────────────────┬───────────┴───────────┬───────────────────────┐
+             ▼                       ▼                       ▼                       ▼
+   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+   │      H: HELP      │   │  K: HOUSEKEEPING  │   │  P: PROJECT WORK  │   │   O: OPEN STAGE   │
+   │   I am new and    │   │   check state,    │   │     start or      │   │    just talk,     │
+   │   need to find    │   │      re-fit,      │   │  continue work:   │   │  until the idea   │
+   │      my way       │   │      update       │   │    a playbook     │   │    takes shape    │
+   └───────────────────┘   └───────────────────┘   └───────────────────┘   └───────────────────┘
+
+
+    Ask at any time: "where am I?" or "what is a gate?"
+
+    The best first step is **poc-spike**: one idea, one small thing that runs, in minutes.
+    You watch the loop work before you commit to anything real.
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **SETTING UP**
+    %%once per project: install, then fit%%
+
+                                   ┌─** THE FITTING: SIX STEPS **───────────┐
+   ┌─────────────────────────┐     │                                    │       ┌───────────────┐
+   │      INIT-FACTORY       │     │ 1  model matrix: which model for what      │     READY     │
+   │  wires in the factory   │────►│ 2  confirm the project fingerprint │──────►│ for the first │
+   │  and scans the project  │     │ 3  agent context: where knowledge is       │   playbook    │
+   │                         │     │ 4  test regime: how the project tests      └───────────────┘
+   └─────────────────────────┘     │ 5  decide on pre-commit hooks      │
+                                   │ 6  seed the counter for finding IDs│
+                                   └────────────────────────────────────┘
+
+
+
+
+    **What is on your disk afterwards**
+
+    model.conf              maps tiers such as economy, standard, strong to real models
+    project-context.json    what the scan found: languages, frameworks, CI, linters, tests
+    docs/agent-context.md   the switchboard: where each agent looks things up
+    docs/testing.yaml       the test commands and the thresholds of the gates
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **THE WAY OF AN IDEA**
+    %%five kinds of work and a reconciliation, each with an author and a reviewer%%
+
+
+   ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+   │ REQUIREMENT │ │   DESIGN    │ │  PLANNING   │ │  BUILDING   │ │   QUALITY   │ │  RECONCILE  │
+   │ What do we  │►│ What shape  │►│   small,    │►│ test first, │►│ review and  │►│  the docs   │
+   │ build, and  │ │   does it   │ │ independent │ │  then code  │ │  hunt bugs  │ │   against   │
+   │  for whom?  │ │    take?    │ │   stories   │ │             │ │             │ │  the code   │
+   └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+
+   ~~Author~~
+   requirements    architecture    planning        implementation  qa              reconciliation
+
+   ~~Reviewer~~
+   spec-review     architecture-   backlog-lint    code-review     bug hunt        findings to
+                   review (ATAM)   and you                         with tests      their owner
+
+
+    **You approve every handover.**
+    Small tasks use shorter playbooks that touch only the kinds of work they need.
+    If something needs rework, you fix the artefact directly.
+    There is no "going back to an earlier phase".
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **1  REQUIREMENTS**
+    %%first settle what gets built; then check that it holds together%%
+
+                                             ┌────────────────────────┐    ┌───────────────────┐
+   ┌───────────────┐    ┌───────────────┐    │   REQUIREMENTS-AGENT   │    │    SPEC REVIEW    │
+   │     IDEA      │    │   PROPOSAL    │    │  PRD · .feature file   │    │    new session    │
+   │   explored    │───►│  ready for a  │───►│       scope map        │───►│  spec-lint, then  │
+   │  with VIRGIL  │    │   decision    │    │      gaps report       │    │    by content     │
+   └───────────────┘    └───────────────┘    │                        │    │                   │
+                                             └────────────────────────┘    └───────────────────┘
+                                                         │
+                                             ┌───────────┴─────────┐           ~~SPEC findings go~~
+                                             ▼                     ▼           ~~to their owner~~
+                                 ┌──────────────────────┐ ┌─────────────────┐
+                                 │   DOMAIN MODELLING   │ │  TEST STRATEGY  │
+                                 │ glossary, entities,  │ │   QA strategy   │
+                                 │    state machines    │ │   per feature   │
+                                 └──────────────────────┘ └─────────────────┘
+
+    The .feature file is the acceptance specification, in Gherkin. It belongs to the
+    stakeholder, not to the developer, and later runs as tests.
+
+    **Open SPEC findings? Then loop: fix, review again. Otherwise move on.**
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **2  ARCHITECTURE**
+    %%make the big decisions on purpose, and record them before code locks them in%%
+
+
+   ┌────────────────────────────┐       ┌────────────────────────┐
+   │     ARCHITECTURE-AGENT     │       │  ARCHITECTURE REVIEW   │       ┌─────────────────────┐
+   │                            │       │                        │       │    AGENT CONTEXT    │
+   │       arc42 chapters       │──────►│      new session       │──────►│ brought up to date, │
+   │   Structurizr model (C4)   │       │ arch-lint, then ATAM:  │       │    concern-lint,    │
+   │    ADRs, a Pugh matrix     │       │ quality goals against  │       │    your approval    │
+   │   for real alternatives    │       │     the decisions      │       └─────────────────────┘
+   └────────────────────────────┘       └────────────────────────┘
+                  ▲                                  │
+                  │                                  │
+                  ┌──────────────────────────────────┘
+                    ~~ATAM findings: loop until none is open~~
+
+    The model in architecture.dsl is the single source. Diagrams and chapters
+    are derived from it, never the other way round.
+
+    **Planning may start only when the agent context is clean and you approve it.**
+
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **3  PLANNING**
+    %%specification and architecture become small stories%%
+
+    ~~planning-agent, create-backlog in phases; you approve after each phase~~
+   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐
+   │     EPICS      │   │  TESTABILITY   │   │     SLICES     │   │    STORIES     │
+   │   slice the    │─► │    who owns    │─► │  stories per   │─► │   ST-NNNN.md   │
+   │  capabilities  │   │  which test?   │   │ epic, sketched │   │    written     │
+   └────────────────┘   └────────────────┘   └────────────────┘   └────────────────┘
+                                                                           │
+                                                                           ▼
+                                                              ┌─────────────────────────┐
+    **Every story has:**                                          │      BACKLOG-LINT       │
+      · a goal and acceptance criteria                        │  schema, dependencies   │
+      · a MoSCoW priority                                     └─────────────────────────┘
+      · dependencies on other stories                                      │
+      · the files it touches                                               ▼
+      · a tier and its gates                                  ┌─────────────────────────┐
+                                                              │      YOUR APPROVAL      │
+                                                              └─────────────────────────┘
+    Good stories are INVEST: independent, negotiable, valuable, estimable, small, testable.
+
+    ~~Set-up such as a test runner or CI goes into the first story that needs it.~~
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **4  BUILDING**
+    %%test first, gates after every story, one review over the whole feature%%
+                                                           ┌────────────────────┐
+   ┌──────────────────────┐     ┌────────────────────┐     │       GATES        │     ┌────────┐
+   │    IMPLEMENTATION    │     │     DEVELOPER      │     │     crap-score     │     │ MERGE  │
+   │  hands out stories   │────►│  red, green, tidy  │────►│  mutation-testing  │────►│  the   │
+   │       in waves       │     │     per story      │     │ test-design-verify │     │ story  │
+   └──────────────────────┘     └────────────────────┘     │  dependency-check  │     └────────┘
+                                           ▲               └────────────────────┘
+                                           │                          │
+                                           │    fail                  │
+                                           ┌──────────────────────────┘
+    **FRESH DEVELOPER:** only the gate report and the affected files
+    ~~3 attempts, then one model tier up, 3 more~~
+
+   ┌────────────────────────────────┐     ┌───────────────────────┐     ┌──────────────────────┐
+   │      AFTER THE LAST WAVE       │     │     IMPL FINDINGS     │     │      BLOCKING?       │
+   │    CODE REVIEW of the whole    │────►│ reviewer gives facts, │────►│   fix, then review   │
+   │      feature, new session      │     │ a rule sets severity  │     │   again, all fresh   │
+   └────────────────────────────────┘     └───────────────────────┘     └──────────────────────┘
+
+    A repeat review checks every earlier finding, then inspects everything again:
+    ~~a fix can bring in a defect the first pass never saw.~~
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **5  QUALITY AND RECONCILIATION**
+    %%review independently, hunt bugs, then match the docs to the code%%
+
+   ┌────────────────────────────┐     ┌────────────────────┐     ┌─────────────────────────────┐
+   │          QA AGENT          │     │   PREMERGE-CHECK   │     │       RECONCILIATION        │
+   │        new session         │     │   then you merge   │     │     on dev, new session     │
+   │      Fagan inspection      │────►│      into dev      │────►│      specification and      │
+   │   OWASP security review    │     │                    │     │    architecture against     │
+   │          bug hunt          │     │                    │     │      the code as built      │
+   │                            │     │                    │     │                             │
+   └────────────────────────────┘     └────────────────────┘     └─────────────────────────────┘
+
+
+    **The bug hunt, one bug at a time:**
+      1  write a test that shows the bug: it fails
+      2  fix the code: the test passes, and stays
+      3  hunt again, until a full round finds nothing
+
+    **Every drift found in reconciliation goes to its owner:**
+      code defects to the developer, document drift to the document's author.
+
+    **No open findings left: done. The project is ready for the next feature.**
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **WHAT THE MACHINES CHECK**
+    %%a gate catches the mistake before you look%%
+
+   ┌─** ON EVERY COMMIT **────────────────────────┐   ┌─** AFTER EVERY STORY **────────────────────────┐
+   │                                          │   │                                            │
+   │ mdformat           uniform Markdown      │   │ crap-score         complexity and coverage │
+   │ link-check         links resolve         │   │ mutation-testing   do the tests catch bugs?│
+   │ mermaid-lint       diagrams do not break │   │ test-design-verify prescribed tests exist? │
+   │ spec-lint          the spec is consistent│   │ dependency-check   dependency rules        │
+   │ arch-lint          architecture and model│   │                                            │
+   │ backlog-lint       stories are complete  │   └────────────────────────────────────────────┘
+   │ concern-lint       agent context is valid│
+   │ matrix-lint        model matrix is valid │   ┌─** BEFORE THE MERGE **─────────────────────────┐
+   │ statemachine-lint  state machines agree  │   │                                            │
+   │ finding-lint       severity by the rule  │   │ premerge-check: every gate passed,         │
+   │ index-lint         catalogue is current  │   │ base up to date, only allowed files        │
+   │                                          │   │                                            │
+   └──────────────────────────────────────────┘   └────────────────────────────────────────────┘
+
+
+    **When a gate fires, the system is working.**
+    Fix the cause. Do not route around the alarm.
+
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
+    **WHICH PLAYBOOK, WHEN**
+    %%the recipe that matches your situation%%
+
+    **You want to …**                                             **Start with**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    See whether a rough idea works at all                     poc-spike
+    Validate a technical risk before committing to it         technical-poc
+    Fix one reported bug                                      bug-fix
+    Bring the docs back in line with the code                 documentation-update
+    Build a new project properly, start to finish             greenfield-development
+    Add the factory to code that already exists               brownfield-onboarding
+    Add a feature to a project the factory manages            feature-addition
+    Restructure code without changing behaviour               refactoring
+    Evaluate an architecture against quality goals            architecture-review
+    Survey a topic with sourced citations                     research-survey
+    Test a specific claim by trying to refute it              research-topic
+
+
+    A playbook describes a typical path, not a fixed one. Which agents may run next
+    follows from the artefacts that already exist.
+
+    ~~Not sure? Choose P in the menu. VIRGIL asks and suggests the recipe.~~
+
+
+```
+@footer agent factory · step by step
+---
+```grid 62x14
+
+   **THREE HABITS**
+
+   **1  Read before you approve.**
+      Your yes is the last gate. It matters most.
+
+   **2  Let the gates do their job.**
+      An alarm is not a fault. Fix the cause.
+
+   **3  One small step at a time.**
+      Noise gets corrected before it compounds.
+
+   ~~To begin: one poc-spike. The rest comes by doing.~~
+
+```
+@footer agent factory · step by step

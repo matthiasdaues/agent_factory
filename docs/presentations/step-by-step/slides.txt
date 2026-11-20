@@ -1,0 +1,401 @@
+% title: Agent Factory Schritt für Schritt
+% topic: agent-factory-schritt-fuer-schritt
+% date: 2026-11-20
+% lang: de
+```grid 40x10
+
+
+   **AGENT FACTORY**
+   **SCHRITT FÜR SCHRITT**
+
+   %%Wie aus einer Idee%%
+   geprüfter Code wird
+
+   ~~eine Einführung~~
+
+```
+@footer 20. November 2026
+---
+```grid 62x14
+
+
+   **SIE ENTSCHEIDEN.**
+   **DER ASSISTENT ARBEITET.**
+   **SIE GEBEN JEDEN SCHRITT FREI.**
+
+   Die Factory baut nie alles auf einmal.
+   Sie arbeitet in kleinen, sichtbaren Schritten
+   und hält nach jedem an.
+
+   %%Eine KI arbeitet schnell, aber ungenau.%%
+   %%Dagegen hilft häufiges, billiges Prüfen:%%
+   %%durch ein Werkzeug, einen Test oder Sie.%%
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **FÜNF BEGRIFFE**
+    %%mehr Wortschatz braucht es für den Anfang nicht%%
+
+
+    ┌──────────────────┐ ruft   ┌──────────────────┐ liefert┌──────────────┐     ┌─────────────┐
+    │     PLAYBOOK     │───────►│      AGENT       │───────►│   ARTEFAKT   │────►│    GATE     │
+    │    das Rezept    │    ┌──►│   eine Aufgabe   │        │ ein Dokument │     │    prüft    │
+    └──────────────────┘    │   └──────────────────┘        └──────────────┘     └─────────────┘
+                            │             │ folgt
+               Wissen       │             ▼
+    ┌──────────────────┐    │   ┌──────────────────┐
+    │     CONTEXT      │────┘   │      SKILL       │
+    │  der Steckbrief  │        │   das Vorgehen   │
+    └──────────────────┘        └──────────────────┘
+
+
+    **Agent**      eine Aufgabe: Anforderungen schreiben, Architektur prüfen, einen Fehler beheben
+    **Skill**      die Arbeitsanweisung, nach der ein Agent seine Aufgabe erledigt
+    **Playbook**   das Rezept: welche Agenten in welcher Reihenfolge, für eine typische Lage
+    **Gate**       eine automatische Prüfung, die Fehler fängt, bevor Sie Zeit verlieren
+    **Context**    wenige Dateien, in denen das Projekt Stack, Ablauf und Regeln festhält
+
+    ~~Den Katalog liest der Assistent selbst: INDEX.yaml listet jeden Agenten, Skill und Playbook.~~
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **WER ARBEITET, PRÜFT NICHT**
+    %%Autor und Prüfer sind nie derselbe Agent%%
+
+
+    ┌────────────────────┐         ┌────────────────────────┐        ┌────────────────────────┐
+    │       AUTOR        │         │        ARTEFAKT        │        │         PRÜFER         │
+    │     Sitzung 1      │────────►│ Spezifikation, Archi-  │───────►│  neue, leere Sitzung   │
+    │                    │         │    tektur oder Code    │        │ sieht nur das Artefakt │
+    └────────────────────┘         └────────────────────────┘        └────────────────────────┘
+               ▲                                                                  │
+               │                        ~~Befunde gehen an den Autor zurück~~         │
+               ┌──────────────────────────────────────────────────────────────────┘
+
+    Warum: Den Fehler, den man selbst übersieht, findet man selbst nicht.
+    Derselbe blinde Fleck, der ihn erzeugt, verbirgt ihn auch.
+
+    **Autor**                        **Prüfer**
+    requirements-agent     ──►   spec-review-agent
+    architecture-agent     ──►   architecture-review-agent
+    implementation-agent   ──►   code-review-agent, qa-agent
+    die gebaute Software   ──►   reconciliation-agent
+
+    **Die Trennung machen Sie: Für jede Prüfung öffnen Sie eine neue Sitzung.**
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **DIE ERSTE SITZUNG**
+    %%VIRGIL begrüßt Sie und bietet vier Türen an%%
+
+                                  ┌─────────────────────────────┐
+                                  │           VIRGIL            │
+                                  │ Führer, Lehrer, Vermittler  │
+                                  └─────────────────────────────┘
+                                                 │
+                                                 │
+             ┌───────────────────────┬───────────┴───────────┬───────────────────────┐
+             ▼                       ▼                       ▼                       ▼
+   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+   │     H: HILFE      │   │    K: HAUSHALT    │   │    P: PROJEKT     │   │  O: OFFENE BÜHNE  │
+   │    Ich bin neu    │   │  Zustand prüfen,  │   │  Arbeit beginnen  │   │  Einfach reden,   │
+   │    und brauche    │   │  neu einrichten,  │   │ oder fortsetzen:  │   │   bis die Idee    │
+   │   Orientierung    │   │   aktualisieren   │   │   ein Playbook    │   │  Gestalt annimmt  │
+   └───────────────────┘   └───────────────────┘   └───────────────────┘   └───────────────────┘
+
+
+    Fragen Sie jederzeit: „Wo bin ich?“ oder „Was ist ein Gate?“
+
+    Der beste erste Schritt ist **poc-spike**: eine Idee, ein kleines lauffähiges Ding,
+    in Minuten. Sie sehen dem Zusammenspiel zu, bevor Sie sich auf etwas festlegen.
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **EINRICHTEN**
+    %%einmal pro Projekt: installieren, dann anpassen%%
+
+                                   ┌─** FITTING: SECHS SCHRITTE **──────────┐
+   ┌─────────────────────────┐     │                                    │       ┌───────────────┐
+   │      INIT-FACTORY       │     │ 1  Modellmatrix: welches Modell wofür      │    BEREIT     │
+   │ verdrahtet die Factory  │────►│ 2  Projekt-Fingerabdruck bestätigen│──────►│ für das erste │
+   │ und scannt das Projekt  │     │ 3  Agent-Kontext: wo das Wissen liegt      │   Playbook    │
+   │                         │     │ 4  Testregime: wie das Projekt testet      └───────────────┘
+   └─────────────────────────┘     │ 5  Pre-commit-Hooks entscheiden    │
+                                   │ 6  Zähler für Befund-IDs setzen    │
+                                   └────────────────────────────────────┘
+
+
+
+
+    **Was danach auf der Platte liegt**
+
+    model.conf              ordnet Stufen wie economy, standard, strong echten Modellen zu
+    project-context.json    was der Scan fand: Sprachen, Frameworks, CI, Linter, Tests
+    docs/agent-context.md   Schaltzentrale: welcher Agent wo im Projekt nachliest
+    docs/testing.yaml       die Testbefehle und die Schwellen der Gates
+
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **DER WEG EINER IDEE**
+    %%fünf Arten von Arbeit und der Abgleich, jede mit Autor und Prüfer%%
+
+
+   ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+   │ ANFORDERUNG │ │ ARCHITEKTUR │ │   PLANUNG   │ │  UMSETZUNG  │ │  QUALITÄT   │ │  ABGLEICH   │
+   │  Was bauen  │►│ Welche Form │►│   kleine,   │►│ erst Test,  │►│ prüfen und  │►│ Doku gegen  │
+   │  wir, für   │ │   hat es?   │ │ unabhängige │ │  dann Code  │ │   Fehler    │ │  den Code   │
+   │    wen?     │ │             │ │   Stories   │ │             │ │    jagen    │ │             │
+   └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘
+
+   ~~Autor~~
+   requirements    architecture    planning        implementation  qa              reconciliation
+
+   ~~Prüfer~~
+   spec-review     architecture-   backlog-lint    code-review     Fehlerjagd      Befunde an
+                   review (ATAM)   und Sie                         mit Tests       den Eigentümer
+
+
+    **Sie geben jede Übergabe frei.**
+    Kleine Aufgaben nehmen kürzere Playbooks, die nur die nötigen Arten berühren.
+    Muss etwas nachgebessert werden, korrigieren Sie das Artefakt direkt.
+    Es gibt kein „Zurück in eine frühere Phase“.
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **1  ANFORDERUNGEN**
+    %%erst klären, was gebaut wird; dann prüfen, ob es widerspruchsfrei ist%%
+
+                                             ┌────────────────────────┐    ┌───────────────────┐
+   ┌───────────────┐    ┌───────────────┐    │   REQUIREMENTS-AGENT   │    │    SPEC-REVIEW    │
+   │     IDEE      │    │   PROPOSAL    │    │  PRD · .feature-Datei  │    │   neue Sitzung    │
+   │  im Gespräch  │───►│  bereit zur   │───►│       Scope-Map        │───►│  spec-lint, dann  │
+   │  mit VIRGIL   │    │ Entscheidung  │    │     Lückenbericht      │    │    inhaltlich     │
+   └───────────────┘    └───────────────┘    │                        │    │                   │
+                                             └────────────────────────┘    └───────────────────┘
+                                                         │
+                                             ┌───────────┴─────────┐           ~~SPEC-Befunde gehen~~
+                                             ▼                     ▼           ~~an ihren Eigentümer~~
+                                 ┌──────────────────────┐ ┌─────────────────┐
+                                 │   DOMAIN-MODELING    │ │  TEST-STRATEGY  │
+                                 │ Glossar, Entitäten,  │ │  QA-Strategie   │
+                                 │  Zustandsautomaten   │ │   je Feature    │
+                                 └──────────────────────┘ └─────────────────┘
+
+    Die .feature-Datei ist die Abnahme-Spezifikation in Gherkin. Sie gehört dem
+    Stakeholder, nicht dem Entwickler, und läuft später als Test.
+
+    **Offene SPEC-Befunde? Dann Schleife: beheben, erneut prüfen. Sonst weiter.**
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **2  ARCHITEKTUR**
+    %%die großen Entscheidungen bewusst treffen und festhalten, bevor Code sie festlegt%%
+
+
+   ┌────────────────────────────┐       ┌────────────────────────┐
+   │     ARCHITECTURE-AGENT     │       │  ARCHITECTURE-REVIEW   │       ┌─────────────────────┐
+   │                            │       │                        │       │    AGENT-KONTEXT    │
+   │       arc42-Kapitel        │──────►│      neue Sitzung      │──────►│     nachführen,     │
+   │  Structurizr-Modell (C4)   │       │ arch-lint, dann ATAM:  │       │    concern-lint,    │
+   │   ADRs, Pugh-Matrix bei    │       │  Qualitätsziele gegen  │       │    Ihre Freigabe    │
+   │    echten Alternativen     │       │   die Entscheidungen   │       └─────────────────────┘
+   └────────────────────────────┘       └────────────────────────┘
+                  ▲                                  │
+                  │                                  │
+                  ┌──────────────────────────────────┘
+                    ~~ATAM-Befunde: Schleife, bis keiner mehr offen ist~~
+
+    Das Modell in architecture.dsl ist die eine Quelle. Diagramme und Kapitel
+    werden daraus abgeleitet, nicht umgekehrt.
+
+    **Erst wenn der Agent-Kontext sauber ist und Sie ihn freigeben, darf geplant werden.**
+
+
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **3  PLANUNG**
+    %%Spezifikation und Architektur werden zu kleinen Stories%%
+
+    ~~planning-agent, create-backlog in Phasen; nach jeder Phase geben Sie frei~~
+   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐   ┌────────────────┐
+   │     EPICS      │   │  TESTBARKEIT   │   │    SCHNITTE    │   │    STORIES     │
+   │  Fähigkeiten   │─► │   wem gehört   │─► │   Stories je   │─► │   ST-NNNN.md   │
+   │   schneiden    │   │ welcher Test?  │   │ Epic skizziert │   │   schreiben    │
+   └────────────────┘   └────────────────┘   └────────────────┘   └────────────────┘
+                                                                           │
+                                                                           ▼
+                                                              ┌─────────────────────────┐
+    **Jede Story hat:**                                           │      BACKLOG-LINT       │
+      · ein Ziel und Akzeptanzkriterien                       │ Schema, Abhängigkeiten  │
+      · eine Priorität nach MoSCoW                            └─────────────────────────┘
+      · Abhängigkeiten zu anderen Stories                                  │
+      · die Dateien, die sie berührt                                       ▼
+      · eine Stufe (tier) und ihre Gates                      ┌─────────────────────────┐
+                                                              │      IHRE FREIGABE      │
+                                                              └─────────────────────────┘
+    Gute Stories sind INVEST: unabhängig, verhandelbar, wertvoll, schätzbar, klein, testbar.
+
+    ~~Einrichtung wie Testrunner oder CI steckt in der ersten Story, die sie braucht.~~
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **4  UMSETZUNG**
+    %%Test zuerst, Gates nach jeder Story, ein Review über das ganze Feature%%
+                                                           ┌────────────────────┐
+   ┌──────────────────────┐     ┌────────────────────┐     │       GATES        │     ┌────────┐
+   │    IMPLEMENTATION    │     │     DEVELOPER      │     │     crap-score     │     │ MERGE  │
+   │ verteilt Stories in  │────►│ rot, grün, umbauen │────►│  mutation-testing  │────►│  der   │
+   │        Wellen        │     │      je Story      │     │ test-design-verify │     │ Story  │
+   └──────────────────────┘     └────────────────────┘     │  dependency-check  │     └────────┘
+                                           ▲               └────────────────────┘
+                                           │                          │
+                                           │    rot                   │
+                                           ┌──────────────────────────┘
+    **FRISCHER DEVELOPER:** nur Gate-Bericht und betroffene Dateien
+    ~~3 Versuche, dann eine Modellstufe höher, 3 weitere~~
+
+   ┌────────────────────────────────┐     ┌───────────────────────┐     ┌──────────────────────┐
+   │     NACH DER LETZTEN WELLE     │     │     IMPL-BEFUNDE      │     │     BLOCKIEREND?     │
+   │   CODE-REVIEW über das ganze   │────►│ Prüfer nennt Fakten,  │────►│   beheben, erneut    │
+   │     Feature, neue Sitzung      │     │  Regel setzt Schwere  │     │ prüfen, alles frisch │
+   └────────────────────────────────┘     └───────────────────────┘     └──────────────────────┘
+
+    Ein Wiederholungs-Review prüft jeden alten Befund und dann alles neu:
+    ~~Eine Korrektur kann einen Fehler bringen, den der erste Durchgang nie sah.~~
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **5  QUALITÄT UND ABGLEICH**
+    %%unabhängig prüfen, Fehler jagen, dann Doku und Code abgleichen%%
+
+   ┌────────────────────────────┐     ┌────────────────────┐     ┌─────────────────────────────┐
+   │          QA-AGENT          │     │   PREMERGE-CHECK   │     │       RECONCILIATION        │
+   │        neue Sitzung        │     │     dann Merge     │     │    auf dev, neue Sitzung    │
+   │      Fagan-Inspektion      │────►│      nach dev      │────►│      Spezifikation und      │
+   │   Sicherheit nach OWASP    │     │     durch Sie      │     │    Architektur gegen den    │
+   │         Fehlerjagd         │     │                    │     │        gebauten Code        │
+   │                            │     │                    │     │                             │
+   └────────────────────────────┘     └────────────────────┘     └─────────────────────────────┘
+
+
+    **Die Fehlerjagd, Fehler für Fehler:**
+      1  Test schreiben, der den Fehler zeigt: er ist rot
+      2  Code reparieren: der Test wird grün und bleibt
+      3  erneut jagen, bis eine Runde nichts mehr findet
+
+    **Jede Abweichung im Abgleich geht an ihren Eigentümer:**
+      Code-Fehler an den Developer, Doku-Drift an den Autor des Dokuments.
+
+    **Keine offenen Befunde mehr: fertig. Das Projekt ist bereit für das nächste Feature.**
+
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **WAS DIE MASCHINEN PRÜFEN**
+    %%bevor Sie hinsehen, fängt ein Gate den Fehler%%
+
+   ┌─** BEI JEDEM COMMIT **───────────────────────┐   ┌─** NACH JEDER STORY **─────────────────────────┐
+   │                                          │   │                                            │
+   │ mdformat           Markdown einheitlich  │   │ crap-score         Komplexität und Abdeckung
+   │ link-check         Links führen ins Ziel │   │ mutation-testing   fangen die Tests Fehler?│
+   │ mermaid-lint       Diagramme brechen nicht   │ test-design-verify vorgeschriebene Tests da?
+   │ spec-lint          Spezifikation stimmig │   │ dependency-check   Abhängigkeitsregeln     │
+   │ arch-lint          Architektur und Modell│   │                                            │
+   │ backlog-lint       Stories vollständig   │   └────────────────────────────────────────────┘
+   │ concern-lint       Agent-Kontext gültig  │
+   │ matrix-lint        Modellmatrix gültig   │   ┌─** VOR DEM MERGE **────────────────────────────┐
+   │ statemachine-lint  Automaten stimmig     │   │                                            │
+   │ finding-lint       Schwere nach Regel    │   │ premerge-check: alle Gates bestanden,      │
+   │ index-lint         Katalog aktuell       │   │ Basis aktuell, nur erlaubte Dateien        │
+   │                                          │   │                                            │
+   └──────────────────────────────────────────┘   └────────────────────────────────────────────┘
+
+
+    **Schlägt ein Gate an, arbeitet das System richtig.**
+    Beheben Sie die Ursache. Umgehen Sie den Alarm nicht.
+
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
+    **WELCHES PLAYBOOK, WANN**
+    %%das Rezept passend zur Lage%%
+
+    **Sie wollen …**                                              **Beginnen Sie mit**
+    ───────────────────────────────────────────────────────────────────────────────────────────
+    Prüfen, ob eine grobe Idee überhaupt trägt                poc-spike
+    Ein technisches Risiko vor der Entscheidung klären        technical-poc
+    Einen gemeldeten Fehler beheben                           bug-fix
+    Die Doku wieder mit dem Code in Einklang bringen          documentation-update
+    Ein neues Projekt richtig bauen, von Anfang bis Ende      greenfield-development
+    Die Factory in bestehenden Code einführen                 brownfield-onboarding
+    Ein Feature zu einem Factory-Projekt hinzufügen           feature-addition
+    Code umbauen, ohne sein Verhalten zu ändern               refactoring
+    Eine Architektur gegen Qualitätsziele bewerten            architecture-review
+    Ein Thema mit belegten Quellen erkunden                   research-survey
+    Eine Behauptung durch Widerlegungsversuche testen         research-topic
+
+
+    Ein Playbook beschreibt einen typischen Weg, keinen Zwang. Welche Agenten gerade
+    laufen dürfen, ergibt sich aus den Artefakten, die schon da sind.
+
+    ~~Unsicher? Wählen Sie im Menü P. VIRGIL fragt nach und schlägt das Rezept vor.~~
+
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 62x14
+
+   **DREI GEWOHNHEITEN**
+
+   **1  Lesen, bevor Sie freigeben.**
+      Ihr Ja ist das letzte Gate. Es zählt am meisten.
+
+   **2  Die Gates arbeiten lassen.**
+      Ein Alarm ist kein Defekt. Ursache beheben.
+
+   **3  Ein kleiner Schritt nach dem anderen.**
+      So wird Rauschen korrigiert, bevor es wächst.
+
+   ~~Anfangen: ein poc-spike. Der Rest kommt beim Tun.~~
+
+```
+@footer agent factory · schritt für schritt
