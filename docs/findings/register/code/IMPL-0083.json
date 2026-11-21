@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0083",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch_lib.py:190-283",
+  "story": "ST-0445",
+  "finding": "The rule that stops a ready command at its time limit now lives in three scripts. run_in_own_group, _signal_group, _group_alive and _stop_group of dispatch_lib.py repeat premerge-check:1241-1306 line for line, and _stop_group with its grace of 5 seconds also exists in crap-score:283. The grace has three names: STOP_GRACE_SECONDS, READY_STOP_GRACE and KILL_GRACE_SECONDS. The reading of timeout_minutes in ready_commands repeats _ready_timeout of premerge-check. Both scripts also define a function ready_commands, with different arguments and different filters: dispatch_lib keeps only enabled gates, and premerge-check keeps the gates of the merge. premerge-check already imports from dispatch_lib, so it can use the new helper; the story left it alone because premerge-check lies outside its touches. Fix: in a follow-up story that touches premerge-check, import run_in_own_group and STOP_GRACE_SECONDS from dispatch_lib.py, delete the copy in premerge-check, read the limit through one shared function, and rename one of the two ready_commands, for example to merge_ready_commands. crap-score keeps its own run function, because it blocks the stop signals around Popen, but it can share _stop_group.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the story branch, so it is not in use. The three copies behave the same today, and the DEC-61 test checks that init stops the child of a ready command (no to fails_purpose). A fix to the stop, as IMPL-0082 made in premerge-check, must be made in three places, and a reader who searches for ready_commands finds two functions that answer different questions.",
+  "commit": "2e3cd59f7ec3c1497d5aa68830192e042fba1d56",
+  "status": "open"
+}
