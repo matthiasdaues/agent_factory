@@ -647,3 +647,32 @@ def test_cg_05_a_broken_row_on_dev_exits_2_and_writes_no_report(repo):
     assert "line 7" in proc.stderr
     assert "nine" in proc.stderr
     assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_tag_named_dev_does_not_stand_in_for_the_branch_dev(repo):
+    """A row on the story branch has no effect, even when a tag dev points at it (IMPL-0079)."""
+    repo.write(REGISTER, REGISTER_TEXT)
+    _change_tree(repo)
+    repo.git("tag", "dev", "HEAD")
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert repo.report()[0]["pass_fail"] == "fail"
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_register_on_dev_that_is_not_utf_8_exits_2_and_names_the_file(repo):
+    """A register on dev with the byte 0xE4 cannot be read, so the gate cannot measure (IMPL-0080)."""
+    current = repo.git("symbolic-ref", "--short", "HEAD")
+    repo.git("checkout", "-q", "dev")
+    path = repo.root / REGISTER
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(REGISTER_TEXT.replace(REASON, "Gr\xfcnde").encode("utf-8").replace(b"\xc3\xbc", b"\xe4"))
+    repo.commit("register on dev in Latin-1")
+    repo.git("checkout", "-q", current)
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert REGISTER in proc.stderr
+    assert "Traceback" not in proc.stderr
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()

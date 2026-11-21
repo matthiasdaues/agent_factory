@@ -560,10 +560,14 @@ HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
 def git(root: Path, *args: str) -> str:
-    proc = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
+    proc = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
     if proc.returncode != 0:
-        raise GateError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
-    return proc.stdout
+        stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+        raise GateError(f"git {' '.join(args)} failed: {stderr}")
+    try:
+        return proc.stdout.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise GateError(f"git {' '.join(args)} printed text that is not UTF-8: {error}") from None
 
 
 def changed_lines(root: Path, base: str) -> dict[str, FileChanges]:
@@ -680,6 +684,7 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
 
 REGISTER_PATH = "docs/findings/exceptions.md"
 REGISTER_BRANCH = "dev"
+REGISTER_REF = f"refs/heads/{REGISTER_BRANCH}"
 REGISTER_SECTION = "## CRAP score"
 REGISTER_COLUMNS = ("File", "Function", "Accepted score", "Reason", "Accepted by")
 ACCEPTED_SCORE = re.compile(r"\d+(?:\.\d+)?")
@@ -710,15 +715,15 @@ def read_register(root: Path) -> tuple[Exceptions, str | None]:
     there are no exceptions and no line.
     """
     probe = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{REGISTER_BRANCH}^{{commit}}"],
+        ["git", "rev-parse", "--verify", "--quiet", f"{REGISTER_REF}^{{commit}}"],
         cwd=root, capture_output=True, text=True, check=False,
     )
     if probe.returncode != 0:
         return {}, NO_DEV_NOTICE
-    listed = git(root, "ls-tree", "--full-tree", "--name-only", REGISTER_BRANCH, "--", REGISTER_PATH)
+    listed = git(root, "ls-tree", "--full-tree", "--name-only", REGISTER_REF, "--", REGISTER_PATH)
     if not listed.strip():
         return {}, None
-    return parse_register(git(root, "show", f"{REGISTER_BRANCH}:{REGISTER_PATH}")), None
+    return parse_register(git(root, "show", f"{REGISTER_REF}:{REGISTER_PATH}")), None
 
 
 def parse_register(text: str) -> Exceptions:
