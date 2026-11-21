@@ -15,6 +15,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -415,3 +416,117 @@ def test_cg_04_an_added_line_that_starts_with_two_pluses_is_no_file_header(repo)
     proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert _judged(repo) == ["tree_severity", "bug_bar_level"]
+
+
+# --- CG-04-IT-06 to CG-04-IT-08: the ready command and the time limit -----
+
+READY = "scripts/crap-ready-backend"
+BACKEND_STUB = "scripts/crap-measure-backend"
+
+
+def _log_stub(event: str, then: str = "") -> str:
+    """A stub that appends *event* and its GATE_OUTPUT to $STUB_LOG, then runs *then*."""
+    return f'#!/bin/sh\necho "{event} $GATE_OUTPUT" >> "$STUB_LOG"\n{then}'
+
+
+def _with_backend(repo: Repo, enabled: bool = True, timeout: float = 10,
+                  ready: str = _log_stub("ready"),
+                  backend: str = _log_stub("backend", 'echo "[]" > "$GATE_OUTPUT"\n'),
+                  python: str = _log_stub("python", 'cp "$PLANTED_ROWS" "$GATE_OUTPUT"\n')) -> Path:
+    """Add the measure backend with a ready command before python; return the stub log."""
+    log = repo.tmp / "stub.log"
+    repo.env["STUB_LOG"] = str(log)
+    repo.write(
+        "docs/testing.yaml",
+        TESTING_YAML.replace("enabled: true", f"enabled: {str(enabled).lower()}")
+        .replace("timeout_minutes: 10", f"timeout_minutes: {timeout}")
+        .replace(
+            "    measures:\n",
+            "    measures:\n      - name: backend\n        files: \"backend/**\"\n"
+            f"        command: \"{BACKEND_STUB}\"\n        ready: \"{READY}\"\n",
+        ),
+    )
+    for relative, text in ((READY, ready), (BACKEND_STUB, backend), (STUB, python)):
+        repo.write(relative, text)
+        path = repo.root / relative
+        path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    repo.commit("measure backend")
+    return log
+
+
+def _events(log: Path) -> list[str]:
+    return [line.split()[0] for line in log.read_text().splitlines()] if log.exists() else []
+
+
+@pytest.mark.spec("CG-04-IT-06")
+@pytest.mark.parametrize("enabled", [True, False], ids=["enabled", "disabled"])
+def test_cg_04_the_ready_command_runs_before_the_measures_in_list_order(repo, enabled):
+    """Scenarios: The measures run in list order; a disabled gate runs its ready commands."""
+    log = _with_backend(repo, enabled=enabled)
+    proc = repo.run("--all", "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert _events(log) == ["ready", "backend", "python"]
+    outputs = [line.split()[1] for line in log.read_text().splitlines()]
+    assert outputs[1] != outputs[2]
+
+
+@pytest.mark.spec("CG-04-IT-07")
+def test_cg_04_a_failing_ready_command_starts_no_measuring_command(repo):
+    """Scenario: A run that cannot measure writes no report (the ready command exits 1)."""
+    log = _with_backend(
+        repo, ready=_log_stub("ready", 'echo "the Compose stack is stopped" >&2\nexit 1\n')
+    )
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "measure backend" in proc.stderr
+    assert READY in proc.stderr
+    assert "the Compose stack is stopped" in proc.stderr
+    assert _events(log) == ["ready"]
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    status = Path(f"/proc/{pid}/stat")
+    return not (status.exists() and status.read_text().split()[2] == "Z")
+
+
+@pytest.mark.spec("CG-04-IT-08")
+@pytest.mark.parametrize("stopped", ["measuring command", "ready command"])
+def test_cg_04_the_time_limit_covers_every_command_of_the_run(repo, stopped):
+    """Scenario: The time limit covers the whole gate run.
+
+    Measuring command: each command alone fits in 0.1 minutes (6 s), the two
+    together do not, so the limit runs out in python. Ready command: the ready
+    command of backend sleeps past the limit. In both cases the stopped
+    command has started a child process, which must not outlive the gate.
+    """
+    child = repo.tmp / "child.pid"
+    spawn = f'sleep 60 &\necho $! > "{child}"\n'
+    if stopped == "measuring command":
+        log = _with_backend(
+            repo, timeout=0.1,
+            backend=_log_stub("backend", 'echo "[]" > "$GATE_OUTPUT"\nsleep 4\n'),
+            python=_log_stub("python", f'{spawn}sleep 4\ncp "$PLANTED_ROWS" "$GATE_OUTPUT"\n'),
+        )
+        measure, events = "python", ["ready", "backend", "python"]
+    else:
+        log = _with_backend(repo, timeout=0.1, ready=_log_stub("ready", f"{spawn}sleep 60\n"))
+        measure, events = "backend", ["ready"]
+    started = time.monotonic()
+    proc = repo.run("--all", "--story-id", STORY_ID)
+    elapsed = time.monotonic() - started
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert f"measure {measure}" in proc.stderr
+    assert f"stopped its {stopped}" in proc.stderr
+    assert "0.1 minutes" in proc.stderr
+    assert _events(log) == events
+    assert elapsed < 25
+    pid = int(child.read_text())
+    deadline = time.monotonic() + 5
+    while _alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not _alive(pid)

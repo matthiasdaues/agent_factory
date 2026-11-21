@@ -20,6 +20,23 @@ Call
   measuring command writes its rows to the file in GATE_OUTPUT, one JSON
   array with one row per function.
 
+Runs
+  For each measure in list order, its `ready` command, when it has one, and
+  then its measuring command. `timeout_minutes` limits every command and
+  every wait for a lock together. A measure with a `ready` command runs under
+  an exclusive flock on crap-score/<measure>.lock under the git common
+  directory, so two runs of one shared service never overlap (DEC-43, DEC-47).
+  The name of such a measure is the name of its lock file, so it holds no /
+  and is not . or ..
+
+Stops
+  At the time limit, and when crap-score gets SIGTERM, SIGINT or SIGHUP,
+  crap-score stops the process group of the running command: SIGTERM, then
+  SIGKILL after 5 seconds. Only then does it release the lock. SIGKILL of
+  crap-score cannot be caught; on Linux the shell that crap-score starts for
+  a command gets SIGKILL when crap-score dies (PR_SET_PDEATHSIG). The
+  processes that shell starts are not covered and may keep running.
+
 Score
   complexity^2 * (1 - coverage_pct/100)^3 + complexity, rounded to two
   decimals, half up. A judged function passes when the rounded score is at
@@ -30,20 +47,28 @@ Exit codes
   1  a judged function fails; the output names its file, function and score
   2  the gate cannot measure; the message names the cause, and no report is
      written
+  128 + n  crap-score was stopped by signal n (SIGTERM, SIGINT, SIGHUP); no
+     report is written
 """
 
 from __future__ import annotations
 
 import argparse
+import ctypes
+import fcntl
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from typing import Iterator
 
 import yaml
 
@@ -60,6 +85,21 @@ REQUIRED_MEASURE_FIELDS = ("name", "files", "command")
 FUNCTION_FIELDS = ("file", "function", "start_line", "end_line", "complexity", "coverage_pct")
 DEFAULT_REPORT_DIR = Path(".current-work") / "crap-score"
 TWO_DECIMALS = Decimal("0.01")
+LOCK_FOLDER = "crap-score"
+LOCK_POLL_SECONDS = 0.05
+KILL_GRACE_SECONDS = 5
+
+
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+PR_SET_PDEATHSIG = 1
+
+
+class Stopped(BaseException):
+    """crap-score got a stop signal; a BaseException, so no `except Exception` keeps the run going."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
 
 
 class GateError(Exception):
@@ -72,6 +112,7 @@ class Measure:
     files: str
     command: str
     exclude: tuple[str, ...] = ()
+    ready: str | None = None
 
 
 @dataclass(frozen=True)
@@ -176,34 +217,213 @@ def _measures(value: object) -> tuple[Measure, ...]:
         exclude = item.get("exclude") or []
         if not isinstance(exclude, list) or not all(isinstance(p, str) for p in exclude):
             raise GateError(f"{label} of gates.{GATE_KEY}.measures has an exclude that is no list of patterns")
+        ready = item.get("ready")
+        if ready is not None and (not isinstance(ready, str) or not ready):
+            raise GateError(f"{label} of gates.{GATE_KEY}.measures has a field ready that is no command")
         name = item["name"]
+        if ready is not None and ("/" in name or "\0" in name or name in (".", "..")):
+            raise GateError(
+                f"measure {name} of gates.{GATE_KEY}.measures has a ready command, so its name "
+                f"names its lock file, and {name!r} is no file name"
+            )
         if name in first_position:
             raise GateError(
                 f"measures {first_position[name]} and {position} of gates.{GATE_KEY}.measures "
                 f"both have the name {name}"
             )
         first_position[name] = position
-        measures.append(Measure(name, item["files"], item["command"], tuple(exclude)))
+        measures.append(Measure(name, item["files"], item["command"], tuple(exclude), ready))
     return tuple(measures)
 
 
 # --- measuring -------------------------------------------------------------
 
 
-def run_measure(measure: Measure, root: Path) -> list[dict]:
-    """Run the measuring command of *measure* from *root* and return its rows (BR-129)."""
+class Clock:
+    """The one time limit of a gate run: every command and every lock wait (BR-129)."""
+
+    def __init__(self, minutes: float) -> None:
+        self.minutes = minutes
+        self.deadline = time.monotonic() + minutes * 60
+
+    def remaining(self) -> float:
+        return self.deadline - time.monotonic()
+
+    def limit(self) -> str:
+        return f"the time limit of {self.minutes:g} minutes (timeout_minutes)"
+
+
+def _signal_group(proc: subprocess.Popen, sig: int) -> None:
+    try:
+        os.killpg(proc.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _group_alive(proc: subprocess.Popen) -> bool:
+    try:
+        os.killpg(proc.pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _stop_group(proc: subprocess.Popen) -> None:
+    """Stop the command and every process of its group.
+
+    SIGTERM first, then SIGKILL after the grace period. The grace period
+    lasts until every process of the group has ended, not only the leader,
+    so the children can end on SIGTERM too. SIGKILL goes to the group even
+    when the leader has exited, because its children may not have.
+    """
+    _signal_group(proc, signal.SIGTERM)
+    deadline = time.monotonic() + KILL_GRACE_SECONDS
+    try:
+        proc.wait(timeout=KILL_GRACE_SECONDS)
+        while _group_alive(proc) and time.monotonic() < deadline:
+            time.sleep(LOCK_POLL_SECONDS)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        # Also when a stop signal interrupts the grace period.
+        _signal_group(proc, signal.SIGKILL)
+        proc.wait()
+
+
+def _command_preexec():
+    """The preexec_fn of a command: unblock the stop signals, and on Linux set the parent-death signal.
+
+    run_command blocks the stop signals while Popen runs, and a child process
+    inherits that mask, so the child unblocks them before the command starts.
+    On Linux the child also gets SIGKILL when crap-score dies.
+    """
+    prctl = None
+    if sys.platform.startswith("linux"):
+        try:
+            prctl = ctypes.CDLL(None, use_errno=True).prctl
+        except (OSError, AttributeError):
+            prctl = None
+    parent = os.getpid()
+
+    def preexec() -> None:
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, STOP_SIGNALS)
+        if prctl is not None:
+            prctl(PR_SET_PDEATHSIG, int(signal.SIGKILL))
+            if os.getppid() != parent:
+                # crap-score died before prctl took effect.
+                os.kill(os.getpid(), signal.SIGKILL)
+
+    return preexec
+
+
+def _raise_stopped(signum: int, frame: object) -> None:
+    for sig in STOP_SIGNALS:
+        signal.signal(sig, signal.SIG_IGN)
+    raise Stopped(signum)
+
+
+@contextmanager
+def stop_signals() -> Iterator[None]:
+    """Turn SIGTERM, SIGINT and SIGHUP into Stopped; restore the earlier handlers afterwards.
+
+    After the first signal, the next ones are ignored, so the stop of the
+    running command is not cut short.
+    """
+    earlier = {sig: signal.signal(sig, _raise_stopped) for sig in STOP_SIGNALS}
+    try:
+        yield
+    finally:
+        for sig, handler in earlier.items():
+            signal.signal(sig, handler)
+
+
+def run_command(measure: Measure, kind: str, command: str, root: Path, env: dict, clock: Clock) -> None:
+    """Run *command* in its own process group from *root*.
+
+    The group is stopped at the limit and on any other way out of the wait,
+    such as Stopped, so no command outlives the lock. The stop signals stay
+    blocked while Popen runs, so a signal that arrives before *proc* exists
+    waits until the group exists and the try below can stop it.
+    """
+    remaining = clock.remaining()
+    if remaining <= 0:
+        raise GateError(f"measure {measure.name} ran out of {clock.limit()} before its {kind} {command}")
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        earlier = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+        try:
+            proc = subprocess.Popen(
+                command, shell=True, cwd=root, env=env, stdout=out, stderr=err, start_new_session=True,
+                preexec_fn=_command_preexec(),
+            )
+        except BaseException:
+            signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
+            raise
+        try:
+            # A signal that arrived while Popen ran is delivered here.
+            signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
+            code = proc.wait(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            _stop_group(proc)
+            raise GateError(
+                f"measure {measure.name} ran out of {clock.limit()}; stopped its {kind} {command}"
+            ) from None
+        except BaseException:
+            _stop_group(proc)
+            raise
+        if code != 0:
+            err.seek(0)
+            out.seek(0)
+            message = (
+                err.read().decode(errors="replace").strip()
+                or out.read().decode(errors="replace").strip()
+                or "no message"
+            )
+            raise GateError(f"the {kind} of measure {measure.name} exited {code}: {command}: {message}")
+
+
+@contextmanager
+def measure_lock(measure: Measure, root: Path, clock: Clock) -> Iterator[None]:
+    """Hold the flock of a measure with a `ready` command (DEC-43, DEC-47).
+
+    The lock file lies under the git common directory, so every worktree sees
+    it. The descriptor is not inherited by the commands, so the lock ends with
+    this process. A measure without a `ready` command takes no lock.
+    """
+    if measure.ready is None:
+        yield
+        return
+    common = git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    path = Path(common) / LOCK_FOLDER / f"{measure.name}.lock"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    except OSError as exc:
+        raise GateError(f"measure {measure.name} cannot open the lock {path}: {exc}") from exc
+    try:
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if clock.remaining() <= 0:
+                    raise GateError(
+                        f"measure {measure.name} waited for the lock {path} until {clock.limit()} ran out"
+                    ) from None
+                time.sleep(min(LOCK_POLL_SECONDS, max(clock.remaining(), 0)))
+        yield
+    finally:
+        os.close(fd)
+
+
+def run_measure(measure: Measure, root: Path, clock: Clock) -> list[dict]:
+    """Run the `ready` command and the measuring command of *measure*; return its rows (BR-129)."""
     with tempfile.TemporaryDirectory(prefix="crap-score-") as folder:
         output = Path(folder) / "rows.json"
         env = {**os.environ, "GATE_OUTPUT": str(output)}
-        proc = subprocess.run(
-            measure.command, shell=True, cwd=root, env=env, capture_output=True, text=True, check=False
-        )
-        if proc.returncode != 0:
-            message = (proc.stderr.strip() or proc.stdout.strip() or "no message")
-            raise GateError(
-                f"the measuring command of measure {measure.name} exited {proc.returncode}: "
-                f"{measure.command}: {message}"
-            )
+        with measure_lock(measure, root, clock):
+            if measure.ready is not None:
+                run_command(measure, "ready command", measure.ready, root, env, clock)
+            run_command(measure, "measuring command", measure.command, root, env, clock)
         try:
             rows = json.loads(output.read_text(encoding="utf-8"))
         except OSError as exc:
@@ -435,10 +655,11 @@ def _describe(row: dict) -> str:
 
 
 def measure_all(settings: Settings, root: Path) -> list[dict]:
-    """Run every measure in list order and return its kept rows."""
+    """Run every measure in list order within one time limit; return the kept rows."""
+    clock = Clock(settings.timeout_minutes)
     kept: list[dict] = []
     for measure in settings.measures:
-        rows = kept_rows(measure, run_measure(measure, root))
+        rows = kept_rows(measure, run_measure(measure, root, clock))
         for row in rows:
             _check_row(measure, row)
         kept.extend(rows)
@@ -453,12 +674,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     root = Path.cwd()
     try:
-        settings = read_settings(root)
-        changes = changed_lines(root, args.base) if args.base is not None else None
-        rows = measure_all(settings, root)
+        with stop_signals():
+            settings = read_settings(root)
+            changes = changed_lines(root, args.base) if args.base is not None else None
+            rows = measure_all(settings, root)
     except GateError as exc:
         print(f"crap-score: cannot measure: {exc}", file=sys.stderr)
         return 2
+    except Stopped as stop:
+        name = signal.Signals(stop.signum).name
+        print(f"crap-score: stopped by {name}; stopped the running command and wrote no report", file=sys.stderr)
+        return 128 + stop.signum
     results = [report_row(row, settings.threshold) for row in judged_rows(rows, changes)]
     report_dir = Path(args.report_dir) if args.report_dir else root / DEFAULT_REPORT_DIR
     path = write_report(report_dir, detect_story_id(args.story_id), results)
