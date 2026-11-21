@@ -1028,10 +1028,8 @@ def gate_command(
     gate: str,
     worktree: Path,
     story_id: str,
-    entries: dict[str, dict] | None = None,
-    *,
-    target: str | None = None,
-    primary: Path | None = None,
+    target: str,
+    primary: Path,
 ) -> list[str]:
     """Build the call of a gate that premerge-check names (BR-066, RL-G17).
 
@@ -1051,9 +1049,9 @@ def gate_command(
     if gate == "crap-score":
         return [
             str(script),
-            "--base", str(target),
+            "--base", target,
             "--story-id", story_id,
-            "--report-dir", str(crap_report_dir(primary or worktree)),
+            "--report-dir", str(crap_report_dir(primary)),
         ]
     if gate == "mutation-testing":
         return [
@@ -1093,15 +1091,17 @@ def rerun_gate(
     gate: str,
     worktree: Path,
     story_id: str,
-    entries: dict[str, dict] | None = None,
-    target: str | None = None,
+    entries: dict[str, dict] | None,
+    target: str,
     branch: str | None = None,
 ) -> tuple[bool, str]:
     """Run *gate* in *worktree* and judge it by its exit code.
 
     After a non-zero exit of mutation-testing, the result rule decides with
-    the stored list `mutants` (BR-066). After a non-zero exit of crap-score,
-    its report names the failing functions in the refusal.
+    the stored list `mutants` (BR-066). After exit 1 of crap-score, its new
+    report names the failing functions in the refusal. Every other exit of
+    crap-score writes no report, so the report in the primary checkout is
+    an earlier run's, and the refusal shows the message instead (IMPL-0071).
 
     premerge-check builds the call of a gate it names. Every other gate runs
     the `command` of its entry through the shell.
@@ -1113,7 +1113,7 @@ def rerun_gate(
     if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
         script = gate_script(primary, gate)
         call: list[str] | str = gate_command(
-            script, gate, worktree, story_id, entries, target=target, primary=primary
+            script, gate, worktree, story_id, target, primary
         )
         shell = False
         folder = crap_report_dir(primary) if gate == "crap-score" else worktree / ".current-work" / gate
@@ -1134,6 +1134,8 @@ def rerun_gate(
     if gate == "mutation-testing" and report is not None:
         ok, detail = mutation_rerun_result(report, story_id, branch)
         return ok, detail if ok else f"exit {result.returncode}: {detail}"
+    if gate == "crap-score" and result.returncode != 1:
+        report = None
     return False, _failure_detail(result, report)
 
 
@@ -1142,7 +1144,7 @@ def check_semantic_gates(
     story_id: str,
     worktree: Path,
     primary: Path,
-    target: str | None = None,
+    target: str,
     branch: str | None = None,
 ) -> list[str]:
     """Run each gate in *worktree* and return one entry per gate that fails."""

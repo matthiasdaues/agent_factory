@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The new report folder exists only on the feature branch, so it is not in use. The merge is still refused, every owned Scenario passes, and the message of exit 2 belongs to ST-0443 (no to fails_purpose). A User who reads the refusal looks for a fault in `tree_severity` that is already fixed, and must run crap-score by hand to find the real cause.",
   "commit": "3da33084ea1c28d6006b36cf900063171fdea632",
-  "status": "open"
+  "status": "resolved"
 }

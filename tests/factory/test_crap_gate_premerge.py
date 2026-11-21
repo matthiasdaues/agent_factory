@@ -240,8 +240,10 @@ gates:
 
 # The measuring command records its folder and plants one row of tree_severity.
 # The row shows 100 % coverage only when the test of tree_severity exists.
+# With MEASURE_FAILS set, the command fails, so crap-score cannot measure.
 MEASURE_BODY = """#!/bin/sh
 pwd > "$MEASURE_LOG"
+if [ -n "$MEASURE_FAILS" ]; then echo "the test run failed" >&2; exit 1; fi
 if [ -f tests/test_tree_severity.py ]; then cov=100; else cov=0; fi
 printf '[{"file": "%s", "function": "tree_severity", "start_line": 10, "end_line": 30, \
 "complexity": '"$COMPLEXITY"', "coverage_pct": %s}, {"file": "%s", "function": "bug_bar_level", \
@@ -345,10 +347,7 @@ def test_cg_08_the_built_call_of_crap_score_names_the_merge_target(tmp_path):
     script = tmp_path / "crap-score"
     worktree = tmp_path / "primary" / ".current-work" / TARGET / "premerge" / STORY_ID
     primary = tmp_path / "primary"
-    entries = {"crap-score": {"enabled": True, "threshold": 8}}
-    call = pm.gate_command(
-        script, "crap-score", worktree, STORY_ID, entries, target=TARGET, primary=primary
-    )
+    call = pm.gate_command(script, "crap-score", worktree, STORY_ID, TARGET, primary)
     assert call == [
         str(script),
         "--base", TARGET,
@@ -395,6 +394,24 @@ def test_cg_08_the_report_of_a_refused_merge_stays_in_the_primary_checkout(tmp_p
     rows = _report(repo)
     assert [(row["function"], row["pass_fail"]) for row in rows] == [("tree_severity", "fail")]
     assert not _premerge_dir(repo).exists()
+
+
+@pytest.mark.spec("CG-08-IT-06")
+def test_cg_08_a_refusal_after_exit_2_names_no_function_of_an_earlier_report(tmp_path):
+    """IMPL-0071: the report of an earlier refused run stays in the primary
+    checkout, so a run that cannot measure must not name its functions."""
+    repo, env, _ = _build_measured_repo(tmp_path, complexity=9)
+    first = _run(repo, env)
+    assert first.returncode == 1, first.stdout + first.stderr
+    assert "tree_severity" in first.stdout
+    env["MEASURE_FAILS"] = "1"
+    second = _run(repo, env)
+    assert second.returncode == 1, second.stdout + second.stderr
+    block = [line for line in second.stdout.splitlines() if line.startswith("BLOCK semantic-gates:")]
+    assert len(block) == 1, second.stdout
+    assert "crap-score (exit 2" in block[0]
+    assert "cannot measure" in block[0]
+    assert "tree_severity" not in block[0]
 
 
 @pytest.mark.spec("CG-08-IT-07")

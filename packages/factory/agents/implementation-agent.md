@@ -266,7 +266,7 @@ Gate-specific parameters are read from `testing.yaml` at execution time. `crap-s
 
 #### Gate execution
 
-For each gate in the resolved list, call its CLI script directly from the story's worktree. The dispatcher passes gate-specific parameters from `testing.yaml` to each script:
+For each gate in the resolved list, call its CLI script directly from `<gate-folder>`: the story's worktree in an orchestrated run, and the primary checkout with the story branch checked out in a run by hand. Pass each script the arguments below. `crap-score` takes no setting as an argument, because it reads its threshold and its measures from `gates.crap-score` itself:
 
 ```
 .agent-factory/factory/scripts/crap-score         --base <feature-branch> --story-id <story-id> --report-dir <gate-folder>/.current-work/crap-score
@@ -277,7 +277,7 @@ For each gate in the resolved list, call its CLI script directly from the story'
 
 The four gates are `crap-score`, `mutation-testing`, `test-design-verify`, and `dependency-check`. The `mutation-testing` script runs the command in `gates.mutation-testing.command` from the story's worktree. Run it in the background (`run_in_background: true`), because a foreground Bash call ends after 10 minutes. Wait for its exit notice. The script enforces `gates.mutation-testing.timeout_minutes`, 30 when unset: at the limit it stops the command and its process group and writes a failing result. Set no limit of your own. Without a command, the gate fails and names the test-strategy agent.
 
-Start `crap-score` as a background job (`run_in_background: true`) and wait for its exit notice, because a foreground Bash call can end before `gates.crap-score.timeout_minutes` runs out. Read the verdict only from the exit code of that job (BR-134). `<gate-folder>` is the folder the gate runs in: the story's worktree in an orchestrated run, and the primary checkout with the story branch checked out in a run by hand. `crap-score` judges the functions changed since the merge base of `--base` and reads the threshold and the measures from `gates.crap-score` itself. At the merge, `premerge-check` runs the same call with `--base <target>` (BR-136). The `test-design-verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
+Start `crap-score` as a background job (`run_in_background: true`) and wait for its exit notice, because a foreground Bash call can end before `gates.crap-score.timeout_minutes` runs out. Read the verdict only from the exit code of that job (BR-134). `crap-score` judges the functions changed since the merge base of `--base`. At the merge, `premerge-check` runs the same call with `--base <target>` (BR-136). The `test-design-verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 
 Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome. `crap-score` is the exception: its report lies under `<gate-folder>`, and its exit code alone is the verdict.
 

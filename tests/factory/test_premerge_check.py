@@ -522,7 +522,7 @@ class TestSt0415BuiltCalls:
 
     def test_st_0415_the_built_call_of_mutation_testing(self, tmp_path):
         script = tmp_path / "mutation-testing"
-        call = pm.gate_command(script, "mutation-testing", tmp_path, STORY_ID, {})
+        call = pm.gate_command(script, "mutation-testing", tmp_path, STORY_ID, "main", tmp_path)
         assert call == [
             str(script),
             "--story-id", STORY_ID,
@@ -582,10 +582,7 @@ def test_st_0415_with_both_keys_the_key_with_hyphens_wins_with_a_warning(tmp_pat
     assert len(warnings) == 1
     assert "gates.crap_score" in warnings[0]
     # The choice of the threshold moves to crap-score (CG-04-CT-05).
-    entries, _ = pm.gate_entries(tmp_path)
-    call = pm.gate_command(
-        tmp_path / "crap-score", "crap-score", tmp_path, STORY_ID, entries, target="main"
-    )
+    call = pm.gate_command(tmp_path / "crap-score", "crap-score", tmp_path, STORY_ID, "main", tmp_path)
     assert "--threshold" not in call
 
 
