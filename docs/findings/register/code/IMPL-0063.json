@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0063",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "docs/spec/work/spec-feedback-ST-0433.md:5",
+  "story": "ST-0433",
+  "finding": "The feature file now points to a symbol that no longer exists, and the spec-feedback report does not say so. The Scenario \"A project without a gates section runs no crap-score at the merge\" in docs/spec/features/crap-gate-setup.feature line 987 holds the reference @packages/factory/scripts/premerge-check::DEFAULT_GATES. ST-0433 deletes DEFAULT_GATES, as its Outputs require, so the reference names nothing. No linter checks these references, so the gap shows up only when the reconciliation run or a reader follows it. The story may not edit the specification, so the drift belongs in the spec-feedback report. The smallest fix is one more row in docs/spec/work/spec-feedback-ST-0433.md: the artifact docs/spec/features/crap-gate-setup.feature, the drift that the reference names the removed DEFAULT_GATES and should name not_set_up_notice or SETUP_SKILLS, and the owner requirements-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code does what the Scenario requires, and the spec-feedback report exists (no to fails_purpose). The reference exists only on the feature branch, and no tool reads it. A reader who follows the reference finds no symbol and must search for the code that replaced it.",
+  "commit": "fa8588fec4cb8dbc155b6c235f1a2460faa35f6a",
+  "status": "resolved"
+}

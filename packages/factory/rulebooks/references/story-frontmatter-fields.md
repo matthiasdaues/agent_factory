@@ -22,7 +22,7 @@ The test guardrails that apply to this story: `crap-score` and `mutation-testing
 `dependency-check` runs after every story, and `test-design-verify` runs when the story has a Test Design or Prior Tests section; neither needs a pick.
 The template defaults to `[]`; the planner fills it from the `gates` section of `testing.yaml` (enabled gates only). Prose-only stories keep the empty list.
 When the field is absent from an older story, `premerge-check` takes the enabled gates from the `gates` section of `docs/testing.yaml`.
-Without that section, it falls back to `crap-score` alone; no default runs `mutation-testing`.
+No default picks a gate. When neither the field nor an entry names a built-in gate, `premerge-check` runs none and prints one line that names each built-in gate without an entry and its setup skill: `setup-crap-score` for `crap-score` and `mutation-testing` for `mutation-testing`.
 `docs/charter/house-rules.md` is no gate source; a leftover `default_quality_gates` line there only prints a warning.
 If the story excludes a gate that is enabled in `testing.yaml`, justify the exclusion in the frontmatter's `notes` field.
 
