@@ -530,3 +530,120 @@ def test_cg_04_the_time_limit_covers_every_command_of_the_run(repo, stopped):
     while _alive(pid) and time.monotonic() < deadline:
         time.sleep(0.05)
     assert not _alive(pid)
+
+
+# --- CG-05-IT-01: the exceptions register on dev ----------------------------
+
+REGISTER = "docs/findings/exceptions.md"
+REASON = "Each branch handles one finding class"
+REGISTER_TEXT = f"""\
+# Exceptions
+
+## CRAP score
+
+| File | Function | Accepted score | Reason | Accepted by |
+| ---- | -------- | -------------- | ------ | ----------- |
+| `{FINDING_LINT}` | `tree_severity` | 9 | {REASON} | A. Example |
+"""
+NO_DEV_LINE = "crap-score: read no exceptions register, because no branch dev exists"
+
+
+def _commit_register(repo: Repo, branch: str, text: str = REGISTER_TEXT) -> None:
+    current = repo.git("symbolic-ref", "--short", "HEAD")
+    repo.git("checkout", "-q", branch)
+    repo.write(REGISTER, text)
+    repo.commit(f"register on {branch}")
+    repo.git("checkout", "-q", current)
+
+
+def _change_tree(repo: Repo) -> None:
+    repo.change(_finding_lint({15: "    x15 = 'changed'"}))
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_function_accepted_on_dev_passes_and_stays_visible(repo):
+    """Scenario: A function accepted on dev passes and stays visible."""
+    _commit_register(repo, "dev")
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert f"ACCEPTED {FINDING_LINT} tree_severity 9.00: {REASON}" in proc.stdout
+    assert repo.report() == [{**ROWS[0], "crap_score": 9.0, "pass_fail": "accepted"}]
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_raised_score_fails_again(repo):
+    """Scenario: A change that raises the score above the accepted score fails again."""
+    _commit_register(repo, "dev")
+    _change_tree(repo)
+    repo.plant([_row("tree_severity", 10, 30, complexity=10), ROWS[1]])
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 10.00" in proc.stdout
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_row_only_on_the_story_branch_has_no_effect(repo):
+    """Scenario: A row that exists only on the story branch does not change the verdict."""
+    repo.write(REGISTER, REGISTER_TEXT)
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert repo.report()[0]["pass_fail"] == "fail"
+    assert NO_DEV_LINE not in proc.stdout
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_dev_and_the_story_branch_with_different_rows_use_the_row_on_dev(repo):
+    _commit_register(repo, "dev", REGISTER_TEXT.replace("| 9 |", "| 8.5 |"))
+    repo.write(REGISTER, REGISTER_TEXT)
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_project_without_the_register_has_no_exceptions(repo):
+    """Scenario: A project without the exceptions register has no exceptions."""
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert {row["pass_fail"] for row in repo.report()} == {"fail"}
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_repository_without_dev_has_no_exceptions(repo):
+    """Scenario: A repository without a branch dev has no exceptions (DEC-13, DEC-25)."""
+    _commit_register(repo, "dev")
+    repo.git("merge", "-q", "--no-edit", "dev")
+    repo.git("branch", "-q", "-D", "dev")
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert NO_DEV_LINE in proc.stdout
+    assert repo.report()[0]["pass_fail"] == "fail"
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_linked_worktree_reads_the_register_from_dev(repo):
+    _commit_register(repo, "dev")
+    repo.git("checkout", "-q", TARGET)
+    worktree = repo.tmp / "worktree"
+    repo.git("worktree", "add", "-q", str(worktree), BRANCH)
+    repo.write(FINDING_LINT, _finding_lint({15: "    x15 = 'changed'"}), worktree)
+    repo.commit("change", cwd=worktree)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID, cwd=worktree)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert repo.report(root=worktree)[0]["pass_fail"] == "accepted"
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_broken_row_on_dev_exits_2_and_writes_no_report(repo):
+    """Scenario Outline: A broken exceptions-register row cannot measure, the score "nine"."""
+    _commit_register(repo, "dev", REGISTER_TEXT.replace("| 9 |", "| nine |"))
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "line 7" in proc.stderr
+    assert "nine" in proc.stderr
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()

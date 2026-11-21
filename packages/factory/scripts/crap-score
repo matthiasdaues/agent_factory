@@ -42,8 +42,16 @@ Score
   decimals, half up. A judged function passes when the rounded score is at
   or below the threshold.
 
+Exceptions
+  The table of the section `## CRAP score` of docs/findings/exceptions.md,
+  read from the branch dev through git. A function above the threshold gets
+  `accepted` when a row names its file and qualified name and its rounded
+  score is at or below the row's accepted score. The output names the
+  reason of each `accepted` row. Without a branch dev, the output says that
+  no register was read (BR-132).
+
 Exit codes
-  0  every judged function passes, also when none is judged
+  0  every judged function passes or is accepted, also when none is judged
   1  a judged function fails; the output names its file, function and score
   2  the gate cannot measure; the message names the cause, and no report is
      written
@@ -668,6 +676,126 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
     return end == max(above) or (bool(below) and start == min(below))
 
 
+# --- exceptions register ---------------------------------------------------
+
+REGISTER_PATH = "docs/findings/exceptions.md"
+REGISTER_BRANCH = "dev"
+REGISTER_SECTION = "## CRAP score"
+REGISTER_COLUMNS = ("File", "Function", "Accepted score", "Reason", "Accepted by")
+ACCEPTED_SCORE = re.compile(r"\d+(?:\.\d+)?")
+SEPARATOR_CELL = re.compile(r":?-+:?")
+NO_DEV_NOTICE = "crap-score: read no exceptions register, because no branch dev exists"
+
+
+@dataclass(frozen=True)
+class ExceptionRow:
+    """A row of the section `## CRAP score` of the exceptions register (BR-132)."""
+
+    file: str
+    function: str
+    accepted_score: Decimal
+    reason: str
+    accepted_by: str
+    line: int
+
+
+Exceptions = dict[tuple[str, str], ExceptionRow]
+
+
+def read_register(root: Path) -> tuple[Exceptions, str | None]:
+    """Read the exceptions register from the branch dev, never from the folder (BR-132, DEC-25).
+
+    Return the exceptions and the line to print. Without a branch dev, the
+    line says that no register was read (DEC-13). Without the file on dev,
+    there are no exceptions and no line.
+    """
+    probe = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{REGISTER_BRANCH}^{{commit}}"],
+        cwd=root, capture_output=True, text=True, check=False,
+    )
+    if probe.returncode != 0:
+        return {}, NO_DEV_NOTICE
+    listed = git(root, "ls-tree", "--full-tree", "--name-only", REGISTER_BRANCH, "--", REGISTER_PATH)
+    if not listed.strip():
+        return {}, None
+    return parse_register(git(root, "show", f"{REGISTER_BRANCH}:{REGISTER_PATH}")), None
+
+
+def parse_register(text: str) -> Exceptions:
+    """The rows of the first table under `## CRAP score`; a broken row raises GateError (BR-132, DEC-38)."""
+    table = _section_table(text.splitlines())
+    if not table:
+        return {}
+    (header_line, header), *rows = table
+    if _cells(header) != list(REGISTER_COLUMNS):
+        raise GateError(
+            f"{_register_at(header_line)}: the table of the section {REGISTER_SECTION} "
+            f"needs the columns {', '.join(REGISTER_COLUMNS)}"
+        )
+    exceptions: Exceptions = {}
+    for number, line in rows:
+        cells = _cells(line)
+        if all(SEPARATOR_CELL.fullmatch(cell) for cell in cells):
+            continue
+        row = _exception_row(number, cells)
+        key = (row.file, row.function)
+        if key in exceptions:
+            raise GateError(
+                f"{REGISTER_PATH} on {REGISTER_BRANCH}, lines {exceptions[key].line} and {number}: "
+                f"two rows name {row.function} of {row.file}"
+            )
+        exceptions[key] = row
+    return exceptions
+
+
+def _register_at(number: int) -> str:
+    return f"{REGISTER_PATH} on {REGISTER_BRANCH}, line {number}"
+
+
+def _section_table(lines: list[str]) -> list[tuple[int, str]]:
+    """The numbered lines of the first table in the section, up to the next heading of level 1 or 2."""
+    try:
+        start = [line.strip() for line in lines].index(REGISTER_SECTION)
+    except ValueError:
+        return []
+    table: list[tuple[int, str]] = []
+    for number, line in enumerate(lines[start + 1:], start=start + 2):
+        if re.match(r"#{1,2}\s", line):
+            break
+        if line.lstrip().startswith("|"):
+            table.append((number, line))
+        elif table:
+            break
+    return table
+
+
+def _cells(line: str) -> list[str]:
+    """The cells of a table line; an escaped pipe stays in its cell."""
+    inner = line.strip()
+    inner = inner[1:] if inner.startswith("|") else inner
+    inner = inner[:-1] if inner.endswith("|") and not inner.endswith("\\|") else inner
+    return [cell.strip().replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", inner)]
+
+
+def _unquoted(cell: str) -> str:
+    if len(cell) >= 2 and cell.startswith("`") and cell.endswith("`"):
+        return cell[1:-1].strip()
+    return cell
+
+
+def _exception_row(number: int, cells: list[str]) -> ExceptionRow:
+    where = _register_at(number)
+    if len(cells) != len(REGISTER_COLUMNS):
+        raise GateError(f"{where}: the row has {len(cells)} cells, and the table has {len(REGISTER_COLUMNS)} columns")
+    for column, cell in zip(REGISTER_COLUMNS, cells):
+        if not _unquoted(cell):
+            raise GateError(f"{where}: the row has an empty cell {column}")
+    file, function, score = (_unquoted(cell) for cell in cells[:3])
+    if not ACCEPTED_SCORE.fullmatch(score):
+        raise GateError(f"{where}: the accepted score {score!r} of {function} is no number")
+    return ExceptionRow(file, function, Decimal(score), cells[3], cells[4], number)
+
+
 # --- score -----------------------------------------------------------------
 
 
@@ -685,18 +813,29 @@ def rounded(score: Decimal | float) -> Decimal:
         return value.quantize(TWO_DECIMALS, rounding=ROUND_HALF_UP)
 
 
-def verdict(score: Decimal, threshold: Decimal) -> str:
-    """`pass` when the rounded score is at or below the threshold (DEC-14)."""
-    return "pass" if rounded(score) <= threshold else "fail"
+def verdict(score: Decimal, threshold: Decimal, exception: ExceptionRow | None = None) -> str:
+    """Judge the rounded score (DEC-14, BR-132).
+
+    `pass` at or below the threshold, also with a register row (DEC-24).
+    Above it, `accepted` when the rounded score is at or below the accepted
+    score of *exception*, else `fail`.
+    """
+    value = rounded(score)
+    if value <= threshold:
+        return "pass"
+    if exception is not None and value <= exception.accepted_score:
+        return "accepted"
+    return "fail"
 
 
-def report_row(row: dict, threshold: Decimal) -> dict:
+def report_row(row: dict, threshold: Decimal, exceptions: Exceptions | None = None) -> dict:
     if "parse_error" in row:
         return {"file": row["file"], "parse_error": row["parse_error"], "pass_fail": "fail"}
     score = rounded(crap_formula(row["complexity"], row["coverage_pct"]))
     result = {key: row[key] for key in FUNCTION_FIELDS}
     result["crap_score"] = float(score)
-    result["pass_fail"] = verdict(score, threshold)
+    exception = (exceptions or {}).get((row["file"], row["function"]))
+    result["pass_fail"] = verdict(score, threshold, exception)
     return result
 
 
@@ -739,10 +878,14 @@ def write_report(report_dir: Path, story_id: str, rows: list[dict]) -> Path:
     return path
 
 
-def _describe(row: dict) -> str:
+def _describe(row: dict, exceptions: Exceptions | None = None) -> str:
+    """One output line; an `accepted` row also names the reason of its register row (BR-132)."""
     if "parse_error" in row:
         return f"FAIL {row['file']}: parse error: {row['parse_error']}"
-    return f"{row['pass_fail'].upper()} {row['file']} {row['function']} {row['crap_score']:.2f}"
+    line = f"{row['pass_fail'].upper()} {row['file']} {row['function']} {row['crap_score']:.2f}"
+    if row["pass_fail"] == "accepted":
+        line += f": {(exceptions or {})[(row['file'], row['function'])].reason}"
+    return line
 
 
 # --- main ------------------------------------------------------------------
@@ -772,6 +915,7 @@ def main(argv: list[str] | None = None) -> int:
             settings = read_settings(root)
             changes = changed_lines(root, args.base) if args.base is not None else None
             rows = measure_all(settings, root)
+            exceptions, notice = read_register(root)
     except GateError as exc:
         print(f"crap-score: cannot measure: {exc}", file=sys.stderr)
         return 2
@@ -779,15 +923,18 @@ def main(argv: list[str] | None = None) -> int:
         name = signal.Signals(stop.signum).name
         print(f"crap-score: stopped by {name}; stopped the running command and wrote no report", file=sys.stderr)
         return 128 + stop.signum
-    results = [report_row(row, settings.threshold) for row in judged_rows(rows, changes)]
+    results = [report_row(row, settings.threshold, exceptions) for row in judged_rows(rows, changes)]
     report_dir = Path(args.report_dir) if args.report_dir else root / DEFAULT_REPORT_DIR
     path = write_report(report_dir, detect_story_id(args.story_id), results)
+    if notice:
+        print(notice)
     for row in results:
-        print(_describe(row))
+        print(_describe(row, exceptions))
     failed = sum(row["pass_fail"] == "fail" for row in results)
+    accepted = sum(row["pass_fail"] == "accepted" for row in results)
     print(
-        f"crap-score: judged {len(results)} functions, {failed} above the threshold "
-        f"{settings.threshold}; wrote {path}",
+        f"crap-score: judged {len(results)} functions, {failed} failed and {accepted} accepted "
+        f"above the threshold {settings.threshold}; wrote {path}",
         file=sys.stderr,
     )
     return 1 if failed else 0
