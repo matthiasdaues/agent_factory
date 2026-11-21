@@ -462,7 +462,7 @@ def _refusal(stdout: str) -> str:
     return "\n".join(lines[lines.index(CANNOT_MEASURE):])
 
 
-def _ready_yaml(marker: Path, enabled: bool) -> str:
+def _ready_yaml(marker: Path, enabled: bool, timeout: float = 10) -> str:
     """crap-score with the measure backend, a recorded license-check, and a suite marker."""
     return f"""\
 test_command: "touch {marker}"
@@ -470,7 +470,7 @@ gates:
   crap-score:
     enabled: {str(enabled).lower()}
     threshold: 8
-    timeout_minutes: 10
+    timeout_minutes: {timeout}
     measures:
       - name: backend
         files: "src/*"
@@ -483,7 +483,13 @@ gates:
 
 
 def _build_ready_repo(
-    tmp_path: Path, ready: str, *, enabled: bool = True, field: str = "", review: bool = True
+    tmp_path: Path,
+    ready: str,
+    *,
+    enabled: bool = True,
+    field: str = "",
+    review: bool = True,
+    timeout: float = 10,
 ) -> tuple[Path, dict[str, str], Path, Path]:
     """A story branch whose measure backend has the ready command *ready*.
 
@@ -491,8 +497,11 @@ def _build_ready_repo(
     the marker that the test suite writes.
     """
     marker = tmp_path / "suite-ran"
-    repo, env, log = _build_repo(tmp_path, _ready_yaml(marker, enabled), field)
-    _executable(repo / BACKEND_READY, ready.format(log=tmp_path / "ready.log"))
+    repo, env, log = _build_repo(tmp_path, _ready_yaml(marker, enabled, timeout), field)
+    _executable(
+        repo / BACKEND_READY,
+        ready.format(log=tmp_path / "ready.log", pidfile=tmp_path / "child.pid"),
+    )
     if not review:
         _git(repo, env, "rm", "-q", "-r", "docs/reviews")
     _git(repo, env, "add", "-A")
@@ -527,6 +536,54 @@ def test_cg_08_a_failed_ready_command_beside_a_failed_check_gives_exit_1(tmp_pat
     assert BACKEND_READY in proc.stdout
     assert not marker.exists()
     assert _called(log) == []
+
+
+# The ready command starts a child, records its PID, and outlives its time limit.
+READY_HANGS = '#!/bin/sh\nsleep 120 &\necho $! > "{pidfile}"\nsleep 120\n'
+
+
+def _gone(pid: int) -> bool:
+    """True when *pid* has ended; a zombie that waits for its reaper counts as ended."""
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except (OSError, IndexError):
+        return True
+    return state == "Z"
+
+
+@pytest.mark.spec("CG-08-IT-05")
+def test_cg_08_a_ready_command_past_its_time_limit_is_stopped_with_its_group(tmp_path):
+    """IMPL-0082: the time-out stops every process of the ready command, as crap-score does."""
+    # 0.05 minutes are 3 seconds, enough for the stub to start its child under load.
+    repo, env, log, marker = _build_ready_repo(tmp_path, READY_HANGS, timeout=0.05)
+    pidfile = tmp_path / "child.pid"
+    proc = _run(repo, env)
+    pid = int(pidfile.read_text()) if pidfile.exists() else None
+    try:
+        assert proc.returncode == 3, proc.stdout + proc.stderr
+        assert "ran out of timeout_minutes" in _refusal(proc.stdout)
+        assert pid is not None, "the ready stub must start its child before the time-out"
+        # The reaper may need a moment after the SIGTERM; wait up to 10 seconds.
+        for _ in range(100):
+            if _gone(pid):
+                break
+            subprocess.run(["sleep", "0.1"], check=True)
+        assert _gone(pid), "the child of the ready command must not outlive premerge-check"
+        assert not marker.exists()
+        assert _called(log) == []
+    finally:
+        if pid is not None and not _gone(pid):
+            os.kill(pid, 9)
+
+
+@pytest.mark.spec("CG-08-IT-05")
+def test_cg_08_only_the_measures_of_crap_score_have_ready_commands():
+    entries = {
+        "crap-score": {"measures": [{"name": "backend", "ready": BACKEND_READY}]},
+        "license-check": {"measures": [{"name": "other", "ready": "scripts/other-ready"}]},
+    }
+    found = pm.ready_commands(["license-check", "crap-score"], entries)
+    assert found == [("crap-score", "backend", BACKEND_READY)]
 
 
 @pytest.mark.spec("CG-08-IT-05")
@@ -633,6 +690,8 @@ def test_cg_08_the_dry_run_of_a_gate_that_cannot_measure_changes_no_entry(tmp_pa
     result = _lifecycle_dispatch(run["repo"], run["ledger"], "merge-story", STORY_ID, "--dry-run")
     assert result.returncode == 1, result.stdout + result.stderr
     assert CANNOT_MEASURE in result.stdout
+    assert f"merge-story would set {STORY_ID} blocked" in result.stderr
+    assert "no ledger entry changed" in result.stderr
     assert _entry(run).status.value == "dispatched"
 
 

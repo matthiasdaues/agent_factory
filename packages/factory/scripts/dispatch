@@ -2669,7 +2669,15 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
         if premerge_result.stderr:
             print(premerge_result.stderr, file=sys.stderr)
 
-        if premerge_result.returncode == PREMERGE_CANNOT_MEASURE and not args.dry_run:
+        if premerge_result.returncode == PREMERGE_CANNOT_MEASURE and args.dry_run:
+            print(
+                f"dry-run: a gate cannot measure {entry.branch}; without --dry-run, "
+                f"merge-story would set {entry.id} blocked with the reason "
+                f"'{GATE_CANNOT_MEASURE_REASON}'; no ledger entry changed",
+                file=sys.stderr,
+            )
+            return 1
+        if premerge_result.returncode == PREMERGE_CANNOT_MEASURE:
             return _block_gate_cannot_measure(ledger, ledger_path, entry)
 
         if premerge_result.returncode != 0:

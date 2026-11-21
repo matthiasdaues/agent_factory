@@ -145,8 +145,11 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
+import tempfile
+import time
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
@@ -1192,10 +1195,19 @@ def _ready_timeout(entry: dict) -> float | None:
     return float(minutes) * 60
 
 
+# Seconds between SIGTERM and SIGKILL of a timed-out ready command, as in crap-score.
+READY_STOP_GRACE = 5
+
+
 def ready_commands(gates: list[str], entries: dict[str, dict] | None) -> list[tuple[str, str, str]]:
-    """Return (gate, measure, command) for each `ready` command of the gates the merge runs."""
+    """Return (gate, measure, command) for each `ready` command of the gates the merge runs.
+
+    Only `crap-score` has measures, so only its entry is read (BR-136).
+    """
     found = []
     for gate in gates:
+        if gate != "crap-score":
+            continue
         entry = (entries or {}).get(gate) or {}
         measures = entry.get("measures")
         for measure in measures if isinstance(measures, list) else []:
@@ -1214,29 +1226,81 @@ def run_ready_commands(worktree: Path, gates: list[str]) -> tuple[str, str] | No
     entries, _ = gate_entries(worktree)
     for gate, measure, command in ready_commands(gates, entries):
         entry = (entries or {}).get(gate) or {}
+        label = f"the ready command of measure {measure} of gates.{gate}"
         try:
-            result = subprocess.run(
-                command, shell=True, cwd=worktree, env=_worktree_environment(),
-                capture_output=True, text=True, check=False,
-                timeout=_ready_timeout(entry),
-            )
+            code, message = _run_in_own_group(command, worktree, _ready_timeout(entry))
         except subprocess.TimeoutExpired:
-            return gate, (
-                f"the ready command of measure {measure} of gates.{gate} ran out of "
-                f"timeout_minutes: {command}"
-            )
+            return gate, f"{label} ran out of timeout_minutes: {command}"
         except OSError as exc:
-            return gate, (
-                f"cannot run the ready command of measure {measure} of gates.{gate}: "
-                f"{command}: {exc}"
-            )
-        if result.returncode != 0:
-            message = (result.stderr or result.stdout).strip() or "no message"
-            return gate, (
-                f"the ready command of measure {measure} of gates.{gate} exited "
-                f"{result.returncode}: {command}: {message}"
-            )
+            return gate, f"cannot run {label}: {command}: {exc}"
+        if code != 0:
+            return gate, f"{label} exited {code}: {command}: {message}"
     return None
+
+
+def _run_in_own_group(command: str, worktree: Path, timeout: float | None) -> tuple[int, str]:
+    """Run *command* through the shell in its own process group (IMPL-0082).
+
+    Return the exit code and the message of the command. At *timeout* the
+    whole group gets SIGTERM, then SIGKILL after READY_STOP_GRACE seconds,
+    as crap-score stops a command, and TimeoutExpired is raised. Output goes
+    to temporary files, so a process that keeps a pipe open cannot block
+    the wait.
+    """
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(
+            command, shell=True, cwd=worktree, env=_worktree_environment(),
+            stdout=out, stderr=err, start_new_session=True,
+        )
+        try:
+            code = proc.wait(timeout=timeout)
+        except BaseException:
+            _stop_group(proc)
+            raise
+        err.seek(0)
+        out.seek(0)
+        message = (
+            err.read().decode(errors="replace").strip()
+            or out.read().decode(errors="replace").strip()
+            or "no message"
+        )
+    return code, message
+
+
+def _signal_group(proc: subprocess.Popen, sig: int) -> None:
+    try:
+        os.killpg(proc.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _group_alive(proc: subprocess.Popen) -> bool:
+    try:
+        os.killpg(proc.pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _stop_group(proc: subprocess.Popen) -> None:
+    """Stop the command and every process of its group, as crap-score does.
+
+    SIGTERM first, then SIGKILL after the grace period. The grace period
+    lasts until every process of the group has ended, not only the shell.
+    SIGKILL goes to the group even when the shell has exited, because its
+    children may not have.
+    """
+    _signal_group(proc, signal.SIGTERM)
+    deadline = time.monotonic() + READY_STOP_GRACE
+    try:
+        proc.wait(timeout=READY_STOP_GRACE)
+        while _group_alive(proc) and time.monotonic() < deadline:
+            time.sleep(0.1)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        _signal_group(proc, signal.SIGKILL)
+        proc.wait()
 
 
 def check_story_gates(
@@ -1270,6 +1334,9 @@ def check_story_gates(
         line = f"PASS semantic-gates: {', '.join(gates)} passed for {story_id}"
     else:
         line = f"PASS semantic-gates: no gate applies to {story_id}"
+    # rerun_gate returns a message only for a gate that failed, and only
+    # crap-score returns one. So the gate that could not measure stands in
+    # failed_gates exactly once, and every other entry is a failed check.
     others_passed = len(failed_gates) == (0 if unmeasured is None else 1)
     return [(others_passed, line), check_test_suite(worktree, story_id)], unmeasured
 
@@ -1463,7 +1530,7 @@ def main(argv: list[str] | None = None) -> int:
         print(message)
         print(
             f"premerge-check: CANNOT MEASURE — do not merge {args.branch!r}; "
-            "the story stops as blocked until the gate can measure"
+            "dispatch merge-story sets the story blocked until the gate can measure"
         )
         return 3
 

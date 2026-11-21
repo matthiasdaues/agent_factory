@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The code exists only on the story branch, so it is not in use. BR-136 sets no time limit for a ready command, so the merge still stops with exit 3 as required (no to fails_purpose). After a time-out, the User must find and stop the leftover processes of a half-started stack by hand before resume-gates, because those processes can keep a port or a container of the shared service busy for the next run.",
   "commit": "0efcf5053ea231287ca7675278db606c2e742e87",
-  "status": "open"
+  "status": "resolved"
 }
