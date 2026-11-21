@@ -1093,7 +1093,7 @@ def _stdlib_load(text: str) -> dict[str, Any]:
     mappings (``- key: val`` with continuation lines), inline ``[]``
     and ``{}``, flow sequences of scalars (``[a, "b"]``), block scalars
     (``|`` and ``>`` with ``-`` or ``+`` chomping), and scalars (null,
-    bool, int, str).
+    bool, int, plain decimal such as ``0.05`` as float, str).
     """
     result: dict[str, Any] = {}
     # (indent, dict) — the dict that owns children at deeper indents
