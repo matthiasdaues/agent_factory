@@ -415,8 +415,8 @@ def measure_lock(measure: Measure, root: Path, clock: Clock) -> Iterator[None]:
         os.close(fd)
 
 
-def run_measure(measure: Measure, root: Path, clock: Clock) -> list[dict]:
-    """Run the `ready` command and the measuring command of *measure*; return its rows (BR-129)."""
+def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
+    """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129)."""
     with tempfile.TemporaryDirectory(prefix="crap-score-") as folder:
         output = Path(folder) / "rows.json"
         env = {**os.environ, "GATE_OUTPUT": str(output)}
@@ -430,30 +430,102 @@ def run_measure(measure: Measure, root: Path, clock: Clock) -> list[dict]:
             raise GateError(f"measure {measure.name} wrote no rows to GATE_OUTPUT: {exc}") from exc
         except ValueError as exc:
             raise GateError(f"measure {measure.name} wrote no JSON to GATE_OUTPUT: {exc}") from exc
-    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
-        raise GateError(f"measure {measure.name} wrote no JSON array of rows to GATE_OUTPUT")
     return rows
 
 
 def kept_rows(measure: Measure, rows: list[dict]) -> list[dict]:
     """The rows whose file matches `files` and no `exclude` pattern (BR-131, DEC-10)."""
-    kept = []
-    for row in rows:
-        path = row.get("file")
-        if not isinstance(path, str) or not path:
-            raise GateError(f"measure {measure.name} wrote a row without the field file")
-        if glob_match(measure.files, path) and not any(glob_match(p, path) for p in measure.exclude):
-            kept.append(row)
-    return kept
+    return [
+        row for row in rows
+        if glob_match(measure.files, row["file"])
+        and not any(glob_match(p, row["file"]) for p in measure.exclude)
+    ]
 
 
-def _check_row(measure: Measure, row: dict) -> None:
-    """Refuse a row that the judging cannot read, so no traceback gives exit 1."""
-    if "parse_error" in row:
-        return
+def check_report(measure: Measure, report: object) -> list[dict]:
+    """Refuse a report in the wrong shape before any row is filtered or judged (BR-130, DEC-42).
+
+    Every row must be a parse error row or a function row of
+    schemas/measure-output-rows.json, and a function row must not start below
+    its last line. The message names the measure and the field.
+    """
+    if not isinstance(report, list):
+        raise GateError(f"measure {measure.name} wrote no JSON array of rows to GATE_OUTPUT")
+    for position, row in enumerate(report, start=1):
+        if not isinstance(row, dict):
+            raise GateError(f"measure {measure.name} wrote row {position}, which is no JSON object")
+        problem = _parse_error_problem(row) if "parse_error" in row else _function_problem(row)
+        if problem:
+            raise GateError(f"measure {measure.name} wrote row {position} {problem}")
+    return report
+
+
+def _parse_error_problem(row: dict) -> str | None:
+    for key in ("file", "parse_error"):
+        if not _text(row.get(key)):
+            return f"with a field parse_error and without a non-empty text in the field {key}"
+    return None
+
+
+def _function_problem(row: dict) -> str | None:
+    """Name what breaks the function row of the schema, or None."""
     for key in FUNCTION_FIELDS:
         if key not in row:
-            raise GateError(f"measure {measure.name} wrote a row of {row['file']} without the field {key}")
+            return f"{_where(row)}without the field {key}"
+    for key in ("file", "function"):
+        if not _text(row[key]):
+            return f"{_where(row)}with {key} {row[key]!r}, which is no non-empty text"
+    for key in ("start_line", "end_line", "complexity"):
+        if not _whole(row[key]) or row[key] < 1:
+            return f"{_where(row)}with {key} {row[key]!r}, which is no whole number of 1 or more"
+    coverage = row["coverage_pct"]
+    if not _number_value(coverage) or not 0 <= coverage <= 100:
+        return f"{_where(row)}with coverage_pct {coverage!r}, which is no number from 0 to 100"
+    if row["start_line"] > row["end_line"]:
+        return (
+            f"{_where(row)}with start_line {row['start_line']} above end_line {row['end_line']}"
+        )
+    return None
+
+
+def _where(row: dict) -> str:
+    """The file and the function of a row, as far as the row names them as text."""
+    parts = [str(row[key]) for key in ("file", "function") if _text(row.get(key))]
+    return f"for {' '.join(parts)} " if parts else ""
+
+
+def _text(value: object) -> bool:
+    return isinstance(value, str) and bool(value)
+
+
+def _number_value(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _whole(value: object) -> bool:
+    """A JSON integer of draft-07: also a number such as 12.0."""
+    return _number_value(value) and float(value).is_integer()
+
+
+def check_duplicates(measure: Measure, rows: list[dict], owners: dict[tuple[str, str], str]) -> None:
+    """Refuse one function twice among the kept rows (BR-130, DEC-11, DEC-12, DEC-29).
+
+    *owners* maps each (file, function) that an earlier measure kept to that
+    measure; the pairs of *measure* are added to it.
+    """
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        if "parse_error" in row:
+            continue
+        pair = (row["file"], row["function"])
+        if pair in seen:
+            raise GateError(f"measure {measure.name} reports {row['function']} of {row['file']} twice")
+        if pair in owners:
+            raise GateError(
+                f"measures {owners[pair]} and {measure.name} both report {row['function']} of {row['file']}"
+            )
+        seen.add(pair)
+    owners.update(dict.fromkeys(seen, measure.name))
 
 
 # --- changed functions -----------------------------------------------------
@@ -564,6 +636,8 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
 
     A deletion that lies in no function and between two functions touches
     the nearest function above and the nearest function below (DEC-15, DEC-37).
+    A deletion below the last function touches the last function, and a
+    deletion above the first function touches none (DEC-51).
     """
     if start <= after < end:
         return True
@@ -571,9 +645,9 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
         return False
     above = [r["end_line"] for r in siblings if r["end_line"] <= after]
     below = [r["start_line"] for r in siblings if r["start_line"] > after]
-    if not above or not below:
+    if not above:
         return False
-    return end == max(above) or start == min(below)
+    return end == max(above) or (bool(below) and start == min(below))
 
 
 # --- score -----------------------------------------------------------------
@@ -658,10 +732,10 @@ def measure_all(settings: Settings, root: Path) -> list[dict]:
     """Run every measure in list order within one time limit; return the kept rows."""
     clock = Clock(settings.timeout_minutes)
     kept: list[dict] = []
+    owners: dict[tuple[str, str], str] = {}
     for measure in settings.measures:
-        rows = kept_rows(measure, run_measure(measure, root, clock))
-        for row in rows:
-            _check_row(measure, row)
+        rows = kept_rows(measure, check_report(measure, run_measure(measure, root, clock)))
+        check_duplicates(measure, rows, owners)
         kept.extend(rows)
     return kept
 
