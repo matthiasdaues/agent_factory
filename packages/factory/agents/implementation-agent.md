@@ -257,16 +257,19 @@ The gate list has three parts (BR-066). `premerge-check` requires a passing resu
 
 1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's `notes` field.
 2. **The `gates` section of `testing.yaml`** (at `docs/testing.yaml`) — fallback when the story field is absent (older stories written before the planner filled this field). Each gate with `enabled: true` runs.
-3. **Factory default** — if neither declares gates, run `crap-score` alone (fail-closed). No default runs `mutation-testing`, because its command lives only in the `gates` section.
 
-Gate-specific parameters (e.g. `threshold` for `crap-score`) are read from `testing.yaml` at execution time. `docs/charter/house-rules.md` is no gate source; when it still has `default_quality_gates`, `premerge-check` prints a warning that names the file.
+No default picks a gate. When neither source names a test guardrail, that guardrail does not run.
+
+**Refusal before any gate runs.** Before the first gate runs, compare the story's `quality-gates` field with `docs/testing.yaml`. When the field names `crap-score` and `docs/testing.yaml` has neither the entry `gates.crap-score` nor the old key `crap_score` under `gates`, refuse the story and run no gate. The old key counts as the entry (BR-055). The refusal names `crap-score` and the skill `setup-crap-score`, which sets the gate up (DEC-21). Report the refusal to the User, because a developer agent cannot fix the missing setup. The story stays `dispatched`: the refusal is a failed check, not a gate that cannot measure. `premerge-check` refuses the same story with exit `1`. Once the User has run `setup-crap-score`, run the gate-check step again.
+
+Gate-specific parameters are read from `testing.yaml` at execution time. `crap-score` reads its own settings from `gates.crap-score`. `docs/charter/house-rules.md` is no gate source; when it still has `default_quality_gates`, `premerge-check` prints a warning that names the file.
 
 #### Gate execution
 
-For each gate in the resolved list, call its CLI script directly from the story's worktree. The dispatcher passes gate-specific parameters from `testing.yaml` to each script:
+For each gate in the resolved list, call its CLI script directly from `<gate-folder>`: the story's worktree in an orchestrated run, and the primary checkout with the story branch checked out in a run by hand. Pass each script the arguments below. `crap-score` takes no setting as an argument, because it reads its threshold and its measures from `gates.crap-score` itself:
 
 ```
-.agent-factory/factory/scripts/crap-score         <source-files> --story-id <story-id> --threshold <gates.crap-score.threshold> --report-dir <invocation-worktree>/.current-work/crap-score
+.agent-factory/factory/scripts/crap-score         --base <feature-branch> --story-id <story-id> --report-dir <gate-folder>/.current-work/crap-score
 .agent-factory/factory/scripts/dependency-check   <source-files> --story-id <story-id> --report-dir <invocation-worktree>/.current-work/dependency-check
 .agent-factory/factory/scripts/test-design-verify <story-file>   --story-id <story-id> --report-dir <invocation-worktree>/.current-work/test-design-verify
 .agent-factory/factory/scripts/mutation-testing                  --story-id <story-id> --report-dir <invocation-worktree>/.current-work/mutation-testing
@@ -274,9 +277,9 @@ For each gate in the resolved list, call its CLI script directly from the story'
 
 The four gates are `crap-score`, `mutation-testing`, `test-design-verify`, and `dependency-check`. The `mutation-testing` script runs the command in `gates.mutation-testing.command` from the story's worktree. Run it in the background (`run_in_background: true`), because a foreground Bash call ends after 10 minutes. Wait for its exit notice. The script enforces `gates.mutation-testing.timeout_minutes`, 30 when unset: at the limit it stops the command and its process group and writes a failing result. Set no limit of your own. Without a command, the gate fails and names the test-strategy agent.
 
-The `crap-score` script receives the `threshold` value from `testing.yaml`'s `gates.crap-score.threshold`. If no threshold is configured, the script falls back to its hardcoded default. The `test-design-verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
+Start `crap-score` as a background job (`run_in_background: true`) and wait for its exit notice, because a foreground Bash call can end before `gates.crap-score.timeout_minutes` runs out. Read the verdict only from the exit code of that job (BR-134). `crap-score` judges the functions changed since the merge base of `--base`. At the merge, `premerge-check` runs the same call with `--base <target>` (BR-136). The `test-design-verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 
-Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome.
+Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome. `crap-score` is the exception: its report lies under `<gate-folder>`, and its exit code alone is the verdict.
 
 #### Surviving mutants
 
