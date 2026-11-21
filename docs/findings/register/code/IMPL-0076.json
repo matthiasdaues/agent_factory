@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The script exists only on the feature branch, so it is not in use. Every proof that runs to its end checks the measure, cleans up, and keeps the branches, and DEC-46 removes a worktree left by a stopped run on the next run (no to fails_purpose). A stopped proof leaves test processes, possibly against a Compose stack, that the User must find and end by hand.",
   "commit": "049aa6e9cd4f897293bbad60b92c73159f87074c",
-  "status": "open"
+  "status": "resolved"
 }

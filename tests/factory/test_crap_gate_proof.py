@@ -17,9 +17,11 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -124,10 +126,19 @@ with open(os.environ["PROOF_LOG"], "a") as log:
         "stub": git("show", "HEAD:scripts/crap-measure-python"),
     }}) + "\\n")
 
+if MODE == "slow":
+    # Starts a child and waits for it, so a test can stop the proof meanwhile.
+    child = subprocess.Popen(["sleep", "120"])
+    Path(os.environ["PROOF_CHILD"]).write_text(str(child.pid))
+    child.wait()
+if MODE == "never-rows":
+    sys.exit(0)
 # The faulty stub "other-folder" takes coverage from the primary checkout.
 coverage_root = Path(os.environ["PROOF_PRIMARY"]) if MODE == "other-folder" else here
 tested = (coverage_root / "packages/factory/tests/test_proof_plant.py").exists()
 gap = (here / "packages/factory/tests/test_proof_gap.py").exists()
+if gap and MODE == "gap-no-rows":
+    sys.exit(0)
 if gap and MODE != "hides-gap":
     print("the test run failed: test_proof_gap.py", file=sys.stderr)
     sys.exit(1)
@@ -166,6 +177,7 @@ class Repo:
         self.env.update(
             HOME=str(home), GIT_CONFIG_NOSYSTEM="1", PROOF_LOG=str(self.log),
             PROOF_PRIMARY=str(self.root), PROOF_COUNTER=str(tmp_path / "counter"),
+            PROOF_CHILD=str(tmp_path / "child.pid"),
         )
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.email", "fixture@example.com")
@@ -205,6 +217,23 @@ class Repo:
             cwd=self.root, env=env or self.env, capture_output=True, text=True, check=False,
             timeout=600,
         )
+
+    def start_proof(self, **kwargs) -> subprocess.Popen[str]:
+        return subprocess.Popen(
+            [sys.executable, str(SCRIPT), "--measure", "python", "--plant", PLANT_DIR],
+            cwd=self.root, env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            **kwargs,
+        )
+
+    def wait_for_child(self, proof: subprocess.Popen[str]) -> int:
+        """Wait until the slow stub has started its child; return the child's pid."""
+        path = Path(self.env["PROOF_CHILD"])
+        deadline = time.monotonic() + 120
+        while not (path.exists() and path.read_text()):
+            assert proof.poll() is None, proof.communicate()
+            assert time.monotonic() < deadline, "the slow stub did not start its child"
+            time.sleep(0.05)
+        return int(path.read_text())
 
     def starts(self) -> list[dict]:
         if not self.log.exists():
@@ -249,8 +278,12 @@ def test_cg_02_the_proof_passes_an_honest_measuring_command(tmp_path: Path) -> N
         ("full", "Catches CRAP"),
         ("other-folder", "Sees the folder"),
         ("hides-gap", "Reports a gap"),
+        ("gap-no-rows", "Reports a gap"),
     ],
-    ids=["different rows", "full coverage", "coverage of another folder", "hidden failed test run"],
+    ids=[
+        "different rows", "full coverage", "coverage of another folder", "hidden failed test run",
+        "exit 2 for another cause",
+    ],
 )
 def test_cg_02_a_faulty_measuring_command_fails_exactly_its_check(tmp_path: Path, mode: str, check: str) -> None:
     """Scenario Outline: The proof fails for a measuring command that hides a fault."""
@@ -409,3 +442,118 @@ def test_cg_02_the_proof_of_one_measure_lists_only_that_measure(tmp_path: Path) 
     working["gates"]["crap-score"]["measures"] = working["gates"]["crap-score"]["measures"][:1]
     for start in repo.starts():
         assert yaml.safe_load(start["testing_yaml"]) == working
+
+
+def _alive(pid: int) -> bool:
+    """True while *pid* runs; a zombie that waits for init to reap it no longer runs."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    status = Path(f"/proc/{pid}/stat")
+    try:
+        return status.read_text().rsplit(")", 1)[-1].split()[0] != "Z"
+    except OSError:
+        return False
+
+
+@pytest.mark.spec("CG-02-IT-03")
+def test_cg_02_repeatable_fails_when_a_gate_run_writes_no_rows(tmp_path: Path) -> None:
+    """Two gate runs that both exit 2 without rows are no repeatable measurement."""
+    repo = Repo(tmp_path, "never-rows")
+
+    result = repo.proof()
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert check_lines(result.stdout)["Repeatable"] == "FAIL"
+    assert "wrote no rows" in result.stdout
+
+
+@pytest.mark.spec("CG-02-IT-07")
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGINT, signal.SIGHUP], ids=lambda s: s.name)
+def test_cg_02_a_stop_signal_stops_the_measuring_command_and_removes_the_worktree(
+    tmp_path: Path, sig: signal.Signals
+) -> None:
+    """IMPL-0076: a stopped proof stops crap-score and its command, then removes its worktree.
+
+    SIGINT goes to the process group of the proof, as Ctrl-C in a terminal does.
+    crap-score runs in its own group, so it gets the stop only through the proof.
+    """
+    repo = Repo(tmp_path, "slow")
+    worktrees = repo.git("worktree", "list", "--porcelain")
+    proof = repo.start_proof(start_new_session=True)
+    child = repo.wait_for_child(proof)
+
+    if sig == signal.SIGINT:
+        os.killpg(proof.pid, sig)
+    else:
+        proof.send_signal(sig)
+    _, err = proof.communicate(timeout=120)
+
+    assert proof.returncode == 128 + sig, err
+    assert sig.name in err
+    assert "Traceback" not in err
+    deadline = time.monotonic() + 30
+    while _alive(child) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not _alive(child)
+    assert repo.git("worktree", "list", "--porcelain") == worktrees
+    assert not (repo.root / WORKTREE).exists()
+
+
+@pytest.mark.spec("CG-02-IT-11")
+def test_cg_02_a_second_proof_is_refused_while_one_runs(tmp_path: Path) -> None:
+    """A second proof exits 2, names the lock, and leaves the worktree of the running proof alone."""
+    repo = Repo(tmp_path, "slow")
+    first = repo.start_proof()
+    repo.wait_for_child(first)
+
+    second = repo.proof()
+
+    assert second.returncode == 2, second.stdout + second.stderr
+    assert "worktree.lock" in second.stderr
+    assert second.stdout == ""
+    assert (repo.root / WORKTREE).is_dir()
+    first.terminate()
+    first.communicate(timeout=120)
+    assert not (repo.root / WORKTREE).exists()
+
+
+@pytest.mark.spec("CG-02-IT-07")
+def test_cg_02_the_proof_runs_no_hook_of_the_project(tmp_path: Path) -> None:
+    """IMPL-0077: failing post-checkout, prepare-commit-msg and post-commit hooks of the project do not run."""
+    repo = Repo(tmp_path)
+    marker = tmp_path / "hook-ran"
+    hooks = repo.root / ".git" / "hooks"
+    hooks.mkdir(exist_ok=True)
+    for hook in ("post-checkout", "prepare-commit-msg", "post-commit"):
+        (hooks / hook).write_text(f"#!/bin/sh\necho {hook} >> '{marker}'\nexit 1\n")
+        (hooks / hook).chmod(0o755)
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof()
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert check_lines(result.stdout) == dict.fromkeys(CHECKS, "PASS")
+    assert not marker.exists()
+    assert repo.git("worktree", "list", "--porcelain") == worktrees
+
+
+@pytest.mark.spec("CG-02-IT-07")
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a file without read permission")
+def test_cg_02_an_unreadable_plant_file_exits_2_and_removes_the_worktree(tmp_path: Path) -> None:
+    """An OSError of the proof exits 2 with a message, and the worktree is gone."""
+    repo = Repo(tmp_path)
+    worktrees = repo.git("worktree", "list", "--porcelain")
+    unreadable = repo.root / PLANT_DIR / "base" / PLANT_TEST
+    unreadable.chmod(0)
+    try:
+        result = repo.proof()
+    finally:
+        unreadable.chmod(0o644)
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "cannot run the proof" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert repo.git("worktree", "list", "--porcelain") == worktrees
+    assert not (repo.root / WORKTREE).exists()

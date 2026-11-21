@@ -334,7 +334,7 @@ def test_cg_04_a_stop_signal_while_the_command_starts_still_stops_it(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     outcome = json.loads(result.stdout.strip().splitlines()[-1])
-    assert outcome == {
-        "signum": int(signal.SIGTERM), "starts": 1, "returncode": outcome["returncode"], "group_gone": True,
-    }
+    assert outcome["signum"] == int(signal.SIGTERM)
+    assert outcome["starts"] == 1
     assert outcome["returncode"] is not None
+    assert outcome["group_gone"] is True

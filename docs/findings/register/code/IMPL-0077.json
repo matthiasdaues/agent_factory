@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The script exists only on the feature branch, so it is not in use. This repository installs only pre-commit and pre-push hooks, which the proof skips or never triggers, so the checks and the cleanup hold here and in every project without its own post-checkout hook (no to fails_purpose). A project with its own post-checkout or post-commit hook gets side effects or an exit 2 that the User must trace back to a hook, and the spec-feedback row misstates the behavior to its owner.",
   "commit": "049aa6e9cd4f897293bbad60b92c73159f87074c",
-  "status": "open"
+  "status": "resolved"
 }
