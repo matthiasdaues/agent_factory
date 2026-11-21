@@ -7,6 +7,7 @@ packages/factory/scripts/crap-score directly.
 
 from __future__ import annotations
 
+import sys
 from decimal import Decimal
 
 import pytest
@@ -60,6 +61,21 @@ def test_cg_04_the_score_rounds_half_up():
 )
 def test_cg_04_the_formula_at_its_ends(complexity, coverage, score):
     assert cs.rounded(cs.crap_formula(complexity, coverage)) == Decimal(score)
+
+
+@pytest.mark.spec("CG-04-CT-01")
+def test_cg_04_a_large_complexity_scores_exactly():
+    """Complexity 10**13 at 0 % scores 10**26 + 10**13, beyond 28 digits, without a traceback."""
+    assert cs.rounded(cs.crap_formula(10**13, 0)) == Decimal(10**26 + 10**13)
+
+
+@pytest.mark.spec("CG-04-CT-01")
+def test_cg_04_the_largest_values_of_the_shape_check_round_without_a_traceback():
+    """The largest complexity a float holds, with the smallest float coverage."""
+    complexity = int(sys.float_info.max)
+    score = cs.rounded(cs.crap_formula(complexity, 5e-324))
+    assert cs.verdict(score, Decimal(8)) == "fail"
+    assert score > Decimal(complexity) ** 2 * Decimal("0.99")
 
 
 @pytest.mark.spec("CG-04-CT-01")

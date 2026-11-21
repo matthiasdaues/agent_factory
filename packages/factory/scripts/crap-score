@@ -66,7 +66,7 @@ import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 from pathlib import Path
 from typing import Iterator
 
@@ -85,6 +85,10 @@ REQUIRED_MEASURE_FIELDS = ("name", "files", "command")
 FUNCTION_FIELDS = ("file", "function", "start_line", "end_line", "complexity", "coverage_pct")
 DEFAULT_REPORT_DIR = Path(".current-work") / "crap-score"
 TWO_DECIMALS = Decimal("0.01")
+# The shape check lets through a complexity of up to about 1.8e308 and any
+# float coverage, so the exact score has at most about 1,600 digits. With
+# 4,000 digits the formula stays exact and rounding never fails.
+SCORE_CONTEXT = Context(prec=4000)
 LOCK_FOLDER = "crap-score"
 LOCK_POLL_SECONDS = 0.05
 KILL_GRACE_SECONDS = 5
@@ -669,14 +673,16 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
 
 def crap_formula(complexity: int, coverage_pct: float) -> Decimal:
     """complexity^2 * (1 - coverage_pct/100)^3 + complexity, in exact decimals."""
-    uncovered = 1 - Decimal(str(coverage_pct)) / 100
-    return Decimal(complexity) ** 2 * uncovered**3 + Decimal(complexity)
+    with localcontext(SCORE_CONTEXT):
+        uncovered = 1 - Decimal(str(coverage_pct)) / 100
+        return Decimal(complexity) ** 2 * uncovered**3 + Decimal(complexity)
 
 
 def rounded(score: Decimal | float) -> Decimal:
     """The score rounded to two decimals, half up (DEC-36)."""
     value = score if isinstance(score, Decimal) else Decimal(str(score))
-    return value.quantize(TWO_DECIMALS, rounding=ROUND_HALF_UP)
+    with localcontext(SCORE_CONTEXT):
+        return value.quantize(TWO_DECIMALS, rounding=ROUND_HALF_UP)
 
 
 def verdict(score: Decimal, threshold: Decimal) -> str:
