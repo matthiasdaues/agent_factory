@@ -371,3 +371,47 @@ def test_cg_04_base_takes_a_branch_or_a_commit(repo, by_id):
     proc = repo.run("--base", base, "--story-id", STORY_ID)
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert _judged(repo) == ["tree_severity"]
+
+
+# --- CG-04-IT-01: the diff paths do not depend on git config or quoting ----
+
+
+def _new_file_is_judged(repo: Repo, relative: str) -> None:
+    """Commit a new file at *relative* and assert that its function is judged."""
+    repo.write(relative, _finding_lint())
+    repo.commit("new file")
+    repo.plant([{**_row("tree_severity", 10, 30), "file": relative}])
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert [row["file"] for row in repo.report()] == [relative]
+
+
+@pytest.mark.spec("CG-04-IT-01")
+def test_cg_04_diff_noprefix_in_the_git_config_still_judges_the_change(repo):
+    """IMPL-0069: diff.noprefix=true must not change the paths of the diff."""
+    repo.git("config", "diff.noprefix", "true")
+    repo.change(_finding_lint({15: "    x15 = 'changed'"}))
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert _judged(repo) == ["tree_severity"]
+
+
+@pytest.mark.spec("CG-04-IT-01")
+def test_cg_04_a_path_with_a_space_is_judged(repo):
+    """IMPL-0069: git ends a path with a space in a tab, which is no part of the path."""
+    _new_file_is_judged(repo, "packages/factory/scripts/my mod")
+
+
+@pytest.mark.spec("CG-04-IT-01")
+def test_cg_04_a_quoted_path_is_judged(repo):
+    """IMPL-0069: git quotes a path with a quote or a backslash, also with core.quotePath=false."""
+    _new_file_is_judged(repo, 'packages/factory/scripts/a"b\\c')
+
+
+@pytest.mark.spec("CG-04-IT-01")
+def test_cg_04_an_added_line_that_starts_with_two_pluses_is_no_file_header(repo):
+    """IMPL-0069: with --unified=0 the added line "++ x" reads "+++ x" in the diff."""
+    repo.change(_finding_lint({15: "++ x", 40: "    x40 = 'changed'"}))
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert _judged(repo) == ["tree_severity", "bug_bar_level"]

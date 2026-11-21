@@ -252,27 +252,69 @@ def changed_lines(root: Path, base: str) -> dict[str, FileChanges]:
     """The changes of the diff from the merge base of *base* and HEAD to HEAD (DEC-29, DEC-42)."""
     merge_base = git(root, "merge-base", base, "HEAD").strip()
     diff = git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-               "--no-ext-diff", merge_base, "HEAD")
+               "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", merge_base, "HEAD")
     return parse_diff(diff)
 
 
 def parse_diff(diff: str) -> dict[str, FileChanges]:
-    """Read the changed lines and the deletions of each file from a diff with --unified=0."""
+    """Read the changed lines and the deletions of each file from a diff with --unified=0.
+
+    A ``+++ `` line is a file header only between ``diff --git`` and the first
+    ``@@`` of that file, so an added line that starts with ``++ `` is no header.
+    """
     changes: dict[str, FileChanges] = {}
     current: FileChanges | None = None
+    in_header = False
     for line in diff.splitlines():
-        if line.startswith("+++ "):
-            target = line[4:]
-            current = None if target == "/dev/null" else changes.setdefault(target[2:], FileChanges())
+        if line.startswith("diff --git "):
+            in_header, current = True, None
+            continue
+        if in_header and line.startswith("+++ "):
+            target = _diff_path(line[4:])
+            current = None if target is None else changes.setdefault(target, FileChanges())
             continue
         match = HUNK.match(line)
-        if match and current is not None:
-            start, count = int(match.group(1)), int(match.group(2) or 1)
-            if count == 0:
-                current.deletions.append(start)
-            else:
-                current.lines.update(range(start, start + count))
+        if match:
+            in_header = False
+            if current is not None:
+                start, count = int(match.group(1)), int(match.group(2) or 1)
+                if count == 0:
+                    current.deletions.append(start)
+                else:
+                    current.lines.update(range(start, start + count))
     return changes
+
+
+def _diff_path(field: str) -> str | None:
+    """The path of a ``+++ `` field: no trailing tab, C quotes decoded, ``b/`` cut."""
+    if field.endswith("\t"):
+        field = field[:-1]
+    if field == "/dev/null":
+        return None
+    if field.startswith('"') and field.endswith('"'):
+        field = _unquote_c(field[1:-1])
+    return field[2:] if field.startswith("b/") else field
+
+
+C_ESCAPES = {"a": 7, "b": 8, "t": 9, "n": 10, "v": 11, "f": 12, "r": 13, '"': 34, "\\": 92}
+
+
+def _unquote_c(text: str) -> str:
+    """Decode the C quoting git gives a path, with octal escapes as UTF-8 bytes."""
+    out = bytearray()
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char != "\\":
+            out += char.encode()
+            index += 1
+        elif text[index + 1:index + 2] in C_ESCAPES:
+            out.append(C_ESCAPES[text[index + 1]])
+            index += 2
+        else:
+            out.append(int(text[index + 1:index + 4], 8))
+            index += 4
+    return out.decode(errors="surrogateescape")
 
 
 def judged_rows(rows: list[dict], changes: dict[str, FileChanges] | None) -> list[dict]:
