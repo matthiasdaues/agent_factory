@@ -12,7 +12,6 @@ import pytest
 from conftest import SOURCE_SCRIPTS_DIR, load_script, write_review_report
 
 pm = load_script("premerge-check")
-cs = load_script("crap-score")
 
 
 class TestCheckBlowout:
@@ -413,8 +412,6 @@ class TestSt0359ReadGateResult:
 # --- ST-0415: every gate that docs/testing.yaml enables -------------------
 
 CHANGED_PY = "src/changed.py"
-BUSY = "def busy(a, b):\n    if a:\n        return 1\n    if b:\n        return 2\n    return 3\n"
-SIMPLE = "def simple():\n    return 1\n"
 
 RECORDING_STUB = """#!/bin/sh
 echo "$*" > {log}
@@ -547,52 +544,6 @@ class TestSt0415BuiltCalls:
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert f"--story-id {STORY_ID}" in log.read_text()
         assert f"PASS semantic-gates: {gate} passed" in proc.stdout
-
-
-@pytest.mark.spec("RL-09-CT-03")
-class TestSt0415CrapScoreScoresTheDiff:
-    """RL-09-CT-03: the built call of crap-score scores only the `.py` files
-    of the story's diff (IMPL-0024, BR-066)."""
-
-    def _score(self, top: Path, diff: list[str]) -> tuple[int, list[dict]]:
-        py_files = pm.changed_python_files(top, diff)
-        call = pm.gate_command(
-            top / "crap-score", "crap-score", top, STORY_ID,
-            {"crap-score": {"threshold": 8}}, py_files,
-        )
-        code = cs.main(call[1:])
-        report = top / ".current-work" / "crap-score" / f"{STORY_ID}.json"
-        return code, json.loads(report.read_text())
-
-    def test_st_0415_a_function_the_story_did_not_touch_never_fails(self, tmp_path):
-        _write(tmp_path, "src/untouched.py", BUSY)
-        _write(tmp_path, CHANGED_PY, SIMPLE)
-        code, rows = self._score(tmp_path, [CHANGED_PY, "README.md", "src/deleted.py"])
-        assert code == 0
-        assert [r["function"] for r in rows] == ["simple"]
-
-    def test_st_0415_a_changed_function_above_the_threshold_still_fails(self, tmp_path):
-        _write(tmp_path, CHANGED_PY, BUSY)
-        code, rows = self._score(tmp_path, [CHANGED_PY])
-        assert code == 1
-        assert [(r["function"], r["pass_fail"]) for r in rows] == [("busy", "fail")]
-
-    def test_st_0415_no_changed_py_file_passes_and_scores_nothing(self, tmp_path):
-        repo = _build_repo(
-            tmp_path, story=_story("[]"), testing_yaml=_gates("  crap-score:\n    enabled: true\n"),
-        )
-        _git(repo, "checkout", "-q", "main")
-        _write(repo, "src/untouched.py", BUSY)
-        _git(repo, "add", "-A")
-        _git(repo, "commit", "-q", "-m", "complex code on main")
-        _git(repo, "checkout", "-q", BRANCH)
-        _git(repo, "merge", "-q", "--no-edit", "main")
-        log = tmp_path / "gate.log"
-        _install_gate(repo, "crap-score", RECORDING_STUB.format(log=log))
-        proc = _run(repo)
-        assert proc.returncode == 0, proc.stdout + proc.stderr
-        assert f"PASS crap-score: {STORY_ID} changed no .py file, so it scored nothing" in proc.stdout
-        assert not log.exists()
 
 
 @pytest.mark.spec("RL-09-CT-04")

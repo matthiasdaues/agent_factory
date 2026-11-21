@@ -1,0 +1,5 @@
+# Spec feedback of ST-0436
+
+| Artifact                        | Drift                                                                                                                                                                                                                    | Evidence                                                        | Owner                   | Status |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | ----------------------- | ------ |
+| `docs/spec/validation-rules.md` | BR-131 judges a deletion inside a function and a deletion between two functions, but no rule says how a deletion above the first or below the last function of a file is judged; `crap-score` judges no function for it. | `packages/factory/scripts/crap-score:300` (`_deletion_touches`) | `domain-modeling-agent` | `open` |
