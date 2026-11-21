@@ -850,3 +850,171 @@ class TestHelp:
         assert result.returncode == 0
         assert "DEC-42" in result.stdout
         assert "hides the field name" in result.stdout
+
+
+# -- ST-0441: only the stakeholder writes the exceptions register --------------
+
+EXCEPTIONS = "docs/findings/exceptions.md"
+
+EXCEPTIONS_TEXT = """\
+# Exceptions register
+
+## CRAP score
+
+| File                                    | Function        | Accepted score | Reason                                | Accepted by |
+| --------------------------------------- | --------------- | -------------- | ------------------------------------- | ----------- |
+| `packages/factory/scripts/finding-lint` | `tree_severity` | 9              | Each branch handles one finding class | A. Example  |
+"""
+
+EXCEPTIONS_PATCH = """\
+*** Begin Patch
+*** Update File: docs/findings/exceptions.md
+@@
+-| `packages/factory/scripts/finding-lint` | `tree_severity` | 9              | Each branch handles one finding class | A. Example  |
++| `packages/factory/scripts/finding-lint` | `tree_severity` | 12             | Each branch handles one finding class | A. Example  |
+*** End Patch
+"""
+
+NEW_ROW = "| `packages/factory/scripts/dispatch` | `cmd_init` | 15 | Many flags | agent |\n"
+
+SED_I = "sed -i 's/| 9 /| 12 /' docs/findings/exceptions.md"
+
+
+@pytest.fixture
+def register(project: Path) -> Path:
+    """The project with the exceptions register of ST-0440's Demo Data."""
+    (project / EXCEPTIONS).write_text(EXCEPTIONS_TEXT)
+    return project
+
+
+def claude_call(project: Path, tool: str, args: dict) -> subprocess.CompletedProcess:
+    return run_guard(project, tool, args)
+
+
+def codex_call(project: Path, tool: str, args: dict) -> subprocess.CompletedProcess:
+    """A Codex PreToolUse payload; a shell command arrives as a list of words."""
+    if tool == "Bash":
+        args = {"command": ["bash", "-lc", args["command"]]}
+    return run_guard(project, tool, args)
+
+
+def pi_call(project: Path, tool: str, args: dict) -> subprocess.CompletedProcess:
+    return run_payload(project, {"cwd": str(project), "toolName": tool, "input": args})
+
+
+def register_calls(project: Path) -> dict[str, tuple]:
+    """Each write into the register, as (sender, tool name, arguments)."""
+    path = path_of(project, EXCEPTIONS)
+    row = "| 9              |"
+    return {
+        "claude-write": (claude_call, "Write", {"file_path": path, "content": EXCEPTIONS_TEXT + NEW_ROW}),
+        "claude-edit": (claude_call, "Edit", {"file_path": path, "old_string": row, "new_string": "| 12             |"}),
+        "claude-multiedit": (claude_call, "MultiEdit", {"file_path": path, "edits": [{"old_string": row, "new_string": "| 12 |"}]}),
+        "claude-redirect": (claude_call, "Bash", {"command": f"printf '%s' '{NEW_ROW.strip()}' >> {EXCEPTIONS}"}),
+        "claude-sed-i": (claude_call, "Bash", {"command": SED_I}),
+        "claude-tee": (claude_call, "Bash", {"command": f"echo row | tee -a {EXCEPTIONS}"}),
+        "claude-cp": (claude_call, "Bash", {"command": f"cp /tmp/prepared.md {EXCEPTIONS}"}),
+        "claude-cp-into-folder": (claude_call, "Bash", {"command": "cp /tmp/exceptions.md docs/findings/"}),
+        "claude-mv": (claude_call, "Bash", {"command": f"mv /tmp/prepared.md {EXCEPTIONS}"}),
+        "claude-cd-then-tee": (claude_call, "Bash", {"command": "cd docs/findings && tee exceptions.md < /tmp/x"}),
+        "codex-edit": (codex_call, "Edit", {"file_path": path, "old_string": row, "new_string": "| 12 |"}),
+        "codex-sed-i": (codex_call, "Bash", {"command": SED_I}),
+        "codex-redirect": (codex_call, "Bash", {"command": f"echo row > {EXCEPTIONS}"}),
+        "codex-patch": (codex_call, "apply_patch", {"command": EXCEPTIONS_PATCH}),
+        "copilot-edit": (copilot_call, "edit", {"path": path, "old_str": row, "new_str": "| 12 |"}),
+        "copilot-write-file": (copilot_call, "write_file", {"path": path, "content": EXCEPTIONS_TEXT + NEW_ROW}),
+        "copilot-sed-i": (copilot_call, "bash", {"command": SED_I}),
+        "copilot-patch": (copilot_call, "apply_patch", {"patch": EXCEPTIONS_PATCH}),
+        "pi-edit": (pi_call, "edit", {"path": path, "edits": [{"oldText": row, "newText": "| 12 |"}]}),
+        "pi-write": (pi_call, "write", {"path": path, "content": EXCEPTIONS_TEXT + NEW_ROW}),
+        "pi-sed-i": (pi_call, "bash", {"command": SED_I}),
+        "pi-patch": (pi_call, "apply_patch", {"patch": EXCEPTIONS_PATCH}),
+        "opencode-edit": (opencode_call, "edit", {"filePath": path, "oldString": row, "newString": "| 12 |"}),
+        "opencode-write": (opencode_call, "write", {"filePath": path, "content": EXCEPTIONS_TEXT + NEW_ROW}),
+        "opencode-sed-i": (opencode_call, "shell", {"command": SED_I}),
+        "opencode-patch": (opencode_call, "patch", {"patchText": EXCEPTIONS_PATCH}),
+        "opencode-execute": (opencode_call, "execute", {"code": f"await Bun.write('{EXCEPTIONS}', 'row')"}),
+        "opencode-unparsable-patch": (opencode_call, "patch", {"patchText": f"*** Begin Patch\n*** Update File: {EXCEPTIONS}\nrow\n"}),
+        # IMPL-0068: a removal drops every accepted row, so it is a write.
+        "claude-rm": (claude_call, "Bash", {"command": f"rm {EXCEPTIONS}"}),
+        "claude-rm-folder": (claude_call, "Bash", {"command": "rm -rf docs/findings"}),
+        "claude-mv-source": (claude_call, "Bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "claude-patch-delete": (claude_call, "apply_patch", {"patch": f"*** Begin Patch\n*** Delete File: {EXCEPTIONS}\n*** End Patch\n"}),
+        "codex-rm": (codex_call, "Bash", {"command": f"rm -f {EXCEPTIONS}"}),
+        "codex-mv-source": (codex_call, "Bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "copilot-rm": (copilot_call, "bash", {"command": f"rm {EXCEPTIONS}"}),
+        "copilot-mv-source": (copilot_call, "bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "pi-rm": (pi_call, "bash", {"command": f"rm {EXCEPTIONS}"}),
+        "pi-mv-source": (pi_call, "bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "opencode-rm": (opencode_call, "shell", {"command": f"rm {EXCEPTIONS}"}),
+        "opencode-mv-source": (opencode_call, "bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        # The long option with `=` is the same option as `-t DIR`.
+        "claude-cp-target-directory": (claude_call, "Bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "codex-cp-target-directory": (codex_call, "Bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "copilot-cp-target-directory": (copilot_call, "bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "pi-cp-target-directory": (pi_call, "bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "opencode-cp-target-directory": (opencode_call, "shell", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+    }
+
+
+REGISTER_CALLS = list(register_calls(Path("/")))
+
+
+class TestExceptionsRegister:
+    @pytest.mark.spec("CG-06-IT-01")
+    @pytest.mark.parametrize("call", REGISTER_CALLS)
+    def test_st_0441_every_agent_write_into_the_register_is_refused(self, register, call):
+        send, tool, args = register_calls(register)[call]
+
+        result = send(register, tool, args)
+
+        assert result.returncode == 2, result.stderr
+        assert EXCEPTIONS in result.stderr
+        assert "stakeholder" in result.stderr
+        assert (register / EXCEPTIONS).read_text() == EXCEPTIONS_TEXT
+
+    @pytest.mark.spec("CG-06-IT-01")
+    def test_st_0441_a_write_that_creates_the_register_is_refused(self, project):
+        result = run_guard(project, "Write", {
+            "file_path": path_of(project, EXCEPTIONS), "content": EXCEPTIONS_TEXT,
+        })
+
+        assert result.returncode == 2, result.stderr
+        assert not (project / EXCEPTIONS).exists()
+
+    @pytest.mark.spec("CG-06-IT-02")
+    @pytest.mark.parametrize("command", [
+        f"cat {EXCEPTIONS}",
+        f"grep tree_severity {EXCEPTIONS}",
+        f"cp {EXCEPTIONS} /tmp/exceptions-copy.md",
+        f"sed -n '1,5p' {EXCEPTIONS} > /tmp/head.md",
+    ])
+    def test_st_0441_an_agent_reads_the_register(self, register, command):
+        result = run_guard(register, "Bash", {"command": command})
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("CG-06-IT-02")
+    @pytest.mark.parametrize("command", [
+        "rm docs/findings/FAGAN-0042.md",
+        "mv docs/findings/FAGAN-0042.md /tmp/FAGAN-0042.md",
+        "rm -rf /tmp/scratch-folder",
+    ])
+    def test_impl_0068_a_removal_outside_the_register_passes(self, register, command):
+        result = run_guard(register, "Bash", {"command": command})
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("CG-06-IT-02")
+    @pytest.mark.parametrize("send, tool, key", [
+        (claude_call, "Write", "file_path"),
+        (copilot_call, "write_file", "path"),
+        (pi_call, "write", "path"),
+        (opencode_call, "write", "filePath"),
+    ])
+    def test_st_0441_a_new_finding_without_a_human_field_passes(self, register, send, tool, key):
+        text = FAGAN_0042.replace("FAGAN-0042", "BUG-0090")
+
+        result = send(register, tool, {key: path_of(register, "docs/findings/BUG-0090.md"), "content": text})
+
+        assert result.returncode == 0, result.stderr

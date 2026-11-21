@@ -282,21 +282,6 @@ class TestSt0359DemoFixtures:
         assert "WARN" in proc.stdout
         assert "docs/charter/house-rules.md" in proc.stdout
 
-    def test_st_0359_no_gates_requires_crap_and_skips_dependency_without_rules(
-        self, tmp_path
-    ):
-        repo = _build_repo(
-            tmp_path,
-            story=_story(None),
-            testing_yaml=None,
-            stubs={"crap-score": (CRAP_PASS, 0)},
-        )
-        proc = _run(repo)
-        assert proc.returncode == 0, proc.stdout + proc.stderr
-        assert "PASS semantic-gates: crap-score passed" in proc.stdout
-        assert f"SKIP dependency-check: {DEPENDENCY_RULES} does not exist" in proc.stdout
-        assert "mutation-testing" not in proc.stdout
-
     def test_st_0359_dependency_check_reruns_without_a_stored_result(self, tmp_path):
         repo = _build_repo(
             tmp_path,
@@ -337,14 +322,14 @@ class TestSt0359ResolveGates:
             ),
             (None, "", GATES_BOTH, ["crap-score", "mutation-testing"]),
             (None, "", GATES_MUTATION_ONLY, ["mutation-testing"]),
-            (None, "", NO_GATES, ["crap-score"]),
-            (None, "", None, ["crap-score"]),
+            (None, "", NO_GATES, []),
+            (None, "", None, []),
             (None, "", GATES_CRAP_ONLY, ["crap-score"]),
             (
                 None,
                 PRIOR_TESTS_BODY,
                 None,
-                ["crap-score", "test-design-verify"],
+                ["test-design-verify"],
             ),
             ("[]", "", GATES_BOTH, ["crap-score", "mutation-testing"]),
             ("[]", "", None, []),
