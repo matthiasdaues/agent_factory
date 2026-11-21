@@ -559,13 +559,14 @@ def check_duplicates(measure: Measure, rows: list[dict], owners: dict[tuple[str,
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
-def git(root: Path, *args: str) -> str:
+def git(root: Path, *args: str, errors: str = "strict") -> str:
+    """Run git and decode its output as UTF-8; *errors* is the decoder's error handler."""
     proc = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
     if proc.returncode != 0:
         stderr = proc.stderr.decode("utf-8", errors="replace").strip()
         raise GateError(f"git {' '.join(args)} failed: {stderr}")
     try:
-        return proc.stdout.decode("utf-8")
+        return proc.stdout.decode("utf-8", errors=errors)
     except UnicodeDecodeError as error:
         raise GateError(f"git {' '.join(args)} printed text that is not UTF-8: {error}") from None
 
@@ -574,7 +575,8 @@ def changed_lines(root: Path, base: str) -> dict[str, FileChanges]:
     """The changes of the diff from the merge base of *base* and HEAD to HEAD (DEC-29, DEC-42)."""
     merge_base = git(root, "merge-base", base, "HEAD").strip()
     diff = git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-               "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", merge_base, "HEAD")
+               "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", merge_base, "HEAD",
+               errors="surrogateescape")
     return parse_diff(diff)
 
 

@@ -410,6 +410,17 @@ def test_cg_04_a_quoted_path_is_judged(repo):
 
 
 @pytest.mark.spec("CG-04-IT-01")
+def test_cg_04_a_changed_latin_1_source_file_is_judged(repo):
+    """A changed line that is not UTF-8 does not stop the diff (ST-0440)."""
+    text = _finding_lint({15: "    x15 = 'Gr\xfcnde'"})
+    (repo.root / FINDING_LINT).write_bytes(text.encode("latin-1"))
+    repo.commit("change in Latin-1")
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert repo.report() == [{**ROWS[0], "crap_score": 9.0, "pass_fail": "fail"}]
+
+@pytest.mark.spec("CG-04-IT-01")
 def test_cg_04_an_added_line_that_starts_with_two_pluses_is_no_file_header(repo):
     """IMPL-0069: with --unified=0 the added line "++ x" reads "+++ x" in the diff."""
     repo.change(_finding_lint({15: "++ x", 40: "    x40 = 'changed'"}))
