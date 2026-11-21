@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0077",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "interface",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/gate-setup-proof:60-250",
+  "story": "ST-0446",
+  "finding": "The proof runs some of the project's git hooks in its worktree, although the comment above COMMIT_CONFIG and the third row of docs/spec/work/spec-feedback-ST-0446.md say that it runs none. The lines are COMMIT_CONFIG at 60-66, commit at 113-115, and git worktree add at 250. The option --no-verify skips only pre-commit and commit-msg. git worktree add still runs post-checkout, and each commit still runs prepare-commit-msg and post-commit. The review installed the three hooks in a scratch repository of the proof tests: all three ran with the proof worktree as their folder. A failing post-checkout hook makes git worktree add exit non-zero after it has created the worktree. That call lies before the try in run_checks, so the proof exits 2 with an empty git message and leaves .current-work/gate-setup-proof/worktree registered. The scratch test showed both. The spec-feedback row would carry the wrong statement into the interface contract, so the domain-modeling agent would record a promise that the code does not keep. Fix: in gate-setup-proof, pass -c core.hooksPath=/dev/null to git worktree add and to both commits, so no hook of the project runs, and move git worktree add into the try, so its failure also removes the worktree. Add a test with a failing post-checkout hook that asserts the four checks run and git worktree list is as before.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The script exists only on the feature branch, so it is not in use. This repository installs only pre-commit and pre-push hooks, which the proof skips or never triggers, so the checks and the cleanup hold here and in every project without its own post-checkout hook (no to fails_purpose). A project with its own post-checkout or post-commit hook gets side effects or an exit 2 that the User must trace back to a hook, and the spec-feedback row misstates the behavior to its owner.",
+  "commit": "049aa6e9cd4f897293bbad60b92c73159f87074c",
+  "status": "resolved"
+}

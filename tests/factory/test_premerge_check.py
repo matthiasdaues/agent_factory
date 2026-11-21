@@ -89,6 +89,11 @@ gates:
   crap_score:
     enabled: true
     threshold: 30
+    timeout_minutes: 10
+    measures:
+      - name: python
+        files: "src/*.py"
+        command: "scripts/crap-measure-python"
   mutation_testing:
     enabled: false
 """
@@ -333,12 +338,6 @@ class TestSt0359ResolveGates:
             ("[]", "", GATES_BOTH, ["crap-score", "mutation-testing"]),
             ("[]", "", None, []),
             ("[mutation-testing]", "", GATES_CRAP_ONLY, ["crap-score", "mutation-testing"]),
-            (
-                "[crap-score, mutation-testing, dependency-check]",
-                "",
-                None,
-                ["crap-score", "mutation-testing"],
-            ),
         ],
     )
     def test_st_0359_gate_list(self, tmp_path, field, body, testing_yaml, expected):
@@ -348,6 +347,23 @@ class TestSt0359ResolveGates:
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == expected
         assert warnings == []
+
+    def test_st_0434_a_field_with_crap_score_without_a_file_is_refused(self, tmp_path):
+        """The field names crap-score without an entry, so the gate is refused and
+        names setup-crap-score; mutation-testing needs no entry (DEC-21)."""
+        _write(
+            tmp_path,
+            f"backlog/{STORY_ID}.md",
+            _story("[crap-score, mutation-testing, dependency-check]"),
+        )
+        gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
+        assert gates == ["crap-score", "mutation-testing"]
+        assert warnings == []
+        entries, _ = pm.gate_entries(tmp_path)
+        refusal = pm.gate_refusal("crap-score", entries)
+        assert refusal is not None
+        assert "setup-crap-score" in refusal
+        assert pm.gate_refusal("mutation-testing", entries) is None
 
     @pytest.mark.parametrize(("field", "expected"), [
         ("[crap-score]", ["crap-score", "dependency-check"]),
@@ -501,27 +517,12 @@ class TestSt0415QualityGatesThatCannotRun:
 @pytest.mark.spec("RL-09-CT-03")
 class TestSt0415BuiltCalls:
     """RL-09-CT-03: premerge-check builds the calls of crap-score and
-    mutation-testing (BR-066, RL-G17)."""
-
-    def test_st_0415_the_built_call_of_crap_score(self, tmp_path):
-        script = tmp_path / "crap-score"
-        call = pm.gate_command(script, "crap-score", tmp_path, STORY_ID, {"crap-score": {"threshold": 8}})
-        assert call == [
-            str(script),
-            "--source-root", str(tmp_path),
-            "--story-id", STORY_ID,
-            "--report-dir", str(tmp_path / ".current-work" / "crap-score"),
-            "--threshold", "8",
-            "--",
-        ]
-
-    def test_st_0415_the_built_call_of_crap_score_without_a_threshold(self, tmp_path):
-        call = pm.gate_command(tmp_path / "crap-score", "crap-score", tmp_path, STORY_ID, {})
-        assert "--threshold" not in call
+    mutation-testing (BR-066, RL-G17). CG-08-CT-01 in
+    test_crap_gate_premerge.py owns the call of crap-score."""
 
     def test_st_0415_the_built_call_of_mutation_testing(self, tmp_path):
         script = tmp_path / "mutation-testing"
-        call = pm.gate_command(script, "mutation-testing", tmp_path, STORY_ID, {})
+        call = pm.gate_command(script, "mutation-testing", tmp_path, STORY_ID, "main", tmp_path)
         assert call == [
             str(script),
             "--story-id", STORY_ID,
@@ -557,7 +558,8 @@ def test_st_0415_premerge_check_reads_the_old_key_crap_score(tmp_path):
     _install_gate(repo, "crap-score", RECORDING_STUB.format(log=log))
     proc = _run(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "--threshold 8" in log.read_text()
+    assert f"--story-id {STORY_ID}" in log.read_text()
+    assert "PASS semantic-gates: crap-score passed" in proc.stdout
     assert (repo / "docs" / "testing.yaml").read_text() == testing_yaml
     assert subprocess.run(
         ["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True, check=True
@@ -579,9 +581,9 @@ def test_st_0415_with_both_keys_the_key_with_hyphens_wins_with_a_warning(tmp_pat
     assert gates == ["crap-score"]
     assert len(warnings) == 1
     assert "gates.crap_score" in warnings[0]
-    entries, _ = pm.gate_entries(tmp_path)
-    call = pm.gate_command(tmp_path / "crap-score", "crap-score", tmp_path, STORY_ID, entries)
-    assert call[-3:] == ["--threshold", "8", "--"]
+    # The choice of the threshold moves to crap-score (CG-04-CT-05).
+    call = pm.gate_command(tmp_path / "crap-score", "crap-score", tmp_path, STORY_ID, "main", tmp_path)
+    assert "--threshold" not in call
 
 
 @pytest.mark.spec("RL-09-CT-05")

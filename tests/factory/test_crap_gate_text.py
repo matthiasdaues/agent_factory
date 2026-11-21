@@ -156,3 +156,61 @@ def test_cg_12_the_architecture_names_exit_code_2_of_crap_score() -> None:
     assert "It exits `2` when it cannot measure" in adr
     rows = [line for line in ARC42_5.read_text().splitlines() if line.startswith("| **crap-score**")]
     assert any("2 (cannot measure)" in row for row in rows)
+
+
+IMPLEMENTATION_AGENT = REPO_ROOT / "packages" / "factory" / "agents" / "implementation-agent.md"
+STORY_TEMPLATE = REPO_ROOT / "packages" / "factory" / "rulebooks" / "templates" / "story.md"
+DEFAULT_OF_CRAP_SCORE = re.compile(
+    r"default[^.\n]*crap-score[^.\n]*alone|crap-score` alone|crap-score alone", re.IGNORECASE
+)
+
+
+def _section(text: str, heading: str) -> str:
+    """Return the body of the Markdown section *heading* up to the next heading of its level."""
+    match = re.search(rf"^(#+) {re.escape(heading)}\s*$", text, re.MULTILINE)
+    assert match, f"{heading} is missing"
+    level = len(match.group(1))
+    rest = text[match.end():]
+    end = re.search(rf"^#{{1,{level}}} ", rest, re.MULTILINE)
+    return rest[: end.start()] if end else rest
+
+
+@pytest.mark.spec("CG-11-LN-01")
+def test_cg_11_the_gate_check_step_refuses_crap_score_without_an_entry() -> None:
+    """Scenario Outline: A story that names crap-score before the setup is refused,
+    row the gate-check step."""
+    step = _section(IMPLEMENTATION_AGENT.read_text(), "Gate-Check Step")
+    paragraphs = [p for p in step.split("\n\n") if "setup-crap-score" in p]
+    assert paragraphs, "the gate-check step does not name setup-crap-score"
+    assert any(
+        "refuse the story" in p
+        and "`gates.crap-score`" in p
+        and "`crap_score`" in p
+        and "BR-055" in p
+        for p in paragraphs
+    ), paragraphs
+
+
+@pytest.mark.spec("CG-11-LN-01")
+@pytest.mark.parametrize("path", [IMPLEMENTATION_AGENT, STORY_TEMPLATE], ids=["agent", "template"])
+def test_cg_11_no_file_names_a_default_that_runs_crap_score_alone(path) -> None:
+    """Scenario: The story template and the implementation agent name no default gate."""
+    assert not DEFAULT_OF_CRAP_SCORE.search(path.read_text()), path
+
+
+@pytest.mark.spec("CG-04-LN-01")
+def test_cg_04_the_gate_check_step_runs_crap_score_as_a_background_job() -> None:
+    """Scenario: The implementation agent runs crap-score as a background job, and
+    Scenario Outline: The gate-check step runs crap-score in the folder of the story."""
+    step = _section(IMPLEMENTATION_AGENT.read_text(), "Gate-Check Step")
+    calls = [line for line in step.splitlines() if "scripts/crap-score " in line]
+    assert len(calls) == 1, calls
+    assert "--base <feature-branch>" in calls[0]
+    assert "--report-dir" in calls[0]
+    assert ".current-work/crap-score" in calls[0]
+    assert "--threshold" not in calls[0]
+    paragraphs = [p for p in step.split("\n\n") if "`crap-score`" in p and "background job" in p]
+    assert any(
+        "exit code" in p and "only" in p and "BR-134" in p for p in paragraphs
+    ), paragraphs
+    assert "hardcoded default" not in step
