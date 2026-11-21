@@ -230,6 +230,7 @@ def test_cg_07_the_gate_check_step_blocks_a_story_when_crap_score_exits_two() ->
     assert "no attempt" in flat
     assert "Do not run `mark-failed`" in flat
     assert "gate `crap-score`" in flat
-    assert "message" in flat
+    assert "quote the message that `crap-score` printed" in flat
+    assert "Quote it unchanged" in flat
     assert "keeps its attempts" in flat
     assert "branch" in flat

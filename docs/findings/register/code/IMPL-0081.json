@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The test exists only on the story branch, so it is not in use. The agent text states the rule, and the owned contract has a test that fails when step 3 or the gate name goes (no to fails_purpose). A later edit that drops the quote rule passes the test, and a reviewer must find the regression by reading.",
   "commit": "1d7ea364f3e37b4025592155743988f1e197298d",
-  "status": "open"
+  "status": "resolved"
 }

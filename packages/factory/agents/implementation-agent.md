@@ -285,7 +285,7 @@ Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-n
 
 `crap-score` exits `2` when it cannot measure the code. Nobody judged the code, so no developer agent can fix it (DEC-03). The exit code alone decides this (BR-134). On exit `2`, do the following and nothing else:
 
-1. Run `.agent-factory/factory/scripts/dispatch mark-blocked <story-id> --reason "gate cannot measure: crap-score"`. The reason is this exact text. BR-116 counts it as the fourth cause of `blocked`.
+1. Run `.agent-factory/factory/scripts/dispatch mark-blocked <story-id> --reason "gate cannot measure: crap-score"`. The reason is this exact text. BR-116 says that a gate that cannot measure stops a story as `blocked`.
 2. Record no attempt. Do not run `mark-failed`. Then spawn no developer agent.
 3. Stop the story. In the stop, name the gate `crap-score` and quote the message that `crap-score` printed. The message names the cause, such as a stopped Compose stack. Quote it unchanged.
 

@@ -58,4 +58,6 @@ def test_cg_07_it_01_mark_blocked_keeps_the_attempts_and_the_branch(tmp_path, wa
     assert entry.attempts == before.attempts
     assert entry.branch == "story/ST-0350"
     assert _git(run["repo"], "rev-parse", "story/ST-0350") == head
+    if way == "orchestrated":
+        assert run["story"].is_dir(), "the story worktree must survive the block"
     assert lib.has_stopped(entry, lib.AttemptLimits())
