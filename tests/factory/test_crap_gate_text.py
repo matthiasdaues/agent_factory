@@ -214,3 +214,22 @@ def test_cg_04_the_gate_check_step_runs_crap_score_as_a_background_job() -> None
         "exit code" in p and "only" in p and "BR-134" in p for p in paragraphs
     ), paragraphs
     assert "hardcoded default" not in step
+
+
+@pytest.mark.spec("CG-07-LN-01")
+def test_cg_07_the_gate_check_step_blocks_a_story_when_crap_score_exits_two() -> None:
+    """Scenario Outline: Exit 2 in the gate-check step blocks the story."""
+    section = _section(IMPLEMENTATION_AGENT.read_text(), "Gate that cannot measure")
+    flat = " ".join(section.split())
+    assert (
+        'dispatch mark-blocked <story-id> --reason "gate cannot measure: crap-score"' in section
+    ), section
+    assert "exits `2`" in flat
+    assert "BR-134" in flat
+    assert "spawn no developer agent" in flat
+    assert "no attempt" in flat
+    assert "Do not run `mark-failed`" in flat
+    assert "gate `crap-score`" in flat
+    assert "message" in flat
+    assert "keeps its attempts" in flat
+    assert "branch" in flat
