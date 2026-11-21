@@ -534,3 +534,128 @@ def test_cg_04_one_name_in_two_files_is_no_duplicate(monkeypatch):
     other = "packages/server/backend/src/cli.py"
     rows = [_row("main", 1, 9, APP), _row("main", 1, 9, other)]
     assert _measure_all(monkeypatch, {"backend": rows}, BACKEND_ONLY) == rows
+
+
+# --- CG-05-CT-01: the register parser ----------------------------------------
+
+HEADER = (
+    "| File | Function | Accepted score | Reason | Accepted by |\n"
+    "| ---- | -------- | -------------- | ------ | ----------- |\n"
+)
+TREE_ROW = f"| `{FINDING_LINT}` | `tree_severity` | 9 | Each branch handles one finding class | A. Example |\n"
+
+
+def _register(rows: str, section: str = "## CRAP score") -> str:
+    return f"# Exceptions\n\n{section}\n\n{HEADER}{rows}\n## Mutation testing\n\nNo rows.\n"
+
+
+@pytest.mark.spec("CG-05-CT-01")
+def test_cg_05_a_row_names_the_function_its_score_and_its_reason():
+    exceptions = cs.parse_register(_register(TREE_ROW))
+    row = exceptions[(FINDING_LINT, "tree_severity")]
+    assert row.accepted_score == Decimal(9)
+    assert row.reason == "Each branch handles one finding class"
+    assert row.accepted_by == "A. Example"
+    assert list(exceptions) == [(FINDING_LINT, "tree_severity")]
+
+
+@pytest.mark.spec("CG-05-CT-01")
+def test_cg_05_the_parser_reads_only_the_section_for_the_crap_score():
+    """Scenario: crap-score reads only the section for the CRAP score."""
+    text = (
+        "# Exceptions\n\n## Mutation testing\n\n" + HEADER + TREE_ROW
+        + "\n## CRAP score\n\nNo function is accepted.\n"
+    )
+    assert cs.parse_register(text) == {}
+
+
+@pytest.mark.spec("CG-05-CT-01")
+def test_cg_05_a_register_without_the_section_has_no_exceptions():
+    assert cs.parse_register("# Exceptions\n\n## Mutation testing\n\n" + HEADER + TREE_ROW) == {}
+
+
+@pytest.mark.spec("CG-05-CT-01")
+@pytest.mark.parametrize(
+    ("row", "word"),
+    [
+        (f"| `{FINDING_LINT}` | `tree_severity` | 9 |  | A. Example |\n", "Reason"),
+        (f"| `{FINDING_LINT}` | `tree_severity` | nine | Old code | A. Example |\n", "nine"),
+        (f"| `{FINDING_LINT}` | `tree_severity` | 9 | Old code |\n", "cells"),
+    ],
+)
+def test_cg_05_a_broken_row_names_the_row(row, word):
+    """Scenario Outline: A broken exceptions-register row cannot measure."""
+    with pytest.raises(cs.GateError) as caught:
+        cs.parse_register(_register(row))
+    message = str(caught.value)
+    assert "line 7" in message
+    assert word in message
+    assert "docs/findings/exceptions.md" in message
+
+
+@pytest.mark.spec("CG-05-CT-01")
+def test_cg_05_two_rows_for_one_function_name_both_rows():
+    """Scenario: Two exceptions-register rows for one function cannot measure (DEC-38)."""
+    second = TREE_ROW.replace("| 9 |", "| 12 |")
+    with pytest.raises(cs.GateError) as caught:
+        cs.parse_register(_register(TREE_ROW + second))
+    message = str(caught.value)
+    for part in ("lines 7 and 8", FINDING_LINT, "tree_severity"):
+        assert part in message
+
+
+@pytest.mark.spec("CG-05-CT-01")
+def test_cg_05_a_table_with_other_columns_names_the_columns():
+    text = _register(TREE_ROW).replace("| Reason |", "| Why |")
+    with pytest.raises(cs.GateError, match="File, Function, Accepted score, Reason, Accepted by"):
+        cs.parse_register(text)
+
+
+# --- CG-05-CT-02: the accept rule --------------------------------------------
+
+
+def _accepted(score: str) -> cs.ExceptionRow:
+    return cs.ExceptionRow(FINDING_LINT, "tree_severity", Decimal(score), "Old code", "A. Example", 8)
+
+
+@pytest.mark.spec("CG-05-CT-02")
+@pytest.mark.parametrize(("score", "result"), [("9.004", "accepted"), ("9.006", "fail"), ("10", "fail")])
+def test_cg_05_the_rounded_score_is_compared_with_the_accepted_score(score, result):
+    """Scenario Outline: The gate compares the accepted score with the score rounded to two decimals."""
+    assert cs.verdict(Decimal(score), Decimal(8), _accepted("9")) == result
+
+
+@pytest.mark.spec("CG-05-CT-02")
+@pytest.mark.parametrize(("accepted", "result"), [("8.13", "accepted"), ("8.12", "fail")])
+def test_cg_05_the_rounding_rounds_half_up_against_the_accepted_score(accepted, result):
+    """Scenario Outline: The rounding rounds half up (DEC-36)."""
+    assert cs.verdict(cs.crap_formula(8, 87.5), Decimal(8), _accepted(accepted)) == result
+
+
+@pytest.mark.spec("CG-05-CT-02")
+def test_cg_05_a_row_names_a_method_by_its_qualified_name():
+    """Scenario: An exceptions-register row names a method by its qualified name (DEC-12)."""
+    parser = "packages/server/backend/src/orders/parser.py"
+    accepted = cs.ExceptionRow(parser, "Parser.parse", Decimal(12), "Old parser", "A. Example", 8)
+    exceptions = {(parser, "Parser.parse"): accepted}
+    rows = [_row(name, 1, 9, parser) | {"complexity": 12} for name in ("Parser.parse", "Lexer.parse")]
+    results = [cs.report_row(row, Decimal(8), exceptions) for row in rows]
+    assert [r["pass_fail"] for r in results] == ["accepted", "fail"]
+
+
+@pytest.mark.spec("CG-05-CT-02")
+def test_cg_05_a_function_at_or_below_the_threshold_passes_without_the_reason():
+    """Scenario: A function with an exceptions-register row that scores at or below the threshold passes."""
+    exceptions = {(FINDING_LINT, "tree_severity"): _accepted("9")}
+    result = cs.report_row(TREE | {"complexity": 8}, Decimal(8), exceptions)
+    assert result["pass_fail"] == "pass"
+    line = cs._describe(result, exceptions)
+    assert line == f"PASS {FINDING_LINT} tree_severity 8.00"
+
+
+@pytest.mark.spec("CG-05-CT-02")
+def test_cg_05_an_accepted_function_shows_its_score_and_reason():
+    exceptions = {(FINDING_LINT, "tree_severity"): _accepted("9")}
+    result = cs.report_row(TREE, Decimal(8), exceptions)
+    assert result == {**TREE, "crap_score": 9.0, "pass_fail": "accepted"}
+    assert cs._describe(result, exceptions) == f"ACCEPTED {FINDING_LINT} tree_severity 9.00: Old code"
