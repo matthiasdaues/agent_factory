@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0078",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/crap-score:445-468",
+  "story": "ST-0437",
+  "finding": "crap-score refuses with exit 2 a function row that the schema accepts. A measuring command that writes the six fields and also \"parse_error\": null gets the message \"measure python wrote row 1 with a field parse_error and without a non-empty text in the field parse_error\". The review ran check_report on such a row and checked the same row against docs/spec/schemas/measure-output-rows.json with jsonschema: the schema accepts it, because its anyOf matches the function row and allows extra keys. The cause is at line 457: check_report picks the parse error row by the presence of the key parse_error, not by its value. A tool that writes rows from a record type with an optional parse_error field, such as a dataclass or a pydantic model, writes exactly this row on every function. The behavior looks unintended: BR-130 names two shapes and the schema is the contract that the measuring command follows. Fix: decide in docs/spec/schemas/measure-output-rows.json or in crap-score which side wins. Either the function row of the schema forbids the key parse_error, or check_report treats a row whose parse_error is null as a function row and removes the key from that row, so the later checks of \"parse_error\" in row see a function row. Add a CG-04-CT-07 case for the row.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The script exists only on the feature branch, so it is not in use. No wrong verdict follows: the gate exits 2, writes no report, and the message names the measure and the field, so the person who sets up the gate can change the command (no to fails_purpose). That person must still find out why a row that passes the schema is refused, and a measuring command written against the schema alone needs a second change.",
+  "commit": "5de5ce43b37ccb99526d400b6cff6e09ed18b4c1",
+  "status": "open"
+}
