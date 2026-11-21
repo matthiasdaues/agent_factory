@@ -659,3 +659,76 @@ def test_cg_05_an_accepted_function_shows_its_score_and_reason():
     result = cs.report_row(TREE, Decimal(8), exceptions)
     assert result == {**TREE, "crap_score": 9.0, "pass_fail": "accepted"}
     assert cs._describe(result, exceptions) == f"ACCEPTED {FINDING_LINT} tree_severity 9.00: Old code"
+
+
+# --- CG-04-CT-11: the shape check covers rows that the filter drops (ST-0445) -
+
+
+@pytest.mark.spec("CG-04-CT-11")
+def test_cg_04_the_shape_check_covers_rows_that_the_filter_drops(monkeypatch):
+    """Scenario: The shape check covers rows that the filter drops (DEC-53)."""
+    row = _row("mount", 1, 20, "packages/server/frontend/src/main.ts")
+    del row["end_line"]
+    assert cs.kept_rows(BACKEND_ONLY, [row]) == []
+    with pytest.raises(cs.GateError) as caught:
+        _measure_all(monkeypatch, {"backend": [row]}, BACKEND_ONLY)
+    message = str(caught.value)
+    assert "backend" in message
+    assert "end_line" in message
+
+
+# --- CG-04-CT-12: a measure name or a ready value that cannot measure (ST-0445) -
+
+READY_MEASURE = (
+    "      - name: {name}\n"
+    "        files: \"packages/server/backend/**\"\n"
+    "        command: \"scripts/crap-measure-backend\"\n"
+    "        ready: {ready}\n"
+)
+
+
+@pytest.mark.spec("CG-04-CT-12")
+@pytest.mark.parametrize("name", ["../backend", "back end/x"])
+def test_cg_04_a_measure_name_that_is_no_safe_file_name_cannot_measure(tmp_path, name):
+    """Scenario Outline: A measure name that is no safe file name cannot measure (DEC-59)."""
+    measure = READY_MEASURE.format(name=f'"{name}"', ready='"scripts/crap-ready-backend"')
+    with pytest.raises(cs.GateError) as caught:
+        _settings(tmp_path, FULL.replace(MEASURE, measure))()
+    assert name in str(caught.value)
+
+
+@pytest.mark.spec("CG-04-CT-12")
+@pytest.mark.parametrize("ready", ['""', "5"], ids=["empty", "number"])
+def test_cg_04_a_ready_value_that_is_no_command_cannot_measure(tmp_path, ready):
+    """Scenario Outline: A wrong ready value cannot measure; the message names the measure and ready (BR-128)."""
+    measure = READY_MEASURE.format(name="backend", ready=ready)
+    with pytest.raises(cs.GateError) as caught:
+        _settings(tmp_path, FULL.replace(MEASURE, measure))()
+    message = str(caught.value)
+    assert "measure backend" in message
+    assert "ready" in message
+
+
+# --- CG-05-CT-03: only the first table counts, and the score is a plain decimal (ST-0445) -
+
+
+@pytest.mark.spec("CG-05-CT-03")
+def test_cg_05_only_the_first_table_under_the_crap_score_section_counts():
+    """Scenario: Only the first table under the CRAP score section counts (DEC-55)."""
+    second = TREE_ROW.replace("`tree_severity`", "`bug_bar_level`")
+    text = (
+        "# Exceptions\n\n## CRAP score\n\n" + HEADER + TREE_ROW
+        + "\nA second table follows.\n\n" + HEADER + second
+    )
+    assert list(cs.parse_register(text)) == [(FINDING_LINT, "tree_severity")]
+
+
+@pytest.mark.spec("CG-05-CT-03")
+@pytest.mark.parametrize("score", ["9e0", "+9"])
+def test_cg_05_an_accepted_score_that_is_no_plain_decimal_names_the_row(score):
+    """Scenario Outline: A broken exceptions-register row cannot measure, rows "9e0" and "+9" (DEC-55)."""
+    with pytest.raises(cs.GateError) as caught:
+        cs.parse_register(_register(TREE_ROW.replace("| 9 |", f"| {score} |")))
+    message = str(caught.value)
+    assert "line 7" in message
+    assert score in message

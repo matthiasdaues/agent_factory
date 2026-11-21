@@ -75,6 +75,8 @@ from dispatch_lib import (
     load_project_config,
     load_stories,
     next_tier,
+    ready_commands,
+    run_in_own_group,
     orphan_ledger_verdict,
     orphan_stash_name,
     parse_story_frontmatter,
@@ -293,6 +295,40 @@ def _read_attempt_limits(project_root: Path) -> AttemptLimits:
             raise ValueError(f"cannot parse {path}: {e}") from e
         return attempt_limits(data.get("gates") if isinstance(data, dict) else None)
     return AttemptLimits()
+
+
+def _ready_refusal(root: Path) -> str | None:
+    """Run every `ready` command of an enabled gate once, from *root* (BR-137, DEC-23).
+
+    Each command runs in its own process group under the gate's
+    `timeout_minutes`, and the whole group stops at the limit (DEC-61).
+    Return the refusal for the first command that fails or runs out of time, and None
+    when all pass. A docs/testing.yaml that cannot be parsed lists no command,
+    as for the test command; crap-score exits 2 on it in the gate run.
+    """
+    path = root / "docs" / "testing.yaml"
+    if not path.is_file():
+        return None
+    try:
+        data = _load_yaml(path.read_text())
+    except Exception:  # noqa: BLE001 - the test command reader warns about the file
+        return None
+    gates = data.get("gates") if isinstance(data, dict) else None
+    for gate, measure, command, limit in ready_commands(gates):
+        label = f"the ready command of measure {measure} of gates.{gate}"
+        try:
+            code, message = run_in_own_group(command, root, limit)
+        except subprocess.TimeoutExpired:
+            minutes = gates[gate]["timeout_minutes"]
+            return (
+                f"{label} ran out of timeout_minutes {minutes}: {command}; "
+                "stopped its process group, and no run started"
+            )
+        except OSError as e:
+            return f"cannot run {label}: {command}: {e}; no run started"
+        if code != 0:
+            return f"{label} exited {code}: {command}: {message}; no run started"
+    return None
 
 
 def _read_refuse_dirty_feature_worktree(project_root: Path) -> bool:
@@ -890,6 +926,12 @@ def cmd_init(args: argparse.Namespace) -> int:
         if code != 0:
             print(f"error: base branch '{base}' does not exist", file=sys.stderr)
             return 1
+
+    # The ready commands run before the first change to the repository (BR-137).
+    refusal = _ready_refusal(_main_worktree_root())
+    if refusal:
+        print(f"error: {refusal}", file=sys.stderr)
+        return 1
 
     if feature_branch:
         code, fb_sha, _ = _git("rev-parse", f"refs/heads/{feature_branch}")
