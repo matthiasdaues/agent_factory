@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0080",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/crap-score:562-566",
+  "story": "ST-0440",
+  "finding": "A register on dev that is not valid UTF-8 makes crap-score end with a UnicodeDecodeError traceback and exit 1, not with exit 2. The gate-check step reads exit 1 as a failing gate (BR-134), so the developer agent of the story gets a counted attempt for a fault in a file that only the stakeholder writes. The cause is the helper git() at line 562: it decodes the output of git show in text mode with the strict decoder, and read_register at line 721 now passes it a file that a person edits by hand, for example a Reason saved in Latin-1. The review checked the decoder with subprocess.run(..., text=True) on a file that holds the byte 0xE4: it raises UnicodeDecodeError. BR-133 gives exit 2 for every case in which the gate cannot measure, so the behavior looks unintended. Fix: in git(), catch UnicodeDecodeError and raise GateError with the git arguments, or run git with capture_output and decode stdout as UTF-8 inside a try. Add a CG-05-IT-01 case that commits a register with the byte 0xE4 on dev and asserts exit 2 and no report.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The script exists only on the feature branch, so it is not in use. The case needs a register that is not UTF-8, and the repository's editors and mdformat write UTF-8, so the required behavior holds for every register the project produces (no to fails_purpose). When the case happens, a story loses an attempt and a person must read a traceback to find the cause.",
+  "commit": "dac6857e8aee1c769aa399c65ac10414bed9a9e8",
+  "status": "open"
+}
