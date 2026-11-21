@@ -1,0 +1,281 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyyaml"]
+# ///
+"""gate-setup-proof — check that a measuring command of the CRAP gate reports true coverage.
+
+What: Runs crap-score on planted code in a temporary worktree and runs four
+      checks: Repeatable, Catches CRAP, Sees the folder, and Reports a gap
+      (BR-138, DEC-06).
+When: During the setup of the CRAP gate, before a person enables the gate.
+By:   the test-strategy agent through setup-crap-score, or a person.
+
+Call
+  gate-setup-proof --measure <name> --plant <folder>
+
+  It runs from the root of the project and reads gates.crap-score of
+  docs/testing.yaml in the working tree, also with enabled: false. The plant
+  folder holds base/ and gap/, each in the layout of the project.
+
+Worktree
+  A detached worktree at .current-work/gate-setup-proof/worktree of the
+  primary checkout, started from HEAD. A worktree that a crashed run left
+  there is removed first (DEC-46). The first commit holds docs/testing.yaml,
+  the files that the measure names as command and ready, as they are in the
+  working tree, and the files of base/. The second commit adds gap/
+  (DEC-30, DEC-32). The worktree is removed afterwards, and no branch moves.
+
+Gate runs
+  crap-score --base <start> --story-id proof-run-<n> --report-dir
+  <worktree>/.current-work/crap-score/, where <start> is HEAD. Runs 1 and 2
+  are on the first commit, run 3 is on the second commit.
+
+Exit codes
+  0  all four checks pass
+  1  a check fails; its line names the cause
+  2  the call is wrong or the proof cannot set up its worktree
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shlex
+import shutil
+import subprocess
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+import yaml
+
+TESTING_YAML = Path("docs") / "testing.yaml"
+GATE_KEY = "crap-score"
+WORKTREE = Path(".current-work") / "gate-setup-proof" / "worktree"
+REPORT_DIR = Path(".current-work") / "crap-score"
+CRAP_SCORE = Path(__file__).resolve().parent / "crap-score"
+UNTESTED = "proof_untested"
+TESTED = "proof_tested"
+# The proof's commits never run the project's hooks and need no identity of the User.
+COMMIT_CONFIG = (
+    "-c", "user.name=gate-setup-proof", "-c", "user.email=gate-setup-proof@localhost",
+    "-c", "commit.gpgsign=false",
+)
+
+
+class ProofError(Exception):
+    """The proof cannot run; exit 2 with this message."""
+
+
+@dataclass(frozen=True)
+class GateRun:
+    """One run of crap-score: its exit code, its report rows (None without a report), its message."""
+
+    code: int
+    rows: list[dict] | None
+    message: str
+
+
+@dataclass(frozen=True)
+class Check:
+    name: str
+    passed: bool
+    detail: str
+
+
+# --- git -------------------------------------------------------------------
+
+
+def git(cwd: Path, *args: str) -> str:
+    proc = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=False)
+    if proc.returncode != 0:
+        raise ProofError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
+    return proc.stdout.strip()
+
+
+def primary_checkout(root: Path) -> Path:
+    """The top folder of the primary checkout, also from a linked worktree."""
+    common = Path(git(root, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+    return common.parent if common.name == ".git" else root
+
+
+def remove_worktree(root: Path, path: Path) -> None:
+    """Remove the worktree at *path*, if any, and prune its record (BR-123, DEC-46)."""
+    subprocess.run(["git", "worktree", "remove", "--force", str(path)], cwd=root,
+                   capture_output=True, check=False)
+    subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True, check=False)
+    if path.exists():
+        shutil.rmtree(path)
+
+
+def commit(worktree: Path, paths: list[str], message: str) -> None:
+    git(worktree, "add", "--force", "--", *paths)
+    git(worktree, *COMMIT_CONFIG, "commit", "--quiet", "--no-verify", "--allow-empty", "-m", message)
+
+
+# --- settings and plant ----------------------------------------------------
+
+
+def read_measure(root: Path, name: str) -> tuple[str, dict]:
+    """Return the threshold and the measure *name* of gates.crap-score in the working tree."""
+    try:
+        data = yaml.safe_load((root / TESTING_YAML).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ProofError(f"cannot read {TESTING_YAML}: {exc}") from exc
+    gates = data.get("gates") if isinstance(data, dict) else None
+    entry = gates.get(GATE_KEY) if isinstance(gates, dict) else None
+    if not isinstance(entry, dict):
+        raise ProofError(f"{TESTING_YAML} has no entry gates.{GATE_KEY}")
+    for measure in entry.get("measures") or []:
+        if isinstance(measure, dict) and measure.get("name") == name:
+            return str(entry.get("threshold")), measure
+    raise ProofError(f"gates.{GATE_KEY} in {TESTING_YAML} lists no measure {name}")
+
+
+def setup_files(root: Path, measure: dict) -> list[str]:
+    """docs/testing.yaml and the files of the project that the command and ready of *measure* name."""
+    paths = [TESTING_YAML.as_posix()]
+    for key in ("command", "ready"):
+        value = measure.get(key)
+        if not isinstance(value, str):
+            continue
+        for word in shlex.split(value):
+            path = Path(word)
+            if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+                continue
+            if path.as_posix() not in paths:
+                paths.append(path.as_posix())
+    return paths
+
+
+def copy_files(source: Path, target: Path, paths: list[str]) -> None:
+    for relative in paths:
+        destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source / relative, destination)
+
+
+def plant_files(folder: Path) -> list[str]:
+    """The paths of the files below *folder*, relative to it."""
+    return sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file())
+
+
+# --- gate runs and checks --------------------------------------------------
+
+
+def run_gate(worktree: Path, start: str, number: int) -> GateRun:
+    story_id = f"proof-run-{number}"
+    report_dir = worktree / REPORT_DIR
+    proc = subprocess.run(
+        [sys.executable, str(CRAP_SCORE), "--base", start, "--story-id", story_id,
+         "--report-dir", str(report_dir)],
+        cwd=worktree, capture_output=True, text=True, check=False,
+    )
+    report = report_dir / f"{story_id}.json"
+    rows = json.loads(report.read_text(encoding="utf-8")) if proc.returncode in (0, 1) and report.is_file() else None
+    message = (proc.stderr.strip() or proc.stdout.strip()).splitlines()
+    return GateRun(proc.returncode, rows, message[-1] if message else "no message")
+
+
+def find_row(run: GateRun, name: str) -> dict | None:
+    for row in run.rows or []:
+        if row.get("function") == name:
+            return row
+    return None
+
+
+def check_repeatable(first: GateRun, second: GateRun) -> Check:
+    name = "Repeatable"
+    if first.code != second.code:
+        return Check(name, False, f"the two gate runs exited {first.code} and {second.code}")
+    if first.rows != second.rows:
+        return Check(name, False, "the two gate runs on one commit wrote different rows")
+    return Check(name, True, f"two gate runs on one commit exited {first.code} with the same rows")
+
+
+def check_catches_crap(run: GateRun, threshold: str) -> Check:
+    name = "Catches CRAP"
+    row = find_row(run, UNTESTED)
+    if run.code != 1:
+        return Check(name, False, f"the gate exited {run.code}, not 1: {run.message}")
+    if row is None:
+        return Check(name, False, f"the rows hold no function {UNTESTED}")
+    if row.get("pass_fail") != "fail":
+        return Check(name, False, f"{UNTESTED} scores {row.get('crap_score')} and passes the threshold {threshold}")
+    return Check(name, True, f"{UNTESTED} scores {row.get('crap_score')}, above the threshold {threshold}, and fails")
+
+
+def check_sees_the_folder(run: GateRun) -> Check:
+    name = "Sees the folder"
+    row = find_row(run, TESTED)
+    if row is None:
+        return Check(name, False, f"the rows hold no function {TESTED}")
+    if row.get("coverage_pct") != 100 or row.get("pass_fail") == "fail":
+        return Check(
+            name, False,
+            f"{TESTED} shows {row.get('coverage_pct')} % coverage and {row.get('pass_fail')}s, "
+            "so the coverage does not come from the test in the proof worktree",
+        )
+    return Check(name, True, f"{TESTED} shows 100 % coverage and passes")
+
+
+def check_reports_a_gap(run: GateRun) -> Check:
+    name = "Reports a gap"
+    if run.code != 2:
+        return Check(name, False, f"with the failing test of gap/, the gate exited {run.code}, not 2")
+    return Check(name, True, f"with the failing test of gap/, the gate exited 2: {run.message}")
+
+
+def run_checks(root: Path, measure_name: str, plant: Path) -> list[Check]:
+    threshold, measure = read_measure(root, measure_name)
+    base, gap = plant / "base", plant / "gap"
+    worktree = primary_checkout(root) / WORKTREE
+    start = git(root, "rev-parse", "HEAD")
+    remove_worktree(root, worktree)
+    worktree.parent.mkdir(parents=True, exist_ok=True)
+    git(root, "worktree", "add", "--detach", str(worktree), start)
+    try:
+        setup = setup_files(root, measure)
+        copy_files(root, worktree, setup)
+        base_files = plant_files(base)
+        copy_files(base, worktree, base_files)
+        commit(worktree, setup + base_files, "gate-setup-proof: setup files and base/")
+        first, second = run_gate(worktree, start, 1), run_gate(worktree, start, 2)
+        gap_files = plant_files(gap)
+        copy_files(gap, worktree, gap_files)
+        commit(worktree, gap_files, "gate-setup-proof: gap/")
+        third = run_gate(worktree, start, 3)
+    finally:
+        remove_worktree(root, worktree)
+    return [
+        check_repeatable(first, second),
+        check_catches_crap(first, threshold),
+        check_sees_the_folder(first),
+        check_reports_a_gap(third),
+    ]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="gate-setup-proof", description=__doc__.splitlines()[0])
+    parser.add_argument("--measure", required=True, help="the name of a measure under gates.crap-score.measures")
+    parser.add_argument("--plant", required=True, help="the folder with base/ and gap/")
+    args = parser.parse_args(argv)
+    try:
+        root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
+        checks = run_checks(root, args.measure, Path(args.plant).resolve())
+    except ProofError as exc:
+        print(f"gate-setup-proof: {exc}", file=sys.stderr)
+        return 2
+    for check in checks:
+        print(f"{'PASS' if check.passed else 'FAIL'} {check.name}: {check.detail}")
+    failed = [check.name for check in checks if not check.passed]
+    if failed:
+        print(f"gate-setup-proof: measure {args.measure} failed: {', '.join(failed)}", file=sys.stderr)
+        return 1
+    print(f"gate-setup-proof: measure {args.measure} passed all four checks", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
