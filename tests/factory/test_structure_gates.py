@@ -305,7 +305,7 @@ class TestChapterFiveComponents:
         assert any(c == "ARCH-CH5-EMPTY" for _, c, _ in rep.items)
 
     def test_repository_chapter_five_is_unchanged(self) -> None:
-        """BUG-0090: this repository's chapter 5 keeps its 75 components."""
+        """BUG-0090: this repository's chapter 5 keeps its 76 components."""
         ch5 = (REPO_ROOT / "docs" / "arc42" / "05_building_block_view.md").read_text()
         dsl = (REPO_ROOT / "docs" / "spec" / "architecture.dsl").read_text()
         assert len(al.ch5_core_components(ch5)) == 76
