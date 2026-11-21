@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The script exists only on the feature branch, so it is not in use. No wrong verdict follows: the gate exits 2, writes no report, and the message names the measure and the field, so the person who sets up the gate can change the command (no to fails_purpose). That person must still find out why a row that passes the schema is refused, and a measuring command written against the schema alone needs a second change.",
   "commit": "5de5ce43b37ccb99526d400b6cff6e09ed18b4c1",
-  "status": "open"
+  "status": "resolved"
 }

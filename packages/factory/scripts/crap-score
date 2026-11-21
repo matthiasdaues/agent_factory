@@ -434,7 +434,10 @@ def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
 
 
 def kept_rows(measure: Measure, rows: list[dict]) -> list[dict]:
-    """The rows whose file matches `files` and no `exclude` pattern (BR-131, DEC-10)."""
+    """The rows whose file matches `files` and no `exclude` pattern (BR-131, DEC-10).
+
+    It reads `file` without a check, so check_report must run on *rows* first.
+    """
     return [
         row for row in rows
         if glob_match(measure.files, row["file"])
@@ -447,23 +450,31 @@ def check_report(measure: Measure, report: object) -> list[dict]:
 
     Every row must be a parse error row or a function row of
     schemas/measure-output-rows.json, and a function row must not start below
-    its last line. The message names the measure and the field.
+    its last line. The message names the measure and the field. A row is a
+    parse error row only when `parse_error` holds a non-empty text. Any other
+    `parse_error` is cut from the row, so the later steps judge it as a
+    function row (IMPL-0078).
     """
     if not isinstance(report, list):
         raise GateError(f"measure {measure.name} wrote no JSON array of rows to GATE_OUTPUT")
+    checked = []
     for position, row in enumerate(report, start=1):
         if not isinstance(row, dict):
             raise GateError(f"measure {measure.name} wrote row {position}, which is no JSON object")
-        problem = _parse_error_problem(row) if "parse_error" in row else _function_problem(row)
+        if _text(row.get("parse_error")):
+            problem = _parse_error_problem(row)
+        else:
+            row = {key: value for key, value in row.items() if key != "parse_error"}
+            problem = _function_problem(row)
         if problem:
             raise GateError(f"measure {measure.name} wrote row {position} {problem}")
-    return report
+        checked.append(row)
+    return checked
 
 
 def _parse_error_problem(row: dict) -> str | None:
-    for key in ("file", "parse_error"):
-        if not _text(row.get(key)):
-            return f"with a field parse_error and without a non-empty text in the field {key}"
+    if not _text(row.get("file")):
+        return "with a field parse_error and without a non-empty text in the field file"
     return None
 
 
@@ -475,6 +486,9 @@ def _function_problem(row: dict) -> str | None:
     for key in ("file", "function"):
         if not _text(row[key]):
             return f"{_where(row)}with {key} {row[key]!r}, which is no non-empty text"
+    for key in ("start_line", "end_line", "complexity", "coverage_pct"):
+        if _number_value(row[key]) and abs(row[key]) > sys.float_info.max:
+            return f"{_where(row)}with {key} above {sys.float_info.max:g}, which is too large to compute with"
     for key in ("start_line", "end_line", "complexity"):
         if not _whole(row[key]) or row[key] < 1:
             return f"{_where(row)}with {key} {row[key]!r}, which is no whole number of 1 or more"

@@ -427,6 +427,25 @@ def test_cg_04_a_parse_error_row_in_the_wrong_shape_names_the_measure(row):
 
 
 @pytest.mark.spec("CG-04-CT-07")
+@pytest.mark.parametrize("value", [None, ""])
+def test_cg_04_a_function_row_with_an_empty_parse_error_is_a_function_row(value):
+    """IMPL-0078: the schema accepts the six fields with parse_error null, so the row is judged."""
+    rows = cs.check_report(PYTHON, [{**TREE, "parse_error": value}])
+    assert rows == [TREE]
+    judged = cs.judged_rows(rows, _changes(lines=[15]))
+    assert cs.report_row(judged[0], Decimal(8))["crap_score"] == 9.0
+
+
+@pytest.mark.spec("CG-04-CT-07")
+@pytest.mark.parametrize("key", ["start_line", "end_line", "complexity", "coverage_pct"])
+def test_cg_04_a_number_too_large_for_a_float_names_the_field(key):
+    """A JSON integer such as 10**400 gives exit 2 and no OverflowError traceback."""
+    row = {**TREE, key: 10**400}
+    with pytest.raises(cs.GateError, match=rf"measure python .*\b{key}\b"):
+        cs.check_report(PYTHON, [row])
+
+
+@pytest.mark.spec("CG-04-CT-07")
 def test_cg_04_a_wrong_shape_writes_no_report(tmp_path, monkeypatch, capsys):
     """BR-133: on exit 2 the earlier report stays and no new report appears."""
     settings = cs.Settings(Decimal(8), 10, (PYTHON,))
