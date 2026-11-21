@@ -98,12 +98,6 @@ def write_review_report(checkout: Path, story_id: str) -> Path:
 
 @pytest.fixture(autouse=True)
 def _scrub_git_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Remove GIT_* env vars leaked by pre-commit hooks, and COVERAGE_* vars.
-
-    A gate run measures this suite under coverage.py and sets COVERAGE_*
-    variables. A subprocess of a test, such as a real measuring command,
-    would inherit them and write its data into the gate's run. The variables
-    stay set at import, so the pytest workers of a gate run keep measuring.
-    """
-    for key in [k for k in os.environ if k.startswith(("GIT_", "COVERAGE_"))]:
+    """Remove GIT_* env vars leaked by pre-commit hooks."""
+    for key in [k for k in os.environ if k.startswith("GIT_")]:
         monkeypatch.delenv(key, raising=False)

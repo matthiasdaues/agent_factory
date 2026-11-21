@@ -93,7 +93,8 @@ def _write_project(root: Path) -> Path:
 
 
 def _run(root: Path) -> subprocess.CompletedProcess:
-    # The module fixture runs before the conftest fixture clears COVERAGE_*.
+    # A gate run of this suite sets COVERAGE_* variables. The real template
+    # would inherit them and write its data into that run, so strip them here.
     env = {k: v for k, v in os.environ.items() if not k.startswith("COVERAGE_")}
     env["GATE_OUTPUT"] = "rows.json"
     return subprocess.run(
