@@ -9,6 +9,7 @@ The run helpers come from the run-lifecycle tests, as in the other test_crap_gat
 from __future__ import annotations
 
 import stat
+import time
 from pathlib import Path
 
 import pytest
@@ -178,3 +179,49 @@ def test_cg_10_it_03_init_runs_no_ready_command_of_a_disabled_gate(run_repo):
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert not log.exists()
+
+
+HANGING_STUB = """\
+#!/bin/sh
+sleep 300 &
+echo $! > "{child}"
+sleep 300
+"""
+
+
+def _pid_alive(pid: int) -> bool:
+    """True while *pid* runs; a zombie that waits for its reaper counts as ended."""
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except (FileNotFoundError, IndexError):
+        return False
+    return state != "Z"
+
+
+@pytest.mark.spec("CG-10-IT-02")
+def test_cg_10_a_ready_command_past_the_limit_stops_its_group_and_leaves_nothing_behind(run_repo):
+    """DEC-61: init stops the whole process group of a ready command at timeout_minutes."""
+    _gate_with_ready(run_repo)
+    child = run_repo.parent / "child.pid"
+    testing = run_repo / "docs" / "testing.yaml"
+    # 0.05 minutes is 3 seconds: long enough for the stub to start its child under load.
+    testing.write_text(testing.read_text().replace("timeout_minutes: 10", "timeout_minutes: 0.05"))
+    stub = run_repo / READY
+    stub.write_text(HANGING_STUB.format(child=child))
+    _git(run_repo, "add", "-A")
+    _git(run_repo, "commit", "-qm", "a ready command that outlasts the limit")
+    worktrees = _git(run_repo, "worktree", "list")
+
+    result = _init(run_repo, "feature/login", "ST-0350", "--mode", "orchestrated")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "backend" in result.stderr
+    assert "timeout_minutes 0.05" in result.stderr
+    pid = int(child.read_text())
+    deadline = time.monotonic() + 10
+    while _pid_alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert not _pid_alive(pid), "the child of the ready command must stop with its group"
+    assert _git(run_repo, "branch", "--list", "feature/login") == ""
+    assert _git(run_repo, "worktree", "list") == worktrees
+    assert not _ledger_path(run_repo, "feature/login").exists()

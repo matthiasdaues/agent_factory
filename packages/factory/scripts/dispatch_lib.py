@@ -8,8 +8,12 @@ from __future__ import annotations
 import ast
 import fnmatch
 import json
+import os
 import re
+import signal
 import subprocess
+import tempfile
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -183,24 +187,100 @@ def attempt_limits(gates: Any) -> AttemptLimits:
     return AttemptLimits(**values)
 
 
-def ready_commands(gates: Any) -> list[tuple[str, str, str]]:
-    """List the `ready` commands that `dispatch init` runs (BR-137).
+def ready_commands(gates: Any) -> list[tuple[str, str, str, float | None]]:
+    """List the `ready` commands that `dispatch init` runs (BR-137, DEC-61).
 
-    Each item is the gate, the measure, and the command, in list order. Only
-    an entry with `enabled: true` counts. A measure without a `ready` string
-    runs nothing here; `crap-score` checks the shape of its measures (BR-128).
+    Each item is the gate, the measure, the command, and the time limit of
+    the gate in seconds, in list order. The limit is None when
+    `timeout_minutes` is no number. Only an entry with `enabled: true`
+    counts. A measure without a `ready` string runs nothing here;
+    `crap-score` checks the shape of its measures (BR-128).
     """
     section = gates if isinstance(gates, dict) else {}
     commands = []
     for gate, entry in section.items():
         if not isinstance(entry, dict) or entry.get("enabled") is not True:
             continue
+        minutes = entry.get("timeout_minutes")
+        limit = (
+            None if isinstance(minutes, bool) or not isinstance(minutes, (int, float))
+            else float(minutes) * 60
+        )
         measures = entry.get("measures")
         for measure in measures if isinstance(measures, list) else []:
             ready = measure.get("ready") if isinstance(measure, dict) else None
             if isinstance(ready, str) and ready:
-                commands.append((str(gate), str(measure.get("name")), ready))
+                commands.append((str(gate), str(measure.get("name")), ready, limit))
     return commands
+
+
+# Seconds between SIGTERM and SIGKILL of a command at its limit, as in crap-score.
+STOP_GRACE_SECONDS = 5
+
+
+def run_in_own_group(
+    command: str, cwd: Path, timeout: float | None, env: dict[str, str] | None = None
+) -> tuple[int, str]:
+    """Run *command* through the shell in its own process group (DEC-61).
+
+    Return the exit code and the message of the command. At *timeout* the
+    whole group gets SIGTERM, then SIGKILL after STOP_GRACE_SECONDS, and
+    TimeoutExpired is raised. Output goes to temporary files, so a process
+    that keeps a pipe open cannot block the wait.
+    """
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(
+            command, shell=True, cwd=cwd, env=env,
+            stdout=out, stderr=err, start_new_session=True,
+        )
+        try:
+            code = proc.wait(timeout=timeout)
+        except BaseException:
+            _stop_group(proc)
+            raise
+        err.seek(0)
+        out.seek(0)
+        message = (
+            err.read().decode(errors="replace").strip()
+            or out.read().decode(errors="replace").strip()
+            or "no message"
+        )
+    return code, message
+
+
+def _signal_group(proc: subprocess.Popen, sig: int) -> None:
+    try:
+        os.killpg(proc.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _group_alive(proc: subprocess.Popen) -> bool:
+    try:
+        os.killpg(proc.pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _stop_group(proc: subprocess.Popen) -> None:
+    """Stop the command and every process of its group: SIGTERM, then SIGKILL.
+
+    The grace period lasts until every process of the group has ended, not
+    only the shell. SIGKILL goes to the group even when the shell has
+    exited, because its children may not have.
+    """
+    _signal_group(proc, signal.SIGTERM)
+    deadline = time.monotonic() + STOP_GRACE_SECONDS
+    try:
+        proc.wait(timeout=STOP_GRACE_SECONDS)
+        while _group_alive(proc) and time.monotonic() < deadline:
+            time.sleep(0.1)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        _signal_group(proc, signal.SIGKILL)
+        proc.wait()
 
 
 def entry_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
@@ -1305,6 +1385,9 @@ def _parse_scalar(text: str) -> Any:
         return int(text)
     except ValueError:
         pass
+    # A plain decimal such as `timeout_minutes: 0.05` is a float, as PyYAML reads it (DEC-61).
+    if re.fullmatch(r"-?\d+\.\d+", text):
+        return float(text)
     return text
 
 
