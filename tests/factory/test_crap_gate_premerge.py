@@ -1,9 +1,10 @@
-"""Integration tests: premerge-check in a project without a CRAP gate entry (ST-0433).
+"""Integration tests: premerge-check in a project without a CRAP gate entry (ST-0433, ST-0434).
 
 Each test builds its own repository in `tmp_path` with the branches `dev`,
 `feature/login`, and `story/ST-0350`, as the QA strategy of crap-gate-setup
 defines. A recording stub stands in for each built-in gate, so a test sees
-whether premerge-check called it.
+whether premerge-check called it. The test of `dispatch merge-story` builds
+the wave repository of the run-lifecycle tests instead.
 """
 
 from __future__ import annotations
@@ -15,7 +16,10 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, write_review_report
+from test_run_lifecycle_premerge import STORY as WAVE_STORY
+from test_run_lifecycle_premerge import _build_wave_repo, _dispatch, _work_and_review
 
 SCRIPT = SOURCE_SCRIPTS_DIR / "premerge-check"
 TEMPLATE = REPO_ROOT / "packages" / "factory" / "rulebooks" / "templates" / "charter-testing.yaml"
@@ -171,3 +175,41 @@ def test_cg_11_a_project_set_up_from_the_charter_template_has_no_crap_gate(tmp_p
     assert len(lines) == 1, proc.stdout
     assert CRAP_PART in lines[0]
     assert "mutation-testing" not in lines[0]
+
+
+@pytest.mark.spec("CG-11-IT-03")
+def test_cg_11_a_story_that_names_crap_score_before_the_setup_is_refused(tmp_path):
+    """Scenario Outline: A story that names crap-score before the setup is refused,
+    row premerge-check."""
+    repo, env, log = _build_repo(tmp_path, NO_GATES, "quality-gates: [crap-score]\n")
+    proc = _run(repo, env)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    block = [line for line in proc.stdout.splitlines() if line.startswith("BLOCK semantic-gates:")]
+    assert len(block) == 1, proc.stdout
+    assert "crap-score" in block[0]
+    assert "setup-crap-score" in block[0]
+    assert "GATE CANNOT MEASURE" not in proc.stdout
+    assert _called(log) == []
+    # The line of DEC-50 leaves out the gate that the field names.
+    lines = _lines(proc.stdout)
+    assert len(lines) == 1, proc.stdout
+    assert CRAP_PART not in lines[0]
+    assert MUTATION_PART in lines[0]
+
+
+@pytest.mark.spec("CG-11-IT-03")
+def test_cg_11_the_refusal_of_a_gate_without_an_entry_keeps_the_story_dispatched(tmp_path):
+    """Scenario: The refusal of a gate without an entry is not a gate that cannot measure."""
+    story = WAVE_STORY.format(id=STORY_ID).replace(
+        "quality-gates: []", "quality-gates: [crap-score]"
+    )
+    run = _build_wave_repo(tmp_path, files={f"backlog/{STORY_ID}.md": story})
+    _work_and_review(run["repo"], run["ledger"], run["base"], STORY_ID, code="X = 1\n")
+
+    result = _dispatch(run["feature"], run["ledger"], "merge-story", STORY_ID)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "setup-crap-score" in result.stdout
+    assert "GATE CANNOT MEASURE" not in result.stdout + result.stderr
+    ledger = yaml.safe_load(run["ledger"].read_text())
+    assert ledger["stories"][STORY_ID]["status"] == "dispatched"

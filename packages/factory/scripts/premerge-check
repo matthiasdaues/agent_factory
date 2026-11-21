@@ -67,9 +67,10 @@ Checks
          field. The field only adds gates. premerge-check builds the calls
          of `crap-score` and `mutation-testing`; every other gate runs its
          `command` through the shell. A gate without an entry or without a
-         command fails and is named. The old keys `crap_score`,
-         `mutation_testing`, and `test_design_verify` count as the entries
-         of their gates; with both forms, the key with hyphens wins with a
+         command fails and is named. `crap-score` without an entry fails
+         too, and the refusal names `setup-crap-score` (DEC-21). The old
+         keys `crap_score`, `mutation_testing`, and `test_design_verify`
+         count as the entries of their gates; with both forms, the key with hyphens wins with a
          warning (BR-055). No default picks a gate. When neither an entry
          nor the field names a built-in gate, that gate does not run, and one
          line names each such gate with the skill that sets it up:
@@ -870,12 +871,18 @@ def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
 def gate_refusal(gate: str, entries: dict[str, dict] | None) -> str | None:
     """Name why docs/testing.yaml cannot run *gate*, or None when it can.
 
-    A built-in or conditional gate needs no command. Every other gate needs
-    an entry with a command (BR-066, RL-G09, OI-15).
+    A built-in or conditional gate needs no command. `crap-score` still needs
+    an entry, and its refusal names the skill that sets it up (DEC-21). Every
+    other gate needs an entry with a command (BR-066, RL-G09, OI-15).
     """
+    entry = (entries or {}).get(gate)
+    if gate == "crap-score" and entry is None:
+        return (
+            f"no entry gates.{gate} in {TESTING_YAML}; "
+            f"set the gate up with the skill {SETUP_SKILLS[gate]}"
+        )
     if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
         return None
-    entry = (entries or {}).get(gate)
     if entry is None:
         return f"no entry gates.{gate} in {TESTING_YAML}"
     command = entry.get("command")
