@@ -2498,6 +2498,31 @@ def _amend_status_into_merge_commit(project_root: Path, story_id: str) -> int:
     return 1
 
 
+PREMERGE_CANNOT_MEASURE = 3
+GATE_CANNOT_MEASURE_REASON = "gate cannot measure: crap-score"
+
+
+def _block_gate_cannot_measure(ledger: Ledger, ledger_path: Path, entry) -> int:
+    """Set *entry* blocked after exit 3 of premerge-check (BR-124, BR-136).
+
+    A gate that cannot measure counts no attempt, and nothing merges.
+    """
+    try:
+        ledger.transition(entry.id, StoryState.BLOCKED)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    entry.reason = GATE_CANNOT_MEASURE_REASON
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"error: a gate cannot measure {entry.branch}; {entry.id} is blocked with the "
+        f"reason '{GATE_CANNOT_MEASURE_REASON}' and nothing merged",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
@@ -2510,7 +2535,10 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     with reason "merge conflict"; the current branch is left unchanged. On a
     red test suite after a clean merge, resets the current branch back to
     its pre-merge commit and marks the story ``blocked`` with reason
-    "post-merge test failure". ``--dry-run`` runs premerge-check only and
+    "post-merge test failure". When premerge-check exits 3, because a gate
+    cannot measure, merges nothing and marks the story ``blocked`` with
+    reason "gate cannot measure: crap-score", on both ways and without an
+    attempt (BR-124). ``--dry-run`` runs premerge-check only and
     never refreshes, merges, touches the ledger, or cleans up the worktree/branch.
     Idempotent across interruption: if HEAD is a merge commit whose second
     parent is the story's tip (a prior run created the merge commit but was
@@ -2640,6 +2668,17 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             print(premerge_result.stdout)
         if premerge_result.stderr:
             print(premerge_result.stderr, file=sys.stderr)
+
+        if premerge_result.returncode == PREMERGE_CANNOT_MEASURE and args.dry_run:
+            print(
+                f"dry-run: a gate cannot measure {entry.branch}; without --dry-run, "
+                f"merge-story would set {entry.id} blocked with the reason "
+                f"'{GATE_CANNOT_MEASURE_REASON}'; no ledger entry changed",
+                file=sys.stderr,
+            )
+            return 1
+        if premerge_result.returncode == PREMERGE_CANNOT_MEASURE:
+            return _block_gate_cannot_measure(ledger, ledger_path, entry)
 
         if premerge_result.returncode != 0:
             print(f"error: premerge-check failed for {entry.branch}", file=sys.stderr)
