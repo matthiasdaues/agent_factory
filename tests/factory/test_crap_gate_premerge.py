@@ -1,4 +1,4 @@
-"""Tests of premerge-check and the CRAP gate entry (ST-0433, ST-0434, ST-0439).
+"""Tests of premerge-check and the CRAP gate entry (ST-0433, ST-0434, ST-0439, ST-0443).
 
 Each test builds its own repository in `tmp_path` with the branches `dev`,
 `feature/login`, and `story/ST-0350`, as the QA strategy of crap-gate-setup
@@ -22,6 +22,18 @@ import yaml
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, load_script, write_review_report
 from test_run_lifecycle_premerge import STORY as WAVE_STORY
 from test_run_lifecycle_premerge import _build_wave_repo, _dispatch, _work_and_review
+from test_run_lifecycle_dispatch import (
+    AU,
+    CRAP_ENABLED,
+    _commit_story_work,
+    _dispatched_by_hand,
+    _entry,
+    _fail,
+    _install_crap_score_exit_2,
+    _orchestrated_on_login,
+)
+from test_run_lifecycle_dispatch import _dispatch as _lifecycle_dispatch
+from test_run_lifecycle_dispatch import _git as _lifecycle_git
 
 SCRIPT = SOURCE_SCRIPTS_DIR / "premerge-check"
 pm = load_script("premerge-check")
@@ -406,12 +418,12 @@ def test_cg_08_a_refusal_after_exit_2_names_no_function_of_an_earlier_report(tmp
     assert "tree_severity" in first.stdout
     env["MEASURE_FAILS"] = "1"
     second = _run(repo, env)
-    assert second.returncode == 1, second.stdout + second.stderr
-    block = [line for line in second.stdout.splitlines() if line.startswith("BLOCK semantic-gates:")]
-    assert len(block) == 1, second.stdout
-    assert "crap-score (exit 2" in block[0]
-    assert "cannot measure" in block[0]
-    assert "tree_severity" not in block[0]
+    # Exit 2 with every other check passing gives exit 3 (ST-0443, BR-136).
+    assert second.returncode == 3, second.stdout + second.stderr
+    refusal = _refusal(second.stdout)
+    assert "cannot measure" in refusal
+    assert "the test run failed" in refusal
+    assert "tree_severity" not in second.stdout
 
 
 @pytest.mark.spec("CG-08-IT-07")
@@ -432,3 +444,269 @@ def test_cg_08_the_feature_merge_runs_no_crap_score(tmp_path):
     assert _called(calls) == []
     assert not log.exists()
     assert not (tmp_path / "ready.log").exists()
+
+
+# --- ST-0443: exit 3 when the gate cannot measure at the merge -------------
+
+CANNOT_MEASURE = "GATE CANNOT MEASURE: crap-score"
+GATE_REASON = "gate cannot measure: crap-score"
+BACKEND_READY = "scripts/crap-ready-backend"
+READY_FAILS = '#!/bin/sh\necho ready >> "{log}"\necho "the Compose stack is stopped" >&2\nexit 1\n'
+READY_PASSES = '#!/bin/sh\necho ready >> "{log}"\n'
+
+
+def _refusal(stdout: str) -> str:
+    """The refusal of exit 3: the output from the line GATE CANNOT MEASURE on."""
+    lines = stdout.splitlines()
+    assert CANNOT_MEASURE in lines, stdout
+    return "\n".join(lines[lines.index(CANNOT_MEASURE):])
+
+
+def _ready_yaml(marker: Path, enabled: bool, timeout: float = 10) -> str:
+    """crap-score with the measure backend, a recorded license-check, and a suite marker."""
+    return f"""\
+test_command: "touch {marker}"
+gates:
+  crap-score:
+    enabled: {str(enabled).lower()}
+    threshold: 8
+    timeout_minutes: {timeout}
+    measures:
+      - name: backend
+        files: "src/*"
+        command: "true"
+        ready: "{BACKEND_READY}"
+  license-check:
+    enabled: true
+    command: "echo license-check >> {marker.parent / 'gate-calls.log'}"
+"""
+
+
+def _build_ready_repo(
+    tmp_path: Path,
+    ready: str,
+    *,
+    enabled: bool = True,
+    field: str = "",
+    review: bool = True,
+    timeout: float = 10,
+) -> tuple[Path, dict[str, str], Path, Path]:
+    """A story branch whose measure backend has the ready command *ready*.
+
+    Returns the repository, the environment, the log of the gate calls, and
+    the marker that the test suite writes.
+    """
+    marker = tmp_path / "suite-ran"
+    repo, env, log = _build_repo(tmp_path, _ready_yaml(marker, enabled, timeout), field)
+    _executable(
+        repo / BACKEND_READY,
+        ready.format(log=tmp_path / "ready.log", pidfile=tmp_path / "child.pid"),
+    )
+    if not review:
+        _git(repo, env, "rm", "-q", "-r", "docs/reviews")
+    _git(repo, env, "add", "-A")
+    _git(repo, env, "commit", "-q", "-m", "ready command")
+    return repo, env, log, marker
+
+
+@pytest.mark.spec("CG-08-IT-05")
+def test_cg_08_a_failed_ready_command_stops_premerge_check_before_the_test_suite(tmp_path):
+    """Scenario: A failed ready command at the merge stops premerge-check before the test suite."""
+    repo, env, log, marker = _build_ready_repo(tmp_path, READY_FAILS)
+    proc = _run(repo, env)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    refusal = _refusal(proc.stdout)
+    assert "backend" in refusal
+    assert BACKEND_READY in refusal
+    assert "the Compose stack is stopped" in refusal
+    assert not marker.exists(), "the test suite must not run"
+    assert _called(log) == [], "no gate may run"
+    assert (tmp_path / "ready.log").read_text().split() == ["ready"]
+    assert not (repo / ".current-work" / "premerge-check-ok").exists()
+    assert not _premerge_dir(repo).exists()
+
+
+@pytest.mark.spec("CG-08-IT-05")
+def test_cg_08_a_failed_ready_command_beside_a_failed_check_gives_exit_1(tmp_path):
+    """DEC-29: the review report is missing too, so the code must change anyway."""
+    repo, env, log, marker = _build_ready_repo(tmp_path, READY_FAILS, review=False)
+    proc = _run(repo, env)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert CANNOT_MEASURE not in proc.stdout
+    assert BACKEND_READY in proc.stdout
+    assert not marker.exists()
+    assert _called(log) == []
+
+
+# The ready command starts a child, records its PID, and outlives its time limit.
+READY_HANGS = '#!/bin/sh\nsleep 120 &\necho $! > "{pidfile}"\nsleep 120\n'
+
+
+def _gone(pid: int) -> bool:
+    """True when *pid* has ended; a zombie that waits for its reaper counts as ended."""
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except (OSError, IndexError):
+        return True
+    return state == "Z"
+
+
+@pytest.mark.spec("CG-08-IT-05")
+def test_cg_08_a_ready_command_past_its_time_limit_is_stopped_with_its_group(tmp_path):
+    """IMPL-0082: the time-out stops every process of the ready command, as crap-score does."""
+    # 0.05 minutes are 3 seconds, enough for the stub to start its child under load.
+    repo, env, log, marker = _build_ready_repo(tmp_path, READY_HANGS, timeout=0.05)
+    pidfile = tmp_path / "child.pid"
+    proc = _run(repo, env)
+    pid = int(pidfile.read_text()) if pidfile.exists() else None
+    try:
+        assert proc.returncode == 3, proc.stdout + proc.stderr
+        assert "ran out of timeout_minutes" in _refusal(proc.stdout)
+        assert pid is not None, "the ready stub must start its child before the time-out"
+        # The reaper may need a moment after the SIGTERM; wait up to 10 seconds.
+        for _ in range(100):
+            if _gone(pid):
+                break
+            subprocess.run(["sleep", "0.1"], check=True)
+        assert _gone(pid), "the child of the ready command must not outlive premerge-check"
+        assert not marker.exists()
+        assert _called(log) == []
+    finally:
+        if pid is not None and not _gone(pid):
+            os.kill(pid, 9)
+
+
+@pytest.mark.spec("CG-08-IT-05")
+def test_cg_08_only_the_measures_of_crap_score_have_ready_commands():
+    entries = {
+        "crap-score": {"measures": [{"name": "backend", "ready": BACKEND_READY}]},
+        "license-check": {"measures": [{"name": "other", "ready": "scripts/other-ready"}]},
+    }
+    found = pm.ready_commands(["license-check", "crap-score"], entries)
+    assert found == [("crap-score", "backend", BACKEND_READY)]
+
+
+@pytest.mark.spec("CG-08-IT-05")
+def test_cg_08_a_passing_ready_command_runs_before_the_suite_and_the_gates(tmp_path):
+    repo, env, log, marker = _build_ready_repo(tmp_path, READY_PASSES)
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert marker.exists()
+    assert _called(log) == ["crap-score", "license-check"]
+    assert (tmp_path / "ready.log").read_text().split() == ["ready"]
+
+
+@pytest.mark.spec("CG-08-IT-08")
+def test_cg_08_a_disabled_gate_that_the_story_names_runs_its_ready_commands(tmp_path):
+    """Scenario: A disabled gate that a story names runs its ready commands at the merge."""
+    repo, env, log, marker = _build_ready_repo(
+        tmp_path, READY_FAILS, enabled=False, field="quality-gates: [crap-score]\n"
+    )
+    proc = _run(repo, env)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert BACKEND_READY in _refusal(proc.stdout)
+    assert (tmp_path / "ready.log").read_text().split() == ["ready"]
+    assert not marker.exists()
+
+
+@pytest.mark.spec("CG-08-IT-08")
+def test_cg_08_a_disabled_gate_that_no_story_names_runs_no_ready_command(tmp_path):
+    repo, env, log, marker = _build_ready_repo(tmp_path, READY_FAILS, enabled=False)
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not (tmp_path / "ready.log").exists()
+    assert marker.exists()
+
+
+@pytest.mark.spec("CG-08-IT-09")
+def test_cg_08_the_refusal_names_the_failing_functions_from_the_report_after_exit_1(tmp_path):
+    """Scenario: The refusal names the failing functions from the report after exit 1."""
+    repo, env, _ = _build_measured_repo(tmp_path, complexity=9)
+    proc = _run(repo, env)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    block = [line for line in proc.stdout.splitlines() if line.startswith("BLOCK semantic-gates:")]
+    assert len(block) == 1, proc.stdout
+    assert "crap-score (failed: tree_severity" in block[0]
+    assert CANNOT_MEASURE not in proc.stdout
+
+
+@pytest.mark.spec("CG-08-IT-09")
+def test_cg_08_the_exit_code_of_crap_score_alone_decides_at_the_merge(tmp_path):
+    """Scenario: The exit code of crap-score alone decides at the merge."""
+    repo, env, log = _build_repo(tmp_path, CRAP_ENABLED)
+    earlier = repo / ".current-work" / "crap-score" / f"{STORY_ID}.json"
+    earlier.parent.mkdir(parents=True)
+    earlier.write_text(json.dumps([
+        {"file": FINDING_LINT, "function": "tree_severity", "crap_score": 90, "pass_fail": "fail"}
+    ]))
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _called(log) == ["crap-score"]
+    assert "PASS semantic-gates: crap-score passed" in proc.stdout
+
+
+def _one_attempt(run: dict) -> None:
+    """Fail ST-0350 once, then dispatch it again for its retry."""
+    _fail(run, AU, 1)
+    for step in ("re-dispatch", "mark-dispatching", "mark-dispatched"):
+        result = _lifecycle_dispatch(run["repo"], run["ledger"], step, STORY_ID)
+        assert result.returncode == 0, (step, result.stdout, result.stderr)
+    assert len(_entry(run).attempts) == 1
+
+
+@pytest.mark.spec("CG-08-IT-03")
+@pytest.mark.parametrize("way", ["orchestrated", "by_hand"])
+def test_cg_08_a_gate_that_cannot_measure_at_the_merge_blocks_the_story(tmp_path, way):
+    """Scenario Outline: A gate that cannot measure at the merge blocks the story on both ways."""
+    if way == "by_hand":
+        run = _dispatched_by_hand(tmp_path, code="x = 1\n", rules=False, testing=CRAP_ENABLED)
+        where = run["repo"]
+    else:
+        run = _orchestrated_on_login(tmp_path, testing=CRAP_ENABLED)
+        where = run["feature"]
+    _one_attempt(run)
+    if way == "orchestrated":
+        _commit_story_work(run)
+    _install_crap_score_exit_2(run["repo"])
+    tip = _lifecycle_git(run["repo"], "rev-parse", TARGET)
+    attempts = _entry(run).attempts
+
+    result = _lifecycle_dispatch(where, run["ledger"], "merge-story", STORY_ID)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    refusal = _refusal(result.stdout)
+    assert "the measuring command of measure python exited 1" in refusal
+    entry = _entry(run)
+    assert entry.status.value == "blocked"
+    assert entry.reason == GATE_REASON
+    assert entry.attempts == attempts
+    assert _lifecycle_git(run["repo"], "rev-parse", TARGET) == tip
+
+
+@pytest.mark.spec("CG-08-IT-03")
+def test_cg_08_the_dry_run_of_a_gate_that_cannot_measure_changes_no_entry(tmp_path):
+    run = _dispatched_by_hand(tmp_path, code="x = 1\n", rules=False, testing=CRAP_ENABLED)
+    _install_crap_score_exit_2(run["repo"])
+    result = _lifecycle_dispatch(run["repo"], run["ledger"], "merge-story", STORY_ID, "--dry-run")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert CANNOT_MEASURE in result.stdout
+    assert f"merge-story would set {STORY_ID} blocked" in result.stderr
+    assert "no ledger entry changed" in result.stderr
+    assert _entry(run).status.value == "dispatched"
+
+
+@pytest.mark.spec("CG-08-IT-04")
+def test_cg_08_a_gate_that_cannot_measure_beside_another_failed_check_keeps_the_story(tmp_path):
+    """Scenario: A gate that cannot measure beside another failed check keeps the story dispatched."""
+    run = _dispatched_by_hand(tmp_path, code="import infra\n", rules=True, testing=CRAP_ENABLED)
+    _install_crap_score_exit_2(run["repo"])
+    tip = _lifecycle_git(run["repo"], "rev-parse", TARGET)
+
+    result = _lifecycle_dispatch(run["repo"], run["ledger"], "merge-story", STORY_ID)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "BLOCK semantic-gates:" in result.stdout
+    assert "dependency-check" in result.stdout
+    assert CANNOT_MEASURE not in result.stdout
+    assert _entry(run).status.value == "dispatched"
+    assert _lifecycle_git(run["repo"], "rev-parse", TARGET) == tip
