@@ -1333,7 +1333,7 @@ rulebooks:
   - name: story-frontmatter-fields
     category: references
     path: rulebooks/references/story-frontmatter-fields.md
-    tokens: 786
+    tokens: 830
   - name: structurizr-behavior-checklist
     category: references
     path: rulebooks/references/structurizr-behavior-checklist.md
