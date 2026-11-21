@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0082",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "timing",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:1213-1222",
+  "story": "ST-0443",
+  "finding": "A ready command that runs out of timeout_minutes in premerge-check leaves its child processes running. run_ready_commands starts the command with subprocess.run(shell=True, timeout=...). On the time-out, Python kills only the shell, so every process that the ready script started keeps running after premerge-check has exited 3. A scratch check with a ready script that starts `sleep 30` twice showed both sleeps alive after the TimeoutExpired. crap-score stops the process group of a timed-out command, SIGTERM and then SIGKILL after 5 seconds (crap-score, section Stops), so the two runners of one ready command behave differently. The time limit itself is not in BR-136, and the second row of spec-feedback-ST-0443.md reports that. The behavior looks unintended. Fix: in premerge-check, start the ready command in its own session and stop its process group on the time-out, as run_command of crap-score does, and add a test with a ready stub that sleeps past a short timeout_minutes.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the story branch, so it is not in use. BR-136 sets no time limit for a ready command, so the merge still stops with exit 3 as required (no to fails_purpose). After a time-out, the User must find and stop the leftover processes of a half-started stack by hand before resume-gates, because those processes can keep a port or a container of the shared service busy for the next run.",
+  "commit": "0efcf5053ea231287ca7675278db606c2e742e87",
+  "status": "open"
+}
