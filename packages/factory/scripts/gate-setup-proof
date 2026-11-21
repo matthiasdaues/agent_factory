@@ -21,9 +21,10 @@ Call
 Worktree
   A detached worktree at .current-work/gate-setup-proof/worktree of the
   primary checkout, started from HEAD. A worktree that a crashed run left
-  there is removed first (DEC-46). The first commit holds docs/testing.yaml,
-  the files that the measure names as command and ready, as they are in the
-  working tree, and the files of base/. The second commit adds gap/
+  there is removed first (DEC-46). The first commit holds docs/testing.yaml
+  of the working tree with every setting of gates.crap-score but only the
+  chosen measure (DEC-52), the files that the measure names as command and
+  ready, as they are in the working tree, and the files of base/. The second commit adds gap/
   (DEC-30, DEC-32). The worktree is removed afterwards, and no branch moves.
 
 Gate runs
@@ -149,6 +150,18 @@ def setup_files(root: Path, measure: dict) -> list[str]:
     return paths
 
 
+def write_one_measure(root: Path, worktree: Path, name: str) -> None:
+    """Write docs/testing.yaml of the worktree with every setting, but only the measure *name* (DEC-52).
+
+    crap-score runs every measure it lists, and the proof copies only the
+    files of the chosen measure, so another measure would stop each gate run.
+    """
+    data = yaml.safe_load((root / TESTING_YAML).read_text(encoding="utf-8"))
+    entry = data["gates"][GATE_KEY]
+    entry["measures"] = [m for m in entry["measures"] if isinstance(m, dict) and m.get("name") == name]
+    (worktree / TESTING_YAML).write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+
 def copy_files(source: Path, target: Path, paths: list[str]) -> None:
     for relative in paths:
         destination = target / relative
@@ -238,6 +251,7 @@ def run_checks(root: Path, measure_name: str, plant: Path) -> list[Check]:
     try:
         setup = setup_files(root, measure)
         copy_files(root, worktree, setup)
+        write_one_measure(root, worktree, measure_name)
         base_files = plant_files(base)
         copy_files(base, worktree, base_files)
         commit(worktree, setup + base_files, "gate-setup-proof: setup files and base/")

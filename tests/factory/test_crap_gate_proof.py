@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR
 
 SCRIPT = SOURCE_SCRIPTS_DIR / "gate-setup-proof"
@@ -345,7 +346,7 @@ def test_cg_02_the_first_commit_holds_the_setup_files_of_the_working_tree(tmp_pa
 
     assert result.returncode == 0, result.stdout + result.stderr
     first = repo.starts()[0]
-    assert first["testing_yaml"] == (repo.root / "docs/testing.yaml").read_text()
+    assert yaml.safe_load(first["testing_yaml"]) == yaml.safe_load((repo.root / "docs/testing.yaml").read_text())
     assert first["stub"] == (repo.root / COMMAND).read_text()
     assert {"docs/testing.yaml", COMMAND, PLANT_FILE, PLANT_TEST} <= set(first["files"])
     assert "above the threshold 8" in result.stdout
@@ -356,7 +357,7 @@ def test_cg_02_the_first_commit_holds_the_setup_files_of_the_working_tree(tmp_pa
     again = repo.proof()
 
     assert again.returncode == 0, again.stdout + again.stderr
-    assert "threshold: 10" in repo.starts()[0]["testing_yaml"]
+    assert yaml.safe_load(repo.starts()[0]["testing_yaml"])["gates"]["crap-score"]["threshold"] == 10
     assert "above the threshold 10" in again.stdout
 
 
@@ -381,3 +382,30 @@ def test_cg_02_the_proof_removes_a_worktree_left_by_a_crashed_run(tmp_path: Path
     assert all("left-by-a-crash" not in start["files"] for start in starts)
     assert repo.git("worktree", "list", "--porcelain") == worktrees
     assert not leftover.exists()
+
+
+TYPESCRIPT_MEASURE = """\
+      - name: typescript
+        files: "packages/server/**"
+        command: "scripts/crap-measure-typescript"
+"""
+
+
+@pytest.mark.spec("CG-02-IT-10")
+def test_cg_02_the_proof_of_one_measure_lists_only_that_measure(tmp_path: Path) -> None:
+    """DEC-52: the first commit keeps every setting of gates.crap-score but lists only the chosen measure.
+
+    The measure typescript names a command that the working tree does not
+    hold, so a gate run that started it would exit 2 in every check.
+    """
+    repo = Repo(tmp_path)
+    repo.write("docs/testing.yaml", settings_yaml() + TYPESCRIPT_MEASURE)
+
+    result = repo.proof()
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert check_lines(result.stdout) == dict.fromkeys(CHECKS, "PASS")
+    working = yaml.safe_load((repo.root / "docs/testing.yaml").read_text())
+    working["gates"]["crap-score"]["measures"] = working["gates"]["crap-score"]["measures"][:1]
+    for start in repo.starts():
+        assert yaml.safe_load(start["testing_yaml"]) == working
