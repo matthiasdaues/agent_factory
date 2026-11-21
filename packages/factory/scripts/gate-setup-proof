@@ -20,10 +20,11 @@ Call
 
 Refusals
   Before it measures, the proof checks the plant: base/ and gap/ must exist,
-  and a file of base/ must match the files pattern of the measure (DEC-28,
-  DEC-30). After gate run 1, it checks the planted complexities in the rows:
+  and a file of base/ must match the files pattern and no exclude pattern
+  of the measure (DEC-28, DEC-30). After gate run 1, it checks the planted complexities in the rows:
   proof_untested and proof_tested must both be there, at or below the
   threshold, and equal, so only coverage decides "Catches CRAP" (DEC-31).
+  At 0 % coverage, proof_untested must score above the threshold (DEC-60).
   A refusal exits 2 and runs no check.
 
 Worktree
@@ -349,9 +350,15 @@ def check_plant(plant: Path, measure: dict) -> None:
     pattern = measure.get("files")
     if not isinstance(pattern, str):
         raise ProofError(f"measure {measure.get('name')} has no files pattern")
-    if not any(glob_match(pattern, path) for path in plant_files(plant / "base")):
+    exclude = [p for p in measure.get("exclude") or [] if isinstance(p, str)]
+    kept = [
+        path for path in plant_files(plant / "base")
+        if glob_match(pattern, path) and not any(glob_match(p, path) for p in exclude)
+    ]
+    if not kept:
+        excluded = f" and no exclude pattern {', '.join(exclude)}" if exclude else ""
         raise ProofError(
-            f"no file below {plant / 'base'} matches the files pattern {pattern} of measure "
+            f"no file below {plant / 'base'} matches the files pattern {pattern}{excluded} of measure "
             f"{measure.get('name')}; base/ must hold the planted code in the layout of the project"
         )
 
@@ -360,7 +367,9 @@ def planted_complexity_error(rows: list[dict], threshold: str) -> str | None:
     """Name what is wrong with the planted complexities in *rows*, or None (DEC-31).
 
     Both planted functions must have a row, a complexity at or below the
-    threshold, and the same complexity, so only coverage decides them.
+    threshold, and the same complexity, so only coverage decides them. The
+    untested one must score above the threshold at 0 % coverage, where the
+    score of complexity c is c * c + c (DEC-60).
     """
     complexities = {}
     for name in (UNTESTED, TESTED):
@@ -385,6 +394,12 @@ def planted_complexity_error(rows: list[dict], threshold: str) -> str | None:
         return (
             f"{UNTESTED} and {TESTED} have the two complexities {untested} and {tested}, which differ; "
             "the planted functions must have the same complexity, so only coverage decides them"
+        )
+    score = untested * untested + untested
+    if score <= limit:
+        return (
+            f"{UNTESTED} has the complexity {untested} and scores {score} at 0 % coverage, which is not above "
+            f"the threshold {threshold}; the planted functions must score above the threshold without a test"
         )
     return None
 

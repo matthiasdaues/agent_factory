@@ -714,7 +714,7 @@ def test_cg_02_a_wrong_plant_stops_the_proof_before_it_measures(tmp_path: Path, 
     [
         ("no-tested", ["proof_tested"]),
         ("complexity-9", ["proof_untested", "complexity 9", "threshold 8"]),
-        ("differ", ["3", "4", "differ"]),
+        ("differ", ["the two complexities 3 and 4, which differ"]),
     ],
     ids=["no proof_tested", "complexity 9", "complexities 3 and 4"],
 )
@@ -750,8 +750,13 @@ def _row(function: str, complexity: int) -> dict:
         ([_row("proof_untested", 9), _row("proof_tested", 9)], "8", ["complexity 9", "threshold 8"]),
         ([_row("proof_untested", 3), _row("proof_tested", 3)], "2", ["complexity 3", "threshold 2"]),
         ([_row("proof_untested", 3), _row("proof_tested", 4)], "8", ["3 and 4", "differ"]),
+        ([_row("proof_untested", 2), _row("proof_tested", 2)], "8", ["scores 6", "threshold 8"]),
+        ([_row("proof_untested", 2), _row("proof_tested", 2)], "6", ["scores 6", "threshold 6"]),
     ],
-    ids=["no proof_untested", "no proof_tested", "no rows of the names", "above 8", "above 2", "differ"],
+    ids=[
+        "no proof_untested", "no proof_tested", "no rows of the names", "above 8", "above 2", "differ",
+        "score 6 below 8", "score 6 at 6",
+    ],
 )
 def test_cg_02_the_planted_complexity_check_returns_an_error(
     rows: list[dict], threshold: str, causes: list[str]
@@ -771,3 +776,21 @@ def test_cg_02_the_planted_complexity_check_accepts_two_equal_complexities_at_or
 
     assert proof_script.planted_complexity_error(rows, "8") is None
     assert proof_script.planted_complexity_error(rows, "3") is None
+    assert proof_script.planted_complexity_error(rows, "11") is None
+
+
+@pytest.mark.spec("CG-02-IT-09")
+def test_cg_02_a_plant_that_only_an_exclude_pattern_covers_stops_the_proof(tmp_path: Path) -> None:
+    """The proof applies exclude as well as files, as crap-score does, so an excluded plant is refused."""
+    repo = Repo(tmp_path)
+    text = settings_yaml().replace(
+        '        command: "', '        exclude: ["packages/factory/scripts/proof-*"]\n        command: "',
+    )
+    repo.write("docs/testing.yaml", text)
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof()
+
+    assert_refused(repo, result, worktrees)
+    assert "packages/factory/scripts/proof-*" in result.stderr
+    assert repo.starts() == []
