@@ -542,6 +542,24 @@ def test_cg_02_the_proof_runs_no_hook_of_the_project(tmp_path: Path) -> None:
 
 
 @pytest.mark.spec("CG-02-IT-07")
+def test_cg_02_a_command_with_an_unbalanced_quote_exits_2(tmp_path: Path) -> None:
+    """A command that shlex cannot split exits 2 and names the measure and the command, without a traceback."""
+    repo = Repo(tmp_path)
+    command = "scripts/crap-measure-python 'unclosed"
+    repo.write("docs/testing.yaml", settings_yaml().replace(f'"{COMMAND}"', json.dumps(command)))
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof()
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "measure python" in result.stderr
+    assert command in result.stderr
+    assert "Traceback" not in result.stderr
+    assert result.stdout == ""
+    assert repo.git("worktree", "list", "--porcelain") == worktrees
+
+
+@pytest.mark.spec("CG-02-IT-07")
 def test_cg_02_a_refusing_reference_transaction_hook_exits_2_and_is_named(tmp_path: Path) -> None:
     """Adding the worktree runs the reference-transaction hook; a refusal exits 2 and names the hook."""
     repo = Repo(tmp_path)

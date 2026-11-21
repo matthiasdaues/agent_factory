@@ -297,7 +297,13 @@ def setup_files(root: Path, measure: dict) -> list[str]:
         value = measure.get(key)
         if not isinstance(value, str):
             continue
-        for word in shlex.split(value):
+        try:
+            words = shlex.split(value)
+        except ValueError as exc:
+            raise ProofError(
+                f"the {key} of measure {measure.get('name')} cannot be split into words: {value}: {exc}"
+            ) from None
+        for word in words:
             path = Path(word)
             if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
                 continue
