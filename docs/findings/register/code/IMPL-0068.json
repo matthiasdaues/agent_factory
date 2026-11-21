@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0068",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/config/hooks/guard-human-fields:397",
+  "story": "ST-0441",
+  "finding": "An agent can remove the exceptions register with a shell call, although the guard refuses the same removal as a patch. The guard passes `rm docs/findings/exceptions.md` and `mv docs/findings/exceptions.md /tmp/x` with exit 0, and refuses `*** Delete File: docs/findings/exceptions.md` with exit 2. The gap starts in `_simple_targets`: it reads `mv` only as a write into its destination, never as a change of its source, and it reads no target from `rm`. When the removal is committed and merges into dev, crap-score reads no register there, and every accepted function fails the gate again. The removal looks like an oversight, because check_patch refuses a Delete of the register on purpose. Fix: in `_simple_targets`, also count the sources of `mv` and the arguments of `rm` as targets, but only when they resolve to the exceptions register, so finding files keep their current behavior. Add the two commands to `register_calls` in `tests/factory/test_guard_human_fields.py`. If the stakeholder treats a removal as no write, delete the Delete refusal in check_patch instead, so both paths agree.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The guard and the refusal exist only on the feature branch, so they are not in use. Every call of the Scenario Outline, a write, an edit and a redirect, is refused, and BR-092 names writes, not removals (no to fails_purpose). A reader of the guard sees two answers to one question, a removal of the register, and must find out which one the stakeholder wants.",
+  "commit": "a10ec36a4c98add7b51860b1d9f94ede2ed9e981",
+  "status": "open"
+}
