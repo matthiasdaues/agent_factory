@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0075",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_crap_gate_lock.py:214-243",
+  "story": "ST-0438",
+  "finding": "The new stop-signal case of CG-04-IT-16 fails now and then under load, although crap-score behaves correctly. The stub of _stoppable logs backend-start before it sets its trap for SIGTERM. The test sends the signal as soon as it sees backend-start. When crap-score forwards SIGTERM to the group before the stub reaches the trap line, the stub dies without the line backend-stopped, and the expected log does not match. The review saw it twice: once in three rounds of the timing tests with pytest -n 6 beside 18 busy loops, and once in 24 scratch runs of the HUP case. In the scratch run crap-score exited 129, the stub logged neither backend-stopped nor backend-end, and the second run started only after the stub had died, so no run overlapped. Fix: in _stoppable, set the trap before the line that logs the start, so backend-start means that the trap is in place.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The test exists only on the feature branch, so it is not in use. When it passes, it checks that a stopped run stops its command before the next run starts, and its failures come from the stub, not from crap-score (no to fails_purpose). A failure in the gate-check step or at the merge costs a rerun and a search for a fault that the code does not have.",
+  "commit": "40891e857e954462b2af744409f20c4a0bbd5595",
+  "status": "resolved"
+}

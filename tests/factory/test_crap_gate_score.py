@@ -15,6 +15,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -409,9 +410,280 @@ def test_cg_04_a_quoted_path_is_judged(repo):
 
 
 @pytest.mark.spec("CG-04-IT-01")
+def test_cg_04_a_changed_latin_1_source_file_is_judged(repo):
+    """A changed line that is not UTF-8 does not stop the diff (ST-0440)."""
+    text = _finding_lint({15: "    x15 = 'Gr\xfcnde'"})
+    (repo.root / FINDING_LINT).write_bytes(text.encode("latin-1"))
+    repo.commit("change in Latin-1")
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert repo.report() == [{**ROWS[0], "crap_score": 9.0, "pass_fail": "fail"}]
+
+@pytest.mark.spec("CG-04-IT-01")
 def test_cg_04_an_added_line_that_starts_with_two_pluses_is_no_file_header(repo):
     """IMPL-0069: with --unified=0 the added line "++ x" reads "+++ x" in the diff."""
     repo.change(_finding_lint({15: "++ x", 40: "    x40 = 'changed'"}))
     proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert _judged(repo) == ["tree_severity", "bug_bar_level"]
+
+
+# --- CG-04-IT-06 to CG-04-IT-08: the ready command and the time limit -----
+
+READY = "scripts/crap-ready-backend"
+BACKEND_STUB = "scripts/crap-measure-backend"
+
+
+def _log_stub(event: str, then: str = "") -> str:
+    """A stub that appends *event* and its GATE_OUTPUT to $STUB_LOG, then runs *then*."""
+    return f'#!/bin/sh\necho "{event} $GATE_OUTPUT" >> "$STUB_LOG"\n{then}'
+
+
+def _with_backend(repo: Repo, enabled: bool = True, timeout: float = 10,
+                  ready: str = _log_stub("ready"),
+                  backend: str = _log_stub("backend", 'echo "[]" > "$GATE_OUTPUT"\n'),
+                  python: str = _log_stub("python", 'cp "$PLANTED_ROWS" "$GATE_OUTPUT"\n')) -> Path:
+    """Add the measure backend with a ready command before python; return the stub log."""
+    log = repo.tmp / "stub.log"
+    repo.env["STUB_LOG"] = str(log)
+    repo.write(
+        "docs/testing.yaml",
+        TESTING_YAML.replace("enabled: true", f"enabled: {str(enabled).lower()}")
+        .replace("timeout_minutes: 10", f"timeout_minutes: {timeout}")
+        .replace(
+            "    measures:\n",
+            "    measures:\n      - name: backend\n        files: \"backend/**\"\n"
+            f"        command: \"{BACKEND_STUB}\"\n        ready: \"{READY}\"\n",
+        ),
+    )
+    for relative, text in ((READY, ready), (BACKEND_STUB, backend), (STUB, python)):
+        repo.write(relative, text)
+        path = repo.root / relative
+        path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    repo.commit("measure backend")
+    return log
+
+
+def _events(log: Path) -> list[str]:
+    return [line.split()[0] for line in log.read_text().splitlines()] if log.exists() else []
+
+
+@pytest.mark.spec("CG-04-IT-06")
+@pytest.mark.parametrize("enabled", [True, False], ids=["enabled", "disabled"])
+def test_cg_04_the_ready_command_runs_before_the_measures_in_list_order(repo, enabled):
+    """Scenarios: The measures run in list order; a disabled gate runs its ready commands."""
+    log = _with_backend(repo, enabled=enabled)
+    proc = repo.run("--all", "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert _events(log) == ["ready", "backend", "python"]
+    outputs = [line.split()[1] for line in log.read_text().splitlines()]
+    assert outputs[1] != outputs[2]
+
+
+@pytest.mark.spec("CG-04-IT-07")
+def test_cg_04_a_failing_ready_command_starts_no_measuring_command(repo):
+    """Scenario: A run that cannot measure writes no report (the ready command exits 1)."""
+    log = _with_backend(
+        repo, ready=_log_stub("ready", 'echo "the Compose stack is stopped" >&2\nexit 1\n')
+    )
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "measure backend" in proc.stderr
+    assert READY in proc.stderr
+    assert "the Compose stack is stopped" in proc.stderr
+    assert _events(log) == ["ready"]
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
+
+
+def _alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    status = Path(f"/proc/{pid}/stat")
+    return not (status.exists() and status.read_text().split()[2] == "Z")
+
+
+@pytest.mark.spec("CG-04-IT-08")
+@pytest.mark.parametrize("stopped", ["measuring command", "ready command"])
+def test_cg_04_the_time_limit_covers_every_command_of_the_run(repo, stopped):
+    """Scenario: The time limit covers the whole gate run.
+
+    Measuring command: each command alone fits in 0.1 minutes (6 s), the two
+    together do not, so the limit runs out in python. Ready command: the ready
+    command of backend sleeps past the limit. In both cases the stopped
+    command has started a child process, which must not outlive the gate.
+    """
+    child = repo.tmp / "child.pid"
+    spawn = f'sleep 60 &\necho $! > "{child}"\n'
+    if stopped == "measuring command":
+        log = _with_backend(
+            repo, timeout=0.1,
+            backend=_log_stub("backend", 'echo "[]" > "$GATE_OUTPUT"\nsleep 4\n'),
+            python=_log_stub("python", f'{spawn}sleep 4\ncp "$PLANTED_ROWS" "$GATE_OUTPUT"\n'),
+        )
+        measure, events = "python", ["ready", "backend", "python"]
+    else:
+        log = _with_backend(repo, timeout=0.1, ready=_log_stub("ready", f"{spawn}sleep 60\n"))
+        measure, events = "backend", ["ready"]
+    started = time.monotonic()
+    proc = repo.run("--all", "--story-id", STORY_ID)
+    elapsed = time.monotonic() - started
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert f"measure {measure}" in proc.stderr
+    assert f"stopped its {stopped}" in proc.stderr
+    assert "0.1 minutes" in proc.stderr
+    assert _events(log) == events
+    assert elapsed < 25
+    pid = int(child.read_text())
+    deadline = time.monotonic() + 5
+    while _alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not _alive(pid)
+
+
+# --- CG-05-IT-01: the exceptions register on dev ----------------------------
+
+REGISTER = "docs/findings/exceptions.md"
+REASON = "Each branch handles one finding class"
+REGISTER_TEXT = f"""\
+# Exceptions
+
+## CRAP score
+
+| File | Function | Accepted score | Reason | Accepted by |
+| ---- | -------- | -------------- | ------ | ----------- |
+| `{FINDING_LINT}` | `tree_severity` | 9 | {REASON} | A. Example |
+"""
+NO_DEV_LINE = "crap-score: read no exceptions register, because no branch dev exists"
+
+
+def _commit_register(repo: Repo, branch: str, text: str = REGISTER_TEXT) -> None:
+    current = repo.git("symbolic-ref", "--short", "HEAD")
+    repo.git("checkout", "-q", branch)
+    repo.write(REGISTER, text)
+    repo.commit(f"register on {branch}")
+    repo.git("checkout", "-q", current)
+
+
+def _change_tree(repo: Repo) -> None:
+    repo.change(_finding_lint({15: "    x15 = 'changed'"}))
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_function_accepted_on_dev_passes_and_stays_visible(repo):
+    """Scenario: A function accepted on dev passes and stays visible."""
+    _commit_register(repo, "dev")
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert f"ACCEPTED {FINDING_LINT} tree_severity 9.00: {REASON}" in proc.stdout
+    assert repo.report() == [{**ROWS[0], "crap_score": 9.0, "pass_fail": "accepted"}]
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_raised_score_fails_again(repo):
+    """Scenario: A change that raises the score above the accepted score fails again."""
+    _commit_register(repo, "dev")
+    _change_tree(repo)
+    repo.plant([_row("tree_severity", 10, 30, complexity=10), ROWS[1]])
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 10.00" in proc.stdout
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_row_only_on_the_story_branch_has_no_effect(repo):
+    """Scenario: A row that exists only on the story branch does not change the verdict."""
+    repo.write(REGISTER, REGISTER_TEXT)
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert repo.report()[0]["pass_fail"] == "fail"
+    assert NO_DEV_LINE not in proc.stdout
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_dev_and_the_story_branch_with_different_rows_use_the_row_on_dev(repo):
+    _commit_register(repo, "dev", REGISTER_TEXT.replace("| 9 |", "| 8.5 |"))
+    repo.write(REGISTER, REGISTER_TEXT)
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_project_without_the_register_has_no_exceptions(repo):
+    """Scenario: A project without the exceptions register has no exceptions."""
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert {row["pass_fail"] for row in repo.report()} == {"fail"}
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_repository_without_dev_has_no_exceptions(repo):
+    """Scenario: A repository without a branch dev has no exceptions (DEC-13, DEC-25)."""
+    _commit_register(repo, "dev")
+    repo.git("merge", "-q", "--no-edit", "dev")
+    repo.git("branch", "-q", "-D", "dev")
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert NO_DEV_LINE in proc.stdout
+    assert repo.report()[0]["pass_fail"] == "fail"
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_linked_worktree_reads_the_register_from_dev(repo):
+    _commit_register(repo, "dev")
+    repo.git("checkout", "-q", TARGET)
+    worktree = repo.tmp / "worktree"
+    repo.git("worktree", "add", "-q", str(worktree), BRANCH)
+    repo.write(FINDING_LINT, _finding_lint({15: "    x15 = 'changed'"}), worktree)
+    repo.commit("change", cwd=worktree)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID, cwd=worktree)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert repo.report(root=worktree)[0]["pass_fail"] == "accepted"
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_broken_row_on_dev_exits_2_and_writes_no_report(repo):
+    """Scenario Outline: A broken exceptions-register row cannot measure, the score "nine"."""
+    _commit_register(repo, "dev", REGISTER_TEXT.replace("| 9 |", "| nine |"))
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "line 7" in proc.stderr
+    assert "nine" in proc.stderr
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_tag_named_dev_does_not_stand_in_for_the_branch_dev(repo):
+    """A row on the story branch has no effect, even when a tag dev points at it (IMPL-0079)."""
+    repo.write(REGISTER, REGISTER_TEXT)
+    _change_tree(repo)
+    repo.git("tag", "dev", "HEAD")
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert repo.report()[0]["pass_fail"] == "fail"
+
+
+@pytest.mark.spec("CG-05-IT-01")
+def test_cg_05_a_register_on_dev_that_is_not_utf_8_exits_2_and_names_the_file(repo):
+    """A register on dev with the byte 0xE4 cannot be read, so the gate cannot measure (IMPL-0080)."""
+    current = repo.git("symbolic-ref", "--short", "HEAD")
+    repo.git("checkout", "-q", "dev")
+    path = repo.root / REGISTER
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(REGISTER_TEXT.replace(REASON, "Gr\xfcnde").encode("utf-8").replace(b"\xc3\xbc", b"\xe4"))
+    repo.commit("register on dev in Latin-1")
+    repo.git("checkout", "-q", current)
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert REGISTER in proc.stderr
+    assert "Traceback" not in proc.stderr
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()

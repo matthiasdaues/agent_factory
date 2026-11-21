@@ -20,30 +20,63 @@ Call
   measuring command writes its rows to the file in GATE_OUTPUT, one JSON
   array with one row per function.
 
+Runs
+  For each measure in list order, its `ready` command, when it has one, and
+  then its measuring command. `timeout_minutes` limits every command and
+  every wait for a lock together. A measure with a `ready` command runs under
+  an exclusive flock on crap-score/<measure>.lock under the git common
+  directory, so two runs of one shared service never overlap (DEC-43, DEC-47).
+  The name of such a measure is the name of its lock file, so it holds no /
+  and is not . or ..
+
+Stops
+  At the time limit, and when crap-score gets SIGTERM, SIGINT or SIGHUP,
+  crap-score stops the process group of the running command: SIGTERM, then
+  SIGKILL after 5 seconds. Only then does it release the lock. SIGKILL of
+  crap-score cannot be caught; on Linux the shell that crap-score starts for
+  a command gets SIGKILL when crap-score dies (PR_SET_PDEATHSIG). The
+  processes that shell starts are not covered and may keep running.
+
 Score
   complexity^2 * (1 - coverage_pct/100)^3 + complexity, rounded to two
   decimals, half up. A judged function passes when the rounded score is at
   or below the threshold.
 
+Exceptions
+  The table of the section `## CRAP score` of docs/findings/exceptions.md,
+  read from the branch dev through git. A function above the threshold gets
+  `accepted` when a row names its file and qualified name and its rounded
+  score is at or below the row's accepted score. The output names the
+  reason of each `accepted` row. Without a branch dev, the output says that
+  no register was read (BR-132).
+
 Exit codes
-  0  every judged function passes, also when none is judged
+  0  every judged function passes or is accepted, also when none is judged
   1  a judged function fails; the output names its file, function and score
   2  the gate cannot measure; the message names the cause, and no report is
      written
+  128 + n  crap-score was stopped by signal n (SIGTERM, SIGINT, SIGHUP); no
+     report is written
 """
 
 from __future__ import annotations
 
 import argparse
+import ctypes
+import fcntl
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 from pathlib import Path
+from typing import Iterator
 
 import yaml
 
@@ -60,6 +93,25 @@ REQUIRED_MEASURE_FIELDS = ("name", "files", "command")
 FUNCTION_FIELDS = ("file", "function", "start_line", "end_line", "complexity", "coverage_pct")
 DEFAULT_REPORT_DIR = Path(".current-work") / "crap-score"
 TWO_DECIMALS = Decimal("0.01")
+# The shape check lets through a complexity of up to about 1.8e308 and any
+# float coverage, so the exact score has at most about 1,600 digits. With
+# 4,000 digits the formula stays exact and rounding never fails.
+SCORE_CONTEXT = Context(prec=4000)
+LOCK_FOLDER = "crap-score"
+LOCK_POLL_SECONDS = 0.05
+KILL_GRACE_SECONDS = 5
+
+
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+PR_SET_PDEATHSIG = 1
+
+
+class Stopped(BaseException):
+    """crap-score got a stop signal; a BaseException, so no `except Exception` keeps the run going."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
 
 
 class GateError(Exception):
@@ -72,6 +124,7 @@ class Measure:
     files: str
     command: str
     exclude: tuple[str, ...] = ()
+    ready: str | None = None
 
 
 @dataclass(frozen=True)
@@ -176,64 +229,329 @@ def _measures(value: object) -> tuple[Measure, ...]:
         exclude = item.get("exclude") or []
         if not isinstance(exclude, list) or not all(isinstance(p, str) for p in exclude):
             raise GateError(f"{label} of gates.{GATE_KEY}.measures has an exclude that is no list of patterns")
+        ready = item.get("ready")
+        if ready is not None and (not isinstance(ready, str) or not ready):
+            raise GateError(f"{label} of gates.{GATE_KEY}.measures has a field ready that is no command")
         name = item["name"]
+        if ready is not None and ("/" in name or "\0" in name or name in (".", "..")):
+            raise GateError(
+                f"measure {name} of gates.{GATE_KEY}.measures has a ready command, so its name "
+                f"names its lock file, and {name!r} is no file name"
+            )
         if name in first_position:
             raise GateError(
                 f"measures {first_position[name]} and {position} of gates.{GATE_KEY}.measures "
                 f"both have the name {name}"
             )
         first_position[name] = position
-        measures.append(Measure(name, item["files"], item["command"], tuple(exclude)))
+        measures.append(Measure(name, item["files"], item["command"], tuple(exclude), ready))
     return tuple(measures)
 
 
 # --- measuring -------------------------------------------------------------
 
 
-def run_measure(measure: Measure, root: Path) -> list[dict]:
-    """Run the measuring command of *measure* from *root* and return its rows (BR-129)."""
+class Clock:
+    """The one time limit of a gate run: every command and every lock wait (BR-129)."""
+
+    def __init__(self, minutes: float) -> None:
+        self.minutes = minutes
+        self.deadline = time.monotonic() + minutes * 60
+
+    def remaining(self) -> float:
+        return self.deadline - time.monotonic()
+
+    def limit(self) -> str:
+        return f"the time limit of {self.minutes:g} minutes (timeout_minutes)"
+
+
+def _signal_group(proc: subprocess.Popen, sig: int) -> None:
+    try:
+        os.killpg(proc.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _group_alive(proc: subprocess.Popen) -> bool:
+    try:
+        os.killpg(proc.pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _stop_group(proc: subprocess.Popen) -> None:
+    """Stop the command and every process of its group.
+
+    SIGTERM first, then SIGKILL after the grace period. The grace period
+    lasts until every process of the group has ended, not only the leader,
+    so the children can end on SIGTERM too. SIGKILL goes to the group even
+    when the leader has exited, because its children may not have.
+    """
+    _signal_group(proc, signal.SIGTERM)
+    deadline = time.monotonic() + KILL_GRACE_SECONDS
+    try:
+        proc.wait(timeout=KILL_GRACE_SECONDS)
+        while _group_alive(proc) and time.monotonic() < deadline:
+            time.sleep(LOCK_POLL_SECONDS)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        # Also when a stop signal interrupts the grace period.
+        _signal_group(proc, signal.SIGKILL)
+        proc.wait()
+
+
+def _command_preexec():
+    """The preexec_fn of a command: unblock the stop signals, and on Linux set the parent-death signal.
+
+    run_command blocks the stop signals while Popen runs, and a child process
+    inherits that mask, so the child unblocks them before the command starts.
+    On Linux the child also gets SIGKILL when crap-score dies.
+    """
+    prctl = None
+    if sys.platform.startswith("linux"):
+        try:
+            prctl = ctypes.CDLL(None, use_errno=True).prctl
+        except (OSError, AttributeError):
+            prctl = None
+    parent = os.getpid()
+
+    def preexec() -> None:
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, STOP_SIGNALS)
+        if prctl is not None:
+            prctl(PR_SET_PDEATHSIG, int(signal.SIGKILL))
+            if os.getppid() != parent:
+                # crap-score died before prctl took effect.
+                os.kill(os.getpid(), signal.SIGKILL)
+
+    return preexec
+
+
+def _raise_stopped(signum: int, frame: object) -> None:
+    for sig in STOP_SIGNALS:
+        signal.signal(sig, signal.SIG_IGN)
+    raise Stopped(signum)
+
+
+@contextmanager
+def stop_signals() -> Iterator[None]:
+    """Turn SIGTERM, SIGINT and SIGHUP into Stopped; restore the earlier handlers afterwards.
+
+    After the first signal, the next ones are ignored, so the stop of the
+    running command is not cut short.
+    """
+    earlier = {sig: signal.signal(sig, _raise_stopped) for sig in STOP_SIGNALS}
+    try:
+        yield
+    finally:
+        for sig, handler in earlier.items():
+            signal.signal(sig, handler)
+
+
+def run_command(measure: Measure, kind: str, command: str, root: Path, env: dict, clock: Clock) -> None:
+    """Run *command* in its own process group from *root*.
+
+    The group is stopped at the limit and on any other way out of the wait,
+    such as Stopped, so no command outlives the lock. The stop signals stay
+    blocked while Popen runs, so a signal that arrives before *proc* exists
+    waits until the group exists and the try below can stop it.
+    """
+    remaining = clock.remaining()
+    if remaining <= 0:
+        raise GateError(f"measure {measure.name} ran out of {clock.limit()} before its {kind} {command}")
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        earlier = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+        try:
+            proc = subprocess.Popen(
+                command, shell=True, cwd=root, env=env, stdout=out, stderr=err, start_new_session=True,
+                preexec_fn=_command_preexec(),
+            )
+        except BaseException:
+            signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
+            raise
+        try:
+            # A signal that arrived while Popen ran is delivered here.
+            signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
+            code = proc.wait(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            _stop_group(proc)
+            raise GateError(
+                f"measure {measure.name} ran out of {clock.limit()}; stopped its {kind} {command}"
+            ) from None
+        except BaseException:
+            _stop_group(proc)
+            raise
+        if code != 0:
+            err.seek(0)
+            out.seek(0)
+            message = (
+                err.read().decode(errors="replace").strip()
+                or out.read().decode(errors="replace").strip()
+                or "no message"
+            )
+            raise GateError(f"the {kind} of measure {measure.name} exited {code}: {command}: {message}")
+
+
+@contextmanager
+def measure_lock(measure: Measure, root: Path, clock: Clock) -> Iterator[None]:
+    """Hold the flock of a measure with a `ready` command (DEC-43, DEC-47).
+
+    The lock file lies under the git common directory, so every worktree sees
+    it. The descriptor is not inherited by the commands, so the lock ends with
+    this process. A measure without a `ready` command takes no lock.
+    """
+    if measure.ready is None:
+        yield
+        return
+    common = git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    path = Path(common) / LOCK_FOLDER / f"{measure.name}.lock"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    except OSError as exc:
+        raise GateError(f"measure {measure.name} cannot open the lock {path}: {exc}") from exc
+    try:
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if clock.remaining() <= 0:
+                    raise GateError(
+                        f"measure {measure.name} waited for the lock {path} until {clock.limit()} ran out"
+                    ) from None
+                time.sleep(min(LOCK_POLL_SECONDS, max(clock.remaining(), 0)))
+        yield
+    finally:
+        os.close(fd)
+
+
+def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
+    """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129)."""
     with tempfile.TemporaryDirectory(prefix="crap-score-") as folder:
         output = Path(folder) / "rows.json"
         env = {**os.environ, "GATE_OUTPUT": str(output)}
-        proc = subprocess.run(
-            measure.command, shell=True, cwd=root, env=env, capture_output=True, text=True, check=False
-        )
-        if proc.returncode != 0:
-            message = (proc.stderr.strip() or proc.stdout.strip() or "no message")
-            raise GateError(
-                f"the measuring command of measure {measure.name} exited {proc.returncode}: "
-                f"{measure.command}: {message}"
-            )
+        with measure_lock(measure, root, clock):
+            if measure.ready is not None:
+                run_command(measure, "ready command", measure.ready, root, env, clock)
+            run_command(measure, "measuring command", measure.command, root, env, clock)
         try:
             rows = json.loads(output.read_text(encoding="utf-8"))
         except OSError as exc:
             raise GateError(f"measure {measure.name} wrote no rows to GATE_OUTPUT: {exc}") from exc
         except ValueError as exc:
             raise GateError(f"measure {measure.name} wrote no JSON to GATE_OUTPUT: {exc}") from exc
-    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
-        raise GateError(f"measure {measure.name} wrote no JSON array of rows to GATE_OUTPUT")
     return rows
 
 
 def kept_rows(measure: Measure, rows: list[dict]) -> list[dict]:
-    """The rows whose file matches `files` and no `exclude` pattern (BR-131, DEC-10)."""
-    kept = []
-    for row in rows:
-        path = row.get("file")
-        if not isinstance(path, str) or not path:
-            raise GateError(f"measure {measure.name} wrote a row without the field file")
-        if glob_match(measure.files, path) and not any(glob_match(p, path) for p in measure.exclude):
-            kept.append(row)
-    return kept
+    """The rows whose file matches `files` and no `exclude` pattern (BR-131, DEC-10).
+
+    It reads `file` without a check, so check_report must run on *rows* first.
+    """
+    return [
+        row for row in rows
+        if glob_match(measure.files, row["file"])
+        and not any(glob_match(p, row["file"]) for p in measure.exclude)
+    ]
 
 
-def _check_row(measure: Measure, row: dict) -> None:
-    """Refuse a row that the judging cannot read, so no traceback gives exit 1."""
-    if "parse_error" in row:
-        return
+def check_report(measure: Measure, report: object) -> list[dict]:
+    """Refuse a report in the wrong shape before any row is filtered or judged (BR-130, DEC-42).
+
+    Every row must be a parse error row or a function row of
+    schemas/measure-output-rows.json, and a function row must not start below
+    its last line. The message names the measure and the field. A row is a
+    parse error row only when `parse_error` holds a non-empty text. Any other
+    `parse_error` is cut from the row, so the later steps judge it as a
+    function row (IMPL-0078).
+    """
+    if not isinstance(report, list):
+        raise GateError(f"measure {measure.name} wrote no JSON array of rows to GATE_OUTPUT")
+    checked = []
+    for position, row in enumerate(report, start=1):
+        if not isinstance(row, dict):
+            raise GateError(f"measure {measure.name} wrote row {position}, which is no JSON object")
+        if _text(row.get("parse_error")):
+            problem = _parse_error_problem(row)
+        else:
+            row = {key: value for key, value in row.items() if key != "parse_error"}
+            problem = _function_problem(row)
+        if problem:
+            raise GateError(f"measure {measure.name} wrote row {position} {problem}")
+        checked.append(row)
+    return checked
+
+
+def _parse_error_problem(row: dict) -> str | None:
+    if not _text(row.get("file")):
+        return "with a field parse_error and without a non-empty text in the field file"
+    return None
+
+
+def _function_problem(row: dict) -> str | None:
+    """Name what breaks the function row of the schema, or None."""
     for key in FUNCTION_FIELDS:
         if key not in row:
-            raise GateError(f"measure {measure.name} wrote a row of {row['file']} without the field {key}")
+            return f"{_where(row)}without the field {key}"
+    for key in ("file", "function"):
+        if not _text(row[key]):
+            return f"{_where(row)}with {key} {row[key]!r}, which is no non-empty text"
+    for key in ("start_line", "end_line", "complexity", "coverage_pct"):
+        if _number_value(row[key]) and abs(row[key]) > sys.float_info.max:
+            return f"{_where(row)}with {key} above {sys.float_info.max:g}, which is too large to compute with"
+    for key in ("start_line", "end_line", "complexity"):
+        if not _whole(row[key]) or row[key] < 1:
+            return f"{_where(row)}with {key} {row[key]!r}, which is no whole number of 1 or more"
+    coverage = row["coverage_pct"]
+    if not _number_value(coverage) or not 0 <= coverage <= 100:
+        return f"{_where(row)}with coverage_pct {coverage!r}, which is no number from 0 to 100"
+    if row["start_line"] > row["end_line"]:
+        return (
+            f"{_where(row)}with start_line {row['start_line']} above end_line {row['end_line']}"
+        )
+    return None
+
+
+def _where(row: dict) -> str:
+    """The file and the function of a row, as far as the row names them as text."""
+    parts = [str(row[key]) for key in ("file", "function") if _text(row.get(key))]
+    return f"for {' '.join(parts)} " if parts else ""
+
+
+def _text(value: object) -> bool:
+    return isinstance(value, str) and bool(value)
+
+
+def _number_value(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _whole(value: object) -> bool:
+    """A JSON integer of draft-07: also a number such as 12.0."""
+    return _number_value(value) and float(value).is_integer()
+
+
+def check_duplicates(measure: Measure, rows: list[dict], owners: dict[tuple[str, str], str]) -> None:
+    """Refuse one function twice among the kept rows (BR-130, DEC-11, DEC-12, DEC-29).
+
+    *owners* maps each (file, function) that an earlier measure kept to that
+    measure; the pairs of *measure* are added to it.
+    """
+    seen: set[tuple[str, str]] = set()
+    for row in rows:
+        if "parse_error" in row:
+            continue
+        pair = (row["file"], row["function"])
+        if pair in seen:
+            raise GateError(f"measure {measure.name} reports {row['function']} of {row['file']} twice")
+        if pair in owners:
+            raise GateError(
+                f"measures {owners[pair]} and {measure.name} both report {row['function']} of {row['file']}"
+            )
+        seen.add(pair)
+    owners.update(dict.fromkeys(seen, measure.name))
 
 
 # --- changed functions -----------------------------------------------------
@@ -241,18 +559,24 @@ def _check_row(measure: Measure, row: dict) -> None:
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
-def git(root: Path, *args: str) -> str:
-    proc = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
+def git(root: Path, *args: str, errors: str = "strict") -> str:
+    """Run git and decode its output as UTF-8; *errors* is the decoder's error handler."""
+    proc = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
     if proc.returncode != 0:
-        raise GateError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
-    return proc.stdout
+        stderr = proc.stderr.decode("utf-8", errors="replace").strip()
+        raise GateError(f"git {' '.join(args)} failed: {stderr}")
+    try:
+        return proc.stdout.decode("utf-8", errors=errors)
+    except UnicodeDecodeError as error:
+        raise GateError(f"git {' '.join(args)} printed text that is not UTF-8: {error}") from None
 
 
 def changed_lines(root: Path, base: str) -> dict[str, FileChanges]:
     """The changes of the diff from the merge base of *base* and HEAD to HEAD (DEC-29, DEC-42)."""
     merge_base = git(root, "merge-base", base, "HEAD").strip()
     diff = git(root, "-c", "core.quotePath=false", "diff", "--unified=0", "--no-color",
-               "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", merge_base, "HEAD")
+               "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", merge_base, "HEAD",
+               errors="surrogateescape")
     return parse_diff(diff)
 
 
@@ -344,6 +668,8 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
 
     A deletion that lies in no function and between two functions touches
     the nearest function above and the nearest function below (DEC-15, DEC-37).
+    A deletion below the last function touches the last function, and a
+    deletion above the first function touches none (DEC-51).
     """
     if start <= after < end:
         return True
@@ -351,9 +677,130 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
         return False
     above = [r["end_line"] for r in siblings if r["end_line"] <= after]
     below = [r["start_line"] for r in siblings if r["start_line"] > after]
-    if not above or not below:
+    if not above:
         return False
-    return end == max(above) or start == min(below)
+    return end == max(above) or (bool(below) and start == min(below))
+
+
+# --- exceptions register ---------------------------------------------------
+
+REGISTER_PATH = "docs/findings/exceptions.md"
+REGISTER_BRANCH = "dev"
+REGISTER_REF = f"refs/heads/{REGISTER_BRANCH}"
+REGISTER_SECTION = "## CRAP score"
+REGISTER_COLUMNS = ("File", "Function", "Accepted score", "Reason", "Accepted by")
+ACCEPTED_SCORE = re.compile(r"\d+(?:\.\d+)?")
+SEPARATOR_CELL = re.compile(r":?-+:?")
+NO_DEV_NOTICE = "crap-score: read no exceptions register, because no branch dev exists"
+
+
+@dataclass(frozen=True)
+class ExceptionRow:
+    """A row of the section `## CRAP score` of the exceptions register (BR-132)."""
+
+    file: str
+    function: str
+    accepted_score: Decimal
+    reason: str
+    accepted_by: str
+    line: int
+
+
+Exceptions = dict[tuple[str, str], ExceptionRow]
+
+
+def read_register(root: Path) -> tuple[Exceptions, str | None]:
+    """Read the exceptions register from the branch dev, never from the folder (BR-132, DEC-25).
+
+    Return the exceptions and the line to print. Without a branch dev, the
+    line says that no register was read (DEC-13). Without the file on dev,
+    there are no exceptions and no line.
+    """
+    probe = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{REGISTER_REF}^{{commit}}"],
+        cwd=root, capture_output=True, text=True, check=False,
+    )
+    if probe.returncode != 0:
+        return {}, NO_DEV_NOTICE
+    listed = git(root, "ls-tree", "--full-tree", "--name-only", REGISTER_REF, "--", REGISTER_PATH)
+    if not listed.strip():
+        return {}, None
+    return parse_register(git(root, "show", f"{REGISTER_REF}:{REGISTER_PATH}")), None
+
+
+def parse_register(text: str) -> Exceptions:
+    """The rows of the first table under `## CRAP score`; a broken row raises GateError (BR-132, DEC-38)."""
+    table = _section_table(text.splitlines())
+    if not table:
+        return {}
+    (header_line, header), *rows = table
+    if _cells(header) != list(REGISTER_COLUMNS):
+        raise GateError(
+            f"{_register_at(header_line)}: the table of the section {REGISTER_SECTION} "
+            f"needs the columns {', '.join(REGISTER_COLUMNS)}"
+        )
+    exceptions: Exceptions = {}
+    for number, line in rows:
+        cells = _cells(line)
+        if all(SEPARATOR_CELL.fullmatch(cell) for cell in cells):
+            continue
+        row = _exception_row(number, cells)
+        key = (row.file, row.function)
+        if key in exceptions:
+            raise GateError(
+                f"{REGISTER_PATH} on {REGISTER_BRANCH}, lines {exceptions[key].line} and {number}: "
+                f"two rows name {row.function} of {row.file}"
+            )
+        exceptions[key] = row
+    return exceptions
+
+
+def _register_at(number: int) -> str:
+    return f"{REGISTER_PATH} on {REGISTER_BRANCH}, line {number}"
+
+
+def _section_table(lines: list[str]) -> list[tuple[int, str]]:
+    """The numbered lines of the first table in the section, up to the next heading of level 1 or 2."""
+    try:
+        start = [line.strip() for line in lines].index(REGISTER_SECTION)
+    except ValueError:
+        return []
+    table: list[tuple[int, str]] = []
+    for number, line in enumerate(lines[start + 1:], start=start + 2):
+        if re.match(r"#{1,2}\s", line):
+            break
+        if line.lstrip().startswith("|"):
+            table.append((number, line))
+        elif table:
+            break
+    return table
+
+
+def _cells(line: str) -> list[str]:
+    """The cells of a table line; an escaped pipe stays in its cell."""
+    inner = line.strip()
+    inner = inner[1:] if inner.startswith("|") else inner
+    inner = inner[:-1] if inner.endswith("|") and not inner.endswith("\\|") else inner
+    return [cell.strip().replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", inner)]
+
+
+def _unquoted(cell: str) -> str:
+    if len(cell) >= 2 and cell.startswith("`") and cell.endswith("`"):
+        return cell[1:-1].strip()
+    return cell
+
+
+def _exception_row(number: int, cells: list[str]) -> ExceptionRow:
+    where = _register_at(number)
+    if len(cells) != len(REGISTER_COLUMNS):
+        raise GateError(f"{where}: the row has {len(cells)} cells, and the table has {len(REGISTER_COLUMNS)} columns")
+    for column, cell in zip(REGISTER_COLUMNS, cells):
+        if not _unquoted(cell):
+            raise GateError(f"{where}: the row has an empty cell {column}")
+    file, function, score = (_unquoted(cell) for cell in cells[:3])
+    if not ACCEPTED_SCORE.fullmatch(score):
+        raise GateError(f"{where}: the accepted score {score!r} of {function} is no number")
+    return ExceptionRow(file, function, Decimal(score), cells[3], cells[4], number)
 
 
 # --- score -----------------------------------------------------------------
@@ -361,28 +808,41 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
 
 def crap_formula(complexity: int, coverage_pct: float) -> Decimal:
     """complexity^2 * (1 - coverage_pct/100)^3 + complexity, in exact decimals."""
-    uncovered = 1 - Decimal(str(coverage_pct)) / 100
-    return Decimal(complexity) ** 2 * uncovered**3 + Decimal(complexity)
+    with localcontext(SCORE_CONTEXT):
+        uncovered = 1 - Decimal(str(coverage_pct)) / 100
+        return Decimal(complexity) ** 2 * uncovered**3 + Decimal(complexity)
 
 
 def rounded(score: Decimal | float) -> Decimal:
     """The score rounded to two decimals, half up (DEC-36)."""
     value = score if isinstance(score, Decimal) else Decimal(str(score))
-    return value.quantize(TWO_DECIMALS, rounding=ROUND_HALF_UP)
+    with localcontext(SCORE_CONTEXT):
+        return value.quantize(TWO_DECIMALS, rounding=ROUND_HALF_UP)
 
 
-def verdict(score: Decimal, threshold: Decimal) -> str:
-    """`pass` when the rounded score is at or below the threshold (DEC-14)."""
-    return "pass" if rounded(score) <= threshold else "fail"
+def verdict(score: Decimal, threshold: Decimal, exception: ExceptionRow | None = None) -> str:
+    """Judge the rounded score (DEC-14, BR-132).
+
+    `pass` at or below the threshold, also with a register row (DEC-24).
+    Above it, `accepted` when the rounded score is at or below the accepted
+    score of *exception*, else `fail`.
+    """
+    value = rounded(score)
+    if value <= threshold:
+        return "pass"
+    if exception is not None and value <= exception.accepted_score:
+        return "accepted"
+    return "fail"
 
 
-def report_row(row: dict, threshold: Decimal) -> dict:
+def report_row(row: dict, threshold: Decimal, exceptions: Exceptions | None = None) -> dict:
     if "parse_error" in row:
         return {"file": row["file"], "parse_error": row["parse_error"], "pass_fail": "fail"}
     score = rounded(crap_formula(row["complexity"], row["coverage_pct"]))
     result = {key: row[key] for key in FUNCTION_FIELDS}
     result["crap_score"] = float(score)
-    result["pass_fail"] = verdict(score, threshold)
+    exception = (exceptions or {}).get((row["file"], row["function"]))
+    result["pass_fail"] = verdict(score, threshold, exception)
     return result
 
 
@@ -425,22 +885,27 @@ def write_report(report_dir: Path, story_id: str, rows: list[dict]) -> Path:
     return path
 
 
-def _describe(row: dict) -> str:
+def _describe(row: dict, exceptions: Exceptions | None = None) -> str:
+    """One output line; an `accepted` row also names the reason of its register row (BR-132)."""
     if "parse_error" in row:
         return f"FAIL {row['file']}: parse error: {row['parse_error']}"
-    return f"{row['pass_fail'].upper()} {row['file']} {row['function']} {row['crap_score']:.2f}"
+    line = f"{row['pass_fail'].upper()} {row['file']} {row['function']} {row['crap_score']:.2f}"
+    if row["pass_fail"] == "accepted":
+        line += f": {(exceptions or {})[(row['file'], row['function'])].reason}"
+    return line
 
 
 # --- main ------------------------------------------------------------------
 
 
 def measure_all(settings: Settings, root: Path) -> list[dict]:
-    """Run every measure in list order and return its kept rows."""
+    """Run every measure in list order within one time limit; return the kept rows."""
+    clock = Clock(settings.timeout_minutes)
     kept: list[dict] = []
+    owners: dict[tuple[str, str], str] = {}
     for measure in settings.measures:
-        rows = kept_rows(measure, run_measure(measure, root))
-        for row in rows:
-            _check_row(measure, row)
+        rows = kept_rows(measure, check_report(measure, run_measure(measure, root, clock)))
+        check_duplicates(measure, rows, owners)
         kept.extend(rows)
     return kept
 
@@ -453,21 +918,30 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     root = Path.cwd()
     try:
-        settings = read_settings(root)
-        changes = changed_lines(root, args.base) if args.base is not None else None
-        rows = measure_all(settings, root)
+        with stop_signals():
+            settings = read_settings(root)
+            changes = changed_lines(root, args.base) if args.base is not None else None
+            rows = measure_all(settings, root)
+            exceptions, notice = read_register(root)
     except GateError as exc:
         print(f"crap-score: cannot measure: {exc}", file=sys.stderr)
         return 2
-    results = [report_row(row, settings.threshold) for row in judged_rows(rows, changes)]
+    except Stopped as stop:
+        name = signal.Signals(stop.signum).name
+        print(f"crap-score: stopped by {name}; stopped the running command and wrote no report", file=sys.stderr)
+        return 128 + stop.signum
+    results = [report_row(row, settings.threshold, exceptions) for row in judged_rows(rows, changes)]
     report_dir = Path(args.report_dir) if args.report_dir else root / DEFAULT_REPORT_DIR
     path = write_report(report_dir, detect_story_id(args.story_id), results)
+    if notice:
+        print(notice)
     for row in results:
-        print(_describe(row))
+        print(_describe(row, exceptions))
     failed = sum(row["pass_fail"] == "fail" for row in results)
+    accepted = sum(row["pass_fail"] == "accepted" for row in results)
     print(
-        f"crap-score: judged {len(results)} functions, {failed} above the threshold "
-        f"{settings.threshold}; wrote {path}",
+        f"crap-score: judged {len(results)} functions, {failed} failed and {accepted} accepted "
+        f"above the threshold {settings.threshold}; wrote {path}",
         file=sys.stderr,
     )
     return 1 if failed else 0

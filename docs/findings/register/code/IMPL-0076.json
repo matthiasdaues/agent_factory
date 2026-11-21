@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0076",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "function",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/gate-setup-proof:180-271",
+  "story": "ST-0446",
+  "finding": "A stop signal to gate-setup-proof can leave the measuring command running. The proof runs crap-score with subprocess.run and installs no signal handler. On SIGTERM to the proof alone, the proof dies without its finally: crap-score and its measuring command keep running, and the worktree stays registered until the next proof removes it under the running processes. On Ctrl-C, subprocess.run waits 0.25 seconds and then sends SIGKILL to crap-score. crap-score needs up to 5 seconds to stop the group of its command (ST-0438), so a command that does not end on SIGTERM survives, and the proof then deletes the folder it runs in. The review checked both cases in a scratch test with a stub that starts a child process. SIGTERM: the proof exited -15, the child process was alive, and git worktree list still held .current-work/gate-setup-proof/worktree. Ctrl-C with a child that ignores SIGTERM: the proof exited with a KeyboardInterrupt traceback, the worktree was gone, and the child was alive. The story wants the worktree list unchanged, and ST-0438 made crap-score stop its command on these signals, so the behavior looks unintended. Fix: in gate-setup-proof, turn SIGTERM and SIGHUP into an exception, as stop_signals of crap-score does. Start crap-score with subprocess.Popen, and on any exception send it SIGTERM and wait for it to exit before the finally removes the worktree. Add a test to tests/factory/test_crap_gate_proof.py that sends SIGTERM to the proof during a measuring command and asserts that the command's child ends and git worktree list is as before. The contract names no exit code for a stopped proof, so add a row to docs/spec/work/spec-feedback-ST-0446.md for the domain-modeling agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The script exists only on the feature branch, so it is not in use. Every proof that runs to its end checks the measure, cleans up, and keeps the branches, and DEC-46 removes a worktree left by a stopped run on the next run (no to fails_purpose). A stopped proof leaves test processes, possibly against a Compose stack, that the User must find and end by hand.",
+  "commit": "049aa6e9cd4f897293bbad60b92c73159f87074c",
+  "status": "resolved"
+}
