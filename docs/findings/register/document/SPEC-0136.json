@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0136",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md:60",
+  "story": null,
+  "finding": "One act has two actors. crap-gate-setup.feature makes the User confirm every value of docs/testing.yaml and accept functions in the exceptions register. The glossary makes the Stakeholder confirm every change to testing.yaml, and BR-092 and BR-132 make the stakeholder the only writer of the register. Name one actor for both acts, or state that the User acts as the stakeholder here. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Both terms name a person, so the guard and the setup work either way (no to fails_purpose); a reader must check whether two roles are meant (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

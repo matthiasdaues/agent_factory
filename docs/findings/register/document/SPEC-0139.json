@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0139",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md:343",
+  "story": null,
+  "finding": "BR-138 passed --base <start>, the commit the proof worktree starts from, while BR-127 and the Usage row of interface-contracts.md \u00a7 crap-score took --base <branch>. An implementer who checks the argument as a branch refuses the proof's call. Fix: --base takes any git revision, a branch or a commit, in BR-127 and the Usage row (DEC-42). Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The proof's call still states the revision, so an implementer can act (no to fails_purpose); a reader must reconcile two argument types (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

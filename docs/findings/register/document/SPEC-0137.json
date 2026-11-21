@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0137",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/entity-model.md:194",
+  "story": null,
+  "finding": "GATE_ENTRY types timeout_minutes as int, while CRAP_SCORE_ENTRY at line 1139 types it as float and the gates schema of interface-contracts.md as a number. The QA strategy plans a time-limit test with 0.05, which a reader that follows GATE_ENTRY refuses. Type GATE_ENTRY timeout_minutes as a number. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The contract and the CRAP entity agree on a number, so an implementer reaches the right type (no to fails_purpose); a reader of GATE_ENTRY gets the wrong type (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

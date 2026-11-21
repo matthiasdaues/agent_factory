@@ -265,20 +265,21 @@ Feature: Test Design Skill
     # @docs/testing.yaml
     # @.agent-factory/factory/rulebooks/templates/charter-testing.yaml
 
-    Scenario: Gates section declares crap_score configuration
-      Given docs/testing.yaml contains a gates section
-      Then the gates.crap_score entry has an enabled flag set to true
-      And the gates.crap_score entry has a threshold value
+    Scenario: Gates section declares crap-score configuration after the setup
+      Given setup-crap-score has written the entry gates.crap-score into docs/testing.yaml
+      Then the gates.crap-score entry has an enabled flag
+      And the gates.crap-score entry has threshold, timeout_minutes, and measures
 
     Scenario: Gates section declares mutation_testing configuration
       Given docs/testing.yaml contains a gates section
       Then the gates.mutation_testing entry has an enabled flag set to false
       And mutation testing is disabled by default until project infrastructure is ready
 
-    Scenario: Template includes gates section
+    Scenario: Template includes gates section without a CRAP gate
       Given the charter template at .agent-factory/factory/rulebooks/templates/charter-testing.yaml
-      Then it includes a gates section with crap_score and mutation_testing entries
-      And each entry documents its enabled flag and any threshold parameters
+      Then it includes a gates section with a mutation_testing entry
+      And it has no entry crap_score and no entry crap-score
+      And the CRAP gate enters a project only through setup-crap-score
 
   Rule: Dispatcher reads gate configuration from testing.yaml
     # actor: Dispatcher (Implementation-Agent)
@@ -291,11 +292,11 @@ Feature: Test Design Skill
       Then it reads each gate's enabled flag from gates
       And it skips gates where enabled is false
 
-    Scenario: Dispatcher reads CRAP threshold from testing.yaml
-      Given docs/testing.yaml declares gates.crap_score.threshold as 8
+    Scenario: Dispatcher leaves the CRAP threshold to crap-score
+      Given docs/testing.yaml declares gates.crap-score.threshold as 8
       When the dispatcher runs the crap-score gate
-      Then it passes the threshold from testing.yaml to the crap-score script
-      And the script uses that threshold instead of its hardcoded default
+      Then it passes no threshold to the crap-score script
+      And the script reads the threshold 8 from docs/testing.yaml
 
     Scenario: ADR-0012 documents test_design_verify as conditional gate
       Given docs/adr/0012-dispatcher-owned-semantic-gate-loop.md
@@ -366,20 +367,22 @@ Feature: Test Design Skill
     # @.agent-factory/factory/skills/crap-score/SKILL.md
 
     Scenario: CRAP script reads threshold from testing.yaml
-      Given docs/testing.yaml declares gates.crap_score.threshold as 8
+      Given docs/testing.yaml declares gates.crap-score.threshold as 8
       When the crap-score script resolves its threshold
-      Then it reads the value from testing.yaml's gates.crap_score.threshold
-      And uses 8 as the threshold instead of the hardcoded default of 30
+      Then it reads the value from testing.yaml's gates.crap-score.threshold
+      And uses 8 as the threshold
 
-    Scenario: CRAP script falls back to hardcoded default
-      Given docs/testing.yaml has no gates section
+    Scenario: CRAP script without a threshold cannot measure
+      Given docs/testing.yaml has the entry gates.crap-score with enabled true and no threshold
       When the crap-score script resolves its threshold
-      Then it uses the hardcoded default of 30
+      Then the script exits 2
+      And the message names threshold
+      And the script has no default threshold
 
     Scenario: Dead-code house-rules lookup path replaced
-      Given the crap-score script's resolve_threshold function
+      Given the crap-score script
       When it resolves the threshold
-      Then it reads from testing.yaml's gates.crap_score.threshold
-      And the read_threshold_from_house_rules function is replaced
-      # @.agent-factory/factory/scripts/crap-score::read_threshold_from_testing_yaml
-      # @.agent-factory/factory/scripts/crap-score::resolve_threshold
+      Then it reads from testing.yaml's gates.crap-score.threshold
+      And it reads no threshold from docs/charter/house-rules.md
+      # @packages/factory/scripts/crap-score::main
+      # crap-gate-setup.feature, Rule "Implementation agent gets one verdict for the functions a story changed"

@@ -1112,7 +1112,9 @@ The ledger field `status` shows the state in lower case. Written per
 [state-machine-notation.md § Canonical Format](../../.agent-factory/factory/rulebooks/conventions/state-machine-notation.md#canonical-format):
 pseudocode is authoritative, Mermaid is derived. BR-111 to BR-122 in
 [validation-rules.md § Dispatch ledger](validation-rules.md#dispatch-ledger-dispatch)
-hold the rules.
+hold the rules. BR-134 to BR-136 in
+[validation-rules.md § CRAP gate](validation-rules.md#crap-gate-crap-score-br-127br-139)
+hold the rules of a gate that cannot measure.
 
 ### Ledger Entry Lifecycle
 
@@ -1172,7 +1174,9 @@ On Fail:
 On Block:
   # a red test suite after the merge, on both ways
   # in an orchestrated run also a refresh conflict, or a merge that git refuses (reason merge conflict)
-  # by hand, a refused merge keeps the entry dispatched (BR-124)
+  # on both ways also a gate that cannot measure (reason gate cannot measure: crap-score):
+  # exit 2 of crap-score in the gate-check step, or exit 3 of premerge-check at the merge (BR-116, BR-124)
+  # by hand, any other refused merge keeps the entry dispatched (BR-124)
   # on a red test suite, merge-story first moves the feature branch back
   ChangeState(BLOCKED)
 On MarkDone:
@@ -1202,6 +1206,15 @@ State: BLOCKED
 On ReDispatch:
   # the User fixed the cause and told the implementation agent to continue
   ChangeState(PREPARED)
+On ResumeGates:
+  # dispatch resume-gates, for a story or a finding (DEC-07, DEC-22)
+  if the reason of the entry is not gate cannot measure: crap-score
+    RejectCommand("dispatch: resume-gates accepts only a blocked entry with the reason gate cannot measure: crap-score")
+  else
+    # the User fixed the setup and told the implementation agent to continue
+    # the entry keeps its attempts and its branch, and no developer agent starts
+    # the next step of the entry is the gate-check step
+    ChangeState(DISPATCHED)
 On Return:
   # dispatch return-story, run by the User; the guardrail refuses it to agents
   ChangeState(PENDING)
@@ -1226,6 +1239,7 @@ stateDiagram-v2
     FAILED --> PREPARED : ReDispatch
     FAILED --> PENDING : Return
     BLOCKED --> PREPARED : ReDispatch
+    BLOCKED --> DISPATCHED : ResumeGates (reason gate cannot measure)
     BLOCKED --> PENDING : Return
     DONE --> [*]
 ```
@@ -1235,7 +1249,8 @@ stateDiagram-v2
 - **PENDING** is also where a returned unit of work ends a run. **Return** sets the field `returned` of the entry to `true`, and **Added** sets it back to `false`. **Prepare** refuses an entry with `returned: true`. So a returned story stays **PENDING** until the run ends, and a returned finding starts again only after `dispatch add` (BR-113, BR-117). `dispatch close` accepts a **PENDING** entry, and a returned story stays in the backlog with `status: pending` (BR-116, BR-119).
 - **Prepare** waits for the wave record of the previous wave, which `dispatch close-wave` writes (BR-064, BR-113). A held-back entry is a **PENDING** entry with `returned: true` or one that depends on a returned story, directly or through another story. It can never start in this run, so it lets its wave close and holds back no later wave. `dispatch close-wave` also waits for the record of the previous wave, so a wave without entries closes in its turn and cannot let a later wave start early (BR-113).
 - **Added** applies only to a finding. `dispatch add` refuses an ID in any state other than **PENDING** and names that state (BR-117).
-- A refused merge is no edge. When `premerge-check` refuses, or the worktree of the feature branch in an orchestrated run holds an uncommitted change, `dispatch merge-story` merges nothing, and the entry stays **DISPATCHED** (BR-124). By hand, a checkout or a merge that git refuses keeps the entry **DISPATCHED** too. In an orchestrated run, a merge that git refuses goes to **BLOCKED** with the reason `merge conflict` (BR-116). A red test suite after the merge goes to **BLOCKED** on both ways, because the merge ran (BR-116). Two refusals after the merge are no edge. When a hook refuses the amend that writes `status: done` into the merge commit, or git refuses the reset after a red test suite, `merge-story` exits `1`, and the entry stays **DISPATCHED** until a rerun (BR-118). The rerun finds the merge commit at `HEAD`. It runs no `premerge-check` and no merge, and it does not refuse the uncommitted change that the refused amend left (BR-124).
+- A refused merge is no edge. When `premerge-check` refuses with exit `1`, or the worktree of the feature branch in an orchestrated run holds an uncommitted change, `dispatch merge-story` merges nothing, and the entry stays **DISPATCHED** (BR-124). By hand, a checkout or a merge that git refuses keeps the entry **DISPATCHED** too. In an orchestrated run, a merge that git refuses goes to **BLOCKED** with the reason `merge conflict` (BR-116). A red test suite after the merge goes to **BLOCKED** on both ways, because the merge ran (BR-116). Exit `3` of `premerge-check` also goes to **BLOCKED** on both ways, with the reason `gate cannot measure: crap-score`, because no code change can fix a gate that cannot measure (BR-124, BR-136). Two refusals after the merge are no edge. When a hook refuses the amend that writes `status: done` into the merge commit, or git refuses the reset after a red test suite, `merge-story` exits `1`, and the entry stays **DISPATCHED** until a rerun (BR-118). The rerun finds the merge commit at `HEAD`. It runs no `premerge-check` and no merge, and it does not refuse the uncommitted change that the refused amend left (BR-124).
+- **ResumeGates** leaves only **BLOCKED**, and only for the reason `gate cannot measure: crap-score`. Exit 2 of `crap-score` says that nobody judged the code, so the entry returns to the gate-check step with its code unchanged. It keeps its attempts, its attempt grants, and its branch, and the implementation agent spawns no developer agent (DEC-03, DEC-07). `dispatch resume-gates` refuses an entry in any other state or with any other reason, names its state and its reason, and changes nothing (BR-135). **ReDispatch** stays the way back for an entry whose code must change, also with this reason.
 - **Escalate** is no edge. `dispatch escalate` changes the tier of the entry and leaves its state. A refusal leaves the state too. After a failed attempt, the next **ReDispatch** runs on the new tier (BR-115).
 - **ReDispatch** from **FAILED** after an attempt of a class that does not count keeps the tier and follows the rule of that class (BR-114). Once the attempts are used up, **ReDispatch** refuses while the entry can still escalate. With no promotion left, because the entry cannot escalate any more as **HasStopped** defines, the User fixes the cause, and **ReDispatch** grants `gates.attempts` new counted attempts on the current tier (BR-116, RL-G19). No flag guards this grant. So on the last tier an agent can start a retry that the User did not ask for, and the User watches the run. **ReDispatch** leaves only **FAILED** and **BLOCKED**. In every other state `dispatch re-dispatch` refuses, names the entry and its state, and changes nothing, also in **PREPARED** (BR-116).
 - **HasStopped** is the predicate for an entry that waits for the User. It holds for every **BLOCKED** entry. It holds for a **FAILED** entry in two cases only: two of its attempts have the failure class `contract_violation`, or its counted attempts on its tier reached the limit of that tier and it cannot escalate any more. An entry cannot escalate any more when `dispatch escalate` refuses it for any reason of BR-115: the tier is `strong`, the entry has already escalated, `gates.attempts_escalated` is `0`, `verify-base` fails, or the diff leaves the scope. HasStopped finds the first three reasons in the fields `tier` and `escalation_granted` of the entry and in `gates.attempts_escalated`. The last two are checks of the branch that only `escalate` runs. A refusal for `verify-base` or for the scope is a check of the branch, so `escalate` records it in the field `reason` of the entry, as `escalate refused: verify-base` or `escalate refused: scope`. The record holds until the next `escalate`, which clears it on a grant or rewrites it on a refusal, or until **ReDispatch** sets the entry `prepared`. So `dispatch close-wave` decides HasStopped without reading a branch or a diff. **ReDispatch** checks the five reasons again when it runs, so an entry that the User fixed, for example by moving its diff back inside the scope, can then escalate. HasStopped holds for no entry in any other state. A **FAILED** entry for which HasStopped does not hold still has a retry, so the implementation agent runs `dispatch escalate` or **ReDispatch** without the User (BR-114, BR-116).

@@ -137,8 +137,8 @@ sequenceDiagram
 
     IA->>DC: 1. Runs dependency-check on story/ST-0350
     DC->>SF: 2. Writes a passing result
-    IA->>CS: 3. Runs crap-score
-    CS->>SF: 4. Writes a failing row: login() scores 42
+    IA->>CS: 3. Runs crap-score --base feature/login as a background job and waits for its exit
+    CS->>SF: 4. Writes a failing row: login() scores 42, and exits 1
     IA->>D: 5. Runs mark-failed ST-0350 --class acceptance_unmet
     opt The attempts on the tier are used up
         IA->>D: 6. Runs escalate ST-0350
@@ -166,6 +166,7 @@ sequenceDiagram
 - A failing gate records the failure class `acceptance_unmet`, which counts. A unit of work gets `gates.attempts` counted attempts on its tier, the first included, and then `gates.attempts_escalated` attempts on the next tier. Both default to `3`, and `gates.attempts_escalated: 0` turns escalation off. `dispatch` enforces both limits (BR-114, BR-115).
 - When the attempts are used up and no promotion is left, the unit of work is `failed` and has stopped. It waits for the User, in both ways. The User fixes the cause and tells the implementation agent to continue, or runs `dispatch return-story` (BR-116).
 - A surviving mutant that the step cannot kill or remove as dead code becomes a `QA` finding with `run` set to the feature branch. It does not block the story merge. It blocks the merge of the feature branch into `dev` until it is resolved (BR-066).
+- The implementation agent runs `crap-score` as a background job, because a foreground command call of an agent CLI can end before `timeout_minutes` runs out (BR-134). When `crap-score` exits `2`, the gate cannot measure. The agent then runs `dispatch mark-blocked` with the reason `gate cannot measure: crap-score`, starts no developer agent, and counts no attempt. After the User fixes the setup, `dispatch resume-gates` returns the story to this step ([8.7](08_crosscutting_concepts.md#gate-exit-codes)).
 - Each gate writes its result to `.current-work/<gate>/<id>.json`. `premerge-check` runs the gates again at the merge and reads only the result of `mutation-testing` ([6.24](#624-the-merge-check-of-a-story)).
 
 ### 6.4.2 Sequence: Module-Graph Check (Architecture Routing)
@@ -1378,6 +1379,7 @@ sequenceDiagram
     participant G as Git / pre-commit
     participant RW as Run Worktrees
     participant DC as dependency-check
+    participant MC as Measuring Commands
     participant CS as crap-score
     participant SF as State Files
     participant PF as Project Filesystem
@@ -1387,18 +1389,21 @@ sequenceDiagram
     PC->>G: 3. Checks the base, diff size, and scope, and reads reviews and findings at the head
     PC->>RW: 4. Removes any worktree left at premerge/ST-0350, then prunes
     PC->>RW: 5. Adds a detached worktree at the head of story/ST-0350
-    PC->>DC: 6. Reruns dependency-check in the worktree
-    PC->>CS: 7. Reruns crap-score with fresh coverage
-    PC->>SF: 8. Reads the mutation-testing result, the one stored result
-    PC->>RW: 9. Runs the test suite and the other gates, then removes the worktree
+    PC->>MC: 6. Runs the ready command of each measure of crap-score in the worktree
+    PC->>DC: 7. Reruns dependency-check in the worktree
+    PC->>CS: 8. Calls crap-score --base feature/login, whose measuring commands measure the code of the worktree
+    PC->>SF: 9. Reads the mutation-testing result, the one stored result
+    PC->>RW: 10. Runs the test suite and the other gates, then removes the worktree
     alt Every check passes
-        PC->>SF: 10. Writes premerge-check-ok for the head and exits 0
+        PC->>SF: 11. Writes premerge-check-ok for the head and exits 0
         opt A run by hand
-            D->>PF: 11. By hand, checks out feature/login only now
+            D->>PF: 12. By hand, checks out feature/login only now
         end
-        D->>G: 12. Merges story/ST-0350 into feature/login
+        D->>G: 13. Merges story/ST-0350 into feature/login
     else A check fails
         PC-->>D: Exits 1 and names each failure, and 6.24.1 shows what follows
+    else Only a gate could not measure
+        PC-->>D: Exits 3 with GATE CANNOT MEASURE: crap-score, and merge-story sets blocked
     end
 ```
 
@@ -1409,6 +1414,7 @@ sequenceDiagram
 - Step 4 removes a worktree that a crashed earlier check left at `.current-work/feature/login/premerge/ST-0350`, with `git worktree remove --force` and then `git worktree prune` (BR-123). The path belongs to one unit of work, so no other check uses it, and a retry after a crash does not fail on the leftover.
 - The temporary worktree is detached at the head commit, because the branch is checked out in the story worktree or the primary checkout already. Git ignores `.agent-factory/`, so the gate scripts come from the installed copy of the calling checkout (OI-10). The worktree builds its own `uv` environment, so the first rerun takes longer.
 - An untracked file of a checkout takes no part in the rerun.
+- Step 6 runs before the test suite. When a `ready` command fails, `premerge-check` exits `3` at once and runs neither the test suite nor the gates (BR-136). Step 8 passes `--report-dir` set to `.current-work/crap-score/` of the primary checkout, so the report of a refused merge outlives the temporary worktree.
 - `merge-story` declares the scope of a story: its declared outputs, its backlog file, its spec-feedback report, and its review reports, finding files, and register files. These files do not count toward the file limit. A finding declares no scope, and `--max-files` still limits its diff (RL-G20).
 - The merge of the feature branch into `dev` runs `premerge-check dev <feature-branch>`. It checks that every unit of work is `done` or `pending`, that every wave has a wave record, that the review of the whole feature and the three QA reports name the run and a current `branch_head`, and that no blocking finding of the run is open. It runs the full test suite in a temporary worktree at the head of the feature branch, at `.current-work/<feature-branch>/premerge/feature`, such as `.current-work/feature/login/premerge/feature`. Story and finding checks keep `premerge/<id>`. The implementation agent shows the result, and the User merges.
 
@@ -1416,14 +1422,15 @@ sequenceDiagram
 
 Derived from dynamic view `PremergeStoryRefused` in [`architecture.dsl`](../spec/architecture.dsl).
 
-For each cause in the table below, a refused merge changes no state (BR-124). `merge-story` merges nothing, a failed `premerge-check` writes no marker, the feature branch does not move, and the entry of the unit of work stays `dispatched`. By hand, the story branch also stays checked out in the primary checkout. One refusal does change state: in an orchestrated run, when git refuses the merge itself, `merge-story` sets the entry `blocked` with the reason `merge conflict` (BR-116). The cause of the refusal decides the next step of the implementation agent:
+For each cause in the table below except two, a refused merge changes no state (BR-124). `merge-story` merges nothing, a failed `premerge-check` writes no marker, the feature branch does not move, and the entry of the unit of work stays `dispatched`. By hand, the story branch also stays checked out in the primary checkout. Two refusals do change state. In an orchestrated run, when git refuses the merge itself, `merge-story` sets the entry `blocked` with the reason `merge conflict` (BR-116). On both ways, when only a gate could not measure, `merge-story` sets the entry `blocked` with the reason `gate cannot measure: crap-score` (BR-124, BR-136). The cause of the refusal decides the next step of the implementation agent:
 
-| Cause of the refusal                                                                                                                                 | Next step of the implementation agent                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Any check of `premerge-check`: a gate, the test suite, an open blocking finding, a missing code review, the base, the diff size, or the scope        | `merge-story` exits `1`, and the message names the refusing check. The entry stays `dispatched`, and the implementation agent runs the gate-check step of [6.4](#64-gate-check-step) on the branch again. When a gate fails there, the attempt runs as in 6.4: `mark-failed`, `re-dispatch`, `mark-dispatching`, a fresh developer agent, `mark-dispatched`, and the gates again. A refusal that keeps coming uses up the attempts, and the unit of work stops (HasStopped) |
-| The stop of a critical finding                                                                                                                       | Stops. The run waits until the stakeholder confirms the damage checks ([6.17](#617-a-critical-finding-stops-the-run))                                                                                                                                                                                                                                                                                                                                                       |
-| By hand: no check fails, but git refuses the checkout of the feature branch or the merge over an uncommitted change to a tracked file                | `merge-story` exits `1`, names the files and the checkout they sit in, and merges nothing. The entry stays `dispatched`, and the story branch stays checked out. The implementation agent shows the message to the User unchanged (BR-124)                                                                                                                                                                                                                                  |
-| Orchestrated: no check fails, but the worktree of the feature branch holds an uncommitted change to a tracked file, also one the story did not touch | `merge-story` checks nothing out. Before it merges, it refuses, exits `1`, and names the files and the worktree. The entry stays `dispatched`. The implementation agent reports the message to the User unchanged and does not repair the worktree. The key `dispatch.refuse_dirty_feature_worktree: false` in `docs/testing.yaml` turns this check off, and a missing key means `true`                                                                                     |
+| Cause of the refusal                                                                                                                                        | Next step of the implementation agent                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Any check of `premerge-check` with exit `1`: a gate, the test suite, an open blocking finding, a missing code review, the base, the diff size, or the scope | `merge-story` exits `1`, and the message names the refusing check. The entry stays `dispatched`, and the implementation agent runs the gate-check step of [6.4](#64-gate-check-step) on the branch again. When a gate fails there, the attempt runs as in 6.4: `mark-failed`, `re-dispatch`, `mark-dispatching`, a fresh developer agent, `mark-dispatched`, and the gates again. A refusal that keeps coming uses up the attempts, and the unit of work stops (HasStopped) |
+| A gate that cannot measure: a failed `ready` command, or exit `2` of `crap-score`, while every other check that ran passed                                  | `premerge-check` exits `3`, and its refusal starts with `GATE CANNOT MEASURE: crap-score`. `merge-story` merges nothing, sets the entry `blocked` with the reason `gate cannot measure: crap-score`, and exits `1`. The implementation agent shows the message to the User and waits. After the User fixes the setup, it runs `dispatch resume-gates` and the gate-check step again, with no developer agent and no counted attempt (BR-135, BR-136)                        |
+| The stop of a critical finding                                                                                                                              | Stops. The run waits until the stakeholder confirms the damage checks ([6.17](#617-a-critical-finding-stops-the-run))                                                                                                                                                                                                                                                                                                                                                       |
+| By hand: no check fails, but git refuses the checkout of the feature branch or the merge over an uncommitted change to a tracked file                       | `merge-story` exits `1`, names the files and the checkout they sit in, and merges nothing. The entry stays `dispatched`, and the story branch stays checked out. The implementation agent shows the message to the User unchanged (BR-124)                                                                                                                                                                                                                                  |
+| Orchestrated: no check fails, but the worktree of the feature branch holds an uncommitted change to a tracked file, also one the story did not touch        | `merge-story` checks nothing out. Before it merges, it refuses, exits `1`, and names the files and the worktree. The entry stays `dispatched`. The implementation agent reports the message to the User unchanged and does not repair the worktree. The key `dispatch.refuse_dirty_feature_worktree: false` in `docs/testing.yaml` turns this check off, and a missing key means `true`                                                                                     |
 
 Take ST-0350 in a run by hand. The last fix commit added an import that breaks a rule of `dependency-rules.dsl`.
 

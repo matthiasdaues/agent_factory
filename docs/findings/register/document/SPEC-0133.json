@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0133",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/interface-contracts.md:384",
+  "story": null,
+  "finding": "The contract of gate-setup-proof names no call of crap-score: neither --base nor --all, nor the story ID and report folder. The check Repeatable compares the rows of two runs, and two runs with one story ID write one report file. Name the call, for example --base with the branch the proof worktree starts from, and a report name per run. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can choose a call that gives the four checks their results (no to fails_purpose); each implementer must derive the call again (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

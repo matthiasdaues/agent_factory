@@ -49,7 +49,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 concernLint = component "concern-lint" "Validates concern-oriented agent context: category headings, Read/Boundary path resolution, story concern vocabulary, and absence of legacy YAML files (CTX-* codes)" "Python"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
-                crapScore = component "crap-score" "CRAP score per function against gates.crap-score.threshold; writes .current-work/crap-score/<id>.json" "Bash/Python"
+                crapScore = component "crap-score" "crap-score (--base <revision> | --all): runs the project's measuring commands, scores each kept function, and judges the changed ones against gates.crap-score.threshold; exits 0 on a pass, 1 when code fails, and 2 when it cannot measure; on exit 0 or 1 writes <report-dir>/<story-id>.json" "Python"
+                gateSetupProof = component "gate-setup-proof" "gate-setup-proof --measure <name> --plant <folder>: runs crap-score in a temporary worktree of its own on planted code and checks four results before a person enables the gate; exits 0 when all checks pass, 1 when one fails, and 2 on a wrong call or wrong planted code" "Python"
                 dependencyCheck = component "dependency-check" "Checks Python imports against docs/spec/dependency-rules.dsl; also runs as a pre-commit hook" "Bash/Python"
                 testDesignVerify = component "test-design-verify" "Checks that every owned contract in the story's traces has a test assertion" "Python"
                 mutationTesting = component "mutation-testing" "Runs gates.mutation-testing.command within its time limit and writes its result file" "Python"
@@ -57,7 +58,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 fenceRunner = component "Fence Runner" "Deterministic output validation after agent activity; snapshots declared output patterns, compares post-activity filesystem state, and stores fence evidence" "Python"
                 proposalValidator = component "Proposal Validator" "Checks proposal file existence, format, and required fields; returns the shared validator result shape" "Python"
                 findingLint = component "finding-lint" "packages/factory/scripts/finding-lint [--staged]: reads each finding file that carries review_class or whose HEAD version carries it, and every register file; recomputes the severity from the basis, runs schema-validate on each register file with the schema of its folder, compares each file with its HEAD version for a lowering, a removal, or a lost review_class, and runs the git check of in_use when a code, runtime, or security finding is new or its basis or artifact changed; writes nothing and exits 1 on any violation" "Python" "Finding Classification"
-                guardHumanFields = component "guard-human-fields" "packages/factory/config/hooks/guard-human-fields: reads one tool call as its CLI passes it and, for a write, the current content of the target; refuses a call that sets a human field in docs/findings/*.md, docs/findings/register/**/*.json, or the Appendix tables of docs/proposals/*.md; for a patch call, apply_patch in Codex, Copilot CLI, and Pi or patch in OpenCode, reads the paths and lines from the patch text and refuses a patch it cannot parse when the raw text names a guarded path; exits 0 to pass and 2 to refuse; an agent that hides the field name, such as by building it from pieces in a script, passes it" "Hook script" "Finding Classification"
+                guardHumanFields = component "guard-human-fields" "packages/factory/config/hooks/guard-human-fields: reads one tool call as its CLI passes it and, for a write, the current content of the target; refuses a call that sets a human field in docs/findings/*.md, docs/findings/register/**/*.json, or the Appendix tables of docs/proposals/*.md, and every call that writes docs/findings/exceptions.md; for a patch call, apply_patch in Codex, Copilot CLI, and Pi or patch in OpenCode, reads the paths and lines from the patch text and refuses a patch it cannot parse when the raw text names a guarded path; exits 0 to pass and 2 to refuse; an agent that hides the field name, such as by building it from pieces in a script, passes it" "Hook script" "Finding Classification"
                 guardClaudeCode = component "guard entry: Claude Code" "PreToolUse entries in .claude/settings.json for Edit, MultiEdit, Write, NotebookEdit, and Bash that run guard-human-fields" "Hook configuration" "Finding Classification"
                 guardCodex = component "guard entry: Codex" "PreToolUse entries in .codex/hooks.json for Edit, Write, apply_patch, and Bash that run guard-human-fields" "Hook configuration" "Finding Classification"
                 guardCopilot = component "guard entry: Copilot CLI" "preToolUse entries in a hook file under .github/hooks/, as step-guard.json has them, for edit, apply_patch, write_file, create, and bash; run guard-human-fields" "Hook configuration" "Finding Classification"
@@ -105,6 +106,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             rawUsageSpool = container "Raw Usage Spool" "Authoritative append-only top-level JSONL records under .agent-factory/usage/" "JSONL files" "Storage"
             installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
             projectFilesystem = container "Project Filesystem" "Project source, configuration, and documentation that Factory changes only through defined contracts" "Filesystem" "Storage"
+            measuringCommands = container "Measuring Commands" "Project-owned commands that gates.crap-score.measures names: each ready command answers whether its measuring command can run now; each measuring command writes one JSON array of rows to the path in GATE_OUTPUT, or exits non-zero and names the cause when it cannot measure; they refer to nothing under .agent-factory/" "Project scripts" "Project-owned"
             coreArtifacts = container "Core Artifacts" "The core files under docs/spec/ and the seam files docs/agent-context.md and docs/testing.yaml" "Markdown/DSL/YAML files" "Storage"
             workingOutput = container "Working Output" "Reports, QA strategies, and finding files under docs/spec/work/, docs/reviews/, and docs/findings/" "Markdown files" "Storage"
             findingRegisters = container "Finding Registers" "The folders docs/findings/register/<class>/, one per review class: one JSON register file <ID>.json per minor finding, with status open, resolved, or waived; a missing folder is an empty register" "JSON files" "Storage,Finding Classification"
@@ -117,7 +119,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 requirementsAgent = component "requirements-agent" "Produces scope and behaviour: the scope map, the feature files, and the area specs; writes gaps reports and term candidates; hands off to the domain-modeling agent" "Agent definition, strong tier"
                 domainModelingAgent = component "domain-modeling-agent" "Produces domain structure: the glossary, the entity model, state machines, validation rules, interface contracts, and schemas; moves confirmed term candidates into the glossary" "Agent definition, strong tier"
                 architectureAgent = component "architecture-agent" "Produces architecture.dsl and dependency-rules.dsl; reads the entity model and state machines as context and files ARCH findings on a contradiction" "Agent definition, strong tier"
-                testStrategyAgent = component "test-strategy-agent" "Produces docs/testing.yaml and the QA strategies; chooses the test guardrails and their thresholds; resolves QA findings it owns" "Agent definition, strong tier"
+                testStrategyAgent = component "test-strategy-agent" "Produces docs/testing.yaml and the QA strategies; chooses the test guardrails and their thresholds; sets the CRAP gate up with the skill setup-crap-score; resolves QA findings it owns" "Agent definition, strong tier"
                 virgil = component "virgil" "Produces docs/agent-context.md with capture-context during the fitting; seeds the ID counter in fitting step 4 and offers the move of a local counter to origin at the session start" "Agent definition"
                 specReviewAgent = component "spec-review-agent" "Reviews the feature files, the glossary, the structure files, the area specs, and the schemas in a session separate from their producers; shares the glossary review with the stakeholder" "Agent definition"
                 architectureReviewAgent = component "architecture-review-agent" "Reviews architecture.dsl and dependency-rules.dsl in a session separate from the architecture agent" "Agent definition"
@@ -327,16 +329,26 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         # Relationships — Semantic Quality Gates (dispatcher-invoked)
         # ================================================================
-        implementationAgent -> crapScore "Runs in the gate-check step"
+        implementationAgent -> crapScore "Runs crap-score --base <feature-branch> in the gate-check step as a background job; on exit 2 spawns no developer agent and runs mark-blocked"
         implementationAgent -> dependencyCheck "Runs in the gate-check step, when the rules file exists"
         implementationAgent -> testDesignVerify "Runs in the gate-check step, when the story has a Test Design"
         implementationAgent -> mutationTesting "Runs in the gate-check step, when the gate is enabled"
-        crapScore -> stateFiles "Writes its result file"
+        crapScore -> stateFiles "Writes its report on exit 0 or 1, and no report on exit 2"
         dependencyCheck -> stateFiles "Writes its result file"
         testDesignVerify -> stateFiles "Writes its result file"
         mutationTesting -> stateFiles "Writes its result file"
         mutationTesting -> coreArtifacts "Reads its command and time limit"
-        crapScore -> coreArtifacts "Reads its threshold"
+        crapScore -> coreArtifacts "Reads gates.crap-score: threshold, timeout_minutes, and measures"
+        crapScore -> measuringCommands "Runs the ready command and then the measuring command of each measure, in list order, with GATE_OUTPUT set, within timeout_minutes for the whole run"
+        measuringCommands -> crapScore "Writes one JSON array of rows to the path in GATE_OUTPUT; exits non-zero when it cannot measure, which crap-score turns into exit 2"
+        crapScore -> git "Reads the diff from the merge base of --base to HEAD, and the section CRAP score of docs/findings/exceptions.md on dev"
+        crapScore -> git "Holds an operating-system file lock on crap-score/<measure>.lock under the git common directory for each measure with ready commands, from the ready commands through the measuring command; waits for it within timeout_minutes; the lock ends with the process"
+        testStrategyAgent -> gateSetupProof "Runs the proof in setup-crap-score steps 5 and 7, before the person enables the gate"
+        testStrategyAgent -> crapScore "Runs crap-score --all in setup-crap-score step 6 and reports the failing functions and the run time"
+        testStrategyAgent -> measuringCommands "Writes the measuring commands and ready commands into the project in setup-crap-score, after the person confirms"
+        gateSetupProof -> coreArtifacts "Reads the threshold and the measure from gates.crap-score, also with enabled: false"
+        gateSetupProof -> git "Adds a temporary worktree at a fixed path under .current-work/gate-setup-proof/ with two commits of planted code, after it removes one that a crashed run left, and removes it afterwards; no branch of the project moves"
+        gateSetupProof -> crapScore "Runs crap-score --base <start> in its worktree and compares the exit codes and the rows"
 
         # ================================================================
         # Relationships — Fence Runner and Proposal Validator
@@ -421,6 +433,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         dispatchCli -> workingOutput "Reads spec-feedback reports and finding files; sets resolved at a merge"
         dispatchCli -> coreList "Reads the core list"
         dispatchCli -> dispatchLedger "Loads the ledger and changes states through the transition table"
+        dispatchCli -> dispatchLedger "resume-gates sets a blocked entry with the reason gate cannot measure: crap-score back to dispatched, with its attempts and branch"
         dispatchLedger -> stateFiles "Reads and writes the ledger of the run"
         dispatchCli -> stateFiles "Writes step manifests; removes the state of the run at close"
         indexLint -> coreList "Reads sample paths for the reviewer check"
@@ -459,6 +472,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         blockDangerousGit -> stateFiles "Reads the markers and the ledgers" "" "Finding Classification"
         cliAgent -> dispatchCli "Runs a dispatch subcommand" "" "Finding Classification"
         stakeholder -> workingOutput "Writes the human fields of a finding file in an editor or with a ! command: confirms a stop, waives a finding, or lowers it" "" "Finding Classification"
+        stakeholder -> workingOutput "Writes the exceptions register docs/findings/exceptions.md on dev: accepts a function above the CRAP threshold with its score and a reason"
         stakeholder -> findingRegisters "Writes the human fields of a register file in an editor or with a ! command: waives a minor finding, or writes the register file that replaces a lowered finding file" "" "Finding Classification"
 
         # The guard
@@ -534,13 +548,15 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         dispatchCli -> runWorktrees "Creates the worktrees of an orchestrated run; removes them at close"
         dispatchCli -> projectFilesystem "By hand, checks out the story branch, and the feature branch after premerge-check passes"
         dispatchCli -> coreArtifacts "Reads the test command, the attempt limits, and refuse_dirty_feature_worktree"
-        dispatchCli -> premergeCheck "merge-story runs it first and merges only on exit 0"
+        dispatchCli -> premergeCheck "merge-story runs it first and merges only on exit 0; on exit 3 sets the entry blocked with the reason gate cannot measure: crap-score"
+        dispatchCli -> measuringCommands "init runs the ready command of every measure of an enabled gate in the primary checkout, before it cuts a branch or writes the ledger"
 
         # premerge-check
         premergeCheck -> git "Checks the base, diff size, and scope, and reads reviews and findings at the head"
         premergeCheck -> runWorktrees "Removes a leftover worktree at its path under premerge/, adds a new one, and reruns the gates there"
         premergeCheck -> dependencyCheck "Reruns it in the temporary worktree"
-        premergeCheck -> crapScore "Reruns it in the temporary worktree"
+        premergeCheck -> crapScore "Calls crap-score --base <target> in the temporary worktree, with the report in the primary checkout; exit 2 gives exit 3 when every other check that ran passed"
+        premergeCheck -> measuringCommands "Runs the ready command of every measure of an enabled gate in the temporary worktree, before the test suite; a failure gives exit 3 at once"
         premergeCheck -> testDesignVerify "Reruns it in the temporary worktree"
         premergeCheck -> coreArtifacts "Reads the gates and the test command"
 
@@ -606,8 +622,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         dynamic validator "GateCheckStep" "The gate-check step of ST-0350: a failing gate gets a fresh developer agent, and a surviving mutant becomes a QA finding" {
             implementationAgent -> dependencyCheck "Runs dependency-check on story/ST-0350"
             dependencyCheck -> stateFiles "Writes a passing result"
-            implementationAgent -> crapScore "Runs crap-score"
-            crapScore -> stateFiles "Writes a failing row: login() scores 42"
+            implementationAgent -> crapScore "Runs crap-score --base feature/login as a background job and waits for its exit"
+            crapScore -> stateFiles "Writes a failing row: login() scores 42, and exits 1"
             implementationAgent -> dispatchCli "Runs mark-failed ST-0350 --class acceptance_unmet"
             implementationAgent -> dispatchCli "Runs escalate ST-0350, only when the attempts on the tier are used up"
             implementationAgent -> dispatchCli "Runs re-dispatch ST-0350"
@@ -629,8 +645,9 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             premergeCheck -> git "Checks the base, diff size, and scope, and reads reviews and findings at the head"
             premergeCheck -> runWorktrees "Removes any worktree left at premerge/ST-0350, then prunes"
             premergeCheck -> runWorktrees "Adds a detached worktree at the head of story/ST-0350"
+            premergeCheck -> measuringCommands "Runs the ready command of each measure of crap-score in the worktree"
             premergeCheck -> dependencyCheck "Reruns dependency-check in the worktree"
-            premergeCheck -> crapScore "Reruns crap-score with fresh coverage"
+            premergeCheck -> crapScore "Calls crap-score --base feature/login, whose measuring commands measure the code of the worktree"
             premergeCheck -> stateFiles "Reads the mutation-testing result, the one stored result"
             premergeCheck -> runWorktrees "Runs the test suite and the other gates, then removes the worktree"
             premergeCheck -> stateFiles "Writes premerge-check-ok for the head and exits 0"
@@ -828,6 +845,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             include dependencyCheck
             include testDesignVerify
             include mutationTesting
+            include measuringCommands
             include dispatchCli
             include implementationAgent
             include git
@@ -841,6 +859,31 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             exclude "implementationAgent -> dispatchCli"
             exclude "implementationAgent -> stateFiles"
             exclude "git -> dependencyCheck"
+            autoLayout lr
+        }
+
+        component validator "CrapGate" "CRAP gate: crap-score, the project's measuring commands, the proof, and the callers of the gate" {
+            include crapScore
+            include gateSetupProof
+            include premergeCheck
+            include measuringCommands
+            include implementationAgent
+            include testStrategyAgent
+            include dispatchCli
+            include coreArtifacts
+            include stateFiles
+            include git
+            exclude "premergeCheck -> git"
+            exclude "dispatchCli -> git"
+            exclude "dispatchCli -> stateFiles"
+            exclude "dispatchCli -> coreArtifacts"
+            exclude "implementationAgent -> dispatchCli"
+            exclude "implementationAgent -> stateFiles"
+            exclude "implementationAgent -> testStrategyAgent"
+            exclude "implementationAgent -> premergeCheck"
+            exclude "testStrategyAgent -> coreArtifacts"
+            exclude "premergeCheck -> stateFiles"
+            exclude "premergeCheck -> coreArtifacts"
             autoLayout lr
         }
 
@@ -1159,6 +1202,11 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 shape Cylinder
                 background #438DD5
                 color #ffffff
+            }
+            element "Project-owned" {
+                border dashed
+                background #F2F2F2
+                color #000000
             }
             element "Component" {
                 background #85BBF0

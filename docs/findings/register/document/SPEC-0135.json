@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0135",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md:195",
+  "story": null,
+  "finding": "Two terms have no glossary entry. 'Built-in gate' decides which gates the not-set-up line names (BR-066, the feature Outline at line 823); the code holds crap-score and mutation-testing in BUILT_IN_GATES. 'Kept function' and 'kept row' appear in the --all row of interface-contracts.md § crap-score and in the definition of Judged Function. Define both terms. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code and the filter rule let a reader infer the meaning (no to fails_purpose); a newcomer must read premerge-check or BR-131 to learn it (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

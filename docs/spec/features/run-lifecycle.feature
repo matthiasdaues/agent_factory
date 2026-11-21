@@ -219,11 +219,14 @@ Feature: Run Lifecycle
       And ST-0350 is dispatched
       And the head of story/ST-0350 fails dependency-check
       When the User gives the go and the implementation agent runs dispatch merge-story ST-0350
-      Then premerge-check exits non-zero
+      Then premerge-check exits 1
       And the message names dependency-check
+      And the ledger records ST-0350 as dispatched
       And the primary checkout still has story/ST-0350 checked out
       And the files in the primary checkout are unchanged
       And the tip of feature/login is the same commit as before the merge-story call
+      # Exit 3 of premerge-check sets the story blocked: crap-gate-setup.feature,
+      # Scenario Outline "A gate that cannot measure at the merge blocks the story on both ways".
 
     Scenario: A changed tracked file in the primary checkout does not hide a failing gate
       Given a run by hand is active on feature/login
@@ -460,6 +463,11 @@ Feature: Run Lifecycle
         | git refuses the merge of story/ST-0350 over an untracked file in the worktree of feature/login | blocked |
         | dispatch merge-story meets a conflict in the refresh                                           | blocked |
         | the test suite fails after the merge of story/ST-0350                                          | blocked |
+        | crap-score exits 2 in the gate-check step of ST-0350                                           | blocked |
+        | premerge-check exits 3 in dispatch merge-story ST-0350                                         | blocked |
+      # A gate that cannot measure blocks the story with reason "gate cannot measure: crap-score":
+      # crap-gate-setup.feature, Rule "Implementation agent stops a story without a counted attempt
+      # when the gate cannot measure".
 
     Scenario: A story whose diff leaves its scope stops when dispatch escalate refuses it
       Given docs/testing.yaml sets gates.attempts to 3 and gates.attempts_escalated to 3
@@ -490,6 +498,15 @@ Feature: Run Lifecycle
       Then the implementation agent runs dispatch re-dispatch ST-0350
       And ST-0350 continues in the run on feature/login
       # @packages/factory/scripts/dispatch::cmd_re_dispatch
+
+    Scenario: A fixed setup lets a story blocked by a gate that cannot measure continue at the gate-check step
+      Given ST-0350 is blocked with reason "gate cannot measure: crap-score"
+      And the User has fixed the setup
+      When the User tells the implementation agent to continue
+      Then the implementation agent runs dispatch resume-gates ST-0350, not dispatch re-dispatch
+      And the ledger records ST-0350 as dispatched
+      And the next step of ST-0350 is the gate-check step
+      # crap-gate-setup.feature, Rule "User resumes a story blocked by a gate that cannot measure without new code"
 
     Scenario: After the User's fix, re-dispatch grants new attempts to a failed story whose attempts are used up
       Given docs/testing.yaml sets neither gates.attempts nor gates.attempts_escalated
@@ -683,10 +700,12 @@ Feature: Run Lifecycle
       And ST-0350 is dispatched
       And the head of story/ST-0350 fails dependency-check
       When the implementation agent runs dispatch merge-story ST-0350
-      Then premerge-check exits non-zero
+      Then premerge-check exits 1
       And the message names dependency-check
       And the ledger records ST-0350 as dispatched
       And the implementation agent runs the gate-check step on story/ST-0350 again
+      # Exit 3 of premerge-check sets the story blocked, and no gate-check step follows:
+      # crap-gate-setup.feature, Scenario Outline "A gate that cannot measure at the merge blocks the story on both ways".
 
     Scenario: An uncommitted change in the worktree of the feature branch stops merge-story in an orchestrated run
       Given docs/testing.yaml sets no dispatch.refuse_dirty_feature_worktree
@@ -749,17 +768,24 @@ Feature: Run Lifecycle
         | crap-score       |
         | mutation-testing |
 
+    Scenario: The built-in call of crap-score names the merge target
+      Given docs/testing.yaml has the entry gates.crap-score with enabled true
+      When dispatch merge-story ST-0350 runs premerge-check against feature/login
+      Then premerge-check runs crap-score with --base feature/login
+      And the call names no list of files and no threshold
+
     Scenario: premerge-check reads the old key crap_score
-      Given docs/testing.yaml has the entry gates.crap_score with enabled true and threshold 8
+      Given docs/testing.yaml has the entry gates.crap_score with enabled true, threshold 8, timeout_minutes 10, and measures
       When premerge-check runs on story/ST-0350
-      Then premerge-check runs crap-score with the threshold 8 on the head of story/ST-0350
+      Then premerge-check runs crap-score on the head of story/ST-0350
+      And premerge-check passes no threshold, because crap-score reads it from the entry
       And docs/testing.yaml still has the entry gates.crap_score
 
     Scenario: crap-score reads the old key crap_score
-      Given docs/testing.yaml has the entry gates.crap_score with threshold 8
+      Given docs/testing.yaml has the entry gates.crap_score with threshold 8, timeout_minutes 10, and measures
       And docs/testing.yaml has no entry gates.crap-score
-      When crap-score runs on ST-0350
-      Then crap-score checks every function of ST-0350 against the threshold 8
+      When crap-score runs with --base feature/login on story/ST-0350
+      Then crap-score judges the functions that ST-0350 changed against the threshold 8
       # @packages/factory/scripts/crap-score::read_threshold_from_testing_yaml
 
     Scenario: mutation-testing reads the old key mutation_testing
@@ -793,6 +819,13 @@ Feature: Run Lifecycle
         | state                                                                 |
         | docs/testing.yaml has no entry gates.license-check                    |
         | docs/testing.yaml has the entry gates.license-check without a command |
+
+    Scenario: A quality-gates entry crap-score without an entry is refused and names the setup skill
+      Given backlog/ST-0350.md has quality-gates [crap-score]
+      And docs/testing.yaml has no entry gates.crap-score
+      When premerge-check runs on story/ST-0350
+      Then premerge-check exits 1
+      And the message names crap-score and the skill setup-crap-score
 
     Scenario: The gate list of a story
       Given docs/spec/dependency-rules.dsl exists

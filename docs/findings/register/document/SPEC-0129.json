@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0129",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/schemas/measure-output-rows.json:44",
+  "story": null,
+  "finding": "BR-130 makes a missing field exit 2. The schema also sets types and ranges, such as coverage_pct from 0 to 100 and complexity at least 1, and no rule says what a row outside them does. A row with coverage_pct 120 gives a score that looks valid. State in BR-130 that a row that breaks the schema is a wrong shape and exits 2. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can validate against the schema and the gate still ends with a named cause (no to fails_purpose); the test writer must guess the outcome for a row out of range (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

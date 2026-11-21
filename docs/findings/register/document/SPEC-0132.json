@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0132",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/entity-model.md:1144",
+  "story": null,
+  "finding": "The schema crap-score-entry-measures.json sets minItems 1, and the entity model says that a measure name is unique within the entry. No rule names the outcome of an empty measures list or of two measures with one name. An empty list passes every story, and gate-setup-proof --measure cannot tell two measures apart. State in BR-128 that both exit 2 and name the cause. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can follow the schema and the gate still ends with a named cause (no to fails_purpose); the test writer must guess the message and exit code (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

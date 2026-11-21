@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0128",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md#crap-gate-crap-score-br-127br-139",
+  "story": null,
+  "finding": "BR-131 rounds to two decimals and names no mode at the half. Complexity 8 at 87.5 % coverage scores exactly 8.125. Python's round gives 8.12, half up gives 8.13, and a register row with the accepted score 8.12 accepts the function under one mode only. Name the mode in BR-131: half up (DEC-36). Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can pick a mode and the gate still ends with a verdict (no to fails_purpose); a boundary test must guess the expected result (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

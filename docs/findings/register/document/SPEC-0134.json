@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0134",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "inconsistent",
+  "severity": "minor",
+  "artifact": "docs/spec/glossary.md:197",
+  "story": null,
+  "finding": "The Avoid column of the glossary term Exceptions Register names 'register'. crap-gate-setup.feature uses the bare word 13 times, such as 'A broken register row' and 'the register on dev', and BR-131, BR-132 and the Stdout row of interface-contracts.md § crap-score do too. Write 'exceptions register' in these texts, or narrow the Avoid entry to places where the finding register is also meant. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The context shows which register is meant, so a reader can act (no to fails_purpose); a reader who knows the finding register must check which file a sentence means (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

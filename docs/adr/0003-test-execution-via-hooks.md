@@ -109,6 +109,31 @@ Factory stops owning test execution entirely. The `.agent-factory/factory/script
 - Exit code semantics for gates (0 = pass, nonzero = fail) are unchanged.
 - Factory's structural hooks (mdformat, ruff, spec-lint, arch-lint, transition-lint) are unaffected.
 
+## Amended
+
+**Date**: 2026-11-21
+**Reason**: CRAP Gate Setup ([proposal](../proposals/crap-gate-setup.md), DEC-02)
+
+Decision 5 of the amendment of 2026-08-28 gains one exception: the CRAP gate `crap-score`. A CRAP score needs the cyclomatic complexity and the coverage of each function, and an exit code carries neither. So the project measures, and the Factory judges.
+
+**What changes:**
+
+1. **`crap-score` reads structured output from project-owned commands.** Each measure under `gates.crap-score.measures` in `docs/testing.yaml` names a measuring command. `crap-score` sets the environment variable `GATE_OUTPUT` to a file path and runs the command. The command writes one JSON array of rows to that path, one row per function: file, qualified name, line range, complexity, and coverage. [schemas/measure-output-rows.json](../spec/schemas/measure-output-rows.json) defines the row. The Factory defines this format, so no test tool's own output reaches the Factory.
+2. **`crap-score` has three exit codes.** It exits `0` on a pass and `1` when a changed function fails. It exits `2` when it cannot measure, for example because a measuring command exits non-zero or a `ready` command reports a stopped service. Exit `2` means that nobody judged the code. So it costs no attempt, and the unit of work stops as `blocked` with the reason `gate cannot measure: crap-score` (DEC-03). At the merge, `premerge-check` reports this case as exit `3` (BR-136). `dispatch resume-gates` returns the unit of work to the gate-check step after a person fixes the setup (DEC-07).
+3. **The measuring command belongs to the project.** The skill `setup-crap-score` proposes it, and the project owns it once a person confirms. It refers to nothing under `.agent-factory/`, so a person can run it without the Factory. This keeps BR-023: the Factory does not construct a project's test commands.
+
+**What stays unchanged:**
+
+- The verdict of `crap-score` is its exit code. The gate-check step and `premerge-check` read no report of `crap-score` to decide a merge. The report is for a person, and `gate-setup-proof` compares two reports during setup.
+- Every other gate keeps the exit-code-only contract of decision 5.
+- The deny patterns for bare test commands (BR-024) are unchanged. On a story, the implementation agent runs `crap-score`, and the developer agent never runs it. During setup, the test-strategy agent runs `crap-score --all` and `gate-setup-proof`. It tries each candidate tool through a measuring command, which no deny pattern names, and not through a bare test command such as `pytest --cov`.
+
+**Consequences of this amendment:**
+
+- The gate works in every language. Only the measuring command differs, so a project adds a language without a change to the Factory.
+- The row format is a contract between the Factory and every project that enables the gate. A change to the format breaks every measuring command.
+- A measuring command can report false coverage. `gate-setup-proof` checks the command with planted code before a person enables the gate (BR-138), but it runs only at setup. A later change to the command is not checked again until someone runs the proof.
+
 ## Consequences
 
 **Positive:**
@@ -130,3 +155,4 @@ Factory stops owning test execution entirely. The `.agent-factory/factory/script
 - `UC-09 — Ensure Project-Owned Test Gates Exist`
 - [foundational-principles.md § Agentic Creation, Deterministic Validation](../../.agent-factory/factory/rulebooks/conventions/foundational-principles.md#agentic-creation-deterministic-validation)
 - [08_crosscutting_concepts.md § 8.1](../arc42/08_crosscutting_concepts.md#81-agentic-creation-deterministic-validation)
+- [08_crosscutting_concepts.md § 8.7](../arc42/08_crosscutting_concepts.md#87-semantic-quality-gates)

@@ -1,0 +1,20 @@
+{
+  "id": "ATAM-0028",
+  "source": "atam-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/arc42/05_building_block_view.md:478",
+  "story": null,
+  "finding": "BR-092 and the DSL description of guard-human-fields make the guard refuse every agent call that writes docs/findings/exceptions.md. Chapter 5.12 describes guard-human-fields with only the three guarded areas from before the CRAP gate, QS-25 in chapter 10 names no file whose every write is refused, and ADR-0035 does not name the exceptions register. Fix: name docs/findings/exceptions.md in the guard-human-fields row of 5.12 and in the stimulus and response measure of QS-25, and add one line to ADR-0035. Owner: architecture-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The hook follows BR-092, so an implementer builds the right guard (no to fails_purpose); a reader of 5.12 or QS-25 learns of the register only from the DSL or BR-092 (raises_cost). No story or code outside the run encodes the chapter text.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

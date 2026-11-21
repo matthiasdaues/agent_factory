@@ -500,8 +500,8 @@ Feature: Core artifact ownership
     # @packages/factory/agents/implementation-agent.md
 
     Scenario: A function above the CRAP threshold blocks the merge
-      Given docs/testing.yaml sets gates.crap_score.threshold to 30
-      And after ST-0318 crap-score reports the function plan_moves at 42
+      Given docs/testing.yaml has the entry gates.crap-score with enabled true, threshold 30, timeout_minutes, and measures
+      And after ST-0318 crap-score reports the changed function plan_moves at 42
       When the implementation agent runs the gates in the gate-check step
       Then the merge of ST-0318 is blocked
       And a fresh developer agent gets the output of crap-score for plan_moves
@@ -541,7 +541,7 @@ Feature: Core artifact ownership
       Then it prints a warning that names docs/charter/house-rules.md
       And the test guardrails come from the gates section of docs/testing.yaml
 
-    Scenario Outline: The test guardrails come from the story first, then from testing.yaml, then from the default
+    Scenario Outline: The test guardrails come from the story first, then from testing.yaml
       Given a story with <story field> and <test design>
       And docs/testing.yaml <gates section>
       And docs/spec/dependency-rules.dsl exists
@@ -554,7 +554,7 @@ Feature: Core artifact ownership
         | quality-gates: [crap-score] | a Test Design section  | enables crap-score and mutation testing with a command | crap-score, test-design-verify, dependency-check, and the mutation command |
         | no quality-gates field      | no Test Design section | enables crap-score and mutation testing with a command | crap-score, dependency-check, and the mutation command                     |
         | no quality-gates field      | no Test Design section | enables only mutation testing with a command           | dependency-check and the mutation command                                  |
-        | no quality-gates field      | no Test Design section | has no gates section                                   | crap-score and dependency-check                                            |
+        | no quality-gates field      | no Test Design section | has no gates section                                   | dependency-check alone                                                     |
 
     # Without docs/spec/dependency-rules.dsl, the gate-check step and
     # premerge-check skip dependency-check and name the skip (BR-066):

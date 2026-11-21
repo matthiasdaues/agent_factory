@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0127",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "ambiguous",
+  "severity": "minor",
+  "artifact": "docs/spec/schemas/crap-score-entry-measures.json:20",
+  "story": null,
+  "finding": "No text names the glob dialect of files and exclude. Under fnmatch, packages/factory/scripts/* also matches packages/factory/scripts/lib/x.py, and pathlib reads ** differently. Name the dialect in the schema and BR-131: * matches within one path segment, and ** matches any number of segments (DEC-35). Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can pick a dialect and the gate still ends with a verdict (no to fails_purpose); the test writer must guess which files the feature examples match (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

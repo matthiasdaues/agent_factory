@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0131",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md#crap-gate-crap-score-br-127br-139",
+  "story": null,
+  "finding": "BR-131 counts a deletion inside a function's line range. A deletion of the last lines of one function lands between its new end_line and the next start_line, so it lies inside neither range. State in BR-131 that such a deletion counts for both neighbouring functions (DEC-37). Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can choose a reading and the gate still ends with a verdict (no to fails_purpose); the test writer must guess which function a border deletion judges (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

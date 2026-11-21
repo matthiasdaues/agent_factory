@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0138",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md:202",
+  "story": null,
+  "finding": "JSON Schema cannot compare two fields, so measure-output-rows.json accepted a row with start_line 40 and end_line 12. BR-130 called only a row that breaks the schema a wrong shape, while the QA strategy counted this case as one. Such a row has an empty range, and no changed line ever judges it. Fix: BR-130 names a row whose start_line is above its end_line as a wrong shape that exits 2 (DEC-42). Raised by the test-strategy agent. Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can still build a gate that ends with a named verdict (no to fails_purpose); the test writer must guess the outcome of an inverted range (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}

@@ -124,7 +124,7 @@ erDiagram
 - **CATALOG** is `.agent-factory/factory/INDEX.yaml` — one file holding four entry types (agents, skills, playbooks, rulebooks). It is generated wholesale on every `index-lint` run. There is no per-entry incremental update. Every entry carries a `tokens` field. Agents and playbooks also carry `total_tokens`.
 - **AGENT_ENTRY.tier** and **MODEL_MATRIX_ENTRY.tier** share the same three-value vocabulary (`economy | standard | strong`). `trigger` resolves an agent's dispatch model by looking up `<cli>.<tier>` in `config/model.conf`.
 - **HANDOFF** is the restart contract between two workflow phases. It owns phase continuity. **REPOSITORY_STATE** owns the exact revision and validation evidence, and **ARTIFACT_REFERENCE** names durable information instead of embedding it in a transcript. **HANDOFF_SEMANTIC_REVIEW** records the separate human/agent judgment that the mechanically valid handoff omitted or distorted no material fact.
-- **DISPATCH_LEDGER** is the record of one run at `.current-work/<feature-branch>/dispatch-ledger.yaml`, and `dispatch close` removes it. It holds `mode` (`orchestrated` or `by-hand`), `feature_branch`, `branch_root`, one entry per unit of work, and one wave record per closed wave (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`). An entry tracks `status`, `wave`, `deps` (every story that the `deps` field of its backlog file lists, also a `done` story outside the run; `init` writes the list and `plan` refreshes it from the backlog, and only a dependency inside the run holds the entry back, BR-113), `branch` (`story/<id>`), `worktree` (empty by hand), `tier`, `attempts`, `escalation_granted`, `reason` (why the entry is `blocked` or `failed`; after a refusal of `dispatch escalate` for `verify-base` or the scope, `escalate refused: verify-base` or `escalate refused: scope`, until the next `escalate` or a `re-dispatch` that sets `prepared`, BR-115), `returned`, and `commit_sha`, which holds the merge commit after the merge. `escalation_granted` is `true` once `dispatch escalate` promoted the entry (BR-115). `returned` is `true` after `dispatch return-story` and goes back to `false` on `dispatch add`, so `dispatch close-wave` can tell a returned `pending` entry from one that has not started (BR-116, BR-117). The entry also holds `attempt_grants`, a list with one item per grant of new attempts by `dispatch re-dispatch`. Each item holds `tier`, the tier of the grant, and `attempt_count`, the number of items in `attempts` at the grant. Only the counted attempts after the last grant count toward the limit (BR-116, OI-13). The ledger has no `closed` field, and no entry has `gate_results` (BR-111). [dispatch-contract.md](../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md) lists exactly the fields the code writes. [state-machines.md § Ledger Entry Lifecycle](state-machines.md#ledger-entry-lifecycle) holds the states of an entry.
+- **DISPATCH_LEDGER** is the record of one run at `.current-work/<feature-branch>/dispatch-ledger.yaml`, and `dispatch close` removes it. It holds `mode` (`orchestrated` or `by-hand`), `feature_branch`, `branch_root`, one entry per unit of work, and one wave record per closed wave (`number`, `completed`, `blocked`, `failed`, `next_ready`, `branch_head`). An entry tracks `status`, `wave`, `deps` (every story that the `deps` field of its backlog file lists, also a `done` story outside the run; `init` writes the list and `plan` refreshes it from the backlog, and only a dependency inside the run holds the entry back, BR-113), `branch` (`story/<id>`), `worktree` (empty by hand), `tier`, `attempts`, `escalation_granted`, `reason` (why the entry is `blocked` or `failed`; after a refusal of `dispatch escalate` for `verify-base` or the scope, `escalate refused: verify-base` or `escalate refused: scope`, until the next `escalate` or a `re-dispatch` that sets `prepared`, BR-115; `gate cannot measure: crap-score` when the gate cannot measure, which `resume-gates` reads, BR-135), `returned`, and `commit_sha`, which holds the merge commit after the merge. `escalation_granted` is `true` once `dispatch escalate` promoted the entry (BR-115). `returned` is `true` after `dispatch return-story` and goes back to `false` on `dispatch add`, so `dispatch close-wave` can tell a returned `pending` entry from one that has not started (BR-116, BR-117). The entry also holds `attempt_grants`, a list with one item per grant of new attempts by `dispatch re-dispatch`. Each item holds `tier`, the tier of the grant, and `attempt_count`, the number of items in `attempts` at the grant. Only the counted attempts after the last grant count toward the limit (BR-116, OI-13). The ledger has no `closed` field, and no entry has `gate_results` (BR-111). [dispatch-contract.md](../../.agent-factory/factory/rulebooks/conventions/dispatch-contract.md) lists exactly the fields the code writes. [state-machines.md § Ledger Entry Lifecycle](state-machines.md#ledger-entry-lifecycle) holds the states of an entry.
 - **REVIEW_REPORT** is a review report under `docs/reviews/`, with the frontmatter of [report-format.md § Report frontmatter](../../.agent-factory/factory/rulebooks/conventions/report-format.md#report-frontmatter). `premerge-check` reads three of its fields at the merges: `story`, the ID of the reviewed unit of work; `run`, the feature branch of a report of the feature checks; and `branch_head`, the head of the branch it reviewed (BR-122).
 - **CHILD_RESULT_ENVELOPE** is deliberately smaller than the tracked result it references. **SESSION_USAGE_SIGNAL** is retrospective evidence qualified by CLI/provider, never live workflow state.
 - **SCOPE_MAP_ROW** is one row in `docs/spec/scope-map.md`. The table always has five columns: Rule, Status, Confidence, Sources, Feature Link. `confidence` is populated by the `reverse-map` skill during brownfield onboarding. Rows created by `derive-feature` or `scope-map-migration` leave it empty. `sources` names the spec or evidence origin (UC file, .feature file, test file). `feature_link` anchors the conceptual rule to the implementing code — the bridge between the specification plane and the codebase. It is empty when the rule is `specified` (not yet implemented) or when the implementing code has not been identified. The `reconciliation-agent` fills it after implementation. The confidence hierarchy follows a forensic evidence model: passing tests are `verified`, code entry points are `high`, external docs are progressively lower. See [newcomer-onboarding.feature](features/newcomer-onboarding.feature).
@@ -189,9 +189,9 @@ erDiagram
     GATE_ENTRY {
         string name "gate name with hyphens — crap-score | mutation-testing | test-design-verify | license-check"
         bool enabled "true | false"
-        float threshold "nullable — gate-specific"
+        float threshold "nullable — gate-specific, required for crap-score"
         string command "nullable — required for every gate except crap-score and mutation-testing"
-        int timeout_minutes "nullable — mutation-testing only, default 30"
+        float timeout_minutes "nullable — a number, required for crap-score, default 30 for mutation-testing"
     }
 ```
 
@@ -202,7 +202,7 @@ erDiagram
 - **PRIOR_TESTS_SECTION** is a markdown section (`#### Prior Tests`) for non-owning stories. The developer-agent runs these tests first and must keep them green.
 - **WAIVER** is a blockquote line within the `#### Test Design` section: `> Waiver: DOM-01 — owned by tests/test_domain.py::test_entity_uniqueness`. The `test-design-verify` gate parses these and validates the named test module exists.
 - **GATE_CONFIG** is a new section in `docs/testing.yaml` that centralizes gate configuration. It does not define gate execution ordering — [ADR-0012](../adr/0012-dispatcher-owned-semantic-gate-loop.md) owns the dispatcher's gate sequence.
-- **GATE_ENTRY** configures an individual gate. Its key is the gate's name with hyphens, the same name as in a story's `quality-gates` field (OI-02). `premerge-check`, `crap-score`, and `mutation-testing` also read the old keys with underscores, such as `crap_score` (BR-055). `test-design-verify` is implicitly enabled when test-design output exists in the story and skipped otherwise.
+- **GATE_ENTRY** configures an individual gate. The entry with the key `crap-score` is the **CRAP_SCORE_ENTRY** of [CRAP Gate Entities](#crap-gate-entities). Its key is the gate's name with hyphens, the same name as in a story's `quality-gates` field (OI-02). `premerge-check`, `crap-score`, and `mutation-testing` also read the old keys with underscores, such as `crap_score` (BR-055). `test-design-verify` is implicitly enabled when test-design output exists in the story and skipped otherwise.
 
 ## Agent Context Entities
 
@@ -1110,3 +1110,87 @@ erDiagram
 - **FACTORY_SETTINGS** holds the key `release_tag_patterns`. The project writes the file. `init-factory` and `update-factory` never write it (BR-089).
 - **PROPOSAL_REVIEW_ROW** is no finding file. `finding-lint` does not read it, and its rules are in BR-094.
 - A **question** is no entity of this model. It becomes an entry in `docs/spec/work/todo.md` only (BR-085). A **note** stays in the review report.
+
+## CRAP Gate Entities
+
+The entities that the CRAP gate of
+[crap-gate-setup.feature](features/crap-gate-setup.feature) reads and writes.
+The project lists its measures in the entry `gates.crap-score` of
+`docs/testing.yaml`. Each measuring command writes its rows to one file, and
+`crap-score` turns the rows into one report per story. A person accepts a
+function above the threshold with one row of the exceptions register. The
+rules are BR-127 to BR-139 in
+[validation-rules.md](validation-rules.md#crap-gate-crap-score-br-127br-139).
+
+```mermaid
+erDiagram
+    GATE_ENTRY ||--o| CRAP_SCORE_ENTRY : "is, for the key crap-score"
+    CRAP_SCORE_ENTRY ||--|{ MEASURE : "lists, in run order"
+    MEASURE ||--|| MEASURE_OUTPUT : "writes through GATE_OUTPUT"
+    MEASURE_OUTPUT ||--o{ MEASUREMENT_ROW : holds
+    CRAP_SCORE_REPORT ||--o{ REPORT_ROW : holds
+    MEASUREMENT_ROW ||--o| REPORT_ROW : "becomes, when judged"
+    EXCEPTIONS_REGISTER ||--o{ EXCEPTION_ROW : "holds, in the section CRAP score"
+    EXCEPTION_ROW |o--o| REPORT_ROW : "accepts, by file and function"
+
+    CRAP_SCORE_ENTRY {
+        bool enabled "whether the gate runs for every unit of work"
+        float threshold "required, no default"
+        float timeout_minutes "required, no default, limits the whole gate run"
+        float measured_minutes "nullable, run time of crap-score --all from setup step 6"
+        list measures "required, see schemas/crap-score-entry-measures.json"
+    }
+    MEASURE {
+        string name "unique within the entry"
+        string files "glob pattern"
+        list exclude "nullable, glob patterns"
+        string command "the measuring command"
+        string ready "nullable, the ready command"
+    }
+    MEASURE_OUTPUT {
+        string path "the value of GATE_OUTPUT"
+        list rows "see schemas/measure-output-rows.json"
+    }
+    MEASUREMENT_ROW {
+        string file "path relative to the repository root"
+        string function "qualified name, such as Parser.parse"
+        int start_line
+        int end_line
+        int complexity
+        float coverage_pct "0 to 100"
+    }
+    CRAP_SCORE_REPORT {
+        string path "<report-dir>/<story-id>.json"
+        list rows "see schemas/crap-score-report-rows.json"
+    }
+    REPORT_ROW {
+        string file
+        string function
+        int start_line
+        int end_line
+        int complexity
+        float coverage_pct
+        float crap_score "rounded to two decimals"
+        string pass_fail "pass | fail | accepted"
+    }
+    EXCEPTIONS_REGISTER {
+        string path "docs/findings/exceptions.md, read from the branch dev"
+    }
+    EXCEPTION_ROW {
+        string file "File"
+        string function "Function, the qualified name"
+        float accepted_score "Accepted score"
+        string reason "Reason"
+        string accepted_by "Accepted by"
+    }
+```
+
+### Notes
+
+- **CRAP_SCORE_ENTRY** is the **GATE_ENTRY** with the key `crap-score`. `crap-score` reads `threshold`, `timeout_minutes`, and `measures` each time it runs, also with `enabled: false`, and exits `2` without one of them (BR-128). Its column `measures` is a payload with inner structure: [schemas/crap-score-entry-measures.json](schemas/crap-score-entry-measures.json) holds it.
+- **MEASURE** belongs to the project. `crap-score` runs its `ready` command and then its measuring command, from the root of the folder the gate runs in (BR-129). It keeps only the rows whose `file` matches `files` and no pattern of `exclude` (BR-131).
+- **MEASURE_OUTPUT** is the file that `crap-score` names in `GATE_OUTPUT` for one measure. Its column `rows` is a payload with inner structure: [schemas/measure-output-rows.json](schemas/measure-output-rows.json) holds it. One measure holds a `file` and `function` pair at most once, and two measures never hold the same pair (BR-130).
+- **CRAP_SCORE_REPORT** exists after exit `0` or `1`. Exit `2` leaves the earlier report in place (BR-133). Its column `rows` is a payload with inner structure: [schemas/crap-score-report-rows.json](schemas/crap-score-report-rows.json) holds it. A **REPORT_ROW** exists only for a judged function: with `--base` a changed function, with `--all` every kept function (BR-131).
+- **EXCEPTIONS_REGISTER** is one Markdown file with one section per gate. `crap-score` reads only the section `## CRAP score`, and only from the branch `dev` (BR-132). Only the stakeholder writes it (BR-092). The finding register of [Finding Classification Entities](#finding-classification-entities) is another thing: a folder of register files.
+- **EXCEPTION_ROW** has an effect only for a judged function whose score is above the threshold. Such a function gets `accepted` when its score is at or below `accepted_score`, so a later change that raises the score fails again (BR-132).
+- The **ledger entry** of [Catalog Entities](#notes) gets the `reason` `gate cannot measure: crap-score` when the gate cannot measure. `dispatch resume-gates` reads it (BR-135).

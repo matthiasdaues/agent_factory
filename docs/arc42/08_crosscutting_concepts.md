@@ -79,7 +79,7 @@ Testing is project-owned infrastructure. Factory does not detect frameworks, con
 
 **Zero-install**: Factory does not install test frameworks. It reads the test configuration and executes the declared command as-is. If `testing.yaml` is absent or `test_command` is missing, the precondition evaluator reports the gap.
 
-**Exit-code-only contract** (BR-027): Factory reads only the exit code; structured test output (JSON summaries, coverage reports) is the project's concern, not Factory's.
+**Exit-code-only contract** (BR-027): Factory reads only the exit code; structured test output (JSON summaries, coverage reports) is the project's concern, not Factory's. The CRAP gate is the one exception: `crap-score` reads the rows that the project's measuring commands write in a format the Factory defines, and its own verdict is still its exit code ([ADR-0003](../adr/0003-test-execution-via-hooks.md), [8.7](#gate-exit-codes)).
 
 **Onboarding**: The test-strategy agent produces `testing.yaml`. Its `detect-test-regime` skill scans for existing test entrypoints and asks for disambiguation when it finds several. The stakeholder confirms every change to the file ([8.17](#817-artifact-ownership-one-producer-one-declared-review)).
 
@@ -91,25 +91,9 @@ Machine-readable output from validation scripts goes to **stdout**, human-readab
 - Humans/agents to see real-time progress on stderr while the command runs.
 - Logs to capture both streams independently.
 
-Example (`crap-score`):
+A gate that writes a report writes it to a file. `crap-score`, for example, writes its JSON report to `<report-dir>/<story-id>.json` and prints one line per judged function with its score and verdict.
 
-```bash
-$ .agent-factory/factory/scripts/crap-score --story-id ST-0042
-# stderr: progress, per-function analysis
-Analyzing 3 changed functions...
-src/auth.py::login PASS (CRAP=4)
-src/auth.py::validate_token FAIL (CRAP=42)
-...
-
-# stdout: JSON report, parseable
-{"functions": [{"name": "login", "crap": 4, "pass": true}, ...]}
-
-# exit code: 0 (all pass), 1 (any fail)
-$ echo $?
-1
-```
-
-Gates that evaluate results (e.g., the dispatcher checking gate reports) read the exit code only. JSON reports are for human/log consumption, not for gate decisions. Project-owned test commands follow the same contract: Factory reads only the exit code (BR-027).
+Gates that evaluate results (e.g., the dispatcher checking gate reports) read the exit code only. JSON reports are for human/log consumption, not for gate decisions. Project-owned test commands follow the same contract: Factory reads only the exit code (BR-027). The measuring commands of the CRAP gate are the one exception ([8.3](#83-project-declared-test-configuration)).
 
 ## 8.5 Single Source of Truth: Workstream State and Agent Definitions
 
@@ -163,8 +147,24 @@ A developer agent running its own quality gates is self-validation. The same pri
 
 The Factory's [testing-strategy.md](../../.agent-factory/factory/rulebooks/conventions/testing-strategy.md) says "Test count and coverage percentage are diagnostics, not quality targets." The semantic gates respect this:
 
-- **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the threshold is on the composite score (CRAP \<= 8 by default), not on coverage itself. The pressure it applies is toward smaller code -- not toward higher coverage percentages.
+- **CRAP score** is a composite structural gate. Coverage enters as a counterweight to cyclomatic complexity; the threshold is on the composite score, not on coverage itself. The gate has no default threshold: a person chooses it in the setup skill `setup-crap-score`. The pressure it applies is toward smaller code -- not toward higher coverage percentages.
 - **Dependency check** enforces what `architecture.dsl` already declares. Neither TDD nor the testing strategy addresses dependency direction; this gate fills an unoccupied gap.
+
+### Gate Exit Codes
+
+A gate answers with its exit code, and its caller reads nothing else to decide. Most gates have two answers: `0` for a pass, and non-zero for a failure that a developer agent fixes. `crap-score` has a third answer. Take a measuring command that tests against a Compose stack. When the stack is stopped, the test run fails, and no function gets a score. Nobody judged the code, so a developer agent has nothing to fix. That is why `crap-score` exits `2`, "cannot measure", and the unit of work stops and waits for a person (DEC-03).
+
+| Exit of `crap-score` | Meaning                                                  | In the gate-check step                                                                                               | At the merge                                                                                                                                                                                                |
+| -------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`                  | Every judged function passes or is accepted              | The step goes on with the next gate                                                                                  | `premerge-check` goes on with its other checks                                                                                                                                                              |
+| `1`                  | A changed function fails                                 | `mark-failed` records a counted attempt, and a fresh developer agent fixes the code                                  | `premerge-check` exits `1`, the entry stays `dispatched`, and the gate-check step runs again                                                                                                                |
+| `2`                  | The gate cannot measure, and the message names the cause | `dispatch mark-blocked --reason "gate cannot measure: crap-score"`. No developer agent starts, and no attempt counts | `premerge-check` exits `3` when every other check that ran passed, and its refusal starts with `GATE CANNOT MEASURE: crap-score`. `merge-story` sets `blocked` with the same reason. Otherwise it exits `1` |
+
+`premerge-check` also runs the `ready` command of every measure before the test suite. When one fails, it exits `3` at once. A stopped stack would also turn the test suite red, and exit `1` would then cost the unit of work an attempt for a fault in the setup (BR-136). `dispatch init` runs the same `ready` commands once before a run starts, and refuses to start when one fails (BR-137).
+
+Two runs of one measure can share a service. The gate-check step of one story and the merge check of another can both test against the same Compose stack, and then one run can measure the code of the other folder. So `crap-score` holds an exclusive lock for each measure that has `ready` commands, from its `ready` commands through its measuring command. The lock lies under the git common directory, so every worktree of the repository sees it. A second run waits for the lock within `timeout_minutes`, and it exits `2` when the time runs out while it waits. A measure without `ready` commands needs no service and takes no lock (DEC-43). The lock is an operating-system file lock, such as `flock`, on `crap-score/<measure>.lock`, so it ends with the process that holds it, and a dead run leaves no lock behind, even when the file stays (DEC-47).
+
+A person fixes the setup, for example starts the stack, and tells the implementation agent to continue. The agent runs `dispatch resume-gates <id>`. It sets the entry back to `dispatched` and keeps its attempts and its branch, so the unit of work returns to the gate-check step with its code unchanged (BR-135, DEC-07). `dispatch re-dispatch` stays the way back for a unit of work whose code must change. So `blocked` has four causes: a merge conflict, a refresh conflict, a red test suite after the merge, and a gate that cannot measure ([Ledger Entry Lifecycle](../spec/state-machines.md#ledger-entry-lifecycle)).
 
 ## 8.8 Architecture as a Concern, Not a Phase
 

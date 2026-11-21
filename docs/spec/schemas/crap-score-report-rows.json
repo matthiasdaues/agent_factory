@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "crap-score report rows",
+  "description": "The report <report-dir>/<story-id>.json that crap-score writes on exit 0 or 1: one JSON array, one row per judged function. Exit 2 writes no report (validation-rules.md BR-133).",
+  "type": "array",
+  "items": {
+    "anyOf": [
+      {
+        "type": "object",
+        "required": [
+          "file",
+          "function",
+          "start_line",
+          "end_line",
+          "complexity",
+          "coverage_pct",
+          "crap_score",
+          "pass_fail"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in measure-output-rows.json."
+          },
+          "function": {
+            "type": "string",
+            "minLength": 1,
+            "description": "As in measure-output-rows.json: the qualified name."
+          },
+          "start_line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "end_line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "complexity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "coverage_pct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "crap_score": {
+            "type": "number",
+            "minimum": 0,
+            "description": "complexity^2 x (1 - coverage_pct/100)^3 + complexity, rounded to two decimals, half up (BR-131, DEC-36)."
+          },
+          "pass_fail": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "accepted"
+            ],
+            "description": "pass when crap_score is at or below the threshold; accepted when it is above the threshold and at or below the accepted score of a register row on dev that names the file and the function; fail otherwise. accepted counts as a pass (BR-132)."
+          }
+        },
+        "title": "Function row"
+      },
+      {
+        "title": "Parse error row",
+        "type": "object",
+        "required": [
+          "file",
+          "parse_error",
+          "pass_fail"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The code file that the measuring command cannot parse."
+          },
+          "parse_error": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The message of the parser. crap-score fails the row with exit 1 and names the file (DEC-34)."
+          },
+          "pass_fail": {
+            "type": "string",
+            "enum": [
+              "fail"
+            ],
+            "description": "A parse error row always fails (DEC-34)."
+          }
+        }
+      }
+    ]
+  }
+}

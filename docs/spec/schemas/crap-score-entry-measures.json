@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "crap-score entry measures",
+  "description": "The list gates.crap-score.measures in docs/testing.yaml. crap-score runs the measures one after another, in list order. A measure without name, files, or command makes crap-score exit 2 and name the measure and the field (validation-rules.md BR-128, BR-129). An empty list or two measures with the same name also make it exit 2. files and exclude use one glob dialect: * matches within one path segment, and ** matches any number of segments (DEC-35).",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": [
+      "name",
+      "files",
+      "command"
+    ],
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The name of the measure, such as backend or python. gate-setup-proof --measure takes it, and the messages of crap-score name it."
+      },
+      "files": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A glob pattern relative to the repository root, such as packages/factory/scripts/*. crap-score judges only the rows whose file matches it (DEC-10). * matches within one path segment, and ** matches any number of segments (DEC-35)."
+      },
+      "exclude": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A glob pattern in the dialect of files (DEC-35)."
+        },
+        "description": "Glob patterns of files that the gate never judges, such as **/db/alembic/versions/**. crap-score drops the rows whose file matches one of them (DEC-10)."
+      },
+      "command": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The measuring command, a project-owned script such as scripts/crap-measure-backend. It writes its rows to the path in GATE_OUTPUT, as measure-output-rows.json defines."
+      },
+      "ready": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The ready command, such as scripts/crap-ready-backend. It exits 0 when the measuring command can run now and any other code when it cannot. It measures nothing."
+      }
+    }
+  }
+}

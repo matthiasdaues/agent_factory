@@ -65,6 +65,8 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 
 All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation. Testing is project-owned infrastructure declared in the charter; Factory ensures test gates exist but does not own test execution or framework detection.
 
+The Factory reads only the exit code of a gate. **ADR-0003**, amended for the CRAP gate, names the one exception: `crap-score` reads the rows that the project's measuring commands write to `GATE_OUTPUT`, and its own verdict is still its exit code. Its exit `2` says that the gate cannot measure, and the unit of work stops as `blocked` ([8.7](08_crosscutting_concepts.md#87-semantic-quality-gates)).
+
 ### Monorepo Scoping
 
 **ADR-0001** declares one root `.pre-commit-config.yaml` for the monorepo, with each subproject's hooks namespaced and path-scoped. `.agent-factory/factory/scripts/merge-precommit-config` splices subproject hook blocks into the root file.

@@ -1,0 +1,20 @@
+{
+  "id": "SPEC-0130",
+  "source": "spec-review",
+  "review_class": "document",
+  "category": "defect",
+  "type": "incomplete",
+  "severity": "minor",
+  "artifact": "docs/spec/validation-rules.md#crap-gate-crap-score-br-127br-139",
+  "story": null,
+  "finding": "The built gate fails a Python file that radon cannot parse (BUG-0072). BR-130 does not say whether the Python template exits non-zero for such a file or skips it, and a skipped file passes. Add the case to BR-130 and the feature file: the command reports the file as a row with parse_error, and crap-score fails with exit 1 and names the file (DEC-34). Owner: domain-modeling-agent.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "An implementer can choose an outcome and the gate still ends with a verdict (no to fails_purpose); the test of BUG-0072 has no rule to replace it (raises_cost). No story or code outside the run encodes the statements.",
+  "commit": "61426f3a6c464879ee7e7c789019fd2b0701aa19",
+  "status": "resolved"
+}
