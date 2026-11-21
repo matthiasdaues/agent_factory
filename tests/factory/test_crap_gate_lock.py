@@ -11,17 +11,16 @@ log outside the repository. The test holds the lock only through a first
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import stat
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 
 import pytest
-from conftest import load_script
 from test_crap_gate_score import SCRIPT, TARGET, Repo
 
 READY = "scripts/crap-ready-backend"
@@ -264,33 +263,78 @@ def test_cg_04_a_measure_name_that_is_no_file_name_cannot_measure(trees, name):
     assert not (trees.lock_dir.parent / "hooks" / "x.lock").exists()
 
 
+# The driver runs in its own single-threaded process. pthread_sigmask holds a
+# signal back only for the calling thread, and a pytest-xdist worker has more
+# than one thread, so in the worker another thread could take the signal.
+STOP_DRIVER = """\
+import importlib.util
+import json
+import os
+import signal
+import subprocess
+import sys
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
+
+loader = SourceFileLoader("crap_score", sys.argv[1])
+cs = importlib.util.module_from_spec(importlib.util.spec_from_loader("crap_score", loader))
+sys.modules["crap_score"] = cs
+loader.exec_module(cs)
+
+started = []
+real_popen = subprocess.Popen
+
+
+def popen_then_signal(*args, **kwargs):
+    proc = real_popen(*args, **kwargs)
+    started.append(proc)
+    os.kill(os.getpid(), signal.SIGTERM)
+    return proc
+
+
+cs.subprocess.Popen = popen_then_signal
+measure = cs.Measure("backend", "backend/**", "sleep 30")
+try:
+    with cs.stop_signals():
+        cs.run_command(measure, "measuring command", "sleep 30", Path(sys.argv[2]), dict(os.environ), cs.Clock(1))
+except cs.Stopped as stop:
+    signum = stop.signum
+else:
+    signum = None
+group_gone = True
+if started:
+    try:
+        os.killpg(started[0].pid, 0)
+        group_gone = False
+    except ProcessLookupError:
+        pass
+print(json.dumps({
+    "signum": signum,
+    "starts": len(started),
+    "returncode": started[0].returncode if started else None,
+    "group_gone": group_gone,
+}))
+"""
+
+
 @pytest.mark.spec("CG-04-IT-16")
-@pytest.mark.skipif(threading.current_thread() is not threading.main_thread(),
-                    reason="signal handlers need the main thread")
-def test_cg_04_a_stop_signal_while_the_command_starts_still_stops_it(tmp_path, monkeypatch):
+def test_cg_04_a_stop_signal_while_the_command_starts_still_stops_it(tmp_path):
     """A SIGTERM that arrives inside subprocess.Popen, after the fork, still stops the command.
 
-    The test sends SIGTERM to its own process right after the real Popen has
+    The driver sends SIGTERM to its own process right after the real Popen has
     started the command and before Popen returns to crap-score. That puts the
-    signal into the window deterministically.
+    signal into the window deterministically. The driver runs in a fresh
+    single-threaded process, as crap-score does.
     """
-    cs = load_script("crap-score")
-    started = []
-    real_popen = subprocess.Popen
-
-    def popen_then_signal(*args, **kwargs):
-        proc = real_popen(*args, **kwargs)
-        started.append(proc)
-        os.kill(os.getpid(), signal.SIGTERM)
-        return proc
-
-    monkeypatch.setattr(cs.subprocess, "Popen", popen_then_signal)
-    measure = cs.Measure("backend", "backend/**", "sleep 30")
-    with pytest.raises(cs.Stopped) as stop:
-        with cs.stop_signals():
-            cs.run_command(measure, "measuring command", "sleep 30", tmp_path, dict(os.environ), cs.Clock(1))
-    assert stop.value.signum == signal.SIGTERM
-    assert len(started) == 1
-    assert started[0].returncode is not None
-    with pytest.raises(ProcessLookupError):
-        os.killpg(started[0].pid, 0)
+    driver = tmp_path / "stop-driver.py"
+    driver.write_text(STOP_DRIVER)
+    result = subprocess.run(
+        [sys.executable, str(driver), str(SCRIPT), str(tmp_path)],
+        capture_output=True, text=True, check=False, timeout=120,
+    )
+    assert result.returncode == 0, result.stderr
+    outcome = json.loads(result.stdout.strip().splitlines()[-1])
+    assert outcome["signum"] == int(signal.SIGTERM)
+    assert outcome["starts"] == 1
+    assert outcome["returncode"] is not None
+    assert outcome["group_gone"] is True

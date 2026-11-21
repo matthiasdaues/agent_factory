@@ -1,0 +1,514 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["pyyaml"]
+# ///
+"""gate-setup-proof — check that a measuring command of the CRAP gate reports true coverage.
+
+What: Runs crap-score on planted code in a temporary worktree and runs four
+      checks: Repeatable, Catches CRAP, Sees the folder, and Reports a gap
+      (BR-138, DEC-06).
+When: During the setup of the CRAP gate, before a person enables the gate.
+By:   the test-strategy agent through setup-crap-score, or a person.
+
+Call
+  gate-setup-proof --measure <name> --plant <folder>
+
+  It runs from the root of the project and reads gates.crap-score of
+  docs/testing.yaml in the working tree, also with enabled: false. The plant
+  folder holds base/ and gap/, each in the layout of the project.
+
+Worktree
+  A detached worktree at .current-work/gate-setup-proof/worktree of the
+  primary checkout. A worktree that a crashed run left there is removed
+  first (DEC-46). The first commit has HEAD as its parent and holds
+  docs/testing.yaml of the working tree with every setting of
+  gates.crap-score but only the chosen measure (DEC-52), the files that the
+  measure names as command and ready, as they are in the working tree, and
+  the files of base/. The second commit adds gap/ (DEC-30, DEC-32). The
+  worktree is removed afterwards, and no branch moves.
+
+Hooks
+  The proof switches no hook off, and it uses no git command that runs the
+  pre-commit, prepare-commit-msg, commit-msg, post-commit, post-checkout or
+  post-index-change hook. It builds both commits without an index, with
+  hash-object, mktree and commit-tree. It adds the worktree with
+  --no-checkout, writes the files of the first commit itself, and moves the
+  worktree's HEAD to the second commit with update-ref. Adding the worktree
+  and moving its HEAD run the reference-transaction hook of the project.
+  When that hook refuses, the proof exits 2 and names it.
+
+Gate runs
+  crap-score --base <start> --story-id proof-run-<n> --report-dir
+  <worktree>/.current-work/crap-score/, where <start> is HEAD. Runs 1 and 2
+  are on the first commit, run 3 is on the second commit.
+
+Lock
+  An exclusive flock on .current-work/gate-setup-proof/worktree.lock of the
+  primary checkout. A second proof meanwhile exits 2 and names the lock, so
+  it never removes the worktree of a running proof.
+
+Stops
+  On SIGTERM, SIGINT or SIGHUP the proof sends SIGTERM to the running
+  crap-score, waits until crap-score has stopped its command, and then
+  removes the worktree. crap-score runs in its own process group, so a
+  Ctrl-C in the terminal reaches it only through the proof.
+
+Exit codes
+  0  all four checks pass
+  1  a check fails; its line names the cause
+  2  the call is wrong, another proof holds the lock, or the proof cannot
+     set up its worktree
+  128 + n  the proof was stopped by signal n (SIGTERM, SIGINT, SIGHUP)
+"""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterator
+
+import yaml
+
+TESTING_YAML = Path("docs") / "testing.yaml"
+GATE_KEY = "crap-score"
+WORKTREE = Path(".current-work") / "gate-setup-proof" / "worktree"
+LOCK = Path(".current-work") / "gate-setup-proof" / "worktree.lock"
+REPORT_DIR = Path(".current-work") / "crap-score"
+CRAP_SCORE = Path(__file__).resolve().parent / "crap-score"
+UNTESTED = "proof_untested"
+TESTED = "proof_tested"
+# The proof's commits need no identity of the User.
+COMMIT_CONFIG = (
+    "-c", "user.name=gate-setup-proof", "-c", "user.email=gate-setup-proof@localhost",
+    "-c", "commit.gpgsign=false",
+)
+REF_HOOK_HINT = "the reference-transaction hook of the project can refuse this ref update"
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+
+
+class ProofError(Exception):
+    """The proof cannot run; exit 2 with this message."""
+
+
+class Stopped(BaseException):
+    """The proof got a stop signal; a BaseException, so no `except Exception` keeps the run going."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
+
+
+@dataclass(frozen=True)
+class GateRun:
+    """One run of crap-score: its exit code, its report rows (None without a report), its messages."""
+
+    code: int
+    rows: list[dict] | None
+    message: str
+    stderr: str = ""
+
+
+@dataclass(frozen=True)
+class Check:
+    name: str
+    passed: bool
+    detail: str
+
+
+# --- signals and lock ------------------------------------------------------
+
+
+def _raise_stopped(signum: int, frame: object) -> None:
+    for sig in STOP_SIGNALS:
+        signal.signal(sig, signal.SIG_IGN)
+    raise Stopped(signum)
+
+
+@contextmanager
+def stop_signals() -> Iterator[None]:
+    """Turn SIGTERM, SIGINT and SIGHUP into Stopped; ignore the next ones, so the stop runs to its end."""
+    earlier = {sig: signal.signal(sig, _raise_stopped) for sig in STOP_SIGNALS}
+    try:
+        yield
+    finally:
+        for sig, handler in earlier.items():
+            signal.signal(sig, handler)
+
+
+@contextmanager
+def proof_lock(path: Path) -> Iterator[None]:
+    """Hold an exclusive flock on *path* for the whole proof; the lock ends with this process."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ProofError(f"another gate-setup-proof holds the lock {path}; run the proof after it ends") from None
+        yield
+    finally:
+        os.close(fd)
+
+
+# --- git -------------------------------------------------------------------
+
+
+def git_bytes(cwd: Path, *args: str, stdin: bytes | None = None) -> bytes:
+    proc = subprocess.run(["git", *args], cwd=cwd, input=stdin, capture_output=True, check=False)
+    if proc.returncode != 0:
+        message = proc.stderr.decode(errors="replace").strip()
+        raise ProofError(f"git {' '.join(args)} failed: {message}")
+    return proc.stdout
+
+
+def git(cwd: Path, *args: str, stdin: bytes | None = None) -> str:
+    return git_bytes(cwd, *args, stdin=stdin).decode(errors="surrogateescape").strip()
+
+
+def update_ref(cwd: Path, *args: str) -> None:
+    """Run a git command that writes a ref; name the reference-transaction hook when it fails."""
+    try:
+        git(cwd, *args)
+    except ProofError as exc:
+        raise ProofError(f"{exc}; {REF_HOOK_HINT}") from None
+
+
+def primary_checkout(root: Path) -> Path:
+    """The top folder of the primary checkout, also from a linked worktree."""
+    common = Path(git(root, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+    return common.parent if common.name == ".git" else root
+
+
+def remove_worktree(root: Path, path: Path) -> None:
+    """Remove the worktree at *path*, if any, and prune its record (BR-123, DEC-46)."""
+    subprocess.run(["git", "worktree", "remove", "--force", str(path)], cwd=root,
+                   capture_output=True, check=False)
+    subprocess.run(["git", "worktree", "prune"], cwd=root, capture_output=True, check=False)
+    if path.exists():
+        shutil.rmtree(path)
+
+
+# --- commits without an index ----------------------------------------------
+
+
+def blob(root: Path, data: bytes, executable: bool) -> tuple[str, str]:
+    """Write *data* as a blob; return its mode and its id."""
+    return ("100755" if executable else "100644"), git(root, "hash-object", "-w", "--stdin", stdin=data)
+
+
+def file_blob(root: Path, path: Path) -> tuple[str, str]:
+    return blob(root, path.read_bytes(), bool(path.stat().st_mode & 0o111))
+
+
+def tree_with(root: Path, tree: str | None, files: dict[str, tuple[str, str]]) -> str:
+    """The id of *tree* with *files* added or replaced; *files* maps a path to its mode and blob id."""
+    entries: dict[str, tuple[str, str, str]] = {}
+    if tree is not None:
+        for item in git_bytes(root, "ls-tree", "-z", tree).split(b"\0"):
+            if item:
+                meta, name = item.split(b"\t", 1)
+                mode, kind, oid = meta.decode().split()
+                entries[os.fsdecode(name)] = (mode, kind, oid)
+    folders: dict[str, dict[str, tuple[str, str]]] = {}
+    for path, (mode, oid) in files.items():
+        head, _, rest = path.partition("/")
+        if rest:
+            folders.setdefault(head, {})[rest] = (mode, oid)
+        else:
+            entries[head] = (mode, "blob", oid)
+    for name, inner in folders.items():
+        old = entries.get(name)
+        entries[name] = ("040000", "tree", tree_with(root, old[2] if old and old[1] == "tree" else None, inner))
+    listing = b"".join(
+        f"{mode} {kind} {oid}\t".encode() + os.fsencode(name) + b"\0"
+        for name, (mode, kind, oid) in sorted(entries.items())
+    )
+    return git(root, "mktree", "-z", stdin=listing)
+
+
+def new_commit(root: Path, parent: str, files: dict[str, tuple[str, str]], message: str) -> str:
+    tree = tree_with(root, git(root, "rev-parse", f"{parent}^{{tree}}"), files)
+    return git(root, *COMMIT_CONFIG, "commit-tree", tree, "-p", parent, "-m", message)
+
+
+def write_commit_files(root: Path, commit: str, worktree: Path) -> None:
+    """Write every file of *commit* into *worktree*, without an index and without a checkout."""
+    items = []
+    for item in git_bytes(root, "ls-tree", "-r", "-z", commit).split(b"\0"):
+        if item:
+            meta, name = item.split(b"\t", 1)
+            mode, kind, oid = meta.decode().split()
+            items.append((mode, kind, oid, os.fsdecode(name)))
+    blobs = [item for item in items if item[1] == "blob"]
+    batch = git_bytes(root, "cat-file", "--batch", stdin="".join(f"{oid}\n" for _, _, oid, _ in blobs).encode())
+    position = 0
+    for mode, _, _, name in blobs:
+        header_end = batch.index(b"\n", position)
+        size = int(batch[position:header_end].split()[2])
+        data = batch[header_end + 1:header_end + 1 + size]
+        position = header_end + 1 + size + 1
+        target = worktree / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if mode == "120000":
+            os.symlink(os.fsdecode(data), target)
+        else:
+            target.write_bytes(data)
+            target.chmod(0o755 if mode == "100755" else 0o644)
+    for _, kind, _, name in items:
+        if kind == "commit":
+            (worktree / name).mkdir(parents=True, exist_ok=True)
+
+
+# --- settings and plant ----------------------------------------------------
+
+
+def read_measure(root: Path, name: str) -> tuple[str, dict]:
+    """Return the threshold and the measure *name* of gates.crap-score in the working tree."""
+    try:
+        data = yaml.safe_load((root / TESTING_YAML).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise ProofError(f"cannot read {TESTING_YAML}: {exc}") from exc
+    gates = data.get("gates") if isinstance(data, dict) else None
+    entry = gates.get(GATE_KEY) if isinstance(gates, dict) else None
+    if not isinstance(entry, dict):
+        raise ProofError(f"{TESTING_YAML} has no entry gates.{GATE_KEY}")
+    for measure in entry.get("measures") or []:
+        if isinstance(measure, dict) and measure.get("name") == name:
+            return str(entry.get("threshold")), measure
+    raise ProofError(f"gates.{GATE_KEY} in {TESTING_YAML} lists no measure {name}")
+
+
+def setup_files(root: Path, measure: dict) -> list[str]:
+    """The files of the project that the command and ready of *measure* name."""
+    paths: list[str] = []
+    for key in ("command", "ready"):
+        value = measure.get(key)
+        if not isinstance(value, str):
+            continue
+        try:
+            words = shlex.split(value)
+        except ValueError as exc:
+            raise ProofError(
+                f"the {key} of measure {measure.get('name')} cannot be split into words: {value}: {exc}"
+            ) from None
+        for word in words:
+            path = Path(word)
+            if path.is_absolute() or ".." in path.parts or not (root / path).is_file():
+                continue
+            if path.as_posix() not in paths:
+                paths.append(path.as_posix())
+    return paths
+
+
+def one_measure_yaml(root: Path, name: str) -> bytes:
+    """docs/testing.yaml with every setting, but only the measure *name* (DEC-52).
+
+    crap-score runs every measure it lists, and the proof copies only the
+    files of the chosen measure, so another measure would stop each gate run.
+    """
+    data = yaml.safe_load((root / TESTING_YAML).read_text(encoding="utf-8"))
+    entry = data["gates"][GATE_KEY]
+    entry["measures"] = [m for m in entry["measures"] if isinstance(m, dict) and m.get("name") == name]
+    return yaml.safe_dump(data, sort_keys=False).encode("utf-8")
+
+
+def plant_files(folder: Path) -> list[str]:
+    """The paths of the files below *folder*, relative to it."""
+    return sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file())
+
+
+def blobs_of(root: Path, folder: Path, paths: list[str]) -> dict[str, tuple[str, str]]:
+    return {path: file_blob(root, folder / path) for path in paths}
+
+
+# --- gate runs and checks --------------------------------------------------
+
+
+def _unblock_stop_signals() -> None:
+    """The preexec_fn of crap-score: it inherits the stop signals blocked around Popen and unblocks them."""
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, STOP_SIGNALS)
+
+
+def run_gate(worktree: Path, start: str, number: int) -> GateRun:
+    """Run crap-score once, in its own process group.
+
+    On a stop signal the proof sends SIGTERM to crap-score and waits until it
+    has ended, because crap-score stops its own command first (ST-0438). The
+    stop signals stay blocked while Popen runs, so a signal cannot arrive
+    before *proc* exists.
+    """
+    story_id = f"proof-run-{number}"
+    report_dir = worktree / REPORT_DIR
+    earlier = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, str(CRAP_SCORE), "--base", start, "--story-id", story_id,
+             "--report-dir", str(report_dir)],
+            cwd=worktree, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            start_new_session=True, preexec_fn=_unblock_stop_signals,
+        )
+    except BaseException:
+        signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
+        raise
+    try:
+        # A signal that arrived while Popen ran is delivered here.
+        signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
+        stdout, stderr = proc.communicate()
+    except BaseException:
+        proc.terminate()
+        proc.wait()
+        raise
+    report = report_dir / f"{story_id}.json"
+    rows = json.loads(report.read_text(encoding="utf-8")) if proc.returncode in (0, 1) and report.is_file() else None
+    message = (stderr.strip() or stdout.strip()).splitlines()
+    return GateRun(proc.returncode, rows, message[-1] if message else "no message", stderr)
+
+
+def find_row(run: GateRun, name: str) -> dict | None:
+    for row in run.rows or []:
+        if row.get("function") == name:
+            return row
+    return None
+
+
+def check_repeatable(first: GateRun, second: GateRun) -> Check:
+    name = "Repeatable"
+    for number, run in ((1, first), (2, second)):
+        if run.rows is None:
+            return Check(name, False, f"gate run {number} exited {run.code} and wrote no rows: {run.message}")
+    if first.code != second.code:
+        return Check(name, False, f"the two gate runs exited {first.code} and {second.code}")
+    if first.rows != second.rows:
+        return Check(name, False, "the two gate runs on one commit wrote different rows")
+    return Check(name, True, f"two gate runs on one commit exited {first.code} with the same rows")
+
+
+def check_catches_crap(run: GateRun, threshold: str) -> Check:
+    name = "Catches CRAP"
+    row = find_row(run, UNTESTED)
+    if run.code != 1:
+        return Check(name, False, f"the gate exited {run.code}, not 1: {run.message}")
+    if row is None:
+        return Check(name, False, f"the rows hold no function {UNTESTED}")
+    if row.get("pass_fail") != "fail":
+        return Check(name, False, f"{UNTESTED} scores {row.get('crap_score')} and passes the threshold {threshold}")
+    return Check(name, True, f"{UNTESTED} scores {row.get('crap_score')}, above the threshold {threshold}, and fails")
+
+
+def check_sees_the_folder(run: GateRun) -> Check:
+    name = "Sees the folder"
+    row = find_row(run, TESTED)
+    if row is None:
+        return Check(name, False, f"the rows hold no function {TESTED}")
+    if row.get("coverage_pct") != 100 or row.get("pass_fail") == "fail":
+        return Check(
+            name, False,
+            f"{TESTED} shows {row.get('coverage_pct')} % coverage and {row.get('pass_fail')}s, "
+            "so the coverage does not come from the test in the proof worktree",
+        )
+    return Check(name, True, f"{TESTED} shows 100 % coverage and passes")
+
+
+def check_reports_a_gap(run: GateRun, measure_name: str) -> Check:
+    """Pass only on exit 2 because the measuring command exited non-zero for the failed test run."""
+    name = "Reports a gap"
+    if run.code != 2:
+        return Check(name, False, f"with the failing test of gap/, the gate exited {run.code}, not 2")
+    pattern = rf"the measuring command of measure {re.escape(measure_name)} exited -?\d+"
+    if re.search(pattern, run.stderr) is None:
+        return Check(
+            name, False,
+            f"the gate exited 2, but not because the measuring command exited non-zero: {run.message}",
+        )
+    return Check(name, True, f"with the failing test of gap/, the gate exited 2: {run.message}")
+
+
+def run_checks(root: Path, measure_name: str, plant: Path) -> list[Check]:
+    threshold, measure = read_measure(root, measure_name)
+    primary = primary_checkout(root)
+    start = git(root, "rev-parse", "HEAD")
+    with proof_lock(primary / LOCK):
+        first, second, third = run_gates(root, primary / WORKTREE, start, measure_name, measure, plant)
+    return [
+        check_repeatable(first, second),
+        check_catches_crap(first, threshold),
+        check_sees_the_folder(first),
+        check_reports_a_gap(third, measure_name),
+    ]
+
+
+def run_gates(
+    root: Path, worktree: Path, start: str, measure_name: str, measure: dict, plant: Path,
+) -> tuple[GateRun, GateRun, GateRun]:
+    """Build the two commits, run the gate three times in the worktree, and always remove the worktree."""
+    remove_worktree(root, worktree)
+    try:
+        setup = blobs_of(root, root, setup_files(root, measure))
+        setup[TESTING_YAML.as_posix()] = blob(root, one_measure_yaml(root, measure_name), False)
+        base = plant_files(plant / "base")
+        first_commit = new_commit(
+            root, start, {**setup, **blobs_of(root, plant / "base", base)},
+            "gate-setup-proof: setup files and base/",
+        )
+        gap = plant_files(plant / "gap")
+        second_commit = new_commit(
+            root, first_commit, blobs_of(root, plant / "gap", gap), "gate-setup-proof: gap/",
+        )
+        worktree.parent.mkdir(parents=True, exist_ok=True)
+        update_ref(root, "worktree", "add", "--no-checkout", "--detach", str(worktree), first_commit)
+        write_commit_files(root, first_commit, worktree)
+        first, second = run_gate(worktree, start, 1), run_gate(worktree, start, 2)
+        for path in gap:
+            target = worktree / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(plant / "gap" / path, target)
+        update_ref(worktree, "update-ref", "--no-deref", "HEAD", second_commit)
+        third = run_gate(worktree, start, 3)
+    finally:
+        remove_worktree(root, worktree)
+    return first, second, third
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="gate-setup-proof", description=__doc__.splitlines()[0])
+    parser.add_argument("--measure", required=True, help="the name of a measure under gates.crap-score.measures")
+    parser.add_argument("--plant", required=True, help="the folder with base/ and gap/")
+    args = parser.parse_args(argv)
+    try:
+        with stop_signals():
+            root = Path(git(Path.cwd(), "rev-parse", "--show-toplevel"))
+            checks = run_checks(root, args.measure, Path(args.plant).resolve())
+    except ProofError as exc:
+        print(f"gate-setup-proof: {exc}", file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"gate-setup-proof: cannot run the proof: {exc}", file=sys.stderr)
+        return 2
+    except Stopped as stop:
+        name = signal.Signals(stop.signum).name
+        print(f"gate-setup-proof: stopped by {name}; stopped crap-score and removed the worktree", file=sys.stderr)
+        return 128 + stop.signum
+    for check in checks:
+        print(f"{'PASS' if check.passed else 'FAIL'} {check.name}: {check.detail}")
+    failed = [check.name for check in checks if not check.passed]
+    if failed:
+        print(f"gate-setup-proof: measure {args.measure} failed: {', '.join(failed)}", file=sys.stderr)
+        return 1
+    print(f"gate-setup-proof: measure {args.measure} passed all four checks", file=sys.stderr)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
