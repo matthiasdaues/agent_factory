@@ -16,10 +16,12 @@ import signal
 import stat
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
 import pytest
+from conftest import load_script
 from test_crap_gate_score import SCRIPT, TARGET, Repo
 
 READY = "scripts/crap-ready-backend"
@@ -212,12 +214,16 @@ def _wait_gone(pid: int, seconds: float = 5) -> None:
 
 
 def _stoppable(event: str, seconds: float) -> str:
-    """Log the start; on SIGTERM log '<event>-stopped' and exit; else sleep and log the end."""
-    return _stub(
-        f"{event}-start",
+    """Set a trap, then log the start; on SIGTERM log '<event>-stopped' and exit; else sleep and log the end.
+
+    The trap comes first, so the start line means that the trap is in place.
+    """
+    return (
+        "#!/bin/sh\n"
         f"trap 'echo \"{event}-stopped $(basename \"$PWD\")\" >> \"$STUB_LOG\"; exit 143' TERM\n"
+        f'echo "{event}-start $(basename "$PWD")" >> "$STUB_LOG"\n'
         f'sleep {seconds}\necho "[]" > "$GATE_OUTPUT"\n'
-        f'echo "{event}-end $(basename "$PWD")" >> "$STUB_LOG"\n',
+        f'echo "{event}-end $(basename "$PWD")" >> "$STUB_LOG"\n'
     )
 
 
@@ -256,3 +262,35 @@ def test_cg_04_a_measure_name_that_is_no_file_name_cannot_measure(trees, name):
     assert "file name" in err
     assert trees.lines() == []
     assert not (trees.lock_dir.parent / "hooks" / "x.lock").exists()
+
+
+@pytest.mark.spec("CG-04-IT-16")
+@pytest.mark.skipif(threading.current_thread() is not threading.main_thread(),
+                    reason="signal handlers need the main thread")
+def test_cg_04_a_stop_signal_while_the_command_starts_still_stops_it(tmp_path, monkeypatch):
+    """A SIGTERM that arrives inside subprocess.Popen, after the fork, still stops the command.
+
+    The test sends SIGTERM to its own process right after the real Popen has
+    started the command and before Popen returns to crap-score. That puts the
+    signal into the window deterministically.
+    """
+    cs = load_script("crap-score")
+    started = []
+    real_popen = subprocess.Popen
+
+    def popen_then_signal(*args, **kwargs):
+        proc = real_popen(*args, **kwargs)
+        started.append(proc)
+        os.kill(os.getpid(), signal.SIGTERM)
+        return proc
+
+    monkeypatch.setattr(cs.subprocess, "Popen", popen_then_signal)
+    measure = cs.Measure("backend", "backend/**", "sleep 30")
+    with pytest.raises(cs.Stopped) as stop:
+        with cs.stop_signals():
+            cs.run_command(measure, "measuring command", "sleep 30", tmp_path, dict(os.environ), cs.Clock(1))
+    assert stop.value.signum == signal.SIGTERM
+    assert len(started) == 1
+    assert started[0].returncode is not None
+    with pytest.raises(ProcessLookupError):
+        os.killpg(started[0].pid, 0)

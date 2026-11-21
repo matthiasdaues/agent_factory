@@ -290,21 +290,28 @@ def _stop_group(proc: subprocess.Popen) -> None:
         proc.wait()
 
 
-def _parent_death_signal():
-    """A preexec_fn that gives the command SIGKILL when crap-score dies, or None off Linux."""
-    if not sys.platform.startswith("linux"):
-        return None
-    try:
-        prctl = ctypes.CDLL(None, use_errno=True).prctl
-    except (OSError, AttributeError):
-        return None
+def _command_preexec():
+    """The preexec_fn of a command: unblock the stop signals, and on Linux set the parent-death signal.
+
+    run_command blocks the stop signals while Popen runs, and a child process
+    inherits that mask, so the child unblocks them before the command starts.
+    On Linux the child also gets SIGKILL when crap-score dies.
+    """
+    prctl = None
+    if sys.platform.startswith("linux"):
+        try:
+            prctl = ctypes.CDLL(None, use_errno=True).prctl
+        except (OSError, AttributeError):
+            prctl = None
     parent = os.getpid()
 
     def preexec() -> None:
-        prctl(PR_SET_PDEATHSIG, int(signal.SIGKILL))
-        if os.getppid() != parent:
-            # crap-score died before prctl took effect.
-            os.kill(os.getpid(), signal.SIGKILL)
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, STOP_SIGNALS)
+        if prctl is not None:
+            prctl(PR_SET_PDEATHSIG, int(signal.SIGKILL))
+            if os.getppid() != parent:
+                # crap-score died before prctl took effect.
+                os.kill(os.getpid(), signal.SIGKILL)
 
     return preexec
 
@@ -334,17 +341,26 @@ def run_command(measure: Measure, kind: str, command: str, root: Path, env: dict
     """Run *command* in its own process group from *root*.
 
     The group is stopped at the limit and on any other way out of the wait,
-    such as Stopped, so no command outlives the lock.
+    such as Stopped, so no command outlives the lock. The stop signals stay
+    blocked while Popen runs, so a signal that arrives before *proc* exists
+    waits until the group exists and the try below can stop it.
     """
     remaining = clock.remaining()
     if remaining <= 0:
         raise GateError(f"measure {measure.name} ran out of {clock.limit()} before its {kind} {command}")
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
-        proc = subprocess.Popen(
-            command, shell=True, cwd=root, env=env, stdout=out, stderr=err, start_new_session=True,
-            preexec_fn=_parent_death_signal(),
-        )
+        earlier = signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
         try:
+            proc = subprocess.Popen(
+                command, shell=True, cwd=root, env=env, stdout=out, stderr=err, start_new_session=True,
+                preexec_fn=_command_preexec(),
+            )
+        except BaseException:
+            signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
+            raise
+        try:
+            # A signal that arrived while Popen ran is delivered here.
+            signal.pthread_sigmask(signal.SIG_SETMASK, earlier)
             code = proc.wait(timeout=remaining)
         except subprocess.TimeoutExpired:
             _stop_group(proc)

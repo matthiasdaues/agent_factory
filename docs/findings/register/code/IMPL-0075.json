@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The test exists only on the feature branch, so it is not in use. When it passes, it checks that a stopped run stops its command before the next run starts, and its failures come from the stub, not from crap-score (no to fails_purpose). A failure in the gate-check step or at the merge costs a rerun and a search for a fault that the code does not have.",
   "commit": "40891e857e954462b2af744409f20c4a0bbd5595",
-  "status": "open"
+  "status": "resolved"
 }
