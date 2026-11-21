@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0074",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_crap_gate_score.py:497-523",
+  "story": "ST-0438",
+  "finding": "No test stops a ready command at the time limit, although the edge-case row of CG-04-IT-08 in the QA strategy names two cases: the limit runs out inside a ready command, and inside a measuring command with a child process. CG-04-IT-08 covers only the second case, where the limit runs out in the measuring command of python. A later change that gives the ready command its own call path, as ST-0443 and ST-0445 run ready commands elsewhere, could then lose the stop without a failing test. Fix: add a parametrized case to CG-04-IT-08 in tests/factory/test_crap_gate_score.py whose ready stub starts a child process and sleeps past the limit. Assert exit 2, the message names backend and the limit, no measuring command starts, and the child process ends.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The test exists only on the feature branch, so it is not in use. Both kinds of command run through the one function run_command, and CG-04-IT-08 drives its stop path (no to fails_purpose). A reader of the QA strategy expects the ready case to be checked and must read the code to see that it is.",
+  "commit": "4e1e51df6503ed503f5b2fe1ddf6999beeae29b7",
+  "status": "open"
+}

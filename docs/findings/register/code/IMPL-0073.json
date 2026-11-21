@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0073",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_crap_gate_lock.py:156-168",
+  "story": "ST-0438",
+  "finding": "Two timing tests pass only while process start-up stays fast, so they can fail under a loaded parallel run. CG-04-IT-15 needs the second crap-score to start Python, read docs/testing.yaml and log python-start within the 2 s sleep of the first run. CG-04-IT-08 needs the ready command and the measuring command of backend, a sleep of 2 s and two shell starts, to finish within the 3 s limit, so the limit runs out in python and not in backend. The margin is about one second in both tests. The review ran both tests and CG-04-IT-13, -14 and -16 four times with pytest -n 5 beside 18 busy loops on 12 cores, and all passed, so the failure is not observed. Fix: in CG-04-IT-15, let the first python stub wait until the log holds python-start wt-0351, with its own limit of 20 s, instead of sleeping 2 s; the overlap then shows without a time window. In CG-04-IT-08, raise the limit and the sleeps together, for example 0.1 minutes with sleeps of 4 s, so the margin grows to 2 s.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The tests exist only on the feature branch, so they are not in use. Every owned row has a test, and each test checks its Scenario when it passes (no to fails_purpose). A failure under load costs a rerun and a search for a fault that the code does not have.",
+  "commit": "4e1e51df6503ed503f5b2fe1ddf6999beeae29b7",
+  "status": "open"
+}
