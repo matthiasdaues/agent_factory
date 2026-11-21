@@ -935,6 +935,25 @@ def register_calls(project: Path) -> dict[str, tuple]:
         "opencode-patch": (opencode_call, "patch", {"patchText": EXCEPTIONS_PATCH}),
         "opencode-execute": (opencode_call, "execute", {"code": f"await Bun.write('{EXCEPTIONS}', 'row')"}),
         "opencode-unparsable-patch": (opencode_call, "patch", {"patchText": f"*** Begin Patch\n*** Update File: {EXCEPTIONS}\nrow\n"}),
+        # IMPL-0068: a removal drops every accepted row, so it is a write.
+        "claude-rm": (claude_call, "Bash", {"command": f"rm {EXCEPTIONS}"}),
+        "claude-rm-folder": (claude_call, "Bash", {"command": "rm -rf docs/findings"}),
+        "claude-mv-source": (claude_call, "Bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "claude-patch-delete": (claude_call, "apply_patch", {"patch": f"*** Begin Patch\n*** Delete File: {EXCEPTIONS}\n*** End Patch\n"}),
+        "codex-rm": (codex_call, "Bash", {"command": f"rm -f {EXCEPTIONS}"}),
+        "codex-mv-source": (codex_call, "Bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "copilot-rm": (copilot_call, "bash", {"command": f"rm {EXCEPTIONS}"}),
+        "copilot-mv-source": (copilot_call, "bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "pi-rm": (pi_call, "bash", {"command": f"rm {EXCEPTIONS}"}),
+        "pi-mv-source": (pi_call, "bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        "opencode-rm": (opencode_call, "shell", {"command": f"rm {EXCEPTIONS}"}),
+        "opencode-mv-source": (opencode_call, "bash", {"command": f"mv {EXCEPTIONS} /tmp/x"}),
+        # The long option with `=` is the same option as `-t DIR`.
+        "claude-cp-target-directory": (claude_call, "Bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "codex-cp-target-directory": (codex_call, "Bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "copilot-cp-target-directory": (copilot_call, "bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "pi-cp-target-directory": (pi_call, "bash", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
+        "opencode-cp-target-directory": (opencode_call, "shell", {"command": "cp --target-directory=docs/findings /tmp/exceptions.md"}),
     }
 
 
@@ -971,6 +990,17 @@ class TestExceptionsRegister:
         f"sed -n '1,5p' {EXCEPTIONS} > /tmp/head.md",
     ])
     def test_st_0441_an_agent_reads_the_register(self, register, command):
+        result = run_guard(register, "Bash", {"command": command})
+
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.spec("CG-06-IT-02")
+    @pytest.mark.parametrize("command", [
+        "rm docs/findings/FAGAN-0042.md",
+        "mv docs/findings/FAGAN-0042.md /tmp/FAGAN-0042.md",
+        "rm -rf /tmp/scratch-folder",
+    ])
+    def test_impl_0068_a_removal_outside_the_register_passes(self, register, command):
         result = run_guard(register, "Bash", {"command": command})
 
         assert result.returncode == 0, result.stderr
