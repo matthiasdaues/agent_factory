@@ -1,120 +1,115 @@
-"""Contract tests for crap-score gate script."""
+"""Contract tests: crap-score reads both key forms of its entry (BR-055, BR-128)."""
 
 from __future__ import annotations
 
 import json
+import stat
+import subprocess
+from decimal import Decimal
 
 import pytest
 from conftest import load_script
 
 cs = load_script("crap-score")
 
-SOURCE = """\
-class Greeter:
-    def greet(self, name):
-        if name:
-            return name
-        return "anon"
-
-
-def helper():
-    return 1
-"""
-
-
-def test_each_function_reported_once(tmp_path):
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "module.py").write_text(SOURCE, encoding="utf-8")
-    reports = tmp_path / "reports"
-
-    cs.main(
-        [
-            "--source-root",
-            str(src),
-            "--report-dir",
-            str(reports),
-            "--story-id",
-            "ST-0000",
-            "--threshold",
-            "1000",
-        ]
-    )
-
-    results = json.loads((reports / "ST-0000.json").read_text(encoding="utf-8"))
-    names = sorted(r["function"] for r in results)
-    assert names == ["greet", "helper"]
-
-
-# --- ST-0415: crap-score reads both key forms (BR-055) ---------------------
+ENTRY = (
+    "    enabled: true\n"
+    "    threshold: {threshold}\n"
+    "    timeout_minutes: 10\n"
+    "    measures:\n"
+    "      - name: python\n"
+    "        files: \"src/*\"\n"
+    "        command: \"scripts/crap-measure-stub\"\n"
+)
 
 
 def _testing_yaml(tmp_path, gates: str) -> None:
     docs = tmp_path / "docs"
-    docs.mkdir()
+    docs.mkdir(exist_ok=True)
     (docs / "testing.yaml").write_text(
         "test_command: pytest\ngates:\n  attempts: 3\n" + gates + "risk_classes:\n  critical: {}\n",
         encoding="utf-8",
     )
 
 
-@pytest.mark.spec("RL-09-CT-06")
-class TestSt0415ThresholdKeys:
-    """RL-09-CT-06: crap-score reads gates.crap-score and the old key gates.crap_score."""
+def _entry(key: str, threshold: int) -> str:
+    return f"  {key}:\n" + ENTRY.format(threshold=threshold)
 
-    def test_st_0415_the_key_with_hyphens(self, tmp_path, capsys):
-        _testing_yaml(tmp_path, "  crap-score:\n    enabled: true\n    threshold: 8\n")
-        assert cs.read_threshold_from_testing_yaml(tmp_path) == 8.0
+
+@pytest.mark.spec("CG-04-CT-05")
+class TestCg04ThresholdKeys:
+    """CG-04-CT-05: crap-score reads gates.crap-score and the old key crap_score."""
+
+    def test_cg_04_the_key_with_hyphens(self, tmp_path, capsys):
+        _testing_yaml(tmp_path, _entry("crap-score", 8))
+        assert cs.read_settings(tmp_path).threshold == Decimal(8)
         assert capsys.readouterr().err == ""
 
-    def test_st_0415_crap_score_reads_the_old_key_crap_score(self, tmp_path, capsys):
+    def test_cg_04_crap_score_reads_the_old_key_crap_score(self, tmp_path, capsys):
         """Scenario: crap-score reads the old key crap_score."""
-        _testing_yaml(tmp_path, "  crap_score:\n    enabled: true\n    threshold: 8\n")
-        assert cs.read_threshold_from_testing_yaml(tmp_path) == 8.0
+        _testing_yaml(tmp_path, _entry("crap_score", 8))
+        assert cs.read_settings(tmp_path).threshold == Decimal(8)
         assert capsys.readouterr().err == ""
 
-    def test_st_0415_with_both_keys_the_key_with_hyphens_wins(self, tmp_path, capsys):
-        _testing_yaml(
-            tmp_path,
-            "  crap_score:\n    threshold: 5\n  crap-score:\n    threshold: 8\n",
-        )
-        assert cs.read_threshold_from_testing_yaml(tmp_path) == 8.0
+    def test_cg_04_with_both_keys_the_key_with_hyphens_wins(self, tmp_path, capsys):
+        _testing_yaml(tmp_path, _entry("crap_score", 5) + _entry("crap-score", 8))
+        assert cs.read_settings(tmp_path).threshold == Decimal(8)
         assert "gates.crap_score" in capsys.readouterr().err
 
-    def test_st_0415_a_later_entry_lends_no_threshold(self, tmp_path):
+    def test_cg_04_a_later_entry_lends_no_threshold(self, tmp_path):
         _testing_yaml(
             tmp_path,
             "  crap-score:\n    enabled: true\n  license-check:\n    threshold: 3\n",
         )
-        assert cs.read_threshold_from_testing_yaml(tmp_path) is None
+        with pytest.raises(cs.GateError, match="has no threshold"):
+            cs.read_settings(tmp_path)
 
-    def test_st_0415_the_run_checks_every_function_against_the_old_threshold(self, tmp_path):
-        _testing_yaml(tmp_path, "  crap_score:\n    threshold: 2\n")
-        (tmp_path / "module.py").write_text(SOURCE, encoding="utf-8")
-        reports = tmp_path / "reports"
-        code = cs.main(
-            ["--source-root", str(tmp_path), "--report-dir", str(reports), "--story-id", "ST-0350"]
+    def test_cg_04_the_run_judges_the_changed_functions_against_the_old_threshold(
+        self, tmp_path, monkeypatch
+    ):
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setenv("HOME", str(home))
+        monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        monkeypatch.chdir(repo)
+
+        def git(*args):
+            subprocess.run(["git", *args], check=True, capture_output=True)
+
+        git("init", "-q", "-b", "main")
+        git("config", "user.email", "fixture@example.com")
+        git("config", "user.name", "Fixture")
+        git("config", "commit.gpgsign", "false")
+        _testing_yaml(repo, _entry("crap_score", 2))
+        stub = repo / "scripts" / "crap-measure-stub"
+        stub.parent.mkdir()
+        stub.write_text('#!/bin/sh\ncp "$PLANTED_ROWS" "$GATE_OUTPUT"\n')
+        stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+        (repo / "src").mkdir()
+        (repo / "src" / "module").write_text("".join(f"line {n}\n" for n in range(1, 11)))
+        git("add", "-A")
+        git("commit", "-q", "-m", "init")
+        git("checkout", "-q", "-b", "feature/login")
+        git("checkout", "-q", "-b", "story/ST-0350")
+        (repo / "src" / "module").write_text(
+            "".join(("changed\n" if n == 2 else f"line {n}\n") for n in range(1, 11))
         )
-        rows = json.loads((reports / "ST-0350.json").read_text(encoding="utf-8"))
-        assert code == 1
-        assert {r["function"]: r["pass_fail"] for r in rows} == {"greet": "fail", "helper": "pass"}
-
-
-@pytest.mark.spec("RL-09-CT-03")
-def test_st_0415_named_files_replace_the_walk_of_the_source_root(tmp_path):
-    """IMPL-0024: crap-score scores the named files and no other file."""
-    (tmp_path / "named.py").write_text("def named():\n    return 1\n", encoding="utf-8")
-    (tmp_path / "module.py").write_text(SOURCE, encoding="utf-8")
-    reports = tmp_path / "reports"
-    code = cs.main(
-        [
-            "--source-root", str(tmp_path),
-            "--report-dir", str(reports),
-            "--story-id", "ST-0415",
-            "--threshold", "2",
-            "--", str(tmp_path / "named.py"),
+        git("commit", "-q", "-am", "change greet")
+        rows = [
+            {"file": "src/module", "function": "Greeter.greet", "start_line": 1,
+             "end_line": 5, "complexity": 2, "coverage_pct": 50},
+            {"file": "src/module", "function": "helper", "start_line": 7,
+             "end_line": 10, "complexity": 3, "coverage_pct": 0},
         ]
-    )
-    rows = json.loads((reports / "ST-0415.json").read_text(encoding="utf-8"))
-    assert code == 0
-    assert [(r["file"], r["function"]) for r in rows] == [("named.py", "named")]
+        planted = tmp_path / "planted.json"
+        planted.write_text(json.dumps(rows))
+        monkeypatch.setenv("PLANTED_ROWS", str(planted))
+        monkeypatch.delenv("STORY_ID", raising=False)
+
+        reports = tmp_path / "reports"
+        code = cs.main(["--base", "feature/login", "--report-dir", str(reports)])
+        judged = json.loads((reports / "ST-0350.json").read_text(encoding="utf-8"))
+        assert code == 1
+        assert {r["function"]: r["pass_fail"] for r in judged} == {"Greeter.greet": "fail"}

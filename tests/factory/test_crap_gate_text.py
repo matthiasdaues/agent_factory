@@ -96,3 +96,63 @@ def test_cg_03_no_file_of_the_setup_skill_names_the_factory_folder() -> None:
     assert PYTHON_TEMPLATE in files
     for path in files:
         assert ".agent-factory/" not in path.read_text(), f"{path} names .agent-factory/"
+
+
+CRAP_SCORE = REPO_ROOT / "packages" / "factory" / "scripts" / "crap-score"
+CRAP_SKILL = REPO_ROOT / "packages" / "factory" / "skills" / "crap-score" / "SKILL.md"
+ADR_0003 = REPO_ROOT / "docs" / "adr" / "0003-test-execution-via-hooks.md"
+ARC42_5 = REPO_ROOT / "docs" / "arc42" / "05_building_block_view.md"
+# A file ending of a language, such as `.py` or `*.ts`; `.json` is no language.
+LANGUAGE_ENDING = re.compile(r"\.(?:py|pyi|ts|tsx|js|jsx|mjs|go|rs|java|kt|rb|php|cs|c|cpp|h)\b")
+TOOLS = ("radon", "lizard", "coverage.py", "ESLint", "Vitest", "Jest")
+
+
+@pytest.mark.spec("CG-03-LN-03")
+def test_cg_03_crap_score_holds_no_language_specific_code() -> None:
+    """Scenario: crap-score holds no language-specific code."""
+    text = CRAP_SCORE.read_text()
+    assert not re.search(r"^\s*(?:import|from)\s+(?:radon|coverage)\b", text, re.MULTILINE)
+    assert "radon" not in text
+    assert LANGUAGE_ENDING.findall(text) == []
+
+
+@pytest.mark.spec("CG-03-LN-03")
+def test_cg_03_the_check_finds_a_language_ending() -> None:
+    assert LANGUAGE_ENDING.findall('rglob("*.py") and main.ts') == [".py", ".ts"]
+    assert LANGUAGE_ENDING.findall("report.json") == []
+
+
+@pytest.mark.spec("CG-12-LN-01")
+def test_cg_12_the_crap_score_skill_describes_the_gate_without_a_tool_or_threshold() -> None:
+    """Scenario: The skill crap-score describes the gate and names no tool and no threshold."""
+    text = CRAP_SKILL.read_text()
+    flat = " ".join(text.split())
+    for content in (
+        "GATE_OUTPUT",
+        "`start_line`",
+        "`end_line`",
+        "`coverage_pct`",
+        "`parse_error`",
+        "complexity² × (1 − coverage_pct/100)³ + complexity",
+        "half up",
+        "docs/findings/exceptions.md",
+        "`gates.crap-score.threshold`",
+    ):
+        assert content in flat, f"crap-score/SKILL.md does not describe {content}"
+    for code in ("`0`", "`1`", "`2`"):
+        assert code in flat
+    for folder in ("worktree of the story", "primary checkout", "premerge-check", "gate-setup-proof"):
+        assert folder in flat, f"crap-score/SKILL.md does not name the folder of {folder}"
+    for tool in TOOLS:
+        assert tool.lower() not in text.lower(), f"crap-score/SKILL.md names {tool}"
+    assert not re.search(r"default threshold|threshold[^.\n]*default", text, re.IGNORECASE)
+
+
+@pytest.mark.spec("CG-12-LN-04")
+def test_cg_12_the_architecture_names_exit_code_2_of_crap_score() -> None:
+    """Scenario: The architecture names exit code 2 of crap-score."""
+    adr = " ".join(ADR_0003.read_text().split())
+    assert "Decision 5 of the amendment of 2026-08-28 gains one exception: the CRAP gate `crap-score`." in adr
+    assert "It exits `2` when it cannot measure" in adr
+    rows = [line for line in ARC42_5.read_text().splitlines() if line.startswith("| **crap-score**")]
+    assert any("2 (cannot measure)" in row for row in rows)
