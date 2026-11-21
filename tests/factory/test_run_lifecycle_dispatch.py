@@ -1035,6 +1035,24 @@ def _red_suite_after_the_merge(tmp_path: Path) -> dict[str, Path]:
     return run
 
 
+def _gate_cannot_measure(run: dict[str, Path]) -> dict[str, Path]:
+    """The gate-check step of ST-0350 reads exit 2 of crap-score and marks it blocked."""
+    result = _dispatch(
+        run["repo"], run["ledger"], "mark-blocked", "ST-0350",
+        "--reason", "gate cannot measure: crap-score",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return run
+
+
+def _gate_cannot_measure_by_hand(tmp_path: Path) -> dict[str, Path]:
+    return _gate_cannot_measure(_dispatched_by_hand(tmp_path, code="x = 1\n", rules=False))
+
+
+def _gate_cannot_measure_orchestrated(tmp_path: Path) -> dict[str, Path]:
+    return _gate_cannot_measure(_orchestrated_on_login(tmp_path))
+
+
 STOP_CAUSES = {
     "last-attempt-on-strong": (_last_attempt_on_strong, "failed", None),
     "second-contract-violation": (_second_contract_violation, "failed", None),
@@ -1042,6 +1060,12 @@ STOP_CAUSES = {
     "refresh-conflict": (_refresh_conflict, "blocked", "refresh conflict"),
     "red-suite-after-the-merge": (
         _red_suite_after_the_merge, "blocked", "post-merge test failure"
+    ),
+    "gate-cannot-measure-by-hand": (
+        _gate_cannot_measure_by_hand, "blocked", "gate cannot measure: crap-score"
+    ),
+    "gate-cannot-measure-orchestrated": (
+        _gate_cannot_measure_orchestrated, "blocked", "gate cannot measure: crap-score"
     ),
 }
 

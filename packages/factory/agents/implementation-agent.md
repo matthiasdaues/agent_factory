@@ -279,7 +279,17 @@ The four gates are `crap-score`, `mutation-testing`, `test-design-verify`, and `
 
 Start `crap-score` as a background job (`run_in_background: true`) and wait for its exit notice, because a foreground Bash call can end before `gates.crap-score.timeout_minutes` runs out. Read the verdict only from the exit code of that job (BR-134). `crap-score` judges the functions changed since the merge base of `--base`. At the merge, `premerge-check` runs the same call with `--base <target>` (BR-136). The `test-design-verify` gate runs only when the story contains a Test Design or Prior Tests section; the dispatcher skips it otherwise.
 
-Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome. `crap-score` is the exception: its report lies under `<gate-folder>`, and its exit code alone is the verdict.
+Each script writes a JSON report to `<invocation-worktree>/.current-work/<gate-name>/<story-id>.json` and exits 0 on pass, 1 on failure. Always pass `--report-dir`: the gate runs in the story worktree, but `dispatch merge-story` runs `premerge-check` from the invocation worktree and reads the result there. The file also outlives the story worktree, which `merge-story` removes. The dispatcher reads the exit code and the JSON report to determine the outcome. `crap-score` is the exception: its report lies under `<gate-folder>`, and its exit code alone is the verdict, `2` included (see [Gate that cannot measure](#gate-that-cannot-measure)).
+
+#### Gate that cannot measure
+
+`crap-score` exits `2` when it cannot measure the code. Nobody judged the code, so no developer agent can fix it (DEC-03). The exit code alone decides this (BR-134). On exit `2`, do the following and nothing else:
+
+1. Run `.agent-factory/factory/scripts/dispatch mark-blocked <story-id> --reason "gate cannot measure: crap-score"`. The reason is this exact text. BR-116 says that a gate that cannot measure stops a story as `blocked`.
+2. Record no attempt. Do not run `mark-failed`. Then spawn no developer agent.
+3. Stop the story. In the stop, name the gate `crap-score` and quote the message that `crap-score` printed. The message names the cause, such as a stopped Compose stack. Quote it unchanged.
+
+The story keeps its attempts and its story branch.
 
 #### Surviving mutants
 
@@ -292,7 +302,7 @@ The finding has `severity: major`, `status: open`, and `run` set to the feature 
 
 #### Fix-iteration loop
 
-When a gate fails, the attempt has failed. Run these steps:
+When a gate fails, the attempt has failed. A gate that exits `2` is no failed attempt; see [Gate that cannot measure](#gate-that-cannot-measure). Run these steps:
 
 1. Record the attempt with `.agent-factory/factory/scripts/dispatch mark-failed <story-id> --class acceptance_unmet`. A failing gate always records the failure class `acceptance_unmet` (BR-114). `mark-failed` then prints whether the story has a retry left or has stopped.
 2. When the story has stopped, end the loop and report the story to the User. [Attempts and escalation](#attempts-and-escalation) says when a story stops.
