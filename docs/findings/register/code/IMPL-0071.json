@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0071",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:1119-1137",
+  "story": "ST-0439",
+  "finding": "A refused merge can name functions that an earlier run judged, and hide the real cause of the refusal. The review checked it: premerge-check refused ST-0350 with `BLOCK semantic-gates: crap-score (failed: tree_severity 90.0)`, then the measuring command was broken and premerge-check ran again. crap-score exited 2 and wrote no report, and the refusal again said `crap-score (failed: tree_severity 90.0)` instead of the message `cannot measure`. The gap starts in `rerun_gate`: the report path now lies in the primary checkout, where it outlives every run, and `_failure_detail` reads it after any non-zero exit. Before this story the report lay in the new temporary worktree, so no old report could be there. The reuse looks unintended, because the story reads the report only to name the functions of the failing run. Fix: in `rerun_gate`, pass the report of crap-score to `_failure_detail` only after exit 1, which always writes a new report. Add a test to `tests/factory/test_crap_gate_premerge.py` that runs premerge-check twice, the second time with a failing measuring command, and asserts that the second refusal names no function. ST-0443 builds the refusal of exit 2 and may take over the test.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The new report folder exists only on the feature branch, so it is not in use. The merge is still refused, every owned Scenario passes, and the message of exit 2 belongs to ST-0443 (no to fails_purpose). A User who reads the refusal looks for a fault in `tree_severity` that is already fixed, and must run crap-score by hand to find the real cause.",
+  "commit": "3da33084ea1c28d6006b36cf900063171fdea632",
+  "status": "open"
+}
