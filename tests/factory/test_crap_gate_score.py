@@ -687,3 +687,49 @@ def test_cg_05_a_register_on_dev_that_is_not_utf_8_exits_2_and_names_the_file(re
     assert REGISTER in proc.stderr
     assert "Traceback" not in proc.stderr
     assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
+
+
+# --- CG-05-IT-02: the register only from refs/heads/dev (ST-0445) -----------
+
+
+@pytest.mark.spec("CG-05-IT-02")
+def test_cg_05_only_a_remote_branch_dev_gives_no_register(repo):
+    """Scenario Outline: crap-score reads the exceptions register only from refs/heads/dev, row origin/dev (DEC-55)."""
+    _commit_register(repo, "dev")
+    dev = repo.git("rev-parse", "dev")
+    repo.git("update-ref", "refs/remotes/origin/dev", dev)
+    repo.git("merge", "-q", "--no-edit", "dev")
+    repo.git("branch", "-q", "-D", "dev")
+    _change_tree(repo)
+    proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert NO_DEV_LINE in proc.stdout
+    assert repo.report()[0]["pass_fail"] == "fail"
+
+
+@pytest.mark.spec("CG-05-IT-02")
+def test_cg_05_outside_a_git_repository_gives_no_register(tmp_path):
+    """Scenario Outline: crap-score reads the exceptions register only from refs/heads/dev, row outside git (DEC-55)."""
+    folder = tmp_path / "plain"
+    folder.mkdir()
+    (folder / "docs").mkdir()
+    (folder / "docs" / "testing.yaml").write_text(TESTING_YAML)
+    stub = folder / STUB
+    stub.parent.mkdir(parents=True)
+    stub.write_text(COPY_STUB)
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+    register = folder / REGISTER
+    register.parent.mkdir(parents=True)
+    register.write_text(REGISTER_TEXT)
+    planted = tmp_path / "planted.json"
+    planted.write_text(json.dumps(ROWS))
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "COVERAGE_")) and k != "STORY_ID"}
+    env.update(PLANTED_ROWS=str(planted), GIT_CEILING_DIRECTORIES=str(tmp_path))
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "--all", "--story-id", STORY_ID], cwd=folder, env=env,
+        capture_output=True, text=True, check=False,
+    )
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert NO_DEV_LINE in proc.stdout
+    report = json.loads((folder / ".current-work" / "crap-score" / f"{STORY_ID}.json").read_text())
+    assert report[0]["pass_fail"] == "fail"

@@ -183,6 +183,26 @@ def attempt_limits(gates: Any) -> AttemptLimits:
     return AttemptLimits(**values)
 
 
+def ready_commands(gates: Any) -> list[tuple[str, str, str]]:
+    """List the `ready` commands that `dispatch init` runs (BR-137).
+
+    Each item is the gate, the measure, and the command, in list order. Only
+    an entry with `enabled: true` counts. A measure without a `ready` string
+    runs nothing here; `crap-score` checks the shape of its measures (BR-128).
+    """
+    section = gates if isinstance(gates, dict) else {}
+    commands = []
+    for gate, entry in section.items():
+        if not isinstance(entry, dict) or entry.get("enabled") is not True:
+            continue
+        measures = entry.get("measures")
+        for measure in measures if isinstance(measures, list) else []:
+            ready = measure.get("ready") if isinstance(measure, dict) else None
+            if isinstance(ready, str) and ready:
+                commands.append((str(gate), str(measure.get("name")), ready))
+    return commands
+
+
 def entry_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
     """Return the tier the entry runs on now.
 
