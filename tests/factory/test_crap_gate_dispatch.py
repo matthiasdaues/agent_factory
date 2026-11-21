@@ -1,4 +1,5 @@
-"""mark-blocked in the gate-check step, when crap-score exits 2 (docs/spec/features/crap-gate-setup.feature, Rule CG-07).
+"""mark-blocked in the gate-check step, when crap-score exits 2 (docs/spec/features/crap-gate-setup.feature, Rule CG-07),
+and the refusal at the merge of a story that names crap-score without an entry (Rule CG-11, DEC-58).
 
 Each test starts from the state of the Scenario: ST-0350 is dispatched with one counted attempt.
 The run helpers come from the run-lifecycle tests, as in the other test_crap_gate_ files.
@@ -15,6 +16,7 @@ from test_run_lifecycle_dispatch import (
     _dispatched_by_hand,
     _entry,
     _fail,
+    _commit_story_work,
     _git,
     _orchestrated_on_login,
 )
@@ -61,3 +63,27 @@ def test_cg_07_it_01_mark_blocked_keeps_the_attempts_and_the_branch(tmp_path, wa
     if way == "orchestrated":
         assert run["story"].is_dir(), "the story worktree must survive the block"
     assert lib.has_stopped(entry, lib.AttemptLimits())
+
+
+@pytest.mark.spec("CG-11-IT-05")
+def test_cg_11_it_05_the_refusal_at_the_merge_leaves_the_attempts_unchanged(tmp_path):
+    """Scenario Outline: A story that names crap-score before the setup is refused, row premerge-check (DEC-58)."""
+    run = _dispatched_with_one_attempt(_orchestrated_on_login(tmp_path))
+    story_file = run["story"] / "backlog" / "ST-0350.md"
+    story_file.write_text(
+        story_file.read_text().replace("quality-gates: []", "quality-gates: [crap-score]")
+    )
+    _commit_story_work(run)  # git add -A takes the changed story file
+    before = _entry(run)
+    tip = _git(run["repo"], "rev-parse", "feature/login")
+
+    result = _dispatch(run["feature"], run["ledger"], "merge-story", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "setup-crap-score" in result.stdout
+    assert "GATE CANNOT MEASURE" not in result.stdout + result.stderr
+    entry = _entry(run)
+    assert entry.status.value == "dispatched"
+    assert entry.attempts == before.attempts
+    assert len(entry.attempts) == 1
+    assert _git(run["repo"], "rev-parse", "feature/login") == tip
