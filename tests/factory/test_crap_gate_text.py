@@ -196,3 +196,21 @@ def test_cg_11_the_gate_check_step_refuses_crap_score_without_an_entry() -> None
 def test_cg_11_no_file_names_a_default_that_runs_crap_score_alone(path) -> None:
     """Scenario: The story template and the implementation agent name no default gate."""
     assert not DEFAULT_OF_CRAP_SCORE.search(path.read_text()), path
+
+
+@pytest.mark.spec("CG-04-LN-01")
+def test_cg_04_the_gate_check_step_runs_crap_score_as_a_background_job() -> None:
+    """Scenario: The implementation agent runs crap-score as a background job, and
+    Scenario Outline: The gate-check step runs crap-score in the folder of the story."""
+    step = _section(IMPLEMENTATION_AGENT.read_text(), "Gate-Check Step")
+    calls = [line for line in step.splitlines() if "scripts/crap-score " in line]
+    assert len(calls) == 1, calls
+    assert "--base <feature-branch>" in calls[0]
+    assert "--report-dir" in calls[0]
+    assert ".current-work/crap-score" in calls[0]
+    assert "--threshold" not in calls[0]
+    paragraphs = [p for p in step.split("\n\n") if "`crap-score`" in p and "background job" in p]
+    assert any(
+        "exit code" in p and "only" in p and "BR-134" in p for p in paragraphs
+    ), paragraphs
+    assert "hardcoded default" not in step
