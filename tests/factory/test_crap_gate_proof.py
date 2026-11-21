@@ -521,12 +521,14 @@ def test_cg_02_a_second_proof_is_refused_while_one_runs(tmp_path: Path) -> None:
 
 @pytest.mark.spec("CG-02-IT-07")
 def test_cg_02_the_proof_runs_no_hook_of_the_project(tmp_path: Path) -> None:
-    """IMPL-0077: failing post-checkout, prepare-commit-msg and post-commit hooks of the project do not run."""
+    """IMPL-0077: the proof switches no hook off, and still no failing commit or checkout hook runs."""
     repo = Repo(tmp_path)
     marker = tmp_path / "hook-ran"
     hooks = repo.root / ".git" / "hooks"
     hooks.mkdir(exist_ok=True)
-    for hook in ("post-checkout", "prepare-commit-msg", "post-commit"):
+    for hook in (
+        "pre-commit", "prepare-commit-msg", "commit-msg", "post-commit", "post-checkout", "post-index-change",
+    ):
         (hooks / hook).write_text(f"#!/bin/sh\necho {hook} >> '{marker}'\nexit 1\n")
         (hooks / hook).chmod(0o755)
     worktrees = repo.git("worktree", "list", "--porcelain")
@@ -537,6 +539,27 @@ def test_cg_02_the_proof_runs_no_hook_of_the_project(tmp_path: Path) -> None:
     assert check_lines(result.stdout) == dict.fromkeys(CHECKS, "PASS")
     assert not marker.exists()
     assert repo.git("worktree", "list", "--porcelain") == worktrees
+
+
+@pytest.mark.spec("CG-02-IT-07")
+def test_cg_02_a_refusing_reference_transaction_hook_exits_2_and_is_named(tmp_path: Path) -> None:
+    """Adding the worktree runs the reference-transaction hook; a refusal exits 2 and names the hook."""
+    repo = Repo(tmp_path)
+    hook = repo.root / ".git" / "hooks" / "reference-transaction"
+    hook.parent.mkdir(exist_ok=True)
+    hook.write_text("#!/bin/sh\nexit 1\n")
+    hook.chmod(0o755)
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof()
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "reference-transaction" in result.stderr
+    assert result.stdout == ""
+    assert repo.starts() == []
+    hook.unlink()
+    assert repo.git("worktree", "list", "--porcelain") == worktrees
+    assert not (repo.root / WORKTREE).exists()
 
 
 @pytest.mark.spec("CG-02-IT-07")
