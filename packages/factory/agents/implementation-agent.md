@@ -257,7 +257,10 @@ The gate list has three parts (BR-066). `premerge-check` requires a passing resu
 
 1. **Story-level `quality-gates` field** — use this list. The planner fills it from `testing.yaml`'s enabled gates; prose-only stories get an empty list. Excluding a gate that is enabled in `testing.yaml` requires justification in the story's `notes` field.
 2. **The `gates` section of `testing.yaml`** (at `docs/testing.yaml`) — fallback when the story field is absent (older stories written before the planner filled this field). Each gate with `enabled: true` runs.
-3. **Factory default** — if neither declares gates, run `crap-score` alone (fail-closed). No default runs `mutation-testing`, because its command lives only in the `gates` section.
+
+No default picks a gate. When neither source names a test guardrail, that guardrail does not run.
+
+**Refusal before any gate runs.** Before the first gate runs, compare the story's `quality-gates` field with `docs/testing.yaml`. When the field names `crap-score` and `docs/testing.yaml` has neither the entry `gates.crap-score` nor the old key `crap_score` under `gates`, refuse the story and run no gate. The old key counts as the entry (BR-055). The refusal names `crap-score` and the skill `setup-crap-score`, which sets the gate up (DEC-21). Report the refusal to the User, because a developer agent cannot fix the missing setup. The story stays `dispatched`: the refusal is a failed check, not a gate that cannot measure. `premerge-check` refuses the same story with exit `1`. Once the User has run `setup-crap-score`, run the gate-check step again.
 
 Gate-specific parameters (e.g. `threshold` for `crap-score`) are read from `testing.yaml` at execution time. `docs/charter/house-rules.md` is no gate source; when it still has `default_quality_gates`, `premerge-check` prints a warning that names the file.
 
