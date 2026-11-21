@@ -66,3 +66,33 @@ def test_cg_12_the_business_rules_state_the_gates_behaviour(rule, statements) ->
     text = _rule_text(rule)
     for statement in statements:
         assert statement in text, f"{rule} does not state: {statement}"
+
+
+SETUP_SKILL_DIR = REPO_ROOT / "packages" / "factory" / "skills" / "setup-crap-score"
+PYTHON_TEMPLATE = SETUP_SKILL_DIR / "crap-measure-python"
+
+
+@pytest.mark.spec("CG-03-LN-01")
+def test_cg_03_the_python_template_holds_the_tool_code_and_names_its_duty() -> None:
+    """Scenario: The Python measuring command starts from the Factory template."""
+    text = PYTHON_TEMPLATE.read_text()
+    header = re.search(r"^# /// script\n(.*?)^# ///$", text, re.MULTILINE | re.DOTALL)
+    assert header, "the template has no `uv run --script` header"
+    assert text.startswith("#!/usr/bin/env -S uv run --script\n")
+    assert '"radon' in header.group(1)
+    assert '"coverage' in header.group(1)
+    assert "from radon.complexity import cc_visit" in text
+    assert re.search(r"^import coverage$", text, re.MULTILINE)
+    assert re.search(r"^TEST_COMMAND: list\[str\] = \[\]$", text, re.MULTILINE)
+    docstring = " ".join(text.split('"""')[1].split())
+    assert "it exits non-zero, names the cause, and writes no rows" in docstring
+    assert "never reports such a file as 0 % covered" in docstring
+
+
+@pytest.mark.spec("CG-03-LN-02")
+def test_cg_03_no_file_of_the_setup_skill_names_the_factory_folder() -> None:
+    """Scenario: The project's commands refer to nothing under .agent-factory/."""
+    files = sorted(p for p in SETUP_SKILL_DIR.rglob("*") if p.is_file())
+    assert PYTHON_TEMPLATE in files
+    for path in files:
+        assert ".agent-factory/" not in path.read_text(), f"{path} names .agent-factory/"

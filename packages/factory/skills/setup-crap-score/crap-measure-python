@@ -1,0 +1,278 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["radon>=6.0", "coverage>=7.4"]
+# ///
+"""crap-measure-python — measuring command of the CRAP gate for Python code.
+
+What: Runs the project's tests under coverage.py, reads the cyclomatic
+      complexity of each function with radon, and writes one row per
+      function to the path in GATE_OUTPUT.
+When: crap-score starts it for its measure, with GATE_OUTPUT set. A person
+      runs it the same way: GATE_OUTPUT=/tmp/rows.json crap-measure-python
+By:   crap-score, or a person in the root of the project.
+
+Rows
+  One JSON array. Each row holds file (relative to the folder the command
+  runs in), function (the qualified name, such as Parser.parse),
+  start_line, end_line, complexity, and coverage_pct. A Python file that
+  radon cannot parse gets one row with file and parse_error instead, and
+  the command still exits 0.
+
+Files
+  Every .py file below the folder it runs in, and every file without a
+  file ending whose first line names python or `uv run`. In a git work
+  tree the command skips the files that git ignores. The command leaves
+  itself out.
+
+Duty
+  When the command cannot measure a case, it exits non-zero, names the
+  cause, and writes no rows. Two such cases are a failed test run and a
+  file with functions that coverage cannot reach, such as a script that
+  no test runs. It never reports such a file as 0 % covered.
+
+Test command
+  TEST_COMMAND below holds the project's test command. setup-crap-score
+  fills it in. The command runs in the folder this command runs in, and
+  coverage measures every Python process it starts.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import tokenize
+from pathlib import Path
+
+import coverage
+from coverage.exceptions import NoDataError
+from radon.complexity import cc_visit
+
+# The project's test command, one list item per argument, such as
+# ["uv", "run", "pytest", "--quiet"]. setup-crap-score fills it in.
+TEST_COMMAND: list[str] = []
+
+EXCLUDED_DIRS = {
+    ".current-work",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+}
+
+SITECUSTOMIZE = "import coverage\ncoverage.process_startup()\n"
+
+
+class CannotMeasure(Exception):
+    """A case the command cannot measure; the message names the cause."""
+
+
+def is_python_script(path: Path) -> bool:
+    """True for a file without an ending whose first line starts Python."""
+    try:
+        with path.open("rb") as handle:
+            first = handle.readline(200)
+    except OSError:
+        return False
+    return first.startswith(b"#!") and (b"python" in first or b"uv run" in first)
+
+
+def candidate_files(root: Path) -> list[Path]:
+    """The files below *root* that belong to the project.
+
+    In a git work tree git lists them, so every ignored file stays out.
+    Outside git a walk lists them, without the excluded folders.
+    """
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        listed = None
+    if listed is not None and listed.returncode == 0:
+        return [root / os.fsdecode(name) for name in listed.stdout.split(b"\0") if name]
+    return [
+        path
+        for path in root.rglob("*")
+        if not any(part in EXCLUDED_DIRS for part in path.relative_to(root).parts)
+    ]
+
+
+def code_files(root: Path) -> list[Path]:
+    """Every Python file of the project below *root*.
+
+    The command itself is left out: no test runs it.
+    """
+    itself = Path(__file__).resolve()
+    files: set[Path] = set()
+    for path in candidate_files(root):
+        if not path.is_file() or path.resolve() == itself:
+            continue
+        if path.suffix == ".py" or (path.suffix == "" and is_python_script(path)):
+            files.add(path)
+    return sorted(files)
+
+
+def run_tests(root: Path, work: Path) -> dict:
+    """Run TEST_COMMAND under coverage; return the coverage.json files table."""
+    site = work / "site"
+    site.mkdir()
+    (site / "sitecustomize.py").write_text(SITECUSTOMIZE, encoding="utf-8")
+    # Only the coverage package goes on the path, so the tests see none of
+    # the other packages of this command's environment.
+    shutil.copytree(Path(coverage.__file__).parent, site / "coverage")
+    data_file = work / ".coverage"
+    rcfile = work / "coveragerc"
+    # include_namespace_packages lets coverage report an untested file in a
+    # folder without __init__.py as 0 % covered.
+    rcfile.write_text(
+        f"[run]\nparallel = True\ndata_file = {data_file}\nsource = {root}\n"
+        "[report]\ninclude_namespace_packages = True\n",
+        encoding="utf-8",
+    )
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("COVERAGE_")}
+    env["COVERAGE_PROCESS_START"] = str(rcfile)
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(site), *filter(None, [os.environ.get("PYTHONPATH")])]
+    )
+    try:
+        result = subprocess.run(TEST_COMMAND, cwd=root, env=env, check=False)
+    except OSError as exc:
+        raise CannotMeasure(f"the test command {TEST_COMMAND} cannot start: {exc}") from exc
+    if result.returncode != 0:
+        raise CannotMeasure(
+            f"the test run failed with exit {result.returncode}: {' '.join(TEST_COMMAND)}"
+        )
+
+    cov = coverage.Coverage(data_file=str(data_file), config_file=str(rcfile))
+    cov.combine(data_paths=[str(work)])
+    cov.save()
+    report = work / "coverage.json"
+    try:
+        cov.json_report(outfile=str(report), ignore_errors=True)
+    except NoDataError as exc:
+        raise CannotMeasure(f"coverage recorded no data for the test run: {exc}") from exc
+    files = json.loads(report.read_text(encoding="utf-8")).get("files", {})
+    return {str((root / key).resolve()): entry for key, entry in files.items()}
+
+
+def function_coverage(file_cov: dict, start: int, end: int) -> float:
+    """Share of the executable lines of a function body that ran."""
+    executed = set(file_cov.get("executed_lines", []))
+    missing = set(file_cov.get("missing_lines", []))
+    body = range(start + 1, end + 1)
+    executable = [line for line in body if line in executed or line in missing]
+    if not executable:
+        return 100.0
+    covered = sum(1 for line in executable if line in executed)
+    return covered / len(executable) * 100.0
+
+
+def nested_methods(prefix: str, classes: list) -> list[tuple[str, object]]:
+    """The methods of the nested *classes*, each with its qualified name."""
+    named: list[tuple[str, object]] = []
+    for cls in classes:
+        name = f"{prefix}.{cls.name}"
+        named.extend((f"{name}.{method.name}", method) for method in cls.methods)
+        named.extend(nested_methods(name, cls.inner_classes))
+    return named
+
+
+def function_blocks(path: Path) -> list[tuple[str, object]]:
+    """The radon blocks of the functions and methods of *path*, with names.
+
+    Each name is qualified, such as Parser.parse or Parser.Options.strict.
+    """
+    # tokenize.open honours a PEP 263 coding line, as Python does.
+    with tokenize.open(path) as handle:
+        source = handle.read()
+    named: list[tuple[str, object]] = []
+    for block in cc_visit(source):
+        if hasattr(block, "methods"):
+            # cc_visit lists the methods of a top-level class as blocks of
+            # their own, and those of a nested class only in inner_classes.
+            named.extend(nested_methods(block.name, block.inner_classes))
+        else:
+            named.append((block.fullname, block))
+    return named
+
+
+def measure(root: Path, coverage_files: dict) -> list[dict]:
+    """One row per function of the code files below *root*."""
+    rows: list[dict] = []
+    unreachable: list[str] = []
+    for path in code_files(root):
+        relative = path.relative_to(root).as_posix()
+        try:
+            blocks = function_blocks(path)
+        except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+            print(f"crap-measure-python: cannot parse {relative}: {exc}", file=sys.stderr)
+            rows.append({"file": relative, "parse_error": str(exc)})
+            continue
+        if not blocks:
+            continue
+        file_cov = coverage_files.get(str(path.resolve()))
+        if file_cov is None:
+            unreachable.append(relative)
+            continue
+        for name, block in blocks:
+            rows.append(
+                {
+                    "file": relative,
+                    "function": name,
+                    "start_line": block.lineno,
+                    "end_line": block.endline,
+                    "complexity": block.complexity,
+                    "coverage_pct": round(
+                        function_coverage(file_cov, block.lineno, block.endline), 2
+                    ),
+                }
+            )
+    if unreachable:
+        raise CannotMeasure("coverage cannot reach " + ", ".join(unreachable))
+    return rows
+
+
+def main() -> int:
+    target = os.environ.get("GATE_OUTPUT")
+    if not target:
+        print("crap-measure-python: GATE_OUTPUT is not set", file=sys.stderr)
+        return 2
+    output = Path(target)
+    # Rows of an earlier run must not pass for the result of this run.
+    output.unlink(missing_ok=True)
+    if not TEST_COMMAND:
+        print(
+            "crap-measure-python: TEST_COMMAND is empty; "
+            "setup-crap-score fills in the project's test command",
+            file=sys.stderr,
+        )
+        return 2
+
+    root = Path.cwd().resolve()
+    try:
+        with tempfile.TemporaryDirectory(prefix="crap-measure-python-") as work:
+            rows = measure(root, run_tests(root, Path(work)))
+    except CannotMeasure as exc:
+        print(f"crap-measure-python: cannot measure: {exc}", file=sys.stderr)
+        return 1
+
+    output.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
