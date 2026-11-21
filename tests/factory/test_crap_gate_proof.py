@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import signal
 import stat
 import subprocess
@@ -26,7 +27,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR
+from conftest import REPO_ROOT, SOURCE_SCRIPTS_DIR, load_script
 
 SCRIPT = SOURCE_SCRIPTS_DIR / "gate-setup-proof"
 TEMPLATE = REPO_ROOT / "packages" / "factory" / "skills" / "setup-crap-score" / "crap-measure-python"
@@ -37,6 +38,8 @@ PLANT_FILE = "packages/factory/scripts/proof-plant"
 PLANT_TEST = "packages/factory/tests/test_proof_plant.py"
 GAP_TEST = "packages/factory/tests/test_proof_gap.py"
 CHECKS = ["Repeatable", "Catches CRAP", "Sees the folder", "Reports a gap"]
+
+proof_script = load_script("gate-setup-proof")
 
 
 def settings_yaml(threshold: int = 8, command: str = COMMAND) -> str:
@@ -152,12 +155,20 @@ if MODE == "unstable":
     start = int(counter.read_text()) + 1 if counter.exists() else 1
     counter.write_text(str(start))
     coverage["proof_untested"] = float(start)
+# Three stubs report wrong planted complexities (DEC-31).
+complexity = {{"proof_untested": 3, "proof_tested": 3}}
+if MODE == "no-tested":
+    del complexity["proof_tested"]
+if MODE == "complexity-9":
+    complexity["proof_untested"] = 9
+if MODE == "differ":
+    complexity["proof_tested"] = 4
 tree = ast.parse((here / PLANT).read_text())
 rows = [
     {{"file": PLANT, "function": node.name, "start_line": node.lineno, "end_line": node.end_lineno,
-      "complexity": 3, "coverage_pct": coverage[node.name]}}
+      "complexity": complexity[node.name], "coverage_pct": coverage[node.name]}}
     for node in tree.body
-    if isinstance(node, ast.FunctionDef) and node.name in coverage
+    if isinstance(node, ast.FunctionDef) and node.name in complexity
 ]
 Path(os.environ["GATE_OUTPUT"]).write_text(json.dumps(rows))
 '''
@@ -211,9 +222,11 @@ class Repo:
         path = self.root / COMMAND
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
-    def proof(self, env: dict | None = None) -> subprocess.CompletedProcess[str]:
+    def proof(
+        self, env: dict | None = None, args: tuple[str, ...] = ("--measure", "python", "--plant", PLANT_DIR),
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, str(SCRIPT), "--measure", "python", "--plant", PLANT_DIR],
+            [sys.executable, str(SCRIPT), *args],
             cwd=self.root, env=env or self.env, capture_output=True, text=True, check=False,
             timeout=600,
         )
@@ -598,3 +611,163 @@ def test_cg_02_an_unreadable_plant_file_exits_2_and_removes_the_worktree(tmp_pat
     assert "Traceback" not in result.stderr
     assert repo.git("worktree", "list", "--porcelain") == worktrees
     assert not (repo.root / WORKTREE).exists()
+
+
+# --- refusals of a wrong call and of wrong planted code (ST-0447) -----------
+
+
+def assert_refused(repo: Repo, result: subprocess.CompletedProcess[str], worktrees: str) -> None:
+    """Exit 2 without a check line, without a traceback, and without a worktree left behind."""
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert result.stdout == ""
+    assert not re.search(r"^(PASS|FAIL) ", result.stderr, flags=re.MULTILINE)
+    assert "Traceback" not in result.stderr
+    assert repo.git("worktree", "list", "--porcelain") == worktrees
+    assert not (repo.root / WORKTREE).exists()
+
+
+@pytest.mark.spec("CG-02-IT-02")
+def test_cg_02_the_proof_reads_the_threshold_from_docs_testing_yaml(tmp_path: Path) -> None:
+    """Scenario: The proof reads the threshold from docs/testing.yaml.
+
+    The call names no threshold. With the threshold 2 in the file, the plant
+    of complexity 3 is wrong, so the exit 2 shows which threshold the proof read.
+    """
+    repo = Repo(tmp_path)
+    repo.write("docs/testing.yaml", settings_yaml(threshold=2))
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof()
+
+    assert_refused(repo, result, worktrees)
+    assert "threshold 2" in result.stderr
+    assert "complexity 3" in result.stderr
+    assert len(repo.starts()) == 1
+
+
+@pytest.mark.spec("CG-02-IT-04")
+@pytest.mark.parametrize(
+    ("args", "cause"),
+    [
+        (("--measure", "python"), "--plant"),
+        (("--plant", PLANT_DIR), "--measure"),
+        (("--measure", "go", "--plant", PLANT_DIR), "go"),
+    ],
+    ids=["no --plant", "no --measure", "unknown measure"],
+)
+def test_cg_02_a_wrong_call_of_the_proof_exits_2(tmp_path: Path, args: tuple[str, ...], cause: str) -> None:
+    """Scenario Outline: A wrong call of the proof exits 2."""
+    repo = Repo(tmp_path)
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof(args=args)
+
+    assert_refused(repo, result, worktrees)
+    assert cause in result.stderr
+    if cause == "go":
+        assert "lists no measure go" in result.stderr
+    assert repo.starts() == []
+
+
+def _move_plant_to_top(repo: Repo) -> None:
+    base = repo.root / PLANT_DIR / "base"
+    (base / PLANT_FILE).rename(base / "proof-plant")
+
+
+def _remove_subfolder(name: str):
+    def change(repo: Repo) -> None:
+        shutil.rmtree(repo.root / PLANT_DIR / name)
+
+    return change
+
+
+@pytest.mark.spec("CG-02-IT-09")
+@pytest.mark.parametrize(
+    ("change", "causes"),
+    [
+        (_move_plant_to_top, ["packages/factory/scripts/*"]),
+        (_remove_subfolder("gap"), ["gap/"]),
+        (_remove_subfolder("base"), ["base/"]),
+    ],
+    ids=["proof-plant at the top of base/", "no gap/", "no base/"],
+)
+def test_cg_02_a_wrong_plant_stops_the_proof_before_it_measures(tmp_path: Path, change, causes: list[str]) -> None:
+    """Scenario Outline: Wrong planted code stops the proof with exit 2 (DEC-28, DEC-30).
+
+    The proof refuses the plant before it measures, so the stub never starts.
+    """
+    repo = Repo(tmp_path)
+    change(repo)
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof()
+
+    assert_refused(repo, result, worktrees)
+    for cause in causes:
+        assert cause in result.stderr
+    assert repo.starts() == []
+
+
+@pytest.mark.spec("CG-02-IT-09")
+@pytest.mark.parametrize(
+    ("mode", "causes"),
+    [
+        ("no-tested", ["proof_tested"]),
+        ("complexity-9", ["proof_untested", "complexity 9", "threshold 8"]),
+        ("differ", ["3", "4", "differ"]),
+    ],
+    ids=["no proof_tested", "complexity 9", "complexities 3 and 4"],
+)
+def test_cg_02_wrong_planted_complexities_stop_the_proof_after_one_run(
+    tmp_path: Path, mode: str, causes: list[str]
+) -> None:
+    """Scenario Outline: Wrong planted code stops the proof with exit 2 (DEC-31).
+
+    The proof measures once and stops before the first check.
+    """
+    repo = Repo(tmp_path, mode)
+    worktrees = repo.git("worktree", "list", "--porcelain")
+
+    result = repo.proof()
+
+    assert_refused(repo, result, worktrees)
+    for cause in causes:
+        assert cause in result.stderr
+    assert len(repo.starts()) == 1
+
+
+def _row(function: str, complexity: int) -> dict:
+    return {"file": PLANT_FILE, "function": function, "complexity": complexity, "coverage_pct": 0.0}
+
+
+@pytest.mark.spec("CG-02-CT-01")
+@pytest.mark.parametrize(
+    ("rows", "threshold", "causes"),
+    [
+        ([_row("proof_tested", 3)], "8", ["proof_untested"]),
+        ([_row("proof_untested", 3)], "8", ["proof_tested"]),
+        ([], "8", ["proof_untested", "proof_tested"]),
+        ([_row("proof_untested", 9), _row("proof_tested", 9)], "8", ["complexity 9", "threshold 8"]),
+        ([_row("proof_untested", 3), _row("proof_tested", 3)], "2", ["complexity 3", "threshold 2"]),
+        ([_row("proof_untested", 3), _row("proof_tested", 4)], "8", ["3 and 4", "differ"]),
+    ],
+    ids=["no proof_untested", "no proof_tested", "no rows of the names", "above 8", "above 2", "differ"],
+)
+def test_cg_02_the_planted_complexity_check_returns_an_error(
+    rows: list[dict], threshold: str, causes: list[str]
+) -> None:
+    """Scenario: The proof checks the planted complexity before it judges the checks."""
+    error = proof_script.planted_complexity_error(rows, threshold)
+
+    assert error is not None
+    for cause in causes:
+        assert cause in error
+
+
+@pytest.mark.spec("CG-02-CT-01")
+def test_cg_02_the_planted_complexity_check_accepts_two_equal_complexities_at_or_below_the_threshold() -> None:
+    """Scenario: The proof checks the planted complexity before it judges the checks."""
+    rows = [_row("proof_untested", 3), _row("proof_tested", 3), _row("other", 20)]
+
+    assert proof_script.planted_complexity_error(rows, "8") is None
+    assert proof_script.planted_complexity_error(rows, "3") is None

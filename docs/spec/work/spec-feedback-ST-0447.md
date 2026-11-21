@@ -1,0 +1,6 @@
+# Spec feedback of ST-0447
+
+| Artifact                           | Drift                                                                                                                                                                           | Evidence                                                      | Owner                   | Status |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------- | ------ |
+| `docs/spec/validation-rules.md`    | BR-138 does not say what the proof does when gate run 1 writes no rows; the proof then skips the complexity check, and "Repeatable" fails with exit 1.                          | `packages/factory/scripts/gate-setup-proof:538` (`run_gates`) | `domain-modeling-agent` | `open` |
+| `docs/spec/interface-contracts.md` | The Exit code row of § gate-setup-proof lists exit 2 for wrong planted complexities, but does not say that a gate run 1 without rows gives exit 1 through "Repeatable" instead. | `packages/factory/scripts/gate-setup-proof:538` (`run_gates`) | `domain-modeling-agent` | `open` |
