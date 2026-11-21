@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0064",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/rulebooks/references/story-frontmatter-fields.md:25",
+  "story": "ST-0433",
+  "finding": "Two Factory documents still describe the default that ST-0433 removes, and no story of the backlog edits them. packages/factory/rulebooks/references/story-frontmatter-fields.md line 25 says that without a gates section premerge-check falls back to crap-score alone. packages/factory/docs/factory-guide.md line 592 names \"then crap-score alone\" as the last gate source. After this commit premerge-check runs no built-in gate without an entry and prints the not-set-up line. The planning agent reads story-frontmatter-fields.md when it fills quality-gates, so it can expect a CRAP gate that never runs. ST-0434 edits implementation-agent.md and the story template, but neither ST-0434 nor any other story of epics-crap-gate-setup.md names these two files; the stop condition of ST-0434 would only report them. The smallest fix is in the two documents: replace the fallback sentence with the rule of BR-066, that no default picks a gate and the not-set-up line names each built-in gate without an entry. Either ST-0433 adds both files to touches and fixes them in its commit, or the planning agent assigns them to ST-0434.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Both sentences are correct on dev and become wrong only when the feature branch merges, so they are not in use yet. The Goal and the Evidence of ST-0433 hold, and neither document is in its Affected Paths (no to fails_purpose). Until someone edits them, a planner or a reader of the guide expects crap-score to run by default.",
+  "commit": "fa8588fec4cb8dbc155b6c235f1a2460faa35f6a",
+  "status": "resolved"
+}
