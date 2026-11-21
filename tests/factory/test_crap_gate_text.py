@@ -183,7 +183,11 @@ def test_cg_11_the_gate_check_step_refuses_crap_score_without_an_entry() -> None
     paragraphs = [p for p in step.split("\n\n") if "setup-crap-score" in p]
     assert paragraphs, "the gate-check step does not name setup-crap-score"
     assert any(
-        "refuse the story" in p and "no entry `gates.crap-score`" in p for p in paragraphs
+        "refuse the story" in p
+        and "`gates.crap-score`" in p
+        and "`crap_score`" in p
+        and "BR-055" in p
+        for p in paragraphs
     ), paragraphs
 
 
