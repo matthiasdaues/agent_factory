@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The test exists only on the feature branch, so it is not in use. Both kinds of command run through the one function run_command, and CG-04-IT-08 drives its stop path (no to fails_purpose). A reader of the QA strategy expects the ready case to be checked and must read the code to see that it is.",
   "commit": "4e1e51df6503ed503f5b2fe1ddf6999beeae29b7",
-  "status": "open"
+  "status": "resolved"
 }

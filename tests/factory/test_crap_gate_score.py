@@ -495,27 +495,36 @@ def _alive(pid: int) -> bool:
 
 
 @pytest.mark.spec("CG-04-IT-08")
-def test_cg_04_the_time_limit_covers_every_command_of_the_run(repo):
+@pytest.mark.parametrize("stopped", ["measuring command", "ready command"])
+def test_cg_04_the_time_limit_covers_every_command_of_the_run(repo, stopped):
     """Scenario: The time limit covers the whole gate run.
 
-    Each command alone fits in 0.05 minutes (3 s), the two together do not.
-    The python stub starts a child process, which must not outlive the gate.
+    Measuring command: each command alone fits in 0.1 minutes (6 s), the two
+    together do not, so the limit runs out in python. Ready command: the ready
+    command of backend sleeps past the limit. In both cases the stopped
+    command has started a child process, which must not outlive the gate.
     """
     child = repo.tmp / "child.pid"
-    log = _with_backend(
-        repo, timeout=0.05,
-        backend=_log_stub("backend", 'echo "[]" > "$GATE_OUTPUT"\nsleep 2\n'),
-        python=_log_stub("python", f'sleep 30 &\necho $! > "{child}"\nsleep 2\n'
-                                   'cp "$PLANTED_ROWS" "$GATE_OUTPUT"\n'),
-    )
+    spawn = f'sleep 60 &\necho $! > "{child}"\n'
+    if stopped == "measuring command":
+        log = _with_backend(
+            repo, timeout=0.1,
+            backend=_log_stub("backend", 'echo "[]" > "$GATE_OUTPUT"\nsleep 4\n'),
+            python=_log_stub("python", f'{spawn}sleep 4\ncp "$PLANTED_ROWS" "$GATE_OUTPUT"\n'),
+        )
+        measure, events = "python", ["ready", "backend", "python"]
+    else:
+        log = _with_backend(repo, timeout=0.1, ready=_log_stub("ready", f"{spawn}sleep 60\n"))
+        measure, events = "backend", ["ready"]
     started = time.monotonic()
     proc = repo.run("--all", "--story-id", STORY_ID)
     elapsed = time.monotonic() - started
     assert proc.returncode == 2, proc.stdout + proc.stderr
-    assert "measure python" in proc.stderr
-    assert "0.05 minutes" in proc.stderr
-    assert _events(log) == ["ready", "backend", "python"]
-    assert elapsed < 15
+    assert f"measure {measure}" in proc.stderr
+    assert f"stopped its {stopped}" in proc.stderr
+    assert "0.1 minutes" in proc.stderr
+    assert _events(log) == events
+    assert elapsed < 25
     pid = int(child.read_text())
     deadline = time.monotonic() + 5
     while _alive(pid) and time.monotonic() < deadline:

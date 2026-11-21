@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The tests exist only on the feature branch, so they are not in use. Every owned row has a test, and each test checks its Scenario when it passes (no to fails_purpose). A failure under load costs a rerun and a search for a fault that the code does not have.",
   "commit": "4e1e51df6503ed503f5b2fe1ddf6999beeae29b7",
-  "status": "open"
+  "status": "resolved"
 }

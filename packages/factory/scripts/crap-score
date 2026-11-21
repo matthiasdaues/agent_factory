@@ -26,6 +26,16 @@ Runs
   every wait for a lock together. A measure with a `ready` command runs under
   an exclusive flock on crap-score/<measure>.lock under the git common
   directory, so two runs of one shared service never overlap (DEC-43, DEC-47).
+  The name of such a measure is the name of its lock file, so it holds no /
+  and is not . or ..
+
+Stops
+  At the time limit, and when crap-score gets SIGTERM, SIGINT or SIGHUP,
+  crap-score stops the process group of the running command: SIGTERM, then
+  SIGKILL after 5 seconds. Only then does it release the lock. SIGKILL of
+  crap-score cannot be caught; on Linux the shell that crap-score starts for
+  a command gets SIGKILL when crap-score dies (PR_SET_PDEATHSIG). The
+  processes that shell starts are not covered and may keep running.
 
 Score
   complexity^2 * (1 - coverage_pct/100)^3 + complexity, rounded to two
@@ -37,11 +47,14 @@ Exit codes
   1  a judged function fails; the output names its file, function and score
   2  the gate cannot measure; the message names the cause, and no report is
      written
+  128 + n  crap-score was stopped by signal n (SIGTERM, SIGINT, SIGHUP); no
+     report is written
 """
 
 from __future__ import annotations
 
 import argparse
+import ctypes
 import fcntl
 import json
 import os
@@ -75,6 +88,18 @@ TWO_DECIMALS = Decimal("0.01")
 LOCK_FOLDER = "crap-score"
 LOCK_POLL_SECONDS = 0.05
 KILL_GRACE_SECONDS = 5
+
+
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
+PR_SET_PDEATHSIG = 1
+
+
+class Stopped(BaseException):
+    """crap-score got a stop signal; a BaseException, so no `except Exception` keeps the run going."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(signum)
+        self.signum = signum
 
 
 class GateError(Exception):
@@ -196,6 +221,11 @@ def _measures(value: object) -> tuple[Measure, ...]:
         if ready is not None and (not isinstance(ready, str) or not ready):
             raise GateError(f"{label} of gates.{GATE_KEY}.measures has a field ready that is no command")
         name = item["name"]
+        if ready is not None and ("/" in name or "\0" in name or name in (".", "..")):
+            raise GateError(
+                f"measure {name} of gates.{GATE_KEY}.measures has a ready command, so its name "
+                f"names its lock file, and {name!r} is no file name"
+            )
         if name in first_position:
             raise GateError(
                 f"measures {first_position[name]} and {position} of gates.{GATE_KEY}.measures "
@@ -230,29 +260,89 @@ def _signal_group(proc: subprocess.Popen, sig: int) -> None:
         pass
 
 
+def _group_alive(proc: subprocess.Popen) -> bool:
+    try:
+        os.killpg(proc.pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
 def _stop_group(proc: subprocess.Popen) -> None:
     """Stop the command and every process of its group.
 
-    SIGTERM first, then SIGKILL after the grace period. SIGKILL goes to the
-    group even when the leader has exited, because its children may not have.
+    SIGTERM first, then SIGKILL after the grace period. The grace period
+    lasts until every process of the group has ended, not only the leader,
+    so the children can end on SIGTERM too. SIGKILL goes to the group even
+    when the leader has exited, because its children may not have.
     """
     _signal_group(proc, signal.SIGTERM)
+    deadline = time.monotonic() + KILL_GRACE_SECONDS
     try:
         proc.wait(timeout=KILL_GRACE_SECONDS)
+        while _group_alive(proc) and time.monotonic() < deadline:
+            time.sleep(LOCK_POLL_SECONDS)
     except subprocess.TimeoutExpired:
         pass
-    _signal_group(proc, signal.SIGKILL)
-    proc.wait()
+    finally:
+        # Also when a stop signal interrupts the grace period.
+        _signal_group(proc, signal.SIGKILL)
+        proc.wait()
+
+
+def _parent_death_signal():
+    """A preexec_fn that gives the command SIGKILL when crap-score dies, or None off Linux."""
+    if not sys.platform.startswith("linux"):
+        return None
+    try:
+        prctl = ctypes.CDLL(None, use_errno=True).prctl
+    except (OSError, AttributeError):
+        return None
+    parent = os.getpid()
+
+    def preexec() -> None:
+        prctl(PR_SET_PDEATHSIG, int(signal.SIGKILL))
+        if os.getppid() != parent:
+            # crap-score died before prctl took effect.
+            os.kill(os.getpid(), signal.SIGKILL)
+
+    return preexec
+
+
+def _raise_stopped(signum: int, frame: object) -> None:
+    for sig in STOP_SIGNALS:
+        signal.signal(sig, signal.SIG_IGN)
+    raise Stopped(signum)
+
+
+@contextmanager
+def stop_signals() -> Iterator[None]:
+    """Turn SIGTERM, SIGINT and SIGHUP into Stopped; restore the earlier handlers afterwards.
+
+    After the first signal, the next ones are ignored, so the stop of the
+    running command is not cut short.
+    """
+    earlier = {sig: signal.signal(sig, _raise_stopped) for sig in STOP_SIGNALS}
+    try:
+        yield
+    finally:
+        for sig, handler in earlier.items():
+            signal.signal(sig, handler)
 
 
 def run_command(measure: Measure, kind: str, command: str, root: Path, env: dict, clock: Clock) -> None:
-    """Run *command* in its own process group from *root*; stop the group at the limit."""
+    """Run *command* in its own process group from *root*.
+
+    The group is stopped at the limit and on any other way out of the wait,
+    such as Stopped, so no command outlives the lock.
+    """
     remaining = clock.remaining()
     if remaining <= 0:
         raise GateError(f"measure {measure.name} ran out of {clock.limit()} before its {kind} {command}")
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
         proc = subprocess.Popen(
-            command, shell=True, cwd=root, env=env, stdout=out, stderr=err, start_new_session=True
+            command, shell=True, cwd=root, env=env, stdout=out, stderr=err, start_new_session=True,
+            preexec_fn=_parent_death_signal(),
         )
         try:
             code = proc.wait(timeout=remaining)
@@ -261,6 +351,9 @@ def run_command(measure: Measure, kind: str, command: str, root: Path, env: dict
             raise GateError(
                 f"measure {measure.name} ran out of {clock.limit()}; stopped its {kind} {command}"
             ) from None
+        except BaseException:
+            _stop_group(proc)
+            raise
         if code != 0:
             err.seek(0)
             out.seek(0)
@@ -565,12 +658,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     root = Path.cwd()
     try:
-        settings = read_settings(root)
-        changes = changed_lines(root, args.base) if args.base is not None else None
-        rows = measure_all(settings, root)
+        with stop_signals():
+            settings = read_settings(root)
+            changes = changed_lines(root, args.base) if args.base is not None else None
+            rows = measure_all(settings, root)
     except GateError as exc:
         print(f"crap-score: cannot measure: {exc}", file=sys.stderr)
         return 2
+    except Stopped as stop:
+        name = signal.Signals(stop.signum).name
+        print(f"crap-score: stopped by {name}; stopped the running command and wrote no report", file=sys.stderr)
+        return 128 + stop.signum
     results = [report_row(row, settings.threshold) for row in judged_rows(rows, changes)]
     report_dir = Path(args.report_dir) if args.report_dir else root / DEFAULT_REPORT_DIR
     path = write_report(report_dir, detect_story_id(args.story_id), results)

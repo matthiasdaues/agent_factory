@@ -156,15 +156,19 @@ def test_cg_04_a_run_whose_time_runs_out_while_it_waits_for_the_lock_cannot_meas
 @pytest.mark.spec("CG-04-IT-15")
 def test_cg_04_a_measure_without_a_ready_command_takes_no_lock(trees):
     """Scenario: A measure without ready commands takes no lock."""
-    for story in ("0350", "0351"):
-        trees.setup(story, PYTHON_YAML, {PYTHON_STUB: _measuring("python", 2)})
+    # The first stub waits for the start of the second run, up to 20 s. With a
+    # lock, the second run would start only after the first one ended.
+    wait = (f'i=0\nwhile ! grep -q "python-start wt-0351" "$STUB_LOG" && [ $i -lt 400 ]; do\n'
+            f'  sleep 0.05\n  i=$((i+1))\ndone\n')
+    trees.setup("0350", PYTHON_YAML, {PYTHON_STUB: _measuring("python", 0).replace("sleep 0\n", wait)})
+    trees.setup("0351", PYTHON_YAML, {PYTHON_STUB: _measuring("python", 0)})
     first = trees.start("0350")
     trees.wait_for("python-start wt-0350")
     second = trees.start("0351")
-    trees.wait_for("python-start wt-0351")
-    assert "python-end wt-0350" not in trees.lines()
     assert _finish(first)[0] == 0
     assert _finish(second)[0] == 0
+    lines = trees.lines()
+    assert lines.index("python-start wt-0351") < lines.index("python-end wt-0350"), lines
     assert not (trees.lock_dir / "python.lock").exists()
 
 
@@ -175,6 +179,7 @@ def test_cg_04_a_killed_run_leaves_no_lock_that_makes_the_next_run_wait(trees):
     _backend(trees, "0351", seconds=0)
     first = trees.start("0350")
     trees.wait_for("backend-start wt-0350")
+    shell = _children(first.pid)
     os.kill(first.pid, signal.SIGKILL)
     first.communicate(timeout=10)
     assert (trees.lock_dir / "backend.lock").exists()
@@ -182,4 +187,72 @@ def test_cg_04_a_killed_run_leaves_no_lock_that_makes_the_next_run_wait(trees):
     assert code == 0, err
     lines = trees.lines()
     assert "backend-end wt-0350" not in lines[: lines.index("ready wt-0351")]
+    if sys.platform.startswith("linux"):
+        # PR_SET_PDEATHSIG kills the shell that crap-score started for the
+        # command. The stub is a child of that shell, so it may still end.
+        assert len(shell) == 1
+        _wait_gone(shell[0])
     trees.wait_for("backend-end wt-0350")
+
+
+def _children(pid: int) -> list[int]:
+    """The child processes of *pid*, read from /proc on Linux."""
+    path = Path(f"/proc/{pid}/task/{pid}/children")
+    return [int(child) for child in path.read_text().split()] if path.exists() else []
+
+
+def _wait_gone(pid: int, seconds: float = 5) -> None:
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        status = Path(f"/proc/{pid}/stat")
+        if not status.exists() or status.read_text().split()[2] == "Z":
+            return
+        time.sleep(0.02)
+    raise AssertionError(f"process {pid} still runs after {seconds} s")
+
+
+def _stoppable(event: str, seconds: float) -> str:
+    """Log the start; on SIGTERM log '<event>-stopped' and exit; else sleep and log the end."""
+    return _stub(
+        f"{event}-start",
+        f"trap 'echo \"{event}-stopped $(basename \"$PWD\")\" >> \"$STUB_LOG\"; exit 143' TERM\n"
+        f'sleep {seconds}\necho "[]" > "$GATE_OUTPUT"\n'
+        f'echo "{event}-end $(basename "$PWD")" >> "$STUB_LOG"\n',
+    )
+
+
+@pytest.mark.spec("CG-04-IT-16")
+@pytest.mark.parametrize("sig", [signal.SIGTERM, signal.SIGINT, signal.SIGHUP], ids=["TERM", "INT", "HUP"])
+def test_cg_04_a_stopped_run_stops_its_command_before_it_frees_the_lock(trees, sig):
+    """A run stopped by SIGTERM, Ctrl-C or SIGHUP stops its command, so the next run does not overlap it."""
+    trees.setup("0350", BACKEND_YAML.format(timeout=1),
+                {READY: _stub("ready"), BACKEND_STUB: _stoppable("backend", 10)})
+    _backend(trees, "0351", seconds=0)
+    first = trees.start("0350")
+    trees.wait_for("backend-start wt-0350")
+    second = trees.start("0351")
+    os.kill(first.pid, sig)
+    code, err = _finish(first)
+    assert code == 128 + sig, err
+    assert signal.Signals(sig).name in err
+    assert "Traceback" not in err
+    code, err = _finish(second)
+    assert code == 0, err
+    assert trees.lines() == [
+        "ready wt-0350", "backend-start wt-0350", "backend-stopped wt-0350",
+        "ready wt-0351", "backend-start wt-0351", "backend-end wt-0351",
+    ]
+
+
+@pytest.mark.spec("CG-04-IT-13")
+@pytest.mark.parametrize("name", ["../hooks/x", "a/b", "..", "."])
+def test_cg_04_a_measure_name_that_is_no_file_name_cannot_measure(trees, name):
+    """The lock file of a measure stays in crap-score/ under the git common directory."""
+    trees.setup("0350", BACKEND_YAML.format(timeout=1).replace("name: backend", f'name: "{name}"'),
+                {READY: _stub("ready"), BACKEND_STUB: _measuring("backend", 0)})
+    code, err = _finish(trees.start("0350"))
+    assert code == 2, err
+    assert f"measure {name}" in err
+    assert "file name" in err
+    assert trees.lines() == []
+    assert not (trees.lock_dir.parent / "hooks" / "x.lock").exists()
