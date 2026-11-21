@@ -29,8 +29,10 @@ concerns: {domain: [billing], technical: [backend, data-storage]}
                                   # are never declared (always active).
 quality-gates: []                  # test guardrails (crap-score, mutation-testing); filled by planner.
                                   # Precedence: story field > gates section of
-                                  # docs/testing.yaml > default of crap-score alone.
-                                  # If excluding a default gate, justify in Constraints.
+                                  # docs/testing.yaml. No default picks a gate.
+                                  # crap-score needs the entry gates.crap-score,
+                                  # which the skill setup-crap-score writes.
+                                  # If excluding an enabled gate, justify in Constraints.
 tests: [tests/unit/test_widget.py, tests/integration/test_widget_seam.py]
                                   # optional; written by the developer agent at commit time.
                                   # Lists the test modules this story owns — authored during

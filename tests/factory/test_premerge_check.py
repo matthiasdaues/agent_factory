@@ -333,12 +333,6 @@ class TestSt0359ResolveGates:
             ("[]", "", GATES_BOTH, ["crap-score", "mutation-testing"]),
             ("[]", "", None, []),
             ("[mutation-testing]", "", GATES_CRAP_ONLY, ["crap-score", "mutation-testing"]),
-            (
-                "[crap-score, mutation-testing, dependency-check]",
-                "",
-                None,
-                ["crap-score", "mutation-testing"],
-            ),
         ],
     )
     def test_st_0359_gate_list(self, tmp_path, field, body, testing_yaml, expected):
@@ -348,6 +342,23 @@ class TestSt0359ResolveGates:
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == expected
         assert warnings == []
+
+    def test_st_0434_a_field_with_crap_score_without_a_file_is_refused(self, tmp_path):
+        """The field names crap-score without an entry, so the gate is refused and
+        names setup-crap-score; mutation-testing needs no entry (DEC-21)."""
+        _write(
+            tmp_path,
+            f"backlog/{STORY_ID}.md",
+            _story("[crap-score, mutation-testing, dependency-check]"),
+        )
+        gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
+        assert gates == ["crap-score", "mutation-testing"]
+        assert warnings == []
+        entries, _ = pm.gate_entries(tmp_path)
+        refusal = pm.gate_refusal("crap-score", entries)
+        assert refusal is not None
+        assert "setup-crap-score" in refusal
+        assert pm.gate_refusal("mutation-testing", entries) is None
 
     @pytest.mark.parametrize(("field", "expected"), [
         ("[crap-score]", ["crap-score", "dependency-check"]),
