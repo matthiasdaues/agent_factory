@@ -70,8 +70,11 @@ Checks
          command fails and is named. The old keys `crap_score`,
          `mutation_testing`, and `test_design_verify` count as the entries
          of their gates; with both forms, the key with hyphens wins with a
-         warning (BR-055). Without the field and without a `gates` section,
-         `crap-score` runs alone. No default picks `mutation-testing`.
+         warning (BR-055). No default picks a gate. When neither an entry
+         nor the field names a built-in gate, that gate does not run, and one
+         line names each such gate with the skill that sets it up:
+         `setup-crap-score` for `crap-score` and `mutation-testing` for
+         `mutation-testing`. The line is a notice and never blocks (DEC-33).
        - `mutation-testing` passes after an exit 0. After a non-zero exit
          premerge-check takes the list `mutants` from the stored result
          `.current-work/mutation-testing/<story-id>.json` of the folder it
@@ -758,7 +761,8 @@ OLD_GATE_KEYS = {
     "mutation_testing": "mutation-testing",
     "test_design_verify": "test-design-verify",
 }
-DEFAULT_GATES = ["crap-score"]
+# The skill that sets up each built-in gate, named when its entry is missing (DEC-33).
+SETUP_SKILLS = {"crap-score": "setup-crap-score", "mutation-testing": "mutation-testing"}
 DEFAULT_MAX_FILES = 20
 HOUSE_RULES = "docs/charter/house-rules.md"
 TEST_DESIGN_HEADING = re.compile(r"^#{1,6}\s+(Test Design|Prior Tests)\s*$", re.MULTILINE)
@@ -823,8 +827,6 @@ def _quality_gates(story_data: dict | None) -> list[str] | None:
 def _picked_gates(story_data: dict | None, entries: dict[str, dict] | None) -> list[str]:
     """Every enabled entry, then the gates the story's field adds (BR-066)."""
     field = _quality_gates(story_data)
-    if field is None and entries is None:
-        return list(DEFAULT_GATES)
     picked = [
         name
         for name, entry in (entries or {}).items()
@@ -880,6 +882,22 @@ def gate_refusal(gate: str, entries: dict[str, dict] | None) -> str | None:
     if not isinstance(command, str) or not command.strip():
         return f"gates.{gate} in {TESTING_YAML} has no command"
     return None
+
+
+def not_set_up_notice(top: Path, gates: list[str]) -> list[str]:
+    """Name each built-in gate that has no entry and does not run (BR-066, DEC-20).
+
+    For each gate, the line names the skill that sets it up. It is a notice:
+    it never blocks the merge.
+    """
+    entries, _ = gate_entries(top)
+    missing = [
+        gate for gate in BUILT_IN_GATES if gate not in (entries or {}) and gate not in gates
+    ]
+    if not missing:
+        return []
+    parts = [f"{gate} (set up by the skill {SETUP_SKILLS[gate]})" for gate in missing]
+    return [f"SKIP not-set-up gates: {TESTING_YAML} has no entry for {' or '.join(parts)}"]
 
 
 def dependency_skip_notice(top: Path) -> list[str]:
@@ -1295,7 +1313,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             gates, warnings = resolve_gates(worktree, story_id)
             py_files = changed_python_files(worktree, files)
-            notices = dependency_skip_notice(worktree)
+            notices = not_set_up_notice(worktree, gates)
+            notices += dependency_skip_notice(worktree)
             notices += crap_score_skip_notice(gates, py_files, story_id)
             for warning in warnings + notices:
                 print(warning)

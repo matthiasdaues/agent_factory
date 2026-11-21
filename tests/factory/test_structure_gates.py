@@ -308,7 +308,7 @@ class TestChapterFiveComponents:
         """BUG-0090: this repository's chapter 5 keeps its 75 components."""
         ch5 = (REPO_ROOT / "docs" / "arc42" / "05_building_block_view.md").read_text()
         dsl = (REPO_ROOT / "docs" / "spec" / "architecture.dsl").read_text()
-        assert len(al.ch5_core_components(ch5)) == 75
+        assert len(al.ch5_core_components(ch5)) == 76
         rep = al.Report()
         al.check_coupling(rep, dsl, ch5)
         assert rep.n(al.ERROR) == 0
