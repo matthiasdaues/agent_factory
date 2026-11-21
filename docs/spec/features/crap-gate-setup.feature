@@ -357,6 +357,18 @@ Feature: CRAP Gate Setup
       Then crap-score judges tree_severity and bug_bar_level as changed functions
       # DEC-37
 
+    Scenario Outline: A deletion outside every function counts for the last function or for none
+      Given tree_severity is the first function and main is the last function of packages/factory/scripts/finding-lint
+      And story/ST-0350 deletes two lines <place>
+      When crap-score runs with --base feature/login
+      Then crap-score judges <judged> as changed
+
+      Examples:
+        | place                                  | judged      |
+        | below main, at the end of the file     | main        |
+        | above tree_severity, among the imports | no function |
+      # DEC-51
+
     Scenario Outline: The gate compares the threshold with the score rounded to two decimals
       Given the threshold is 8
       And story/ST-0350 changes tree_severity, which then scores <score>
@@ -984,7 +996,7 @@ Feature: CRAP Gate Setup
       Then premerge-check does not run crap-score
       And premerge-check prints one line that names crap-score with the skill setup-crap-score and mutation-testing with the skill mutation-testing
       And the merge continues with the other checks
-      # @packages/factory/scripts/premerge-check::DEFAULT_GATES
+      # @packages/factory/scripts/premerge-check::not_set_up_notice
       # @packages/factory/scripts/premerge-check::BUILT_IN_GATES
 
     Scenario Outline: The line names every built-in gate without an entry
