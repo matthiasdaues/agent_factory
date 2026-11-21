@@ -220,3 +220,90 @@ def test_cg_03_the_template_reports_a_file_it_cannot_parse_as_a_parse_error_row(
     assert broken[0]["parse_error"]
     assert "src/broken.py" in result.stderr
     _row(_rows(tmp_path), "src/parser.py", "Parser.parse")
+
+
+INSTALLED_SCRIPT = """\
+#!/usr/bin/env -S uv run --script
+
+
+def next_id(prefix):
+    return prefix + "-0001"
+"""
+
+
+@pytest.mark.spec("CG-03-IT-01")
+def test_cg_03_the_template_skips_a_folder_that_git_ignores(tmp_path: Path) -> None:
+    """Scenario: The measuring command writes its rows to the path in GATE_OUTPUT.
+
+    IMPL-0065: an ignored folder with a Python script, such as the installed
+    Factory in a run by hand, gets no row and does not stop the measure.
+    """
+    _write_project(tmp_path)
+    ignored = tmp_path / "installed" / "scripts"
+    ignored.mkdir(parents=True)
+    (ignored / "next-id").write_text(INSTALLED_SCRIPT)
+    (tmp_path / ".gitignore").write_text("/installed/\n")
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert not any(r["file"].startswith("installed/") for r in _rows(tmp_path))
+    _row(_rows(tmp_path), "src/parser.py", "Parser.parse")
+
+
+UNUSED = """\
+def lonely(value):
+    if value:
+        return 1
+    return 0
+"""
+
+
+@pytest.mark.spec("CG-03-IT-01")
+def test_cg_03_the_template_reports_an_untested_module_outside_a_package_as_0_percent(
+    tmp_path: Path,
+) -> None:
+    """Scenario: The measuring command writes its rows to the path in GATE_OUTPUT.
+
+    IMPL-0066: coverage reaches an untested file in a folder without
+    __init__.py, so its function gets a row with coverage_pct 0.
+    """
+    _write_project(tmp_path)
+    (tmp_path / "src" / "unused.py").write_text(UNUSED)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert _row(_rows(tmp_path), "src/unused.py", "lonely")["coverage_pct"] == 0.0
+
+
+NESTED_PARSER = """\
+class Parser:
+    def parse(self, text):
+        if not text:
+            return []
+        return text.split(",")
+
+    class Options:
+        def strict(self, flag):
+            if flag:
+                return True
+            return False
+"""
+
+
+@pytest.mark.spec("CG-03-IT-02")
+def test_cg_03_the_template_reports_a_method_of_a_nested_class(tmp_path: Path) -> None:
+    """Scenario: The measuring command reports the qualified name of a method.
+
+    IMPL-0067: a method of a nested class gets one row under its qualified name.
+    """
+    _write_project(tmp_path)
+    (tmp_path / "src" / "parser.py").write_text(NESTED_PARSER)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    row = _row(_rows(tmp_path), "src/parser.py", "Parser.Options.strict")
+    assert (row["start_line"], row["end_line"], row["complexity"]) == (8, 11, 2)

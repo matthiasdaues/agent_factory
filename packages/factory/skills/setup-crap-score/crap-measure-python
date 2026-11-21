@@ -21,8 +21,9 @@ Rows
 
 Files
   Every .py file below the folder it runs in, and every file without a
-  file ending whose first line names python or `uv run`. The command
-  leaves itself out.
+  file ending whose first line names python or `uv run`. In a git work
+  tree the command skips the files that git ignores. The command leaves
+  itself out.
 
 Duty
   When the command cannot measure a case, it exits non-zero, names the
@@ -85,20 +86,42 @@ def is_python_script(path: Path) -> bool:
     return first.startswith(b"#!") and (b"python" in first or b"uv run" in first)
 
 
+def candidate_files(root: Path) -> list[Path]:
+    """The files below *root* that belong to the project.
+
+    In a git work tree git lists them, so every ignored file stays out.
+    Outside git a walk lists them, without the excluded folders.
+    """
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        listed = None
+    if listed is not None and listed.returncode == 0:
+        return [root / os.fsdecode(name) for name in listed.stdout.split(b"\0") if name]
+    return [
+        path
+        for path in root.rglob("*")
+        if not any(part in EXCLUDED_DIRS for part in path.relative_to(root).parts)
+    ]
+
+
 def code_files(root: Path) -> list[Path]:
-    """Every Python file below *root*, outside the excluded folders.
+    """Every Python file of the project below *root*.
 
     The command itself is left out: no test runs it.
     """
     itself = Path(__file__).resolve()
-    files: list[Path] = []
-    for path in root.rglob("*"):
-        if any(part in EXCLUDED_DIRS for part in path.relative_to(root).parts):
-            continue
+    files: set[Path] = set()
+    for path in candidate_files(root):
         if not path.is_file() or path.resolve() == itself:
             continue
         if path.suffix == ".py" or (path.suffix == "" and is_python_script(path)):
-            files.append(path)
+            files.add(path)
     return sorted(files)
 
 
@@ -112,8 +135,11 @@ def run_tests(root: Path, work: Path) -> dict:
     shutil.copytree(Path(coverage.__file__).parent, site / "coverage")
     data_file = work / ".coverage"
     rcfile = work / "coveragerc"
+    # include_namespace_packages lets coverage report an untested file in a
+    # folder without __init__.py as 0 % covered.
     rcfile.write_text(
-        f"[run]\nparallel = True\ndata_file = {data_file}\nsource = {root}\n",
+        f"[run]\nparallel = True\ndata_file = {data_file}\nsource = {root}\n"
+        "[report]\ninclude_namespace_packages = True\n",
         encoding="utf-8",
     )
 
@@ -155,13 +181,33 @@ def function_coverage(file_cov: dict, start: int, end: int) -> float:
     return covered / len(executable) * 100.0
 
 
-def function_blocks(path: Path) -> list:
-    """The radon blocks of the functions and methods of *path*."""
+def nested_methods(prefix: str, classes: list) -> list[tuple[str, object]]:
+    """The methods of the nested *classes*, each with its qualified name."""
+    named: list[tuple[str, object]] = []
+    for cls in classes:
+        name = f"{prefix}.{cls.name}"
+        named.extend((f"{name}.{method.name}", method) for method in cls.methods)
+        named.extend(nested_methods(name, cls.inner_classes))
+    return named
+
+
+def function_blocks(path: Path) -> list[tuple[str, object]]:
+    """The radon blocks of the functions and methods of *path*, with names.
+
+    Each name is qualified, such as Parser.parse or Parser.Options.strict.
+    """
     # tokenize.open honours a PEP 263 coding line, as Python does.
     with tokenize.open(path) as handle:
         source = handle.read()
-    # cc_visit lists each method as its own block; drop the classes.
-    return [block for block in cc_visit(source) if not hasattr(block, "methods")]
+    named: list[tuple[str, object]] = []
+    for block in cc_visit(source):
+        if hasattr(block, "methods"):
+            # cc_visit lists the methods of a top-level class as blocks of
+            # their own, and those of a nested class only in inner_classes.
+            named.extend(nested_methods(block.name, block.inner_classes))
+        else:
+            named.append((block.fullname, block))
+    return named
 
 
 def measure(root: Path, coverage_files: dict) -> list[dict]:
@@ -182,11 +228,11 @@ def measure(root: Path, coverage_files: dict) -> list[dict]:
         if file_cov is None:
             unreachable.append(relative)
             continue
-        for block in blocks:
+        for name, block in blocks:
             rows.append(
                 {
                     "file": relative,
-                    "function": block.fullname,
+                    "function": name,
                     "start_line": block.lineno,
                     "end_line": block.endline,
                     "complexity": block.complexity,
