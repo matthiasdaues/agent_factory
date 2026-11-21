@@ -568,3 +568,39 @@ def test_st_0396_hook_rejects_the_lowering_and_the_stop_holds(tmp_path):
     held = premerge(repo, "dev", "feature/core-artifact-ownership")
     assert held.returncode == 1
     assert held.stdout == contract_example()
+
+
+# -- CG-06-CT-02: the stop notice skips the exceptions register ----------------
+
+# The register carries a frontmatter of a stopping finding here, so the test
+# shows that stop_notice skips the file by its name, not by its content.
+
+EXCEPTIONS_TEXT = """\
+---
+id: exceptions
+severity: critical
+status: open
+---
+
+## CRAP score
+
+| File                                    | Function        | Accepted score | Reason                                | Accepted by |
+| --------------------------------------- | --------------- | -------------- | ------------------------------------- | ----------- |
+| `packages/factory/scripts/finding-lint` | `tree_severity` | 9              | Each branch handles one finding class | A. Example  |
+"""
+
+
+@pytest.mark.spec("CG-06-CT-02")
+@pytest.mark.parametrize("committed", [True, False], ids=["at-head", "in-worktree"])
+def test_st_0441_the_stop_notice_does_not_name_the_exceptions_register(tmp_path, committed):
+    repo = merge_repo(tmp_path)
+    commit_finding(repo, finding())
+    if committed:
+        commit_finding(repo, EXCEPTIONS_TEXT, name="exceptions")
+    else:
+        write_finding(repo, EXCEPTIONS_TEXT, name="exceptions")
+
+    notice = lib.stop_notice(repo)
+
+    assert notice is not None and "BUG-0037" in notice
+    assert "exceptions" not in notice

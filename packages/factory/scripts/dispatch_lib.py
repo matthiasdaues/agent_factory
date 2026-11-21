@@ -2158,6 +2158,8 @@ READ_SUBCOMMANDS = frozenset(
 )
 
 FINDINGS_DIR = "docs/findings"
+# The stem of docs/findings/exceptions.md, the exceptions register (BR-132).
+EXCEPTIONS_REGISTER_ID = "exceptions"
 # A story ID; every other ID of a unit of work is a finding ID (BR-117).
 STORY_ID_RE = re.compile(r"ST-\d+")
 # The blocking rule of BR-085: these categories at these severities block.
@@ -2440,6 +2442,9 @@ def stop_notice(cwd: Path | None = None) -> str | None:
         if folder.is_dir()
         else {}
     )
+    # The exceptions register is no finding, so the notice skips it by name (BR-132).
+    head.pop(EXCEPTIONS_REGISTER_ID, None)
+    worktree.pop(EXCEPTIONS_REGISTER_ID, None)
     entries = []
     for finding_id in sorted(set(head) | set(worktree)):
         entry = stop_entry(finding_id, worktree.get(finding_id), head.get(finding_id))
