@@ -92,11 +92,16 @@ def _write_project(root: Path) -> Path:
     return command
 
 
-def _run(root: Path) -> subprocess.CompletedProcess:
+def _run(root: Path, **patterns: str) -> subprocess.CompletedProcess:
+    """Run the template; *patterns* sets GATE_FILES and GATE_EXCLUDE, as crap-score does."""
     # A gate run of this suite sets COVERAGE_* variables. The real template
     # would inherit them and write its data into that run, so strip them here.
-    env = {k: v for k, v in os.environ.items() if not k.startswith("COVERAGE_")}
+    env = {
+        k: v for k, v in os.environ.items()
+        if not k.startswith("COVERAGE_") and k not in ("GATE_FILES", "GATE_EXCLUDE")
+    }
     env["GATE_OUTPUT"] = "rows.json"
+    env.update(patterns)
     return subprocess.run(
         ["uv", "run", "--quiet", "--script", "scripts/crap-measure-python"],
         cwd=root,
@@ -200,6 +205,44 @@ def test_cg_03_the_template_exits_non_zero_for_a_case_it_cannot_measure(
     assert result.returncode == 1
     assert cause in result.stderr
     # No row, also none of the earlier run, reports a function as 0 % covered.
+    assert not (tmp_path / "rows.json").exists()
+
+
+@pytest.mark.spec("CG-03-IT-04")
+@pytest.mark.parametrize(
+    ("path", "patterns"),
+    [
+        ("scripts/sync-stock", {"GATE_FILES": "**", "GATE_EXCLUDE": "docs/**\nscripts/sync-stock\n"}),
+        ("tools/sync-stock", {"GATE_FILES": "src/**\nscripts/**", "GATE_EXCLUDE": ""}),
+        ("scripts/tools/sync-stock", {"GATE_FILES": "scripts/*\nsrc/*"}),
+    ],
+    ids=["excluded", "outside files", "star stays in one segment"],
+)
+def test_cg_03_the_template_skips_an_untested_script_that_the_measure_leaves_out(
+    tmp_path: Path, path: str, patterns: dict[str, str]
+) -> None:
+    """IMPL-0090, DEC-65: a script that GATE_FILES or GATE_EXCLUDE leaves out stops no measure."""
+    _write_project(tmp_path)
+    (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / path).write_text(UNREACHED_SCRIPT)
+
+    result = _run(tmp_path, **patterns)
+
+    assert result.returncode == 0, result.stderr
+    assert not any(r["file"] == path for r in _rows(tmp_path))
+    _row(_rows(tmp_path), "src/parser.py", "Parser.parse")
+
+
+@pytest.mark.spec("CG-03-IT-04")
+def test_cg_03_the_template_still_stops_for_an_untested_script_inside_files(tmp_path: Path) -> None:
+    """IMPL-0090, DEC-65: a script that GATE_FILES keeps and coverage cannot reach still stops the measure."""
+    _write_project(tmp_path)
+    (tmp_path / "scripts" / "sync-stock").write_text(UNREACHED_SCRIPT)
+
+    result = _run(tmp_path, GATE_FILES="scripts/*", GATE_EXCLUDE="scripts/import-orders")
+
+    assert result.returncode == 1
+    assert "coverage cannot reach scripts/sync-stock" in result.stderr
     assert not (tmp_path / "rows.json").exists()
 
 

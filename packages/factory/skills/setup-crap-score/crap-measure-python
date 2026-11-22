@@ -25,11 +25,23 @@ Files
   tree the command skips the files that git ignores. The command leaves
   itself out.
 
+  GATE_FILES and GATE_EXCLUDE narrow the files further. crap-score sets
+  them to the `files` and `exclude` patterns of the measure (DEC-65). Each
+  holds one glob pattern per line, relative to the folder the command runs
+  in, and blank lines count for nothing. The command measures a file only
+  when it matches a GATE_FILES pattern and no GATE_EXCLUDE pattern. Without
+  GATE_FILES it measures every file, and without GATE_EXCLUDE it excludes
+  none. In a pattern, * matches within one path segment, ** matches any
+  number of segments, and ? matches one character other than /, as in
+  crap-score.
+
 Duty
   When the command cannot measure a case, it exits non-zero, names the
   cause, and writes no rows. Two such cases are a failed test run and a
   file with functions that coverage cannot reach, such as a script that
-  no test runs. It never reports such a file as 0 % covered.
+  no test runs. It never reports such a file as 0 % covered. A file that
+  GATE_FILES or GATE_EXCLUDE leaves out is not measured, so it stops
+  nothing.
 
 Test command
   TEST_COMMAND below holds the project's test command. setup-crap-score
@@ -110,15 +122,67 @@ def candidate_files(root: Path) -> list[Path]:
     ]
 
 
+def glob_match(pattern: str, path: str) -> bool:
+    """True when *path* matches the whole glob *pattern*.
+
+    * matches within one path segment, ** matches any number of segments,
+    and ? matches one character other than /. The same dialect as
+    crap-score (DEC-35), copied here, so the command needs no Factory code.
+    """
+    return _glob_from(pattern, path, 0, 0)
+
+
+def _glob_from(pattern: str, path: str, pi: int, si: int) -> bool:
+    while pi < len(pattern):
+        if pattern.startswith("**", pi):
+            npi = pi + 2
+            while npi < len(pattern) and pattern[npi] == "/":
+                npi += 1
+            if npi >= len(pattern):
+                return True
+            return any(_glob_from(pattern, path, npi, i) for i in range(si, len(path) + 1))
+        if si >= len(path):
+            return False
+        if pattern[pi] == "*":
+            end = path.find("/", si)
+            end = len(path) if end < 0 else end
+            return any(_glob_from(pattern, path, pi + 1, i) for i in range(si, end + 1))
+        if pattern[pi] == "?" and path[si] == "/":
+            return False
+        if pattern[pi] != "?" and pattern[pi] != path[si]:
+            return False
+        pi += 1
+        si += 1
+    return si == len(path)
+
+
+def patterns(name: str) -> list[str] | None:
+    """The patterns of the variable *name*, one per line; None when it is unset."""
+    value = os.environ.get(name)
+    if value is None:
+        return None
+    return [line for line in value.splitlines() if line.strip()]
+
+
+def kept(relative: str, files: list[str] | None, exclude: list[str]) -> bool:
+    """True when *relative* matches a pattern of *files* and none of *exclude*."""
+    if files is not None and not any(glob_match(p, relative) for p in files):
+        return False
+    return not any(glob_match(p, relative) for p in exclude)
+
+
 def code_files(root: Path) -> list[Path]:
-    """Every Python file of the project below *root*.
+    """Every Python file of the project below *root* that the measure keeps.
 
     The command itself is left out: no test runs it.
     """
     itself = Path(__file__).resolve()
+    files_patterns, exclude = patterns("GATE_FILES"), patterns("GATE_EXCLUDE") or []
     files: set[Path] = set()
     for path in candidate_files(root):
         if not path.is_file() or path.resolve() == itself:
+            continue
+        if not kept(path.relative_to(root).as_posix(), files_patterns, exclude):
             continue
         if path.suffix == ".py" or (path.suffix == "" and is_python_script(path)):
             files.add(path)

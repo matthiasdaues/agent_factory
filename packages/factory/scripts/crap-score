@@ -18,7 +18,10 @@ Call
   The gate runs from the root of the folder it is called in and reads
   docs/testing.yaml of that folder. It holds no language-specific code: each
   measuring command writes its rows to the file in GATE_OUTPUT, one JSON
-  array with one row per function.
+  array with one row per function. GATE_FILES holds the measure's `files`
+  pattern and GATE_EXCLUDE its `exclude` patterns, one pattern per line, so
+  the command can leave out the files the gate drops (DEC-65). The gate
+  still applies both to the rows itself.
 
 Runs
   For each measure in list order, its `ready` command, when it has one, and
@@ -229,6 +232,10 @@ def _measures(value: object) -> tuple[Measure, ...]:
         exclude = item.get("exclude") or []
         if not isinstance(exclude, list) or not all(isinstance(p, str) for p in exclude):
             raise GateError(f"{label} of gates.{GATE_KEY}.measures has an exclude that is no list of patterns")
+        # GATE_FILES and GATE_EXCLUDE hold one pattern per line (DEC-65).
+        for key, patterns in (("files", [item["files"]]), ("exclude", exclude)):
+            if any("\n" in p or "\r" in p for p in patterns):
+                raise GateError(f"{label} of gates.{GATE_KEY}.measures has a pattern in {key} with a line break")
         ready = item.get("ready")
         if ready is not None and (not isinstance(ready, str) or not ready):
             raise GateError(f"{label} of gates.{GATE_KEY}.measures has a field ready that is no command")
@@ -431,7 +438,12 @@ def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
     """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129)."""
     with tempfile.TemporaryDirectory(prefix="crap-score-") as folder:
         output = Path(folder) / "rows.json"
-        env = {**os.environ, "GATE_OUTPUT": str(output)}
+        env = {
+            **os.environ,
+            "GATE_OUTPUT": str(output),
+            "GATE_FILES": measure.files,
+            "GATE_EXCLUDE": "\n".join(measure.exclude),
+        }
         with measure_lock(measure, root, clock):
             if measure.ready is not None:
                 run_command(measure, "ready command", measure.ready, root, env, clock)
