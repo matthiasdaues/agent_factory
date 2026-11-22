@@ -48,6 +48,7 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 | 0038 | [premerge-check reruns the gates in a temporary worktree](../adr/0038-premerge-check-reruns-the-gates-in-a-temporary-worktree.md)                             | accepted               | pugh-matrix |
 | 0039 | [One git guardrail script for all five agent tools](../adr/0039-one-git-guardrail-script-for-all-five-agent-tools.md)                                         | accepted               | pugh-matrix |
 | 0040 | [The Factory tests run against the source](../adr/0040-the-factory-tests-run-against-the-source.md)                                                           | accepted               | pugh-matrix |
+| 0041 | [crap-score reads its trusted values through one reader](../adr/0041-crap-score-reads-trusted-values-through-one-reader.md)                                   | accepted               | none        |
 
 ## Key Decisions
 
@@ -66,6 +67,8 @@ All architecture decisions are documented as ADRs (Architecture Decision Records
 All follow the "Agentic Creation, Deterministic Validation" principle: agents create, hooks validate, no self-validation. Testing is project-owned infrastructure declared in the charter; Factory ensures test gates exist but does not own test execution or framework detection.
 
 The Factory reads only the exit code of a gate. **ADR-0003**, amended for the CRAP gate, names the one exception: `crap-score` reads the rows that the project's measuring commands write to `GATE_OUTPUT`, and its own verdict is still its exit code. Its exit `2` says that the gate cannot measure, and the unit of work stops as `blocked` ([8.7](08_crosscutting_concepts.md#87-semantic-quality-gates)).
+
+**ADR-0041** keeps a story from deciding what counts as accepted for its own code. `crap-score` reads the `threshold`, the `files` patterns, the `exclude` lists, and the exceptions register through one reader, the trusted gate source. Its only backend is the git ref of the integration branch, which `integration_branch` in `docs/factory-settings.yaml` names. A knowledge-graph or Jira backend would be a new class behind the same reader ([5.2.3](05_building_block_view.md#the-crap-gate)).
 
 ### Monorepo Scoping
 

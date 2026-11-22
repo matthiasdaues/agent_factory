@@ -24,6 +24,14 @@ Feature: CRAP Gate Setup
   The exceptions register docs/findings/exceptions.md holds the functions
   that a person accepts above the threshold. Only a person writes it.
 
+  A story must not loosen the gate that judges it. So crap-score reads the
+  threshold, the files pattern and the exclude list of each measure, and
+  the exceptions register through one reader, the trusted gate source. The reader reads them from
+  the git ref of the integration branch, and crap-score takes the measures
+  and their commands from the story head. The integration branch is the key
+  integration_branch of docs/factory-settings.yaml, and dev when the key
+  is missing. The examples that name dev use this default.
+
   A gate cannot measure when crap-score exits 2. Then nobody has judged
   the code, so no developer agent can fix it. The story stops as blocked
   with the reason "gate cannot measure: crap-score", and dispatch
@@ -168,11 +176,28 @@ Feature: CRAP Gate Setup
       And the proof starts neither scripts/crap-ready-backend nor the measuring command of backend
       # DEC-52
 
+    Scenario: The first commit of the proof holds docs/factory-settings.yaml of the working tree
+      Given docs/factory-settings.yaml in the working tree has integration_branch: main and is not committed
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
+      Then the first commit of the proof worktree holds docs/factory-settings.yaml as it is in the working tree
+      And crap-score in the proof worktree reads the exceptions register from refs/heads/main
+      # DEC-73
+
+    Scenario: The proof skips the check for a measure that the first commit drops
+      Given gates.crap-score.measures on dev lists backend and python
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
+      Then the first proof commit lists only the measure python
+      And crap-score with --settings-from-folder does not exit 2 for the missing measure backend
+      # DEC-70, DEC-73
+
     Scenario: The proof after a changed threshold reads the threshold of the working tree
-      Given the User changed the threshold to 10 in step 6 and nothing is committed
+      Given docs/testing.yaml on dev has the entry gates.crap-score with the threshold 8
+      And the User changed the threshold to 10 in step 6 and nothing is committed
       When the test-strategy agent runs gate-setup-proof again in step 7
-      Then crap-score in the proof worktree reads the threshold 10
-      # DEC-32
+      Then gate-setup-proof runs crap-score with --settings-from-folder
+      And crap-score in the proof worktree reads the threshold 10
+      And crap-score reads the exceptions register from dev
+      # DEC-32, DEC-71
 
     Scenario: The proof reads the threshold from docs/testing.yaml
       Given the entry gates.crap-score in docs/testing.yaml has enabled false and the threshold 8
@@ -491,7 +516,7 @@ Feature: CRAP Gate Setup
       # DEC-16
 
     Scenario: One commit and one state of the exceptions register get the same verdict
-      Given the head of story/ST-0350 and the exceptions register on dev do not change
+      Given the head of story/ST-0350, docs/testing.yaml on dev, and the exceptions register on dev do not change
       When crap-score runs twice with --base feature/login
       Then both runs give the same exit code and the same rows
 
@@ -915,6 +940,108 @@ Feature: CRAP Gate Setup
       When dispatch prints its stop notice
       Then the stop notice does not name docs/findings/exceptions.md
       # @packages/factory/scripts/dispatch_lib.py::stop_notice
+
+  Rule: User judges every story by the gate settings of the integration branch
+    # actor: User
+
+    Scenario: A threshold raised at the story head does not change the verdict
+      Given docs/testing.yaml on dev has the threshold 8
+      And story/ST-0350 raises the threshold to 10 in its docs/testing.yaml
+      And story/ST-0350 changes one line inside tree_severity, which then scores 9
+      When crap-score runs with --base feature/login
+      Then crap-score judges with the threshold 8
+      And tree_severity fails the gate
+      # DEC-67, DEC-69
+
+    Scenario: An exclude pattern added at the story head does not change the verdict
+      Given the measure python on dev has no exclude pattern
+      And story/ST-0350 adds the exclude pattern "packages/factory/scripts/finding-lint" to the measure python
+      And story/ST-0350 changes one line inside tree_severity, which then scores 9
+      When crap-score runs with --base feature/login
+      Then crap-score applies only the exclude patterns of the measure python on dev
+      And tree_severity fails the gate
+      # DEC-67, DEC-69
+
+    Scenario: A measure new at the story head takes its exclude patterns from the head and is named as not trusted
+      Given gates.crap-score.measures on dev lists backend and python
+      And story/ST-0350 adds the measure frontend with the files pattern "packages/server/frontend/**" and the exclude pattern "**/*.spec.ts"
+      When crap-score runs with --base feature/login
+      Then crap-score runs the measuring command of frontend
+      And crap-score applies the files pattern "packages/server/frontend/**" and the exclude pattern "**/*.spec.ts" from the story head to the rows of frontend
+      And the output names the measure frontend as not yet trusted
+      # DEC-69, DEC-75
+
+    Scenario: A files pattern narrowed at the story head does not change the verdict
+      Given the measure python on dev has the files pattern "packages/factory/scripts/*"
+      And story/ST-0350 narrows the files pattern of the measure python to "packages/factory/scripts/dispatch*"
+      And story/ST-0350 changes one line inside tree_severity of packages/factory/scripts/finding-lint, which then scores 9
+      When crap-score runs with --base feature/login
+      Then crap-score applies the files pattern "packages/factory/scripts/*" of the measure python on dev
+      And tree_severity fails the gate
+      # DEC-75
+
+    Scenario: A measure that the story head drops cannot measure
+      Given gates.crap-score.measures on dev lists backend and python
+      And story/ST-0350 removes the measure python from its docs/testing.yaml
+      When crap-score runs with --base feature/login
+      Then crap-score exits 2
+      And the message names the measure python
+      # DEC-70
+
+    Scenario Outline: Without gate settings on the integration branch the settings come from the folder
+      Given <case>
+      And docs/testing.yaml in the folder of crap-score has the threshold 8 and the measure backend with the exclude pattern "**/db/alembic/versions/**"
+      When crap-score runs with --base feature/login
+      Then crap-score judges with the threshold 8 and the exclude pattern "**/db/alembic/versions/**"
+      And the output names the threshold and the exclude patterns as read from the folder
+      And the output names <reason> as the cause
+
+      Examples:
+        | case                                                    | reason                            |
+        | the repository has no branch dev                        | the missing branch dev            |
+        | dev has no docs/testing.yaml                            | the missing docs/testing.yaml     |
+        | docs/testing.yaml on dev has no entry gates.crap-score  | the missing entry gates.crap-score |
+      # DEC-13, DEC-69, DEC-74
+
+    Scenario Outline: Broken gate settings on the integration branch cannot measure
+      Given <case>
+      When crap-score runs with --base feature/login
+      Then crap-score exits 2
+      And the message names <named>
+      And crap-score takes no value from the folder
+
+      Examples:
+        | case                                                                   | named                                    |
+        | docs/testing.yaml on dev cannot be parsed                              | docs/testing.yaml and the branch dev     |
+        | the entry gates.crap-score in docs/testing.yaml on dev has no threshold | docs/testing.yaml and the branch dev     |
+        | docs/factory-settings.yaml in the folder has integration_branch: ""    | the key integration_branch               |
+        | docs/factory-settings.yaml in the folder has integration_branch: 5     | the key integration_branch               |
+      # DEC-74
+
+    Scenario Outline: The key integration_branch names the branch that the gate reads
+      Given docs/factory-settings.yaml in the folder of crap-score <setting>
+      When crap-score runs with --base feature/login
+      Then crap-score reads the threshold, the exclude patterns, and the exceptions register from refs/heads/<branch>
+
+      Examples:
+        | setting                       | branch |
+        | has integration_branch: main  | main   |
+        | has no key integration_branch | dev    |
+        | does not exist                | dev    |
+      # DEC-68
+
+    Scenario Outline: The gate-check step and the merge never take the settings from the folder
+      Given docs/testing.yaml on dev has the threshold 8
+      And story/ST-0350 raises the threshold to 10 and changes tree_severity, which then scores 9
+      When <caller> runs crap-score
+      Then the call of crap-score has no option --settings-from-folder
+      And tree_severity fails the gate
+
+      Examples:
+        | caller                                           |
+        | the gate-check step of ST-0350                   |
+        | dispatch merge-story ST-0350 with premerge-check |
+      # DEC-71
 
   Rule: Implementation agent stops a story without a counted attempt when the gate cannot measure
     # actor: Implementation agent

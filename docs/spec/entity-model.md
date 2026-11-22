@@ -1081,6 +1081,7 @@ erDiagram
     }
     FACTORY_SETTINGS {
         string path "docs/factory-settings.yaml, tracked"
+        string integration_branch "nullable, the branch that the trusted gate source reads, dev when missing"
     }
     RELEASE_TAG_PATTERN {
         string glob "such as v[0-9]*"
@@ -1107,7 +1108,7 @@ erDiagram
 - **REGISTER_FILE** has the status `open`, `resolved`, or `waived`. The commit that fixes the finding sets `resolved`, and the file may stay as the record. Only the stakeholder sets `waived`, with text in `override_by` and `override_reason`, when nobody will fix the finding (BR-110, DEC-63). An `open` register file that `HEAD` holds is removed only when a finding file with the same ID replaces it (BR-110). A register file that replaces a finding file holds `override_by` and `override_reason`, because only the stakeholder lowers a filed finding (BR-109). A `story` of `null` marks a review that ran before a backlog existed, such as a spec review.
 - **REGISTER** folders exist only for a class that has recorded a `minor` finding. A missing folder is an empty register. Each finding is its own file, so parallel reviews merge without a merge driver (DEC-60). An ID names a finding file or a register file, never both, and at most one register file (DEC-53, BR-090).
 - **LINE_IDENTITY** comes from `git blame -M -C --porcelain`. Two lines are the same line when commit, original line number, and original file name all match (BR-088). The lint blames the `artifact` path and its rename and copy sources, not `original_path`, because that path may no longer exist (DEC-49).
-- **FACTORY_SETTINGS** holds the key `release_tag_patterns`. The project writes the file. `init-factory` and `update-factory` never write it (BR-089).
+- **FACTORY_SETTINGS** holds the keys `release_tag_patterns` and `integration_branch`. `finding-lint` reads `release_tag_patterns` (BR-089). `crap-score` reads `integration_branch` from the folder it runs in and uses `dev` when the file or the key is missing (BR-128, DEC-68). The project writes the file. `init-factory` and `update-factory` never write it.
 - **PROPOSAL_REVIEW_ROW** is no finding file. `finding-lint` does not read it, and its rules are in BR-094.
 - A **question** is no entity of this model. It becomes an entry in `docs/spec/work/todo.md` only (BR-085). A **note** stays in the review report.
 
@@ -1174,7 +1175,7 @@ erDiagram
         string pass_fail "pass | fail | accepted"
     }
     EXCEPTIONS_REGISTER {
-        string path "docs/findings/exceptions.md, read from the branch dev"
+        string path "docs/findings/exceptions.md, read from the integration branch"
     }
     EXCEPTION_ROW {
         string file "File"
@@ -1187,10 +1188,10 @@ erDiagram
 
 ### Notes
 
-- **CRAP_SCORE_ENTRY** is the **GATE_ENTRY** with the key `crap-score`. `crap-score` reads `threshold`, `timeout_minutes`, and `measures` each time it runs, also with `enabled: false`, and exits `2` without one of them (BR-128). Its column `measures` is a payload with inner structure: [schemas/crap-score-entry-measures.json](schemas/crap-score-entry-measures.json) holds it.
-- **MEASURE** belongs to the project. `crap-score` runs its `ready` command and then its measuring command, from the root of the folder the gate runs in (BR-129). It keeps only the rows whose `file` matches `files` and no pattern of `exclude` (BR-131).
+- **CRAP_SCORE_ENTRY** is the **GATE_ENTRY** with the key `crap-score`. `crap-score` reads `threshold`, `timeout_minutes`, and `measures` from the folder it runs in each time it runs, also with `enabled: false`, and exits `2` without one of them. It judges with the `threshold` of the entry on the integration branch, through the trusted gate source (BR-128, DEC-69). Its column `measures` is a payload with inner structure: [schemas/crap-score-entry-measures.json](schemas/crap-score-entry-measures.json) holds it.
+- **MEASURE** belongs to the project. `crap-score` runs its `ready` command and then its measuring command, from the root of the folder the gate runs in (BR-129). It keeps only the rows whose `file` matches `files` and no pattern of `exclude`. `files` and `exclude` come from the measure of the same `name` on the integration branch, and from the folder for a measure that the branch does not name yet. `command` and `ready` always come from the folder (BR-128, BR-131, DEC-75). A measure that the branch names and the folder lacks makes `crap-score` exit `2` (DEC-70).
 - **MEASURE_OUTPUT** is the file that `crap-score` names in `GATE_OUTPUT` for one measure. Its column `rows` is a payload with inner structure: [schemas/measure-output-rows.json](schemas/measure-output-rows.json) holds it. One measure holds a `file` and `function` pair at most once, and two measures never hold the same pair (BR-130).
 - **CRAP_SCORE_REPORT** exists after exit `0` or `1`. Exit `2` leaves the earlier report in place (BR-133). Its column `rows` is a payload with inner structure: [schemas/crap-score-report-rows.json](schemas/crap-score-report-rows.json) holds it. A **REPORT_ROW** exists only for a judged function: with `--base` a changed function, with `--all` every kept function (BR-131).
-- **EXCEPTIONS_REGISTER** is one Markdown file with one section per gate. `crap-score` reads only the section `## CRAP score`, and only from the branch `dev` (BR-132). Only the stakeholder writes it (BR-092). The finding register of [Finding Classification Entities](#finding-classification-entities) is another thing: a folder of register files.
+- **EXCEPTIONS_REGISTER** is one Markdown file with one section per gate. `crap-score` reads only the section `## CRAP score`, and only from the integration branch, through the trusted gate source (BR-132). Only the stakeholder writes it (BR-092). The finding register of [Finding Classification Entities](#finding-classification-entities) is another thing: a folder of register files.
 - **EXCEPTION_ROW** has an effect only for a judged function whose score is above the threshold. Such a function gets `accepted` when its score is at or below `accepted_score`, so a later change that raises the score fails again (BR-132).
 - The **ledger entry** of [Catalog Entities](#notes) gets the `reason` `gate cannot measure: crap-score` when the gate cannot measure. `dispatch resume-gates` reads it (BR-135).

@@ -625,4 +625,6 @@ The grid of `remark-deck` has no link markup, so the guided tour shows repositor
 
 `block-dangerous-git.sh` blanks quoted strings and here-document bodies only for its test patterns (`TEST_SCAN`). Its git patterns still read the whole command, so it refused a here-document that only contained the words of a hard reset as text, twice in this session; the second time it was the text of this todo.
 
-**Action:** check `DANGEROUS_PATTERNS` against the blanked command as well, with the same fallback to the whole command when it contains `$(` or a backtick, and add cases to `tests/factory/test_block_dangerous_git.py`.
+`guard-human-fields` has the same flaw: it refused a here-document that only edited `docs/spec/architecture.dsl`, because the script's text named `docs/findings/exceptions.md`.
+
+**Action:** check `DANGEROUS_PATTERNS` against the blanked command as well, with the same fallback to the whole command when it contains `$(` or a backtick, and add cases to `tests/factory/test_block_dangerous_git.py`. Apply the same rule to the shell check of `guard-human-fields`.

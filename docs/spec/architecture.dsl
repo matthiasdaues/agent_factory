@@ -49,7 +49,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
                 concernLint = component "concern-lint" "Validates concern-oriented agent context: category headings, Read/Boundary path resolution, story concern vocabulary, and absence of legacy YAML files (CTX-* codes)" "Python"
                 schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
                 policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
-                crapScore = component "crap-score" "crap-score (--base <revision> | --all): runs the project's measuring commands, scores each kept function, and judges the changed ones against gates.crap-score.threshold; exits 0 on a pass, 1 when code fails, and 2 when it cannot measure; on exit 0 or 1 writes <report-dir>/<story-id>.json" "Python"
+                crapScore = component "crap-score" "crap-score (--base <revision> | --all): runs the project's measuring commands, scores each kept function, and judges the changed ones against gates.crap-score.threshold; reads the threshold, the files pattern and the exclude list of each measure, and the exceptions register through one reader, the trusted gate source, whose only backend is the git ref of the integration branch; exits 0 on a pass, 1 when code fails, and 2 when it cannot measure; on exit 0 or 1 writes <report-dir>/<story-id>.json" "Python"
                 gateSetupProof = component "gate-setup-proof" "gate-setup-proof --measure <name> --plant <folder>: runs crap-score in a temporary worktree of its own on planted code and checks four results before a person enables the gate; exits 0 when all checks pass, 1 when one fails, and 2 on a wrong call or wrong planted code" "Python"
                 dependencyCheck = component "dependency-check" "Checks Python imports against docs/spec/dependency-rules.dsl; also runs as a pre-commit hook" "Bash/Python"
                 testDesignVerify = component "test-design-verify" "Checks that every owned contract in the story's traces has a test assertion" "Python"
@@ -111,7 +111,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             workingOutput = container "Working Output" "Reports, QA strategies, and finding files under docs/spec/work/, docs/reviews/, and docs/findings/" "Markdown files" "Storage"
             findingRegisters = container "Finding Registers" "The folders docs/findings/register/<class>/, one per review class: one JSON register file <ID>.json per minor finding, with status open, resolved, or waived; a missing folder is an empty register" "JSON files" "Storage,Finding Classification"
             findingSchemas = container "Finding Schemas" "packages/factory/rulebooks/schemas/finding-register-<class>.schema.json, one per review class, each with the basis shape of its class from docs/spec/schemas/finding-basis.json" "JSON Schema" "Storage,Finding Classification"
-            factorySettings = container "Factory Settings" "docs/factory-settings.yaml, tracked in git: the list release_tag_patterns names the git tags that count as releases for the in_use check; the project writes it, and init-factory and update-factory never do" "YAML file" "Storage,Finding Classification"
+            factorySettings = container "Factory Settings" "docs/factory-settings.yaml, tracked in git: the list release_tag_patterns names the git tags that count as releases for the in_use check, and the key integration_branch names the branch that the trusted gate source of crap-score reads, dev when the key is missing; the project writes it, and init-factory and update-factory never do" "YAML file" "Storage,Finding Classification"
             coreList = container "Core List" "rulebooks/core-artifacts.yaml under the Factory root, packages/factory/ in this repository and .agent-factory/factory/ in an installed project: every core and seam artifact with path_pattern, sample_path, family, and optional" "YAML file" "Storage"
 
             # Factory Agents — agent definitions run by a CLI session; each frontmatter declares tier, skills, inputs, and outputs
@@ -338,17 +338,19 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         testDesignVerify -> stateFiles "Writes its result file"
         mutationTesting -> stateFiles "Writes its result file"
         mutationTesting -> coreArtifacts "Reads its command and time limit"
-        crapScore -> coreArtifacts "Reads gates.crap-score: threshold, timeout_minutes, and measures"
+        crapScore -> coreArtifacts "Reads gates.crap-score in the folder it runs in: timeout_minutes and the measures; takes threshold, files and exclude from there only with --settings-from-folder, or when the ref, the file or gates.crap-score is missing on the integration branch, and prints which values it read from where"
         crapScore -> measuringCommands "Runs the ready command and then the measuring command of each measure, in list order, with GATE_OUTPUT set, within timeout_minutes for the whole run"
         measuringCommands -> crapScore "Writes one JSON array of rows to the path in GATE_OUTPUT; exits non-zero when it cannot measure, which crap-score turns into exit 2"
-        crapScore -> git "Reads the diff from the merge base of --base to HEAD, and the section CRAP score of docs/findings/exceptions.md on dev"
+        crapScore -> git "Reads the diff from the merge base of --base to HEAD"
+        crapScore -> git "Reads through the trusted gate source, from the ref of the integration branch: the section CRAP score of docs/findings/exceptions.md, and threshold and the files pattern and the exclude list of each measure from gates.crap-score of docs/testing.yaml; exits 2 when a measure that the branch names is missing at the story head, when integration_branch is not a non-empty string, or when docs/testing.yaml on the branch cannot be parsed or its gates.crap-score has no threshold"
+        crapScore -> factorySettings "Reads integration_branch from the folder it runs in; uses dev when the file or the key is missing"
         crapScore -> git "Holds an operating-system file lock on crap-score/<measure>.lock under the git common directory for each measure with ready commands, from the ready commands through the measuring command; waits for it within timeout_minutes; the lock ends with the process"
         testStrategyAgent -> gateSetupProof "Runs the proof in setup-crap-score steps 5 and 7, before the person enables the gate"
         testStrategyAgent -> crapScore "Runs crap-score --all in setup-crap-score step 6 and reports the failing functions and the run time"
         testStrategyAgent -> measuringCommands "Writes the measuring commands and ready commands into the project in setup-crap-score, after the person confirms"
         gateSetupProof -> coreArtifacts "Reads the threshold and the measure from gates.crap-score, also with enabled: false"
         gateSetupProof -> git "Adds a temporary worktree at a fixed path under .current-work/gate-setup-proof/ with two commits of planted code, after it removes one that a crashed run left, and removes it afterwards; no branch of the project moves"
-        gateSetupProof -> crapScore "Runs crap-score --base <start> in its worktree and compares the exit codes and the rows"
+        gateSetupProof -> crapScore "Runs crap-score --base <start> --settings-from-folder in its worktree, whose first commit holds docs/factory-settings.yaml of the working tree, so the threshold, the files pattern and the exclude list come from the values the User has not committed yet, and compares the exit codes and the rows"
 
         # ================================================================
         # Relationships — Fence Runner and Proposal Validator
@@ -871,6 +873,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             include testStrategyAgent
             include dispatchCli
             include coreArtifacts
+            include factorySettings
             include stateFiles
             include git
             exclude "premergeCheck -> git"

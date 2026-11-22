@@ -20,7 +20,7 @@
       "files": {
         "type": "string",
         "minLength": 1,
-        "description": "A glob pattern relative to the repository root, such as packages/factory/scripts/*. crap-score judges only the rows whose file matches it (DEC-10). * matches within one path segment, and ** matches any number of segments (DEC-35)."
+        "description": "A glob pattern relative to the repository root, such as packages/factory/scripts/*. crap-score judges only the rows whose file matches it (DEC-10). crap-score takes the pattern from the measure of the same name on the integration branch, and from the folder only for a measure that the branch does not name yet (validation-rules.md BR-128, DEC-75). * matches within one path segment, and ** matches any number of segments (DEC-35)."
       },
       "exclude": {
         "type": "array",
@@ -29,7 +29,7 @@
           "minLength": 1,
           "description": "A glob pattern in the dialect of files (DEC-35)."
         },
-        "description": "Glob patterns of files that the gate never judges, such as **/db/alembic/versions/**. crap-score drops the rows whose file matches one of them (DEC-10)."
+        "description": "Glob patterns of files that the gate never judges, such as **/db/alembic/versions/**. crap-score drops the rows whose file matches one of them (DEC-10). crap-score takes the list from the measure of the same name on the integration branch, and from the folder only for a measure that the branch does not name yet (validation-rules.md BR-128)."
       },
       "command": {
         "type": "string",
