@@ -265,7 +265,7 @@ The rows "9e0" and "+9" of the broken-row Outline read "plain decimal" as digits
 | DEC-66   | `crap-score` and the Python template run their commands without the environments of `uv run --script`, and the implementation agent starts `dispatch merge-story` as a background job.                                                                          | None yet.                                                                                                                         |
 | DEC-67   | The trusted gate source reads the exceptions register, `threshold`, and `exclude` from the integration branch, which comes from configuration, and the measures from the story head. A story of its own builds the reader after the merge of this feature.      | None yet. When that story lands, the Scenarios of DEC-13, DEC-25, and DEC-55 that name `dev` and `refs/heads/dev` change with it. |
 
-BUG-0133 adds two Outlines under the Rule CG-03: the names `Box.width.getter`, `Box.width.setter`, and `Box.width.deleter` for property accessors, and no row for an `overload` stub, also under an import alias. They state the code as built and rest on no new decision.
+BUG-0133 adds two Outlines under the Rule CG-03: the name `Box.width` for a plain `@property` getter and `Box.width.getter`, `Box.width.setter`, and `Box.width.deleter` for accessors decorated with `@width.getter`, `@width.setter`, and `@width.deleter`, and no row for an `overload` stub, also under an import alias. They state the code as built and rest on no new decision.
 
 ## Area Specs
 

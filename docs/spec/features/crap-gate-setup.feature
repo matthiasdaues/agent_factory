@@ -312,15 +312,16 @@ Feature: CRAP Gate Setup
       # DEC-12
 
     Scenario Outline: The Python measuring command names property accessors by their role
-      Given packages/server/backend/src/orders/box.py holds the class Box with the property width and its <accessor>
+      Given packages/server/backend/src/orders/box.py holds the class Box with an accessor of the property width decorated with <decorator>
       When crap-score runs the measure python
       Then the row of that accessor has the function <name>
 
       Examples:
-        | accessor | name              |
-        | getter   | Box.width.getter  |
-        | setter   | Box.width.setter  |
-        | deleter  | Box.width.deleter |
+        | decorator      | name              |
+        | @property      | Box.width         |
+        | @width.getter  | Box.width.getter  |
+        | @width.setter  | Box.width.setter  |
+        | @width.deleter | Box.width.deleter |
       # @packages/factory/skills/setup-crap-score/crap-measure-python::row_name
 
     Scenario Outline: The Python measuring command gives an overload stub no row
