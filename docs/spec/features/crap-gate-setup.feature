@@ -30,7 +30,10 @@ Feature: CRAP Gate Setup
   the git ref of the integration branch, and crap-score takes the measures
   and their commands from the story head. The integration branch is the key
   integration_branch of docs/factory-settings.yaml, and dev when the key
-  is missing. The examples that name dev use this default.
+  is missing. With --base, crap-score reads the key from the tree of the
+  --base revision, which a story cannot change. With --all or
+  --settings-from-folder, it reads the key from the folder. The examples
+  that name dev use this default.
 
   A gate cannot measure when crap-score exits 2. Then nobody has judged
   the code, so no developer agent can fix it. The story stops as blocked
@@ -998,7 +1001,7 @@ Feature: CRAP Gate Setup
 
       Examples:
         | case                                                    | reason                            |
-        | docs/factory-settings.yaml names no integration_branch and the repository has no branch dev | the missing branch dev |
+        | docs/factory-settings.yaml on feature/login names no integration_branch and the repository has no branch dev | the missing branch dev |
         | dev has no docs/testing.yaml                            | the missing docs/testing.yaml     |
         | docs/testing.yaml on dev has no entry gates.crap-score  | the missing entry gates.crap-score |
       # DEC-13, DEC-69, DEC-74, DEC-76: the fallback for a missing branch applies only to the default dev
@@ -1014,23 +1017,54 @@ Feature: CRAP Gate Setup
         | case                                                                   | named                                    |
         | docs/testing.yaml on dev cannot be parsed                              | docs/testing.yaml and the branch dev     |
         | the entry gates.crap-score in docs/testing.yaml on dev has no threshold | docs/testing.yaml and the branch dev     |
-        | docs/factory-settings.yaml in the folder has integration_branch: ""    | the key integration_branch               |
-        | docs/factory-settings.yaml in the folder has integration_branch: 5     | the key integration_branch               |
-        | docs/factory-settings.yaml in the folder has integration_branch: main and the repository has no branch main | the key integration_branch and the branch main |
-        | docs/factory-settings.yaml in the folder has integration_branch: story/ST-0350 and crap-score judges the tip of story/ST-0350 | the key integration_branch and the branch story/ST-0350 |
-      # DEC-74, DEC-76
+        | docs/factory-settings.yaml on feature/login has integration_branch: ""    | the key integration_branch               |
+        | docs/factory-settings.yaml on feature/login has integration_branch: 5     | the key integration_branch               |
+        | docs/factory-settings.yaml on feature/login has integration_branch: main and the repository has no branch main | the key integration_branch and the branch main |
+        | docs/factory-settings.yaml on feature/login has integration_branch: story/ST-0350 and crap-score judges the tip of story/ST-0350 | the key integration_branch and the branch story/ST-0350 |
+        | docs/factory-settings.yaml on feature/login has integration_branch: story/ST-0350~1 | the key integration_branch and the value story/ST-0350~1 |
+        | docs/factory-settings.yaml on feature/login has integration_branch: v1.10.0, which names a tag and no local branch | the key integration_branch and the value v1.10.0 |
+        | docs/factory-settings.yaml on feature/login has integration_branch: origin/main, which names a remote ref and no local branch | the key integration_branch and the value origin/main |
+      # DEC-74, DEC-76, DEC-77
 
     Scenario Outline: The key integration_branch names the branch that the gate reads
-      Given docs/factory-settings.yaml in the folder of crap-score <setting>
-      When crap-score runs with --base feature/login
+      Given docs/factory-settings.yaml <place> <setting>
+      When crap-score runs with <call>
       Then crap-score reads the threshold, the exclude patterns, and the exceptions register from refs/heads/<branch>
 
       Examples:
-        | setting                       | branch |
-        | has integration_branch: main  | main   |
-        | has no key integration_branch | dev    |
-        | does not exist                | dev    |
-      # DEC-68
+        | place                       | setting                       | call                   | branch |
+        | on feature/login            | has integration_branch: main  | --base feature/login   | main   |
+        | on feature/login            | has no key integration_branch | --base feature/login   | dev    |
+        | on feature/login            | does not exist                | --base feature/login   | dev    |
+        | in the folder of crap-score | has integration_branch: main  | --all                  | main   |
+      # DEC-68, DEC-77
+
+    Scenario Outline: A key changed at the story head does not change the branch
+      Given docs/factory-settings.yaml on feature/login has integration_branch: dev
+      And docs/testing.yaml on main has the threshold 30
+      And story/ST-0350 sets integration_branch to <value> in its docs/factory-settings.yaml and raises the threshold to 30
+      And story/ST-0350 changes one line inside tree_severity, which then scores 9
+      When crap-score runs with --base feature/login
+      Then crap-score reads the gate settings from refs/heads/dev
+      And tree_severity fails the gate above the threshold 8
+
+      Examples:
+        | value            |
+        | main             |
+        | story/ST-0350~1  |
+      # DEC-77
+
+    Scenario: A tag named like the feature branch does not move the base
+      Given the branch feature/login names no integration_branch
+      And a tag feature/login points at a commit of story/ST-0350 whose docs/factory-settings.yaml has integration_branch: loose
+      And docs/testing.yaml on the branch loose has the threshold 30
+      And story/ST-0350 changes one line inside tree_severity, which then scores 9
+      When crap-score runs with --base feature/login
+      Then crap-score resolves --base to refs/heads/feature/login
+      And the diff that finds the changed functions starts from the merge base of refs/heads/feature/login and HEAD
+      And crap-score judges with the threshold 8 of dev
+      And tree_severity fails the gate
+      # DEC-78
 
     Scenario Outline: The gate-check step and the merge never take the settings from the folder
       Given docs/testing.yaml on dev has the threshold 8
