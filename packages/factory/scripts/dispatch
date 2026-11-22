@@ -41,6 +41,7 @@ from dispatch_lib import (
     ESCALATE_REFUSED_SCOPE,
     ESCALATE_REFUSED_VERIFY_BASE,
     FAILURE_CLASSES,
+    GATE_CANNOT_MEASURE_REASON,
     LEDGER_MODES,
     MANIFEST_FILENAME,
     STOP_SUBCOMMANDS,
@@ -2086,6 +2087,40 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_resume_gates(args: argparse.Namespace) -> int:
+    """Set an entry blocked by a gate that cannot measure dispatched (BR-135).
+
+    It keeps the attempts, the attempt grants, the reason, the branch and the
+    worktree, and writes no manifest and no brief, so the next step is the
+    gate-check step with the code unchanged (DEC-07, DEC-29).
+    """
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    # A pending or returned entry marked blocked has no story branch, so no
+    # code waits for the gate-check step (DEC-63).
+    branch_exists = bool(entry.branch) and (
+        _git("rev-parse", "--verify", "--quiet", f"refs/heads/{entry.branch}")[0] == 0
+    )
+    try:
+        ledger.resume_gates(entry.id, branch_exists)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch resume-gates: {entry.id} is dispatched with its "
+        f"{len(entry.attempts)} attempts; run the gate-check step"
+    )
+    return 0
+
+
 def cmd_return_story(args: argparse.Namespace) -> int:
     """Set a failed or blocked story back to pending in the ledger and the
     backlog (BR-116). The backlog file changes in the working tree of the
@@ -2541,7 +2576,6 @@ def _amend_status_into_merge_commit(project_root: Path, story_id: str) -> int:
 
 
 PREMERGE_CANNOT_MEASURE = 3
-GATE_CANNOT_MEASURE_REASON = "gate cannot measure: crap-score"
 
 
 def _block_gate_cannot_measure(ledger: Ledger, ledger_path: Path, entry) -> int:
@@ -3657,6 +3691,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
     p_rd.add_argument("story_id")
 
+    p_rg = sub.add_parser(
+        "resume-gates",
+        help="return a story blocked by a gate that cannot measure to dispatched",
+    )
+    p_rg.add_argument("story_id")
+
     p_ret = sub.add_parser(
         "return-story", help="set a failed or blocked story back to pending (User only)"
     )
@@ -3753,6 +3793,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_failed(args)
     if args.subcommand == "re-dispatch":
         return cmd_re_dispatch(args)
+    if args.subcommand == "resume-gates":
+        return cmd_resume_gates(args)
     if args.subcommand == "return-story":
         return cmd_return_story(args)
     if args.subcommand == "verify-story":

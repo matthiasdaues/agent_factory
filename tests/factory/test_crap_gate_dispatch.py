@@ -225,3 +225,255 @@ def test_cg_10_a_ready_command_past_the_limit_stops_its_group_and_leaves_nothing
     assert _git(run_repo, "branch", "--list", "feature/login") == ""
     assert _git(run_repo, "worktree", "list") == worktrees
     assert not _ledger_path(run_repo, "feature/login").exists()
+
+
+# --- CG-09: resume-gates returns a story blocked by a gate that cannot measure (ST-0444) -
+
+RESUME_REFUSED = [
+    ("blocked", "merge conflict"),
+    ("blocked", "post-merge test failure"),
+    ("blocked", "Gate cannot measure: crap-score"),
+    ("blocked", None),
+    ("dispatched", None),
+    ("failed", None),
+    ("prepared", None),
+]
+
+
+@pytest.mark.spec("CG-09-CT-01")
+def test_cg_09_the_guard_accepts_only_blocked_with_the_exact_reason():
+    """Scenario: resume-gates returns the story to the gate-check step (BR-135)."""
+    entry = lib.StoryEntry(
+        id="ST-0350", status=lib.StoryState.BLOCKED, reason=GATE_REASON, branch="story/ST-0350"
+    )
+    assert lib.GATE_CANNOT_MEASURE_REASON == GATE_REASON
+    assert lib.resume_gates_refusal(entry) is None
+    assert lib.StoryState.DISPATCHED in lib.VALID_TRANSITIONS[lib.StoryState.BLOCKED]
+
+
+def _ledger_with(entry: lib.StoryEntry) -> lib.Ledger:
+    ledger = lib.Ledger()
+    ledger.stories[entry.id] = entry
+    return ledger
+
+
+@pytest.mark.spec("CG-09-CT-01")
+def test_cg_09_only_the_ledger_method_takes_the_edge_from_blocked_to_dispatched():
+    """IMPL-0084: Ledger.transition refuses the edge; Ledger.resume_gates takes it after its guard."""
+    entry = lib.StoryEntry(
+        id="ST-0350", status=lib.StoryState.BLOCKED, reason=GATE_REASON, branch="story/ST-0350",
+        attempts=[{"failure_class": "acceptance_unmet"}],
+    )
+    ledger = _ledger_with(entry)
+
+    with pytest.raises(lib.TransitionError, match="only resume-gates takes this edge"):
+        ledger.transition("ST-0350", lib.StoryState.DISPATCHED)
+    assert entry.status == lib.StoryState.BLOCKED
+
+    ledger.resume_gates("ST-0350")
+    assert entry.status == lib.StoryState.DISPATCHED
+    assert entry.reason == GATE_REASON
+    assert len(entry.attempts) == 1
+
+
+@pytest.mark.spec("CG-09-CT-01")
+@pytest.mark.parametrize(("state", "reason"), [("blocked", "merge conflict"), ("failed", None)])
+def test_cg_09_the_ledger_method_refuses_with_the_text_of_the_guard(state, reason):
+    """Scenario Outline: resume-gates refuses any other story."""
+    entry = lib.StoryEntry(
+        id="ST-0350", status=lib.StoryState(state), reason=reason, branch="story/ST-0350"
+    )
+    ledger = _ledger_with(entry)
+
+    with pytest.raises(lib.TransitionError, match=f"ST-0350 is {state}"):
+        ledger.resume_gates("ST-0350")
+    assert entry.status.value == state
+
+
+@pytest.mark.spec("CG-09-CT-01")
+@pytest.mark.parametrize(
+    ("branch", "exists"), [(None, True), ("", True), ("story/ST-0350", False)]
+)
+def test_cg_09_the_guard_refuses_an_entry_without_its_story_branch(branch, exists):
+    """DEC-63: an entry marked blocked before it had a story branch has no code to judge."""
+    entry = lib.StoryEntry(
+        id="ST-0350", status=lib.StoryState.BLOCKED, reason=GATE_REASON, branch=branch
+    )
+
+    refusal = lib.resume_gates_refusal(entry, branch_exists=exists)
+
+    assert refusal is not None
+    assert refusal.startswith("ST-0350 has no story branch")
+    with pytest.raises(lib.TransitionError, match="no story branch"):
+        _ledger_with(entry).resume_gates("ST-0350", branch_exists=exists)
+    assert entry.status == lib.StoryState.BLOCKED
+
+
+@pytest.mark.spec("CG-09-CT-01")
+@pytest.mark.parametrize(("state", "reason"), RESUME_REFUSED)
+def test_cg_09_the_guard_refuses_every_other_entry_and_names_its_state(state, reason):
+    """Scenario Outline: resume-gates refuses any other story (DEC-29)."""
+    entry = lib.StoryEntry(id="ST-0350", status=lib.StoryState(state), reason=reason)
+
+    refusal = lib.resume_gates_refusal(entry)
+
+    assert refusal is not None
+    assert refusal.startswith(f"ST-0350 is {state}")
+    if reason is not None:
+        assert f"'{reason}'" in refusal
+    assert entry.status.value == state
+    assert entry.reason == reason
+
+
+def _blocked_by_the_gate(tmp_path: Path) -> dict[str, Path]:
+    """ST-0350 of an orchestrated run, blocked by exit 2 after one counted attempt."""
+    run = _dispatched_with_one_attempt(_orchestrated_on_login(tmp_path))
+    result = _dispatch(
+        run["repo"], run["ledger"], "mark-blocked", "ST-0350", "--reason", GATE_REASON
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return run
+
+
+def _story_files(run: dict[str, Path]) -> list[Path]:
+    """Every file of the story workspace, the step manifest and the brief included."""
+    return sorted(p for p in (run["story"] / ".current-work").rglob("*") if p.is_file())
+
+
+@pytest.mark.spec("CG-09-IT-01")
+def test_cg_09_resume_gates_returns_the_story_to_the_gate_check_step(tmp_path):
+    """Scenario: resume-gates returns the story to the gate-check step (BR-135, DEC-07)."""
+    run = _blocked_by_the_gate(tmp_path)
+    ledger = lib.Ledger.load(run["ledger"])
+    ledger.stories["ST-0350"].attempt_grants.append({"tier": "economy", "attempt_count": 1})
+    ledger.save(run["ledger"])
+    before = _entry(run)
+    head = _git(run["repo"], "rev-parse", "story/ST-0350")
+    files = {p: p.read_bytes() for p in _story_files(run)}
+
+    result = _dispatch(run["repo"], run["ledger"], "resume-gates", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "gate-check step" in result.stdout
+    entry = _entry(run)
+    assert entry.status.value == "dispatched"
+    assert entry.reason == GATE_REASON
+    assert len(entry.attempts) == 1
+    assert entry.attempts == before.attempts
+    assert entry.attempt_grants == before.attempt_grants == [
+        {"tier": "economy", "attempt_count": 1}
+    ]
+    assert entry.branch == before.branch == "story/ST-0350"
+    assert entry.worktree == before.worktree
+    assert _git(run["repo"], "rev-parse", "story/ST-0350") == head
+    assert run["story"].is_dir()
+    assert {p: p.read_bytes() for p in _story_files(run)} == files
+
+
+@pytest.mark.spec("CG-09-IT-01")
+def test_cg_09_resume_gates_returns_a_finding_to_the_gate_check_step(tmp_path):
+    """Scenario: resume-gates returns a finding to the gate-check step (DEC-22)."""
+    run = _blocked_by_the_gate(tmp_path)
+    ledger = lib.Ledger.load(run["ledger"])
+    ledger.stories["BUG-0090"] = lib.StoryEntry(
+        id="BUG-0090",
+        wave=1,
+        status=lib.StoryState.BLOCKED,
+        branch="story/BUG-0090",
+        reason=GATE_REASON,
+    )
+    ledger.save(run["ledger"])
+    _git(run["repo"], "branch", "story/BUG-0090", "feature/login")
+
+    result = _dispatch(run["repo"], run["ledger"], "resume-gates", "BUG-0090")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    entry = lib.Ledger.load(run["ledger"]).stories["BUG-0090"]
+    assert entry.status.value == "dispatched"
+    assert entry.attempts == []
+    assert entry.branch == "story/BUG-0090"
+    assert _entry(run).status.value == "blocked"
+
+
+@pytest.mark.spec("CG-09-IT-01")
+@pytest.mark.parametrize(
+    ("state", "reason"), [("blocked", "merge conflict"), ("dispatched", None), ("failed", None)]
+)
+def test_cg_09_resume_gates_refuses_any_other_story_and_writes_nothing(tmp_path, state, reason):
+    """Scenario Outline: resume-gates refuses any other story (BR-135, DEC-29)."""
+    run = _blocked_by_the_gate(tmp_path)
+    ledger = lib.Ledger.load(run["ledger"])
+    ledger.stories["ST-0350"].status = lib.StoryState(state)
+    ledger.stories["ST-0350"].reason = reason
+    ledger.save(run["ledger"])
+    before = run["ledger"].read_bytes()
+
+    result = _dispatch(run["repo"], run["ledger"], "resume-gates", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"ST-0350 is {state}" in result.stderr
+    if reason is not None:
+        assert reason in result.stderr
+    assert run["ledger"].read_bytes() == before
+
+
+@pytest.mark.spec("CG-09-IT-01")
+def test_cg_09_mark_dispatched_takes_no_edge_from_blocked(tmp_path):
+    """BR-135: only resume-gates leaves blocked for dispatched."""
+    run = _blocked_by_the_gate(tmp_path)
+    before = run["ledger"].read_bytes()
+
+    result = _dispatch(run["repo"], run["ledger"], "mark-dispatched", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "only resume-gates takes this edge" in result.stderr
+    assert run["ledger"].read_bytes() == before
+
+
+@pytest.mark.spec("CG-09-IT-01")
+def test_cg_09_resume_gates_refuses_an_entry_marked_blocked_before_its_branch(tmp_path):
+    """DEC-63: a pending entry marked blocked with the gate reason has no story branch."""
+    run = _orchestrated_on_login(tmp_path)
+    ledger = lib.Ledger.load(run["ledger"])
+    ledger.stories["ST-0351"] = lib.StoryEntry(id="ST-0351", wave=2)
+    ledger.save(run["ledger"])
+    marked = _dispatch(
+        run["repo"], run["ledger"], "mark-blocked", "ST-0351", "--reason", GATE_REASON
+    )
+    assert marked.returncode == 0, marked.stdout + marked.stderr
+    before = run["ledger"].read_bytes()
+
+    result = _dispatch(run["repo"], run["ledger"], "resume-gates", "ST-0351")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "ST-0351 has no story branch" in result.stderr
+    assert run["ledger"].read_bytes() == before
+
+
+@pytest.mark.spec("CG-09-IT-01")
+def test_cg_09_resume_gates_refuses_an_entry_whose_branch_is_gone(tmp_path):
+    """DEC-63: the ledger names a story branch that git no longer holds."""
+    run = _blocked_by_the_gate(tmp_path)
+    ledger = lib.Ledger.load(run["ledger"])
+    ledger.stories["ST-0350"].branch = "story/ST-0399"
+    ledger.save(run["ledger"])
+    before = run["ledger"].read_bytes()
+
+    result = _dispatch(run["repo"], run["ledger"], "resume-gates", "ST-0350")
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "ST-0350 has no story branch story/ST-0399" in result.stderr
+    assert run["ledger"].read_bytes() == before
+
+
+@pytest.mark.spec("CG-09-IT-02")
+def test_cg_09_re_dispatch_stays_the_way_back_for_a_story_whose_code_must_change(tmp_path):
+    """Scenario: re-dispatch stays the way back for a story whose code must change."""
+    run = _blocked_by_the_gate(tmp_path)
+
+    result = _dispatch(run["repo"], run["ledger"], "re-dispatch", "ST-0350")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    entry = _entry(run)
+    assert entry.status.value == "prepared"
+    assert len(entry.attempts) == 1

@@ -234,3 +234,62 @@ def test_cg_07_the_gate_check_step_blocks_a_story_when_crap_score_exits_two() ->
     assert "Quote it unchanged" in flat
     assert "keeps its attempts" in flat
     assert "branch" in flat
+
+
+def _flat_section(heading: str) -> str:
+    return " ".join(_section(IMPLEMENTATION_AGENT.read_text(), heading).split())
+
+
+@pytest.mark.spec("CG-09-LN-01")
+def test_cg_09_the_agent_runs_resume_gates_and_then_the_gate_check_step() -> None:
+    """Scenario: resume-gates returns the story to the gate-check step, and
+    Scenario: re-dispatch stays the way back for a story whose code must change."""
+    flat = _flat_section("Gate that cannot measure")
+    resume = "run `.agent-factory/factory/scripts/dispatch resume-gates <story-id>`, then the gate-check step again"
+    assert resume in flat
+    assert "so spawn no developer agent (BR-135, DEC-07)" in flat
+    assert "the code must change" in flat
+    assert "`.agent-factory/factory/scripts/dispatch re-dispatch <story-id>` instead" in flat
+
+
+@pytest.mark.spec("CG-04-LN-02")
+def test_cg_04_a_crap_score_stopped_by_a_signal_gives_no_verdict() -> None:
+    """Scenario Outline: A run stopped by a signal stops its command first and gives no verdict."""
+    flat = _flat_section("Gate that cannot measure")
+    paragraphs = [p for p in flat.split("A `crap-score` that exits 128")[1:]]
+    assert paragraphs, "the step names no exit of 128 plus a signal number"
+    text = paragraphs[0]
+    assert text.startswith(" plus a signal number")
+    assert "gives no verdict" in text
+    assert "Record no attempt" in text
+    assert "Run `crap-score` again in the gate-check step (DEC-56)" in text
+
+
+@pytest.mark.spec("CG-11-LN-03")
+def test_cg_11_the_refusal_before_any_gate_records_no_attempt() -> None:
+    """Scenario Outline: A story that names crap-score before the setup is refused, row the gate-check step."""
+    step = _section(IMPLEMENTATION_AGENT.read_text(), "Gate-Check Step")
+    paragraphs = [" ".join(p.split()) for p in step.split("\n\n") if "setup-crap-score" in p]
+    assert any(
+        "Record no attempt and do not run `mark-failed` (DEC-58)" in p for p in paragraphs
+    ), paragraphs
+
+
+@pytest.mark.spec("CG-08-LN-01")
+def test_cg_08_step_4d_sends_a_story_blocked_after_exit_3_to_resume_gates() -> None:
+    """Scenario Outline: A gate that cannot measure at the merge blocks the story on both ways."""
+    lines = [line for line in IMPLEMENTATION_AGENT.read_text().splitlines()
+             if line.lstrip().startswith("d. **Merge**")]
+    assert len(lines) == 1, lines
+    step = lines[0]
+    sign = "holds the line `GATE CANNOT MEASURE: crap-score`, `premerge-check` exited `3`"
+    exit_3 = step.split(sign, 1)
+    assert len(exit_3) == 2, "step 4d names no exit 3 of premerge-check"
+    text = exit_3[1].split("(BR-124, BR-136)", 1)[0]
+    # IMPL-0085: the exit-3 case comes before the rule that leads to the fix-iteration loop.
+    assert step.index(sign) < step.index("When `premerge-check` refuses, `merge-story` exits `1`")
+    assert step.index(sign) < step.index("[fix-iteration loop](#fix-iteration-loop)")
+    assert "`blocked` with the reason `gate cannot measure: crap-score`" in text
+    assert "Never send that story to the fix-iteration loop" in text
+    assert "dispatch resume-gates <story-id>" in text
+    assert "fixed the setup" in text
