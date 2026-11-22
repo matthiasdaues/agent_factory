@@ -19,12 +19,16 @@ Rows
   property, such as @width.setter, @width.deleter or @width.getter, gets
   its accessor after the name, such as Box.width.setter. The getter under
   @property keeps Box.width. A function decorated with overload of typing
-  or typing_extensions is a stub that never runs, so it gets no row. That
-  holds under an alias too, such as t.overload after `import typing as t`
-  or ov after `from typing import overload as ov`. Every other name that
-  a file defines twice stays as it is, and crap-score stops on it
-  (DEC-12). A Python file that radon cannot parse gets one row with file
-  and parse_error instead, and the command still exits 0.
+  or typing_extensions is a stub that never runs, so it gets no row. The
+  imports of the file decide which decorator that is: typing.overload
+  after `import typing`, t.overload after `import typing as t`, overload
+  after `from typing import overload` or `from typing import *`, and ov
+  after `from typing import overload as ov`. A function under the
+  overload of another module, such as `from mylib import overload`, runs
+  and gets its row. Every other name that a file defines twice stays as
+  it is, and crap-score stops on it (DEC-12). A Python file that radon
+  cannot parse gets one row with file and parse_error instead, and the
+  command still exits 0.
 
 Files
   Every .py file below the folder it runs in, and every file without a
@@ -90,10 +94,8 @@ import coverage
 from coverage.exceptions import NoDataError
 from radon.complexity import cc_visit
 
-# A function with one of these decorators is a typing stub that never runs.
-# overload_names adds the aliases that the imports of a file give them.
-OVERLOAD_DECORATORS = {"overload", "typing.overload", "typing_extensions.overload"}
-# The modules that define overload.
+# The modules whose overload marks a typing stub that never runs.
+# overload_names finds the names that the imports of a file give it.
 OVERLOAD_MODULES = ("typing", "typing_extensions")
 # The accessors of a property that repeat the name of its getter.
 PROPERTY_ACCESSORS = ("getter", "setter", "deleter")
@@ -360,11 +362,13 @@ def decorator_names(node: ast.AST) -> list[str]:
 def overload_names(tree: ast.AST) -> set[str]:
     """The decorator names that mark an overload stub in *tree*.
 
-    They hold the names of OVERLOAD_DECORATORS and each alias that an
-    import gives them, such as t.overload for `import typing as t` and ov
-    for `from typing import overload as ov`.
+    A name counts only when an import of *tree* binds it to the overload
+    of OVERLOAD_MODULES: typing.overload for `import typing`, t.overload
+    for `import typing as t`, overload for `from typing import overload`
+    or `from typing import *`, and ov for `from typing import overload as
+    ov`. An overload of any other module marks no stub.
     """
-    names = set(OVERLOAD_DECORATORS)
+    names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names.update(
@@ -373,9 +377,11 @@ def overload_names(tree: ast.AST) -> set[str]:
                 if alias.name in OVERLOAD_MODULES
             )
         elif isinstance(node, ast.ImportFrom) and node.module in OVERLOAD_MODULES:
-            names.update(
-                alias.asname or alias.name for alias in node.names if alias.name == "overload"
-            )
+            for alias in node.names:
+                if alias.name == "overload":
+                    names.add(alias.asname or alias.name)
+                elif alias.name == "*":
+                    names.add("overload")
     return names
 
 
