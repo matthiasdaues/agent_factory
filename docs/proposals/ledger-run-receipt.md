@@ -1,5 +1,6 @@
 ---
 schema_version: 2
+scope: global
 title: Ledger as Run Receipt
 status: draft
 owner: stakeholder
