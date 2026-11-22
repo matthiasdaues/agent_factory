@@ -1210,6 +1210,9 @@ On ResumeGates:
   # dispatch resume-gates, for a story or a finding (DEC-07, DEC-22)
   if the reason of the entry is not gate cannot measure: crap-score
     RejectCommand("dispatch: resume-gates accepts only a blocked entry with the reason gate cannot measure: crap-score")
+  else if the entry names no story branch, or git no longer holds its branch
+    # DEC-63; the ledger stays unchanged
+    RejectCommand("dispatch: resume-gates needs the story branch of the entry")
   else
     # the User fixed the setup and told the implementation agent to continue
     # the entry keeps its attempts and its branch, and no developer agent starts
@@ -1239,7 +1242,7 @@ stateDiagram-v2
     FAILED --> PREPARED : ReDispatch
     FAILED --> PENDING : Return
     BLOCKED --> PREPARED : ReDispatch
-    BLOCKED --> DISPATCHED : ResumeGates (reason gate cannot measure)
+    BLOCKED --> DISPATCHED : ResumeGates (reason gate cannot measure, story branch present)
     BLOCKED --> PENDING : Return
     DONE --> [*]
 ```

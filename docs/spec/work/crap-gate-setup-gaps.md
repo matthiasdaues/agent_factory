@@ -1,9 +1,9 @@
 # Gaps Report: crap-gate-setup
 
 Generated: 2026-11-21
-Source: [crap-gate-setup.md](../../proposals/crap-gate-setup.md), at commit `61426f3a6c464879ee7e7c789019fd2b0701aa19` on `dev`, with the decisions DEC-09 to DEC-59 of its working tree
+Source: [crap-gate-setup.md](../../proposals/crap-gate-setup.md), at commit `61426f3a6c464879ee7e7c789019fd2b0701aa19` on `dev`, with the decisions DEC-09 to DEC-64 of its working tree
 
-The stakeholder approved the scope-map rows and the feature file and decided every open item. The decisions are DEC-09 to DEC-59 in the Appendix of the proposal. The feature file has 13 Rules and 142 Scenarios. [Closed items](#closed-items) names the decision or the built code that settles each item, and the Scenario that states it. No item is open.
+The stakeholder approved the scope-map rows and the feature file and decided every open item. The decisions are DEC-09 to DEC-64 in the Appendix of the proposal. The feature file has 13 Rules and 146 Scenarios. [Closed items](#closed-items) names the decision or the built code that settles each item, and the Scenario that states it. No item is open.
 
 ## Actor-Goal Matrix
 
@@ -177,7 +177,7 @@ The scope-map row "CRAP score reads threshold from testing.yaml gates section" o
 | The setup's actor is the User (CG-01), and the proof's actor is the test-strategy agent (CG-02).                       | The User decides every value of the setup. The proof is the agent's check that it cannot declare success alone.           |
 | The examples use `tree_severity` in `packages/factory/scripts/finding-lint` as the old function above the threshold.   | It is a real function in a script without an ending, so one example covers both cases of the Motivation.                  |
 | The planted functions have complexity 3 at the threshold 8.                                                            | At 0 % coverage they score 12, and at full coverage 3, so coverage alone decides them, as the proof requires.             |
-| The planted code lies in `.current-work/gate-setup-proof/python/` in the examples.                                     | DEC-18 and DEC-28 name the argument `--plant <folder>` and its layout, but no folder. The path is an example, not a rule. |
+| The planted code lies in `.current-work/gate-setup-proof/plant/python/` in the examples.                               | DEC-18 and DEC-28 name the argument `--plant <folder>` and its layout, but no folder. The path is an example, not a rule. |
 | A wrong call of the proof is a missing `--measure`, a missing `--plant`, or a measure that `docs/testing.yaml` lacks.  | DEC-18 says only "when the call is wrong". These three cases follow from the call it states.                              |
 | The refusal of a story that names `crap-score` without an entry exits 1 at the merge and keeps the story `dispatched`. | DEC-21 names the existing refusal, and the built `gate_refusal` of `premerge-check` reports it as a failed gate.          |
 
@@ -246,6 +246,16 @@ Wave 2 led to DEC-50 to DEC-59. DEC-48 and DEC-49 shape the backlog and add no S
 | DEC-59   | A measure name that is no safe file name, or a `ready` value that is not a non-empty string, makes `crap-score` exit 2.                                                                                                              | "A measure name that is no safe file name or a wrong ready value cannot measure"                                                                                                                                                                                     |
 
 The rows "9e0" and "+9" of the broken-row Outline read "plain decimal" as digits with an optional decimal point. The exit codes 143, 130, and 129 follow from "128 plus the signal number".
+
+## Decisions From Waves 3 and 4 of the Implementation
+
+| Decision | What it settles                                                                                                                                                                                                    | Scenario                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| DEC-60   | The proof refuses with exit 2 a plant whose untested function scores `c*c + c` at or below the threshold at 0 % coverage, and names the complexity, the score, and the threshold.                                  | A row of "Wrong planted code stops the proof with exit 2"                                           |
+| DEC-61   | `dispatch init` runs each `ready` command under `timeout_minutes`, in its own process group. At the limit it stops the group, exits 1, names the measure and the limit, and leaves no branch, worktree, or ledger. | "A ready command that runs past the time limit stops dispatch init"                                 |
+| DEC-62   | The `ready` check of `premerge-check` and of `dispatch init` takes no lock.                                                                                                                                        | "The ready check of dispatch init takes no lock"; "The ready check of premerge-check takes no lock" |
+| DEC-63   | `dispatch resume-gates` refuses with exit 1 and an unchanged ledger an entry without a story branch, or whose branch git no longer holds.                                                                          | "resume-gates refuses an entry without a story branch"                                              |
+| DEC-64   | The setup skill writes the plant to `.current-work/gate-setup-proof/plant/<name>/`, apart from the proof worktree `.current-work/gate-setup-proof/worktree`.                                                       | Every Scenario of CG-02 that names the plant folder; "The proof makes its worktree at a fixed path" |
 
 ## Area Specs
 
