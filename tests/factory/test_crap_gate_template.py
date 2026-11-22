@@ -597,3 +597,86 @@ def test_cg_03_the_template_started_from_an_outer_uv_script_runs_the_project_int
 
     assert result.returncode == 0, result.stderr
     _row(_rows(root), "src/parser.py", "Parser.parse")
+
+
+PICK = """\
+\"\"\"Functions whose body stands on the def line, and two with a body of their own.\"\"\"
+
+
+def keep(function):
+    return function
+
+
+def pick(a, b, c): return a if a else b if b else c if c else 0
+
+
+def first(a, b): return a if a else b
+
+
+@keep
+def chosen(a): return a if a else 0
+
+
+def spread(a):
+    if a:
+        return 1
+    return 2
+
+
+def unused(a):
+    if a:
+        return 1
+    return 2
+"""
+
+TEST_PICK = """\
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.pick import chosen, first, spread  # noqa: E402
+from src.solo import solo  # noqa: E402
+
+
+def test_pick():
+    assert first(0, 2) == 2
+    assert chosen(3) == 3
+    assert spread(1) == 1
+    assert solo() == 1
+"""
+
+
+@pytest.mark.spec("CG-03-IT-01")
+def test_bug_0134_the_template_counts_a_one_line_function_as_covered_only_when_called(
+    tmp_path: Path,
+) -> None:
+    """Scenario: The measuring command writes its rows to the path in GATE_OUTPUT.
+
+    BUG-0134: the def line of a one-line function runs at import, so its
+    line data cannot show a call. An untested one-line function gets 0 %,
+    a called one gets 100 %, also under a decorator, and a function with a
+    body of its own keeps the share of its body lines that ran. A called
+    one-line function that is the only statement of its file and starts
+    on line 1 gets 0 %, because the module exits with the same arc.
+    """
+    _write_project(tmp_path)
+    (tmp_path / "src" / "pick.py").write_text(PICK)
+    (tmp_path / "src" / "solo.py").write_text("def solo(): return 1\n")
+    (tmp_path / "tests" / "test_pick.py").write_text(TEST_PICK)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    rows = [r for r in _rows(tmp_path) if r["file"] == "src/pick.py"]
+    coverage = {r["function"]: r["coverage_pct"] for r in rows}
+    assert coverage == {
+        "keep": 100.0,
+        "pick": 0.0,
+        "first": 100.0,
+        "chosen": 100.0,
+        "spread": 66.67,
+        "unused": 0.0,
+    }
+    assert _row(rows, "src/pick.py", "pick")["complexity"] == 4
+    assert _row(_rows(tmp_path), "src/solo.py", "solo")["coverage_pct"] == 0.0
