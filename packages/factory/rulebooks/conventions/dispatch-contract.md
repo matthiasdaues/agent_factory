@@ -288,6 +288,8 @@ waves: [<wave closeout record>, ...]  # see Wave Closeout Record
 
 Only the User runs `dispatch return-story <id>`, and the guardrail refuses it to agents. It sets a `failed` or `blocked` story to `pending`, sets `returned: true` in its entry, and sets `status: pending` in `backlog/<id>.md` of the current checkout. It refuses a story in any other state and commits nothing (BR-116).
 
+`dispatch resume-gates <id>` sets a `blocked` story or finding with the reason `gate cannot measure: crap-score` back to `dispatched`, once the User has fixed the setup. It keeps the attempts, the reason, the branch, and the worktree, and writes no manifest and no brief, so the next step is the gate-check step. It refuses every other entry with exit `1` and names its state and reason (BR-135). `re-dispatch` stays the way back when the code must change.
+
 `dispatch` also reads a ledger with the old names `invocation_branch` and `mode: automated`. It reads them as `feature_branch` and `mode: orchestrated`, and its next write holds only the new names.
 
 The ledger is the dispatcher's working memory across session boundaries — on resume, the dispatcher reads it to determine which stories completed, which failed, what is merely prepared, and what the current base SHA is, rather than reconstructing state from git log heuristics.

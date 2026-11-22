@@ -26,7 +26,8 @@ CONTRACTS = REPO_ROOT / "docs" / "spec" / "interface-contracts.md"
 
 STOP_SUBCOMMANDS = [
     "init", "add", "prepare-wave", "prepare-story", "mark-dispatching", "mark-dispatched",
-    "re-dispatch", "escalate", "refresh-story", "merge-story", "close-wave",
+    "re-dispatch", "resume-gates", "escalate", "refresh-story", "merge-story",
+    "close-wave",
 ]
 READ_SUBCOMMANDS = [
     "status", "plan", "suggest-merge-args", "verify-story",
@@ -250,6 +251,30 @@ def test_st_0397_dispatch_refuses_work_during_a_stop(stopped_run, subcommand):
     before = state(r)
 
     result = _dispatch(r["repo"], r["ledger"], *stop_args(r, subcommand))
+
+    assert result.returncode == 1, result.stderr
+    assert result.stdout == contract_example()
+    assert state(r) == before
+
+
+# -- CG-09-IT-03: a stop refuses resume-gates (ST-0444) ---------------------
+
+
+@pytest.mark.spec("CG-09-IT-03")
+def test_cg_09_a_stop_refuses_resume_gates(tmp_path):
+    """Scenario: A stop refuses resume-gates (BR-091, DEC-44)."""
+    r = _repo(tmp_path)
+    assert _init(r).returncode == 0
+    assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
+    assert _dispatch(r["repo"], r["ledger"], "prepare-wave", "1").returncode == 0
+    ledger = lib.Ledger.load(r["ledger"])
+    ledger.stories["ST-0001"].status = lib.StoryState.BLOCKED
+    ledger.stories["ST-0001"].reason = lib.GATE_CANNOT_MEASURE_REASON
+    ledger.save(r["ledger"])
+    write_finding(r["repo"], finding())
+    before = state(r)
+
+    result = _dispatch(r["repo"], r["ledger"], "resume-gates", "ST-0001")
 
     assert result.returncode == 1, result.stderr
     assert result.stdout == contract_example()

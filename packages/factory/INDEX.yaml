@@ -281,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in an orchestrated run, or serial human-driven work in the primary checkout in a run by hand. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 8403
-    total_tokens: 19580
+    tokens: 8706
+    total_tokens: 19994
     inputs:
       required:
         - type: story
@@ -428,7 +428,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2536
-    total_tokens: 17957
+    total_tokens: 18068
     inputs:
       required:
         - type: scope-map
@@ -519,7 +519,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1364
-    total_tokens: 10303
+    total_tokens: 10414
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -1055,7 +1055,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 63749
+    total_tokens: 63860
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1077,7 +1077,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1701
-    total_tokens: 56378
+    total_tokens: 56903
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1094,7 +1094,7 @@ playbooks:
       - qa-agent
       - reconciliation-agent
     tokens: 5224
-    total_tokens: 117818
+    total_tokens: 118343
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1112,7 +1112,7 @@ playbooks:
       - reconciliation-agent
       - coaching-agent
     tokens: 3170
-    total_tokens: 117249
+    total_tokens: 117774
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1141,7 +1141,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1455
-    total_tokens: 15729
+    total_tokens: 15840
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -1162,7 +1162,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 19622
+    total_tokens: 19733
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -1205,7 +1205,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 7083
+    tokens: 7194
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md

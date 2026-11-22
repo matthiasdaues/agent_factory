@@ -1,0 +1,5 @@
+# Spec feedback of ST-0444
+
+| Artifact                        | Drift                                                                                                                                                                                                                  | Evidence                                 | Owner                   | Status |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ----------------------- | ------ |
+| `docs/spec/validation-rules.md` | `VALID_TRANSITIONS` now holds the edge from `blocked` to `dispatched`, so `mark-dispatched` refuses a `blocked` entry to keep the guard of BR-135, and no rule says that `mark-dispatched` accepts only `dispatching`. | `packages/factory/scripts/dispatch:1853` | `domain-modeling-agent` | `open` |

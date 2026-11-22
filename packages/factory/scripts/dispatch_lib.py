@@ -59,8 +59,40 @@ VALID_TRANSITIONS: dict[StoryState, set[StoryState]] = {
     StoryState.DISPATCHED: {StoryState.DONE, StoryState.BLOCKED, StoryState.FAILED},
     StoryState.DONE: set(),
     StoryState.FAILED: {StoryState.PREPARED, StoryState.PENDING},
-    StoryState.BLOCKED: {StoryState.PREPARED, StoryState.PENDING},
+    StoryState.BLOCKED: {
+        StoryState.PREPARED,
+        StoryState.DISPATCHED,
+        StoryState.PENDING,
+    },
 }
+
+# The only reason with which `dispatch resume-gates` sets a blocked entry back
+# to dispatched: nobody judged its code, so the code stays (BR-135, DEC-07).
+GATE_CANNOT_MEASURE_REASON = "gate cannot measure: crap-score"
+
+# `mark-dispatched` reaches dispatched only from dispatching. The edge from
+# blocked belongs to ResumeGates and its guard alone.
+MARK_DISPATCHED_SOURCES = frozenset({StoryState.DISPATCHING, StoryState.DISPATCHED})
+
+
+def resume_gates_refusal(entry: StoryEntry) -> str | None:
+    """The guard of ResumeGates: None, or the refusal naming state and reason.
+
+    It accepts only a `blocked` entry whose reason is exactly
+    GATE_CANNOT_MEASURE_REASON, a story or a finding (BR-135, DEC-22).
+    """
+    if (
+        entry.status == StoryState.BLOCKED
+        and entry.reason == GATE_CANNOT_MEASURE_REASON
+    ):
+        return None
+    state = entry.status.value
+    if entry.reason:
+        state = f"{state} with the reason '{entry.reason}'"
+    return (
+        f"{entry.id} is {state}; resume-gates accepts only blocked with the "
+        f"reason '{GATE_CANNOT_MEASURE_REASON}'"
+    )
 
 # The states from which `dispatch return-story` sets an entry back to
 # pending (BR-116). The User runs it; the guardrail refuses it to agents.
@@ -2238,6 +2270,7 @@ STOP_SUBCOMMANDS = frozenset(
         "mark-dispatching",
         "mark-dispatched",
         "re-dispatch",
+        "resume-gates",
         "escalate",
         "refresh-story",
         "merge-story",
