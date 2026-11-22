@@ -50,6 +50,20 @@ Duty
   GATE_FILES or GATE_EXCLUDE leaves out is not measured, so it stops
   nothing.
 
+Coverage
+  coverage_pct of a function counts only the lines of its body after the
+  def line, because the def line runs when the module is imported. A
+  function whose body has no line of its own, such as
+  `def pick(a): return a or 0`, is 100 % covered when coverage recorded
+  an exit from its code: an arc from a line of the function to minus the
+  first line of its code, which is its first decorator line or else its
+  def line. Coverage runs with branch = True to record these arcs. With
+  no such arc the function is 0 % covered. A call that ends in an
+  exception leaves no such arc under the sys.monitoring core of Python
+  3.12 and later, so it counts as no call. When such a function is the
+  only statement of its file and starts on line 1, the exit of the module
+  carries the same arc, so the command cannot see a call and reports 0 %.
+
 Test command
   TEST_COMMAND below holds the project's test command. setup-crap-score
   fills it in. The command runs in the folder this command runs in, and
@@ -261,7 +275,8 @@ def run_tests(root: Path, work: Path) -> dict:
     # include_namespace_packages lets coverage report an untested file in a
     # folder without __init__.py as 0 % covered.
     rcfile.write_text(
-        f"[run]\nparallel = True\ndata_file = {data_file}\nsource = {root}\n"
+        f"[run]\nparallel = True\nbranch = True\n"
+        f"data_file = {data_file}\nsource = {root}\n"
         "[report]\ninclude_namespace_packages = True\n",
         encoding="utf-8",
     )
@@ -289,17 +304,41 @@ def run_tests(root: Path, work: Path) -> dict:
     except NoDataError as exc:
         raise CannotMeasure(f"coverage recorded no data for the test run: {exc}") from exc
     files = json.loads(report.read_text(encoding="utf-8")).get("files", {})
-    return {str((root / key).resolve()): entry for key, entry in files.items()}
+    table = {str((root / key).resolve()): entry for key, entry in files.items()}
+    data = cov.get_data()
+    for measured in data.measured_files():
+        entry = table.get(str(Path(measured).resolve()))
+        if entry is not None:
+            entry["arcs"] = data.arcs(measured) or []
+    return table
 
 
-def function_coverage(file_cov: dict, start: int, end: int) -> float:
-    """Share of the executable lines of a function body that ran."""
+def was_called(file_cov: dict, code_start: int | None, end: int) -> bool:
+    """True when coverage recorded an exit from the code of a function.
+
+    The exit is an arc from a line of the function to -code_start.
+    code_start None marks a function whose exit the module shares.
+    """
+    if code_start is None:
+        return False
+    return any(
+        target == -code_start and code_start <= source <= end
+        for source, target in file_cov.get("arcs", [])
+    )
+
+
+def function_coverage(file_cov: dict, start: int, end: int, code_start: int | None) -> float:
+    """Share of the executable lines of a function body that ran.
+
+    A body without a line of its own counts as run when was_called finds
+    an exit from the code of the function.
+    """
     executed = set(file_cov.get("executed_lines", []))
     missing = set(file_cov.get("missing_lines", []))
     body = range(start + 1, end + 1)
     executable = [line for line in body if line in executed or line in missing]
     if not executable:
-        return 100.0
+        return 100.0 if was_called(file_cov, code_start, end) else 0.0
     covered = sum(1 for line in executable if line in executed)
     return covered / len(executable) * 100.0
 
@@ -367,10 +406,25 @@ def nested_methods(prefix: str, classes: list) -> list[tuple[str, object]]:
     return named
 
 
-def function_blocks(path: Path) -> list[tuple[str, object]]:
+def code_start(node: ast.AST | None, tree: ast.Module) -> int | None:
+    """The first line of the code of *node*: its first decorator, or its def.
+
+    None when that line is 1 and *node* is the only statement of *tree*:
+    the module then exits with the same arc as the function.
+    """
+    if node is None:
+        return None
+    first = min([node.lineno, *(d.lineno for d in node.decorator_list)])
+    if first == 1 and tree.body == [node]:
+        return None
+    return first
+
+
+def function_blocks(path: Path) -> list[tuple[str, object, int | None]]:
     """The radon blocks of the functions and methods of *path*, with names.
 
-    Each name is qualified, such as Parser.parse or Parser.Options.strict.
+    Each name is qualified, such as Parser.parse or Parser.Options.strict,
+    and each block comes with the first line of its code (code_start).
     An overload stub has no block here.
     """
     # tokenize.open honours a PEP 263 coding line, as Python does.
@@ -391,11 +445,11 @@ def function_blocks(path: Path) -> list[tuple[str, object]]:
             qualified.extend(nested_methods(block.name, block.inner_classes))
         else:
             qualified.append((block.fullname, block))
-    named: list[tuple[str, object]] = []
+    named: list[tuple[str, object, int | None]] = []
     for name, block in qualified:
         row = row_name(name, block, defs, overloads)
         if row is not None:
-            named.append((row, block))
+            named.append((row, block, code_start(defs.get(block.lineno), tree)))
     return named
 
 
@@ -417,7 +471,7 @@ def measure(root: Path, coverage_files: dict) -> list[dict]:
         if file_cov is None:
             unreachable.append(relative)
             continue
-        for name, block in blocks:
+        for name, block, first in blocks:
             rows.append(
                 {
                     "file": relative,
@@ -426,7 +480,7 @@ def measure(root: Path, coverage_files: dict) -> list[dict]:
                     "end_line": block.endline,
                     "complexity": block.complexity,
                     "coverage_pct": round(
-                        function_coverage(file_cov, block.lineno, block.endline), 2
+                        function_coverage(file_cov, block.lineno, block.endline, first), 2
                     ),
                 }
             )
