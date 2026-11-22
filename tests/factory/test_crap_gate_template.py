@@ -444,6 +444,105 @@ def test_bug_0133_the_template_names_a_property_accessor_and_skips_overload_stub
     assert _row(rows, "src/shape.py", "scale")["start_line"] == 28
 
 
+ALIASED = """\
+import typing as t
+from typing import overload as ov
+
+
+class Sizer:
+    @ov
+    def size(self, value: int) -> int: ...
+    @t.overload
+    def size(self, value: str) -> str: ...
+    def size(self, value):
+        return value
+
+
+@t.overload
+def grow(value: int) -> int: ...
+def grow(value):
+    return value
+"""
+
+TEST_ALIASED = """\
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.aliased import Sizer, grow  # noqa: E402
+
+
+def test_aliased():
+    assert Sizer().size(1) == 1
+    assert grow(2) == 2
+"""
+
+
+@pytest.mark.spec("CG-03-IT-02")
+def test_bug_0133_the_template_skips_overload_stubs_under_an_import_alias(tmp_path: Path) -> None:
+    """Scenario: The measuring command reports the qualified name of a method.
+
+    BUG-0133 review: `import typing as t` and `from typing import
+    overload as ov` still mark a stub, so the stub gets no row.
+    """
+    _write_project(tmp_path)
+    (tmp_path / "src" / "aliased.py").write_text(ALIASED)
+    (tmp_path / "tests" / "test_aliased.py").write_text(TEST_ALIASED)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    rows = [r for r in _rows(tmp_path) if r["file"] == "src/aliased.py"]
+    assert sorted(r["function"] for r in rows) == ["Sizer.size", "grow"]
+
+
+GETTER = """\
+class Dial:
+    def __init__(self):
+        self._p = 0
+
+    @property
+    def p(self):
+        return self._p
+
+    @p.getter
+    def p(self):
+        return self._p + 1
+"""
+
+TEST_GETTER = """\
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.dial import Dial  # noqa: E402
+
+
+def test_dial():
+    assert Dial().p == 1
+"""
+
+
+@pytest.mark.spec("CG-03-IT-02")
+def test_bug_0133_the_template_names_a_property_getter_accessor(tmp_path: Path) -> None:
+    """Scenario: The measuring command reports the qualified name of a method.
+
+    BUG-0133 review: a `@p.getter` that replaces the getter of a property
+    gets the name `Dial.p.getter`, so it does not repeat `Dial.p`.
+    """
+    _write_project(tmp_path)
+    (tmp_path / "src" / "dial.py").write_text(GETTER)
+    (tmp_path / "tests" / "test_dial.py").write_text(TEST_GETTER)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    rows = [r for r in _rows(tmp_path) if r["file"] == "src/dial.py"]
+    assert sorted(r["function"] for r in rows) == ["Dial.__init__", "Dial.p", "Dial.p.getter"]
+
+
 @pytest.mark.spec("CG-03-IT-01")
 def test_cg_03_the_template_runs_the_test_command_in_the_environment_of_its_caller(
     tmp_path: Path,

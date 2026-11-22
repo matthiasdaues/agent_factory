@@ -15,14 +15,16 @@ By:   crap-score, or a person in the root of the project.
 Rows
   One JSON array. Each row holds file (relative to the folder the command
   runs in), function (the qualified name, such as Parser.parse),
-  start_line, end_line, complexity, and coverage_pct. A property setter
-  or deleter gets its accessor after the name, such as Box.width.setter,
-  and the getter keeps Box.width. A function decorated with overload,
-  typing.overload or typing_extensions.overload is a stub that never
-  runs, so it gets no row. Every other name that a file defines twice
-  stays as it is, and crap-score stops on it (DEC-12). A Python file that
-  radon cannot parse gets one row with file and parse_error instead, and
-  the command still exits 0.
+  start_line, end_line, complexity, and coverage_pct. An accessor of a
+  property, such as @width.setter, @width.deleter or @width.getter, gets
+  its accessor after the name, such as Box.width.setter. The getter under
+  @property keeps Box.width. A function decorated with overload of typing
+  or typing_extensions is a stub that never runs, so it gets no row. That
+  holds under an alias too, such as t.overload after `import typing as t`
+  or ov after `from typing import overload as ov`. Every other name that
+  a file defines twice stays as it is, and crap-score stops on it
+  (DEC-12). A Python file that radon cannot parse gets one row with file
+  and parse_error instead, and the command still exits 0.
 
 Files
   Every .py file below the folder it runs in, and every file without a
@@ -75,9 +77,12 @@ from coverage.exceptions import NoDataError
 from radon.complexity import cc_visit
 
 # A function with one of these decorators is a typing stub that never runs.
+# overload_names adds the aliases that the imports of a file give them.
 OVERLOAD_DECORATORS = {"overload", "typing.overload", "typing_extensions.overload"}
+# The modules that define overload.
+OVERLOAD_MODULES = ("typing", "typing_extensions")
 # The accessors of a property that repeat the name of its getter.
-PROPERTY_ACCESSORS = ("setter", "deleter")
+PROPERTY_ACCESSORS = ("getter", "setter", "deleter")
 
 # The project's test command, one list item per argument, such as
 # ["uv", "run", "pytest", "--quiet"]. setup-crap-score fills it in.
@@ -313,14 +318,38 @@ def decorator_names(node: ast.AST) -> list[str]:
     return names
 
 
-def row_name(qualified: str, block: object, defs: dict[int, ast.AST]) -> str | None:
+def overload_names(tree: ast.AST) -> set[str]:
+    """The decorator names that mark an overload stub in *tree*.
+
+    They hold the names of OVERLOAD_DECORATORS and each alias that an
+    import gives them, such as t.overload for `import typing as t` and ov
+    for `from typing import overload as ov`.
+    """
+    names = set(OVERLOAD_DECORATORS)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(
+                f"{alias.asname or alias.name}.overload"
+                for alias in node.names
+                if alias.name in OVERLOAD_MODULES
+            )
+        elif isinstance(node, ast.ImportFrom) and node.module in OVERLOAD_MODULES:
+            names.update(
+                alias.asname or alias.name for alias in node.names if alias.name == "overload"
+            )
+    return names
+
+
+def row_name(
+    qualified: str, block: object, defs: dict[int, ast.AST], overloads: set[str]
+) -> str | None:
     """The row name of *block*, or None for an overload stub.
 
     A property setter or deleter gets its accessor after the name, such as
     Box.width.setter, so it does not repeat the name of the getter.
     """
     names = decorator_names(defs.get(block.lineno))
-    if any(name in OVERLOAD_DECORATORS for name in names):
+    if any(name in overloads for name in names):
         return None
     for accessor in PROPERTY_ACCESSORS:
         if f"{block.name}.{accessor}" in names:
@@ -347,9 +376,11 @@ def function_blocks(path: Path) -> list[tuple[str, object]]:
     # tokenize.open honours a PEP 263 coding line, as Python does.
     with tokenize.open(path) as handle:
         source = handle.read()
+    tree = ast.parse(source)
+    overloads = overload_names(tree)
     defs = {
         node.lineno: node
-        for node in ast.walk(ast.parse(source))
+        for node in ast.walk(tree)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
     qualified: list[tuple[str, object]] = []
@@ -362,7 +393,7 @@ def function_blocks(path: Path) -> list[tuple[str, object]]:
             qualified.append((block.fullname, block))
     named: list[tuple[str, object]] = []
     for name, block in qualified:
-        row = row_name(name, block, defs)
+        row = row_name(name, block, defs, overloads)
         if row is not None:
             named.append((row, block))
     return named
