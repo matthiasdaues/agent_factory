@@ -203,6 +203,71 @@ class TestTestingYamlResolution:
         assert result.returncode == 0
 
 
+class TestScopedTestRuns:
+    """BR-024: an agent may run named test files, never the whole suite."""
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "uv run pytest tests/factory/test_crap_gate_score.py",
+            "uv run pytest -q tests/factory/test_crap_gate_score.py",
+            "uv run pytest tests/a/test_x.py tests/b/test_y.py --tb=short",
+            "uv run pytest tests/factory/test_x.py::test_one",
+            "uv run pytest tests/factory/test_x.py::TestA::test_b[case-1]",
+            "uv run pytest -n auto -m spec tests/factory/test_x.py",
+            "uv run --directory /home/u/repo/.current-work/f/story/ST-1 pytest tests/x.py",
+            'grep -n "uv run pytest" docs/spec/validation-rules.md',
+            'git commit -m "fix: run pytest; cargo test after cd x && uv run pytest"',
+            "git commit -q -F - <<'EOF'\nfix: the gate\n\npytest tests/ now passes; npm test too\nuv run pytest\nEOF",
+            "git commit -m 'docs: (uv run pytest) is blocked'",
+        ],
+    )
+    def test_named_test_files_are_allowed(self, tmp_path, command):
+        main = tmp_path / "main"
+        _init_repo(main)
+        result = _run_hook(command, cwd=main)
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "uv run pytest",
+            "uv run pytest -q",
+            "uv run pytest tests/",
+            "uv run pytest packages/factory/scripts/x.py",
+            "uv run pytest tests/x.py; rm -rf /tmp/y",
+            "uv run pytest tests/x.py && git push",
+            "uv run pytest tests/x.py | tee log",
+            "uv run pytest tests/../etc/x.py",
+            "uv run pytest -k 'a or b' tests/x.py",
+            "uv run pytest tests/x.py $(echo z)",
+            "cd /tmp && uv run pytest",
+            "cd /tmp && uv run pytest tests/x.py",
+            "cd /tmp; pytest",
+            "uv run --directory /x pytest",
+            "uv run --quiet pytest",
+            "uv run python -m pytest",
+            "FOO=1 uv run pytest",
+            "(uv run pytest)",
+            "echo a | python3 -m pytest -q",
+            "env CI=1 pytest tests/",
+            "uvx pytest",
+            "cd /tmp && go test ./...",
+            "true && cargo test",
+            'echo "$(uv run pytest)"',
+            "cat <<'EOF'\nx\nEOF\nuv run pytest",
+            'git commit -m "x"; uv run pytest',
+        ],
+    )
+    def test_the_whole_suite_and_compound_commands_stay_blocked(
+        self, tmp_path, command
+    ):
+        main = tmp_path / "main"
+        _init_repo(main)
+        result = _run_hook(command, cwd=main)
+        assert result.returncode == 2
+
+
 class TestLedgerGateDoesNotAffectMainCheckout:
     """Commits in the main checkout (not a worktree) skip the ledger check."""
 
