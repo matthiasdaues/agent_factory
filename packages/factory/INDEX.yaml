@@ -650,7 +650,7 @@ agents:
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
     tokens: 1501
-    total_tokens: 17332
+    total_tokens: 17412
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -855,7 +855,7 @@ skills:
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
     path: skills/crap-score/SKILL.md
-    tokens: 2445
+    tokens: 2525
   - name: dependency-check
     category: implementation
     description: Enforce dependency-rules.dsl dependency rules by scanning source imports and writing a JSON gate report.

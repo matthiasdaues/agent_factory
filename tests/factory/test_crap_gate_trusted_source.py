@@ -230,7 +230,8 @@ class FakeGit:
 
 
 def _source(monkeypatch, tip: str | None, files: dict[str, str], option: bool = False):
-    monkeypatch.setattr(cs, "_resolve", lambda root, revision: "head" if revision.startswith("HEAD") else tip)
+    monkeypatch.setattr(cs, "_resolve", lambda root, revision: "head")
+    monkeypatch.setattr(cs, "_branch_tip", lambda root, branch: tip)
     fake = FakeGit(files)
     monkeypatch.setattr(cs, "git", fake)
     return cs.GitRefSource(Path("/nowhere"), "dev", named=False, settings_from_folder=option), fake
@@ -352,6 +353,17 @@ def test_cg_14_an_integration_branch_that_is_no_text_names_the_file_and_the_key(
     (tmp_path / FACTORY_SETTINGS).write_text(f"integration_branch: {value}\n")
     with pytest.raises(cs.GateError, match=r"the key integration_branch in docs/factory-settings\.yaml"):
         cs.integration_branch(tmp_path)
+
+
+@pytest.mark.spec("CG-14-CT-03")
+@pytest.mark.parametrize("value", ["story/ST-1~1", "story/ST-1^", "@{-1}"], ids=["tilde", "caret", "previous branch"])
+def test_cg_14_an_integration_branch_that_is_no_branch_name_names_the_key_and_the_value(tmp_path, value):
+    """IMPL-0094, DEC-77: a revision expression would let a story name a commit of its own."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / FACTORY_SETTINGS).write_text(f'integration_branch: "{value}"\n')
+    with pytest.raises(cs.GateError, match=r"the key integration_branch in docs/factory-settings\.yaml") as raised:
+        cs.integration_branch(tmp_path)
+    assert value in str(raised.value)
 
 
 # --- CG-14-IT-01: a threshold raised at the head ---------------------------
@@ -571,8 +583,16 @@ def test_cg_14_without_settings_on_the_branch_the_folder_settings_judge(repo, ca
 # --- CG-14-IT-07: broken settings take no value from the folder ------------
 
 
-def _settings_at_head(text: str):
-    return lambda repo: at_head(repo, {FACTORY_SETTINGS: text})
+def _settings_at_base(text: str):
+    """Commit docs/factory-settings.yaml on the revision that --base names (DEC-77)."""
+    return lambda repo: commit_on(repo, TARGET, {FACTORY_SETTINGS: text})
+
+
+def _only_tag_main(repo: Repo) -> None:
+    """Replace the branch main with the tag refs/tags/refs/heads/main (IMPL-0094)."""
+    repo.git("branch", "-q", "-D", "main")
+    repo.git("update-ref", "refs/tags/refs/heads/main", repo.git("rev-parse", "dev"))
+    _settings_at_base("integration_branch: main\n")(repo)
 
 
 @pytest.mark.spec("CG-14-IT-07")
@@ -583,14 +603,18 @@ def _settings_at_head(text: str):
          ["docs/testing.yaml on the branch dev cannot be parsed"]),
         (lambda repo: commit_on(repo, "dev", {"docs/testing.yaml": gate_yaml(8).replace("    threshold: 8\n", "")}),
          ["docs/testing.yaml on the branch dev has no threshold"]),
-        (_settings_at_head('integration_branch: ""\n'), ["the key integration_branch in docs/factory-settings.yaml"]),
-        (_settings_at_head("integration_branch: 5\n"), ["the key integration_branch in docs/factory-settings.yaml"]),
-        (lambda repo: (repo.git("branch", "-q", "-D", "main"), _settings_at_head("integration_branch: main\n")(repo)),
+        (_settings_at_base('integration_branch: ""\n'), ["the key integration_branch in docs/factory-settings.yaml"]),
+        (_settings_at_base("integration_branch: 5\n"), ["the key integration_branch in docs/factory-settings.yaml"]),
+        (lambda repo: (repo.git("branch", "-q", "-D", "main"), _settings_at_base("integration_branch: main\n")(repo)),
          ["key integration_branch", "names the branch main", "git holds no branch main"]),
-        (_settings_at_head(f"integration_branch: {BRANCH}\n"),
+        (_settings_at_base(f"integration_branch: {BRANCH}\n"),
          ["key integration_branch", f"names the branch {BRANCH}, whose tip is HEAD"]),
+        (_settings_at_base(f'integration_branch: "{BRANCH}~1"\n'), ["key integration_branch", f"{BRANCH}~1"]),
+        (_settings_at_base(f'integration_branch: "{BRANCH}^"\n'), ["key integration_branch", f"{BRANCH}^"]),
+        (_only_tag_main, ["key integration_branch", "names the branch main", "git holds no branch main"]),
     ],
-    ids=["unparseable", "no threshold", "empty branch name", "number", "no branch main", "own branch"],
+    ids=["unparseable", "no threshold", "empty branch name", "number", "no branch main", "own branch",
+         "parent of the own branch", "caret of the own branch", "only a tag refs/heads/main"],
 )
 def test_cg_14_broken_settings_on_the_branch_cannot_measure(repo, case, named):
     """Scenario Outline: Broken gate settings on the integration branch cannot measure (DEC-74, DEC-76)."""
@@ -622,10 +646,9 @@ def test_cg_14_integration_branch_names_the_branch_of_every_trusted_value(repo, 
     commit_on(repo, "dev", {"docs/testing.yaml": gate_yaml(10, python_measure(exclude=(OTHER_SCRIPT,)))})
     repo.plant([*ROWS, {"file": OTHER_SCRIPT, "function": "other", "start_line": 1, "end_line": 3,
                         "complexity": 3, "coverage_pct": 0}])
-    head = {OTHER_SCRIPT: "a\nb\nc\n"}
     if setting is not None:
-        head[FACTORY_SETTINGS] = setting
-    change_tree(repo, **head)
+        commit_on(repo, TARGET, {FACTORY_SETTINGS: setting})
+    change_tree(repo, **{OTHER_SCRIPT: "a\nb\nc\n"})
     proc = repo.run(*GATE_CALL)
     verdicts = {row["function"]: row["pass_fail"] for row in repo.report()}
     if setting == "integration_branch: main\n":
@@ -634,6 +657,24 @@ def test_cg_14_integration_branch_names_the_branch_of_every_trusted_value(repo, 
     else:
         assert proc.returncode == 0, proc.stdout + proc.stderr
         assert verdicts == {"tree_severity": "pass"}
+
+
+@pytest.mark.spec("CG-14-IT-08")
+@pytest.mark.parametrize("value", ["main", f"{BRANCH}~1"], ids=["main", "parent of the own branch"])
+def test_cg_14_a_key_changed_at_the_head_does_not_change_the_branch(repo, value):
+    """DEC-77, IMPL-0094: with --base, the key comes from the revision that --base names, here dev.
+
+    main holds a threshold of 30, and the parent of the story head holds the
+    default threshold. Either value at the head would pass tree_severity.
+    """
+    commit_on(repo, "main", {"docs/testing.yaml": gate_yaml(30)})
+    commit_on(repo, TARGET, {FACTORY_SETTINGS: "integration_branch: dev\n"})
+    at_head(repo, {"docs/testing.yaml": gate_yaml(30)}, message="raise the threshold")
+    change_tree(repo, **{FACTORY_SETTINGS: f'integration_branch: "{value}"\n'})
+    proc = repo.run(*GATE_CALL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert "above the threshold 8" in proc.stderr
 
 
 # --- CG-14-IT-09: dispatch merge-story with the real premerge-check ---------

@@ -52,13 +52,13 @@ gates:
 
 ## Trusted gate source
 
-A story cannot decide what counts as accepted. So the gate reads `threshold`, the `files` and `exclude` of each measure, and the exceptions register from the integration branch, through one reader, the trusted gate source. The integration branch is the key `integration_branch` in `docs/factory-settings.yaml` of the folder, and `dev` by default, when the file or the key is missing. The gate reads the branch from its git ref `refs/heads/<integration branch>`. So a story that raises its threshold or adds an `exclude` pattern gets the same verdict as without that change.
+A story cannot decide what counts as accepted. So the gate reads `threshold`, the `files` and `exclude` of each measure, and the exceptions register from the integration branch, through one reader, the trusted gate source. The integration branch is the key `integration_branch` in `docs/factory-settings.yaml`, and `dev` by default, when the file or the key is missing. With `--base <revision>`, the gate reads that file from the tree of the revision, so a story cannot name its own branch or one of its own commits. With `--all` or `--settings-from-folder`, it reads the file in the folder. The gate reads only the tip of the local branch `refs/heads/<integration branch>`, never a tag, a remote branch or a revision expression such as `~1`. So a story that raises its threshold or adds an `exclude` pattern gets the same verdict as without that change.
 
 - `enabled`, `timeout_minutes`, and the `name`, `command` and `ready` of each measure come from the folder, the story head. The folder still needs all three required values.
 - A measure joins its entry on the branch by `name`. A measure that the branch does not name yet takes `files` and `exclude` from the folder, and the output names it as not yet trusted.
 - A measure that the branch names and the folder lacks makes the gate exit `2`. Remove a measure on the integration branch first.
 - Without the ref of the default `dev`, without `docs/testing.yaml` on the branch, or without `gates.crap-score` there, `threshold`, `files` and `exclude` come from the folder. The output then names the cause, so the first setup keeps working.
-- A `docs/testing.yaml` on the branch that cannot be parsed, or an entry there without `threshold`, makes the gate exit `2`. So do an `integration_branch` that is not a non-empty string, a named branch that git does not hold, and a named branch whose tip is `HEAD`, the commit under judgement.
+- A `docs/testing.yaml` on the branch that cannot be parsed, or an entry there without `threshold`, makes the gate exit `2`. So do an `integration_branch` that is not a non-empty string or that `git check-ref-format --branch` refuses, a named branch that git does not hold, and a named branch whose tip is `HEAD`, the commit under judgement.
 
 ## Measurement format
 

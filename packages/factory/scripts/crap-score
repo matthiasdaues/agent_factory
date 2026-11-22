@@ -53,10 +53,13 @@ Score
 Trusted gate source
   A story cannot decide what counts as accepted. So the threshold, the
   `files` pattern and `exclude` list of each measure, and the exceptions
-  register come from the git ref refs/heads/<integration branch>, through
-  one reader (DEC-67, DEC-72, ADR-0041). The integration branch is the key
-  integration_branch of docs/factory-settings.yaml in the folder, and dev
-  without the file or the key (DEC-68). enabled, timeout_minutes, and the
+  register come from the tip of the local branch refs/heads/<integration
+  branch>, through one reader (DEC-67, DEC-72, ADR-0041). The integration
+  branch is the key integration_branch of docs/factory-settings.yaml, and
+  dev without the file or the key (DEC-68). With --base the file comes from
+  the tree of that revision, with --all or --settings-from-folder from the
+  folder (DEC-73, DEC-77). A value
+  that git does not accept as a branch name exits 2 (DEC-77). enabled, timeout_minutes, and the
   name, command and ready of each measure stay at the story head (DEC-75).
   A measure that the branch does not name takes its patterns from the
   folder, and the output names it as not yet trusted (DEC-69). A measure
@@ -910,34 +913,69 @@ class TrustedGateSource(ABC):
         """The rows of the exceptions register, and the notices."""
 
 
-def integration_branch(root: Path) -> tuple[str, bool]:
-    """The integration branch, and whether the key integration_branch names it (BR-128, DEC-68, DEC-74).
+def _settings_text(root: Path, base: str | None) -> tuple[str | None, str]:
+    """docs/factory-settings.yaml as text, or None without the file, and where it was read (DEC-77).
 
-    The key comes from docs/factory-settings.yaml under *root*. Without the
-    file or the key, the branch is dev. A value that is not a non-empty
-    string raises GateError and names the file and the key.
+    With *base*, the file comes from the tree of the revision *base* through
+    git, so the story under judgement cannot change it. Without *base*, it
+    comes from the folder *root*.
     """
-    path = root / FACTORY_SETTINGS
-    try:
-        text = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    if base is None:
+        try:
+            return (root / FACTORY_SETTINGS).read_text(encoding="utf-8"), str(FACTORY_SETTINGS)
+        except FileNotFoundError:
+            return None, str(FACTORY_SETTINGS)
+        except (OSError, UnicodeDecodeError) as exc:
+            raise GateError(f"cannot read {FACTORY_SETTINGS}: {exc}") from exc
+    where = f"{FACTORY_SETTINGS} at the revision {base}"
+    commit = _resolve(root, f"{base}^{{commit}}")
+    if commit is None:
+        raise GateError(f"the revision {base} of --base names no commit, so {FACTORY_SETTINGS} cannot be read")
+    path = FACTORY_SETTINGS.as_posix()
+    if not git(root, "ls-tree", "--full-tree", "--name-only", commit, "--", path).strip():
+        return None, where
+    return git(root, "show", f"{commit}:{path}"), where
+
+
+def _is_branch_name(root: Path, value: str) -> bool:
+    """Whether git accepts *value* as a branch name, unexpanded (DEC-77).
+
+    git check-ref-format --branch expands @{-n} to the branch checked out
+    before, so a value counts only when git prints it back unchanged.
+    """
+    proc = subprocess.run(
+        ["git", "check-ref-format", "--branch", value],
+        cwd=root, capture_output=True, text=True, check=False,
+    )
+    return proc.returncode == 0 and proc.stdout.strip() == value
+
+
+def integration_branch(root: Path, base: str | None = None) -> tuple[str, bool]:
+    """The integration branch, and whether the key integration_branch names it (BR-128, DEC-68, DEC-74, DEC-77).
+
+    With *base*, the key comes from docs/factory-settings.yaml in the tree of
+    the revision *base*; without it, from the folder *root*. Without the file
+    or the key, the branch is dev. A value that is not a non-empty string, or
+    that git does not accept as a branch name, raises GateError and names the
+    file, the key and the value.
+    """
+    text, where = _settings_text(root, base)
+    if text is None:
         return DEFAULT_BRANCH, False
-    except (OSError, UnicodeDecodeError) as exc:
-        raise GateError(f"cannot read {FACTORY_SETTINGS}: {exc}") from exc
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        raise GateError(f"{FACTORY_SETTINGS} is no valid YAML, so the key {BRANCH_KEY} cannot be read: {exc}") from exc
+        raise GateError(f"{where} is no valid YAML, so the key {BRANCH_KEY} cannot be read: {exc}") from exc
     data = {} if data is None else data
     if not isinstance(data, dict):
-        raise GateError(f"{FACTORY_SETTINGS} is no mapping, so the key {BRANCH_KEY} cannot be read")
+        raise GateError(f"{where} is no mapping, so the key {BRANCH_KEY} cannot be read")
     if BRANCH_KEY not in data:
         return DEFAULT_BRANCH, False
     value = data[BRANCH_KEY]
     if not isinstance(value, str) or not value.strip():
-        raise GateError(
-            f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} is {value!r}, which is no non-empty branch name"
-        )
+        raise GateError(f"the key {BRANCH_KEY} in {where} is {value!r}, which is no non-empty branch name")
+    if not _is_branch_name(root, value):
+        raise GateError(f"the key {BRANCH_KEY} in {where} is {value!r}, which git does not accept as a branch name")
     return value, True
 
 
@@ -1030,6 +1068,19 @@ def _resolve(root: Path, revision: str) -> str | None:
     return proc.stdout.strip() if proc.returncode == 0 else None
 
 
+def _branch_tip(root: Path, branch: str) -> str | None:
+    """The tip of the local branch *branch*, or None without it (DEC-77).
+
+    git show-ref --verify reads exactly refs/heads/<branch>, so git guesses
+    no tag, no remote ref and no revision expression.
+    """
+    proc = subprocess.run(
+        ["git", "show-ref", "--verify", "--hash", f"refs/heads/{branch}"],
+        cwd=root, capture_output=True, text=True, check=False,
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
 def _gate_entry(data: object, where: str) -> object:
     """gates.crap-score of parsed settings, the old key too; None without the entry."""
     if data is None:
@@ -1046,17 +1097,19 @@ def _gate_entry(data: object, where: str) -> object:
 class GitRefSource(TrustedGateSource):
     """The trusted gate source that reads refs/heads/<integration branch> through git (DEC-67).
 
-    A branch that the key names must exist and must not be HEAD, the commit
-    under judgement. Only the default dev may be missing, and then the values
-    come from the folder and no register is read (DEC-13, DEC-76).
+    The reader resolves the tip of the local branch once and reads every
+    value from that commit, so a tag, a remote ref or a revision expression
+    never stands in for the branch (DEC-77). A branch that the key names must
+    exist and must not be HEAD, the commit under judgement. Only the default
+    dev may be missing, and then the values come from the folder and no
+    register is read (DEC-13, DEC-76).
     """
 
     def __init__(self, root: Path, branch: str, named: bool, settings_from_folder: bool = False) -> None:
         self.root = root
         self.branch = branch
-        self.ref = f"refs/heads/{branch}"
         self.settings_from_folder = settings_from_folder
-        tip = _resolve(root, f"{self.ref}^{{commit}}")
+        tip = _branch_tip(root, branch)
         if named and tip is None:
             raise GateError(
                 f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} names the branch {branch}, "
@@ -1067,10 +1120,11 @@ class GitRefSource(TrustedGateSource):
                 f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} names the branch {branch}, whose tip is HEAD, "
                 "the commit under judgement; a story cannot be its own trusted source"
             )
+        self.tip = tip
         self.present = tip is not None
 
     def _holds(self, path: str) -> bool:
-        return bool(git(self.root, "ls-tree", "--full-tree", "--name-only", self.ref, "--", path).strip())
+        return bool(git(self.root, "ls-tree", "--full-tree", "--name-only", self.tip, "--", path).strip())
 
     def gate_values(self, folder: Settings) -> TrustedValues:
         where = f"{TESTING_YAML} on the branch {self.branch}"
@@ -1080,7 +1134,7 @@ class GitRefSource(TrustedGateSource):
             return join_values(folder, None, where, f"no branch {self.branch} exists")
         if not self._holds(TESTING_YAML.as_posix()):
             return join_values(folder, None, where, f"the branch {self.branch} holds no {TESTING_YAML}")
-        text = git(self.root, "show", f"{self.ref}:{TESTING_YAML.as_posix()}")
+        text = git(self.root, "show", f"{self.tip}:{TESTING_YAML.as_posix()}")
         try:
             data = yaml.safe_load(text)
         except yaml.YAMLError as exc:
@@ -1095,12 +1149,18 @@ class GitRefSource(TrustedGateSource):
             return {}, (f"crap-score: read no exceptions register, because no branch {self.branch} exists",)
         if not self._holds(REGISTER_PATH):
             return {}, ()
-        return parse_register(git(self.root, "show", f"{self.ref}:{REGISTER_PATH}"), self.branch), ()
+        return parse_register(git(self.root, "show", f"{self.tip}:{REGISTER_PATH}"), self.branch), ()
 
 
-def open_source(root: Path, settings_from_folder: bool) -> TrustedGateSource:
-    """The trusted gate source of the folder *root*: the git ref of its integration branch."""
-    branch, named = integration_branch(root)
+def open_source(root: Path, settings_from_folder: bool, base: str | None = None) -> TrustedGateSource:
+    """The trusted gate source of the folder *root*: the git ref of its integration branch.
+
+    With *base*, the key integration_branch comes from the revision *base*
+    (DEC-77). The setup paths read it from the folder: --all, and
+    --settings-from-folder, which only gate-setup-proof passes, because its
+    first commit holds the uncommitted file of the working tree (DEC-73).
+    """
+    branch, named = integration_branch(root, None if settings_from_folder else base)
     return GitRefSource(root, branch, named, settings_from_folder)
 
 
@@ -1223,7 +1283,7 @@ def main(argv: list[str] | None = None, source: TrustedGateSource | None = None)
         with stop_signals():
             folder = read_settings(root)
             if source is None:
-                source = open_source(root, args.settings_from_folder)
+                source = open_source(root, args.settings_from_folder, args.base)
             trusted = source.gate_values(folder)
             settings = apply_trusted(folder, trusted)
             exceptions, register_notices = source.exceptions()
