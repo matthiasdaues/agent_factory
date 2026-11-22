@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The text exists only on the feature branch. A merge-story that ends early merges nothing, leaves the entry dispatched, and runs again idempotently, so no wrong merge results (no to fails_purpose). Each early end costs a full rerun of the gate and the test suite, and the agent must find the cause in a killed call.",
   "commit": "e4cb6d4b0d23701eea5ed79bc6c39b35642a8b03",
-  "status": "open"
+  "status": "resolved"
 }

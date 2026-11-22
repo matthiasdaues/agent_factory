@@ -46,7 +46,11 @@ Duty
 Test command
   TEST_COMMAND below holds the project's test command. setup-crap-score
   fills it in. The command runs in the folder this command runs in, and
-  coverage measures every Python process it starts.
+  coverage measures every Python process it starts. It gets the
+  environment of the caller without the environments of `uv run --script`,
+  this command's and those of its callers, so a test command that starts
+  `python` runs the project's interpreter. Such an environment is a folder
+  with pyvenv.cfg under uv's cache folder.
 """
 
 from __future__ import annotations
@@ -189,6 +193,45 @@ def code_files(root: Path) -> list[Path]:
     return sorted(files)
 
 
+def uv_cache_folder() -> str:
+    """uv's cache folder: UV_CACHE_DIR, else $XDG_CACHE_HOME/uv, else ~/.cache/uv."""
+    folder = os.environ.get("UV_CACHE_DIR") or os.path.join(
+        os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "uv"
+    )
+    return os.path.realpath(folder)
+
+
+def is_uv_script_environment(folder: str, cache: str) -> bool:
+    """True when *folder* is a Python environment that lies under uv's cache folder."""
+    real = os.path.realpath(folder)
+    return real.startswith(cache + os.sep) and os.path.isfile(os.path.join(real, "pyvenv.cfg"))
+
+
+def caller_environment() -> dict[str, str]:
+    """The environment of the caller, without the environments of `uv run --script`.
+
+    Each script that starts through `uv run --script`, such as this command
+    and crap-score, names its environment in VIRTUAL_ENV and puts its bin
+    folder on PATH. uv keeps these environments under its cache folder.
+    Every such PATH entry goes, and VIRTUAL_ENV goes when it names such an
+    environment, so `python` in TEST_COMMAND starts the project's
+    interpreter, not the one that holds radon and coverage.py. A project's
+    own .venv lies outside the cache and stays. crap-score holds the same
+    function.
+    """
+    cache = uv_cache_folder()
+    env = dict(os.environ)
+    if "VIRTUAL_ENV" in env and is_uv_script_environment(env["VIRTUAL_ENV"], cache):
+        del env["VIRTUAL_ENV"]
+    if "PATH" in env:
+        env["PATH"] = os.pathsep.join(
+            entry for entry in env["PATH"].split(os.pathsep)
+            if not (os.path.basename(os.path.normpath(entry)) == "bin"
+                    and is_uv_script_environment(os.path.dirname(os.path.normpath(entry)), cache))
+        )
+    return env
+
+
 def run_tests(root: Path, work: Path) -> dict:
     """Run TEST_COMMAND under coverage; return the coverage.json files table."""
     site = work / "site"
@@ -207,7 +250,7 @@ def run_tests(root: Path, work: Path) -> dict:
         encoding="utf-8",
     )
 
-    env = {k: v for k, v in os.environ.items() if not k.startswith("COVERAGE_")}
+    env = {k: v for k, v in caller_environment().items() if not k.startswith("COVERAGE_")}
     env["COVERAGE_PROCESS_START"] = str(rcfile)
     env["PYTHONPATH"] = os.pathsep.join(
         [str(site), *filter(None, [os.environ.get("PYTHONPATH")])]

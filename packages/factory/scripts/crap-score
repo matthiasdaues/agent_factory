@@ -21,7 +21,11 @@ Call
   array with one row per function. GATE_FILES holds the measure's `files`
   pattern and GATE_EXCLUDE its `exclude` patterns, one pattern per line, so
   the command can leave out the files the gate drops (DEC-65). The gate
-  still applies both to the rows itself.
+  still applies both to the rows itself. Every command gets the caller's
+  environment without the environments of `uv run --script`, those of
+  dispatch and premerge-check included, so `python` in a command starts
+  the project's interpreter. Such an environment is a folder with
+  pyvenv.cfg under uv's cache folder.
 
 Runs
   For each measure in list order, its `ready` command, when it has one, and
@@ -434,12 +438,54 @@ def measure_lock(measure: Measure, root: Path, clock: Clock) -> Iterator[None]:
         os.close(fd)
 
 
+def uv_cache_folder() -> str:
+    """uv's cache folder: UV_CACHE_DIR, else $XDG_CACHE_HOME/uv, else ~/.cache/uv."""
+    folder = os.environ.get("UV_CACHE_DIR") or os.path.join(
+        os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "uv"
+    )
+    return os.path.realpath(folder)
+
+
+def is_uv_script_environment(folder: str, cache: str) -> bool:
+    """True when *folder* is a Python environment that lies under uv's cache folder."""
+    real = os.path.realpath(folder)
+    return real.startswith(cache + os.sep) and os.path.isfile(os.path.join(real, "pyvenv.cfg"))
+
+
+def caller_environment() -> dict[str, str]:
+    """The environment of the caller, without the environments of `uv run --script`.
+
+    Each script that starts through `uv run --script`, such as dispatch,
+    premerge-check and this gate, names its environment in VIRTUAL_ENV and
+    puts its bin folder on PATH. uv keeps these environments under its cache
+    folder. Every such PATH entry goes, and VIRTUAL_ENV goes when it names
+    such an environment, so `python` in a command starts the project's
+    interpreter. A project's own .venv lies outside the cache and stays. The
+    template crap-measure-python of setup-crap-score holds the same function.
+    """
+    cache = uv_cache_folder()
+    env = dict(os.environ)
+    if "VIRTUAL_ENV" in env and is_uv_script_environment(env["VIRTUAL_ENV"], cache):
+        del env["VIRTUAL_ENV"]
+    if "PATH" in env:
+        env["PATH"] = os.pathsep.join(
+            entry for entry in env["PATH"].split(os.pathsep)
+            if not (os.path.basename(os.path.normpath(entry)) == "bin"
+                    and is_uv_script_environment(os.path.dirname(os.path.normpath(entry)), cache))
+        )
+    return env
+
+
 def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
-    """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129)."""
+    """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129).
+
+    Both commands get the caller's environment without the environments of
+    `uv run --script`, plus GATE_OUTPUT, GATE_FILES and GATE_EXCLUDE.
+    """
     with tempfile.TemporaryDirectory(prefix="crap-score-") as folder:
         output = Path(folder) / "rows.json"
         env = {
-            **os.environ,
+            **caller_environment(),
             "GATE_OUTPUT": str(output),
             "GATE_FILES": measure.files,
             "GATE_EXCLUDE": "\n".join(measure.exclude),

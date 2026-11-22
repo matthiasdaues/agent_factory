@@ -51,7 +51,7 @@ gates:
 
 ## Measurement format
 
-The gate runs the measures in list order, each from the root of the folder the gate runs in. It sets three environment variables for each measuring command:
+The gate runs the measures in list order, each from the root of the folder the gate runs in. Each command gets the caller's environment without the environments of `uv run --script`, so `python` in a command starts the project's interpreter. The gate, `dispatch` and `premerge-check` each start through `uv run --script`, and uv keeps each of their environments in a folder with `pyvenv.cfg` under its cache folder: `UV_CACHE_DIR`, else `$XDG_CACHE_HOME/uv`, else `~/.cache/uv`. The gate removes every such `bin` folder from `PATH`, and `VIRTUAL_ENV` when it names such a folder. A project's own `.venv` lies outside the cache and stays. The gate sets three environment variables for each measuring command:
 
 - `GATE_OUTPUT` holds a file path. The command writes its rows there.
 - `GATE_FILES` holds the measure's `files` pattern.
@@ -88,19 +88,20 @@ With `--base`, a function is judged when its range from `start_line` to `end_lin
 
 ## Exit codes
 
-| Code | Meaning                                                                                                                |
-| ---- | ---------------------------------------------------------------------------------------------------------------------- |
-| `0`  | Every judged function passes, also when the gate judges no function                                                    |
-| `1`  | A judged function fails. The output names its file, its function, and its score                                        |
-| `2`  | The gate cannot measure, such as for a wrong call, a missing setting, or a failed command. The message names the cause |
+| Code      | Meaning                                                                                                                                                  |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`       | Every judged function passes, also when the gate judges no function                                                                                      |
+| `1`       | A judged function fails. The output names its file, its function, and its score                                                                          |
+| `2`       | The gate cannot measure, such as for a wrong call, a missing setting, or a failed command. The message names the cause                                   |
+| `128 + n` | The gate was stopped by signal `n`: `143` for `SIGTERM`, `130` for `SIGINT`, `129` for `SIGHUP`. It stops its running command first and gives no verdict |
 
-Exit `2` means that nobody judged the code. So it costs the story no attempt, and the story stops as `blocked` with the reason `gate cannot measure: crap-score`.
+Exit `2` means that nobody judged the code. So it costs the story no attempt, and the story stops as `blocked` with the reason `gate cannot measure: crap-score`. Exit `128 + n` gives no verdict either. The gate-check step runs the gate again and records no attempt (DEC-56).
 
 ## Report
 
-On exit `0` or `1`, the gate writes `<report-dir>/<story-id>.json`. The report holds one row per judged function: the six measurement fields plus `crap_score`, the rounded score, and `pass_fail`, which is `pass`, `fail`, or `accepted`. A new report replaces an earlier report of the same name. On exit `2`, the gate writes no report, and the earlier report stays.
+On exit `0` or `1`, the gate writes `<report-dir>/<story-id>.json`. The report holds one row per judged function: the six measurement fields plus `crap_score`, the rounded score, and `pass_fail`, which is `pass`, `fail`, or `accepted`. A new report replaces an earlier report of the same name. On exit `2` and on exit `128 + n`, the gate writes no report, and the earlier report stays.
 
-A person reads the report. The verdict is the exit code, so `premerge-check` reads no report.
+A person reads the report. The verdict is the exit code alone. After exit `1`, `premerge-check` reads the report only to name the failing functions in its refusal. After any other exit, it reads no report (DEC-54).
 
 ## Exceptions register
 

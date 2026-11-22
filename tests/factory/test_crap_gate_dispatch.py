@@ -198,7 +198,7 @@ def _pid_alive(pid: int) -> bool:
     return state != "Z"
 
 
-@pytest.mark.spec("CG-10-IT-02")
+@pytest.mark.spec("CG-10-IT-04")
 def test_cg_10_a_ready_command_past_the_limit_stops_its_group_and_leaves_nothing_behind(run_repo):
     """DEC-61: init stops the whole process group of a ready command at timeout_minutes."""
     _gate_with_ready(run_repo)
