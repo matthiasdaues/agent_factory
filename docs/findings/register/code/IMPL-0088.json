@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0088",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/skills/setup-crap-score/SKILL.md:108-120",
+  "story": "ST-0448",
+  "finding": "Step 6 does not say what the agent does after each exit code of crap-score --all. Exit 1 is the normal result when functions are above the threshold, and step 6 needs those functions for its count. Exit 2 writes no report (BR-133), so the agent has no count and no report path. The likely cause of exit 2 in step 6 is the time limit: step 4 bases timeout_minutes on a guess, and BR-129 stops the run with exit 2 when the limit runs out. Step 5 tells the agent what to do after a failed proof, and step 6 has no such sentence. Fix: in step 6, add that exit 0 and exit 1 both give the count and the report, and that exit 2 gives no report. After exit 2, the agent shows the message to the User. When the time limit ran out, the User sets a higher timeout_minutes, and the agent runs step 6 again. For any other cause, the agent fixes the setup with the User and runs step 5 again.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The text exists only on the story branch. The agent shows the output to the User at the pause point of step 6, and the message of crap-score names the measure and the limit, so the User can still decide (no to fails_purpose). Each agent must still guess whether exit 1 is a fault and what to do after exit 2.",
+  "commit": "b407b2d53bfdac6664dba9f5df0a8275d1b2022e",
+  "status": "resolved"
+}

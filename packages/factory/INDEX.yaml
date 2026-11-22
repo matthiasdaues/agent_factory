@@ -649,8 +649,8 @@ agents:
     tier: strong
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
-    tokens: 1346
-    total_tokens: 13308
+    tokens: 1501
+    total_tokens: 16383
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -911,6 +911,11 @@ skills:
     description: Security-focused code review against OWASP Top 10 with minimised false positives.
     path: skills/security-review/SKILL.md
     tokens: 590
+  - name: setup-crap-score
+    category: quality
+    description: Set up the CRAP gate in a project once — try tools on real files, propose measures, exclusions, a threshold and a time limit, check them with gate-setup-proof, and enable the gate only after the User confirms each value.
+    path: skills/setup-crap-score/SKILL.md
+    tokens: 2920
   - name: comic-relief
     category: utility
     description: Context-aware one-liner or two-sentence aside when levity is warranted. Target is process, tooling, or situation — never the user.
