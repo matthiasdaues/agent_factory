@@ -281,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in an orchestrated run, or serial human-driven work in the primary checkout in a run by hand. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 8816
-    total_tokens: 20101
+    tokens: 8841
+    total_tokens: 20126
     inputs:
       required:
         - type: story
@@ -650,7 +650,7 @@ agents:
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
     tokens: 1501
-    total_tokens: 16871
+    total_tokens: 17412
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -855,7 +855,7 @@ skills:
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
     path: skills/crap-score/SKILL.md
-    tokens: 1984
+    tokens: 2525
   - name: dependency-check
     category: implementation
     description: Enforce dependency-rules.dsl dependency rules by scanning source imports and writing a JSON gate report.
@@ -1082,7 +1082,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1701
-    total_tokens: 57007
+    total_tokens: 57032
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1099,7 +1099,7 @@ playbooks:
       - qa-agent
       - reconciliation-agent
     tokens: 5224
-    total_tokens: 118447
+    total_tokens: 118472
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1117,7 +1117,7 @@ playbooks:
       - reconciliation-agent
       - coaching-agent
     tokens: 3170
-    total_tokens: 117878
+    total_tokens: 117903
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration

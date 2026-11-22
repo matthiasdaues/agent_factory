@@ -324,12 +324,22 @@ def test_cg_04_report_dir_names_the_folder_of_the_report(repo):
 
 @pytest.mark.spec("CG-04-IT-10")
 def test_cg_04_a_linked_worktree_reads_its_own_testing_yaml(repo):
-    """Scenario Outline: The gate-check step runs crap-score in the folder of the story."""
+    """Scenario Outline: The gate-check step runs crap-score in the folder of the story.
+
+    The threshold comes from dev (DEC-67), so the folder shows through a value
+    that stays at the story head: the worktree's measure names its own
+    command, which writes rows with the complexity 5. The command of the
+    primary checkout writes rows with the complexity 9, which fail.
+    """
     repo.git("checkout", "-q", TARGET)
     worktree = repo.tmp / "worktree"
     repo.git("worktree", "add", "-q", str(worktree), BRANCH)
-    repo.write("docs/testing.yaml", TESTING_YAML.replace("threshold: 8", "threshold: 9"), worktree)
-    repo.commit("threshold 9", cwd=worktree)
+    own = "scripts/crap-measure-worktree"
+    rows = json.dumps([_row("tree_severity", 10, 30, complexity=5), _row("bug_bar_level", 32, 50, complexity=5)])
+    repo.write("docs/testing.yaml", TESTING_YAML.replace(STUB, own), worktree)
+    repo.write(own, f"#!/bin/sh\necho '{rows}' > \"$GATE_OUTPUT\"\n", worktree)
+    (worktree / own).chmod((worktree / own).stat().st_mode | stat.S_IXUSR)
+    repo.commit("the measuring command of the worktree", cwd=worktree)
     proc = repo.run("--all", "--story-id", STORY_ID, cwd=worktree)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert {row["pass_fail"] for row in repo.report(root=worktree)} == {"pass"}

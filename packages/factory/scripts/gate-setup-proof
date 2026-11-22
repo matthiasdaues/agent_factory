@@ -33,8 +33,9 @@ Worktree
   first (DEC-46). The first commit has HEAD as its parent and holds
   docs/testing.yaml of the working tree with every setting of
   gates.crap-score but only the chosen measure (DEC-52), the files that the
-  measure names as command and ready, as they are in the working tree, and
-  the files of base/. The second commit adds gap/ (DEC-30, DEC-32). The
+  measure names as command and ready, as they are in the working tree,
+  docs/factory-settings.yaml of the working tree when it exists, and the
+  files of base/. The second commit adds gap/ (DEC-30, DEC-32, DEC-73). The
   worktree is removed afterwards, and no branch moves.
 
 Hooks
@@ -49,8 +50,13 @@ Hooks
 
 Gate runs
   crap-score --base <start> --story-id proof-run-<n> --report-dir
-  <worktree>/.current-work/crap-score/, where <start> is HEAD. Runs 1 and 2
-  are on the first commit, run 3 is on the second commit.
+  <worktree>/.current-work/crap-score/ --settings-from-folder, where <start>
+  is HEAD. Runs 1 and 2 are on the first commit, run 3 is on the second
+  commit. The option makes crap-score judge with the threshold and the
+  patterns of the working tree, which the User has not committed yet. The
+  register still comes from the integration branch (DEC-71). The copy of
+  docs/factory-settings.yaml names the same integration branch as in a
+  story (DEC-73).
 
 Lock
   An exclusive flock on .current-work/gate-setup-proof/worktree.lock of the
@@ -95,6 +101,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dispatch_lib import glob_match
 
 TESTING_YAML = Path("docs") / "testing.yaml"
+FACTORY_SETTINGS = Path("docs") / "factory-settings.yaml"
 GATE_KEY = "crap-score"
 WORKTREE = Path(".current-work") / "gate-setup-proof" / "worktree"
 LOCK = Path(".current-work") / "gate-setup-proof" / "worktree.lock"
@@ -430,7 +437,7 @@ def run_gate(worktree: Path, start: str, number: int) -> GateRun:
     try:
         proc = subprocess.Popen(
             [sys.executable, str(CRAP_SCORE), "--base", start, "--story-id", story_id,
-             "--report-dir", str(report_dir)],
+             "--report-dir", str(report_dir), "--settings-from-folder"],
             cwd=worktree, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             start_new_session=True, preexec_fn=_unblock_stop_signals,
         )
@@ -537,6 +544,8 @@ def run_gates(
     try:
         setup = blobs_of(root, root, setup_files(root, measure))
         setup[TESTING_YAML.as_posix()] = blob(root, one_measure_yaml(root, measure_name), False)
+        if (root / FACTORY_SETTINGS).is_file():
+            setup[FACTORY_SETTINGS.as_posix()] = file_blob(root, root / FACTORY_SETTINGS)
         base = plant_files(plant / "base")
         first_commit = new_commit(
             root, start, {**setup, **blobs_of(root, plant / "base", base)},
