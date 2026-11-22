@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0084",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/dispatch_lib.py:62-96",
+  "story": "ST-0444",
+  "finding": "The guard of BR-135 lives outside the ledger, so the ledger itself allows the edge from blocked to dispatched for any reason. Ledger.transition accepts blocked to dispatched for every caller. resume_gates_refusal guards it in cmd_resume_gates, and MARK_DISPATCHED_SOURCES guards it again in cmd_mark_dispatched (dispatch:1846-1857). Today these are the only two callers that ask for dispatched, so no path skips the guard. The next subcommand that calls ledger.transition(id, StoryState.DISPATCHED) must remember a third check. Ledger.return_story already shows the other pattern: the guarded edge is a method of the ledger, and the method refuses by itself. Fix: in dispatch_lib.py, add Ledger.resume_gates(story_id), which raises TransitionError with the text of resume_gates_refusal and then sets dispatched. Make Ledger.transition refuse blocked to dispatched, so only that method takes the edge. cmd_resume_gates calls the method, and cmd_mark_dispatched drops its own check.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the story branch, so it is not in use. Both callers that ask for dispatched check the guard, and CG-09-IT-01 shows that mark-dispatched refuses a blocked entry (no to fails_purpose). The rule of BR-135 is written twice, and every later caller of Ledger.transition must repeat it, because the generic edge set does not carry it.",
+  "commit": "ce6ed5269efedd91c75f4fe3891e6556a14ab254",
+  "status": "open"
+}
