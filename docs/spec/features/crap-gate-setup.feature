@@ -998,10 +998,10 @@ Feature: CRAP Gate Setup
 
       Examples:
         | case                                                    | reason                            |
-        | the repository has no branch dev                        | the missing branch dev            |
+        | docs/factory-settings.yaml names no integration_branch and the repository has no branch dev | the missing branch dev |
         | dev has no docs/testing.yaml                            | the missing docs/testing.yaml     |
         | docs/testing.yaml on dev has no entry gates.crap-score  | the missing entry gates.crap-score |
-      # DEC-13, DEC-69, DEC-74
+      # DEC-13, DEC-69, DEC-74, DEC-76: the fallback for a missing branch applies only to the default dev
 
     Scenario Outline: Broken gate settings on the integration branch cannot measure
       Given <case>
@@ -1016,7 +1016,9 @@ Feature: CRAP Gate Setup
         | the entry gates.crap-score in docs/testing.yaml on dev has no threshold | docs/testing.yaml and the branch dev     |
         | docs/factory-settings.yaml in the folder has integration_branch: ""    | the key integration_branch               |
         | docs/factory-settings.yaml in the folder has integration_branch: 5     | the key integration_branch               |
-      # DEC-74
+        | docs/factory-settings.yaml in the folder has integration_branch: main and the repository has no branch main | the key integration_branch and the branch main |
+        | docs/factory-settings.yaml in the folder has integration_branch: story/ST-0350 and crap-score judges the tip of story/ST-0350 | the key integration_branch and the branch story/ST-0350 |
+      # DEC-74, DEC-76
 
     Scenario Outline: The key integration_branch names the branch that the gate reads
       Given docs/factory-settings.yaml in the folder of crap-score <setting>
