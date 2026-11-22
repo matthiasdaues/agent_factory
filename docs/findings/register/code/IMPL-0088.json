@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The text exists only on the story branch. The agent shows the output to the User at the pause point of step 6, and the message of crap-score names the measure and the limit, so the User can still decide (no to fails_purpose). Each agent must still guess whether exit 1 is a fault and what to do after exit 2.",
   "commit": "b407b2d53bfdac6664dba9f5df0a8275d1b2022e",
-  "status": "open"
+  "status": "resolved"
 }

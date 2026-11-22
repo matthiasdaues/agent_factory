@@ -93,8 +93,12 @@ def test_cg_03_the_python_template_holds_the_tool_code_and_names_its_duty() -> N
 
 @pytest.mark.spec("CG-03-LN-02")
 def test_cg_03_no_file_of_the_setup_skill_names_the_factory_folder() -> None:
-    """Scenario: The project's commands refer to nothing under .agent-factory/."""
-    files = sorted(p for p in SETUP_SKILL_DIR.rglob("*") if p.is_file())
+    """Scenario: The project's commands refer to nothing under .agent-factory/.
+
+    SKILL.md stays in the Factory, so only the files that the skill copies count."""
+    files = sorted(
+        p for p in SETUP_SKILL_DIR.rglob("*") if p.is_file() and p.name != "SKILL.md"
+    )
     assert PYTHON_TEMPLATE in files
     for path in files:
         assert ".agent-factory/" not in path.read_text(), f"{path} names .agent-factory/"
@@ -362,10 +366,16 @@ def test_cg_01_the_user_confirms_each_write_and_the_gate_starts_last() -> None:
     assert "`enabled: false`" in step_4
     assert "`TEST_COMMAND`" in step_4
     step_5 = _step(5)
-    assert "gate-setup-proof --measure <name> --plant .current-work/gate-setup-proof/<name>/" in step_5
+    assert (
+        ".agent-factory/factory/scripts/gate-setup-proof --measure <name> "
+        "--plant .current-work/gate-setup-proof/plant/<name>/" in step_5
+    )
     assert "A failed proof keeps `enabled: false`" in step_5
     step_6 = _step(6)
-    assert "crap-score --all" in step_6
+    assert ".agent-factory/factory/scripts/crap-score --all" in step_6
+    assert "Exit `1` is the normal result of this step" in step_6
+    assert "writes no report" in step_6
+    assert "propose a higher `timeout_minutes`" in step_6
     assert "number of functions that would fail" in step_6
     assert "run time" in step_6
     assert "`measured_minutes` next to `timeout_minutes`" in step_6
@@ -443,5 +453,6 @@ def test_cg_12_the_test_strategy_agent_runs_the_setup_and_no_gate_on_a_story() -
     assert "Invoke `setup-crap-score`" in flat
     assert "runs `gate-setup-proof` and `crap-score --all` during the setup" in flat
     assert "runs no gate on a story" in flat
+    assert "The diff leaves out the entry `gates.crap-score`" in flat
     completion = _flat(_section(text, "Completion Criteria"))
     assert "gate ran" not in completion

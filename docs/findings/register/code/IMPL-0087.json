@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The text exists only on the story branch. Line 30 names the folder and says where it lies, so an agent still finds and runs both scripts (no to fails_purpose). Each setup run then costs a failed command and a path search, and the call differs from the one in crap-score/SKILL.md.",
   "commit": "b407b2d53bfdac6664dba9f5df0a8275d1b2022e",
-  "status": "open"
+  "status": "resolved"
 }

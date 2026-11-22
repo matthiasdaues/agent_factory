@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The text exists only on the story branch. Every value still waits for the User, and the pause point of the agent covers each change, so the file holds what the User confirmed (no to fails_purpose). An agent and a reader must still work out how step 3 relates to a setup that has already committed.",
   "commit": "b407b2d53bfdac6664dba9f5df0a8275d1b2022e",
-  "status": "open"
+  "status": "resolved"
 }

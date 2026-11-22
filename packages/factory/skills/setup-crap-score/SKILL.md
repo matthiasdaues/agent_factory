@@ -21,13 +21,13 @@ At each step, the agent brings a proposal that it has tried, and the User decide
 | The entry `gates.crap-score` in `docs/testing.yaml`                      | step 4, changed in steps 6 and 7 | step 7    |
 | One measuring command per measure, such as `scripts/crap-measure-python` | step 4                           | step 7    |
 | A `ready` command for a measure that tests against a running service     | step 4                           | step 7    |
-| The plant under `.current-work/gate-setup-proof/<name>/`                 | step 5                           | never     |
+| The plant under `.current-work/gate-setup-proof/plant/<name>/`           | step 5                           | never     |
 
 The setup writes no row of the exceptions register `docs/findings/exceptions.md`, because only the stakeholder writes it (BR-092). The setup writes no commit hook for the gate. A CRAP run starts the test suite, so the gate runs in the gate-check step and at the merge, never in a commit hook (DEC-05). The setup also proposes no test hook, because test hooks belong to the project (BR-029).
 
 The setup proposes the test commands of the measuring commands, and the project owns them once the User confirms (BR-023). No measuring command, `ready` command, or tool configuration that the setup writes names a path under the Factory's install folder. So a person can run each command without the Factory by setting `GATE_OUTPUT`.
 
-The Factory scripts `gate-setup-proof` and `crap-score` lie in the folder `scripts/` of the installed Factory, next to its folder `skills/`. From this file, the path is `../../scripts/`. Run both from the root of the project.
+Run the Factory scripts `.agent-factory/factory/scripts/gate-setup-proof` and `.agent-factory/factory/scripts/crap-score` from the root of the project.
 
 ## Step 1 — Read the project
 
@@ -77,7 +77,7 @@ Commit nothing. The proof reads the files from the working tree (BR-138, DEC-32)
 
 ## Step 5 — Run the proof
 
-Write the plant of each measure, then run the proof for it. The plant is the planted code and the planted tests for the language of the measure, in the folder `.current-work/gate-setup-proof/<name>/`. It holds two subfolders, and each mirrors the layout of the project: the path of a file below the subfolder is its path in the proof worktree (DEC-28, DEC-30).
+Write the plant of each measure, then run the proof for it. The plant is the planted code and the planted tests for the language of the measure, in the folder `.current-work/gate-setup-proof/plant/<name>/`. The folder `plant/` keeps every measure name away from the proof's own worktree at `.current-work/gate-setup-proof/worktree`. It holds two subfolders, and each mirrors the layout of the project: the path of a file below the subfolder is its path in the proof worktree (DEC-28, DEC-30).
 
 - `base/` holds one code file with the functions `proof_untested` and `proof_tested`, and a test file that covers `proof_tested` fully and does not call `proof_untested`. The code file must match the `files` pattern of the measure, and the test command must find the test file.
 - `gap/` holds one test file with a failing test. It tests the duty of the measuring command to exit non-zero after a failed test run.
@@ -98,7 +98,7 @@ def proof_untested(value):
 Run the proof for each measure:
 
 ```bash
-gate-setup-proof --measure <name> --plant .current-work/gate-setup-proof/<name>/
+.agent-factory/factory/scripts/gate-setup-proof --measure <name> --plant .current-work/gate-setup-proof/plant/<name>/
 ```
 
 The proof runs four checks in its own worktree: "Repeatable", "Catches CRAP", "Sees the folder", and "Reports a gap". It exits `0` when all four pass, `1` when one fails, and `2` when the call or the plant is wrong, such as a planted complexity above the threshold. Show the User the output of the proof.
@@ -110,10 +110,14 @@ A failed proof keeps `enabled: false`. Fix the measuring command or the plant wi
 Run `crap-score --all` on the whole project:
 
 ```bash
-crap-score --all --story-id setup --report-dir .current-work/crap-score/
+.agent-factory/factory/scripts/crap-score --all --story-id setup --report-dir .current-work/crap-score/
 ```
 
 Start it as a background job and wait for its exit, because a foreground command call of an agent CLI can end before `timeout_minutes` runs out (BR-134). Take the time from the start to the exit.
+
+Exit `1` is the normal result of this step. It means that some functions lie above the threshold, and the report lists them with their scores. Exit `0` means that no function lies above the threshold. Both exits write the report `.current-work/crap-score/setup.json`.
+
+Exit `2` means that the gate could not measure, and it writes no report (BR-133). Show the User the message of `crap-score`, then go back to the step whose setting failed. When the time limit ran out, propose a higher `timeout_minutes`, write it after the User confirms, and run step 6 again. For any other cause, such as a failed measuring command, fix the setup with the User in step 4 and run the proof of step 5 again.
 
 Report the number of functions that would fail, the run time, and the path of the report. From these numbers, the User confirms the final threshold and sets `timeout_minutes` from the run time. `timeout_minutes` must be at least the measured run time.
 
