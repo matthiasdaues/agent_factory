@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0089",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "function",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/test-strategy-agent.md:77-78",
+  "story": "ST-0448",
+  "finding": "Workflow step 2 of the test-strategy agent now invokes setup-crap-score, and the skill writes docs/testing.yaml and commits it in its step 7. Workflow step 3 then shows 'the proposal' as a diff against docs/testing.yaml and writes the file only after the stakeholder confirms. By then the entry gates.crap-score is written, confirmed and committed. So step 3 either shows a diff without that entry or asks the stakeholder to confirm the same values a second time. The text does not say which. Fix: in step 3, say that the diff covers the gates other than gates.crap-score, because setup-crap-score confirms and commits that entry itself (BR-139).",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The text exists only on the story branch. Every value still waits for the User, and the pause point of the agent covers each change, so the file holds what the User confirmed (no to fails_purpose). An agent and a reader must still work out how step 3 relates to a setup that has already committed.",
+  "commit": "b407b2d53bfdac6664dba9f5df0a8275d1b2022e",
+  "status": "open"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0087",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "interface",
+  "severity": "minor",
+  "artifact": "packages/factory/skills/setup-crap-score/SKILL.md:30-113",
+  "story": "ST-0448",
+  "finding": "An agent that runs the two code blocks of steps 5 and 6 as written gets 'command not found'. The blocks call the bare names gate-setup-proof and crap-score from the root of the project, and the installed scripts folder is not on PATH. Line 30 gives the path only relative to SKILL.md, as ../../scripts/, so the agent must work out .agent-factory/factory/scripts/ by itself. crap-score/SKILL.md and the other skills write the full path .agent-factory/factory/scripts/<script>. The text avoids that path because the test of CG-03-LN-02 reads every file under setup-crap-score/, also SKILL.md, which the skill never copies into a project. The developer recorded that drift as the first row of docs/spec/work/spec-feedback-ST-0448.md. Fix: once the test-strategy agent narrows CG-03-LN-02 to the files that the skill copies, write both calls in SKILL.md as .agent-factory/factory/scripts/gate-setup-proof and .agent-factory/factory/scripts/crap-score, as crap-score/SKILL.md does.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The text exists only on the story branch. Line 30 names the folder and says where it lies, so an agent still finds and runs both scripts (no to fails_purpose). Each setup run then costs a failed command and a path search, and the call differs from the one in crap-score/SKILL.md.",
+  "commit": "b407b2d53bfdac6664dba9f5df0a8275d1b2022e",
+  "status": "open"
+}
