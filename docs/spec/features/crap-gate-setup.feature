@@ -1041,6 +1041,7 @@ Feature: CRAP Gate Setup
 
     Scenario Outline: A key changed at the story head does not change the branch
       Given docs/factory-settings.yaml on feature/login has integration_branch: dev
+      And docs/testing.yaml on dev has the threshold 8
       And docs/testing.yaml on main has the threshold 30
       And story/ST-0350 sets integration_branch to <value> in its docs/factory-settings.yaml and raises the threshold to 30
       And story/ST-0350 changes one line inside tree_severity, which then scores 9
@@ -1056,6 +1057,7 @@ Feature: CRAP Gate Setup
 
     Scenario: A tag named like the feature branch does not move the base
       Given the branch feature/login names no integration_branch
+      And docs/testing.yaml on dev has the threshold 8
       And a tag feature/login points at a commit of story/ST-0350 whose docs/factory-settings.yaml has integration_branch: loose
       And docs/testing.yaml on the branch loose has the threshold 30
       And story/ST-0350 changes one line inside tree_severity, which then scores 9
