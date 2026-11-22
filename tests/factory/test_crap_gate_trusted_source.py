@@ -677,6 +677,36 @@ def test_cg_14_a_key_changed_at_the_head_does_not_change_the_branch(repo, value)
     assert "above the threshold 8" in proc.stderr
 
 
+@pytest.mark.spec("CG-14-IT-08")
+def test_cg_14_a_tag_named_like_the_base_does_not_change_the_settings(repo):
+    """DEC-78: --base takes the branch feature/login, not a tag of the same name at a story commit.
+
+    The tag points at a story commit whose key names the branch loose, and
+    loose holds a threshold of 30. The branch feature/login names no key, so
+    the gate takes the threshold 8 of dev.
+    """
+    at_head(repo, {FACTORY_SETTINGS: 'integration_branch: "loose"\n', "docs/testing.yaml": gate_yaml(30)},
+            message="name the branch loose")
+    repo.git("branch", "loose")
+    repo.git("update-ref", f"refs/tags/{TARGET}", "HEAD")
+    change_tree(repo)
+    proc = repo.run(*GATE_CALL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert "above the threshold 8" in proc.stderr
+
+
+@pytest.mark.spec("CG-14-IT-08")
+def test_cg_14_a_tag_named_like_the_base_at_the_head_does_not_hide_the_changed_lines(repo):
+    """DEC-78: a tag feature/login at the story head leaves the diff from the branch feature/login."""
+    change_tree(repo)
+    repo.git("update-ref", f"refs/tags/{TARGET}", "HEAD")
+    proc = repo.run(*GATE_CALL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert [row["function"] for row in repo.report()] == ["tree_severity"]
+
+
 # --- CG-14-IT-09: dispatch merge-story with the real premerge-check ---------
 
 WAVE_STORY = f"""---

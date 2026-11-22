@@ -916,9 +916,9 @@ class TrustedGateSource(ABC):
 def _settings_text(root: Path, base: str | None) -> tuple[str | None, str]:
     """docs/factory-settings.yaml as text, or None without the file, and where it was read (DEC-77).
 
-    With *base*, the file comes from the tree of the revision *base* through
-    git, so the story under judgement cannot change it. Without *base*, it
-    comes from the folder *root*.
+    With *base*, a commit that resolve_base gave, the file comes from its
+    tree through git, so the story under judgement cannot change it. Without
+    *base*, it comes from the folder *root*.
     """
     if base is None:
         try:
@@ -928,13 +928,10 @@ def _settings_text(root: Path, base: str | None) -> tuple[str | None, str]:
         except (OSError, UnicodeDecodeError) as exc:
             raise GateError(f"cannot read {FACTORY_SETTINGS}: {exc}") from exc
     where = f"{FACTORY_SETTINGS} at the revision {base}"
-    commit = _resolve(root, f"{base}^{{commit}}")
-    if commit is None:
-        raise GateError(f"the revision {base} of --base names no commit, so {FACTORY_SETTINGS} cannot be read")
     path = FACTORY_SETTINGS.as_posix()
-    if not git(root, "ls-tree", "--full-tree", "--name-only", commit, "--", path).strip():
+    if not git(root, "ls-tree", "--full-tree", "--name-only", base, "--", path).strip():
         return None, where
-    return git(root, "show", f"{commit}:{path}"), where
+    return git(root, "show", f"{base}:{path}"), where
 
 
 def _is_branch_name(root: Path, value: str) -> bool:
@@ -1079,6 +1076,19 @@ def _branch_tip(root: Path, branch: str) -> str | None:
         cwd=root, capture_output=True, text=True, check=False,
     )
     return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def resolve_base(root: Path, base: str) -> str:
+    """The commit of --base, resolved once for every later git call (DEC-78).
+
+    A local branch of the name wins, because git resolves a bare name as a
+    tag first, and a story can write a tag. Any other revision, such as a
+    SHA, resolves through git rev-parse.
+    """
+    commit = _branch_tip(root, base) or _resolve(root, f"{base}^{{commit}}")
+    if commit is None:
+        raise GateError(f"the revision {base} of --base names no commit")
+    return commit
 
 
 def _gate_entry(data: object, where: str) -> object:
@@ -1282,12 +1292,13 @@ def main(argv: list[str] | None = None, source: TrustedGateSource | None = None)
     try:
         with stop_signals():
             folder = read_settings(root)
+            base = resolve_base(root, args.base) if args.base is not None else None
             if source is None:
-                source = open_source(root, args.settings_from_folder, args.base)
+                source = open_source(root, args.settings_from_folder, base)
             trusted = source.gate_values(folder)
             settings = apply_trusted(folder, trusted)
             exceptions, register_notices = source.exceptions()
-            changes = changed_lines(root, args.base) if args.base is not None else None
+            changes = changed_lines(root, base) if base is not None else None
             rows = measure_all(settings, root)
     except GateError as exc:
         print(f"crap-score: cannot measure: {exc}", file=sys.stderr)
