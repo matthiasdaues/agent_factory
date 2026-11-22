@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 import subprocess
+import sys
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from conftest import load_script
@@ -144,6 +147,41 @@ def test_cg_04_crap_score_hands_files_and_exclude_to_the_measuring_command(
 
     assert (tmp_path / "env.files").read_text() == "src/**"
     assert (tmp_path / "env.exclude").read_text() == expected
+
+
+CALLER_STUB = """\
+#!/bin/sh
+printf '%s' "${VIRTUAL_ENV-unset}" > "$ENV_LOG.venv"
+printf '%s' "$PATH" > "$ENV_LOG.path"
+printf '%s' "$GATE_FILES" > "$ENV_LOG.files"
+echo "[]" > "$GATE_OUTPUT"
+"""
+
+
+@pytest.mark.spec("CG-04-CT-03")
+def test_cg_04_crap_score_runs_the_measuring_command_without_its_own_uv_environment(
+    tmp_path, monkeypatch
+):
+    """IMPL-0091: uv run --script names the gate's environment in VIRTUAL_ENV and puts it first on PATH.
+
+    The measuring command gets the caller's environment without both, plus
+    GATE_OUTPUT, GATE_FILES and GATE_EXCLUDE, so `python` in it names the
+    project's interpreter. The ready command gets the same environment.
+    """
+    stub = tmp_path / "caller-stub"
+    stub.write_text(CALLER_STUB)
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+    project_bin = str(tmp_path / "project" / "bin")
+    monkeypatch.setenv("ENV_LOG", str(tmp_path / "env"))
+    monkeypatch.setenv("VIRTUAL_ENV", sys.prefix)
+    monkeypatch.setenv("PATH", os.pathsep.join([str(Path(sys.prefix) / "bin"), project_bin, "/usr/bin", "/bin"]))
+    measure = cs.Measure("python", "src/**", str(stub))
+
+    assert cs.run_measure(measure, tmp_path, cs.Clock(1)) == []
+
+    assert (tmp_path / "env.venv").read_text() == "unset"
+    assert (tmp_path / "env.path").read_text() == os.pathsep.join([project_bin, "/usr/bin", "/bin"])
+    assert (tmp_path / "env.files").read_text() == "src/**"
 
 
 @pytest.mark.spec("CG-04-CT-05")

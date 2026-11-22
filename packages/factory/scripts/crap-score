@@ -21,7 +21,9 @@ Call
   array with one row per function. GATE_FILES holds the measure's `files`
   pattern and GATE_EXCLUDE its `exclude` patterns, one pattern per line, so
   the command can leave out the files the gate drops (DEC-65). The gate
-  still applies both to the rows itself.
+  still applies both to the rows itself. Every command gets the caller's
+  environment without the gate's own uv environment, so `python` in a
+  command starts the project's interpreter.
 
 Runs
   For each measure in list order, its `ready` command, when it has one, and
@@ -434,12 +436,38 @@ def measure_lock(measure: Measure, root: Path, clock: Clock) -> Iterator[None]:
         os.close(fd)
 
 
+def caller_environment() -> dict[str, str]:
+    """The environment of the caller, without the parts that `uv run --script` added.
+
+    uv names the gate's own environment in VIRTUAL_ENV and puts its bin
+    folder on PATH. Both go, so `python` in a command starts the project's
+    interpreter, not the one that holds the gate's packages. uv keeps no copy
+    of a VIRTUAL_ENV that the caller had set, so none is set again. The
+    template crap-measure-python of setup-crap-score holds the same function.
+    """
+    own = os.path.realpath(sys.prefix)
+    own_bin = os.path.join(own, "bin")
+    env = dict(os.environ)
+    if "VIRTUAL_ENV" in env and os.path.realpath(env["VIRTUAL_ENV"]) == own:
+        del env["VIRTUAL_ENV"]
+    if "PATH" in env:
+        env["PATH"] = os.pathsep.join(
+            entry for entry in env["PATH"].split(os.pathsep)
+            if not entry or os.path.realpath(entry) != own_bin
+        )
+    return env
+
+
 def run_measure(measure: Measure, root: Path, clock: Clock) -> object:
-    """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129)."""
+    """Run the `ready` command and the measuring command of *measure*; return the JSON it wrote (BR-129).
+
+    Both commands get the caller's environment without the gate's own uv
+    environment, plus GATE_OUTPUT, GATE_FILES and GATE_EXCLUDE.
+    """
     with tempfile.TemporaryDirectory(prefix="crap-score-") as folder:
         output = Path(folder) / "rows.json"
         env = {
-            **os.environ,
+            **caller_environment(),
             "GATE_OUTPUT": str(output),
             "GATE_FILES": measure.files,
             "GATE_EXCLUDE": "\n".join(measure.exclude),

@@ -46,7 +46,9 @@ Duty
 Test command
   TEST_COMMAND below holds the project's test command. setup-crap-score
   fills it in. The command runs in the folder this command runs in, and
-  coverage measures every Python process it starts.
+  coverage measures every Python process it starts. It gets the
+  environment of the caller without this command's own uv environment, so
+  a test command that starts `python` runs the project's interpreter.
 """
 
 from __future__ import annotations
@@ -189,6 +191,28 @@ def code_files(root: Path) -> list[Path]:
     return sorted(files)
 
 
+def caller_environment() -> dict[str, str]:
+    """The environment of the caller, without the parts that `uv run --script` added.
+
+    uv names this command's own environment in VIRTUAL_ENV and puts its bin
+    folder on PATH. Both go, so `python` in TEST_COMMAND starts the
+    project's interpreter, not the one that holds radon and coverage.py.
+    uv keeps no copy of a VIRTUAL_ENV that the caller had set, so none is
+    set again. crap-score holds the same function.
+    """
+    own = os.path.realpath(sys.prefix)
+    own_bin = os.path.join(own, "bin")
+    env = dict(os.environ)
+    if "VIRTUAL_ENV" in env and os.path.realpath(env["VIRTUAL_ENV"]) == own:
+        del env["VIRTUAL_ENV"]
+    if "PATH" in env:
+        env["PATH"] = os.pathsep.join(
+            entry for entry in env["PATH"].split(os.pathsep)
+            if not entry or os.path.realpath(entry) != own_bin
+        )
+    return env
+
+
 def run_tests(root: Path, work: Path) -> dict:
     """Run TEST_COMMAND under coverage; return the coverage.json files table."""
     site = work / "site"
@@ -207,7 +231,7 @@ def run_tests(root: Path, work: Path) -> dict:
         encoding="utf-8",
     )
 
-    env = {k: v for k, v in os.environ.items() if not k.startswith("COVERAGE_")}
+    env = {k: v for k, v in caller_environment().items() if not k.startswith("COVERAGE_")}
     env["COVERAGE_PROCESS_START"] = str(rcfile)
     env["PYTHONPATH"] = os.pathsep.join(
         [str(site), *filter(None, [os.environ.get("PYTHONPATH")])]

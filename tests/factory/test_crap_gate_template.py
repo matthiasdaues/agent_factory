@@ -70,7 +70,7 @@ def test_parse_row():
 """
 
 
-def _write_project(root: Path) -> Path:
+def _write_project(root: Path, test_command: list[str] | None = None) -> Path:
     """Write the demo project and the filled-in template; return the command."""
     (root / "src").mkdir()
     (root / "src" / "parser.py").write_text(PARSER)
@@ -78,7 +78,8 @@ def _write_project(root: Path) -> Path:
     (root / "scripts" / "import-orders").write_text(IMPORT_ORDERS)
     (root / "tests").mkdir()
     (root / "tests" / "test_parser.py").write_text(TEST_PARSER)
-    test_command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
+    if test_command is None:
+        test_command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"]
     text, count = re.subn(
         r"^TEST_COMMAND: list\[str\] = \[\]$",
         f"TEST_COMMAND: list[str] = {test_command!r}",
@@ -350,3 +351,22 @@ def test_cg_03_the_template_reports_a_method_of_a_nested_class(tmp_path: Path) -
     assert result.returncode == 0, result.stderr
     row = _row(_rows(tmp_path), "src/parser.py", "Parser.Options.strict")
     assert (row["start_line"], row["end_line"], row["complexity"]) == (8, 11, 2)
+
+
+@pytest.mark.spec("CG-03-IT-01")
+def test_cg_03_the_template_runs_the_test_command_in_the_environment_of_its_caller(
+    tmp_path: Path,
+) -> None:
+    """Scenario: The measuring command writes its rows to the path in GATE_OUTPUT.
+
+    IMPL-0091: TEST_COMMAND names the interpreter by name, so `python3` must
+    resolve on the caller's PATH, not in the template's own uv environment,
+    which holds radon and coverage.py but not pytest.
+    """
+    _write_project(tmp_path, ["python3", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"])
+    project_bin = str(Path(sys.executable).parent)
+
+    result = _run(tmp_path, PATH=os.pathsep.join([project_bin, os.environ["PATH"]]))
+
+    assert result.returncode == 0, result.stderr
+    _row(_rows(tmp_path), "src/parser.py", "Parser.parse")
