@@ -628,3 +628,12 @@ The grid of `remark-deck` has no link markup, so the guided tour shows repositor
 `guard-human-fields` has the same flaw: it refused a here-document that only edited `docs/spec/architecture.dsl`, because the script's text named `docs/findings/exceptions.md`.
 
 **Action:** check `DANGEROUS_PATTERNS` against the blanked command as well, with the same fallback to the whole command when it contains `$(` or a backtick, and add cases to `tests/factory/test_block_dangerous_git.py`. Apply the same rule to the shell check of `guard-human-fields`.
+
+## T-0430 — crap-score refuses an exclude on the integration branch that is no list
+
+- status: open
+- source: spec review of the drift rows of ST-0450 (run `feature/crap-gate-trusted-source`)
+
+BR-128 says that an `exclude` of a measure on the integration branch that is no list makes `crap-score` exit `2`. `crap-score` reads `item.get("exclude") or []`, so an `exclude` of `""`, `{}`, `0` or `false` on the branch counts as an empty list and passes. The minor findings IMPL-0095 and IMPL-0097 of the ST-0450 review lie in the same reader.
+
+**Action:** cut one story that makes the reader exit `2` for an `exclude` that is no list, and folds in IMPL-0095 and IMPL-0097.
