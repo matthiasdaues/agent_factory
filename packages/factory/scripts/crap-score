@@ -1110,12 +1110,17 @@ class GitRefSource(TrustedGateSource):
     The reader resolves the tip of the local branch once and reads every
     value from that commit, so a tag, a remote ref or a revision expression
     never stands in for the branch (DEC-77). A branch that the key names must
-    exist and must not be HEAD, the commit under judgement. Only the default
-    dev may be missing, and then the values come from the folder and no
-    register is read (DEC-13, DEC-76).
+    exist. With --base, the tip must also not be HEAD, the commit under
+    judgement: a story would then be its own trusted source. With --all, the
+    checked-out integration branch is HEAD by design (DEC-76, DEC-79). Only
+    the default dev may be missing, and then the values come from the folder
+    and no register is read (DEC-13, DEC-76).
     """
 
-    def __init__(self, root: Path, branch: str, named: bool, settings_from_folder: bool = False) -> None:
+    def __init__(
+        self, root: Path, branch: str, named: bool, settings_from_folder: bool = False,
+        refuse_head_tip: bool = True,
+    ) -> None:
         self.root = root
         self.branch = branch
         self.settings_from_folder = settings_from_folder
@@ -1125,7 +1130,7 @@ class GitRefSource(TrustedGateSource):
                 f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} names the branch {branch}, "
                 f"and git holds no branch {branch}"
             )
-        if named and tip == _resolve(root, "HEAD^{commit}"):
+        if named and refuse_head_tip and tip == _resolve(root, "HEAD^{commit}"):
             raise GateError(
                 f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} names the branch {branch}, whose tip is HEAD, "
                 "the commit under judgement; a story cannot be its own trusted source"
@@ -1169,9 +1174,11 @@ def open_source(root: Path, settings_from_folder: bool, base: str | None = None)
     (DEC-77). The setup paths read it from the folder: --all, and
     --settings-from-folder, which only gate-setup-proof passes, because its
     first commit holds the uncommitted file of the working tree (DEC-73).
+    The check that refuses a named branch whose tip is HEAD runs only with
+    *base*, where a story is judged (DEC-79).
     """
     branch, named = integration_branch(root, None if settings_from_folder else base)
-    return GitRefSource(root, branch, named, settings_from_folder)
+    return GitRefSource(root, branch, named, settings_from_folder, refuse_head_tip=base is not None)
 
 
 # --- score -----------------------------------------------------------------

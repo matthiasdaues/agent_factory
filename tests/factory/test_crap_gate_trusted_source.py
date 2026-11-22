@@ -660,6 +660,29 @@ def test_cg_14_integration_branch_names_the_branch_of_every_trusted_value(repo, 
 
 
 @pytest.mark.spec("CG-14-IT-08")
+def test_cg_14_all_on_the_checked_out_integration_branch_judges_with_its_values(repo):
+    """Scenario Outline: The key integration_branch names the branch that the gate reads, row
+    "in the folder of crap-score | has integration_branch: main | --all | main" (DEC-68, DEC-77, DEC-79).
+
+    The checkout is main, so the tip of main is HEAD, and setup step 6 runs there. main holds
+    a threshold of 8, and the uncommitted folder holds 30, as setup step 4 writes it. Both
+    functions score 9, so the gate judges with 8 and both fail. A gate that read the folder
+    would pass them.
+    """
+    repo.git("checkout", "-q", "main")
+    repo.write(FACTORY_SETTINGS, "integration_branch: main\n")
+    repo.write("docs/testing.yaml", gate_yaml(8))
+    repo.commit("trusted settings on main")
+    repo.write("docs/testing.yaml", gate_yaml(30))
+    proc = repo.run("--all", "--story-id", STORY_ID, "--report-dir", ".current-work/crap-score/")
+    assert "whose tip is HEAD" not in proc.stderr, proc.stderr
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert {row["function"]: row["pass_fail"] for row in repo.report()} == {
+        "tree_severity": "fail", "bug_bar_level": "fail",
+    }
+
+
+@pytest.mark.spec("CG-14-IT-08")
 @pytest.mark.parametrize("value", ["main", f"{BRANCH}~1"], ids=["main", "parent of the own branch"])
 def test_cg_14_a_key_changed_at_the_head_does_not_change_the_branch(repo, value):
     """DEC-77, IMPL-0094: with --base, the key comes from the revision that --base names, here dev.
