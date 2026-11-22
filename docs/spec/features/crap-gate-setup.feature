@@ -338,6 +338,13 @@ Feature: CRAP Gate Setup
         | overload from typing as ov | @ov              |
       # @packages/factory/skills/setup-crap-score/crap-measure-python::row_name
 
+    Scenario: A function under an overload of another module gets its row
+      Given packages/server/backend/src/orders/box.py imports overload from mylib
+      And the class Box holds the method scale decorated with @overload
+      When crap-score runs the measure python
+      Then the rows hold a row with the function Box.scale
+      # @packages/factory/skills/setup-crap-score/crap-measure-python::overload_names
+
     Scenario: A script without a file ending is measured like any other file
       Given the measure python matches packages/factory/scripts/*
       When crap-score runs the measure python

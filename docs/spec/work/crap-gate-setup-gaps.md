@@ -3,7 +3,7 @@
 Generated: 2026-11-21
 Source: [crap-gate-setup.md](../../proposals/crap-gate-setup.md), at commit `61426f3a6c464879ee7e7c789019fd2b0701aa19` on `dev`, with the decisions DEC-09 to DEC-67 of its working tree
 
-The stakeholder approved the scope-map rows and the feature file and decided every open item. The decisions are DEC-09 to DEC-67 in the Appendix of the proposal. The feature file has 13 Rules and 148 Scenarios. [Closed items](#closed-items) names the decision or the built code that settles each item, and the Scenario that states it. No item is open.
+The stakeholder approved the scope-map rows and the feature file and decided every open item. The decisions are DEC-09 to DEC-67 in the Appendix of the proposal. The feature file has 13 Rules and 149 Scenarios. [Closed items](#closed-items) names the decision or the built code that settles each item, and the Scenario that states it. No item is open.
 
 ## Actor-Goal Matrix
 
