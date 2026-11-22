@@ -88,6 +88,21 @@ if [ -n "$TOP" ] && [ -n "$CHARTER" ] && [ -f "$CHARTER" ]; then
   done
 fi
 
+# BR-024: an agent may run named test files under tests/, so a red or green
+# check does not need the whole suite. The command is `uv run pytest`, then
+# options and at least one file or node ID under tests/, and nothing else.
+# A bare `uv run pytest`, a shell operator, a quote, a `$` or a path outside
+# tests/ never matches, so the full suite still runs only through the hooks.
+SCOPED_TEST_OPT='-[-A-Za-z0-9=:]+( [A-Za-z0-9_.=:-]+)?'
+SCOPED_TEST_FILE='tests/[A-Za-z0-9_./-]+\.py(::[A-Za-z0-9_.,=-]+(\[[A-Za-z0-9_.,=-]+\])?)*'
+# `--directory <path>` may name the worktree to run in, because an agent's
+# shell may start each call in another folder and a `cd` makes a compound
+# command.
+SCOPED_TEST_RE="^uv run( --directory [A-Za-z0-9_./-]+)? pytest( ${SCOPED_TEST_OPT})*( ${SCOPED_TEST_FILE})+( ${SCOPED_TEST_OPT})*$"
+if [[ "$COMMAND" =~ $SCOPED_TEST_RE ]] && [[ "$COMMAND" != *..* ]]; then
+  exit 0
+fi
+
 if echo "$COMMAND" | grep -qE '^git[[:space:]]+commit([[:space:]]|$)'; then
   if [ "$(git rev-parse --git-dir 2>/dev/null)" != "$(git rev-parse --git-common-dir 2>/dev/null)" ] \
      && [ -n "$TOP" ]; then
@@ -184,6 +199,15 @@ if echo "$COMMAND" | grep -qE '^git[[:space:]]+merge[[:space:]]'; then
   fi
 fi
 
+# BR-024: a command position is the start of a line or the place after
+# ; & | ( or a backtick, followed by words that lead a command without being
+# it: an assignment NAME=value, env, nohup, exec or time.
+TEST_AT='(^|[;&|(`])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|env|nohup|exec|time)[[:space:]]+)*'
+# An option of `uv run`, with or without a value, such as --directory /x.
+UV_OPT=' +-[^[:space:]]+( +[^-[:space:]][^[:space:]]*)?'
+# The end of a test command word: a space, the end, or ; & | ) or a backtick.
+TEST_END='([[:space:];&|)`]|$)'
+
 DANGEROUS_PATTERNS=(
   "git push"
   "git reset --hard"
@@ -202,22 +226,91 @@ DANGEROUS_PATTERNS=(
   "core\.hooksPath"
   "pre-commit uninstall"
   "SKIP=.*(git commit|pre-commit)"
-  # --- test commands (BR-024: tests run via hooks only) ---
-  "^pytest([[:space:]]|\$)"
-  "^python[0-9]* -m pytest"
-  "^uv run pytest"
+)
+
+# --- test commands (BR-024: tests run via hooks only) ---
+# These patterns read TEST_SCAN, not COMMAND: the command with every quoted
+# string and every here-document body blanked out, so a commit message or a
+# grep pattern that names a test command passes. A command that holds `$(` or
+# a backtick is read whole, because a command substitution runs even inside
+# double quotes.
+TEST_PATTERNS=(
+  # Each pattern starts at a command position (TEST_AT), so a test run after
+  # `cd x &&`, `;`, a pipe or `(` is blocked too, and so is `uv run` with its
+  # own options before pytest. A quoted mention inside another command, such
+  # as a grep pattern, does not stand at a command position and passes.
+  "${TEST_AT}pytest${TEST_END}"
+  "${TEST_AT}python[0-9.]* +-m +pytest"
+  "${TEST_AT}uvx +pytest${TEST_END}"
+  "${TEST_AT}uv +run(${UV_OPT})* +(python[0-9.]* +-m +)?pytest${TEST_END}"
   "npm test"
   "npm run test"
   "yarn test"
-  "^go test"
-  "^cargo test"
-  "^jest([[:space:]]|\$)"
-  "^vitest([[:space:]]|\$)"
-  "^mocha([[:space:]]|\$)"
+  "${TEST_AT}go +test"
+  "${TEST_AT}cargo +test"
+  "${TEST_AT}jest${TEST_END}"
+  "${TEST_AT}vitest${TEST_END}"
+  "${TEST_AT}mocha${TEST_END}"
 )
+
+# blank_quoted prints its input with the inside of each '…' and "…" string
+# and each here-document body replaced by spaces; newlines stay, so a line
+# start still counts as a command position.
+blank_quoted() {
+  awk -v sq="'" 'BEGIN { RS = "\001" }
+  {
+    s = $0; n = length(s); i = 1; q = ""; out = ""
+    while (i <= n) {
+      c = substr(s, i, 1)
+      if (q != "") {
+        if (c == q) { q = ""; out = out c }
+        else if (c == "\n") { out = out "\n" }
+        else { out = out " " }
+        i++; continue
+      }
+      if (c == sq || c == "\"") { q = c; out = out c; i++; continue }
+      if (c == "\\") { out = out "  "; i += 2; continue }
+      if (substr(s, i, 2) == "<<") {
+        rest = substr(s, i + 2)
+        if (match(rest, /^-?[ \t]*["'"'"']?[A-Za-z_][A-Za-z0-9_]*["'"'"']?/)) {
+          tag = substr(rest, RSTART, RLENGTH)
+          gsub(/[- \t"'"'"']/, "", tag)
+          eol = index(substr(s, i), "\n")
+          if (eol == 0) { out = out substr(s, i); break }
+          out = out substr(s, i, eol - 1) "\n"
+          i += eol
+          while (i <= n) {
+            eol = index(substr(s, i), "\n")
+            line = eol ? substr(s, i, eol - 1) : substr(s, i)
+            i = eol ? i + eol : n + 1
+            sub(/^\t+/, "", line)
+            if (line == tag) { out = out tag "\n"; break }
+            out = out "\n"
+          }
+          continue
+        }
+      }
+      out = out c; i++
+    }
+    printf "%s", out
+  }'
+}
 
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do
   if echo "$COMMAND" | grep -qE -- "$pattern"; then
+    REASON="BLOCKED: '$COMMAND' matches dangerous pattern '$pattern'. The user has prevented you from doing this."
+    echo "$REASON" >&2
+    printf '{"permissionDecision":"deny","permissionDecisionReason":%s}\n' "$(printf '%s' "$REASON" | jq -Rs .)"
+    exit 2
+  fi
+done
+
+case "$COMMAND" in
+  *'$('* | *'`'*) TEST_SCAN="$COMMAND" ;;
+  *) TEST_SCAN=$(printf '%s' "$COMMAND" | blank_quoted) ;;
+esac
+for pattern in "${TEST_PATTERNS[@]}"; do
+  if printf '%s\n' "$TEST_SCAN" | grep -qE -- "$pattern"; then
     REASON="BLOCKED: '$COMMAND' matches dangerous pattern '$pattern'. The user has prevented you from doing this."
     echo "$REASON" >&2
     printf '{"permissionDecision":"deny","permissionDecisionReason":%s}\n' "$(printf '%s' "$REASON" | jq -Rs .)"
