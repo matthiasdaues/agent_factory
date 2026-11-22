@@ -11,7 +11,7 @@ QA strategy trace: [crap-gate-setup-qa-strategy.md](../docs/spec/work/crap-gate-
 
 Dependency order: E1 has no dependency and goes first, because the new `crap-score` exits 2 without a gate entry, and the built default would run it in every project without one (DEC-48). E2 builds the new verdict. E3, E4 and E5 then run in parallel. E6 runs last and outside the run of `feature/crap-gate-setup`: it starts after that branch merges into `dev` and `update-factory` installs the new scripts (DEC-49).
 
-Phase 4 numbered the stories ST-0433 to ST-0449 with `next-id ST`. [§ Story waves](#story-waves) shows the expected order.
+Phase 4 numbered the stories ST-0433 to ST-0449 with `next-id ST`. ST-0450 came later, with DEC-67 to DEC-76 and the Rule CG-14. [§ Story waves](#story-waves) shows the expected order.
 
 ## Story waves
 
@@ -25,7 +25,8 @@ Phase 4 numbered the stories ST-0433 to ST-0449 with `next-id ST`. [§ Story wav
 | W4   | ST-0439, ST-0440, ST-0445, ST-0447 | ST-0439 shares `premerge-check` and `implementation-agent.md` with ST-0434 and ST-0442; ST-0440 shares `crap-score` with ST-0437 and ST-0438; ST-0445 needs ST-0438 |
 | W5   | ST-0443, ST-0448                   | ST-0443 needs ST-0438, ST-0439 and ST-0442; ST-0448 needs ST-0446 and ST-0447                                                                                       |
 | W6   | ST-0444                            | ST-0444 needs ST-0442 and ST-0443                                                                                                                                   |
-| W7   | ST-0449                            | alone, after `feature/crap-gate-setup` merges into `dev` and `update-factory` installs it (DEC-49)                                                                  |
+| W7   | ST-0450                            | alone, in its own run after `feature/crap-gate-setup` merges into `dev`; it changes `crap-score` and `gate-setup-proof` (DEC-67 to DEC-76)                          |
+| W8   | ST-0449                            | alone, after the run of ST-0450 merges into `dev` and `update-factory` installs it (DEC-49)                                                                         |
 
 ## Terms used in every EPIC
 
@@ -203,13 +204,19 @@ E1, for ST-0439 only: the new `crap-score` exits 2 without an entry, so the defa
 - A run that cannot measure writes no report and leaves an earlier report unchanged.
 - The verdict is the exit code. No step reads the report to decide a merge.
 
-§§E2SIZE§§ | Tier | Spawns | Goal | Basis |
-| \----- | ------------------------------------------------------------------------------ | -------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ST-0435 | Measure Python code, also scripts without an ending, with the Factory template | standard | 3 | A person runs the Python template in a project without `.agent-factory/` and gets the six-field rows in `GATE_OUTPUT`, or a non-zero exit that names what it cannot measure. | The `radon` and coverage.py code lives inside `crap-score`; no template exists. Adds the template and its tests, and the `COVERAGE_*` clearing in `tests/conftest.py`. |
-| ST-0436 | Get a verdict on the changed functions of a story | strong | 3 | `crap-score --base feature/login` exits 1 and names each changed function above the threshold, passes unchanged ones, and exits 2 when its settings are missing or a measuring command fails. | `crap-score` walks `*.py`, reads `coverage.json`, takes a file list and a default threshold. Rewrites it around the measures and rewrites `crap-score/SKILL.md`; deletes the tests of the old code. |
-| ST-0437 | Refuse a measuring-command report in the wrong shape | standard | 2 | When a report is not an array of valid rows or names one function twice, `crap-score` judges nothing, exits 2, and names the measure and the fault. | ST-0436 reads the rows. Adds the shape check and the two duplicate checks. |
-| ST-0438 | Run a measure that needs a running service, within one time limit | standard | 3 | A measure with a `ready` command runs its `ready` command first, never overlaps a second run of the same measure, and stops with exit 2 when the time limit runs out. | ST-0436 runs the measuring commands. Adds the `ready` commands, the time limit over all commands, and the lock per measure. |
-| ST-0439 | Get the same verdict in the gate-check step and at the merge | standard | 3 | The gate-check step and `premerge-check` call `crap-score --base`, so a story that changes only scripts without an ending is scored at the merge and its report stays in the primary checkout. | `premerge-check` passes the `.py` files of the diff and a threshold; the agent text runs `crap-score` in the foreground. Changes the call, the report folder, and the agent text. |
+### Size
+
+5 stories.
+
+### Building-Block Inventory
+
+| Story   | Capability                                                                     | Tier     | Spawns | Goal                                                                                                                                                                                           | Basis                                                                                                                                                                                               |
+| ------- | ------------------------------------------------------------------------------ | -------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ST-0435 | Measure Python code, also scripts without an ending, with the Factory template | standard | 3      | A person runs the Python template in a project without `.agent-factory/` and gets the six-field rows in `GATE_OUTPUT`, or a non-zero exit that names what it cannot measure.                   | The `radon` and coverage.py code lives inside `crap-score`; no template exists. Adds the template and its tests, and the `COVERAGE_*` clearing in `tests/conftest.py`.                              |
+| ST-0436 | Get a verdict on the changed functions of a story                              | strong   | 3      | `crap-score --base feature/login` exits 1 and names each changed function above the threshold, passes unchanged ones, and exits 2 when its settings are missing or a measuring command fails.  | `crap-score` walks `*.py`, reads `coverage.json`, takes a file list and a default threshold. Rewrites it around the measures and rewrites `crap-score/SKILL.md`; deletes the tests of the old code. |
+| ST-0437 | Refuse a measuring-command report in the wrong shape                           | standard | 2      | When a report is not an array of valid rows or names one function twice, `crap-score` judges nothing, exits 2, and names the measure and the fault.                                            | ST-0436 reads the rows. Adds the shape check and the two duplicate checks.                                                                                                                          |
+| ST-0438 | Run a measure that needs a running service, within one time limit              | standard | 3      | A measure with a `ready` command runs its `ready` command first, never overlaps a second run of the same measure, and stops with exit 2 when the time limit runs out.                          | ST-0436 runs the measuring commands. Adds the `ready` commands, the time limit over all commands, and the lock per measure.                                                                         |
+| ST-0439 | Get the same verdict in the gate-check step and at the merge                   | standard | 3      | The gate-check step and `premerge-check` call `crap-score --base`, so a story that changes only scripts without an ending is scored at the merge and its report stays in the primary checkout. | `premerge-check` passes the `.py` files of the diff and a threshold; the agent text runs `crap-score` in the foreground. Changes the call, the report folder, and the agent text.                   |
 
 ### Testability Assessment
 
@@ -244,6 +251,7 @@ Some old functions score above the threshold at full coverage. Take a legacy fun
 
 - User accepts a function above the threshold in the exceptions register
 - User keeps agents from writing the exceptions register
+- User judges every story by the gate settings of the integration branch
 
 ### Demo
 
@@ -262,6 +270,7 @@ Some old functions score above the threshold at full coverage. Take a legacy fun
 - A row with an empty cell or a non-numeric score, and two rows for one function, make `crap-score` exit 2 and name the rows (DEC-38).
 - `guard-human-fields` refuses a write, an edit, and a shell redirect into the register in the payload format of each supported CLI, and lets an agent read it (BR-092).
 - `finding-lint` and the stop notice skip `docs/findings/exceptions.md` by name.
+- The trusted gate source (the one reader inside `crap-score` for every value a story must not change): `threshold`, the `files` and `exclude` patterns of each measure, and the register come from the integration branch that `integration_branch` in `docs/factory-settings.yaml` names, `dev` by default. A story that changes them at its head gets the same verdict. Only `gate-setup-proof` passes `--settings-from-folder` (DEC-67 to DEC-76, ADR-0041).
 
 **Out:**
 
@@ -270,7 +279,7 @@ Some old functions score above the threshold at full coverage. Take a legacy fun
 
 ### Dependencies
 
-E2, for ST-0440. ST-0441 has no dependency and can start with E1.
+E2, for ST-0440. ST-0441 has no dependency and can start with E1. ST-0450 needs E2, ST-0440, and the proof of E5 (ST-0446 to ST-0448), and runs before E6.
 
 ### Boundaries
 
@@ -287,14 +296,15 @@ E2, for ST-0440. ST-0441 has no dependency and can start with E1.
 
 ### Size
 
-2 stories.
+3 stories.
 
 ### Building-Block Inventory
 
-| Story   | Capability                                       | Tier     | Spawns | Goal                                                                                                                                                                   | Basis                                                                                                                                                        |
-| ------- | ------------------------------------------------ | -------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ST-0440 | Accept a function above the threshold on `dev`   | standard | 3      | A changed function above the threshold passes as `accepted` when a row on `dev` names it at or above its rounded score, and the output shows the score and the reason. | ST-0436 judges without a register. Adds the reader from `dev`, the parser, the accept rule, and exit 2 for broken rows.                                      |
-| ST-0441 | Keep agents from writing the exceptions register | standard | 2–3    | An agent's write, edit or shell redirect into `docs/findings/exceptions.md` is refused in every supported CLI, and `finding-lint` and the stop notice ignore the file. | `guard-human-fields` guards the human fields of findings; `finding-lint` treats every file in `docs/findings/` as a finding. Adds the register path to both. |
+| Story   | Capability                                                       | Tier     | Spawns | Goal                                                                                                                                                                        | Basis                                                                                                                                                                                   |
+| ------- | ---------------------------------------------------------------- | -------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ST-0440 | Accept a function above the threshold on `dev`                   | standard | 3      | A changed function above the threshold passes as `accepted` when a row on `dev` names it at or above its rounded score, and the output shows the score and the reason.      | ST-0436 judges without a register. Adds the reader from `dev`, the parser, the accept rule, and exit 2 for broken rows.                                                                 |
+| ST-0441 | Keep agents from writing the exceptions register                 | standard | 2–3    | An agent's write, edit or shell redirect into `docs/findings/exceptions.md` is refused in every supported CLI, and `finding-lint` and the stop notice ignore the file.      | `guard-human-fields` guards the human fields of findings; `finding-lint` treats every file in `docs/findings/` as a finding. Adds the register path to both.                            |
+| ST-0450 | Judge every story by the gate settings of the integration branch | strong   | 3      | A story that raises its threshold, adds an `exclude` pattern, narrows `files` or drops a measure at its head gets the same verdict in the gate-check step and at the merge. | `crap-score` reads every setting from the folder and the register from a fixed `dev`. Adds the trusted gate source, `integration_branch`, `--settings-from-folder`, and the proof call. |
 
 ### Testability Assessment
 
@@ -302,13 +312,18 @@ All goals produce observable outcomes: the exit code and the output of `crap-sco
 
 ### Ownership Resolution
 
-| Contract                                                                              | .feature Rule                                                                                  | Owner   | Rationale                            |
-| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------- | ------------------------------------ |
-| CG-05-CT-01: the parser reads only `## CRAP score` and names broken or duplicate rows | crap-gate-setup.feature#User accepts a function above the threshold in the exceptions register | ST-0440 | introduces the parser                |
-| CG-05-CT-02: the accept rule with rounding half up                                    | crap-gate-setup.feature#User accepts a function above the threshold in the exceptions register | ST-0440 | introduces the accept rule           |
-| CG-05-IT-01: the register is read from `dev`; a row on the story branch has no effect | crap-gate-setup.feature#User accepts a function above the threshold in the exceptions register | ST-0440 | introduces the read from `dev`       |
-| CG-06-IT-01, CG-06-IT-02: the guard refuses writes and allows reads                   | crap-gate-setup.feature#User keeps agents from writing the exceptions register                 | ST-0441 | adds the register to the guard       |
-| CG-06-CT-01, CG-06-CT-02: `finding-lint` and the stop notice skip the register        | crap-gate-setup.feature#User keeps agents from writing the exceptions register                 | ST-0441 | adds the register to both skip lists |
+| Contract                                                                                                                                        | .feature Rule                                                                                                             | Owner   | Rationale                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------ |
+| CG-05-CT-01: the parser reads only `## CRAP score` and names broken or duplicate rows                                                           | crap-gate-setup.feature#User accepts a function above the threshold in the exceptions register                            | ST-0440 | introduces the parser                      |
+| CG-05-CT-02: the accept rule with rounding half up                                                                                              | crap-gate-setup.feature#User accepts a function above the threshold in the exceptions register                            | ST-0440 | introduces the accept rule                 |
+| CG-05-IT-01: the register is read from `dev`; a row on the story branch has no effect                                                           | crap-gate-setup.feature#User accepts a function above the threshold in the exceptions register                            | ST-0440 | introduces the read from `dev`             |
+| CG-06-IT-01, CG-06-IT-02: the guard refuses writes and allows reads                                                                             | crap-gate-setup.feature#User keeps agents from writing the exceptions register                                            | ST-0441 | adds the register to the guard             |
+| CG-06-CT-01, CG-06-CT-02: `finding-lint` and the stop notice skip the register                                                                  | crap-gate-setup.feature#User keeps agents from writing the exceptions register                                            | ST-0441 | adds the register to both skip lists       |
+| CG-14-CT-01 to CG-14-CT-03: the join by measure name, the seam of one reader, the reading of `integration_branch`                               | crap-gate-setup.feature#User judges every story by the gate settings of the integration branch                            | ST-0450 | introduces the trusted gate source         |
+| CG-14-IT-01 to CG-14-IT-10: head changes keep the verdict, fallback, broken settings, `integration_branch`, the merge, `--settings-from-folder` | crap-gate-setup.feature#User judges every story by the gate settings of the integration branch                            | ST-0450 | introduces the trusted gate source         |
+| CG-14-LN-01: the gate-check call and `crap-score/SKILL.md` name the source of the trusted values                                                | crap-gate-setup.feature#User judges every story by the gate settings of the integration branch                            | ST-0450 | rewrites the skill text                    |
+| CG-04-IT-17: one commit and one state of the integration branch get one verdict                                                                 | crap-gate-setup.feature#Implementation agent gets one verdict for the functions a story changed                           | ST-0450 | first to read the settings from the branch |
+| CG-02-IT-12 to CG-02-IT-14: the proof copies `docs/factory-settings.yaml` and judges with the folder settings                                   | crap-gate-setup.feature#Test-strategy agent checks with gate-setup-proof that the measuring command reports true coverage | ST-0450 | introduces `--settings-from-folder`        |
 
 ## E4: Stop a story when the gate cannot measure, and resume it without new code
 
