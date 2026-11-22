@@ -235,7 +235,7 @@ def _measures(value: object) -> tuple[Measure, ...]:
         # GATE_FILES and GATE_EXCLUDE hold one pattern per line (DEC-65).
         for key, patterns in (("files", [item["files"]]), ("exclude", exclude)):
             if any("\n" in p or "\r" in p for p in patterns):
-                raise GateError(f"{label} of gates.{GATE_KEY}.measures has a {key} pattern with a line break")
+                raise GateError(f"{label} of gates.{GATE_KEY}.measures has a pattern in {key} with a line break")
         ready = item.get("ready")
         if ready is not None and (not isinstance(ready, str) or not ready):
             raise GateError(f"{label} of gates.{GATE_KEY}.measures has a field ready that is no command")
