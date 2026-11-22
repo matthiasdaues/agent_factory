@@ -357,6 +357,93 @@ def test_cg_03_the_template_reports_a_method_of_a_nested_class(tmp_path: Path) -
     assert (row["start_line"], row["end_line"], row["complexity"]) == (8, 11, 2)
 
 
+SHAPE = """\
+import typing
+from typing import overload
+
+
+class Box:
+    def __init__(self):
+        self._width = 0
+
+    @property
+    def width(self):
+        return self._width
+
+    @width.setter
+    def width(self, value):
+        if value < 0:
+            raise ValueError(value)
+        self._width = value
+
+    @width.deleter
+    def width(self):
+        self._width = 0
+
+
+@overload
+def scale(value: int) -> int: ...
+@typing.overload
+def scale(value: str) -> str: ...
+def scale(value):
+    if isinstance(value, str):
+        return value * 2
+    return value * 2
+"""
+
+TEST_SHAPE = """\
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.shape import Box, scale  # noqa: E402
+
+
+def test_box():
+    box = Box()
+    box.width = 3
+    assert box.width == 3
+    del box.width
+    assert box.width == 0
+
+
+def test_scale():
+    assert scale(2) == 4
+    assert scale("a") == "aa"
+"""
+
+
+@pytest.mark.spec("CG-03-IT-02")
+def test_bug_0133_the_template_names_a_property_accessor_and_skips_overload_stubs(
+    tmp_path: Path,
+) -> None:
+    """Scenario: The measuring command reports the qualified name of a method.
+
+    BUG-0133: a property setter and deleter share the name of the getter,
+    and @overload stubs share the name of the implementation. Each
+    accessor gets its own name, and a stub gets no row, so no qualified
+    name appears twice (DEC-12).
+    """
+    _write_project(tmp_path)
+    (tmp_path / "src" / "shape.py").write_text(SHAPE)
+    (tmp_path / "tests" / "test_shape.py").write_text(TEST_SHAPE)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    rows = [r for r in _rows(tmp_path) if r["file"] == "src/shape.py"]
+    assert sorted(r["function"] for r in rows) == [
+        "Box.__init__",
+        "Box.width",
+        "Box.width.deleter",
+        "Box.width.setter",
+        "scale",
+    ]
+    assert _row(rows, "src/shape.py", "Box.width.setter")["start_line"] == 14
+    assert _row(rows, "src/shape.py", "scale")["start_line"] == 28
+
+
 @pytest.mark.spec("CG-03-IT-01")
 def test_cg_03_the_template_runs_the_test_command_in_the_environment_of_its_caller(
     tmp_path: Path,
