@@ -2,14 +2,14 @@
 type: code-review
 title: Code review of the whole feature feature/crap-gate-setup
 date: 2026-11-22
-status: defects
+status: pass
 reviewer: code-review-agent
 findings_filed: 4
 story:
 run: feature/crap-gate-setup
 branch: feature/crap-gate-setup
 branch_base: 9ea68284539b1f175dea21617c125a578e3db474
-branch_head: e4cb6d4b0d23701eea5ed79bc6c39b35642a8b03
+branch_head: 8beaa7eb90f8fd36c4ed4cf7b06db732a9be9004
 ---
 
 # Code review of the whole feature feature/crap-gate-setup
@@ -86,3 +86,32 @@ uv run --directory .current-work/feature/crap-gate-setup/invocation pytest tests
 ```
 
 The two runs printed `39 passed in 7.59s` and `262 passed in 14.51s`. The review checked IMPL-0090 and IMPL-0091 with the filled-in template on a small temporary project, as each finding file shows.
+
+## Repeat pass at 8beaa7eb
+
+The feature passes the code review at `8beaa7eb90f8fd36c4ed4cf7b06db732a9be9004`. No blocking finding of the run is open, and this pass files no new finding. It records one new note.
+
+The pass covers `e4cb6d4b..8beaa7eb`: the fixes of IMPL-0090 and IMPL-0091 with their story reviews, the merges `c7f84d72` and `712547fb`, and the drift rows of waves 5 and 6 (DEC-65, DEC-66). The merged files of `crap-score`, the template, the two skills, `implementation-agent.md` and the two changed test files equal the head of `story/IMPL-0091`. So the merges changed no reviewed code.
+
+| Finding   | Status on the feature branch | Evidence                                                                                                                                                                         |
+| --------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IMPL-0090 | `resolved`                   | `docs/reviews/code-review-IMPL-0090-2026-11-22.md`: the scratch project gives exit `0` with `exclude` or a narrow `files` pattern, and exit `2` without either, as BR-130 wants. |
+| IMPL-0091 | `resolved`                   | The second repeat pass in `docs/findings/IMPL-0091.md`: exit `0` when started directly and from two nested `uv run --script` wrappers.                                           |
+| IMPL-0092 | `resolved`                   | Step 4d and step 6 of the run by hand start `dispatch merge-story` as a background job, and BR-134 names it (DEC-66).                                                            |
+| IMPL-0093 | `open`, `minor`              | No fix yet. It does not block the merge.                                                                                                                                         |
+
+The drift rows bring BR-129, BR-130, BR-134, the contract of the template, and the QA strategy in line with the code. Two notes of the first pass are fixed: the skill `crap-score` and the CG-10-IT-04 marker. The other three notes need no change.
+
+| Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Category   | Type      | Severity | Basis                                                                                    | ID  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | --------- | -------- | ---------------------------------------------------------------------------------------- | --- |
+| `caller_environment()` covers the commands that `crap-score` starts. The same `ready` commands also run in `dispatch init`, through `run_in_own_group` with `env=None`, and in `premerge-check`, through `_worktree_environment`, which keeps `PATH`. There they still see the uv environment of `dispatch`. So a `ready` command that starts `python3` by name can pass in `crap-score` and fail at the start of a run. A typical `ready` command checks a Compose stack and starts no Python. A later story can share one `caller_environment()` from `dispatch_lib.py`, as IMPL-0093 proposes for the reading of the measures. | suggestion | interface | note     | `in_use: false`, `harms_downstream: false`, `fails_purpose: false`, `raises_cost: false` | —   |
+
+`implementation-agent.md` has 20,101 tokens with its inputs, and `index-lint --check` warns and exits `0`. The warning does not block the merge, and a cut belongs in its own story.
+
+Next, the QA agent runs step 2 of the feature checks on `feature/crap-gate-setup`.
+
+```bash
+uv run --directory .current-work/feature/crap-gate-setup/invocation pytest tests/factory/test_crap_gate_template.py tests/factory/test_crap_score.py tests/factory/test_crap_gate_score.py tests/factory/test_crap_gate_proof.py tests/factory/test_crap_gate_premerge.py tests/factory/test_crap_gate_dispatch.py tests/factory/test_crap_gate_text.py tests/factory/test_crap_gate_judging.py tests/factory/test_crap_gate_lock.py tests/factory/test_crap_gate_journey.py -q -n auto
+```
+
+The run printed `319 passed in 35.02s`. `finding-lint` exited `0`.
