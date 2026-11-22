@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Guided tour: run lifecycle and CRAP gate</title>
+<style>
+@font-face { font-family: "SCP"; font-weight: 200; src: url("fonts/SourceCodePro-ExtraLight.woff2") format("woff2"); }
+@font-face { font-family: "SCP"; font-weight: 500; src: url("fonts/SourceCodePro-Medium.woff2") format("woff2"); }
+@font-face { font-family: "CG"; font-weight: 300; src: url("fonts/CormorantGaramond-Light.woff2") format("woff2"); }
+
+/* Grid geometry. remark draws a 16:9 slide at 1210 x 681 px and scales it to the window.
+   Every grid fills the whole slide: cell width = 1210 / cols, row height = 681 / rows.
+   Source Code Pro advances 0.6 em per character, so the font size follows the cell width. */
+:root {
+  --ink: #24292E;
+  --dim: #747373;
+  --red: #FF0000;
+  --paper: #FFFFFF;
+}
+body { margin: 0; background: var(--paper); }
+.remark-slide-content {
+  padding: 0; background: var(--paper); color: var(--ink);
+  font-family: "SCP", monospace;
+}
+.remark-slide-number { display: none; }
+.grid {
+  --cw: calc(1210px / var(--cols));
+  --rh: calc(681px / var(--rows));
+  --fs: calc(var(--cw) / 0.6);
+  position: absolute; left: 0; top: 0; width: 1210px; height: 681px;
+}
+.row {
+  height: var(--rh); line-height: var(--rh);
+  font-size: var(--fs); font-weight: 200;
+  white-space: pre; font-kerning: none; font-variant-ligatures: none;
+}
+.row b { font-weight: 500; }
+.row .dim { color: var(--dim); }
+.row .red { color: var(--red); }
+/* Every character above U+00FF gets exactly one cell, even if a fallback font draws it. */
+.row .c { display: inline-block; width: var(--cw); text-align: center; vertical-align: top; overflow: visible; }
+/* Box characters with a vertical stroke span the font's line box (1.257 em).
+   Stretch them to the full row height so vertical lines join from row to row. */
+.row .v { transform: scaleY(calc(var(--rh) / (1.257 * var(--fs)))); }
+.cell { position: absolute;
+  left: calc(var(--c) * var(--cw)); top: calc(var(--r) * var(--rh));
+  width: calc(var(--w) * var(--cw)); height: calc(var(--h) * var(--rh)); }
+img.cell { object-fit: contain; }
+img.cell.cover { object-fit: cover; }
+div.cell.blank { background: var(--paper); }
+svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
+.footer {
+  position: absolute; right: 12px; bottom: 6px;
+  font: 300 17.6px "CG", serif; color: #A6A6A6;
+}
+
+/* Press "g" to show the grid. */
+.show-grid .grid {
+  background-image:
+    linear-gradient(to right, rgba(0, 110, 255, .18) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 110, 255, .18) 1px, transparent 1px);
+  background-size: var(--cw) var(--rh);
+}
+.grid.bad { outline: 3px solid var(--red); outline-offset: -3px; }
+.grid-error {
+  position: absolute; left: 8px; bottom: 8px; max-width: 1190px;
+  font: 12px/1.3 sans-serif; color: var(--red); background: var(--paper); white-space: normal;
+}
+</style>
+</head>
+<body>
+<!--
+  Slide source format
+  -------------------
+  Slides are separated by a line "---". Remark slide properties (class:, name:)
+  and presenter notes (after "???") work as usual.
+
+  ```grid COLSxROWS ... ```  one source line = one grid row, one character = one cell.
+                             Without a size the grid is 62x14. Every size fills the slide.
+                             Proven sizes: 40x10 title, 62x14 text and split layouts,
+                             80x24 terminal, 99x25 diagram and wide split, 132x36 dense.
+  **text**                   bold          ~~text~~   grey
+  __text__                   underline     !!text!!   red
+  %%text%%                   italic
+  @img PATH COL ROW W H      image fitted into a cell rectangle (whole cells, 0-based)
+  @img PATH COL ROW W H cover  image fills the rectangle and is cropped
+  @blank COL ROW W H         paper-colored rectangle that hides the cells below it
+  @cross COL ROW W H         red cross over a cell rectangle
+  @footer TEXT               small serif line in the bottom right corner
+
+  Split layouts on 62x14: text in columns 2-28, image @img PATH 31 0 31 14 cover,
+  or mirrored: image @img PATH 0 0 31 14 cover, text from column 33.
+  Split layouts on 99x25: text in columns 4-45, image @img PATH 50 0 49 25 cover,
+  or mirrored: image @img PATH 0 0 49 25 cover, text from column 53.
+
+  Markup markers take no cells. The page checks every slide on load, marks a
+  slide with a red frame when it breaks the grid, and lists the problem on it.
+-->
+<script type="text/plain" id="deck-source">
+```grid 40x10
+
+
+  **A GUIDED TOUR**
+
+  The run lifecycle and the CRAP gate:
+  what the two campaigns built, and
+  where it lives in the repository.
+
+  ~~Agent Factory, 2026-11-22~~
+```
+---
+
+```grid 99x25
+
+   **How to read this tour**
+
+   Each slide shows one flow or one structure, with two or three lines below it.
+   Grey lines name the files where it lives, as paths from the repository root.
+
+   **Part 1**  the run lifecycle, merged 2026-11-19:
+             how the Factory starts, drives, checks and ends the work on a feature.
+   **Part 2**  the CRAP gate, merged 2026-11-22:
+             a quality gate that the run lifecycle runs on every story.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   ~~Press g to show the character grid, p for the presenter view.~~
+```
+---
+
+```grid 99x25
+
+   **The map: what the two campaigns touched**
+
+   ┌───────────────────┐         ┌─────────────────────┐         ┌───────────────────┐
+   │ backlog/ST-*.md   │         │ docs/testing.yaml   │         │ docs/findings/    │
+   │ stories, touches  │         │ gates, measures     │         │ findings and the  │
+   └─────────┬─────────┘         └──────────┬──────────┘         │ exceptions file   │
+             │                              │                    └─────────┬─────────┘
+             │                              │                              │
+   ┌─────────▼─────────┐         ┌──────────▼──────────┐                   │
+   │ dispatch          ├─────────► premerge-check      ◄───────────────────┘
+   │ init ... close    │         │ checks at the merge │
+   │ the ledger        │         └──────────┬──────────┘
+   └─────────┬─────────┘                    │ runs
+             │                              │
+             │ runs gate-check   ┌──────────▼──────────┐         ┌───────────────────┐
+             └───────────────────► crap-score          ├─────────► measuring command │
+                                 │ judges changed code ◄─────────┤ (project-owned)   │
+                                 └─────────────────────┘         └───────────────────┘
+
+
+
+
+   Campaign 1 built dispatch, the ledger and premerge-check.
+   Campaign 2 rebuilt crap-score, added its setup and wired it into both.
+```
+---
+
+```grid 99x25
+
+   **Part 1 · The words**
+   ~~the run lifecycle~~
+
+   **run**              everything the Factory does for one feature branch,
+                      from dispatch init to dispatch close
+   **feature branch**   the branch of a run, cut from dev
+   **story branch**     story/<id>, cut from the feature branch
+   **unit of work**     a story, or a blocking finding added to the run
+   **wave**             units of work that start together
+   **ledger**           the run's inventory: one entry per unit, one record per wave
+   **gate-check step**  running the gates on a story branch, fixing what they report
+   **drift row**        code and documents disagree; an owner fixes the document
+
+
+
+
+
+
+
+
+
+
+
+   ~~docs/proposals/run-lifecycle.md § Terms~~
+```
+---
+
+```grid 99x25
+
+   **Two ways to drive a run**
+
+                         **orchestrated**                 **by hand**
+   who starts a story    the agent, wave by wave      the agent, on the human's go
+   how stories run       in parallel, if files differ one at a time
+   where a story runs    its own worktree             the primary checkout
+   who runs the gates    the implementation agent     the implementation agent
+   who merges into dev   the human                    the human
+
+
+
+
+
+
+
+
+
+
+
+
+   Same ledger, steps, checks and end. Only who acts, and when, differs.
+   The human alone runs return-story and close --drop, which destroy work, and close.
+
+   ~~packages/factory/agents/implementation-agent.md § Modes~~
+```
+---
+
+```grid 99x25
+
+   **The story workflow**
+
+   ┌─────────────────┐     ┌───────────────────┐     ┌───────────────┐ none  ┌─────────────────┐
+   │ 1 implement     │     │ 2 review          │     │ open blocking ├───────► 4 gate check    │
+   │ developer agent ├─────► code-review agent ├─────► finding?      │       │ fresh agent     │
+   │ TDD, commits    │     │ files findings    │     └────┬──────▲───┘       │ per retry       │
+   └─────────────────┘     └───────────────────┘          │      │           └────────┬────────┘
+                                                          │ yes  │                    │
+                                                          │      │                    │
+                                                 ┌────────▼──────┴────────┐  ┌────────▼────────┐
+                                                 │ 3 fix: fresh developer │  │ 5 merge-story   │
+                                                 │ agent, then re-review  │  │ premerge-check, │
+                                                 └────────────────────────┘  │ status: done    │
+                                                                             └─────────────────┘
+
+
+
+
+
+
+   Every unit of work takes these steps on its story branch, both ways of driving.
+   Reviews and gates see commits, never a working copy. Each fix starts a fresh agent.
+
+   ~~packages/factory/agents/implementation-agent.md § Story workflow~~
+```
+---
+
+```grid 99x25
+
+   **A ledger entry and its states**
+
+                                  mark-                     mark-                   merge-
+              prepare             dispatching               dispatched              story
+   ┌─────────┐        ┌──────────┐           ┌─────────────┐          ┌────────────┐       ┌──────┐
+   │ PENDING ├────────► PREPARED ├───────────► DISPATCHING ├──────────► DISPATCHED ├───────► DONE │
+   └─────────┘        └──────────┘           └─────────────┘          └─┬───┬─────▲┘       └──────┘
+                                                                        │   │     │
+                                           gate fails, no attempt left  │   │     │ resume-gates
+                                          ┌─────────────────────────────┘   │     │ (cannot
+                                          │           conflict, red suite,  │     │ measure)
+                                          │         or gate cannot measure  │     │
+                             ┌────────────▼────────────┐       ┌────────────▼─────┴──────┐
+                             │ FAILED                  │       │ BLOCKED                 │
+                             │ re-dispatch -> PREPARED │       │ re-dispatch -> PREPARED │
+                             │ return      -> PENDING  │       │ return      -> PENDING  │
+                             └─────────────────────────┘       └─────────────────────────┘
+
+
+
+   FAILED: the attempts ran out. BLOCKED: no code fix helps. Both wait for the human.
+   resume-gates is the shortcut back when the code was never judged.
+
+   ~~docs/spec/state-machines.md § Ledger Entry Lifecycle~~
+```
+---
+
+```grid 99x25
+
+   **The check at every merge**
+
+   premerge-check  <target>  <branch>
+
+      stale base       the branch contains its target
+      file count       under the limit
+      scope            only the story's files
+      code review      a report for this head
+      open findings    none blocking
+      ready commands   the services are up
+      semantic gates   dependency-check, crap-score
+      test suite       full suite, in a temporary worktree
+           │
+           ├──── all pass ──────────────────────► exit 0   merge
+           ├──── only a gate cannot measure ────► exit 3   BLOCKED
+           └──── anything else ─────────────────► exit 1   no merge
+
+
+
+
+   It judges the branch head, not the history, and reruns every gate fresh.
+   The same script checks the merge of the whole feature into dev.
+
+   ~~packages/factory/scripts/premerge-check · docs/adr/0038-*~~
+```
+---
+
+```grid 99x25
+
+   **Closing a wave**
+
+   ┌─────────────────┐       ┌─────────────────────┐  passes   ┌─────────────────────┐
+   │ last unit of    ├───────► dispatch close-wave ├───────────► wave record:        │
+   │ the wave merged │       └──────────┬──────────┘           │ next wave may start │
+   └─────────────────┘                  │                      └─────────────────────┘
+                                        │ refuses: lists open drift rows
+                                        │
+                             ┌──────────▼──────────┐           ┌─────────────────────┐
+                             │ owner fixes         ├───────────► reviewer confirms   │
+                             │ the document        │           │ the fix, then       │
+                             └─────────────────────┘           │ close-wave again    │
+                                                               └─────────────────────┘
+
+
+
+
+
+
+
+   Drift rows from the wave's spec-feedback reports are settled before the next wave.
+   The fixes land between waves, so they never race a story merge.
+
+   ~~docs/spec/work/spec-feedback-<id>.md · dispatch-contract.md § Drift Rows At The Wave Close~~
+```
+---
+
+```grid 99x25
+
+   **The end of a run, and the guardrail**
+
+   **The end of a run**                            **The guardrail, before every agent command**
+
+   feature checks: review, QA                  refuses:
+           │                                     push, reset --hard, branch -D
+           ▼                                     any hook bypass
+   premerge-check dev <feature>                  a merge without premerge-check
+           │                                     a commit in a worktree without
+           ▼                                       verify-base
+   the human merges into dev                     tests other than the declared ones
+           │                                       or named files under tests/
+           ▼                                     return-story and close --drop
+   dispatch close: removes the ledger,
+   worktrees and merged branches;              one script for Claude Code, Codex,
+   the ledger's frozen copy stays              Copilot, pi and OpenCode
+   as the run's receipt
+
+
+
+   A run has an end: merge commits, story status and the receipt are what remain.
+   The guardrail blocks what cannot be undone. The human watches the rest.
+
+   ~~packages/factory/config/hooks/block-dangerous-git.sh · docs/reviews/runs/~~
+```
+---
+
+```grid 99x25
+
+   **Part 1 · Where it lives**
+
+   **packages/factory/scripts/dispatch**                 the run: init to close
+   **packages/factory/scripts/dispatch_lib.py**          the ledger and its transitions
+   **packages/factory/scripts/premerge-check**           the checks at every merge
+   **packages/factory/config/hooks/block-dangerous-git.sh**   the guardrail
+   **packages/factory/agents/implementation-agent.md**   how a run is driven
+
+   ~~spec          docs/spec/features/run-lifecycle.feature, docs/spec/state-machines.md~~
+   ~~decisions     docs/proposals/run-lifecycle.md, docs/adr/0037-*, docs/adr/0038-*~~
+   ~~how it went   docs/reviews/run-report-run-lifecycle-2026-11-20.md~~
+
+
+
+
+
+
+
+
+
+
+
+
+
+```
+---
+
+```grid 99x25
+
+   **Part 2 · Why a CRAP gate**
+   ~~the CRAP gate~~
+
+                 CRAP(f)  =  c² × (1 − cov / 100)³  +  c
+
+                 c    cyclomatic complexity of the function
+                 cov  share of its lines that the tests run, in %
+
+                     c = 4    cov = 100 %    →    4.00
+                     c = 4    cov =   0 %    →   20.00
+                     c = 9    cov =  50 %    →   19.13
+
+                 a changed function fails when CRAP > threshold
+
+
+
+
+
+
+
+   Complex and untested is the riskiest code; the score grows with exactly that.
+   Only changed functions count. The project picks the threshold; there is no default.
+
+   ~~packages/factory/skills/crap-score/SKILL.md~~
+```
+---
+
+```grid 99x25
+
+   **Who measures what**
+
+   ┌───────────────────────────────┐                                      ┌────────────────────┐
+   │ docs/testing.yaml             │         ┌──────────────────┐ runs    │ measuring command  │
+   │ gates.crap-score:             ├─────────► crap-score       ├─────────► the project's own  │
+   │   threshold, timeout_minutes  │         │ language-neutral │         └─────────┬──────────┘
+   │   measures:                   │         └─────────▲────────┘                   │
+   │     - name, files, exclude,   │                   │                            │
+   │       ready, command          │                   │ reads                      │ writes
+   └───────────────────────────────┘                   │                            │
+                                                       │                            │
+   env: GATE_OUTPUT (where to write),        ┌─────────┴─────────────────────┐      │
+        GATE_FILES, GATE_EXCLUDE             │ one JSON row per function:    │      │
+                                             │ file, function, start_line,   ◄──────┘
+                                             │ end_line, complexity,         │
+                                             │ coverage_pct                  │
+                                             └───────────────────────────────┘
+
+
+
+   crap-score knows no language. Each measure names a command the project owns.
+   For Python the setup ships a template on radon and coverage.py.
+
+   ~~packages/factory/skills/setup-crap-score/crap-measure-python · docs/spec/schemas/~~
+```
+---
+
+```grid 99x25
+
+   **How crap-score judges**
+
+   rows of every measure
+      │ wrong shape, or one function twice ─────────────────────► exit 2
+      ▼
+   keep the files of `files`, drop those of `exclude`
+      ▼
+   only the functions the diff touches  (merge base → HEAD)
+      ▼
+   score each, round half up
+      ├── at or below the threshold ────────────────────────────► pass
+      ├── above, but a row in the exceptions register on dev ───► accepted
+      └── above ────────────────────────────────────────────────► fail
+
+   exit 0: all pass or accepted     exit 1: a fail     exit 2: cannot measure
+
+
+
+
+
+   Exit 2 means nobody judged the code. Only a person can accept a function,
+   in docs/findings/exceptions.md on dev; agents can never write that file.
+
+   ~~packages/factory/scripts/crap-score · config/hooks/guard-human-fields~~
+```
+---
+
+```grid 99x25
+
+   **Where the gate runs, and what exit 2 does**
+
+   ┌──────────────────┐   0    ┌────────────────┐   0    ┌────────┐
+   │ gate-check step  ├────────► premerge-check ├────────► merged │
+   │ story worktree   │        │ at the merge   │        └────────┘
+   └───┬──────────┬───┘        └────────┬───────┘
+       │          │                     │
+       │          │                     │
+       ▼          │2                    │3
+   1: failed      │                     │
+   attempt, fresh │                     │
+   developer      │                     │
+             ┌────▼─────────────────────▼───┐         ┌─────────────────────────┐
+             │ BLOCKED: gate cannot measure ├─────────► human fixes the setup,  │
+             └──────────────────────────────┘         │ dispatch resume-gates:  │
+                                                      │ back to the gate check, │
+                                                      │ attempts unchanged      │
+                                                      └─────────────────────────┘
+
+
+   A failure costs an attempt; a fresh developer fixes the code.
+   Cannot measure costs nothing: the story waits as BLOCKED until the setup works.
+
+   ~~implementation-agent.md § Gate that cannot measure · crap-gate-setup.md DEC-03, DEC-07~~
+```
+---
+
+```grid 99x25
+
+   **Running safely: ready, lock, time limit**
+
+   for each measure, in list order:
+
+      ┌──────────────────────┐    yes      ┌───────────────┐
+      │ has a ready command? ├─────────────► take the lock │  file: <git common dir>/
+      └──────┬───────────────┘             └───────┬───────┘  crap-score/<name>.lock
+             │                                     │
+             │                                     │
+             │ no                          ┌───────▼───────┐  fails
+             │                             │ run ready     ├─────────► exit 2
+             │                             └───────┬───────┘
+             │                                     │
+      ┌──────▼─────────────────────┐               │
+      │ run the measuring command, ◄───────────────┘
+      │ then release the lock      │
+      └────────────────────────────┘
+
+
+
+   One clock, timeout_minutes, covers every command and every wait for the lock.
+   On SIGTERM, SIGINT or SIGHUP the whole process group stops first, then exit 128 + n.
+
+   ~~docs/proposals/crap-gate-setup.md DEC-43, DEC-47, DEC-56~~
+```
+---
+
+```grid 99x25
+
+   **Setting the gate up, and proving the setup**
+
+   **setup-crap-score**  (the test-strategy agent)    **gate-setup-proof**  (temporary worktree)
+
+    1 find languages and test tools                planted: an untested and a tested
+    2 try the tools on a real file                 function of the same complexity
+    3 propose exclusions
+    4 write the measure, enabled: false            Repeatable     two runs, same rows
+    5 run gate-setup-proof ─────────────────────►  Catches CRAP   untested one fails
+    6 crap-score --all: threshold, time limit      Sees the folder tested one is 100 %
+    7 the person confirms ─► enabled: true         Reports a gap  failing test, exit 2
+
+
+
+
+
+
+
+
+
+   The setup does not trust the measuring command: only one that passes all four checks
+   is enabled. The person decides every value; the agent proposes, measures and proves.
+
+   ~~packages/factory/skills/setup-crap-score/SKILL.md · packages/factory/scripts/gate-setup-proof~~
+```
+---
+
+```grid 99x25
+
+   **Part 2 · Where it lives**
+
+   **packages/factory/scripts/crap-score**                 the gate
+   **packages/factory/skills/setup-crap-score/**           the setup and the Python template
+   **packages/factory/scripts/gate-setup-proof**           the four checks
+   **packages/factory/skills/crap-score/SKILL.md**         the gate, described
+   **packages/factory/scripts/premerge-check, dispatch**   exit 3, resume-gates
+   **packages/factory/config/hooks/guard-human-fields**    guards the exceptions file
+
+   ~~spec          docs/spec/features/crap-gate-setup.feature, BR-127 to BR-139~~
+   ~~decisions     docs/proposals/crap-gate-setup.md (DEC-01 to DEC-67), docs/adr/0003-*~~
+   ~~how it went   docs/reviews/retro-2026-11-22.md, docs/reviews/runs/~~
+
+
+
+
+
+
+
+
+
+
+
+
+```
+---
+
+```grid 99x25
+
+   **What comes next**
+
+   **Trusted gate source (DEC-67)**  threshold, exclusions and register from one reader
+                                   a story cannot change; later a graph store or Jira
+   **ST-0449**                       set the gate up and enable it in this repository
+   **Open findings**                 IMPL-0083, IMPL-0093, SEC-0008
+   **From the retro**                T-0419 to T-0426
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   ~~docs/spec/work/todo.md · docs/proposals/ledger-run-receipt.md~~
+```
+</script>
+
+<script src="remark.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var DEFAULT_GRID = "62x14";
+  var COLS, ROWS;
+  var MARKERS = [["**", "b"], ["~~", "dim"], ["__", "u"], ["!!", "red"], ["%%", "i"]];
+  var VERTICAL = "│┌┐└┘├┤┬┴┼╭╮╰╯║╔╗╚╝╠╣╦╩╬";
+  var GRID_OPEN = /^```grid(?:\s+(\d+)x(\d+))?$/;
+  var report = [];
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function visible(raw) { return raw.replace(/\*\*|~~|__|!!|%%/g, ""); }
+
+  function renderRow(raw) {
+    var h = Array.from(raw).map(function (ch) {
+      var e = esc(ch);
+      if (ch.codePointAt(0) <= 0xFF) return e;
+      return '<span class="c' + (VERTICAL.indexOf(ch) >= 0 ? " v" : "") + '">' + e + "</span>";
+    }).join("");
+    h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+         .replace(/~~(.+?)~~/g, '<span class="dim">$1</span>')
+         .replace(/__(.+?)__/g, "<u>$1</u>")
+         .replace(/!!(.+?)!!/g, '<span class="red">$1</span>')
+         .replace(/%%(.+?)%%/g, "<i>$1</i>");
+    return '<div class="row">' + h + "</div>";
+  }
+
+  function rect(kind, args, errs, line) {
+    var n = args.map(Number);
+    if (n.length !== 4 || n.some(function (v) { return !Number.isInteger(v) || v < 0; })) {
+      errs.push(kind + ": needs four whole numbers COL ROW W H (" + line + ")");
+      return null;
+    }
+    if (n[0] + n[2] > COLS || n[1] + n[3] > ROWS) {
+      errs.push(kind + " leaves the grid: cols " + n[0] + "-" + (n[0] + n[2] - 1) +
+                ", rows " + n[1] + "-" + (n[1] + n[3] - 1));
+    }
+    return 'style="--c:' + n[0] + ";--r:" + n[1] + ";--w:" + n[2] + ";--h:" + n[3] + '"';
+  }
+
+  function buildSlide(text, index) {
+    var lines = text.split("\n");
+    var head = [], tail = [], rows = [], items = [], errs = [];
+    var inGrid = false, inNotes = false, footer = null, size = DEFAULT_GRID;
+
+    lines.forEach(function (line) {
+      if (inNotes) { tail.push(line); return; }
+      if (inGrid) {
+        if (line.trim() === "```") { inGrid = false; return; }
+        rows.push(line);
+        return;
+      }
+      var g = line.trim().match(GRID_OPEN);
+      if (g) {
+        inGrid = true;
+        if (g[1]) size = g[1] + "x" + g[2];
+        return;
+      }
+      if (line.trim() === "???") { inNotes = true; tail.push(line); return; }
+      var m = line.match(/^@(\w+)\s*(.*)$/);
+      if (m) {
+        var args = m[2].trim().split(/\s+/).filter(Boolean);
+        COLS = +size.split("x")[0]; ROWS = +size.split("x")[1];
+        if (m[1] === "img") {
+          var cover = args[5] === "cover";
+          var a = rect("@img", args.slice(1, 5), errs, line);
+          if (args.length > 6 || (args.length === 6 && !cover)) errs.push("@img: unknown option " + args.slice(5).join(" "));
+          if (a) items.push('<img class="cell' + (cover ? " cover" : "") + '" ' + a + ' src="' + esc(args[0]) + '" alt="">');
+        } else if (m[1] === "blank") {
+          var b = rect("@blank", args, errs, line);
+          if (b) items.push('<div class="cell blank" ' + b + "></div>");
+        } else if (m[1] === "cross") {
+          var c = rect("@cross", args, errs, line);
+          if (c) items.push('<svg class="cell" ' + c + ' viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">' +
+                            '<line x1="8" y1="8" x2="92" y2="92"/><line x1="92" y1="8" x2="8" y2="92"/></svg>');
+        } else if (m[1] === "footer") {
+          footer = m[2].trim();
+        } else {
+          errs.push("unknown directive " + line);
+        }
+        return;
+      }
+      if (line.trim() !== "") head.push(line);
+    });
+    if (inGrid) errs.push("grid block is not closed");
+    COLS = +size.split("x")[0]; ROWS = +size.split("x")[1];
+    if (!(COLS > 0 && ROWS > 0)) { errs.push("grid size " + size + " is not valid"); size = DEFAULT_GRID; COLS = 62; ROWS = 14; }
+
+    while (rows.length && rows[rows.length - 1].trim() === "") rows.pop();
+    if (rows.length > ROWS) errs.push(rows.length + " rows, the grid has " + ROWS);
+    rows.forEach(function (raw, r) {
+      var w = Array.from(visible(raw).replace(/\s+$/, "")).length;
+      if (w > COLS) errs.push("row " + r + " is " + w + " columns wide, the grid has " + COLS);
+      MARKERS.forEach(function (mk) {
+        if (raw.split(mk[0]).length % 2 === 0) errs.push("row " + r + ": unpaired " + mk[0]);
+      });
+    });
+
+    if (errs.length) report.push({ slide: index + 1, problems: errs });
+    var html = '<div class="grid' + (errs.length ? " bad" : "") + '" data-grid="' + size +
+      '" style="--cols:' + COLS + ";--rows:" + ROWS + '">' +
+      rows.map(renderRow).join("") + items.join("") +
+      (footer ? '<div class="footer">' + esc(footer) + "</div>" : "") +
+      (errs.length ? '<div class="grid-error">' + errs.map(esc).join(" · ") + "</div>" : "") +
+      "</div>";
+    return head.concat([html]).concat(tail).join("\n");
+  }
+
+  var src = document.getElementById("deck-source").textContent.replace(/^\n/, "");
+  var slides = [], cur = [], inGrid = false;
+  src.split("\n").forEach(function (line) {
+    var t = line.trim();
+    if (!inGrid && GRID_OPEN.test(t)) inGrid = true;
+    else if (inGrid && t === "```") inGrid = false;
+    if (!inGrid && t === "---") { slides.push(cur.join("\n")); cur = []; return; }
+    cur.push(line);
+  });
+  slides.push(cur.join("\n"));
+
+  var source = slides.map(buildSlide).join("\n---\n");
+  window.gridReport = report;
+  document.documentElement.setAttribute("data-grid-errors", String(report.length));
+  if (report.length) console.warn("Grid violations:", report);
+  else console.info("All " + slides.length + " slides fit their grids.");
+
+  remark.create({ source: source, ratio: "16:9", highlightLanguage: "no-highlight", navigation: { scroll: false } });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "g" && !e.ctrlKey && !e.metaKey && !e.altKey) document.body.classList.toggle("show-grid");
+  });
+})();
+</script>
+</body>
+</html>
