@@ -1,9 +1,9 @@
 # Gaps Report: crap-gate-setup
 
 Generated: 2026-11-21
-Source: [crap-gate-setup.md](../../proposals/crap-gate-setup.md), at commit `61426f3a6c464879ee7e7c789019fd2b0701aa19` on `dev`, with the decisions DEC-09 to DEC-64 of its working tree
+Source: [crap-gate-setup.md](../../proposals/crap-gate-setup.md), at commit `61426f3a6c464879ee7e7c789019fd2b0701aa19` on `dev`, with the decisions DEC-09 to DEC-67 of its working tree
 
-The stakeholder approved the scope-map rows and the feature file and decided every open item. The decisions are DEC-09 to DEC-64 in the Appendix of the proposal. The feature file has 13 Rules and 146 Scenarios. [Closed items](#closed-items) names the decision or the built code that settles each item, and the Scenario that states it. No item is open.
+The stakeholder approved the scope-map rows and the feature file and decided every open item. The decisions are DEC-09 to DEC-67 in the Appendix of the proposal. The feature file has 13 Rules and 148 Scenarios. [Closed items](#closed-items) names the decision or the built code that settles each item, and the Scenario that states it. No item is open.
 
 ## Actor-Goal Matrix
 
@@ -256,6 +256,16 @@ The rows "9e0" and "+9" of the broken-row Outline read "plain decimal" as digits
 | DEC-62   | The `ready` check of `premerge-check` and of `dispatch init` takes no lock.                                                                                                                                        | "The ready check of dispatch init takes no lock"; "The ready check of premerge-check takes no lock" |
 | DEC-63   | `dispatch resume-gates` refuses with exit 1 and an unchanged ledger an entry without a story branch, or whose branch git no longer holds.                                                                          | "resume-gates refuses an entry without a story branch"                                              |
 | DEC-64   | The setup skill writes the plant to `.current-work/gate-setup-proof/plant/<name>/`, apart from the proof worktree `.current-work/gate-setup-proof/worktree`.                                                       | Every Scenario of CG-02 that names the plant folder; "The proof makes its worktree at a fixed path" |
+
+## Decisions From Wave 7 of the Implementation
+
+| Decision | What it settles                                                                                                                                                                                                                                                 | Scenario                                                                                                                          |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| DEC-65   | `crap-score` hands the `files` and `exclude` patterns of a measure to its measuring command in `GATE_FILES` and `GATE_EXCLUDE`, and the Python template measures only the files they keep. `crap-score` still applies the patterns to the rows itself (DEC-10). | None yet. The Scenarios of DEC-10 hold, and no Scenario shows the two variables.                                                  |
+| DEC-66   | `crap-score` and the Python template run their commands without the environments of `uv run --script`, and the implementation agent starts `dispatch merge-story` as a background job.                                                                          | None yet.                                                                                                                         |
+| DEC-67   | The trusted gate source reads the exceptions register, `threshold`, and `exclude` from the integration branch, which comes from configuration, and the measures from the story head. A story of its own builds the reader after the merge of this feature.      | None yet. When that story lands, the Scenarios of DEC-13, DEC-25, and DEC-55 that name `dev` and `refs/heads/dev` change with it. |
+
+BUG-0133 adds two Outlines under the Rule CG-03: the names `Box.width.getter`, `Box.width.setter`, and `Box.width.deleter` for property accessors, and no row for an `overload` stub, also under an import alias. They state the code as built and rest on no new decision.
 
 ## Area Specs
 

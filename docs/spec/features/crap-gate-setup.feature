@@ -311,6 +311,32 @@ Feature: CRAP Gate Setup
       Then the row of that method has the function Parser.parse
       # DEC-12
 
+    Scenario Outline: The Python measuring command names property accessors by their role
+      Given packages/server/backend/src/orders/box.py holds the class Box with the property width and its <accessor>
+      When crap-score runs the measure python
+      Then the row of that accessor has the function <name>
+
+      Examples:
+        | accessor | name              |
+        | getter   | Box.width.getter  |
+        | setter   | Box.width.setter  |
+        | deleter  | Box.width.deleter |
+      # @packages/factory/skills/setup-crap-score/crap-measure-python::row_name
+
+    Scenario Outline: The Python measuring command gives an overload stub no row
+      Given packages/server/backend/src/orders/box.py imports <import>
+      And the class Box holds two stubs of resize decorated with <decorator> and one implementation of resize
+      When crap-score runs the measure python
+      Then the rows hold one row with the function Box.resize, for the implementation
+      And no row stands for a stub
+
+      Examples:
+        | import                     | decorator        |
+        | typing                     | @typing.overload |
+        | overload from typing       | @overload        |
+        | overload from typing as ov | @ov              |
+      # @packages/factory/skills/setup-crap-score/crap-measure-python::row_name
+
     Scenario: A script without a file ending is measured like any other file
       Given the measure python matches packages/factory/scripts/*
       When crap-score runs the measure python
