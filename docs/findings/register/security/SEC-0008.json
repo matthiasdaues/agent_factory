@@ -1,0 +1,23 @@
+{
+  "id": "SEC-0008",
+  "source": "security-review",
+  "review_class": "security",
+  "category": "suggestion",
+  "type": "A01",
+  "severity": "minor",
+  "artifact": "packages/factory/config/hooks/guard-human-fields:389-416",
+  "story": null,
+  "finding": "The guard lets an agent's shell command write the exceptions register when the command names the path literally but is no redirect, tee, sed -i, perl -i, cp, mv, rm, unlink or interpreter (CWE-284). The review piped each of these Bash calls into the guard from the worktree, and each exited 0: `git checkout dev -- docs/findings/exceptions.md`, `git restore --source=dev docs/findings/exceptions.md`, `git rm docs/findings/exceptions.md`, `truncate -s0 docs/findings/exceptions.md`, `dd if=/tmp/x of=docs/findings/exceptions.md`, `install /tmp/x docs/findings/exceptions.md`, `rsync /tmp/x docs/findings/exceptions.md` and `ln -sf /tmp/x docs/findings/exceptions.md`. A later write through a link to the register is refused, because the guard resolves the path. The docstring says that the guard refuses every call that writes into the register. A row written this way changes nothing on the story branch, because crap-score reads the register from dev, but it reaches dev with the feature merge, and premerge-check dev does not name a changed register. DEC-42 accepts that the guard reads only the text of a call, so an agent that hides the path still passes; this finding covers only the calls whose text names the path. Fix: in _simple_targets, treat every path word of a `git checkout`, `git restore`, `git rm`, `git mv`, `truncate`, `install`, `rsync` and `ln` call, and the `of=` operand of `dd`, as a write target when guarded() gives the kind `exceptions`. Add the eight calls above to the Scenario Outline test CG-06-IT-01, and name the remaining blind spot in the docstring.",
+  "basis": {
+    "effect": "gate-bypass",
+    "second_breach": false,
+    "trusted_access": true,
+    "non_default": false,
+    "user_action": false,
+    "confidence": "proven",
+    "in_use": false
+  },
+  "why_this_severity": "An agent that writes a register row lets a later story above the threshold merge without a person's acceptance, so the bar starts at High. The attack needs the agent's shell in the repository (trusted_access), which lowers it to Medium. The guard of the register exists only on the feature branch, and the finding asks for more defense under the text check that DEC-42 accepts, so it is a suggestion, and a security suggestion is at most minor.",
+  "commit": "100ea97d4fdcbb2c057d77e9a9fd2efc57b8a39f",
+  "status": "open"
+}
