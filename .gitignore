@@ -126,6 +126,7 @@ models/
 /.agents/skills/scaffold-arc42
 /.agents/skills/scratchpad
 /.agents/skills/security-review
+/.agents/skills/setup-crap-score
 /.agents/skills/source-research
 /.agents/skills/spec-feedback
 /.agents/skills/test-design

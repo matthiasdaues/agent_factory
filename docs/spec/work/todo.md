@@ -514,3 +514,88 @@ The usage capture copies the full main transcript on every hook and keeps every 
 The Bash guard blocks only `uv run pytest`. Developers ran `.venv/bin/python -m pytest` and `uv run python -m pytest`, which pass the guard.
 
 **Action:** extend the guard to every command that starts pytest, `python -m pytest` in any form included, and keep `pre-commit run run-tests` allowed.
+
+## T-0416 — Write a canvas composer proposal, with draw.io on Confluence first
+
+- status: open
+- source: VIRGIL conversation 2026-11-20, [saas-browser-switchboard.md](../../proposals/saas-browser-switchboard.md)
+
+The switchboard's first release reads Miro boards and writes only sticky notes and thread replies. Composing whole boards stays out of it. The stakeholder's method for a composer is set: the agent keeps the target as a local layout model, writes a script of single steps, runs the script against a second model, and executes it only when the result is an identical twin of the target. Three additions came out of the discussion: the simulator knows only probed step types, a sync on the board follows every step, and a change by someone else stops the run until the remaining script passes a new twin check.
+
+draw.io on Confluence is the better first target. Its vendor documentation says that Confluence Cloud supports live joint editing, that changes travel through autosave, and that the diagram is stored as a page attachment ([collaborative editing in Confluence Cloud](https://www.drawio.com/docs/integrations/atlassian/confluence/collaborative-editing-confluence-cloud/)). So the diagram file is the layout model, the twin check compares two files, and the executor uploads one attachment version through a REST call from inside the page. Connectors carry explicit source and target IDs. Unchecked: the attachment's file format and name, and what happens to a colleague's open editor when the agent uploads a new version.
+
+Confluence whiteboards are a poor target for now. The REST API v2 can create and delete a whiteboard, but Atlassian's open requests say it can neither read nor change the content ([CONFCLOUD-77326](https://jira.atlassian.com/browse/CONFCLOUD-77326), [CONFCLOUD-76359](https://jira.atlassian.com/browse/CONFCLOUD-76359)).
+
+**Action:** write a `canvas-composer` proposal with draw.io on Confluence as the first target and Miro as the second. Start with a probe on a test page that uploads a new diagram version while the diagram is open in another editor.
+
+## T-0419 — Name the feature file and its Rules in every developer brief, and the broken scenario in every fix brief
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run), [acceptance-first-implementation.md](../../proposals/acceptance-first-implementation.md) sections 1 and 3
+
+The briefs of the CRAP gate run named the governing feature file and its Rules by hand, and the developers used them. The fix briefs handed over findings only. The BUG-0133 fix was tested against its own case and dropped every function under any `overload`, which became BUG-0135.
+
+**Action:** the dispatch, fix and review-fix brief templates of `implementation-agent.md` name the governing feature file and its Rules, and a fix brief names the scenario or rule that the finding breaks, so the fixer tests the rule, not only the case.
+
+## T-0420 — Refuse a story under a feature file without a Rule trace
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run), [acceptance-first-implementation.md](../../proposals/acceptance-first-implementation.md) section 1, DEC-01
+
+The story template marks `traces:` as optional, and `backlog-lint` checks only that it is a list.
+
+**Action:** cut a story: `backlog-lint` reports an error for a story under a `.feature` file whose `traces:` names no Rule of that file, or names a Rule missing from the scope map or the feature file.
+
+## T-0421 — Give each Rule its own text-check file, and plan one real end-to-end test in the first wave
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run), [acceptance-first-implementation.md](../../proposals/acceptance-first-implementation.md) section 2
+
+Nearly every story of the CRAP gate run touched `tests/factory/test_crap_gate_text.py`, so all nine waves ran as serial chains. The real measuring command met real projects only at the feature checks, where IMPL-0090, IMPL-0091 and BUG-0134 surfaced.
+
+**Action:** the `create-backlog` skills give each Rule its own text-check file, and plan, in the first wave, one acceptance test that runs the feature's real path end to end on a small real project instead of a stub.
+
+## T-0422 — Run the test suite on commits that change docs/arc42/ or docs/spec/
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run)
+
+The `run-tests` hook skips commits without code files. Commit `22503d9f`, docs only, raised arc42 § 5 to 76 components, and `test_structure_gates.py`, which reads that chapter, went red on `dev` unnoticed.
+
+**Action:** widen the `files` pattern of the `run-tests` hook to `docs/arc42/` and `docs/spec/`, or to the paths that tests read.
+
+## T-0423 — Stop an agent's open shells before closing it
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run)
+
+After their work merged, four developer agents still held seven background shells for hours, while `ListAgents` showed them `completed`.
+
+**Action:** `implementation-agent.md` says that the orchestrator checks each agent for open shells after its last commit and stops the agent, and that a developer agent ends its background commands before it reports.
+
+## T-0424 — A dispatch step for scope widening
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run)
+
+`premerge-check` reads a story's `touches` from the feature branch. A widening on the story branch therefore fails the scope check, and the run needed three hand-made scope commits on the feature branch and one blocked merge (ST-0433, ST-0446).
+
+**Action:** cut a story for a `dispatch` subcommand that writes the widened `touches` on the feature branch, with a reason, and refreshes the story branch.
+
+## T-0425 — Review agents write questions into their report during a run
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run)
+
+The review agents' definitions send a question to `docs/spec/work/todo.md`. In a run worktree that edit collides with the stakeholder's uncommitted `todo.md` on `dev`; T-0417 and T-0418 had to be taken back out by hand.
+
+**Action:** the definitions of the review agents say that during a run a question goes into the report, and the orchestrator files it after the merge into `dev`.
+
+## T-0426 — Ledger search, the --ledger hint and the failing tests at the merge check
+
+- status: open
+- source: retro-2026-11-22 (CRAP gate setup run), [ledger-run-receipt.md](../../proposals/ledger-run-receipt.md)
+
+`dispatch close` found the receipt inside the invocation worktree as a second ledger; its error said "pass --ledger <path>" without saying that the option goes before the subcommand. `premerge-check` printed only the first lines of a failing suite, so the ST-0438 flake could not be named.
+
+**Action:** fold the ledger search and the hint into the ledger-receipt proposal; cut a story for `premerge-check` to print the names of the failing tests.
