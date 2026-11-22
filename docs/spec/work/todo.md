@@ -599,3 +599,30 @@ The review agents' definitions send a question to `docs/spec/work/todo.md`. In a
 `dispatch close` found the receipt inside the invocation worktree as a second ledger; its error said "pass --ledger <path>" without saying that the option goes before the subcommand. `premerge-check` printed only the first lines of a failing suite, so the ST-0438 flake could not be named.
 
 **Action:** fold the ledger search and the hint into the ledger-receipt proposal; cut a story for `premerge-check` to print the names of the failing tests.
+
+## T-0427 — The proposal template names the scope field
+
+- status: open
+- source: session of 2026-11-22 (push of `ledger-run-receipt.md`)
+
+`scope-lint` requires a top-level `scope:` in a proposal's front matter, but `packages/factory/rulebooks/templates/proposal.md` does not show it. The draft `ledger-run-receipt.md` followed the template, and `test_CAL_14` failed on the push to `agent_factory`.
+
+**Action:** add `scope:` with its allowed values to the front matter of the proposal template, and have `draft-proposal` fill it.
+
+## T-0428 — Links in remark grid decks
+
+- status: open
+- source: session of 2026-11-22 (guided-tour deck)
+
+The grid of `remark-deck` has no link markup, so the guided tour shows repository paths as grey text that a reader cannot click.
+
+**Action:** add a link marker to the grid syntax that takes no cells, with a target relative to the deck folder, and a grid check that the target exists.
+
+## T-0429 — The git patterns of the guardrail ignore quoted text
+
+- status: open
+- source: session of 2026-11-22 (guided-tour deck)
+
+`block-dangerous-git.sh` blanks quoted strings and here-document bodies only for its test patterns (`TEST_SCAN`). Its git patterns still read the whole command, so it refused a here-document that only contained the words of a hard reset as text, twice in this session; the second time it was the text of this todo.
+
+**Action:** check `DANGEROUS_PATTERNS` against the blanked command as well, with the same fallback to the whole command when it contains `$(` or a backtick, and add cases to `tests/factory/test_block_dangerous_git.py`.
