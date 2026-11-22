@@ -43,7 +43,6 @@ from dispatch_lib import (
     FAILURE_CLASSES,
     GATE_CANNOT_MEASURE_REASON,
     LEDGER_MODES,
-    MARK_DISPATCHED_SOURCES,
     MANIFEST_FILENAME,
     STOP_SUBCOMMANDS,
     TIER_RANK,
@@ -84,7 +83,6 @@ from dispatch_lib import (
     parse_story_frontmatter,
     re_dispatch_disposition,
     remove_manifest,
-    resume_gates_refusal,
     render_handoff_contract,
     spec_feedback_path,
     stash_name,
@@ -1844,16 +1842,6 @@ def cmd_mark_dispatching(args: argparse.Namespace) -> int:
 
 
 def cmd_mark_dispatched(args: argparse.Namespace) -> int:
-    # The edge from blocked to dispatched is ResumeGates alone (BR-135).
-    ledger = _load_ledger(Path(args.ledger))
-    entry = ledger.stories.get(args.story_id) if ledger is not None else None
-    if entry is not None and entry.status not in MARK_DISPATCHED_SOURCES:
-        print(
-            f"error: {args.story_id} is {entry.status.value}; "
-            "mark-dispatched accepts only dispatching",
-            file=sys.stderr,
-        )
-        return 1
     return _transition(args, StoryState.DISPATCHED)
 
 
@@ -2114,12 +2102,13 @@ def cmd_resume_gates(args: argparse.Namespace) -> int:
     if entry is None:
         print(f"error: story not found: {args.story_id}", file=sys.stderr)
         return 1
-    refusal = resume_gates_refusal(entry)
-    if refusal is not None:
-        print(f"error: {refusal}", file=sys.stderr)
-        return 1
+    # A pending or returned entry marked blocked has no story branch, so no
+    # code waits for the gate-check step (DEC-63).
+    branch_exists = bool(entry.branch) and (
+        _git("rev-parse", "--verify", "--quiet", f"refs/heads/{entry.branch}")[0] == 0
+    )
     try:
-        ledger.transition(entry.id, StoryState.DISPATCHED)
+        ledger.resume_gates(entry.id, branch_exists)
     except TransitionError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

@@ -282,9 +282,13 @@ def test_cg_08_step_4d_sends_a_story_blocked_after_exit_3_to_resume_gates() -> N
              if line.lstrip().startswith("d. **Merge**")]
     assert len(lines) == 1, lines
     step = lines[0]
-    exit_3 = step.split("After exit `3` of `premerge-check`", 1)
+    sign = "holds the line `GATE CANNOT MEASURE: crap-score`, `premerge-check` exited `3`"
+    exit_3 = step.split(sign, 1)
     assert len(exit_3) == 2, "step 4d names no exit 3 of premerge-check"
     text = exit_3[1].split("(BR-124, BR-136)", 1)[0]
+    # IMPL-0085: the exit-3 case comes before the rule that leads to the fix-iteration loop.
+    assert step.index(sign) < step.index("When `premerge-check` refuses, `merge-story` exits `1`")
+    assert step.index(sign) < step.index("[fix-iteration loop](#fix-iteration-loop)")
     assert "`blocked` with the reason `gate cannot measure: crap-score`" in text
     assert "Never send that story to the fix-iteration loop" in text
     assert "dispatch resume-gates <story-id>" in text

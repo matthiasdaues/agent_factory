@@ -70,29 +70,39 @@ VALID_TRANSITIONS: dict[StoryState, set[StoryState]] = {
 # to dispatched: nobody judged its code, so the code stays (BR-135, DEC-07).
 GATE_CANNOT_MEASURE_REASON = "gate cannot measure: crap-score"
 
-# `mark-dispatched` reaches dispatched only from dispatching. The edge from
-# blocked belongs to ResumeGates and its guard alone.
-MARK_DISPATCHED_SOURCES = frozenset({StoryState.DISPATCHING, StoryState.DISPATCHED})
+# Edges of VALID_TRANSITIONS that `Ledger.transition` refuses, because a
+# method of the ledger takes them only after its guard (BR-135).
+GUARDED_EDGES: dict[tuple[StoryState, StoryState], str] = {
+    (StoryState.BLOCKED, StoryState.DISPATCHED): "resume-gates",
+}
 
 
-def resume_gates_refusal(entry: StoryEntry) -> str | None:
+def resume_gates_refusal(entry: StoryEntry, branch_exists: bool = True) -> str | None:
     """The guard of ResumeGates: None, or the refusal naming state and reason.
 
     It accepts only a `blocked` entry whose reason is exactly
-    GATE_CANNOT_MEASURE_REASON, a story or a finding (BR-135, DEC-22).
+    GATE_CANNOT_MEASURE_REASON, a story or a finding (BR-135, DEC-22), and
+    only when the entry has its story branch (DEC-63). *branch_exists* says
+    whether git holds the branch that the entry names.
     """
     if (
-        entry.status == StoryState.BLOCKED
-        and entry.reason == GATE_CANNOT_MEASURE_REASON
+        entry.status != StoryState.BLOCKED
+        or entry.reason != GATE_CANNOT_MEASURE_REASON
     ):
-        return None
-    state = entry.status.value
-    if entry.reason:
-        state = f"{state} with the reason '{entry.reason}'"
-    return (
-        f"{entry.id} is {state}; resume-gates accepts only blocked with the "
-        f"reason '{GATE_CANNOT_MEASURE_REASON}'"
-    )
+        state = entry.status.value
+        if entry.reason:
+            state = f"{state} with the reason '{entry.reason}'"
+        return (
+            f"{entry.id} is {state}; resume-gates accepts only blocked with the "
+            f"reason '{GATE_CANNOT_MEASURE_REASON}'"
+        )
+    if not entry.branch or not branch_exists:
+        named = f" {entry.branch}" if entry.branch else ""
+        return (
+            f"{entry.id} has no story branch{named}; resume-gates returns only "
+            "a story whose code exists to the gate-check step"
+        )
+    return None
 
 # The states from which `dispatch return-story` sets an entry back to
 # pending (BR-116). The User runs it; the guardrail refuses it to agents.
@@ -658,7 +668,24 @@ class Ledger:
                 f"invalid transition: {entry.status.value} -> {target.value} "
                 f"for story {story_id}"
             )
+        owner = GUARDED_EDGES.get((entry.status, target))
+        if owner is not None:
+            raise TransitionError(
+                f"invalid transition: {entry.status.value} -> {target.value} "
+                f"for story {story_id}; only {owner} takes this edge"
+            )
         entry.status = target
+
+    def resume_gates(self, story_id: str, branch_exists: bool = True) -> None:
+        """Set a blocked entry dispatched for the gate-check step (BR-135).
+
+        Raises TransitionError with the refusal of the guard. The entry keeps
+        its attempts, grants, reason, branch and worktree (DEC-07, DEC-29)."""
+        entry = self.stories[story_id]
+        refusal = resume_gates_refusal(entry, branch_exists)
+        if refusal is not None:
+            raise TransitionError(refusal)
+        entry.status = StoryState.DISPATCHED
 
     def return_story(self, story_id: str) -> None:
         """Set a failed or blocked entry back to pending and mark it returned.

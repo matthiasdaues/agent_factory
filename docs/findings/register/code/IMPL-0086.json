@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The test exists only on the story branch. The row runs the real premerge-check and crap-score through a whole run, and CG-08-IT-03 and CG-08-IT-05 own exit 3 at the merge (no to fails_purpose). A later change that drops crap-score from the merge would leave the one end-to-end test green, so a reader must find the gap by hand.",
   "commit": "ce6ed5269efedd91c75f4fe3891e6556a14ab254",
-  "status": "open"
+  "status": "resolved"
 }

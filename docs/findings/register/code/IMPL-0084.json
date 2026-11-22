@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The code exists only on the story branch, so it is not in use. Both callers that ask for dispatched check the guard, and CG-09-IT-01 shows that mark-dispatched refuses a blocked entry (no to fails_purpose). The rule of BR-135 is written twice, and every later caller of Ledger.transition must repeat it, because the generic edge set does not carry it.",
   "commit": "ce6ed5269efedd91c75f4fe3891e6556a14ab254",
-  "status": "open"
+  "status": "resolved"
 }

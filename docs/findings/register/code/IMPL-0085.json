@@ -16,5 +16,5 @@
   },
   "why_this_severity": "The text exists only on the story branch. The agent still reaches resume-gates, because the exception names the reason and refresh-story refuses the blocked story before any developer agent starts (no to fails_purpose). An agent that follows the first rule loses a turn and gets a refusal it must then explain to the User.",
   "commit": "ce6ed5269efedd91c75f4fe3891e6556a14ab254",
-  "status": "open"
+  "status": "resolved"
 }

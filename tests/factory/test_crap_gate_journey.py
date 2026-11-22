@@ -2,8 +2,10 @@
 
 One run by hand on a temporary repository: the gate fails a changed function,
 the developer commit fixes it, a stopped stack makes the gate exit 2 and the
-story blocked, resume-gates returns it with its attempts, and merge-story
-merges it with the real premerge-check and the real crap-score.
+story blocked, and resume-gates returns it with its attempts. A second stop
+makes premerge-check exit 3 at the merge and blocks the story again. After a
+second resume-gates, merge-story merges it with the real premerge-check and
+the real crap-score.
 """
 
 from __future__ import annotations
@@ -71,6 +73,14 @@ def _gate_check(run: dict[str, Path]) -> subprocess.CompletedProcess:
     )
 
 
+def _merged(repo: Path, sha: str) -> bool:
+    """True when feature/login holds the commit *sha*."""
+    return subprocess.run(
+        ["git", "merge-base", "--is-ancestor", sha, "feature/login"],
+        cwd=repo, env=_env(), capture_output=True, check=False,
+    ).returncode == 0
+
+
 def _step(run: dict[str, Path], *args: str) -> subprocess.CompletedProcess:
     result = _dispatch(run["repo"], run["ledger"], *args)
     assert result.returncode == 0, (args, result.stdout, result.stderr)
@@ -128,9 +138,24 @@ def test_cg_08_a_blocked_story_resumes_and_merges_with_its_attempts(tmp_path):
 
     passing = _gate_check(run)
     assert passing.returncode == 0, passing.stdout + passing.stderr
+
+    # The stack stops again before the merge: premerge-check exits 3 and blocks the story.
+    stopped.write_text("")
+    refused = _dispatch(repo, run["ledger"], "merge-story", "ST-0350")
+    assert refused.returncode == 1, refused.stdout + refused.stderr
+    assert "GATE CANNOT MEASURE: crap-score" in refused.stdout
+    entry = _entry(run)
+    assert (entry.status.value, entry.reason) == ("blocked", GATE_REASON)
+    assert entry.attempts == attempts
+    assert not _merged(repo, sha), "nothing merges after exit 3"
+
+    # The User starts the stack again, and the merge runs crap-score and passes.
+    stopped.unlink()
+    _step(run, "resume-gates", "ST-0350")
     merged = _step(run, "merge-story", "ST-0350")
 
+    assert "PASS semantic-gates: crap-score passed for ST-0350" in merged.stdout
     entry = _entry(run)
     assert entry.status.value == "done", merged.stdout + merged.stderr
     assert entry.attempts == attempts
-    assert _git(repo, "merge-base", "--is-ancestor", sha, "feature/login") == ""
+    assert _merged(repo, sha)
