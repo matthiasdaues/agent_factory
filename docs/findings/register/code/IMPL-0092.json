@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0092",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "timing",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/implementation-agent.md:178",
+  "story": null,
+  "finding": "Step 4d of the implementation agent calls dispatch merge-story without saying how to start it. merge-story runs premerge-check, and premerge-check now runs the full crap-score at the merge: the ready commands, every measuring command with the test suite under coverage, then the test suite, and after the merge the test suite again (BR-136). BR-134 starts crap-score in the gate-check step as a background job, because a foreground command call of an agent CLI can end before timeout_minutes runs out. The same reason holds for merge-story, whose premerge-check runs the same call. A foreground call that ends early stops premerge-check and crap-score with it. The merge then does not happen, and the entry stays dispatched. The run time of the gate on this repository is not measured yet; ST-0449 measures it. Fix: in step 4d and in step 6 of the run by hand, say that the implementation agent starts dispatch merge-story as a background job and reads its exit code from the job, with BR-134 as the reason.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The text exists only on the feature branch. A merge-story that ends early merges nothing, leaves the entry dispatched, and runs again idempotently, so no wrong merge results (no to fails_purpose). Each early end costs a full rerun of the gate and the test suite, and the agent must find the cause in a killed call.",
+  "commit": "e4cb6d4b0d23701eea5ed79bc6c39b35642a8b03",
+  "status": "open"
+}

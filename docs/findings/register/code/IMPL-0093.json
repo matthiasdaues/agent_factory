@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0093",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/gate-setup-proof:290-303",
+  "story": null,
+  "finding": "Four scripts read the measures of gates.crap-score, and each applies its own checks. crap-score reads them in read_settings with every check of BR-128 and the old key crap_score. gate-setup-proof reads them in read_measure without the old key and without a check. premerge-check (ready_commands, line 1202) and dispatch_lib.py (ready_commands, line 232) each read the ready values once more. The results differ for the same file. A ready value \"\" is a setup fault for crap-score, but premerge-check runs it as an empty shell command that passes. With both keys crap_score and crap-score enabled, dispatch init runs the ready commands of both entries, although BR-055 says that the key with hyphens wins and the gate runs once. A project with only the old key gets 'has no entry gates.crap-score' from the proof, and crap-score accepts the same file. The two scripts crap-score and gate-setup-proof also hold the same signal code: Stopped, _raise_stopped, stop_signals, STOP_SIGNALS, and the blocked signal mask around Popen. IMPL-0083 covers the stop of a process group and the reading of timeout_minutes, not these parts. Fix: move one reader of gates.crap-score into dispatch_lib.py, next to glob_match, that applies BR-055 and returns the measures with their ready values, and let the four scripts call it; the callers keep their own refusals. Move Stopped and stop_signals into dispatch_lib.py too, and import them in crap-score and gate-setup-proof.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the feature branch. Each divergence ends in the same verdict, because crap-score refuses the file in the gate run and the setup writes only the key with hyphens (no to fails_purpose). A change to the measure settings must still be made in four places, and a reader cannot tell which reader decides.",
+  "commit": "e4cb6d4b0d23701eea5ed79bc6c39b35642a8b03",
+  "status": "open"
+}
