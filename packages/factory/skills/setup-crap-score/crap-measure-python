@@ -47,8 +47,10 @@ Test command
   TEST_COMMAND below holds the project's test command. setup-crap-score
   fills it in. The command runs in the folder this command runs in, and
   coverage measures every Python process it starts. It gets the
-  environment of the caller without this command's own uv environment, so
-  a test command that starts `python` runs the project's interpreter.
+  environment of the caller without the environments of `uv run --script`,
+  this command's and those of its callers, so a test command that starts
+  `python` runs the project's interpreter. Such an environment is a folder
+  with pyvenv.cfg under uv's cache folder.
 """
 
 from __future__ import annotations
@@ -191,24 +193,41 @@ def code_files(root: Path) -> list[Path]:
     return sorted(files)
 
 
-def caller_environment() -> dict[str, str]:
-    """The environment of the caller, without the parts that `uv run --script` added.
+def uv_cache_folder() -> str:
+    """uv's cache folder: UV_CACHE_DIR, else $XDG_CACHE_HOME/uv, else ~/.cache/uv."""
+    folder = os.environ.get("UV_CACHE_DIR") or os.path.join(
+        os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "uv"
+    )
+    return os.path.realpath(folder)
 
-    uv names this command's own environment in VIRTUAL_ENV and puts its bin
-    folder on PATH. Both go, so `python` in TEST_COMMAND starts the
-    project's interpreter, not the one that holds radon and coverage.py.
-    uv keeps no copy of a VIRTUAL_ENV that the caller had set, so none is
-    set again. crap-score holds the same function.
+
+def is_uv_script_environment(folder: str, cache: str) -> bool:
+    """True when *folder* is a Python environment that lies under uv's cache folder."""
+    real = os.path.realpath(folder)
+    return real.startswith(cache + os.sep) and os.path.isfile(os.path.join(real, "pyvenv.cfg"))
+
+
+def caller_environment() -> dict[str, str]:
+    """The environment of the caller, without the environments of `uv run --script`.
+
+    Each script that starts through `uv run --script`, such as this command
+    and crap-score, names its environment in VIRTUAL_ENV and puts its bin
+    folder on PATH. uv keeps these environments under its cache folder.
+    Every such PATH entry goes, and VIRTUAL_ENV goes when it names such an
+    environment, so `python` in TEST_COMMAND starts the project's
+    interpreter, not the one that holds radon and coverage.py. A project's
+    own .venv lies outside the cache and stays. crap-score holds the same
+    function.
     """
-    own = os.path.realpath(sys.prefix)
-    own_bin = os.path.join(own, "bin")
+    cache = uv_cache_folder()
     env = dict(os.environ)
-    if "VIRTUAL_ENV" in env and os.path.realpath(env["VIRTUAL_ENV"]) == own:
+    if "VIRTUAL_ENV" in env and is_uv_script_environment(env["VIRTUAL_ENV"], cache):
         del env["VIRTUAL_ENV"]
     if "PATH" in env:
         env["PATH"] = os.pathsep.join(
             entry for entry in env["PATH"].split(os.pathsep)
-            if not entry or os.path.realpath(entry) != own_bin
+            if not (os.path.basename(os.path.normpath(entry)) == "bin"
+                    and is_uv_script_environment(os.path.dirname(os.path.normpath(entry)), cache))
         )
     return env
 

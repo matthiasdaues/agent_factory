@@ -158,30 +158,131 @@ echo "[]" > "$GATE_OUTPUT"
 """
 
 
+def _environment(folder: Path) -> Path:
+    """A folder that looks like a Python environment: it holds pyvenv.cfg and bin."""
+    (folder / "bin").mkdir(parents=True)
+    (folder / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    return folder
+
+
 @pytest.mark.spec("CG-04-CT-03")
-def test_cg_04_crap_score_runs_the_measuring_command_without_its_own_uv_environment(
+def test_cg_04_crap_score_runs_the_measuring_command_without_any_uv_script_environment(
     tmp_path, monkeypatch
 ):
-    """IMPL-0091: uv run --script names the gate's environment in VIRTUAL_ENV and puts it first on PATH.
+    """IMPL-0091: every uv run --script on the way puts its environment on PATH.
 
-    The measuring command gets the caller's environment without both, plus
-    GATE_OUTPUT, GATE_FILES and GATE_EXCLUDE, so `python` in it names the
-    project's interpreter. The ready command gets the same environment.
+    The gate's own environment and the one of an outer script, such as
+    dispatch, both lie under uv's cache folder. The measuring command gets
+    the caller's environment without them, plus GATE_*, so `python` in it
+    names the project's interpreter. The project's .venv lies outside the
+    cache and stays. The ready command gets the same environment.
     """
     stub = tmp_path / "caller-stub"
     stub.write_text(CALLER_STUB)
     stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
-    project_bin = str(tmp_path / "project" / "bin")
+    cache = tmp_path / "uv-cache"
+    gate = _environment(cache / "environments-v2" / "crap-score-1a2b")
+    outer = _environment(cache / "builds-v0" / ".tmpAbC123")
+    project = _environment(tmp_path / "project" / ".venv")
+    keep = [str(project / "bin"), str(cache / "bin"), "/usr/bin", "/bin"]
+    monkeypatch.setenv("UV_CACHE_DIR", str(cache))
     monkeypatch.setenv("ENV_LOG", str(tmp_path / "env"))
-    monkeypatch.setenv("VIRTUAL_ENV", sys.prefix)
-    monkeypatch.setenv("PATH", os.pathsep.join([str(Path(sys.prefix) / "bin"), project_bin, "/usr/bin", "/bin"]))
+    monkeypatch.setenv("VIRTUAL_ENV", str(gate))
+    monkeypatch.setenv("PATH", os.pathsep.join([str(gate / "bin"), str(outer / "bin"), *keep]))
     measure = cs.Measure("python", "src/**", str(stub))
 
     assert cs.run_measure(measure, tmp_path, cs.Clock(1)) == []
 
     assert (tmp_path / "env.venv").read_text() == "unset"
-    assert (tmp_path / "env.path").read_text() == os.pathsep.join([project_bin, "/usr/bin", "/bin"])
+    assert (tmp_path / "env.path").read_text() == os.pathsep.join(keep)
     assert (tmp_path / "env.files").read_text() == "src/**"
+
+
+@pytest.mark.spec("CG-04-CT-03")
+def test_cg_04_crap_score_keeps_a_virtual_env_outside_the_uv_cache(tmp_path, monkeypatch):
+    """IMPL-0091: an activated project environment is no uv script environment, so it stays."""
+    stub = tmp_path / "caller-stub"
+    stub.write_text(CALLER_STUB)
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+    project = _environment(tmp_path / "project" / ".venv")
+    monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / "uv-cache"))
+    monkeypatch.setenv("ENV_LOG", str(tmp_path / "env"))
+    monkeypatch.setenv("VIRTUAL_ENV", str(project))
+    monkeypatch.setenv("PATH", os.pathsep.join([str(project / "bin"), "/usr/bin", "/bin"]))
+
+    assert cs.run_measure(cs.Measure("python", "src/**", str(stub)), tmp_path, cs.Clock(1)) == []
+
+    assert (tmp_path / "env.venv").read_text() == str(project)
+    assert (tmp_path / "env.path").read_text() == os.pathsep.join([str(project / "bin"), "/usr/bin", "/bin"])
+
+
+OUTER_SCRIPT = """\
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+import subprocess
+import sys
+
+sys.exit(subprocess.run(sys.argv[1:]).returncode)
+"""
+
+NESTED_TESTING_YAML = """\
+test_command: "true"
+gates:
+  crap-score:
+    enabled: true
+    threshold: 8
+    timeout_minutes: 5
+    measures:
+      - name: python
+        files: "src/**"
+        command: "{stub}"
+"""
+
+
+@pytest.mark.spec("CG-04-IT-06")
+def test_cg_04_crap_score_from_an_outer_uv_script_gives_the_command_no_uv_environment(tmp_path):
+    """IMPL-0091: dispatch starts premerge-check and crap-score through uv run --script.
+
+    An outer uv script starts the real crap-score, as the merge does. The
+    measuring command sees neither environment, and the project's
+    interpreter folder stays first on PATH.
+    """
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    stub = tmp_path / "caller-stub"
+    stub.write_text(CALLER_STUB)
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+    (repo / "docs" / "testing.yaml").write_text(NESTED_TESTING_YAML.format(stub=stub))
+    outer = tmp_path / "outer"
+    outer.write_text(OUTER_SCRIPT)
+    outer.chmod(outer.stat().st_mode | stat.S_IXUSR)
+    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV" and not k.startswith("COVERAGE_")}
+    project_bin = str(Path(sys.executable).parent)
+    env["PATH"] = os.pathsep.join([project_bin, env["PATH"]])
+    env["ENV_LOG"] = str(tmp_path / "env")
+    for args in (["init", "-q", "-b", "main"], ["add", "-A"]):
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.com",
+         "-c", "commit.gpgsign=false", "commit", "-qm", "init"],
+        cwd=repo, check=True, capture_output=True,
+    )
+    crap_score = Path(cs.__file__)
+
+    result = subprocess.run(
+        [str(outer), str(crap_score), "--all", "--story-id", "ST-0350",
+         "--report-dir", str(tmp_path / "reports")],
+        cwd=repo, env=env, capture_output=True, text=True, timeout=300,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    cache = Path(subprocess.run(["uv", "cache", "dir"], capture_output=True, text=True, check=True).stdout.strip())
+    path = (tmp_path / "env.path").read_text().split(os.pathsep)
+    assert not [p for p in path if Path(p).resolve().is_relative_to(cache.resolve())], path
+    assert path[0] == project_bin
+    assert (tmp_path / "env.venv").read_text() == "unset"
 
 
 @pytest.mark.spec("CG-04-CT-05")

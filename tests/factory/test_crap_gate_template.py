@@ -93,8 +93,12 @@ def _write_project(root: Path, test_command: list[str] | None = None) -> Path:
     return command
 
 
-def _run(root: Path, **patterns: str) -> subprocess.CompletedProcess:
-    """Run the template; *patterns* sets GATE_FILES and GATE_EXCLUDE, as crap-score does."""
+def _run(root: Path, outer: Path | None = None, **patterns: str) -> subprocess.CompletedProcess:
+    """Run the template; *patterns* sets GATE_FILES and GATE_EXCLUDE, as crap-score does.
+
+    With *outer*, that script starts the template, as crap-score started by
+    dispatch does.
+    """
     # A gate run of this suite sets COVERAGE_* variables. The real template
     # would inherit them and write its data into that run, so strip them here.
     env = {
@@ -104,7 +108,7 @@ def _run(root: Path, **patterns: str) -> subprocess.CompletedProcess:
     env["GATE_OUTPUT"] = "rows.json"
     env.update(patterns)
     return subprocess.run(
-        ["uv", "run", "--quiet", "--script", "scripts/crap-measure-python"],
+        [*([str(outer)] if outer else []), "uv", "run", "--quiet", "--script", "scripts/crap-measure-python"],
         cwd=root,
         env=env,
         capture_output=True,
@@ -370,3 +374,40 @@ def test_cg_03_the_template_runs_the_test_command_in_the_environment_of_its_call
 
     assert result.returncode == 0, result.stderr
     _row(_rows(tmp_path), "src/parser.py", "Parser.parse")
+
+
+OUTER_SCRIPT = """\
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
+import subprocess
+import sys
+
+sys.exit(subprocess.run(sys.argv[1:]).returncode)
+"""
+
+
+@pytest.mark.spec("CG-03-IT-01")
+def test_cg_03_the_template_started_from_an_outer_uv_script_runs_the_project_interpreter(
+    tmp_path: Path,
+) -> None:
+    """Scenario: The measuring command writes its rows to the path in GATE_OUTPUT.
+
+    IMPL-0091: at the merge, dispatch, premerge-check and crap-score each
+    start through uv run --script, so several uv environments lie on PATH
+    before the project's interpreter folder. The test command still starts
+    the project's python3.
+    """
+    root = tmp_path / "project"
+    root.mkdir()
+    _write_project(root, ["python3", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"])
+    outer = tmp_path / "outer"
+    outer.write_text(OUTER_SCRIPT)
+    outer.chmod(0o755)
+    project_bin = str(Path(sys.executable).parent)
+
+    result = _run(root, outer, PATH=os.pathsep.join([project_bin, os.environ["PATH"]]))
+
+    assert result.returncode == 0, result.stderr
+    _row(_rows(root), "src/parser.py", "Parser.parse")
