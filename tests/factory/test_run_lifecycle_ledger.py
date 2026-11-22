@@ -748,7 +748,8 @@ LIFECYCLE_EDGES = {
     S.DISPATCHED: {S.DONE, S.FAILED, S.BLOCKED},
     S.DONE: set(),
     S.FAILED: {S.PREPARED, S.PENDING},
-    S.BLOCKED: {S.PREPARED, S.PENDING},
+    # ResumeGates adds the edge from blocked to dispatched (ST-0444, BR-135).
+    S.BLOCKED: {S.PREPARED, S.DISPATCHED, S.PENDING},
 }
 RETURNED_STORY = """---
 id: ST-0350

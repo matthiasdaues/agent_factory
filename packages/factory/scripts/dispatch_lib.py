@@ -8,8 +8,12 @@ from __future__ import annotations
 import ast
 import fnmatch
 import json
+import os
 import re
+import signal
 import subprocess
+import tempfile
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -55,8 +59,50 @@ VALID_TRANSITIONS: dict[StoryState, set[StoryState]] = {
     StoryState.DISPATCHED: {StoryState.DONE, StoryState.BLOCKED, StoryState.FAILED},
     StoryState.DONE: set(),
     StoryState.FAILED: {StoryState.PREPARED, StoryState.PENDING},
-    StoryState.BLOCKED: {StoryState.PREPARED, StoryState.PENDING},
+    StoryState.BLOCKED: {
+        StoryState.PREPARED,
+        StoryState.DISPATCHED,
+        StoryState.PENDING,
+    },
 }
+
+# The only reason with which `dispatch resume-gates` sets a blocked entry back
+# to dispatched: nobody judged its code, so the code stays (BR-135, DEC-07).
+GATE_CANNOT_MEASURE_REASON = "gate cannot measure: crap-score"
+
+# Edges of VALID_TRANSITIONS that `Ledger.transition` refuses, because a
+# method of the ledger takes them only after its guard (BR-135).
+GUARDED_EDGES: dict[tuple[StoryState, StoryState], str] = {
+    (StoryState.BLOCKED, StoryState.DISPATCHED): "resume-gates",
+}
+
+
+def resume_gates_refusal(entry: StoryEntry, branch_exists: bool = True) -> str | None:
+    """The guard of ResumeGates: None, or the refusal naming state and reason.
+
+    It accepts only a `blocked` entry whose reason is exactly
+    GATE_CANNOT_MEASURE_REASON, a story or a finding (BR-135, DEC-22), and
+    only when the entry has its story branch (DEC-63). *branch_exists* says
+    whether git holds the branch that the entry names.
+    """
+    if (
+        entry.status != StoryState.BLOCKED
+        or entry.reason != GATE_CANNOT_MEASURE_REASON
+    ):
+        state = entry.status.value
+        if entry.reason:
+            state = f"{state} with the reason '{entry.reason}'"
+        return (
+            f"{entry.id} is {state}; resume-gates accepts only blocked with the "
+            f"reason '{GATE_CANNOT_MEASURE_REASON}'"
+        )
+    if not entry.branch or not branch_exists:
+        named = f" {entry.branch}" if entry.branch else ""
+        return (
+            f"{entry.id} has no story branch{named}; resume-gates returns only "
+            "a story whose code exists to the gate-check step"
+        )
+    return None
 
 # The states from which `dispatch return-story` sets an entry back to
 # pending (BR-116). The User runs it; the guardrail refuses it to agents.
@@ -181,6 +227,102 @@ def attempt_limits(gates: Any) -> AttemptLimits:
             )
         values[key] = value
     return AttemptLimits(**values)
+
+
+def ready_commands(gates: Any) -> list[tuple[str, str, str, float | None]]:
+    """List the `ready` commands that `dispatch init` runs (BR-137, DEC-61).
+
+    Each item is the gate, the measure, the command, and the time limit of
+    the gate in seconds, in list order. The limit is None when
+    `timeout_minutes` is no number. Only an entry with `enabled: true`
+    counts. A measure without a `ready` string runs nothing here;
+    `crap-score` checks the shape of its measures (BR-128).
+    """
+    section = gates if isinstance(gates, dict) else {}
+    commands = []
+    for gate, entry in section.items():
+        if not isinstance(entry, dict) or entry.get("enabled") is not True:
+            continue
+        minutes = entry.get("timeout_minutes")
+        limit = (
+            None if isinstance(minutes, bool) or not isinstance(minutes, (int, float))
+            else float(minutes) * 60
+        )
+        measures = entry.get("measures")
+        for measure in measures if isinstance(measures, list) else []:
+            ready = measure.get("ready") if isinstance(measure, dict) else None
+            if isinstance(ready, str) and ready:
+                commands.append((str(gate), str(measure.get("name")), ready, limit))
+    return commands
+
+
+# Seconds between SIGTERM and SIGKILL of a command at its limit, as in crap-score.
+STOP_GRACE_SECONDS = 5
+
+
+def run_in_own_group(
+    command: str, cwd: Path, timeout: float | None, env: dict[str, str] | None = None
+) -> tuple[int, str]:
+    """Run *command* through the shell in its own process group (DEC-61).
+
+    Return the exit code and the message of the command. At *timeout* the
+    whole group gets SIGTERM, then SIGKILL after STOP_GRACE_SECONDS, and
+    TimeoutExpired is raised. Output goes to temporary files, so a process
+    that keeps a pipe open cannot block the wait.
+    """
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(
+            command, shell=True, cwd=cwd, env=env,
+            stdout=out, stderr=err, start_new_session=True,
+        )
+        try:
+            code = proc.wait(timeout=timeout)
+        except BaseException:
+            _stop_group(proc)
+            raise
+        err.seek(0)
+        out.seek(0)
+        message = (
+            err.read().decode(errors="replace").strip()
+            or out.read().decode(errors="replace").strip()
+            or "no message"
+        )
+    return code, message
+
+
+def _signal_group(proc: subprocess.Popen, sig: int) -> None:
+    try:
+        os.killpg(proc.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _group_alive(proc: subprocess.Popen) -> bool:
+    try:
+        os.killpg(proc.pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _stop_group(proc: subprocess.Popen) -> None:
+    """Stop the command and every process of its group: SIGTERM, then SIGKILL.
+
+    The grace period lasts until every process of the group has ended, not
+    only the shell. SIGKILL goes to the group even when the shell has
+    exited, because its children may not have.
+    """
+    _signal_group(proc, signal.SIGTERM)
+    deadline = time.monotonic() + STOP_GRACE_SECONDS
+    try:
+        proc.wait(timeout=STOP_GRACE_SECONDS)
+        while _group_alive(proc) and time.monotonic() < deadline:
+            time.sleep(0.1)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        _signal_group(proc, signal.SIGKILL)
+        proc.wait()
 
 
 def entry_tier(entry: StoryEntry, declared_tier: str | None = None) -> str:
@@ -526,7 +668,24 @@ class Ledger:
                 f"invalid transition: {entry.status.value} -> {target.value} "
                 f"for story {story_id}"
             )
+        owner = GUARDED_EDGES.get((entry.status, target))
+        if owner is not None:
+            raise TransitionError(
+                f"invalid transition: {entry.status.value} -> {target.value} "
+                f"for story {story_id}; only {owner} takes this edge"
+            )
         entry.status = target
+
+    def resume_gates(self, story_id: str, branch_exists: bool = True) -> None:
+        """Set a blocked entry dispatched for the gate-check step (BR-135).
+
+        Raises TransitionError with the refusal of the guard. The entry keeps
+        its attempts, grants, reason, branch and worktree (DEC-07, DEC-29)."""
+        entry = self.stories[story_id]
+        refusal = resume_gates_refusal(entry, branch_exists)
+        if refusal is not None:
+            raise TransitionError(refusal)
+        entry.status = StoryState.DISPATCHED
 
     def return_story(self, story_id: str) -> None:
         """Set a failed or blocked entry back to pending and mark it returned.
@@ -993,7 +1152,7 @@ def _stdlib_load(text: str) -> dict[str, Any]:
     mappings (``- key: val`` with continuation lines), inline ``[]``
     and ``{}``, flow sequences of scalars (``[a, "b"]``), block scalars
     (``|`` and ``>`` with ``-`` or ``+`` chomping), and scalars (null,
-    bool, int, str).
+    bool, int, plain decimal such as ``0.05`` as float, str).
     """
     result: dict[str, Any] = {}
     # (indent, dict) — the dict that owns children at deeper indents
@@ -1285,6 +1444,9 @@ def _parse_scalar(text: str) -> Any:
         return int(text)
     except ValueError:
         pass
+    # A plain decimal such as `timeout_minutes: 0.05` is a float, as PyYAML reads it (DEC-61).
+    if re.fullmatch(r"-?\d+\.\d+", text):
+        return float(text)
     return text
 
 
@@ -2135,6 +2297,7 @@ STOP_SUBCOMMANDS = frozenset(
         "mark-dispatching",
         "mark-dispatched",
         "re-dispatch",
+        "resume-gates",
         "escalate",
         "refresh-story",
         "merge-story",
@@ -2158,6 +2321,8 @@ READ_SUBCOMMANDS = frozenset(
 )
 
 FINDINGS_DIR = "docs/findings"
+# The stem of docs/findings/exceptions.md, the exceptions register (BR-132).
+EXCEPTIONS_REGISTER_ID = "exceptions"
 # A story ID; every other ID of a unit of work is a finding ID (BR-117).
 STORY_ID_RE = re.compile(r"ST-\d+")
 # The blocking rule of BR-085: these categories at these severities block.
@@ -2440,6 +2605,9 @@ def stop_notice(cwd: Path | None = None) -> str | None:
         if folder.is_dir()
         else {}
     )
+    # The exceptions register is no finding, so the notice skips it by name (BR-132).
+    head.pop(EXCEPTIONS_REGISTER_ID, None)
+    worktree.pop(EXCEPTIONS_REGISTER_ID, None)
     entries = []
     for finding_id in sorted(set(head) | set(worktree)):
         entry = stop_entry(finding_id, worktree.get(finding_id), head.get(finding_id))

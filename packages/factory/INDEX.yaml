@@ -281,8 +281,8 @@ agents:
     tier: standard
     description: Dispatch backlog stories to parallel developer-agent subagents, maximising concurrency within dependency AND file-overlap constraints in an orchestrated run, or serial human-driven work in the primary checkout in a run by hand. The dispatcher owns wave scheduling, overlap-aware branch/merge ordering, model selection per story tier, and completion tracking.
     path: agents/implementation-agent.md
-    tokens: 7874
-    total_tokens: 19051
+    tokens: 8816
+    total_tokens: 20101
     inputs:
       required:
         - type: story
@@ -428,7 +428,7 @@ agents:
     description: After implementation and QA, reconcile the specification and architecture documentation against the code-as-built. The inverse of spec-review — finds where the docs drifted from reality and brings them back into alignment.
     path: agents/reconciliation-agent.md
     tokens: 2536
-    total_tokens: 17957
+    total_tokens: 18065
     inputs:
       required:
         - type: scope-map
@@ -519,7 +519,7 @@ agents:
     description: Selects survey or falsification research from the brief, advances the chosen validated playbook, and enforces its role boundaries and release gate.
     path: agents/research-orchestrator.md
     tokens: 1364
-    total_tokens: 10303
+    total_tokens: 10411
     inputs:
       context:
         - .agent-factory/factory/playbooks/research-topic.md
@@ -649,8 +649,8 @@ agents:
     tier: strong
     description: "Own the test practice: record how the project tests in docs/testing.yaml, and plan what to test for each feature in its QA strategy."
     path: agents/test-strategy-agent.md
-    tokens: 1346
-    total_tokens: 12357
+    tokens: 1501
+    total_tokens: 16871
     inputs:
       context:
         - docs/spec/features/*.feature
@@ -855,7 +855,7 @@ skills:
     category: implementation
     description: Compute CRAP (Change Risk Anti-Patterns) per function and block when any exceeds the threshold.
     path: skills/crap-score/SKILL.md
-    tokens: 638
+    tokens: 1984
   - name: dependency-check
     category: implementation
     description: Enforce dependency-rules.dsl dependency rules by scanning source imports and writing a JSON gate report.
@@ -911,6 +911,11 @@ skills:
     description: Security-focused code review against OWASP Top 10 with minimised false positives.
     path: skills/security-review/SKILL.md
     tokens: 590
+  - name: setup-crap-score
+    category: quality
+    description: Set up the CRAP gate in a project once — try tools on real files, propose measures, exclusions, a threshold and a time limit, check them with gate-setup-proof, and enable the gate only after the User confirms each value.
+    path: skills/setup-crap-score/SKILL.md
+    tokens: 3013
   - name: comic-relief
     category: utility
     description: Context-aware one-liner or two-sentence aside when levity is warranted. Target is process, tooling, or situation — never the user.
@@ -1055,7 +1060,7 @@ playbooks:
       - architecture-review-agent
       - reconciliation-agent
     tokens: 3477
-    total_tokens: 63749
+    total_tokens: 63857
   - name: bug-fix
     title: Bug Fix Playbook
     category: orchestration
@@ -1077,7 +1082,7 @@ playbooks:
       - spec-review-agent
       - architecture-review-agent
     tokens: 1701
-    total_tokens: 55849
+    total_tokens: 57007
   - name: feature-addition
     title: Feature Addition Playbook
     category: orchestration
@@ -1094,7 +1099,7 @@ playbooks:
       - qa-agent
       - reconciliation-agent
     tokens: 5224
-    total_tokens: 117289
+    total_tokens: 118447
   - name: greenfield-development
     title: Greenfield Development Playbook
     category: orchestration
@@ -1112,7 +1117,7 @@ playbooks:
       - reconciliation-agent
       - coaching-agent
     tokens: 3170
-    total_tokens: 116720
+    total_tokens: 117878
   - name: poc-spike
     title: Proof-of-Concept Spike Playbook
     category: orchestration
@@ -1141,7 +1146,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 1455
-    total_tokens: 15729
+    total_tokens: 15837
   - name: research-topic
     title: Research Topic Playbook
     category: orchestration
@@ -1162,7 +1167,7 @@ playbooks:
       - research-report-writer
       - research-orchestrator
     tokens: 3132
-    total_tokens: 19622
+    total_tokens: 19730
   - name: technical-poc
     title: Technical Proof-of-Concept Playbook
     category: orchestration
@@ -1205,7 +1210,7 @@ rulebooks:
   - name: dispatch-contract
     category: conventions
     path: rulebooks/conventions/dispatch-contract.md
-    tokens: 7083
+    tokens: 7191
   - name: factory-voice
     category: conventions
     path: rulebooks/conventions/factory-voice.md
@@ -1333,7 +1338,7 @@ rulebooks:
   - name: story-frontmatter-fields
     category: references
     path: rulebooks/references/story-frontmatter-fields.md
-    tokens: 786
+    tokens: 830
   - name: structurizr-behavior-checklist
     category: references
     path: rulebooks/references/structurizr-behavior-checklist.md

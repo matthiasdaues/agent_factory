@@ -26,7 +26,8 @@ CONTRACTS = REPO_ROOT / "docs" / "spec" / "interface-contracts.md"
 
 STOP_SUBCOMMANDS = [
     "init", "add", "prepare-wave", "prepare-story", "mark-dispatching", "mark-dispatched",
-    "re-dispatch", "escalate", "refresh-story", "merge-story", "close-wave",
+    "re-dispatch", "resume-gates", "escalate", "refresh-story", "merge-story",
+    "close-wave",
 ]
 READ_SUBCOMMANDS = [
     "status", "plan", "suggest-merge-args", "verify-story",
@@ -250,6 +251,30 @@ def test_st_0397_dispatch_refuses_work_during_a_stop(stopped_run, subcommand):
     before = state(r)
 
     result = _dispatch(r["repo"], r["ledger"], *stop_args(r, subcommand))
+
+    assert result.returncode == 1, result.stderr
+    assert result.stdout == contract_example()
+    assert state(r) == before
+
+
+# -- CG-09-IT-03: a stop refuses resume-gates (ST-0444) ---------------------
+
+
+@pytest.mark.spec("CG-09-IT-03")
+def test_cg_09_a_stop_refuses_resume_gates(tmp_path):
+    """Scenario: A stop refuses resume-gates (BR-091, DEC-44)."""
+    r = _repo(tmp_path)
+    assert _init(r).returncode == 0
+    assert _dispatch(r["repo"], r["ledger"], "plan", "--backlog-dir", "backlog").returncode == 0
+    assert _dispatch(r["repo"], r["ledger"], "prepare-wave", "1").returncode == 0
+    ledger = lib.Ledger.load(r["ledger"])
+    ledger.stories["ST-0001"].status = lib.StoryState.BLOCKED
+    ledger.stories["ST-0001"].reason = lib.GATE_CANNOT_MEASURE_REASON
+    ledger.save(r["ledger"])
+    write_finding(r["repo"], finding())
+    before = state(r)
+
+    result = _dispatch(r["repo"], r["ledger"], "resume-gates", "ST-0001")
 
     assert result.returncode == 1, result.stderr
     assert result.stdout == contract_example()
@@ -568,3 +593,39 @@ def test_st_0396_hook_rejects_the_lowering_and_the_stop_holds(tmp_path):
     held = premerge(repo, "dev", "feature/core-artifact-ownership")
     assert held.returncode == 1
     assert held.stdout == contract_example()
+
+
+# -- CG-06-CT-02: the stop notice skips the exceptions register ----------------
+
+# The register carries a frontmatter of a stopping finding here, so the test
+# shows that stop_notice skips the file by its name, not by its content.
+
+EXCEPTIONS_TEXT = """\
+---
+id: exceptions
+severity: critical
+status: open
+---
+
+## CRAP score
+
+| File                                    | Function        | Accepted score | Reason                                | Accepted by |
+| --------------------------------------- | --------------- | -------------- | ------------------------------------- | ----------- |
+| `packages/factory/scripts/finding-lint` | `tree_severity` | 9              | Each branch handles one finding class | A. Example  |
+"""
+
+
+@pytest.mark.spec("CG-06-CT-02")
+@pytest.mark.parametrize("committed", [True, False], ids=["at-head", "in-worktree"])
+def test_st_0441_the_stop_notice_does_not_name_the_exceptions_register(tmp_path, committed):
+    repo = merge_repo(tmp_path)
+    commit_finding(repo, finding())
+    if committed:
+        commit_finding(repo, EXCEPTIONS_TEXT, name="exceptions")
+    else:
+        write_finding(repo, EXCEPTIONS_TEXT, name="exceptions")
+
+    notice = lib.stop_notice(repo)
+
+    assert notice is not None and "BUG-0037" in notice
+    assert "exceptions" not in notice

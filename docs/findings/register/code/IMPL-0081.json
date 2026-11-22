@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0081",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "tests/factory/test_crap_gate_text.py:220-235",
+  "story": "ST-0442",
+  "finding": "CG-07-LN-01 does not check that the stop quotes the message of crap-score. It asserts only that the word \"message\" appears in the section. The review replaced the sentences \"quote the message that `crap-score` printed. The message names the cause, such as a stopped Compose stack. Quote it unchanged.\" with \"add a short message of your own.\", and every assertion of the test still held. The Scenario Outline \"Exit 2 in the gate-check step blocks the story\" requires that the stop names the message of crap-score, which names the cause, and the QA strategy row of CG-07-LN-01 owns that line. The agent text is correct today, so the gap only lets a later edit drop the rule without a red test. Fix: in the test, replace the assertion on \"message\" with assertions on \"quote the message that `crap-score` printed\" and \"Quote it unchanged\".",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The test exists only on the story branch, so it is not in use. The agent text states the rule, and the owned contract has a test that fails when step 3 or the gate name goes (no to fails_purpose). A later edit that drops the quote rule passes the test, and a reviewer must find the regression by reading.",
+  "commit": "1d7ea364f3e37b4025592155743988f1e197298d",
+  "status": "resolved"
+}

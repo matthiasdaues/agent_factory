@@ -9,6 +9,7 @@ or with a `!` command, which runs outside the tool hooks.
 
 Guarded paths, relative to the git top level of the target file:
 
+  docs/findings/exceptions.md            the exceptions register (BR-132)
   docs/findings/<name>.md                finding files
   docs/findings/register/**/<name>.json  register files
   docs/proposals/<name>.md               the tables under `# Appendix`
@@ -26,15 +27,22 @@ Guarded tools: Edit, MultiEdit, Write, NotebookEdit, and Bash, and the
 lowercase names edit, write, write_file, create, bash, and apply_patch, and
 the OpenCode names patch (a patch call), shell (a shell call), and execute.
 
+The whole exceptions register belongs to the stakeholder: the guard refuses
+every call that writes into it, whatever the call changes. A removal is a
+write, because it drops every accepted row: the guard refuses `rm` or
+`unlink` of the register, a `mv` whose source is the register, and a patch
+that deletes it. A read passes.
+
 "Sets" means a value appears that was not there before. Edit and MultiEdit
 apply each edit to the current file and compare the values before and after;
 when the file is missing or an old_string is not in it, the guard compares
 old_string with new_string. Write and NotebookEdit compare the new content
 with the current file. Bash is checked only when it writes into a guarded
-path: a redirect, tee, sed -i, perl -i, or an interpreter that names the
-path. Then any human value in the command text refuses it. An OpenCode
-`execute` call carries JavaScript: the guard reads it as the text of a script,
-so any guarded path that the code names is a write target. The guard follows
+path: a redirect, tee, sed -i, perl -i, the destination of cp or mv, or an
+interpreter that names the path. Then any human value in the command text
+refuses it. An OpenCode `execute` call carries JavaScript: the guard reads it
+as the text of a script, so any guarded path that the code names is a write
+target. The guard follows
 each literal `cd <dir>` of the command line; a `cd` inside parentheses ends
 with the subshell.
 
@@ -91,6 +99,10 @@ PATCH_TOOLS = {"apply_patch", "patch"}
 SCRIPT_TOOLS = {"execute"}
 PATCH_FILE = re.compile(r"^\*\*\* (Add|Update|Delete) File: (.+)$")
 PATH_WORD = re.compile(r"[\w./*-]+")
+EXCEPTIONS_REGISTER = "docs/findings/exceptions.md"
+COPY_COMMANDS = {"cp", "mv"}
+# Commands that remove their arguments: `mv` removes its sources.
+REMOVE_COMMANDS = {"rm", "unlink", "mv"}
 
 
 def main() -> int:
@@ -133,6 +145,8 @@ def check_call(payload: dict) -> str | None:
     rel, kind = guarded(path)
     if kind is None:
         return None
+    if kind == "exceptions":
+        return _exceptions_message(rel) if _is_write_tool(tool) else None
     current = _read(path)
 
     if name in WRITE_TOOLS:
@@ -146,6 +160,10 @@ def check_call(payload: dict) -> str | None:
         edits = args.get("edits")
         return check_edits(rel, kind, current, edits if isinstance(edits, list) else [])
     return None
+
+
+def _is_write_tool(tool: str) -> bool:
+    return tool in ("MultiEdit", "NotebookEdit") or tool.lower() in WRITE_TOOLS | {"edit"}
 
 
 def _tool_call(payload: dict) -> tuple[str, dict | None]:
@@ -217,11 +235,11 @@ def check_patch(text: str, cwd: Path) -> str | None:
     if files is None:
         return check_unparsable(text, cwd)
     for op, raw_path, body in files:
-        if op == "Delete":
-            continue
         path = _absolute(raw_path, cwd)
         rel, kind = guarded(path)
-        if kind is None:
+        if kind == "exceptions":
+            return _exceptions_message(rel)
+        if kind is None or op == "Delete":
             continue
         current = _read(path)
         if op == "Add":
@@ -285,6 +303,8 @@ def check_unparsable(text: str, cwd: Path) -> str | None:
         if not (_matches(word, ".md") or _matches(word, ".json")):
             continue
         rel, kind = guarded(_absolute(word, cwd))
+        if kind == "exceptions":
+            return _exceptions_message(rel)
         if kind is not None:
             return (
                 f"guard-human-fields: refused. The guard cannot parse the patch, and its "
@@ -308,6 +328,8 @@ def check_shell(command: str, cwd: Path, script: bool = False) -> str | None:
         rel, kind = guarded(path)
         if kind is None:
             continue
+        if kind == "exceptions":
+            return _exceptions_message(rel)
         if kind == "proposal":
             if WAIVED_WORD.search(command):
                 return _message(rel, "Status")
@@ -378,6 +400,11 @@ def _simple_targets(words: list[str], cwd: Path) -> list[str]:
     )
     if name == "tee" or in_place:
         targets.extend(w for w in rest if not w.startswith("-"))
+    elif name in COPY_COMMANDS:
+        targets.extend(_copy_destinations(rest, cwd))
+    if name in REMOVE_COMMANDS:
+        # A removal changes only the register; for a finding file it stays outside the guard.
+        targets.extend(r for w in rest if (r := _removed_register(w, cwd)))
     elif name in INTERPRETERS:
         # A script can write any path that its text names.
         targets.extend(re.findall(r"[\w./*-]+", " ".join(rest)))
@@ -387,6 +414,38 @@ def _simple_targets(words: list[str], cwd: Path) -> list[str]:
         script = rest[flag + 1] if flag is not None and flag + 1 < len(rest) else ""
         targets.extend(str(p) for p in shell_write_targets(script, cwd))
     return targets
+
+
+def _removed_register(word: str, cwd: Path) -> str | None:
+    """The register path when removing *word* removes it: the register itself,
+    or a folder that holds it."""
+    if word.startswith("-"):
+        return None
+    path = _absolute(word, cwd)
+    if guarded(path)[1] == "exceptions":
+        return str(path)
+    register = _project_root(path / "x") / EXCEPTIONS_REGISTER if path.is_dir() else None
+    if register is not None and register.exists() and register.is_relative_to(path):
+        return str(register)
+    return None
+
+
+def _copy_destinations(args: list[str], cwd: Path) -> list[str]:
+    """The paths that `cp` or `mv` writes: the last argument, or each source
+    name inside it when it is a folder, or the folder of `-t`."""
+    # `--target-directory=DIR` is the same option as `--target-directory DIR`.
+    args = [part for w in args for part in (w.split("=", 1) if w.startswith("--target-directory=") else [w])]
+    words = [w for w in args if not w.startswith("-") or w == "-"]
+    folder = next((args[i + 1] for i, w in enumerate(args[:-1]) if w in ("-t", "--target-directory")), None)
+    if folder is None and len(words) >= 2:
+        folder, words = words[-1], words[:-1]
+        if not _absolute(folder, cwd).is_dir():
+            return [folder]
+    elif folder is not None:
+        words = [w for w in words if w != folder]
+    if folder is None:
+        return []
+    return [f"{folder.rstrip('/')}/{os.path.basename(w.rstrip('/'))}" for w in words]
 
 
 def _split_heredocs(command: str) -> tuple[str, list[tuple[str, str]]]:
@@ -450,6 +509,8 @@ def guarded(path: Path) -> tuple[str, str | None]:
         rel = path.relative_to(root).as_posix()
     except ValueError:
         return str(path), None
+    if rel == EXCEPTIONS_REGISTER:
+        return rel, "exceptions"
     parts = rel.split("/")
     if parts[:2] == ["docs", "findings"]:
         if len(parts) == 3 and _matches(parts[2], ".md"):
@@ -579,6 +640,14 @@ def _is_human(field: str, value: str) -> bool:
     if field == "status":
         return value == "waived"
     return value not in NULL_VALUES
+
+
+def _exceptions_message(rel: str) -> str:
+    return (
+        f"guard-human-fields: refused. The call writes into {rel}, the exceptions "
+        "register. Only the stakeholder writes this file, in an editor or with a `!` "
+        "command (BR-092, BR-132). Leave the file as it is and tell the stakeholder."
+    )
 
 
 def _message(rel: str, field: str) -> str:

@@ -41,6 +41,7 @@ from dispatch_lib import (
     ESCALATE_REFUSED_SCOPE,
     ESCALATE_REFUSED_VERIFY_BASE,
     FAILURE_CLASSES,
+    GATE_CANNOT_MEASURE_REASON,
     LEDGER_MODES,
     MANIFEST_FILENAME,
     STOP_SUBCOMMANDS,
@@ -75,6 +76,8 @@ from dispatch_lib import (
     load_project_config,
     load_stories,
     next_tier,
+    ready_commands,
+    run_in_own_group,
     orphan_ledger_verdict,
     orphan_stash_name,
     parse_story_frontmatter,
@@ -293,6 +296,40 @@ def _read_attempt_limits(project_root: Path) -> AttemptLimits:
             raise ValueError(f"cannot parse {path}: {e}") from e
         return attempt_limits(data.get("gates") if isinstance(data, dict) else None)
     return AttemptLimits()
+
+
+def _ready_refusal(root: Path) -> str | None:
+    """Run every `ready` command of an enabled gate once, from *root* (BR-137, DEC-23).
+
+    Each command runs in its own process group under the gate's
+    `timeout_minutes`, and the whole group stops at the limit (DEC-61).
+    Return the refusal for the first command that fails or runs out of time, and None
+    when all pass. A docs/testing.yaml that cannot be parsed lists no command,
+    as for the test command; crap-score exits 2 on it in the gate run.
+    """
+    path = root / "docs" / "testing.yaml"
+    if not path.is_file():
+        return None
+    try:
+        data = _load_yaml(path.read_text())
+    except Exception:  # noqa: BLE001 - the test command reader warns about the file
+        return None
+    gates = data.get("gates") if isinstance(data, dict) else None
+    for gate, measure, command, limit in ready_commands(gates):
+        label = f"the ready command of measure {measure} of gates.{gate}"
+        try:
+            code, message = run_in_own_group(command, root, limit)
+        except subprocess.TimeoutExpired:
+            minutes = gates[gate]["timeout_minutes"]
+            return (
+                f"{label} ran out of timeout_minutes {minutes}: {command}; "
+                "stopped its process group, and no run started"
+            )
+        except OSError as e:
+            return f"cannot run {label}: {command}: {e}; no run started"
+        if code != 0:
+            return f"{label} exited {code}: {command}: {message}; no run started"
+    return None
 
 
 def _read_refuse_dirty_feature_worktree(project_root: Path) -> bool:
@@ -890,6 +927,12 @@ def cmd_init(args: argparse.Namespace) -> int:
         if code != 0:
             print(f"error: base branch '{base}' does not exist", file=sys.stderr)
             return 1
+
+    # The ready commands run before the first change to the repository (BR-137).
+    refusal = _ready_refusal(_main_worktree_root())
+    if refusal:
+        print(f"error: {refusal}", file=sys.stderr)
+        return 1
 
     if feature_branch:
         code, fb_sha, _ = _git("rev-parse", f"refs/heads/{feature_branch}")
@@ -2044,6 +2087,40 @@ def cmd_re_dispatch(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_resume_gates(args: argparse.Namespace) -> int:
+    """Set an entry blocked by a gate that cannot measure dispatched (BR-135).
+
+    It keeps the attempts, the attempt grants, the reason, the branch and the
+    worktree, and writes no manifest and no brief, so the next step is the
+    gate-check step with the code unchanged (DEC-07, DEC-29).
+    """
+    ledger_path = Path(args.ledger)
+    ledger = _load_ledger(ledger_path)
+    if ledger is None:
+        return 1
+    entry = ledger.stories.get(args.story_id)
+    if entry is None:
+        print(f"error: story not found: {args.story_id}", file=sys.stderr)
+        return 1
+    # A pending or returned entry marked blocked has no story branch, so no
+    # code waits for the gate-check step (DEC-63).
+    branch_exists = bool(entry.branch) and (
+        _git("rev-parse", "--verify", "--quiet", f"refs/heads/{entry.branch}")[0] == 0
+    )
+    try:
+        ledger.resume_gates(entry.id, branch_exists)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"dispatch resume-gates: {entry.id} is dispatched with its "
+        f"{len(entry.attempts)} attempts; run the gate-check step"
+    )
+    return 0
+
+
 def cmd_return_story(args: argparse.Namespace) -> int:
     """Set a failed or blocked story back to pending in the ledger and the
     backlog (BR-116). The backlog file changes in the working tree of the
@@ -2498,6 +2575,30 @@ def _amend_status_into_merge_commit(project_root: Path, story_id: str) -> int:
     return 1
 
 
+PREMERGE_CANNOT_MEASURE = 3
+
+
+def _block_gate_cannot_measure(ledger: Ledger, ledger_path: Path, entry) -> int:
+    """Set *entry* blocked after exit 3 of premerge-check (BR-124, BR-136).
+
+    A gate that cannot measure counts no attempt, and nothing merges.
+    """
+    try:
+        ledger.transition(entry.id, StoryState.BLOCKED)
+    except TransitionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    entry.reason = GATE_CANNOT_MEASURE_REASON
+    if _save_ledger(ledger, ledger_path) != 0:
+        return 1
+    print(
+        f"error: a gate cannot measure {entry.branch}; {entry.id} is blocked with the "
+        f"reason '{GATE_CANNOT_MEASURE_REASON}' and nothing merged",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def cmd_merge_story(args: argparse.Namespace) -> int:
     """Merge a story's feature branch into the current branch.
 
@@ -2510,7 +2611,10 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
     with reason "merge conflict"; the current branch is left unchanged. On a
     red test suite after a clean merge, resets the current branch back to
     its pre-merge commit and marks the story ``blocked`` with reason
-    "post-merge test failure". ``--dry-run`` runs premerge-check only and
+    "post-merge test failure". When premerge-check exits 3, because a gate
+    cannot measure, merges nothing and marks the story ``blocked`` with
+    reason "gate cannot measure: crap-score", on both ways and without an
+    attempt (BR-124). ``--dry-run`` runs premerge-check only and
     never refreshes, merges, touches the ledger, or cleans up the worktree/branch.
     Idempotent across interruption: if HEAD is a merge commit whose second
     parent is the story's tip (a prior run created the merge commit but was
@@ -2640,6 +2744,17 @@ def cmd_merge_story(args: argparse.Namespace) -> int:
             print(premerge_result.stdout)
         if premerge_result.stderr:
             print(premerge_result.stderr, file=sys.stderr)
+
+        if premerge_result.returncode == PREMERGE_CANNOT_MEASURE and args.dry_run:
+            print(
+                f"dry-run: a gate cannot measure {entry.branch}; without --dry-run, "
+                f"merge-story would set {entry.id} blocked with the reason "
+                f"'{GATE_CANNOT_MEASURE_REASON}'; no ledger entry changed",
+                file=sys.stderr,
+            )
+            return 1
+        if premerge_result.returncode == PREMERGE_CANNOT_MEASURE:
+            return _block_gate_cannot_measure(ledger, ledger_path, entry)
 
         if premerge_result.returncode != 0:
             print(f"error: premerge-check failed for {entry.branch}", file=sys.stderr)
@@ -3576,6 +3691,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_rd = sub.add_parser("re-dispatch", help="return story to prepared")
     p_rd.add_argument("story_id")
 
+    p_rg = sub.add_parser(
+        "resume-gates",
+        help="return a story blocked by a gate that cannot measure to dispatched",
+    )
+    p_rg.add_argument("story_id")
+
     p_ret = sub.add_parser(
         "return-story", help="set a failed or blocked story back to pending (User only)"
     )
@@ -3672,6 +3793,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_mark_failed(args)
     if args.subcommand == "re-dispatch":
         return cmd_re_dispatch(args)
+    if args.subcommand == "resume-gates":
+        return cmd_resume_gates(args)
     if args.subcommand == "return-story":
         return cmd_return_story(args)
     if args.subcommand == "verify-story":

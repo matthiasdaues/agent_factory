@@ -1882,3 +1882,34 @@ def test_br_126_the_side_text_gives_fails_purpose(side_text, fails_purpose, pass
 def test_br_126_an_unknown_case_breaks_the_basis_shape():
     text = _document_text(in_use_case=["maybe"], side_text="none")
     _assert_rule(lint.check_finding_file(DOC_PATH, text, SCHEMAS), DOC_PATH, "BR-080 basis")
+
+
+# --- ST-0441: the exceptions register is no finding ---------------------------
+
+EXCEPTIONS_TEXT = """\
+# Exceptions register
+
+## CRAP score
+
+| File                                    | Function        | Accepted score | Reason                                | Accepted by |
+| --------------------------------------- | --------------- | -------------- | ------------------------------------- | ----------- |
+| `packages/factory/scripts/finding-lint` | `tree_severity` | 9              | Each branch handles one finding class | A. Example  |
+"""
+
+
+@pytest.mark.spec("CG-06-CT-01")
+def test_st_0441_the_exceptions_register_is_no_finding_path():
+    assert lint.is_finding_path("docs/findings/exceptions.md") is False
+    assert lint.is_finding_path("docs/findings/BUG-0090.md") is True
+
+
+@pytest.mark.spec("CG-06-CT-01")
+def test_st_0441_finding_lint_passes_with_the_exceptions_register_present(tmp_path):
+    root, env = _repo(tmp_path)
+    _clean_set(root)
+    _write(root, "docs/findings/exceptions.md", EXCEPTIONS_TEXT)
+    _commit(root, env)
+
+    result = _run_in(root, env)
+
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")

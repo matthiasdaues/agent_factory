@@ -67,11 +67,20 @@ Checks
          field. The field only adds gates. premerge-check builds the calls
          of `crap-score` and `mutation-testing`; every other gate runs its
          `command` through the shell. A gate without an entry or without a
-         command fails and is named. The old keys `crap_score`,
-         `mutation_testing`, and `test_design_verify` count as the entries
-         of their gates; with both forms, the key with hyphens wins with a
-         warning (BR-055). Without the field and without a `gates` section,
-         `crap-score` runs alone. No default picks `mutation-testing`.
+         command fails and is named. `crap-score` without an entry fails
+         too, and the refusal names `setup-crap-score` (DEC-21). The old
+         keys `crap_score`, `mutation_testing`, and `test_design_verify`
+         count as the entries of their gates; with both forms, the key
+         with hyphens wins with a warning (BR-055). No default picks a
+         gate. When neither an entry nor the field names a built-in gate,
+         that gate does not run, and one line names each such gate with
+         the skill that sets it up: `setup-crap-score` for `crap-score`
+         and `mutation-testing` for `mutation-testing`. The line is a
+         notice and never blocks (DEC-33).
+       - `crap-score` runs as `crap-score --base <target> --story-id <id>
+         --report-dir <primary>/.current-work/crap-score/` in the worktree,
+         with no list of files and no threshold. Its exit code decides, and
+         the report of a refused merge stays in the primary checkout (BR-136).
        - `mutation-testing` passes after an exit 0. After a non-zero exit
          premerge-check takes the list `mutants` from the stored result
          `.current-work/mutation-testing/<story-id>.json` of the folder it
@@ -80,6 +89,16 @@ Checks
        - The test suite: `test_command` of `docs/testing.yaml`. A non-zero
          exit fails and names the test suite. Without `test_command`,
          premerge-check prints the skip.
+     Before the gates and the test suite, premerge-check runs the `ready`
+     command of every measure of each gate that the merge runs, in the
+     worktree. A gate with `enabled: false` that the story names counts
+     (DEC-39). When one fails, neither the gates nor the test suite run, and
+     the refusal names the measure and the command (BR-136).
+     A gate cannot measure after a failed `ready` command or exit 2 of
+     `crap-score`. premerge-check then exits 3 when every other check that
+     ran passed, and its refusal starts with `GATE CANNOT MEASURE: <gate>`
+     and holds the message. When another check failed too, it exits 1
+     (BR-136, DEC-29).
      A built-in gate runs from `.agent-factory/factory/scripts/` of the
      primary checkout, or from the folder of premerge-check when that copy
      lacks the script. The worktree is its source root, and `uv` builds the
@@ -110,6 +129,8 @@ Exit codes
   1: BLOCK — at least one blocking finding; do not merge without an
      explicit override
   2: usage or git-invocation error
+  3: GATE CANNOT MEASURE — a gate could not measure and every other check
+     passed; `dispatch merge-story` sets the story `blocked` (BR-124)
 
 On PASS, writes `.current-work/premerge-check-ok` at the invoking repo's
 top level, keyed to `<branch>`'s current head SHA.
@@ -124,8 +145,11 @@ import argparse
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
+import tempfile
+import time
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
@@ -758,7 +782,8 @@ OLD_GATE_KEYS = {
     "mutation_testing": "mutation-testing",
     "test_design_verify": "test-design-verify",
 }
-DEFAULT_GATES = ["crap-score"]
+# The skill that sets up each built-in gate, named when its entry is missing (DEC-33).
+SETUP_SKILLS = {"crap-score": "setup-crap-score", "mutation-testing": "mutation-testing"}
 DEFAULT_MAX_FILES = 20
 HOUSE_RULES = "docs/charter/house-rules.md"
 TEST_DESIGN_HEADING = re.compile(r"^#{1,6}\s+(Test Design|Prior Tests)\s*$", re.MULTILINE)
@@ -823,8 +848,6 @@ def _quality_gates(story_data: dict | None) -> list[str] | None:
 def _picked_gates(story_data: dict | None, entries: dict[str, dict] | None) -> list[str]:
     """Every enabled entry, then the gates the story's field adds (BR-066)."""
     field = _quality_gates(story_data)
-    if field is None and entries is None:
-        return list(DEFAULT_GATES)
     picked = [
         name
         for name, entry in (entries or {}).items()
@@ -868,12 +891,18 @@ def resolve_gates(top: Path, story_id: str) -> tuple[list[str], list[str]]:
 def gate_refusal(gate: str, entries: dict[str, dict] | None) -> str | None:
     """Name why docs/testing.yaml cannot run *gate*, or None when it can.
 
-    A built-in or conditional gate needs no command. Every other gate needs
-    an entry with a command (BR-066, RL-G09, OI-15).
+    A built-in or conditional gate needs no command. `crap-score` still needs
+    an entry, and its refusal names the skill that sets it up (DEC-21). Every
+    other gate needs an entry with a command (BR-066, RL-G09, OI-15).
     """
+    entry = (entries or {}).get(gate)
+    if gate == "crap-score" and entry is None:
+        return (
+            f"no entry gates.{gate} in {TESTING_YAML}; "
+            f"set the gate up with the skill {SETUP_SKILLS[gate]}"
+        )
     if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
         return None
-    entry = (entries or {}).get(gate)
     if entry is None:
         return f"no entry gates.{gate} in {TESTING_YAML}"
     command = entry.get("command")
@@ -882,23 +911,27 @@ def gate_refusal(gate: str, entries: dict[str, dict] | None) -> str | None:
     return None
 
 
+def not_set_up_notice(top: Path, gates: list[str]) -> list[str]:
+    """Name each built-in gate that has no entry and does not run (BR-066, DEC-20).
+
+    For each gate, the line names the skill that sets it up. It is a notice:
+    it never blocks the merge.
+    """
+    entries, _ = gate_entries(top)
+    missing = [
+        gate for gate in BUILT_IN_GATES if gate not in (entries or {}) and gate not in gates
+    ]
+    if not missing:
+        return []
+    parts = [f"{gate} (set up by the skill {SETUP_SKILLS[gate]})" for gate in missing]
+    return [f"SKIP not-set-up gates: {TESTING_YAML} has no entry for {' or '.join(parts)}"]
+
+
 def dependency_skip_notice(top: Path) -> list[str]:
     """Name the skip of dependency-check when *top* has no rules file (BR-066)."""
     if (top / DEPENDENCY_RULES).is_file():
         return []
     return [f"SKIP dependency-check: {DEPENDENCY_RULES} does not exist"]
-
-
-def changed_python_files(top: Path, files: list[str]) -> list[str]:
-    """The `.py` files of the story's diff that still exist in *top* (BR-066)."""
-    return [f for f in files if f.endswith(".py") and (top / f).is_file()]
-
-
-def crap_score_skip_notice(gates: list[str], py_files: list[str], story_id: str) -> list[str]:
-    """Name the empty run of crap-score when the story changed no `.py` file."""
-    if "crap-score" not in gates or py_files:
-        return []
-    return [f"PASS crap-score: {story_id} changed no .py file, so it scored nothing"]
 
 
 def _describe_row(row: dict) -> str:
@@ -1000,8 +1033,9 @@ def gate_script(primary: Path, gate: str) -> Path:
     return installed if installed.is_file() else SCRIPT_DIR / gate
 
 
-def _threshold(entries: dict[str, dict] | None) -> object:
-    return (entries or {}).get("crap-score", {}).get("threshold")
+def crap_report_dir(primary: Path) -> Path:
+    """The folder of the report of crap-score in the primary checkout (BR-136)."""
+    return primary / ".current-work" / "crap-score"
 
 
 def gate_command(
@@ -1009,12 +1043,14 @@ def gate_command(
     gate: str,
     worktree: Path,
     story_id: str,
-    entries: dict[str, dict] | None = None,
-    py_files: list[str] | None = None,
+    target: str,
+    primary: Path,
 ) -> list[str]:
     """Build the call of a gate that premerge-check names (BR-066, RL-G17).
 
-    crap-score scores only *py_files*, the `.py` files of the story's diff.
+    crap-score judges the functions changed since the merge base of *target*
+    and writes its report into the primary checkout, so the report of a
+    refused merge outlives the worktree (BR-136).
     """
     report_dir = worktree / ".current-work" / gate
     if gate == "dependency-check":
@@ -1026,16 +1062,11 @@ def gate_command(
             "--report-dir", str(report_dir),
         ]
     if gate == "crap-score":
-        threshold = _threshold(entries)
-        extra = ["--threshold", str(threshold)] if threshold is not None else []
         return [
             str(script),
-            "--source-root", str(worktree),
+            "--base", target,
             "--story-id", story_id,
-            "--report-dir", str(report_dir),
-            *extra,
-            "--",
-            *(str(worktree / f) for f in py_files or []),
+            "--report-dir", str(crap_report_dir(primary)),
         ]
     if gate == "mutation-testing":
         return [
@@ -1075,31 +1106,36 @@ def rerun_gate(
     gate: str,
     worktree: Path,
     story_id: str,
-    entries: dict[str, dict] | None = None,
-    py_files: list[str] | None = None,
+    entries: dict[str, dict] | None,
+    target: str,
     branch: str | None = None,
-) -> tuple[bool, str]:
+) -> tuple[bool, str, str | None]:
     """Run *gate* in *worktree* and judge it by its exit code.
 
+    The third value is the full message of a gate that could not measure,
+    exit 2 of crap-score, and None otherwise (BR-136).
+
     After a non-zero exit of mutation-testing, the result rule decides with
-    the stored list `mutants` (BR-066).
+    the stored list `mutants` (BR-066). After exit 1 of crap-score, its new
+    report names the failing functions in the refusal. Every other exit of
+    crap-score writes no report, so the report in the primary checkout is
+    an earlier run's, and the refusal shows the message instead (IMPL-0071).
 
     premerge-check builds the call of a gate it names. Every other gate runs
     the `command` of its entry through the shell.
     """
     refusal = gate_refusal(gate, entries)
     if refusal is not None:
-        return False, refusal
-    if gate == "crap-score" and not py_files:
-        return True, "scored nothing"
+        return False, refusal, None
     env = _worktree_environment()
     if gate in BUILT_IN_GATES or gate in CONDITIONAL_GATES:
         script = gate_script(primary, gate)
         call: list[str] | str = gate_command(
-            script, gate, worktree, story_id, entries, py_files
+            script, gate, worktree, story_id, target, primary
         )
         shell = False
-        report: Path | None = worktree / ".current-work" / gate / f"{story_id}.json"
+        folder = crap_report_dir(primary) if gate == "crap-score" else worktree / ".current-work" / gate
+        report: Path | None = folder / f"{story_id}.json"
     else:
         call = str((entries or {})[gate]["command"])
         shell = True
@@ -1110,13 +1146,18 @@ def rerun_gate(
             capture_output=True, text=True, check=False,
         )
     except OSError as exc:
-        return False, f"cannot run {call}: {exc}"
+        return False, f"cannot run {call}: {exc}", None
     if result.returncode == 0:
-        return True, "passed"
+        return True, "passed", None
     if gate == "mutation-testing" and report is not None:
         ok, detail = mutation_rerun_result(report, story_id, branch)
-        return ok, detail if ok else f"exit {result.returncode}: {detail}"
-    return False, _failure_detail(result, report)
+        return ok, detail if ok else f"exit {result.returncode}: {detail}", None
+    if gate == "crap-score" and result.returncode != 1:
+        report = None
+    message = None
+    if gate == "crap-score" and result.returncode == 2:
+        message = (result.stderr or result.stdout).strip() or "no message"
+    return False, _failure_detail(result, report), message
 
 
 def check_semantic_gates(
@@ -1124,17 +1165,180 @@ def check_semantic_gates(
     story_id: str,
     worktree: Path,
     primary: Path,
-    py_files: list[str] | None = None,
+    target: str,
     branch: str | None = None,
-) -> list[str]:
-    """Run each gate in *worktree* and return one entry per gate that fails."""
+) -> tuple[list[str], tuple[str, str] | None]:
+    """Run each gate in *worktree*.
+
+    Return one entry per gate that fails, and the name and message of the
+    gate that could not measure, or None (BR-136).
+    """
     entries, _ = gate_entries(worktree)
     failed_gates = []
+    cannot_measure = None
     for gate in gates:
-        ok, detail = rerun_gate(primary, gate, worktree, story_id, entries, py_files, branch)
+        ok, detail, unmeasured = rerun_gate(
+            primary, gate, worktree, story_id, entries, target, branch
+        )
         if not ok:
             failed_gates.append(f"{gate} ({detail})")
-    return failed_gates
+        if unmeasured is not None:
+            cannot_measure = (gate, unmeasured)
+    return failed_gates, cannot_measure
+
+
+def _ready_timeout(entry: dict) -> float | None:
+    """The time limit of the gate in seconds, or None without a number."""
+    minutes = entry.get("timeout_minutes")
+    if isinstance(minutes, bool) or not isinstance(minutes, (int, float)):
+        return None
+    return float(minutes) * 60
+
+
+# Seconds between SIGTERM and SIGKILL of a timed-out ready command, as in crap-score.
+READY_STOP_GRACE = 5
+
+
+def ready_commands(gates: list[str], entries: dict[str, dict] | None) -> list[tuple[str, str, str]]:
+    """Return (gate, measure, command) for each `ready` command of the gates the merge runs.
+
+    Only `crap-score` has measures, so only its entry is read (BR-136).
+    """
+    found = []
+    for gate in gates:
+        if gate != "crap-score":
+            continue
+        entry = (entries or {}).get(gate) or {}
+        measures = entry.get("measures")
+        for measure in measures if isinstance(measures, list) else []:
+            if isinstance(measure, dict) and isinstance(measure.get("ready"), str):
+                found.append((gate, str(measure.get("name")), measure["ready"]))
+    return found
+
+
+def run_ready_commands(worktree: Path, gates: list[str]) -> tuple[str, str] | None:
+    """Run the `ready` commands before the test suite and the gates (BR-136, DEC-39).
+
+    Return the gate and the message of the first command that fails, or
+    None. A failed command stops the run, so the test suite and the gates
+    do not run.
+    """
+    entries, _ = gate_entries(worktree)
+    for gate, measure, command in ready_commands(gates, entries):
+        entry = (entries or {}).get(gate) or {}
+        label = f"the ready command of measure {measure} of gates.{gate}"
+        try:
+            code, message = _run_in_own_group(command, worktree, _ready_timeout(entry))
+        except subprocess.TimeoutExpired:
+            return gate, f"{label} ran out of timeout_minutes: {command}"
+        except OSError as exc:
+            return gate, f"cannot run {label}: {command}: {exc}"
+        if code != 0:
+            return gate, f"{label} exited {code}: {command}: {message}"
+    return None
+
+
+def _run_in_own_group(command: str, worktree: Path, timeout: float | None) -> tuple[int, str]:
+    """Run *command* through the shell in its own process group (IMPL-0082).
+
+    Return the exit code and the message of the command. At *timeout* the
+    whole group gets SIGTERM, then SIGKILL after READY_STOP_GRACE seconds,
+    as crap-score stops a command, and TimeoutExpired is raised. Output goes
+    to temporary files, so a process that keeps a pipe open cannot block
+    the wait.
+    """
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        proc = subprocess.Popen(
+            command, shell=True, cwd=worktree, env=_worktree_environment(),
+            stdout=out, stderr=err, start_new_session=True,
+        )
+        try:
+            code = proc.wait(timeout=timeout)
+        except BaseException:
+            _stop_group(proc)
+            raise
+        err.seek(0)
+        out.seek(0)
+        message = (
+            err.read().decode(errors="replace").strip()
+            or out.read().decode(errors="replace").strip()
+            or "no message"
+        )
+    return code, message
+
+
+def _signal_group(proc: subprocess.Popen, sig: int) -> None:
+    try:
+        os.killpg(proc.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _group_alive(proc: subprocess.Popen) -> bool:
+    try:
+        os.killpg(proc.pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def _stop_group(proc: subprocess.Popen) -> None:
+    """Stop the command and every process of its group, as crap-score does.
+
+    SIGTERM first, then SIGKILL after the grace period. The grace period
+    lasts until every process of the group has ended, not only the shell.
+    SIGKILL goes to the group even when the shell has exited, because its
+    children may not have.
+    """
+    _signal_group(proc, signal.SIGTERM)
+    deadline = time.monotonic() + READY_STOP_GRACE
+    try:
+        proc.wait(timeout=READY_STOP_GRACE)
+        while _group_alive(proc) and time.monotonic() < deadline:
+            time.sleep(0.1)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        _signal_group(proc, signal.SIGKILL)
+        proc.wait()
+
+
+def check_story_gates(
+    gates: list[str],
+    story_id: str,
+    worktree: Path,
+    primary: Path,
+    target: str,
+    branch: str,
+) -> tuple[list[tuple[bool, str]], tuple[str, str] | None]:
+    """Run the `ready` commands, the gates, and the test suite of a story merge.
+
+    Return one (passed, line) per check, and the gate and message of a gate
+    that could not measure, or None. A gate that could not measure is no
+    failed check: premerge-check exits 3 when every other check passed
+    (BR-136, DEC-29). After a failed `ready` command no gate and no test
+    suite runs.
+    """
+    unmeasured = run_ready_commands(worktree, gates)
+    if unmeasured is not None:
+        return [(True, (
+            f"BLOCK ready-commands: {unmeasured[1]}; the test suite and the gates "
+            f"did not run for {story_id}"
+        ))], unmeasured
+    failed_gates, unmeasured = check_semantic_gates(
+        gates, story_id, worktree, primary, target, branch
+    )
+    if failed_gates:
+        line = f"BLOCK semantic-gates: {', '.join(failed_gates)} for {story_id}"
+    elif gates:
+        line = f"PASS semantic-gates: {', '.join(gates)} passed for {story_id}"
+    else:
+        line = f"PASS semantic-gates: no gate applies to {story_id}"
+    # rerun_gate returns a message only for a gate that failed, and only
+    # crap-score returns one. So the gate that could not measure stands in
+    # failed_gates exactly once, and every other entry is a failed check.
+    others_passed = len(failed_gates) == (0 if unmeasured is None else 1)
+    return [(others_passed, line), check_test_suite(worktree, story_id)], unmeasured
 
 
 def read_test_command(top: Path) -> str | None:
@@ -1218,6 +1422,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     findings: list[bool] = []
+    # (gate, message) of a gate that could not measure (BR-136).
+    unmeasured: tuple[str, str] | None = None
 
     ok, line = check_stale_base(args.target, args.branch)
     print(line)
@@ -1294,36 +1500,39 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         try:
             gates, warnings = resolve_gates(worktree, story_id)
-            py_files = changed_python_files(worktree, files)
-            notices = dependency_skip_notice(worktree)
-            notices += crap_score_skip_notice(gates, py_files, story_id)
+            notices = not_set_up_notice(worktree, gates)
+            notices += dependency_skip_notice(worktree)
             for warning in warnings + notices:
                 print(warning)
-            failed_gates = check_semantic_gates(
-                gates, story_id, worktree, primary, py_files, args.branch
+            results, unmeasured = check_story_gates(
+                gates, story_id, worktree, primary, args.target, args.branch
             )
-            suite_ok, suite_line = check_test_suite(worktree, story_id)
         finally:
             remove_worktree(worktree)
-        if failed_gates:
-            print(f"BLOCK semantic-gates: {', '.join(failed_gates)} for {story_id}")
-        elif gates:
-            print(f"PASS semantic-gates: {', '.join(gates)} passed for {story_id}")
-        else:
-            print(f"PASS semantic-gates: no gate applies to {story_id}")
-        findings.append(not failed_gates)
-        print(suite_line)
-        findings.append(suite_ok)
+        for ok, line in results:
+            print(line)
+            findings.append(ok)
     elif not feature_merge:
         # Non-story branches skip semantic gates
         print("SKIP semantic-gates: branch does not match the pattern story/<id>")
 
-    if all(findings):
+    if all(findings) and unmeasured is None:
         print(
             f"premerge-check: PASS — {args.branch!r} clean to merge into {args.target!r}"
         )
         write_marker(args.branch)
         return 0
+
+    # Exit 3 only when every other check that ran passed (BR-136, DEC-29).
+    if all(findings):
+        gate, message = unmeasured
+        print(f"GATE CANNOT MEASURE: {gate}")
+        print(message)
+        print(
+            f"premerge-check: CANNOT MEASURE — do not merge {args.branch!r}; "
+            "dispatch merge-story sets the story blocked until the gate can measure"
+        )
+        return 3
 
     print(
         f"premerge-check: BLOCK — do not merge {args.branch!r} without an explicit override"

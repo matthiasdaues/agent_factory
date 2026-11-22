@@ -938,11 +938,20 @@ def _check_ids(
 # --- The comparison with HEAD (BR-109, BR-110) ---------------------------------
 
 
+EXCEPTIONS_REGISTER = "docs/findings/exceptions.md"
+
+
 def is_finding_path(path: str) -> bool:
-    """Return whether *path* is a finding file `docs/findings/<ID>.md`."""
+    """Return whether *path* is a finding file `docs/findings/<ID>.md`.
+
+    The exceptions register is no finding, so the lint skips it by name (BR-132).
+    """
     parts = path.split("/")
     return (
-        len(parts) == 3 and parts[:2] == ["docs", "findings"] and path.endswith(".md")
+        len(parts) == 3
+        and parts[:2] == ["docs", "findings"]
+        and path.endswith(".md")
+        and path != EXCEPTIONS_REGISTER
     )
 
 

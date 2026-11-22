@@ -1,0 +1,527 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["radon>=6.0", "coverage>=7.4"]
+# ///
+"""crap-measure-python — measuring command of the CRAP gate for Python code.
+
+What: Runs the project's tests under coverage.py, reads the cyclomatic
+      complexity of each function with radon, and writes one row per
+      function to the path in GATE_OUTPUT.
+When: crap-score starts it for its measure, with GATE_OUTPUT set. A person
+      runs it the same way: GATE_OUTPUT=/tmp/rows.json crap-measure-python
+By:   crap-score, or a person in the root of the project.
+
+Rows
+  One JSON array. Each row holds file (relative to the folder the command
+  runs in), function (the qualified name, such as Parser.parse),
+  start_line, end_line, complexity, and coverage_pct. An accessor of a
+  property, such as @width.setter, @width.deleter or @width.getter, gets
+  its accessor after the name, such as Box.width.setter. The getter under
+  @property keeps Box.width. A function decorated with overload of typing
+  or typing_extensions is a stub that never runs, so it gets no row. The
+  imports of the file decide which decorator that is: typing.overload
+  after `import typing`, t.overload after `import typing as t`, overload
+  after `from typing import overload` or `from typing import *`, and ov
+  after `from typing import overload as ov`. A function under the
+  overload of another module, such as `from mylib import overload`, runs
+  and gets its row. Every other name that a file defines twice stays as
+  it is, and crap-score stops on it (DEC-12). A Python file that radon
+  cannot parse gets one row with file and parse_error instead, and the
+  command still exits 0.
+
+Files
+  Every .py file below the folder it runs in, and every file without a
+  file ending whose first line names python or `uv run`. In a git work
+  tree the command skips the files that git ignores. The command leaves
+  itself out.
+
+  GATE_FILES and GATE_EXCLUDE narrow the files further. crap-score sets
+  them to the `files` and `exclude` patterns of the measure (DEC-65). Each
+  holds one glob pattern per line, relative to the folder the command runs
+  in, and blank lines count for nothing. The command measures a file only
+  when it matches a GATE_FILES pattern and no GATE_EXCLUDE pattern. Without
+  GATE_FILES it measures every file, and without GATE_EXCLUDE it excludes
+  none. In a pattern, * matches within one path segment, ** matches any
+  number of segments, and ? matches one character other than /, as in
+  crap-score.
+
+Duty
+  When the command cannot measure a case, it exits non-zero, names the
+  cause, and writes no rows. Two such cases are a failed test run and a
+  file with functions that coverage cannot reach, such as a script that
+  no test runs. It never reports such a file as 0 % covered. A file that
+  GATE_FILES or GATE_EXCLUDE leaves out is not measured, so it stops
+  nothing.
+
+Coverage
+  coverage_pct of a function counts only the lines of its body after the
+  def line, because the def line runs when the module is imported. A
+  function whose body has no line of its own, such as
+  `def pick(a): return a or 0`, is 100 % covered when coverage recorded
+  an exit from its code: an arc from a line of the function to minus the
+  first line of its code, which is its first decorator line or else its
+  def line. Coverage runs with branch = True to record these arcs. With
+  no such arc the function is 0 % covered. A call that ends in an
+  exception leaves no such arc under the sys.monitoring core of Python
+  3.12 and later, so it counts as no call. When such a function is the
+  only statement of its file and starts on line 1, the exit of the module
+  carries the same arc, so the command cannot see a call and reports 0 %.
+
+Test command
+  TEST_COMMAND below holds the project's test command. setup-crap-score
+  fills it in. The command runs in the folder this command runs in, and
+  coverage measures every Python process it starts. It gets the
+  environment of the caller without the environments of `uv run --script`,
+  this command's and those of its callers, so a test command that starts
+  `python` runs the project's interpreter. Such an environment is a folder
+  with pyvenv.cfg under uv's cache folder.
+"""
+
+from __future__ import annotations
+
+import ast
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import tokenize
+from pathlib import Path
+
+import coverage
+from coverage.exceptions import NoDataError
+from radon.complexity import cc_visit
+
+# The modules whose overload marks a typing stub that never runs.
+# overload_names finds the names that the imports of a file give it.
+OVERLOAD_MODULES = ("typing", "typing_extensions")
+# The accessors of a property that repeat the name of its getter.
+PROPERTY_ACCESSORS = ("getter", "setter", "deleter")
+
+# The project's test command, one list item per argument, such as
+# ["uv", "run", "pytest", "--quiet"]. setup-crap-score fills it in.
+TEST_COMMAND: list[str] = []
+
+EXCLUDED_DIRS = {
+    ".current-work",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+}
+
+SITECUSTOMIZE = "import coverage\ncoverage.process_startup()\n"
+
+
+class CannotMeasure(Exception):
+    """A case the command cannot measure; the message names the cause."""
+
+
+def is_python_script(path: Path) -> bool:
+    """True for a file without an ending whose first line starts Python."""
+    try:
+        with path.open("rb") as handle:
+            first = handle.readline(200)
+    except OSError:
+        return False
+    return first.startswith(b"#!") and (b"python" in first or b"uv run" in first)
+
+
+def candidate_files(root: Path) -> list[Path]:
+    """The files below *root* that belong to the project.
+
+    In a git work tree git lists them, so every ignored file stays out.
+    Outside git a walk lists them, without the excluded folders.
+    """
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        listed = None
+    if listed is not None and listed.returncode == 0:
+        return [root / os.fsdecode(name) for name in listed.stdout.split(b"\0") if name]
+    return [
+        path
+        for path in root.rglob("*")
+        if not any(part in EXCLUDED_DIRS for part in path.relative_to(root).parts)
+    ]
+
+
+def glob_match(pattern: str, path: str) -> bool:
+    """True when *path* matches the whole glob *pattern*.
+
+    * matches within one path segment, ** matches any number of segments,
+    and ? matches one character other than /. The same dialect as
+    crap-score (DEC-35), copied here, so the command needs no Factory code.
+    """
+    return _glob_from(pattern, path, 0, 0)
+
+
+def _glob_from(pattern: str, path: str, pi: int, si: int) -> bool:
+    while pi < len(pattern):
+        if pattern.startswith("**", pi):
+            npi = pi + 2
+            while npi < len(pattern) and pattern[npi] == "/":
+                npi += 1
+            if npi >= len(pattern):
+                return True
+            return any(_glob_from(pattern, path, npi, i) for i in range(si, len(path) + 1))
+        if si >= len(path):
+            return False
+        if pattern[pi] == "*":
+            end = path.find("/", si)
+            end = len(path) if end < 0 else end
+            return any(_glob_from(pattern, path, pi + 1, i) for i in range(si, end + 1))
+        if pattern[pi] == "?" and path[si] == "/":
+            return False
+        if pattern[pi] != "?" and pattern[pi] != path[si]:
+            return False
+        pi += 1
+        si += 1
+    return si == len(path)
+
+
+def patterns(name: str) -> list[str] | None:
+    """The patterns of the variable *name*, one per line; None when it is unset."""
+    value = os.environ.get(name)
+    if value is None:
+        return None
+    return [line for line in value.splitlines() if line.strip()]
+
+
+def kept(relative: str, files: list[str] | None, exclude: list[str]) -> bool:
+    """True when *relative* matches a pattern of *files* and none of *exclude*."""
+    if files is not None and not any(glob_match(p, relative) for p in files):
+        return False
+    return not any(glob_match(p, relative) for p in exclude)
+
+
+def code_files(root: Path) -> list[Path]:
+    """Every Python file of the project below *root* that the measure keeps.
+
+    The command itself is left out: no test runs it.
+    """
+    itself = Path(__file__).resolve()
+    files_patterns, exclude = patterns("GATE_FILES"), patterns("GATE_EXCLUDE") or []
+    files: set[Path] = set()
+    for path in candidate_files(root):
+        if not path.is_file() or path.resolve() == itself:
+            continue
+        if not kept(path.relative_to(root).as_posix(), files_patterns, exclude):
+            continue
+        if path.suffix == ".py" or (path.suffix == "" and is_python_script(path)):
+            files.add(path)
+    return sorted(files)
+
+
+def uv_cache_folder() -> str:
+    """uv's cache folder: UV_CACHE_DIR, else $XDG_CACHE_HOME/uv, else ~/.cache/uv."""
+    folder = os.environ.get("UV_CACHE_DIR") or os.path.join(
+        os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "uv"
+    )
+    return os.path.realpath(folder)
+
+
+def is_uv_script_environment(folder: str, cache: str) -> bool:
+    """True when *folder* is a Python environment that lies under uv's cache folder."""
+    real = os.path.realpath(folder)
+    return real.startswith(cache + os.sep) and os.path.isfile(os.path.join(real, "pyvenv.cfg"))
+
+
+def caller_environment() -> dict[str, str]:
+    """The environment of the caller, without the environments of `uv run --script`.
+
+    Each script that starts through `uv run --script`, such as this command
+    and crap-score, names its environment in VIRTUAL_ENV and puts its bin
+    folder on PATH. uv keeps these environments under its cache folder.
+    Every such PATH entry goes, and VIRTUAL_ENV goes when it names such an
+    environment, so `python` in TEST_COMMAND starts the project's
+    interpreter, not the one that holds radon and coverage.py. A project's
+    own .venv lies outside the cache and stays. crap-score holds the same
+    function.
+    """
+    cache = uv_cache_folder()
+    env = dict(os.environ)
+    if "VIRTUAL_ENV" in env and is_uv_script_environment(env["VIRTUAL_ENV"], cache):
+        del env["VIRTUAL_ENV"]
+    if "PATH" in env:
+        env["PATH"] = os.pathsep.join(
+            entry for entry in env["PATH"].split(os.pathsep)
+            if not (os.path.basename(os.path.normpath(entry)) == "bin"
+                    and is_uv_script_environment(os.path.dirname(os.path.normpath(entry)), cache))
+        )
+    return env
+
+
+def run_tests(root: Path, work: Path) -> dict:
+    """Run TEST_COMMAND under coverage; return the coverage.json files table."""
+    site = work / "site"
+    site.mkdir()
+    (site / "sitecustomize.py").write_text(SITECUSTOMIZE, encoding="utf-8")
+    # Only the coverage package goes on the path, so the tests see none of
+    # the other packages of this command's environment.
+    shutil.copytree(Path(coverage.__file__).parent, site / "coverage")
+    data_file = work / ".coverage"
+    rcfile = work / "coveragerc"
+    # include_namespace_packages lets coverage report an untested file in a
+    # folder without __init__.py as 0 % covered.
+    rcfile.write_text(
+        f"[run]\nparallel = True\nbranch = True\n"
+        f"data_file = {data_file}\nsource = {root}\n"
+        "[report]\ninclude_namespace_packages = True\n",
+        encoding="utf-8",
+    )
+
+    env = {k: v for k, v in caller_environment().items() if not k.startswith("COVERAGE_")}
+    env["COVERAGE_PROCESS_START"] = str(rcfile)
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(site), *filter(None, [os.environ.get("PYTHONPATH")])]
+    )
+    try:
+        result = subprocess.run(TEST_COMMAND, cwd=root, env=env, check=False)
+    except OSError as exc:
+        raise CannotMeasure(f"the test command {TEST_COMMAND} cannot start: {exc}") from exc
+    if result.returncode != 0:
+        raise CannotMeasure(
+            f"the test run failed with exit {result.returncode}: {' '.join(TEST_COMMAND)}"
+        )
+
+    cov = coverage.Coverage(data_file=str(data_file), config_file=str(rcfile))
+    cov.combine(data_paths=[str(work)])
+    cov.save()
+    report = work / "coverage.json"
+    try:
+        cov.json_report(outfile=str(report), ignore_errors=True)
+    except NoDataError as exc:
+        raise CannotMeasure(f"coverage recorded no data for the test run: {exc}") from exc
+    files = json.loads(report.read_text(encoding="utf-8")).get("files", {})
+    table = {str((root / key).resolve()): entry for key, entry in files.items()}
+    data = cov.get_data()
+    for measured in data.measured_files():
+        entry = table.get(str(Path(measured).resolve()))
+        if entry is not None:
+            entry["arcs"] = data.arcs(measured) or []
+    return table
+
+
+def was_called(file_cov: dict, code_start: int | None, end: int) -> bool:
+    """True when coverage recorded an exit from the code of a function.
+
+    The exit is an arc from a line of the function to -code_start.
+    code_start None marks a function whose exit the module shares.
+    """
+    if code_start is None:
+        return False
+    return any(
+        target == -code_start and code_start <= source <= end
+        for source, target in file_cov.get("arcs", [])
+    )
+
+
+def function_coverage(file_cov: dict, start: int, end: int, code_start: int | None) -> float:
+    """Share of the executable lines of a function body that ran.
+
+    A body without a line of its own counts as run when was_called finds
+    an exit from the code of the function.
+    """
+    executed = set(file_cov.get("executed_lines", []))
+    missing = set(file_cov.get("missing_lines", []))
+    body = range(start + 1, end + 1)
+    executable = [line for line in body if line in executed or line in missing]
+    if not executable:
+        return 100.0 if was_called(file_cov, code_start, end) else 0.0
+    covered = sum(1 for line in executable if line in executed)
+    return covered / len(executable) * 100.0
+
+
+def decorator_names(node: ast.AST) -> list[str]:
+    """The dotted names of the decorators of *node*, such as typing.overload."""
+    names: list[str] = []
+    for decorator in getattr(node, "decorator_list", []):
+        parts: list[str] = []
+        while isinstance(decorator, ast.Attribute):
+            parts.append(decorator.attr)
+            decorator = decorator.value
+        if isinstance(decorator, ast.Name):
+            parts.append(decorator.id)
+            names.append(".".join(reversed(parts)))
+    return names
+
+
+def overload_names(tree: ast.AST) -> set[str]:
+    """The decorator names that mark an overload stub in *tree*.
+
+    A name counts only when an import of *tree* binds it to the overload
+    of OVERLOAD_MODULES: typing.overload for `import typing`, t.overload
+    for `import typing as t`, overload for `from typing import overload`
+    or `from typing import *`, and ov for `from typing import overload as
+    ov`. An overload of any other module marks no stub.
+    """
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(
+                f"{alias.asname or alias.name}.overload"
+                for alias in node.names
+                if alias.name in OVERLOAD_MODULES
+            )
+        elif isinstance(node, ast.ImportFrom) and node.module in OVERLOAD_MODULES:
+            for alias in node.names:
+                if alias.name == "overload":
+                    names.add(alias.asname or alias.name)
+                elif alias.name == "*":
+                    names.add("overload")
+    return names
+
+
+def row_name(
+    qualified: str, block: object, defs: dict[int, ast.AST], overloads: set[str]
+) -> str | None:
+    """The row name of *block*, or None for an overload stub.
+
+    A property setter or deleter gets its accessor after the name, such as
+    Box.width.setter, so it does not repeat the name of the getter.
+    """
+    names = decorator_names(defs.get(block.lineno))
+    if any(name in overloads for name in names):
+        return None
+    for accessor in PROPERTY_ACCESSORS:
+        if f"{block.name}.{accessor}" in names:
+            return f"{qualified}.{accessor}"
+    return qualified
+
+
+def nested_methods(prefix: str, classes: list) -> list[tuple[str, object]]:
+    """The methods of the nested *classes*, each with its qualified name."""
+    named: list[tuple[str, object]] = []
+    for cls in classes:
+        name = f"{prefix}.{cls.name}"
+        named.extend((f"{name}.{method.name}", method) for method in cls.methods)
+        named.extend(nested_methods(name, cls.inner_classes))
+    return named
+
+
+def code_start(node: ast.AST | None, tree: ast.Module) -> int | None:
+    """The first line of the code of *node*: its first decorator, or its def.
+
+    None when that line is 1 and *node* is the only statement of *tree*:
+    the module then exits with the same arc as the function.
+    """
+    if node is None:
+        return None
+    first = min([node.lineno, *(d.lineno for d in node.decorator_list)])
+    if first == 1 and tree.body == [node]:
+        return None
+    return first
+
+
+def function_blocks(path: Path) -> list[tuple[str, object, int | None]]:
+    """The radon blocks of the functions and methods of *path*, with names.
+
+    Each name is qualified, such as Parser.parse or Parser.Options.strict,
+    and each block comes with the first line of its code (code_start).
+    An overload stub has no block here.
+    """
+    # tokenize.open honours a PEP 263 coding line, as Python does.
+    with tokenize.open(path) as handle:
+        source = handle.read()
+    tree = ast.parse(source)
+    overloads = overload_names(tree)
+    defs = {
+        node.lineno: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    qualified: list[tuple[str, object]] = []
+    for block in cc_visit(source):
+        if hasattr(block, "methods"):
+            # cc_visit lists the methods of a top-level class as blocks of
+            # their own, and those of a nested class only in inner_classes.
+            qualified.extend(nested_methods(block.name, block.inner_classes))
+        else:
+            qualified.append((block.fullname, block))
+    named: list[tuple[str, object, int | None]] = []
+    for name, block in qualified:
+        row = row_name(name, block, defs, overloads)
+        if row is not None:
+            named.append((row, block, code_start(defs.get(block.lineno), tree)))
+    return named
+
+
+def measure(root: Path, coverage_files: dict) -> list[dict]:
+    """One row per function of the code files below *root*."""
+    rows: list[dict] = []
+    unreachable: list[str] = []
+    for path in code_files(root):
+        relative = path.relative_to(root).as_posix()
+        try:
+            blocks = function_blocks(path)
+        except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as exc:
+            print(f"crap-measure-python: cannot parse {relative}: {exc}", file=sys.stderr)
+            rows.append({"file": relative, "parse_error": str(exc)})
+            continue
+        if not blocks:
+            continue
+        file_cov = coverage_files.get(str(path.resolve()))
+        if file_cov is None:
+            unreachable.append(relative)
+            continue
+        for name, block, first in blocks:
+            rows.append(
+                {
+                    "file": relative,
+                    "function": name,
+                    "start_line": block.lineno,
+                    "end_line": block.endline,
+                    "complexity": block.complexity,
+                    "coverage_pct": round(
+                        function_coverage(file_cov, block.lineno, block.endline, first), 2
+                    ),
+                }
+            )
+    if unreachable:
+        raise CannotMeasure("coverage cannot reach " + ", ".join(unreachable))
+    return rows
+
+
+def main() -> int:
+    target = os.environ.get("GATE_OUTPUT")
+    if not target:
+        print("crap-measure-python: GATE_OUTPUT is not set", file=sys.stderr)
+        return 2
+    output = Path(target)
+    # Rows of an earlier run must not pass for the result of this run.
+    output.unlink(missing_ok=True)
+    if not TEST_COMMAND:
+        print(
+            "crap-measure-python: TEST_COMMAND is empty; "
+            "setup-crap-score fills in the project's test command",
+            file=sys.stderr,
+        )
+        return 2
+
+    root = Path.cwd().resolve()
+    try:
+        with tempfile.TemporaryDirectory(prefix="crap-measure-python-") as work:
+            rows = measure(root, run_tests(root, Path(work)))
+    except CannotMeasure as exc:
+        print(f"crap-measure-python: cannot measure: {exc}", file=sys.stderr)
+        return 1
+
+    output.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

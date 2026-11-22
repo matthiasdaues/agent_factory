@@ -85,12 +85,9 @@ layers:
 # Gate configuration — per-gate enabled flag and thresholds.
 # Gate execution ordering is owned by ADR-0012; this section provides
 # per-gate configuration only.
+# The template has no CRAP gate entry. The skill setup-crap-score writes
+# the entry gates.crap-score once a person sets the gate up.
 gates:
-  crap_score:
-    enabled: true
-    # Per-function complexity × coverage risk threshold.
-    # A function exceeding this threshold is flagged for review.
-    threshold: 8
   mutation_testing:
     enabled: false
     # Mutation testing validates that test cases catch semantic changes.

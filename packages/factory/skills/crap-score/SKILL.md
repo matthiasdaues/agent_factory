@@ -6,83 +6,116 @@ category: implementation
 
 # CRAP Score
 
-Run a deterministic CRAP metric gate that combines cyclomatic complexity
-with test coverage into a single risk score per function.
+`crap-score` gives one verdict for the functions a story changed. A function with high complexity and little test coverage is risky to change. The CRAP score puts both numbers into one value per function, and the gate fails a changed function whose score lies above the threshold.
 
-## What it enforces
+The project measures, and the Factory judges. `crap-score` holds no code of a language. The project owns one measuring command per part of its code, and `crap-score` runs these commands, computes the scores, and judges the changed functions. The skill `setup-crap-score` sets up the gate and its measuring commands.
 
-- Formula: `CRAP(m) = comp(m)^2 * (1 - cov(m)/100)^3 + comp(m)`
-- Default threshold: **30** per function (industry standard)
-- Threshold overrides from `testing.yaml` (at `docs/testing.yaml`) when present
-  (key: `gates.crap-score.threshold`)
-- One JSON result per function: name, file, complexity, coverage,
-  CRAP score, pass/fail
-- Logged output at `.current-work/crap-score/<story-id>.json`
-- Non-zero exit on any function exceeding the threshold
-
-## Dependencies
-
-The script depends on `radon` for cyclomatic complexity analysis and
-reads pre-computed `coverage.json` (coverage.py JSON format) for
-per-line test coverage data. Both are resolved automatically via the
-`uv run --script` shebang.
-
-## Usage
-
-Run from the repository root:
+## Call
 
 ```bash
-.agent-factory/factory/scripts/crap-score
+.agent-factory/factory/scripts/crap-score (--base <revision> | --all) [--story-id <id>] [--report-dir <folder>]
 ```
 
-Optional arguments:
+- `--base <revision>` judges the functions whose lines changed in the diff from the merge base of the revision and `HEAD` to `HEAD`. The revision is a branch or a commit. The gate-check step passes the feature branch.
+- `--all` judges every measured function. Setup step 6 uses it.
+- A call needs exactly one of `--base` and `--all`. A call with neither or both exits `2`.
+- `--story-id` names the report. Without it, the name is `STORY_ID`, then the ID in the current branch name, such as `ST-0350` in `story/ST-0350`, then `adhoc`.
+- `--report-dir` names the folder of the report. The default is `.current-work/crap-score/`.
 
-```bash
-.agent-factory/factory/scripts/crap-score \
-  --story-id ST-0101 \
-  --source-root factory/fixtures/quality-gates/high-crap \
-  --coverage-json factory/fixtures/quality-gates/high-crap/coverage.json
+The gate takes no threshold and no list of files as an argument. It reads its settings from `docs/testing.yaml`.
+
+## Settings
+
+The entry `gates.crap-score` in `docs/testing.yaml` holds the settings. The gate reads them on each run, also when `enabled` is `false`:
+
+```yaml
+---
+gates:
+  crap-score:
+    enabled: true
+    threshold: 8
+    timeout_minutes: 10
+    measures:
+      - name: backend
+        files: "packages/server/backend/src/**"
+        exclude:
+          - "**/db/alembic/versions/**"
+        command: "scripts/crap-measure-backend"
+        ready: "scripts/crap-ready-backend"
 ```
 
-- `--source-root` defaults to the current directory
-- `--coverage-json` path to a coverage.py JSON report; when omitted,
-  all functions are scored with 0% coverage
-- `--threshold` overrides the default and testing.yaml value
-- `--story-id` defaults to `STORY_ID` env, then the current git branch,
-  then `adhoc`
+- `gates.crap-score.threshold`, `timeout_minutes` and `measures` are required. The gate has no built-in value for any of them. A missing value, an empty list `measures`, a measure without `name`, `files` or `command`, and two measures with one name make the gate exit `2` and name the cause.
+- The test-strategy agent proposes each value, and a person decides it.
+- `files` and `exclude` are glob patterns relative to the repository root. `*` matches within one path segment, and `**` matches any number of segments. The gate judges only the rows whose file matches `files` and no `exclude` pattern.
+- The old key `crap_score` still counts. With both keys, the key with hyphens wins, and the gate prints a warning that names the old key.
 
-## Report contract
+## Measurement format
 
-The script writes a JSON array with this shape:
+The gate runs the measures in list order, each from the root of the folder the gate runs in. Each command gets the caller's environment without the environments of `uv run --script`, so `python` in a command starts the project's interpreter. The gate, `dispatch` and `premerge-check` each start through `uv run --script`, and uv keeps each of their environments in a folder with `pyvenv.cfg` under its cache folder: `UV_CACHE_DIR`, else `$XDG_CACHE_HOME/uv`, else `~/.cache/uv`. The gate removes every such `bin` folder from `PATH`, and `VIRTUAL_ENV` when it names such a folder. A project's own `.venv` lies outside the cache and stays. The gate sets three environment variables for each measuring command:
 
-```json
-[
-  {
-    "file": "src/module.py",
-    "function": "complex_untested",
-    "complexity": 11,
-    "coverage_pct": 0.0,
-    "crap_score": 132.0,
-    "pass_fail": "fail"
-  },
-  {
-    "file": "src/module.py",
-    "function": "simple_add",
-    "complexity": 2,
-    "coverage_pct": 100.0,
-    "crap_score": 2.0,
-    "pass_fail": "pass"
-  }
-]
+- `GATE_OUTPUT` holds a file path. The command writes its rows there.
+- `GATE_FILES` holds the measure's `files` pattern.
+- `GATE_EXCLUDE` holds the measure's `exclude` patterns, one pattern per line, and is empty without `exclude`.
+
+A command may measure only the files that match `GATE_FILES` and no `GATE_EXCLUDE` pattern, so a file the measure leaves out cannot make it exit non-zero. The gate still applies `files` and `exclude` to the rows itself (DEC-10, DEC-65). A `files` or `exclude` pattern with a line break makes the gate exit `2`.
+
+The command writes one JSON array to the path in `GATE_OUTPUT`, with one row per function:
+
+| Field          | Content                                                                     |
+| -------------- | --------------------------------------------------------------------------- |
+| `file`         | Path relative to the repository root, also for a file without a file ending |
+| `function`     | The qualified name, such as `Parser.parse` for a method                     |
+| `start_line`   | First line of the function                                                  |
+| `end_line`     | Last line of the function                                                   |
+| `complexity`   | Cyclomatic complexity                                                       |
+| `coverage_pct` | Share of the function that the tests cover, from 0 to 100                   |
+
+A file that the command cannot parse gets one row with `file` and `parse_error`, the message of the parser. When the diff touches that file, the row fails the gate. A measuring command that exits non-zero makes the gate exit `2`, and the message names the measure, the command, and the command's own message. No later measure runs.
+
+`docs/spec/schemas/measure-output-rows.json` defines the rows.
+
+## Score and verdict
+
+The score of a function is
+
+```text
+complexity² × (1 − coverage_pct/100)³ + complexity
 ```
 
-## Fixture
+rounded to two decimals, half up. A judged function passes when its rounded score is at or below `gates.crap-score.threshold`. With the threshold 8, a score of 8.004 rounds to 8.00 and passes, and a score of 8.006 rounds to 8.01 and fails.
 
-`factory/fixtures/quality-gates/high-crap/` contains a self-contained
-test project with:
+With `--base`, a function is judged when its range from `start_line` to `end_line` holds a changed line. A deletion inside the range counts too. A deletion between two functions counts for both neighbours.
 
-- `src/module.py` — one function with complexity >= 10 and 0% coverage
-  (expected FAIL), one function with complexity 2 and full coverage
-  (expected PASS)
-- `tests/test_module.py` — covers only the simple function
-- `coverage.json` — pre-computed coverage data matching the test suite
+## Exit codes
+
+| Code      | Meaning                                                                                                                                                  |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`       | Every judged function passes, also when the gate judges no function                                                                                      |
+| `1`       | A judged function fails. The output names its file, its function, and its score                                                                          |
+| `2`       | The gate cannot measure, such as for a wrong call, a missing setting, or a failed command. The message names the cause                                   |
+| `128 + n` | The gate was stopped by signal `n`: `143` for `SIGTERM`, `130` for `SIGINT`, `129` for `SIGHUP`. It stops its running command first and gives no verdict |
+
+Exit `2` means that nobody judged the code. So it costs the story no attempt, and the story stops as `blocked` with the reason `gate cannot measure: crap-score`. Exit `128 + n` gives no verdict either. The gate-check step runs the gate again and records no attempt (DEC-56).
+
+## Report
+
+On exit `0` or `1`, the gate writes `<report-dir>/<story-id>.json`. The report holds one row per judged function: the six measurement fields plus `crap_score`, the rounded score, and `pass_fail`, which is `pass`, `fail`, or `accepted`. A new report replaces an earlier report of the same name. On exit `2` and on exit `128 + n`, the gate writes no report, and the earlier report stays.
+
+A person reads the report. The verdict is the exit code alone. After exit `1`, `premerge-check` reads the report only to name the failing functions in its refusal. After any other exit, it reads no report (DEC-54).
+
+## Exceptions register
+
+A person can accept a function above the threshold in the section `## CRAP score` of `docs/findings/exceptions.md`. The gate reads that section on the branch `dev`. A row names the file, the function, and the accepted score. A judged function above the threshold and at or below its accepted score gets `accepted`, which counts as a pass. Only the stakeholder writes the register, and agents never write it.
+
+## Where the gate runs
+
+Each measuring command measures the code of the folder the gate runs in:
+
+| Run                                    | Folder                                                  |
+| -------------------------------------- | ------------------------------------------------------- |
+| Gate-check step of an orchestrated run | The worktree of the story                               |
+| Gate-check step of a run by hand       | The primary checkout, with the story branch checked out |
+| `premerge-check`                       | Its temporary worktree at the branch head               |
+| `gate-setup-proof`                     | The temporary worktree of `gate-setup-proof`            |
+
+The implementation agent runs `crap-score` in the gate-check step. The developer agent never runs it.

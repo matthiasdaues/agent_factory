@@ -131,10 +131,10 @@ Feature: CRAP Gate Setup
     Scenario: The proof passes for a measuring command that measures the code of its folder
       Given docs/testing.yaml has the entry gates.crap-score with enabled false and the threshold 8
       And the measure python matches packages/factory/scripts/*
-      And setup-crap-score has written .current-work/gate-setup-proof/python/base/packages/factory/scripts/proof-plant with the functions proof_untested and proof_tested, both of complexity 3
-      And .current-work/gate-setup-proof/python/base/packages/factory/tests/test_proof_plant.py covers proof_tested fully
-      And .current-work/gate-setup-proof/python/gap/packages/factory/tests/test_proof_gap.py holds a failing test
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
+      And setup-crap-score has written .current-work/gate-setup-proof/plant/python/base/packages/factory/scripts/proof-plant with the functions proof_untested and proof_tested, both of complexity 3
+      And .current-work/gate-setup-proof/plant/python/base/packages/factory/tests/test_proof_plant.py covers proof_tested fully
+      And .current-work/gate-setup-proof/plant/python/gap/packages/factory/tests/test_proof_gap.py holds a failing test
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
       Then the first commit of the proof worktree holds the files of base/ at packages/factory/scripts/proof-plant and packages/factory/tests/test_proof_plant.py
       And the check "Repeatable" passes
       And the check "Catches CRAP" passes, because proof_untested scores 12 and fails
@@ -144,9 +144,9 @@ Feature: CRAP Gate Setup
       # DEC-30
 
     Scenario: The proof copies each subfolder of the plant folder onto the root of its worktree
-      Given .current-work/gate-setup-proof/python/base/ holds packages/factory/scripts/proof-plant and packages/factory/tests/test_proof_plant.py
-      And .current-work/gate-setup-proof/python/gap/ holds packages/factory/tests/test_proof_gap.py
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
+      Given .current-work/gate-setup-proof/plant/python/base/ holds packages/factory/scripts/proof-plant and packages/factory/tests/test_proof_plant.py
+      And .current-work/gate-setup-proof/plant/python/gap/ holds packages/factory/tests/test_proof_gap.py
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
       Then the first commit of the proof worktree adds packages/factory/scripts/proof-plant and packages/factory/tests/test_proof_plant.py
       And the second commit adds packages/factory/tests/test_proof_gap.py
       # DEC-28, DEC-30
@@ -154,11 +154,19 @@ Feature: CRAP Gate Setup
     Scenario: The first commit of the proof holds the setup files of the working tree
       Given step 4 has written the entry gates.crap-score with enabled false and the threshold 8 into docs/testing.yaml and has not committed it
       And the measure python names the command scripts/crap-measure-python, which is not committed either
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
       Then the first commit of the proof worktree holds docs/testing.yaml and scripts/crap-measure-python as they are in the working tree
       And the first commit also holds the files of base/
       And crap-score in the proof worktree reads the threshold 8
       # DEC-32
+
+    Scenario: The first commit of the proof lists only the chosen measure
+      Given the entry gates.crap-score in docs/testing.yaml lists the measures backend and python
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
+      Then the docs/testing.yaml of the first proof commit keeps threshold and timeout_minutes of the entry
+      And its gates.crap-score lists only the measure python
+      And the proof starts neither scripts/crap-ready-backend nor the measuring command of backend
+      # DEC-52
 
     Scenario: The proof after a changed threshold reads the threshold of the working tree
       Given the User changed the threshold to 10 in step 6 and nothing is committed
@@ -168,14 +176,14 @@ Feature: CRAP Gate Setup
 
     Scenario: The proof reads the threshold from docs/testing.yaml
       Given the entry gates.crap-score in docs/testing.yaml has enabled false and the threshold 8
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
       Then gate-setup-proof judges the planted functions against the threshold 8
       And the call of gate-setup-proof names no threshold
       # DEC-18
 
     Scenario Outline: The proof fails for a measuring command that hides a fault
       Given the measuring command of the measure python <fault>
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
       Then the check "<check>" fails
       And gate-setup-proof exits 1
 
@@ -193,29 +201,30 @@ Feature: CRAP Gate Setup
       And gate-setup-proof runs no check
 
       Examples:
-        | call                                                        | cause                                     |
-        | --measure python                                            | the missing --plant                       |
-        | --plant .current-work/gate-setup-proof/python/              | the missing --measure                     |
-        | --measure go --plant .current-work/gate-setup-proof/python/ | go, which docs/testing.yaml does not list |
+        | call                                                              | cause                                     |
+        | --measure python                                                  | the missing --plant                       |
+        | --plant .current-work/gate-setup-proof/plant/python/              | the missing --measure                     |
+        | --measure go --plant .current-work/gate-setup-proof/plant/python/ | go, which docs/testing.yaml does not list |
       # DEC-18
 
     Scenario Outline: Wrong planted code stops the proof with exit 2
       Given the threshold is 8
       And <defect>
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
       Then gate-setup-proof exits 2
       And the message names <cause>
       And gate-setup-proof runs no check
 
       Examples:
-        | defect                                                                          | cause                                                                       |
-        | base/ holds proof-plant at its top level, not at packages/factory/scripts/      | the files pattern packages/factory/scripts/*, which no planted file matches |
-        | the plant folder has no subfolder gap/                                          | the missing subfolder gap/                                                  |
-        | the plant folder has no subfolder base/                                         | the missing subfolder base/                                                 |
-        | the rows of the measuring command hold no function proof_tested                 | the missing function proof_tested                                           |
-        | the rows give proof_untested the complexity 9                                   | proof_untested and its complexity 9, which is above the threshold 8         |
-        | the rows give proof_untested the complexity 3 and proof_tested the complexity 4 | the two complexities 3 and 4, which differ                                  |
-      # DEC-28, DEC-30, DEC-31
+        | defect                                                                          | cause                                                                                               |
+        | base/ holds proof-plant at its top level, not at packages/factory/scripts/      | the files pattern packages/factory/scripts/*, which no planted file matches                         |
+        | the plant folder has no subfolder gap/                                          | the missing subfolder gap/                                                                          |
+        | the plant folder has no subfolder base/                                         | the missing subfolder base/                                                                         |
+        | the rows of the measuring command hold no function proof_tested                 | the missing function proof_tested                                                                   |
+        | the rows give proof_untested the complexity 9                                   | proof_untested and its complexity 9, which is above the threshold 8                                 |
+        | the rows give proof_untested the complexity 3 and proof_tested the complexity 4 | the two complexities 3 and 4, which differ                                                          |
+        | the rows give proof_untested and proof_tested the complexity 2                  | the complexity 2, the score 6 at 0 % coverage, and the threshold 8, which the score does not exceed |
+      # DEC-28, DEC-30, DEC-31, DEC-60
 
     Scenario: The proof runs exactly four checks
       When the test-strategy agent runs gate-setup-proof
@@ -225,8 +234,10 @@ Feature: CRAP Gate Setup
     Scenario: The proof starts the measuring command without changed code on the current branch
       Given the current branch has no change against its base
       When the test-strategy agent runs gate-setup-proof
-      Then the measuring command starts in each of the four checks
+      Then the measuring command starts in each of the three gate runs: the two runs of "Repeatable" and the run of "Reports a gap"
+      And "Catches CRAP" and "Sees the folder" judge the report of the first run of "Repeatable"
       And each planted function lies in a file that matches the files pattern of the measure
+      # @packages/factory/scripts/gate-setup-proof::run_checks
 
     Scenario: The planted functions are decided by coverage alone
       Given the threshold is 8
@@ -249,14 +260,37 @@ Feature: CRAP Gate Setup
       And the tip of dev is still commit A and the tip of feature/login is still commit B
       And no branch of the project holds a planted function or a planted test
 
+    Scenario: A proof stopped by a signal stops its command first
+      Given gate-setup-proof runs the measuring command of python
+      When the run receives SIGTERM
+      Then gate-setup-proof stops the measuring command of python
+      And gate-setup-proof exits 143
+      # DEC-56
+
     Scenario: The proof makes its worktree at a fixed path
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
-      Then the temporary worktree of the proof lies at a fixed path under .current-work/gate-setup-proof/
-      # DEC-46
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
+      Then the temporary worktree of the proof lies at .current-work/gate-setup-proof/worktree
+      And no plant folder under .current-work/gate-setup-proof/plant/ can take that path
+      # DEC-46, DEC-64
+
+    Scenario: A second proof at the same time is refused
+      Given a run of gate-setup-proof holds the lock on the proof worktree
+      When the test-strategy agent starts gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
+      Then the second run exits 2
+      And the message names the lock on the proof worktree
+      And the first run goes on unchanged
+      # DEC-57
+
+    Scenario: The proof switches no git hook off
+      Given the project has a reference-transaction hook that refuses every ref update
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
+      Then gate-setup-proof exits 2
+      And the message names the reference-transaction hook
+      # DEC-57
 
     Scenario: The proof removes a worktree left by a crashed run before it starts
-      Given an earlier run of gate-setup-proof crashed and left its worktree under .current-work/gate-setup-proof/
-      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/python/
+      Given an earlier run of gate-setup-proof crashed and left its worktree at .current-work/gate-setup-proof/worktree
+      When the test-strategy agent runs gate-setup-proof --measure python --plant .current-work/gate-setup-proof/plant/python/
       Then gate-setup-proof removes the left worktree before it makes a new one
       And the four checks run in the new worktree
       # DEC-46
@@ -276,6 +310,40 @@ Feature: CRAP Gate Setup
       When crap-score runs the measure backend
       Then the row of that method has the function Parser.parse
       # DEC-12
+
+    Scenario Outline: The Python measuring command names property accessors by their role
+      Given packages/server/backend/src/orders/box.py holds the class Box with an accessor of the property width decorated with <decorator>
+      When crap-score runs the measure python
+      Then the row of that accessor has the function <name>
+
+      Examples:
+        | decorator      | name              |
+        | @property      | Box.width         |
+        | @width.getter  | Box.width.getter  |
+        | @width.setter  | Box.width.setter  |
+        | @width.deleter | Box.width.deleter |
+      # @packages/factory/skills/setup-crap-score/crap-measure-python::row_name
+
+    Scenario Outline: The Python measuring command gives an overload stub no row
+      Given packages/server/backend/src/orders/box.py imports <import>
+      And the class Box holds two stubs of resize decorated with <decorator> and one implementation of resize
+      When crap-score runs the measure python
+      Then the rows hold one row with the function Box.resize, for the implementation
+      And no row stands for a stub
+
+      Examples:
+        | import                     | decorator        |
+        | typing                     | @typing.overload |
+        | overload from typing       | @overload        |
+        | overload from typing as ov | @ov              |
+      # @packages/factory/skills/setup-crap-score/crap-measure-python::row_name
+
+    Scenario: A function under an overload of another module gets its row
+      Given packages/server/backend/src/orders/box.py imports overload from mylib
+      And the class Box holds the method scale decorated with @overload
+      When crap-score runs the measure python
+      Then the rows hold a row with the function Box.scale
+      # @packages/factory/skills/setup-crap-score/crap-measure-python::overload_names
 
     Scenario: A script without a file ending is measured like any other file
       Given the measure python matches packages/factory/scripts/*
@@ -356,6 +424,18 @@ Feature: CRAP Gate Setup
       When crap-score runs with --base feature/login
       Then crap-score judges tree_severity and bug_bar_level as changed functions
       # DEC-37
+
+    Scenario Outline: A deletion outside every function counts for the last function or for none
+      Given tree_severity is the first function and main is the last function of packages/factory/scripts/finding-lint
+      And story/ST-0350 deletes two lines <place>
+      When crap-score runs with --base feature/login
+      Then crap-score judges <judged> as changed
+
+      Examples:
+        | place                                  | judged      |
+        | below main, at the end of the file     | main        |
+        | above tree_severity, among the imports | no function |
+      # DEC-51
 
     Scenario Outline: The gate compares the threshold with the score rounded to two decimals
       Given the threshold is 8
@@ -507,6 +587,20 @@ Feature: CRAP Gate Setup
         | command |
       # DEC-29
 
+    Scenario Outline: A measure name that is no safe file name or a wrong ready value cannot measure
+      Given the measure backend in docs/testing.yaml has <value>
+      When crap-score runs with --base feature/login
+      Then crap-score exits 2
+      And the message names <named>
+
+      Examples:
+        | value                 | named                 |
+        | the name "../backend" | the name "../backend" |
+        | the name "back end/x" | the name "back end/x" |
+        | an empty ready value  | the ready value       |
+        | a ready value of 5    | the ready value       |
+      # DEC-59
+
     Scenario: An empty measures list cannot measure
       Given docs/testing.yaml has the entry gates.crap-score with enabled true and an empty list measures
       When crap-score runs with --base feature/login
@@ -569,6 +663,20 @@ Feature: CRAP Gate Setup
       Then crap-score starts the measuring command of python without waiting
       # DEC-43
 
+    Scenario Outline: A run stopped by a signal stops its command first and gives no verdict
+      Given crap-score runs the measuring command of backend in the gate-check step of ST-0350
+      When the run receives <signal>
+      Then crap-score stops the measuring command of backend
+      And crap-score exits <code>
+      And the implementation agent runs crap-score again and records no attempt for ST-0350
+
+      Examples:
+        | signal  | code |
+        | SIGTERM | 143  |
+        | SIGINT  | 130  |
+        | SIGHUP  | 129  |
+      # DEC-56
+
     Scenario: The time limit covers the whole gate run
       Given gates.crap-score.timeout_minutes is 10
       And the ready command and the measuring command of backend take 6 minutes together
@@ -583,6 +691,14 @@ Feature: CRAP Gate Setup
       When crap-score runs
       Then crap-score exits 2
       And the message names the measure python and the field end_line
+
+    Scenario: The shape check covers rows that the filter drops
+      Given the measure backend has the files pattern "packages/server/backend/**"
+      And the measuring command of backend writes a row for packages/server/frontend/src/main.ts without the field end_line
+      When crap-score runs
+      Then crap-score exits 2
+      And the message names the measure backend and the field end_line
+      # DEC-53
 
     Scenario: A row whose start_line lies above its end_line is in the wrong shape
       Given the measuring command of python writes a row for tree_severity with start_line 40 and end_line 12
@@ -725,6 +841,25 @@ Feature: CRAP Gate Setup
       And the output says that crap-score read no exceptions register, because no branch dev exists
       # DEC-13, DEC-25
 
+    Scenario Outline: crap-score reads the exceptions register only from refs/heads/dev
+      Given <case>
+      When crap-score runs with --base feature/login
+      Then crap-score reads no exceptions register
+      And the output says that crap-score read no exceptions register
+
+      Examples:
+        | case                                                                     |
+        | the repository has the ref refs/remotes/origin/dev and no refs/heads/dev |
+        | crap-score runs outside a git repository                                 |
+      # DEC-55
+
+    Scenario: Only the first table under the CRAP score section counts
+      Given the section "## CRAP score" on dev holds two tables
+      And only the second table has a row for tree_severity with the accepted score 9
+      When crap-score runs with --base feature/login
+      Then tree_severity fails the gate
+      # DEC-55
+
     Scenario Outline: A broken exceptions-register row cannot measure
       Given the section "## CRAP score" on dev has a row <defect>
       When crap-score runs with --base feature/login
@@ -735,6 +870,16 @@ Feature: CRAP Gate Setup
         | defect                         |
         | with an empty Reason cell      |
         | with the accepted score "nine" |
+        | with the accepted score "9e0"  |
+        | with the accepted score "+9"   |
+      # DEC-55: the accepted score is a plain decimal
+
+    Scenario: A table whose header does not name the five columns cannot measure
+      Given the first table under "## CRAP score" on dev has the header File, Function, Score, Reason
+      When crap-score runs with --base feature/login
+      Then crap-score exits 2
+      And the message names the header and the five columns File, Function, Accepted score, Reason, and Accepted by
+      # DEC-55
 
     Scenario: Two exceptions-register rows for one function cannot measure
       Given the section "## CRAP score" on dev has two rows for packages/factory/scripts/finding-lint and tree_severity
@@ -814,8 +959,7 @@ Feature: CRAP Gate Setup
       When dispatch merge-story ST-0350 runs premerge-check against feature/login
       Then premerge-check runs crap-score with --base feature/login and no list of files
       # changes run-lifecycle: Scenario Outline "premerge-check builds the call of a gate that it names"
-      # @packages/factory/scripts/premerge-check::changed_python_files
-      # @packages/factory/scripts/premerge-check::crap_score_skip_notice
+      # @packages/factory/scripts/premerge-check::gate_command
 
     Scenario: A story that changes only scripts without a file ending is scored at the merge
       Given story/ST-0350 changes only packages/factory/scripts/finding-lint
@@ -847,6 +991,27 @@ Feature: CRAP Gate Setup
       # changes run-lifecycle: Scenario "A refused premerge-check sends a story in an orchestrated run back to the gate-check step"
       # changes run-lifecycle: Scenario "A refused premerge-check leaves the primary checkout on the story branch"
 
+    Scenario: The refusal names the failing functions from the report after exit 1
+      Given tree_severity fails crap-score at the head of story/ST-0350
+      When premerge-check runs on story/ST-0350
+      Then crap-score exits 1
+      And the refusal of premerge-check names tree_severity from the report of crap-score
+      # DEC-54
+
+    Scenario: The exit code of crap-score alone decides at the merge
+      Given crap-score exits 0 at the head of story/ST-0350
+      And .current-work/crap-score/ST-0350.json holds a row with pass_fail fail from an earlier run
+      When premerge-check runs on story/ST-0350
+      Then premerge-check passes the gate crap-score
+      # DEC-54
+
+    Scenario: After exit 2 premerge-check reads no report
+      Given crap-score exits 2 at the head of story/ST-0350
+      And .current-work/crap-score/ST-0350.json holds the report of an earlier commit
+      When premerge-check runs on story/ST-0350
+      Then the refusal of premerge-check holds the message of crap-score and no row of that report
+      # DEC-54
+
     Scenario: A gate that cannot measure beside another failed check keeps the story dispatched
       Given ST-0350 is dispatched
       And crap-score exits 2 on story/ST-0350
@@ -864,6 +1029,12 @@ Feature: CRAP Gate Setup
       And premerge-check runs no gate
       And the refusal names the measure backend and scripts/crap-ready-backend
       # @packages/factory/scripts/premerge-check::check_test_suite
+
+    Scenario: The ready check of premerge-check takes no lock
+      Given a run of crap-score in the worktree of ST-0351 holds the lock of the measure backend
+      When premerge-check runs its ready check on story/ST-0350
+      Then premerge-check runs scripts/crap-ready-backend without waiting for the lock
+      # DEC-62
 
     Scenario: A disabled gate that a story names runs its ready commands at the merge
       Given docs/testing.yaml has the entry gates.crap-score with enabled false
@@ -935,6 +1106,20 @@ Feature: CRAP Gate Setup
       Then the ledger records ST-0350 as prepared
       # @packages/factory/scripts/dispatch::cmd_re_dispatch
 
+    Scenario Outline: resume-gates refuses an entry without a story branch
+      Given the ledger records ST-0350 as blocked with reason "gate cannot measure: crap-score"
+      And <branch state>
+      When the implementation agent runs dispatch resume-gates ST-0350
+      Then dispatch exits 1
+      And the message names the missing branch story/ST-0350
+      And the ledger entry of ST-0350 is unchanged
+
+      Examples:
+        | branch state                                                 |
+        | ST-0350 was marked blocked before dispatch cut story/ST-0350 |
+        | git no longer holds the branch story/ST-0350                 |
+      # DEC-63
+
     Scenario: A stop refuses resume-gates
       Given ST-0350 is blocked with reason "gate cannot measure: crap-score"
       And docs/findings/BUG-0096.md has severity critical and status open, and its stop is not confirmed
@@ -967,6 +1152,22 @@ Feature: CRAP Gate Setup
       And no story of the run starts
       # DEC-23
 
+    Scenario: A ready command that runs past the time limit stops dispatch init
+      Given gates.crap-score.timeout_minutes is 10
+      And scripts/crap-ready-backend starts a child process and runs longer than 10 minutes
+      When the User starts a run with dispatch init on feature/login
+      Then dispatch init stops scripts/crap-ready-backend and its child process after 10 minutes
+      And dispatch init exits 1
+      And the message names the measure backend and the limit of 10 minutes
+      And no branch feature/login, no worktree of feature/login, and no ledger of the run exist
+      # DEC-61
+
+    Scenario: The ready check of dispatch init takes no lock
+      Given a run of crap-score holds the lock of the measure backend
+      When the User starts a run with dispatch init on feature/login
+      Then dispatch init runs scripts/crap-ready-backend without waiting for the lock
+      # DEC-62
+
     Scenario: dispatch init runs no ready command of a gate that is not enabled
       Given docs/testing.yaml has the entry gates.crap-score with enabled false
       And the measure backend has the ready command scripts/crap-ready-backend
@@ -984,7 +1185,7 @@ Feature: CRAP Gate Setup
       Then premerge-check does not run crap-score
       And premerge-check prints one line that names crap-score with the skill setup-crap-score and mutation-testing with the skill mutation-testing
       And the merge continues with the other checks
-      # @packages/factory/scripts/premerge-check::DEFAULT_GATES
+      # @packages/factory/scripts/premerge-check::not_set_up_notice
       # @packages/factory/scripts/premerge-check::BUILT_IN_GATES
 
     Scenario Outline: The line names every built-in gate without an entry
@@ -999,13 +1200,22 @@ Feature: CRAP Gate Setup
         | the entry gates.mutation-testing and no more | crap-score with setup-crap-score                                            |
         | the entry gates.crap-score and no more       | mutation-testing with mutation-testing                                      |
 
+    Scenario: The line leaves out a built-in gate that the story names
+      Given docs/testing.yaml has a gates section without the entries crap-score and mutation-testing
+      And backlog/ST-0350.md has quality-gates [crap-score]
+      When premerge-check runs on story/ST-0350
+      Then premerge-check prints one line that names mutation-testing with mutation-testing
+      And the line does not name crap-score, because the refusal of ST-0350 names it
+      # DEC-50
+
     Scenario Outline: A story that names crap-score before the setup is refused
       Given docs/testing.yaml has no entry gates.crap-score
       And backlog/ST-0350.md has quality-gates [crap-score]
       When <step> runs for ST-0350
       Then <step> refuses ST-0350 as it refuses a gate that docs/testing.yaml cannot run
       And the refusal names crap-score and the skill setup-crap-score
-      # DEC-21
+      And the attempts of ST-0350 are unchanged
+      # DEC-21, DEC-58
       # changes run-lifecycle: Scenario Outline "A quality-gates entry that docs/testing.yaml cannot run is refused"
 
       Examples:
@@ -1019,7 +1229,8 @@ Feature: CRAP Gate Setup
       When the implementation agent runs dispatch merge-story ST-0350
       Then premerge-check exits 1
       And the ledger records ST-0350 as dispatched
-      # DEC-21
+      And the attempts of ST-0350 are unchanged
+      # DEC-21, DEC-58
 
     Scenario: A project set up from the charter template has no CRAP gate
       Given docs/testing.yaml is a copy of packages/factory/rulebooks/templates/charter-testing.yaml

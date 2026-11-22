@@ -1,0 +1,394 @@
+---
+mode: orchestrated
+feature_branch: feature/crap-gate-setup
+branch_root: 9ea68284539b1f175dea21617c125a578e3db474
+branch_head: 7d8578f82d4551900d671667bc812e08c0f20a48
+stories:
+  ST-0433:
+    id: ST-0433
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0433
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0433
+    feature_branch: feature/crap-gate-setup
+    base_sha: 9ea68284539b1f175dea21617c125a578e3db474
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: b312723f54c882791f31fcb1e174af235f76b28f
+    active_session: impl
+    active_tier: standard
+  ST-0434:
+    id: ST-0434
+    wave: 2
+    status: done
+    deps:
+      - ST-0433
+    branch: story/ST-0434
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0434
+    feature_branch: feature/crap-gate-setup
+    base_sha: f6de91824232f9cd310ffbd90f2ba26d90bce351
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: 10a3a4fed6c4de13346e9fe0ad25d08a98b458c9
+    active_session: impl
+    active_tier: standard
+  ST-0435:
+    id: ST-0435
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0435
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0435
+    feature_branch: feature/crap-gate-setup
+    base_sha: 9ea68284539b1f175dea21617c125a578e3db474
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: f8269f8f9ff637105d21fa16d8a0a990bf974e76
+    active_session: impl
+    active_tier: standard
+  ST-0436:
+    id: ST-0436
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0436
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0436
+    feature_branch: feature/crap-gate-setup
+    base_sha: 9ea68284539b1f175dea21617c125a578e3db474
+    tier: strong
+    reason: null
+    verify_base: pass
+    commit_sha: dc5c396ba9df29e19c08ef40f72cf993d22ebf21
+    active_session: impl
+    active_tier: strong
+  ST-0437:
+    id: ST-0437
+    wave: 2
+    status: done
+    deps:
+      - ST-0436
+    branch: story/ST-0437
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0437
+    feature_branch: feature/crap-gate-setup
+    base_sha: f6de91824232f9cd310ffbd90f2ba26d90bce351
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: 4a5d299fdea1fba002a18568dec74eb3842f48be
+    active_session: impl
+    active_tier: standard
+  ST-0438:
+    id: ST-0438
+    wave: 2
+    status: done
+    deps:
+      - ST-0436
+    branch: story/ST-0438
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0438
+    feature_branch: feature/crap-gate-setup
+    base_sha: f6de91824232f9cd310ffbd90f2ba26d90bce351
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: 9aaee03737bec4b95cbd2f8be0da799946deb172
+    active_session: impl
+    active_tier: standard
+  ST-0439:
+    id: ST-0439
+    wave: 2
+    status: done
+    deps:
+      - ST-0433
+      - ST-0436
+    branch: story/ST-0439
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0439
+    feature_branch: feature/crap-gate-setup
+    base_sha: f6de91824232f9cd310ffbd90f2ba26d90bce351
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: 290a619f5d894394da8eb5fa5ac02731ef952d03
+    active_session: impl
+    active_tier: standard
+  ST-0440:
+    id: ST-0440
+    wave: 2
+    status: done
+    deps:
+      - ST-0436
+    branch: story/ST-0440
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0440
+    feature_branch: feature/crap-gate-setup
+    base_sha: f6de91824232f9cd310ffbd90f2ba26d90bce351
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: c6d06c1ba056cafb775f47db4bc7d5f08266595c
+    active_session: impl
+    active_tier: standard
+  ST-0441:
+    id: ST-0441
+    wave: 1
+    status: done
+    deps: []
+    branch: story/ST-0441
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0441
+    feature_branch: feature/crap-gate-setup
+    base_sha: 9ea68284539b1f175dea21617c125a578e3db474
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: 1cdb91ee245661a9e9d2b49f46bc53673b09246e
+    active_session: impl
+    active_tier: standard
+  ST-0442:
+    id: ST-0442
+    wave: 2
+    status: done
+    deps:
+      - ST-0436
+    branch: story/ST-0442
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0442
+    feature_branch: feature/crap-gate-setup
+    base_sha: f6de91824232f9cd310ffbd90f2ba26d90bce351
+    tier: economy
+    reason: null
+    verify_base: pass
+    commit_sha: d42b9cb49cfe0f5b625bc6f1b5c5add19d8848ed
+    active_session: impl
+    active_tier: economy
+  ST-0443:
+    id: ST-0443
+    wave: 3
+    status: done
+    deps:
+      - ST-0438
+      - ST-0439
+      - ST-0442
+    branch: story/ST-0443
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0443
+    feature_branch: feature/crap-gate-setup
+    base_sha: 0e9d055b492654f49a4a47779d4ff65fab43a406
+    tier: strong
+    reason: null
+    verify_base: pass
+    commit_sha: bd44eb9bfe62f60fe7ed4197aa77abc3314ee51d
+    active_session: impl
+    active_tier: strong
+  ST-0444:
+    id: ST-0444
+    wave: 4
+    status: done
+    deps:
+      - ST-0442
+      - ST-0443
+    branch: story/ST-0444
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0444
+    feature_branch: feature/crap-gate-setup
+    base_sha: ac3d59b4cdecf0a584eed6cfb8a9933a95e8287d
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: c1e56352917a3b4644cb601d4186da6c93770ce6
+    active_session: impl
+    active_tier: standard
+  ST-0445:
+    id: ST-0445
+    wave: 3
+    status: done
+    deps:
+      - ST-0438
+    branch: story/ST-0445
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0445
+    feature_branch: feature/crap-gate-setup
+    base_sha: 0e9d055b492654f49a4a47779d4ff65fab43a406
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: 6df84b6fee109be52245bedc68b948c09931df28
+    active_session: impl
+    active_tier: standard
+  ST-0446:
+    id: ST-0446
+    wave: 2
+    status: done
+    deps:
+      - ST-0435
+      - ST-0436
+    branch: story/ST-0446
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0446
+    feature_branch: feature/crap-gate-setup
+    base_sha: f6de91824232f9cd310ffbd90f2ba26d90bce351
+    tier: strong
+    reason: null
+    verify_base: pass
+    commit_sha: 343fb5d1c42ede63313474cd3c7512cac7cd7a90
+    active_session: impl
+    active_tier: strong
+  ST-0447:
+    id: ST-0447
+    wave: 3
+    status: done
+    deps:
+      - ST-0446
+    branch: story/ST-0447
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0447
+    feature_branch: feature/crap-gate-setup
+    base_sha: 0e9d055b492654f49a4a47779d4ff65fab43a406
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: 83693f01cfcf7f3ee476ae17a6d228310d44226a
+    active_session: impl
+    active_tier: standard
+  ST-0448:
+    id: ST-0448
+    wave: 4
+    status: done
+    deps:
+      - ST-0446
+      - ST-0447
+    branch: story/ST-0448
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/ST-0448
+    feature_branch: feature/crap-gate-setup
+    base_sha: ac3d59b4cdecf0a584eed6cfb8a9933a95e8287d
+    tier: standard
+    reason: null
+    verify_base: pass
+    commit_sha: e6418804791bf04c9d5cf9d1d28101c2742e748c
+    active_session: impl
+    active_tier: standard
+  IMPL-0090:
+    id: IMPL-0090
+    wave: 5
+    status: done
+    deps: []
+    branch: story/IMPL-0090
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/IMPL-0090
+    feature_branch: feature/crap-gate-setup
+    base_sha: fe8fd5182af5abb5a0b21ce71f830dcf4a8b4eed
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: c7f84d7243cb2baebb495ac24b99aac316173da7
+    active_session: impl
+    active_tier: economy
+  IMPL-0091:
+    id: IMPL-0091
+    wave: 6
+    status: done
+    deps: []
+    branch: story/IMPL-0091
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/IMPL-0091
+    feature_branch: feature/crap-gate-setup
+    base_sha: 2ba27fe1e64ff3307e05d345725b2200e8e0af29
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: 712547fbcffb0584aaef2853bd957eb89d681101
+    active_session: impl
+    active_tier: economy
+  BUG-0133:
+    id: BUG-0133
+    wave: 7
+    status: done
+    deps: []
+    branch: story/BUG-0133
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/BUG-0133
+    feature_branch: feature/crap-gate-setup
+    base_sha: 4d99dc4cb142eb5d3fb1a21af8f8f28188952838
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: 382d2a03b2ba397c32727670361a5a01df783bd9
+    active_session: impl
+    active_tier: economy
+  BUG-0134:
+    id: BUG-0134
+    wave: 8
+    status: done
+    deps: []
+    branch: story/BUG-0134
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/BUG-0134
+    feature_branch: feature/crap-gate-setup
+    base_sha: 03e0a0f8827207479a2cde2758798359bc1497f3
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: be0963652bbc142ea1dba803e3201732371b8f89
+    active_session: impl
+    active_tier: economy
+  BUG-0135:
+    id: BUG-0135
+    wave: 9
+    status: done
+    deps: []
+    branch: story/BUG-0135
+    worktree: /home/matthiasdaues/Documents/datenschoenheit/agent_factory/.current-work/feature/crap-gate-setup/story/BUG-0135
+    feature_branch: feature/crap-gate-setup
+    base_sha: c2fab60c4fd5a7f6a6c3db973a56049d89cd3d92
+    tier: null
+    reason: null
+    verify_base: pass
+    commit_sha: 0830b1ff1c9ed0cda9e1140395e94a0844fd26bb
+    active_session: impl
+    active_tier: economy
+waves:
+  - number: 1
+    completed: [{"id": "ST-0433", "merge_sha": "b312723f54c882791f31fcb1e174af235f76b28f"}, {"id": "ST-0435", "merge_sha": "f8269f8f9ff637105d21fa16d8a0a990bf974e76"}, {"id": "ST-0436", "merge_sha": "dc5c396ba9df29e19c08ef40f72cf993d22ebf21"}, {"id": "ST-0441", "merge_sha": "1cdb91ee245661a9e9d2b49f46bc53673b09246e"}]
+    blocked: []
+    failed: []
+    next_ready: ["ST-0434", "ST-0437", "ST-0438", "ST-0439", "ST-0440", "ST-0442", "ST-0446"]
+    branch_head: f6de91824232f9cd310ffbd90f2ba26d90bce351
+  - number: 2
+    completed: [{"id": "ST-0434", "merge_sha": "10a3a4fed6c4de13346e9fe0ad25d08a98b458c9"}, {"id": "ST-0437", "merge_sha": "4a5d299fdea1fba002a18568dec74eb3842f48be"}, {"id": "ST-0438", "merge_sha": "9aaee03737bec4b95cbd2f8be0da799946deb172"}, {"id": "ST-0439", "merge_sha": "290a619f5d894394da8eb5fa5ac02731ef952d03"}, {"id": "ST-0440", "merge_sha": "c6d06c1ba056cafb775f47db4bc7d5f08266595c"}, {"id": "ST-0442", "merge_sha": "d42b9cb49cfe0f5b625bc6f1b5c5add19d8848ed"}, {"id": "ST-0446", "merge_sha": "343fb5d1c42ede63313474cd3c7512cac7cd7a90"}]
+    blocked: []
+    failed: []
+    next_ready: ["ST-0443", "ST-0445", "ST-0447"]
+    branch_head: 0e9d055b492654f49a4a47779d4ff65fab43a406
+  - number: 3
+    completed: [{"id": "ST-0443", "merge_sha": "bd44eb9bfe62f60fe7ed4197aa77abc3314ee51d"}, {"id": "ST-0445", "merge_sha": "6df84b6fee109be52245bedc68b948c09931df28"}, {"id": "ST-0447", "merge_sha": "83693f01cfcf7f3ee476ae17a6d228310d44226a"}]
+    blocked: []
+    failed: []
+    next_ready: ["ST-0444", "ST-0448"]
+    branch_head: ac3d59b4cdecf0a584eed6cfb8a9933a95e8287d
+  - number: 4
+    completed: [{"id": "ST-0444", "merge_sha": "c1e56352917a3b4644cb601d4186da6c93770ce6"}, {"id": "ST-0448", "merge_sha": "e6418804791bf04c9d5cf9d1d28101c2742e748c"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: e4cb6d4b0d23701eea5ed79bc6c39b35642a8b03
+  - number: 5
+    completed: [{"id": "IMPL-0090", "merge_sha": "c7f84d7243cb2baebb495ac24b99aac316173da7"}]
+    blocked: []
+    failed: []
+    next_ready: ["IMPL-0091"]
+    branch_head: 2ba27fe1e64ff3307e05d345725b2200e8e0af29
+  - number: 6
+    completed: [{"id": "IMPL-0091", "merge_sha": "712547fbcffb0584aaef2853bd957eb89d681101"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: 8beaa7eb90f8fd36c4ed4cf7b06db732a9be9004
+  - number: 7
+    completed: [{"id": "BUG-0133", "merge_sha": "382d2a03b2ba397c32727670361a5a01df783bd9"}]
+    blocked: []
+    failed: []
+    next_ready: ["BUG-0134"]
+    branch_head: 03e0a0f8827207479a2cde2758798359bc1497f3
+  - number: 8
+    completed: [{"id": "BUG-0134", "merge_sha": "be0963652bbc142ea1dba803e3201732371b8f89"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: 2ea722b9516061de7ddcc23b3e44c7bd35af951e
+  - number: 9
+    completed: [{"id": "BUG-0135", "merge_sha": "0830b1ff1c9ed0cda9e1140395e94a0844fd26bb"}]
+    blocked: []
+    failed: []
+    next_ready: []
+    branch_head: 7d8578f82d4551900d671667bc812e08c0f20a48

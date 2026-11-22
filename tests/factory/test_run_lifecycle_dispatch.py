@@ -1035,6 +1035,58 @@ def _red_suite_after_the_merge(tmp_path: Path) -> dict[str, Path]:
     return run
 
 
+def _gate_cannot_measure(run: dict[str, Path]) -> dict[str, Path]:
+    """The gate-check step of ST-0350 reads exit 2 of crap-score and marks it blocked."""
+    result = _dispatch(
+        run["repo"], run["ledger"], "mark-blocked", "ST-0350",
+        "--reason", "gate cannot measure: crap-score",
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    return run
+
+
+def _gate_cannot_measure_by_hand(tmp_path: Path) -> dict[str, Path]:
+    return _gate_cannot_measure(_dispatched_by_hand(tmp_path, code="x = 1\n", rules=False))
+
+
+def _gate_cannot_measure_orchestrated(tmp_path: Path) -> dict[str, Path]:
+    return _gate_cannot_measure(_orchestrated_on_login(tmp_path))
+
+
+CRAP_ENABLED = 'test_command: "true"\ngates:\n  crap-score:\n    enabled: true\n'
+CANNOT_MEASURE_STUB = (
+    "#!/bin/sh\n"
+    "echo 'crap-score: the measuring command of measure python exited 1' >&2\n"
+    "exit 2\n"
+)
+
+
+def _install_crap_score_exit_2(repo: Path) -> None:
+    """Install a crap-score in the primary checkout that cannot measure."""
+    script = repo / ".agent-factory" / "factory" / "scripts" / "crap-score"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(CANNOT_MEASURE_STUB)
+    script.chmod(0o755)
+
+
+def _merge_cannot_measure_by_hand(tmp_path: Path) -> dict[str, Path]:
+    """premerge-check exits 3 in merge-story of a run by hand."""
+    run = _dispatched_by_hand(tmp_path, code="x = 1\n", rules=False, testing=CRAP_ENABLED)
+    _install_crap_score_exit_2(run["repo"])
+    result = _dispatch(run["repo"], run["ledger"], "merge-story", "ST-0350")
+    assert result.returncode == 1, result.stdout + result.stderr
+    return run
+
+
+def _merge_cannot_measure_orchestrated(tmp_path: Path) -> dict[str, Path]:
+    """premerge-check exits 3 in merge-story of an orchestrated run."""
+    run = _orchestrated_on_login(tmp_path, testing=CRAP_ENABLED)
+    _install_crap_score_exit_2(run["repo"])
+    _commit_story_work(run)
+    assert _merge(run).returncode == 1
+    return run
+
+
 STOP_CAUSES = {
     "last-attempt-on-strong": (_last_attempt_on_strong, "failed", None),
     "second-contract-violation": (_second_contract_violation, "failed", None),
@@ -1042,6 +1094,18 @@ STOP_CAUSES = {
     "refresh-conflict": (_refresh_conflict, "blocked", "refresh conflict"),
     "red-suite-after-the-merge": (
         _red_suite_after_the_merge, "blocked", "post-merge test failure"
+    ),
+    "gate-cannot-measure-by-hand": (
+        _gate_cannot_measure_by_hand, "blocked", "gate cannot measure: crap-score"
+    ),
+    "gate-cannot-measure-orchestrated": (
+        _gate_cannot_measure_orchestrated, "blocked", "gate cannot measure: crap-score"
+    ),
+    "merge-cannot-measure-by-hand": (
+        _merge_cannot_measure_by_hand, "blocked", "gate cannot measure: crap-score"
+    ),
+    "merge-cannot-measure-orchestrated": (
+        _merge_cannot_measure_orchestrated, "blocked", "gate cannot measure: crap-score"
     ),
 }
 

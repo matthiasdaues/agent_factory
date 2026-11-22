@@ -1,6 +1,11 @@
 ---
 extends: relaxed
 
+# A run receipt is a frozen copy of a dispatch ledger, which dispatch writes;
+# its line lengths are the ledger's, not the author's.
+ignore: |
+  docs/reviews/runs/
+
 rules:
   line-length:
     max: 500
