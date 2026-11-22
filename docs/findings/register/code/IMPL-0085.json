@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0085",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "documentation",
+  "severity": "minor",
+  "artifact": "packages/factory/agents/implementation-agent.md:178",
+  "story": "ST-0444",
+  "finding": "An implementation agent that reads step 4d in order can start the fix-iteration loop for a story that merge-story has just set blocked. The first rule of step 4d says that every refusal of premerge-check keeps the story dispatched and goes to the fix-iteration loop. The exception for exit 3 comes three sentences later. merge-story exits 1 in both cases (BR-124), so the agent never sees exit 3 itself and must tell the two cases apart by the message. The text of the first rule is wrong for exit 3; the story asks that the loop runs only after exit 1. The loop stops at once today, because it starts with refresh-story, and refresh-story refuses a blocked entry (REFRESHABLE_STATES). Fix: in step 4d, write the first rule as 'When premerge-check refuses with exit 1 or 2, merge-story exits 1, merges nothing, and the story stays dispatched (BR-124).' Also name the line GATE CANNOT MEASURE: crap-score as the sign of exit 3 in the second rule.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The text exists only on the story branch. The agent still reaches resume-gates, because the exception names the reason and refresh-story refuses the blocked story before any developer agent starts (no to fails_purpose). An agent that follows the first rule loses a turn and gets a refusal it must then explain to the User.",
+  "commit": "ce6ed5269efedd91c75f4fe3891e6556a14ab254",
+  "status": "resolved"
+}

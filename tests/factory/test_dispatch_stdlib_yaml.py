@@ -204,3 +204,14 @@ def test_a_ledger_with_multi_line_text_round_trips_without_pyyaml(tmp_path, monk
     assert loaded.stories["ST-0001"].reason == reason
     assert loaded.stories["ST-0001"].evidence == evidence
     assert yaml.safe_load(path.read_text())["stories"]["ST-0001"]["reason"] == reason
+
+
+@pytest.mark.spec("CG-10-CT-01")
+def test_cg_10_the_fallback_reader_reads_a_fractional_time_limit_as_a_float():
+    """DEC-61: timeout_minutes: 0.05 is 3 seconds, also without PyYAML."""
+    text = "gates:\n  crap-score:\n    timeout_minutes: 0.05\n"
+    loaded = lib._stdlib_load(text)
+    minutes = loaded["gates"]["crap-score"]["timeout_minutes"]
+    assert isinstance(minutes, float)
+    assert minutes == 0.05
+    assert loaded == yaml.safe_load(text)
