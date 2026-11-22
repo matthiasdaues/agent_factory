@@ -467,6 +467,8 @@ def test_cg_04_a_wrong_shape_writes_no_report(tmp_path, monkeypatch, capsys):
     settings = cs.Settings(Decimal(8), 10, (PYTHON,))
     monkeypatch.setattr(cs, "read_settings", lambda root: settings)
     monkeypatch.setattr(cs, "run_measure", lambda measure, root, clock: [_without("end_line")])
+    # Outside a git repository, the trusted gate source reads no branch of this repository (ST-0450).
+    monkeypatch.chdir(tmp_path)
     report_dir = tmp_path / "reports"
     argv = ["--all", "--story-id", "ST-0350", "--report-dir", str(report_dir)]
     assert cs.main(argv) == 2

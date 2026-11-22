@@ -518,7 +518,7 @@ The Bash guard blocks only `uv run pytest`. Developers ran `.venv/bin/python -m 
 ## T-0416 — Write a canvas composer proposal, with draw.io on Confluence first
 
 - status: open
-- source: VIRGIL conversation 2026-11-20, [saas-browser-switchboard.md](../../proposals/saas-browser-switchboard.md)
+- source: VIRGIL conversation 2026-11-20, `docs/proposals/saas-browser-switchboard.md`
 
 The switchboard's first release reads Miro boards and writes only sticky notes and thread replies. Composing whole boards stays out of it. The stakeholder's method for a composer is set: the agent keeps the target as a local layout model, writes a script of single steps, runs the script against a second model, and executes it only when the result is an identical twin of the target. Three additions came out of the discussion: the simulator knows only probed step types, a sync on the board follows every step, and a change by someone else stops the run until the remaining script passes a new twin check.
 
@@ -531,7 +531,7 @@ Confluence whiteboards are a poor target for now. The REST API v2 can create and
 ## T-0419 — Name the feature file and its Rules in every developer brief, and the broken scenario in every fix brief
 
 - status: open
-- source: retro-2026-11-22 (CRAP gate setup run), [acceptance-first-implementation.md](../../proposals/acceptance-first-implementation.md) sections 1 and 3
+- source: retro-2026-11-22 (CRAP gate setup run), `docs/proposals/acceptance-first-implementation.md` sections 1 and 3
 
 The briefs of the CRAP gate run named the governing feature file and its Rules by hand, and the developers used them. The fix briefs handed over findings only. The BUG-0133 fix was tested against its own case and dropped every function under any `overload`, which became BUG-0135.
 
@@ -540,7 +540,7 @@ The briefs of the CRAP gate run named the governing feature file and its Rules b
 ## T-0420 — Refuse a story under a feature file without a Rule trace
 
 - status: open
-- source: retro-2026-11-22 (CRAP gate setup run), [acceptance-first-implementation.md](../../proposals/acceptance-first-implementation.md) section 1, DEC-01
+- source: retro-2026-11-22 (CRAP gate setup run), `docs/proposals/acceptance-first-implementation.md` section 1, DEC-01
 
 The story template marks `traces:` as optional, and `backlog-lint` checks only that it is a list.
 
@@ -549,7 +549,7 @@ The story template marks `traces:` as optional, and `backlog-lint` checks only t
 ## T-0421 — Give each Rule its own text-check file, and plan one real end-to-end test in the first wave
 
 - status: open
-- source: retro-2026-11-22 (CRAP gate setup run), [acceptance-first-implementation.md](../../proposals/acceptance-first-implementation.md) section 2
+- source: retro-2026-11-22 (CRAP gate setup run), `docs/proposals/acceptance-first-implementation.md` section 2
 
 Nearly every story of the CRAP gate run touched `tests/factory/test_crap_gate_text.py`, so all nine waves ran as serial chains. The real measuring command met real projects only at the feature checks, where IMPL-0090, IMPL-0091 and BUG-0134 surfaced.
 

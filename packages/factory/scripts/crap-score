@@ -14,14 +14,15 @@ By:   implementation agent, premerge-check, gate-setup-proof, a person.
 
 Call
   crap-score (--base <revision> | --all) [--story-id <id>] [--report-dir <folder>]
+             [--settings-from-folder]
 
   The gate runs from the root of the folder it is called in and reads
   docs/testing.yaml of that folder. It holds no language-specific code: each
   measuring command writes its rows to the file in GATE_OUTPUT, one JSON
-  array with one row per function. GATE_FILES holds the measure's `files`
-  pattern and GATE_EXCLUDE its `exclude` patterns, one pattern per line, so
-  the command can leave out the files the gate drops (DEC-65). The gate
-  still applies both to the rows itself. Every command gets the caller's
+  array with one row per function. GATE_FILES holds the measure's trusted
+  `files` pattern and GATE_EXCLUDE its trusted `exclude` patterns, one
+  pattern per line, so the command can leave out the files the gate drops
+  (DEC-65). The gate still applies both to the rows itself. Every command gets the caller's
   environment without the environments of `uv run --script`, those of
   dispatch and premerge-check included, so `python` in a command starts
   the project's interpreter. Such an environment is a folder with
@@ -49,13 +50,30 @@ Score
   decimals, half up. A judged function passes when the rounded score is at
   or below the threshold.
 
+Trusted gate source
+  A story cannot decide what counts as accepted. So the threshold, the
+  `files` pattern and `exclude` list of each measure, and the exceptions
+  register come from the git ref refs/heads/<integration branch>, through
+  one reader (DEC-67, DEC-72, ADR-0041). The integration branch is the key
+  integration_branch of docs/factory-settings.yaml in the folder, and dev
+  without the file or the key (DEC-68). enabled, timeout_minutes, and the
+  name, command and ready of each measure stay at the story head (DEC-75).
+  A measure that the branch does not name takes its patterns from the
+  folder, and the output names it as not yet trusted (DEC-69). A measure
+  that the branch names and the folder lacks exits 2 (DEC-70). Without the
+  ref of the default dev, without docs/testing.yaml on the branch, or
+  without gates.crap-score there, the values come from the folder, and the
+  output names the cause (DEC-13, DEC-69). --settings-from-folder takes the
+  threshold and the patterns from the folder and reads no docs/testing.yaml
+  from the branch; only gate-setup-proof passes it (DEC-71, DEC-73).
+
 Exceptions
   The table of the section `## CRAP score` of docs/findings/exceptions.md,
-  read from the branch dev through git. A function above the threshold gets
-  `accepted` when a row names its file and qualified name and its rounded
-  score is at or below the row's accepted score. The output names the
-  reason of each `accepted` row. Without a branch dev, the output says that
-  no register was read (BR-132).
+  read from the integration branch through git. A function above the
+  threshold gets `accepted` when a row names its file and qualified name and
+  its rounded score is at or below the row's accepted score. The output
+  names the reason of each `accepted` row. Without a branch dev, the output
+  says that no register was read (BR-132).
 
 Exit codes
   0  every judged function passes or is accepted, also when none is judged
@@ -79,8 +97,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 from pathlib import Path
 from typing import Iterator
@@ -161,6 +180,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--all", action="store_true", help="judge every measured function")
     parser.add_argument("--story-id", default=None, help="the name of the report file")
     parser.add_argument("--report-dir", default=None, help="the folder of the report file")
+    parser.add_argument(
+        "--settings-from-folder", action="store_true",
+        help="take threshold, files and exclude from the folder; only gate-setup-proof passes it",
+    )
     return parser.parse_args(argv)
 
 
@@ -743,13 +766,11 @@ def _deletion_touches(start: int, end: int, after: int, siblings: list[dict]) ->
 # --- exceptions register ---------------------------------------------------
 
 REGISTER_PATH = "docs/findings/exceptions.md"
-REGISTER_BRANCH = "dev"
-REGISTER_REF = f"refs/heads/{REGISTER_BRANCH}"
+DEFAULT_BRANCH = "dev"
 REGISTER_SECTION = "## CRAP score"
 REGISTER_COLUMNS = ("File", "Function", "Accepted score", "Reason", "Accepted by")
 ACCEPTED_SCORE = re.compile(r"\d+(?:\.\d+)?")
 SEPARATOR_CELL = re.compile(r":?-+:?")
-NO_DEV_NOTICE = "crap-score: read no exceptions register, because no branch dev exists"
 
 
 @dataclass(frozen=True)
@@ -767,34 +788,18 @@ class ExceptionRow:
 Exceptions = dict[tuple[str, str], ExceptionRow]
 
 
-def read_register(root: Path) -> tuple[Exceptions, str | None]:
-    """Read the exceptions register from the branch dev, never from the folder (BR-132, DEC-25).
+def parse_register(text: str, branch: str = DEFAULT_BRANCH) -> Exceptions:
+    """The rows of the first table under `## CRAP score`; a broken row raises GateError (BR-132, DEC-38).
 
-    Return the exceptions and the line to print. Without a branch dev, the
-    line says that no register was read (DEC-13). Without the file on dev,
-    there are no exceptions and no line.
+    *branch* is the branch the text comes from, for the messages.
     """
-    probe = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", f"{REGISTER_REF}^{{commit}}"],
-        cwd=root, capture_output=True, text=True, check=False,
-    )
-    if probe.returncode != 0:
-        return {}, NO_DEV_NOTICE
-    listed = git(root, "ls-tree", "--full-tree", "--name-only", REGISTER_REF, "--", REGISTER_PATH)
-    if not listed.strip():
-        return {}, None
-    return parse_register(git(root, "show", f"{REGISTER_REF}:{REGISTER_PATH}")), None
-
-
-def parse_register(text: str) -> Exceptions:
-    """The rows of the first table under `## CRAP score`; a broken row raises GateError (BR-132, DEC-38)."""
     table = _section_table(text.splitlines())
     if not table:
         return {}
     (header_line, header), *rows = table
     if _cells(header) != list(REGISTER_COLUMNS):
         raise GateError(
-            f"{_register_at(header_line)}: the table of the section {REGISTER_SECTION} "
+            f"{_register_at(header_line, branch)}: the table of the section {REGISTER_SECTION} "
             f"needs the columns {', '.join(REGISTER_COLUMNS)}"
         )
     exceptions: Exceptions = {}
@@ -802,19 +807,19 @@ def parse_register(text: str) -> Exceptions:
         cells = _cells(line)
         if all(SEPARATOR_CELL.fullmatch(cell) for cell in cells):
             continue
-        row = _exception_row(number, cells)
+        row = _exception_row(number, cells, branch)
         key = (row.file, row.function)
         if key in exceptions:
             raise GateError(
-                f"{REGISTER_PATH} on {REGISTER_BRANCH}, lines {exceptions[key].line} and {number}: "
+                f"{REGISTER_PATH} on {branch}, lines {exceptions[key].line} and {number}: "
                 f"two rows name {row.function} of {row.file}"
             )
         exceptions[key] = row
     return exceptions
 
 
-def _register_at(number: int) -> str:
-    return f"{REGISTER_PATH} on {REGISTER_BRANCH}, line {number}"
+def _register_at(number: int, branch: str) -> str:
+    return f"{REGISTER_PATH} on {branch}, line {number}"
 
 
 def _section_table(lines: list[str]) -> list[tuple[int, str]]:
@@ -848,8 +853,8 @@ def _unquoted(cell: str) -> str:
     return cell
 
 
-def _exception_row(number: int, cells: list[str]) -> ExceptionRow:
-    where = _register_at(number)
+def _exception_row(number: int, cells: list[str], branch: str) -> ExceptionRow:
+    where = _register_at(number, branch)
     if len(cells) != len(REGISTER_COLUMNS):
         raise GateError(f"{where}: the row has {len(cells)} cells, and the table has {len(REGISTER_COLUMNS)} columns")
     for column, cell in zip(REGISTER_COLUMNS, cells):
@@ -859,6 +864,244 @@ def _exception_row(number: int, cells: list[str]) -> ExceptionRow:
     if not ACCEPTED_SCORE.fullmatch(score):
         raise GateError(f"{where}: the accepted score {score!r} of {function} is no number")
     return ExceptionRow(file, function, Decimal(score), cells[3], cells[4], number)
+
+
+# --- trusted gate source ---------------------------------------------------
+
+FACTORY_SETTINGS = Path("docs") / "factory-settings.yaml"
+BRANCH_KEY = "integration_branch"
+OPTION_CAUSE = "the call passes --settings-from-folder"
+
+
+@dataclass(frozen=True)
+class Patterns:
+    """The `files` pattern and the `exclude` list of one measure."""
+
+    files: str
+    exclude: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class TrustedValues:
+    """The gate settings that the trusted gate source returns (DEC-72).
+
+    *patterns* holds the patterns of each measure of the folder, by name.
+    """
+
+    threshold: Decimal
+    patterns: dict[str, Patterns]
+    notices: tuple[str, ...] = ()
+
+
+class TrustedGateSource(ABC):
+    """The one reader of the trusted values (DEC-72, ADR-0041).
+
+    The gate logic reaches the threshold, the `files` and `exclude` patterns
+    and the exceptions only through this interface. A second backend, such as
+    a knowledge-graph store or an issue tracker, is a new subclass.
+    """
+
+    @abstractmethod
+    def gate_values(self, folder: Settings) -> TrustedValues:
+        """The threshold and the patterns of each measure of *folder*, and the notices."""
+
+    @abstractmethod
+    def exceptions(self) -> tuple[Exceptions, tuple[str, ...]]:
+        """The rows of the exceptions register, and the notices."""
+
+
+def integration_branch(root: Path) -> tuple[str, bool]:
+    """The integration branch, and whether the key integration_branch names it (BR-128, DEC-68, DEC-74).
+
+    The key comes from docs/factory-settings.yaml under *root*. Without the
+    file or the key, the branch is dev. A value that is not a non-empty
+    string raises GateError and names the file and the key.
+    """
+    path = root / FACTORY_SETTINGS
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return DEFAULT_BRANCH, False
+    except (OSError, UnicodeDecodeError) as exc:
+        raise GateError(f"cannot read {FACTORY_SETTINGS}: {exc}") from exc
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise GateError(f"{FACTORY_SETTINGS} is no valid YAML, so the key {BRANCH_KEY} cannot be read: {exc}") from exc
+    data = {} if data is None else data
+    if not isinstance(data, dict):
+        raise GateError(f"{FACTORY_SETTINGS} is no mapping, so the key {BRANCH_KEY} cannot be read")
+    if BRANCH_KEY not in data:
+        return DEFAULT_BRANCH, False
+    value = data[BRANCH_KEY]
+    if not isinstance(value, str) or not value.strip():
+        raise GateError(
+            f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} is {value!r}, which is no non-empty branch name"
+        )
+    return value, True
+
+
+def branch_values(entry: object, where: str) -> tuple[Decimal, dict[str, Patterns]]:
+    """The threshold and the patterns of each measure of gates.crap-score on the branch (DEC-74).
+
+    *where* names the file and the branch for the messages. The branch must
+    hold a threshold, because the gate has no built-in value (BR-128).
+    """
+    if not isinstance(entry, dict):
+        raise GateError(f"gates.{GATE_KEY} in {where} is no mapping")
+    threshold = entry.get("threshold")
+    if threshold is None:
+        raise GateError(f"gates.{GATE_KEY} in {where} has no threshold, and the gate has no built-in value")
+    if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+        raise GateError(f"gates.{GATE_KEY}.threshold in {where} is no number: {threshold!r}")
+    measures = entry.get("measures")
+    measures = [] if measures is None else measures
+    if not isinstance(measures, list):
+        raise GateError(f"gates.{GATE_KEY}.measures in {where} is no list")
+    trusted: dict[str, Patterns] = {}
+    for position, item in enumerate(measures, start=1):
+        if not isinstance(item, dict) or not _text(item.get("name")):
+            raise GateError(f"measure {position} of gates.{GATE_KEY}.measures in {where} has no name")
+        name = item["name"]
+        exclude = item.get("exclude") or []
+        if not _text(item.get("files")):
+            raise GateError(f"measure {name} of gates.{GATE_KEY}.measures in {where} has no field files")
+        if not isinstance(exclude, list) or not all(isinstance(p, str) for p in exclude):
+            raise GateError(f"measure {name} of gates.{GATE_KEY}.measures in {where} has an exclude that is no list of patterns")
+        if any("\n" in p or "\r" in p for p in [item["files"], *exclude]):
+            raise GateError(f"measure {name} of gates.{GATE_KEY}.measures in {where} has a pattern with a line break")
+        if name in trusted:
+            raise GateError(f"gates.{GATE_KEY}.measures in {where} names the measure {name} twice")
+        trusted[name] = Patterns(item["files"], tuple(exclude))
+    return Decimal(str(threshold)), trusted
+
+
+def join_values(folder: Settings, entry: object, where: str, cause: str | None = None) -> TrustedValues:
+    """Join gates.crap-score of the branch with the folder by measure name (BR-128, DEC-69, DEC-70, DEC-75).
+
+    *entry* is the entry of the branch, or None when it is missing for
+    *cause*; then every value comes from the folder, and the notice names the
+    cause. Otherwise the threshold comes from the branch, a measure that the
+    branch names takes its patterns from the branch, and a measure new in the
+    folder takes its own and is named as not yet trusted. A measure that the
+    branch names and the folder lacks raises GateError.
+    """
+    own = {measure.name: Patterns(measure.files, measure.exclude) for measure in folder.measures}
+    if entry is None:
+        notice = (
+            f"crap-score: took the threshold and the files and exclude patterns of every measure "
+            f"from {TESTING_YAML} of the folder, because {cause}"
+        )
+        return TrustedValues(folder.threshold, own, (notice,))
+    threshold, trusted = branch_values(entry, where)
+    dropped = [name for name in trusted if name not in own]
+    if dropped:
+        names = " and ".join(dropped)
+        raise GateError(
+            f"{'measures' if len(dropped) > 1 else 'measure'} {names} {'are' if len(dropped) > 1 else 'is'} "
+            f"in {where} and not in {TESTING_YAML} of the folder; a story cannot drop a measure, "
+            "so remove it on the integration branch first"
+        )
+    notices = tuple(
+        f"crap-score: measure {name} is not in {where}, so its files and exclude patterns come from "
+        "the folder and are not yet trusted"
+        for name in own if name not in trusted
+    )
+    return TrustedValues(threshold, {name: trusted.get(name, own[name]) for name in own}, notices)
+
+
+def apply_trusted(folder: Settings, values: TrustedValues) -> Settings:
+    """The folder settings with the trusted threshold and patterns; command and ready stay (DEC-75, BR-129)."""
+    measures = []
+    for measure in folder.measures:
+        patterns = values.patterns.get(measure.name)
+        if patterns is None:
+            raise GateError(f"the trusted gate source returned no files pattern for measure {measure.name}")
+        measures.append(replace(measure, files=patterns.files, exclude=patterns.exclude))
+    return replace(folder, threshold=values.threshold, measures=tuple(measures))
+
+
+def _resolve(root: Path, revision: str) -> str | None:
+    """The commit of *revision*, or None when git names none, also outside a git repository."""
+    proc = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", revision],
+        cwd=root, capture_output=True, text=True, check=False,
+    )
+    return proc.stdout.strip() if proc.returncode == 0 else None
+
+
+def _gate_entry(data: object, where: str) -> object:
+    """gates.crap-score of parsed settings, the old key too; None without the entry."""
+    if data is None:
+        return None
+    if not isinstance(data, dict):
+        raise GateError(f"{where} cannot be parsed as settings, because it is no mapping")
+    gates = data.get("gates")
+    if not isinstance(gates, dict):
+        return None
+    entry = gates.get(GATE_KEY)
+    return entry if entry is not None else gates.get(OLD_GATE_KEY)
+
+
+class GitRefSource(TrustedGateSource):
+    """The trusted gate source that reads refs/heads/<integration branch> through git (DEC-67).
+
+    A branch that the key names must exist and must not be HEAD, the commit
+    under judgement. Only the default dev may be missing, and then the values
+    come from the folder and no register is read (DEC-13, DEC-76).
+    """
+
+    def __init__(self, root: Path, branch: str, named: bool, settings_from_folder: bool = False) -> None:
+        self.root = root
+        self.branch = branch
+        self.ref = f"refs/heads/{branch}"
+        self.settings_from_folder = settings_from_folder
+        tip = _resolve(root, f"{self.ref}^{{commit}}")
+        if named and tip is None:
+            raise GateError(
+                f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} names the branch {branch}, "
+                f"and git holds no branch {branch}"
+            )
+        if named and tip == _resolve(root, "HEAD^{commit}"):
+            raise GateError(
+                f"the key {BRANCH_KEY} in {FACTORY_SETTINGS} names the branch {branch}, whose tip is HEAD, "
+                "the commit under judgement; a story cannot be its own trusted source"
+            )
+        self.present = tip is not None
+
+    def _holds(self, path: str) -> bool:
+        return bool(git(self.root, "ls-tree", "--full-tree", "--name-only", self.ref, "--", path).strip())
+
+    def gate_values(self, folder: Settings) -> TrustedValues:
+        where = f"{TESTING_YAML} on the branch {self.branch}"
+        if self.settings_from_folder:
+            return join_values(folder, None, where, OPTION_CAUSE)
+        if not self.present:
+            return join_values(folder, None, where, f"no branch {self.branch} exists")
+        if not self._holds(TESTING_YAML.as_posix()):
+            return join_values(folder, None, where, f"the branch {self.branch} holds no {TESTING_YAML}")
+        text = git(self.root, "show", f"{self.ref}:{TESTING_YAML.as_posix()}")
+        try:
+            data = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise GateError(f"{where} cannot be parsed: {exc}") from exc
+        entry = _gate_entry(data, where)
+        if entry is None:
+            return join_values(folder, None, where, f"{where} has no entry gates.{GATE_KEY}")
+        return join_values(folder, entry, where)
+
+    def exceptions(self) -> tuple[Exceptions, tuple[str, ...]]:
+        if not self.present:
+            return {}, (f"crap-score: read no exceptions register, because no branch {self.branch} exists",)
+        if not self._holds(REGISTER_PATH):
+            return {}, ()
+        return parse_register(git(self.root, "show", f"{self.ref}:{REGISTER_PATH}"), self.branch), ()
+
+
+def open_source(root: Path, settings_from_folder: bool) -> TrustedGateSource:
+    """The trusted gate source of the folder *root*: the git ref of its integration branch."""
+    branch, named = integration_branch(root)
+    return GitRefSource(root, branch, named, settings_from_folder)
 
 
 # --- score -----------------------------------------------------------------
@@ -968,7 +1211,8 @@ def measure_all(settings: Settings, root: Path) -> list[dict]:
     return kept
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, source: TrustedGateSource | None = None) -> int:
+    """Run the gate; *source* replaces the git ref backend of the trusted gate source (DEC-72)."""
     args = parse_args(argv)
     problem = call_error(args)
     if problem:
@@ -977,10 +1221,14 @@ def main(argv: list[str] | None = None) -> int:
     root = Path.cwd()
     try:
         with stop_signals():
-            settings = read_settings(root)
+            folder = read_settings(root)
+            if source is None:
+                source = open_source(root, args.settings_from_folder)
+            trusted = source.gate_values(folder)
+            settings = apply_trusted(folder, trusted)
+            exceptions, register_notices = source.exceptions()
             changes = changed_lines(root, args.base) if args.base is not None else None
             rows = measure_all(settings, root)
-            exceptions, notice = read_register(root)
     except GateError as exc:
         print(f"crap-score: cannot measure: {exc}", file=sys.stderr)
         return 2
@@ -991,7 +1239,7 @@ def main(argv: list[str] | None = None) -> int:
     results = [report_row(row, settings.threshold, exceptions) for row in judged_rows(rows, changes)]
     report_dir = Path(args.report_dir) if args.report_dir else root / DEFAULT_REPORT_DIR
     path = write_report(report_dir, detect_story_id(args.story_id), results)
-    if notice:
+    for notice in (*trusted.notices, *register_notices):
         print(notice)
     for row in results:
         print(_describe(row, exceptions))

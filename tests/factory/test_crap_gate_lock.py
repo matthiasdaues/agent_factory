@@ -69,6 +69,11 @@ class Worktrees:
 
     def __init__(self, tmp_path: Path) -> None:
         self.repo = Repo(tmp_path)
+        # dev holds no entry gates.crap-score, so crap-score takes every value
+        # from the folder and the measure python of dev is no dropped measure (DEC-69, DEC-70).
+        self.repo.git("checkout", "-q", "dev")
+        self.repo.write("docs/testing.yaml", 'test_command: "true"\n')
+        self.repo.commit("dev without the entry gates.crap-score")
         self.repo.git("checkout", "-q", TARGET)
         self.repo.git("branch", "-q", "story/ST-0351", TARGET)
         self.log = tmp_path / "stub.log"
