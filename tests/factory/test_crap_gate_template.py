@@ -543,6 +543,61 @@ def test_bug_0133_the_template_names_a_property_getter_accessor(tmp_path: Path) 
     assert sorted(r["function"] for r in rows) == ["Dial.__init__", "Dial.p", "Dial.p.getter"]
 
 
+MYLIB = """\
+def overload(func):
+    return func
+"""
+
+MULTI = """\
+from src.mylib import overload
+
+
+@overload
+def area(kind, size):
+    if kind == "square":
+        return size * size
+    if kind == "circle":
+        return 3 * size * size
+    if kind == "line":
+        return 0
+    return None
+"""
+
+TEST_MULTI = """\
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.multi import area  # noqa: E402
+
+
+def test_area():
+    assert area("square", 2) == 4
+"""
+
+
+@pytest.mark.spec("CG-03-IT-02")
+def test_bug_0135_the_template_measures_a_function_under_an_overload_of_another_library(
+    tmp_path: Path,
+) -> None:
+    """Scenario: The measuring command reports the qualified name of a method.
+
+    BUG-0135: only an overload of typing or typing_extensions marks a stub.
+    A function under an overload decorator of another module runs, so it
+    gets its row.
+    """
+    _write_project(tmp_path)
+    (tmp_path / "src" / "mylib.py").write_text(MYLIB)
+    (tmp_path / "src" / "multi.py").write_text(MULTI)
+    (tmp_path / "tests" / "test_multi.py").write_text(TEST_MULTI)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert _row(_rows(tmp_path), "src/multi.py", "area")["complexity"] == 4
+
+
 @pytest.mark.spec("CG-03-IT-01")
 def test_cg_03_the_template_runs_the_test_command_in_the_environment_of_its_caller(
     tmp_path: Path,
