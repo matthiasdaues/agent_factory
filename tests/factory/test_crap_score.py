@@ -113,3 +113,50 @@ class TestCg04ThresholdKeys:
         judged = json.loads((reports / "ST-0350.json").read_text(encoding="utf-8"))
         assert code == 1
         assert {r["function"]: r["pass_fail"] for r in judged} == {"Greeter.greet": "fail"}
+
+
+ENV_STUB = """\
+#!/bin/sh
+printf '%s' "${GATE_FILES-unset}" > "$ENV_LOG.files"
+printf '%s' "${GATE_EXCLUDE-unset}" > "$ENV_LOG.exclude"
+echo "[]" > "$GATE_OUTPUT"
+"""
+
+
+@pytest.mark.spec("CG-04-CT-03")
+@pytest.mark.parametrize(
+    ("exclude", "expected"),
+    [(("**/db/**", "scripts/tools/helper"), "**/db/**\nscripts/tools/helper"), ((), "")],
+    ids=["two patterns", "no pattern"],
+)
+def test_cg_04_crap_score_hands_files_and_exclude_to_the_measuring_command(
+    tmp_path, monkeypatch, exclude, expected
+):
+    """IMPL-0090, DEC-65: GATE_FILES holds files, GATE_EXCLUDE one exclude pattern per line."""
+    stub = tmp_path / "env-stub"
+    stub.write_text(ENV_STUB)
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+    log = tmp_path / "env"
+    monkeypatch.setenv("ENV_LOG", str(log))
+    measure = cs.Measure("python", "src/**", str(stub), exclude)
+
+    assert cs.run_measure(measure, tmp_path, cs.Clock(1)) == []
+
+    assert (tmp_path / "env.files").read_text() == "src/**"
+    assert (tmp_path / "env.exclude").read_text() == expected
+
+
+@pytest.mark.spec("CG-04-CT-05")
+@pytest.mark.parametrize("field", ["files", "exclude"])
+def test_cg_04_a_pattern_with_a_line_break_cannot_measure(tmp_path, field):
+    """DEC-65: GATE_FILES and GATE_EXCLUDE hold one pattern per line, so no pattern holds a line break."""
+    files = '"src/**\\nscripts/*"' if field == "files" else '"src/**"'
+    exclude = '\n        exclude:\n          - "a/**\\nb/**"' if field == "exclude" else ""
+    _testing_yaml(
+        tmp_path,
+        "  crap-score:\n    enabled: true\n    threshold: 8\n    timeout_minutes: 10\n"
+        "    measures:\n      - name: python\n"
+        f"        files: {files}{exclude}\n        command: \"true\"\n",
+    )
+    with pytest.raises(cs.GateError, match=rf"measure python .* {field} .*line break"):
+        cs.read_settings(tmp_path)

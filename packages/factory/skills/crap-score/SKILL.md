@@ -51,7 +51,15 @@ gates:
 
 ## Measurement format
 
-The gate runs the measures in list order, each from the root of the folder the gate runs in. It sets the environment variable `GATE_OUTPUT` to a file path for each measuring command. The command writes one JSON array to that path, with one row per function:
+The gate runs the measures in list order, each from the root of the folder the gate runs in. It sets three environment variables for each measuring command:
+
+- `GATE_OUTPUT` holds a file path. The command writes its rows there.
+- `GATE_FILES` holds the measure's `files` pattern.
+- `GATE_EXCLUDE` holds the measure's `exclude` patterns, one pattern per line, and is empty without `exclude`.
+
+A command may measure only the files that match `GATE_FILES` and no `GATE_EXCLUDE` pattern, so a file the measure leaves out cannot make it exit non-zero. The gate still applies `files` and `exclude` to the rows itself (DEC-10, DEC-65). A `files` or `exclude` pattern with a line break makes the gate exit `2`.
+
+The command writes one JSON array to the path in `GATE_OUTPUT`, with one row per function:
 
 | Field          | Content                                                                     |
 | -------------- | --------------------------------------------------------------------------- |
