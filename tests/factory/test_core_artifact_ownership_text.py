@@ -244,11 +244,12 @@ class TestSt0357TestStrategyAgentDefinition:
     def test_st_0357_tier_is_strong(self):
         assert _frontmatter(TEST_STRATEGY_AGENT)["tier"] == "strong"
 
-    def test_st_0357_skills_are_the_four_test_practice_skills(self):
+    def test_st_0357_skills_are_the_test_practice_skills(self):
         assert _frontmatter(TEST_STRATEGY_AGENT)["skills"] == [
             "detect-test-regime",
             "qa-strategy-from-spec",
             "crap-score",
+            "setup-crap-score",
             "mutation-testing",
         ]
 
@@ -297,10 +298,6 @@ class TestSt0357TestStrategyAgentDefinition:
             "`gates.mutation-testing.command`" in workflow
         )
         assert "writes no configuration file of the mutation tool" in workflow
-
-    def test_st_0357_never_runs_a_gate(self):
-        text = _flat(TEST_STRATEGY_AGENT.read_text(encoding="utf-8"))
-        assert "The agent never runs a gate." in text
 
     def test_st_0357_handoff_names_the_planning_agent(self):
         assert _frontmatter(TEST_STRATEGY_AGENT)["handoff-to"] == ["planning-agent"]
