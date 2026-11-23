@@ -1068,6 +1068,31 @@ Feature: CRAP Gate Setup
       And tree_severity fails the gate
       # DEC-78
 
+    Scenario Outline: A story cannot switch its own CRAP gate off or on
+      Given docs/testing.yaml on dev <dev entry>
+      And docs/testing.yaml at the head of story/ST-0350 <head entry>
+      When dispatch merge-story ST-0350 runs premerge-check against feature/login
+      Then <outcome>
+
+      Examples:
+        | dev entry                               | head entry                              | outcome                                                                                                     |
+        | has gates.crap-score with enabled true  | has gates.crap-score with enabled false | premerge-check runs crap-score                                                                              |
+        | has gates.crap-score with enabled true  | has no entry gates.crap-score           | premerge-check refuses the merge with exit 1 and names the missing entry gates.crap-score before crap-score runs |
+        | has gates.crap-score with enabled false | has gates.crap-score with enabled true  | premerge-check runs no crap-score                                                                           |
+      # DEC-80
+
+    Scenario Outline: Without a branch dev an entry at the story head cannot measure
+      Given the repository has no local branch dev
+      And docs/testing.yaml at the head of story/ST-0350 <head entry>
+      When dispatch merge-story ST-0350 runs premerge-check against feature/login
+      Then <outcome>
+
+      Examples:
+        | head entry                             | outcome                                                                          |
+        | has gates.crap-score with enabled true | premerge-check exits 3 with GATE CANNOT MEASURE: crap-score and runs no crap-score |
+        | has no entry gates.crap-score          | premerge-check runs no CRAP gate and reports no gate that cannot measure         |
+      # DEC-82
+
     Scenario Outline: The gate-check step and the merge never take the settings from the folder
       Given docs/testing.yaml on dev has the threshold 8
       And story/ST-0350 raises the threshold to 10 and changes tree_severity, which then scores 9
