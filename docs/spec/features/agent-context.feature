@@ -3,7 +3,7 @@ Feature: Concern-oriented agent context
 Factory agents route project knowledge through one CLI-agnostic concern
 registry while machine-consumed test configuration remains separate.
 
-Proposal trace: docs/proposals/factory-concern-oriented-agent-context.md
+Proposal trace: docs/proposals/implemented/factory-concern-oriented-agent-context.md
 
 Rule: Factory agent reads project knowledge by concern
 \# actor: Factory Agent

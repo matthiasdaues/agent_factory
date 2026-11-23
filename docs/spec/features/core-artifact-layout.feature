@@ -9,7 +9,7 @@ Feature: Core artifact layout
   during the factory update. The terms of the domain vocabulary live in
   docs/spec/glossary.md, and docs/agent-context.md is the one routing file.
 
-  Proposal trace: docs/proposals/core-artifact-layout.md
+  Proposal trace: docs/proposals/implemented/core-artifact-layout.md
 
   Rule: Newcomer finds the whole specification core at one root
     # actor: Newcomer

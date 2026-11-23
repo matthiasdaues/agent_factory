@@ -197,7 +197,7 @@ The agent context (`docs/agent-context.md`) is the factory-facing interface to a
 
 **Concern-oriented routing** organizes project knowledge into three concern categories: cross-cutting (always active), technical (per story), and domain (per story). Each concern section carries `Read:` paths that point agents to the relevant project documents. Stories declare their concerns in frontmatter (`concerns: {domain: [...], technical: [...]}`); agents follow matching sections in the context file.
 
-**Single file.** The four YAML files (`stack.yaml`, `workflow.yaml`, `governance.yaml`, `reading-guides.yaml`) and their two-layer/two-mode lifecycle were replaced in 0.9.0 by one CLI-agnostic markdown file. See the [concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md). ADR-0013 and ADR-0014 are superseded.
+**Single file.** The four YAML files (`stack.yaml`, `workflow.yaml`, `governance.yaml`, `reading-guides.yaml`) and their two-layer/two-mode lifecycle were replaced in 0.9.0 by one CLI-agnostic markdown file. See the [concern-oriented agent context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md). ADR-0013 and ADR-0014 are superseded.
 
 **`testing.yaml`** remains a separate file at `docs/testing.yaml`, written by `detect-test-regime`. It is not part of the concern routing.
 

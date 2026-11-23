@@ -1,7 +1,7 @@
 # Gaps Report: test-gate-presence
 
 Generated: 2026-08-28
-Source: docs/proposals/test-gate-presence-over-test-execution.md
+Source: docs/proposals/implemented/test-gate-presence-over-test-execution.md
 
 ## Actor-Goal Matrix
 

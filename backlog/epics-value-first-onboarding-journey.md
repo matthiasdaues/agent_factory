@@ -4,7 +4,7 @@ scope: global
 
 # EPICs — Value-First Onboarding Journey
 
-Proposal trace: [value-first-onboarding-journey.md](../docs/proposals/value-first-onboarding-journey.md)
+Proposal trace: [value-first-onboarding-journey.md](../docs/proposals/implemented/value-first-onboarding-journey.md)
 Specification trace: [value-first-onboarding-journey.feature](../docs/spec/features/value-first-onboarding-journey.feature)
 Architecture trace: [ADR-0023](../docs/adr/0023-update-transaction-with-approval-staging-and-rollback.md), Distribution container (§5.1)
 QA strategy trace: [value-first-onboarding-journey-qa-strategy.md](../docs/spec/work/value-first-onboarding-journey-qa-strategy.md)

@@ -56,7 +56,7 @@ Feature: Finding classification
     Orchestrator stops the run on a critical finding that the stakeholder has
     not confirmed).
 
-  Proposal trace: docs/proposals/finding-classification.md
+  Proposal trace: docs/proposals/implemented/finding-classification.md
 
   Rule: Reviewer agent finds the classification rules in one rulebook
     # actor: Reviewer agent

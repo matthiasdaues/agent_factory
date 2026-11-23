@@ -26,7 +26,7 @@ Open items: none
 
 ## Artifacts
 
-- docs/proposals/test-design-skill.md
+- docs/proposals/implemented/test-design-skill.md
 - docs/spec/scope-map.md
 - docs/spec/work/prd.md
 - docs/spec/actor-goal-list.md
@@ -44,7 +44,7 @@ Verification: stakeholder accepted the proposal; `status: accepted` committed in
 
 ## Next action
 
-Spawn requirements-agent with task: derive specification artifacts for the test-design skill feature from the accepted proposal at `docs/proposals/test-design-skill.md`. Produce use cases, supplementary spec updates for new `testing.yaml` schema fields (`gates`, `risk_classes`), a scope-map rule with status "specified," and a `.feature` file covering test-design behavioral contracts. The proposal's 15 completion criteria are the acceptance invariants the spec must trace to. Suggested skills: `derive-feature` for the Gherkin file.
+Spawn requirements-agent with task: derive specification artifacts for the test-design skill feature from the accepted proposal at `docs/proposals/implemented/test-design-skill.md`. Produce use cases, supplementary spec updates for new `testing.yaml` schema fields (`gates`, `risk_classes`), a scope-map rule with status "specified," and a `.feature` file covering test-design behavioral contracts. The proposal's 15 completion criteria are the acceptance invariants the spec must trace to. Suggested skills: `derive-feature` for the Gherkin file.
 
 ## Semantic review
 

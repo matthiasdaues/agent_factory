@@ -265,7 +265,7 @@ Raw notes go here first. They are sorted into the sections below later.
   cases that an earlier fix created.
 - **Suggestion:** Give each review loop a cap and an escalation, as the
   gate-check loop has.
-- **Proposals:** [finding-classification.md](../../docs/proposals/finding-classification.md)
+- **Proposals:** [finding-classification.md](../../docs/proposals/implemented/finding-classification.md)
   (accepted) decides which finding blocks. A rule computes each finding's
   severity, only a `critical` or `major` defect or risk blocks, a `minor`
   finding becomes a register row, and only the human overrides a blocking

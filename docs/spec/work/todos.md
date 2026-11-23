@@ -36,7 +36,7 @@ No halt conditions exist in the current model. The eligibility engine uses preco
 
 - status: superseded
 
-Superseded by the Test Gate Presence over Test Execution feature ([proposal](../../proposals/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `.agent-factory/factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
+Superseded by the Test Gate Presence over Test Execution feature ([proposal](../../proposals/implemented/test-gate-presence-over-test-execution.md)). Factory no longer detects or constructs test commands; `.agent-factory/factory/scripts/run-tests` is deleted. Framework selection is entirely the project's responsibility, declared in `docs/testing.yaml`. Multi-framework orchestration, if needed, is the project's own test entrypoint's concern.
 
 ## T-07: `verify-base` and `premerge-check` were prompt-required, not hook-enforced
 

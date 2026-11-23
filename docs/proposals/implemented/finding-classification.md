@@ -178,7 +178,7 @@ filed findings, so the loop length depends on the run, not on the artifact.
   same everywhere. Each class keeps the questions that fit its material.
 - **Agents classify, scripts verify.** `finding-lint` recomputes the severity
   from the recorded [basis](#the-values-of-a-finding). The
-  [foundational principles](../../packages/factory/rulebooks/conventions/foundational-principles.md)
+  [foundational principles](../../../packages/factory/rulebooks/conventions/foundational-principles.md)
   require that agents create artifacts and scripts validate them.
 
 ## Design
@@ -721,7 +721,7 @@ hook refuses the edit, and the run ends with the stop notice.
 The hook checks the text of each call, as `block-dangerous-git.sh` does. An
 agent that hides the field name, for example by building it from pieces in a
 script, gets past it. No local check can tell a human from an agent with a
-shell, the fault that [gate-evidence.md](gate-evidence.md) describes for gate
+shell, the fault that [gate-evidence.md](../gate-evidence.md) describes for gate
 receipts. The design for that path is deferred.
 
 ### Register of minor findings
@@ -1106,7 +1106,7 @@ run did not classify the finding.
 
 - Protection against an agent that hides an override or confirmation field from
   `guard-human-fields`. No local check tells a human from an agent with a
-  shell, so the design waits for [gate-evidence.md](gate-evidence.md) (DEC-42).
+  shell, so the design waits for [gate-evidence.md](../gate-evidence.md) (DEC-42).
 - A review class for claim review. `adversarial-review` decides whether a
   claim survives, not how bad a defect is, and keeps its own scale (DEC-36).
 - Migration of the 208 files that are not `open` (DEC-24).

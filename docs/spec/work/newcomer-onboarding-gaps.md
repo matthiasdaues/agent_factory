@@ -1,7 +1,7 @@
 # Gaps Report: newcomer-onboarding
 
 Generated: 2026-08-28
-Source: docs/proposals/newcomer-onboarding-and-incremental-brownfield.md
+Source: docs/proposals/implemented/newcomer-onboarding-and-incremental-brownfield.md
 
 ## Actor-Goal Matrix
 

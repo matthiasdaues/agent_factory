@@ -52,7 +52,7 @@ impact:
     - packages/factory/rulebooks/conventions/finding-format.md
     - packages/factory/rulebooks/templates/finding.md
     - packages/factory/INDEX.yaml
-    - docs/proposals/core-artifact-layout.md
+    - docs/proposals/implemented/core-artifact-layout.md
 
 governance:
   assurance: elevated
@@ -96,11 +96,11 @@ The test-strategy agent also owns the gates that measure the tests, such as muta
 
 ## Summary
 
-Every core artifact gets exactly one producing agent and one review, and both are declared in the agents' frontmatter. The requirements agent keeps scope and behaviour and gives up two artifact families. A new domain-modeling agent takes domain structure: the glossary, the data model, and the rules and contracts written in terms of the entities. A new test-strategy agent takes test practice: the record of how the project tests, the QA strategies, and the test guardrails, which measure the tests. The first release closes every producer and review gap on the [project truth map](../../poc/workflow/project-truth-map.drawio). It builds on the [core artifact layout](core-artifact-layout.md) and starts after the agent stories of the layout are merged.
+Every core artifact gets exactly one producing agent and one review, and both are declared in the agents' frontmatter. The requirements agent keeps scope and behaviour and gives up two artifact families. A new domain-modeling agent takes domain structure: the glossary, the data model, and the rules and contracts written in terms of the entities. A new test-strategy agent takes test practice: the record of how the project tests, the QA strategies, and the test guardrails, which measure the tests. The first release closes every producer and review gap on the [project truth map](../../../poc/workflow/project-truth-map.drawio). It builds on the [core artifact layout](core-artifact-layout.md) and starts after the agent stories of the layout are merged.
 
 ## Motivation
 
-The core artifact layout defines the core by three marks: people edit it, other files derive from it, and a gate checks it (core-artifact-layout.md, DEC-02). It does not say who produces each core file or who confirms it. The project truth map in [project-truth-map.drawio](../../poc/workflow/project-truth-map.drawio), page "Current state", shows the gaps. It is drawn from the agents' declared inputs and outputs in `packages/factory/INDEX.yaml`.
+The core artifact layout defines the core by three marks: people edit it, other files derive from it, and a gate checks it (core-artifact-layout.md, DEC-02). It does not say who produces each core file or who confirms it. The project truth map in [project-truth-map.drawio](../../../poc/workflow/project-truth-map.drawio), page "Current state", shows the gaps. It is drawn from the agents' declared inputs and outputs in `packages/factory/INDEX.yaml`.
 
 - **Three core files have no producer.** No agent or skill writes `dependency-rules.dsl`, `schemas/*`, or `areas/*.md`. `dependency-check` only reads the first.
 - **Eight core files have no review.** The spec-review agent declares only the feature files and the scope map as required inputs. `inspect-spec` uses the vocabulary file as a reference, but it reviews neither the glossary nor the four structure files. The structure files are `entity-model.md`, `state-machines.md`, `validation-rules.md`, and `interface-contracts.md`. Nothing reviews the dependency rules, the schemas, or the area specs.
@@ -351,7 +351,7 @@ Each story of this proposal names its overlapping layout story as a dependency. 
 **Explicitly deferred (do NOT plan stories for these):**
 
 - **Gates for the entity model, `schemas/*`, and `testing.yaml`.** They are a separate concern and get their own proposal (DEC-08).
-- **DBML for the entity model.** The proposal [entity-model-as-dbml.md](entity-model-as-dbml.md) owns it.
+- **DBML for the entity model.** The proposal [entity-model-as-dbml.md](../entity-model-as-dbml.md) owns it.
 - **A blocking glossary gate.** The core artifact layout defers it, and this proposal keeps that deferral.
 - **Workflows without playbooks.** The direction is settled (DEC-09), but its design needs its own proposal. This release changes a playbook only where the playbook names a moved responsibility. Artifact states such as draft and confirmed, and eligibility on confirmed inputs, belong to that proposal.
 

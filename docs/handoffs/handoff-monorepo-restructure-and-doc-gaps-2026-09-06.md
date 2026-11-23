@@ -37,7 +37,7 @@ the dev hooks block is preserved, and `.agent-factory/factory/` is refreshed fro
 
 Traced the newcomer path (root README → factory README → factory guide) and
 identified eight gaps where a newcomer encounters something undocumented.
-Appended the full audit to `docs/proposals/context-aware-init-factory.md`
+Appended the full audit to `docs/proposals/implemented/context-aware-init-factory.md`
 under "Documentation gaps — newcomer path audit (2026-09-06)".
 
 Also added missing `context-lint` hook to the pre-commit template at
@@ -45,21 +45,21 @@ Also added missing `context-lint` hook to the pre-commit template at
 
 ## Uncommitted changes
 
-| File                                             | What changed                                                      |
-| ------------------------------------------------ | ----------------------------------------------------------------- |
-| `init-factory`                                   | Added `--update` routing                                          |
-| `packages/factory/scripts/init-factory`          | Monorepo-aware source resolution                                  |
-| `packages/factory/scripts/update-factory`        | Monorepo-aware source + init resolution                           |
-| `packages/factory/config/pre-commit-config.yaml` | Added `context-lint` hook                                         |
-| `.pre-commit-config.yaml`                        | Consumer block re-spliced from template (factory guards restored) |
-| `.gitignore`                                     | New skill symlinks from init-factory run                          |
-| `docs/proposals/context-aware-init-factory.md`   | Eight documentation gaps appended                                 |
-| `sys`                                            | Empty file deleted                                                |
+| File                                                       | What changed                                                      |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| `init-factory`                                             | Added `--update` routing                                          |
+| `packages/factory/scripts/init-factory`                    | Monorepo-aware source resolution                                  |
+| `packages/factory/scripts/update-factory`                  | Monorepo-aware source + init resolution                           |
+| `packages/factory/config/pre-commit-config.yaml`           | Added `context-lint` hook                                         |
+| `.pre-commit-config.yaml`                                  | Consumer block re-spliced from template (factory guards restored) |
+| `.gitignore`                                               | New skill symlinks from init-factory run                          |
+| `docs/proposals/implemented/context-aware-init-factory.md` | Eight documentation gaps appended                                 |
+| `sys`                                                      | Empty file deleted                                                |
 
 ## What the next session should do
 
 Work through the eight documentation gaps one by one. The list is at the
-bottom of `docs/proposals/context-aware-init-factory.md` § "Documentation
+bottom of `docs/proposals/implemented/context-aware-init-factory.md` § "Documentation
 gaps — newcomer path audit (2026-09-06)". Each gap needs a fix in the
 appropriate doc (factory README, factory guide, or both).
 
@@ -118,7 +118,7 @@ documentation written.
 
 ## Key references
 
-- Proposal with gap list: `docs/proposals/context-aware-init-factory.md`
+- Proposal with gap list: `docs/proposals/implemented/context-aware-init-factory.md`
 - Factory guide (where most fixes go): `packages/factory/docs/factory-guide.md`
 - Factory README: `packages/factory/README.md`
 - Root README: `README.md`

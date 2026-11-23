@@ -60,7 +60,7 @@ the key decisions.
 
 ## Input Artifacts Referenced
 
-- `docs/proposals/cycle-based-orchestration.md` (accepted proposal)
+- `docs/proposals/superseded/cycle-based-orchestration.md` (accepted proposal)
 - `docs/spec/interface-contracts.md` (cycle command
   contracts)
 - `docs/spec/entity-model.md` (cycle orchestration

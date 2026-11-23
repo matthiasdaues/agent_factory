@@ -10,7 +10,7 @@ evaluation: pugh-matrix
 
 A `minor` finding never blocks, but it must stay on record until someone
 fixes it. The accepted proposal
-[finding-classification.md](../proposals/finding-classification.md) first kept
+[finding-classification.md](../proposals/implemented/finding-classification.md) first kept
 these findings as lines in one JSONL register per review class, such as
 `docs/findings/register/document.jsonl`. A line had no status. The fix deleted
 the line, and a `merge=union` line in `.gitattributes` was to merge the

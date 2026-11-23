@@ -21,7 +21,7 @@ reads `docs/spec/features/*.feature`. Wide patterns such as the lector agent's
 `docs/**/*.md` match every Markdown core file.
 
 The accepted proposal
-[core-artifact-ownership.md](../proposals/core-artifact-ownership.md) settles
+[core-artifact-ownership.md](../proposals/implemented/core-artifact-ownership.md) settles
 the mechanism (DEC-01, DEC-20, DEC-22, DEC-25, DEC-29, DEC-31, DEC-32,
 DEC-34), and the
 [gaps report](../spec/work/core-artifact-ownership-gaps.md) settles its field

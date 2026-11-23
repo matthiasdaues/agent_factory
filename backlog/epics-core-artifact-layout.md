@@ -4,7 +4,7 @@ scope: global
 
 # EPICs — Core Artifact Layout
 
-Proposal trace: [core-artifact-layout.md](../docs/proposals/core-artifact-layout.md)
+Proposal trace: [core-artifact-layout.md](../docs/proposals/implemented/core-artifact-layout.md)
 Specification trace: [core-artifact-layout.feature](../docs/spec/features/core-artifact-layout.feature), [gaps report](../docs/spec/work/core-artifact-layout-gaps.md), [interface-contracts.md](../docs/spec/interface-contracts.md)
 Architecture trace: [ADR-0025](../docs/adr/0025-core-artifact-layout-under-docs-spec.md), [ADR-0026](../docs/adr/0026-layout-migration-runs-inside-the-factory-update.md)
 QA strategy trace: [core-artifact-layout-qa-strategy.md](../docs/spec/work/core-artifact-layout-qa-strategy.md)
@@ -16,7 +16,7 @@ The layout release is `1.4.0` (CAL-G02). The first story ID is `ST-0318`.
 ## Terms used in every EPIC
 
 - **Old layout and new layout.** The old layout spreads the specification core over `docs/spec/`, `docs/spec/supplementary_specs/`, `docs/arc42/`, and `docs/`. The new layout keeps every core file in `docs/spec/`, with the folders `features/`, `schemas/`, `areas/`, and `work/`.
-- **Path table.** The table in the proposal's [§ Path table](../docs/proposals/core-artifact-layout.md#path-table) that maps every old path to its new path, or marks it as removed.
+- **Path table.** The table in the proposal's [§ Path table](../docs/proposals/implemented/core-artifact-layout.md#path-table) that maps every old path to its new path, or marks it as removed.
 - **Working output.** Files agents write while they derive or review the core: gaps reports, QA strategies, `prd.md`, update summaries, and the two todo lists. They move to `docs/spec/work/`.
 - **Factory hook block.** The `agent_factory_hook-*` entries of a project's `.pre-commit-config.yaml`. The factory owns them; the project owns every other hook.
 

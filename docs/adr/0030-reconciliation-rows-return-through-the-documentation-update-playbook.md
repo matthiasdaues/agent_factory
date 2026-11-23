@@ -24,7 +24,7 @@ A reader of ADR-0029 would expect a script gate here too, as `close-wave` is
 for spec feedback. This decision deliberately has none.
 
 The accepted proposal
-[core-artifact-ownership.md](../proposals/core-artifact-ownership.md) and gap
+[core-artifact-ownership.md](../proposals/implemented/core-artifact-ownership.md) and gap
 CAO-G32 in the
 [gaps report](../spec/work/core-artifact-ownership-gaps.md#cao-g32-who-carries-a-reconciliation-row-back-into-its-artifact-and-what-waits-for-it)
 settle the design. The rejected options are:

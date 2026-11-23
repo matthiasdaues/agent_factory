@@ -23,7 +23,7 @@ RECON finding of its own.
   `domain-modeling`, and the tests in `tests/factory/`.
 - Documentation: `docs/spec/` (core files, `features/`, `work/`), `docs/arc42/`,
   ADR-0025, ADR-0026, `packages/factory/docs/factory-guide.md`, and one line of
-  `docs/proposals/core-artifact-layout.md`.
+  `docs/proposals/implemented/core-artifact-layout.md`.
 
 ## Discrepancy table
 
@@ -42,7 +42,7 @@ RECON finding of its own.
 | 11  | `work/core-artifact-layout-qa-strategy.md`               | All 38 owner rows `planned`; CAL-07-IT-05 named `test_update_factory.py`; two rows named one of two test files.                                                   | Spec stale     | Rows `implemented` with real paths; acceptance rows cite ST-0343 and ST-0344. Stale harness text and gap actions updated. |
 | 12  | `packages/factory/docs/factory-guide.md`                 | Three anchor files; `spec-lint` row named PRD and actor-goal checks.                                                                                              | Spec stale     | Four anchor files; `spec-lint` row names what the script checks.                                                          |
 | 13  | `features/newcomer-onboarding.feature`                   | Feature description said three anchor files (CAL-G15). The Rules and scope-map rows were already right.                                                           | Spec stale     | Four anchor files.                                                                                                        |
-| 14  | `docs/proposals/core-artifact-layout.md`                 | `impact.boundaries` named the deleted `templates/context.md`.                                                                                                     | Spec stale     | Now names `templates/glossary.md`.                                                                                        |
+| 14  | `docs/proposals/implemented/core-artifact-layout.md`     | `impact.boundaries` named the deleted `templates/context.md`.                                                                                                     | Spec stale     | Now names `templates/glossary.md`.                                                                                        |
 | 15  | Chapter 6 § 6.10.6, ADR-0026                             | "Planning sets the layout release (gap CAL-G02)."                                                                                                                 | Spec stale     | Layout release `1.4.0`, `LAYOUT_RELEASE`. Chapter 6 also names the staging and the hook refresh.                          |
 | 16  | Chapter 8 § current state                                | Said `CONTEXT.md` and `CONTEXT-MAP.md` remain until ST-0344.                                                                                                      | Spec stale     | States the folded routing.                                                                                                |
 | 17  | `docs/arc42/concepts.md` tree                            | Showed `orchestrator/`, a flat `docs/` with `architecture.dsl`, `CONTEXT-MAP.md`, and use cases.                                                                  | Spec stale     | Tree shows `packages/` and the core layout.                                                                               |
@@ -54,7 +54,7 @@ RECON finding of its own.
 - `docs/README.md` links chapter 12 as the glossary definition. The file is
   outside this pass's ownership. The link still resolves, because chapter 12
   links on to `docs/spec/glossary.md`.
-- `docs/proposals/core-artifact-layout.md` also names the deleted
+- `docs/proposals/implemented/core-artifact-layout.md` also names the deleted
   `templates/context-map.md` in `impact.boundaries`. The brief allowed one line.
 - `scope-map.md` keeps the `specified` row "LinkML entity model serves as
   canonical domain source". `activity-graph-orchestration.feature` has no such

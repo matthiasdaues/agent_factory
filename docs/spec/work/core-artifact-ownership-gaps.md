@@ -1,7 +1,7 @@
 # Gaps Report: core-artifact-ownership
 
 Generated: 2026-11-03
-Source: [core-artifact-ownership.md](../../proposals/core-artifact-ownership.md)
+Source: [core-artifact-ownership.md](../../proposals/implemented/core-artifact-ownership.md)
 
 The first pass ran unattended and put every point that needed a decision as a question in [Questions for the Stakeholder](#questions-for-the-stakeholder). The stakeholder has answered every question. Each entry records the answer, and the specification follows it.
 

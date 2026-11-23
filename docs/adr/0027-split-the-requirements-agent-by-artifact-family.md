@@ -20,7 +20,7 @@ interviews, maps scope, writes behaviour, models data, writes the QA strategy,
 and captures the agent context.
 
 The accepted proposal
-[core-artifact-ownership.md](../proposals/core-artifact-ownership.md) settles
+[core-artifact-ownership.md](../proposals/implemented/core-artifact-ownership.md) settles
 the split (DEC-02 to DEC-04, DEC-07, DEC-10 to DEC-13, DEC-23, DEC-24,
 DEC-30, DEC-36). It builds on the core artifact layout of
 [ADR-0025](0025-core-artifact-layout-under-docs-spec.md). The rejected options

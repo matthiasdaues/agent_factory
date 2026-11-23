@@ -6,7 +6,7 @@ status: accepted
 owner: agent-factory
 created: 2026-11-15
 updated: 2026-11-18
-supersedes: docs/proposals/story-workflow.md
+supersedes: docs/proposals/superseded/story-workflow.md
 
 impact:
   scope: cross_component
@@ -48,7 +48,7 @@ impact:
     - docs/adr/
     - docs/proposals/crap-gate-setup.md
     - docs/proposals/mutation-gate.md
-    - docs/proposals/counter-ids.md
+    - docs/proposals/implemented/counter-ids.md
     - tests/
     - docs/spec/glossary.md
 
@@ -279,7 +279,7 @@ A finding file has a `story` field with the story ID, such as `story: ST-0350`. 
 
 The `traces` field lists the spec items and stories a finding concerns. Only `story` and `run` say which review filed the finding, and only they count at the merges.
 
-The findings are committed on the story branch. Their IDs come from the central counter of [counter-ids.md](counter-ids.md), so a finding filed on a story branch cannot collide with one filed elsewhere.
+The findings are committed on the story branch. Their IDs come from the central counter of [counter-ids.md](implemented/counter-ids.md), so a finding filed on a story branch cannot collide with one filed elsewhere.
 
 ### Findings as units of work
 

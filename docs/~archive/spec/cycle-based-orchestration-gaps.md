@@ -1,7 +1,7 @@
 # Gaps Report: Cycle-Based Orchestration
 
 Generated: 2026-09-14
-Source: docs/proposals/cycle-based-orchestration.md
+Source: docs/proposals/superseded/cycle-based-orchestration.md
 
 ## Actor-Goal Matrix
 

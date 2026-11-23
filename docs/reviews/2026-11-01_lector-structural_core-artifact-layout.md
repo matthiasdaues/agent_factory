@@ -1,6 +1,6 @@
 # Lector structural pass: Core Artifact Layout
 
-- document: `docs/proposals/core-artifact-layout.md`
+- document: `docs/proposals/implemented/core-artifact-layout.md`
 - commit: `088bfff7` on `dev`
 - mode: structural pass, cut plan only; the proposal is unchanged
 - protected: the frontmatter, the Primer placeholder, and the Appendix tables

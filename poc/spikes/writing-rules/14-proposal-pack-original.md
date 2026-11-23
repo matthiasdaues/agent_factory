@@ -5,7 +5,7 @@ status: draft
 owner: stakeholder
 created: 2026-11-17
 updated: 2026-11-17
-supersedes: docs/proposals/story-workflow.md
+supersedes: docs/proposals/superseded/story-workflow.md
 
 impact:
   scope: cross_component
@@ -42,7 +42,7 @@ impact:
     - docs/spec/state-machines.md
     - docs/spec/interface-contracts.md
     - docs/testing.yaml
-    - docs/proposals/story-workflow.md
+    - docs/proposals/superseded/story-workflow.md
     - docs/proposals/crap-gate-setup.md
 
 governance:

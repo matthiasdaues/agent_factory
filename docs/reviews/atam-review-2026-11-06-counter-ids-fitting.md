@@ -17,7 +17,7 @@ The Local Counter reuses the leased push of ADR-0031 unchanged, so claims withou
 
 Two `minor` risks went to `docs/findings/register/architecture.jsonl` (ATAM-0015, ATAM-0016). Ten notes stay in this report: four sensitivity points, four non-risks, and two tradeoff points. Planning should wait for ATAM-0014. Next, the architecture agent fixes ATAM-0014 and asks the stakeholder to confirm the fix, because it settles gap CIF-G05.
 
-Classification follows the accepted proposal `docs/proposals/finding-classification.md`, as the brief requires.
+Classification follows the accepted proposal `docs/proposals/implemented/finding-classification.md`, as the brief requires.
 
 ## Reviewed architecture
 
@@ -25,7 +25,7 @@ Classification follows the accepted proposal `docs/proposals/finding-classificat
 - `docs/spec/dependency-rules.dsl`, which the commit leaves unchanged.
 - ADR-0033 and the amendment line of ADR-0031.
 - Sections 5.11, 6.16, 8.18, chapter 9, QS-22, QS-23, and their rows in 10.2.
-- Reference material: `docs/proposals/counter-ids-fitting.md` with DEC-01 to DEC-13, `docs/spec/features/counter-ids-fitting.feature`, BR-096 to BR-108 and BR-072 to BR-077 in `docs/spec/validation-rules.md`, the `next-id` contract with its `--plan-seed` and `--move-to-origin` sections in `docs/spec/interface-contracts.md`, the Move Lifecycle in `docs/spec/state-machines.md`, and `docs/spec/work/counter-ids-fitting-gaps.md`.
+- Reference material: `docs/proposals/implemented/counter-ids-fitting.md` with DEC-01 to DEC-13, `docs/spec/features/counter-ids-fitting.feature`, BR-096 to BR-108 and BR-072 to BR-077 in `docs/spec/validation-rules.md`, the `next-id` contract with its `--plan-seed` and `--move-to-origin` sections in `docs/spec/interface-contracts.md`, the Move Lifecycle in `docs/spec/state-machines.md`, and `docs/spec/work/counter-ids-fitting-gaps.md`.
 
 `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42` found 0 errors, 1 warning, and 0 info, and exited 0. `.agent-factory/factory/scripts/structurizr validate` exited 0.
 

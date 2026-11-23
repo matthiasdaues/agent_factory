@@ -1,7 +1,7 @@
 # Gaps Report: value-first-onboarding-journey
 
 Generated: 2026-09-23
-Source: [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md)
+Source: [value-first-onboarding-journey.md](../../proposals/implemented/value-first-onboarding-journey.md)
 
 ## Actor-Goal Matrix
 

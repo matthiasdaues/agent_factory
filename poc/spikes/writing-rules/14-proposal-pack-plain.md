@@ -5,7 +5,7 @@ status: draft
 owner: stakeholder
 created: 2026-11-17
 updated: 2026-11-17
-supersedes: docs/proposals/story-workflow.md
+supersedes: docs/proposals/superseded/story-workflow.md
 
 impact:
   scope: cross_component

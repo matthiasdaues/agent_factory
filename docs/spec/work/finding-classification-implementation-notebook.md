@@ -4,7 +4,7 @@ This notebook records each step that the orchestrator takes for the
 finding-classification feature, from planning to the merge-ready feature
 branch. The stakeholder merges the feature branch into `dev`.
 
-The proposal is `docs/proposals/finding-classification.md`. The playbook is
+The proposal is `docs/proposals/implemented/finding-classification.md`. The playbook is
 `packages/factory/playbooks/feature-addition.md`.
 
 ## Standing instructions

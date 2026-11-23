@@ -4,7 +4,7 @@
 **From:** Requirements phase (spec derivation + spec review)\
 **To:** Architecture phase (architecture-agent)\
 **Playbook:** [feature-addition.md](../../.agent-factory/factory/playbooks/feature-addition.md)\
-**Proposal:** [yaml-charter-lifecycle.md](../proposals/yaml-charter-lifecycle.md)
+**Proposal:** [yaml-charter-lifecycle.md](../proposals/implemented/yaml-charter-lifecycle.md)
 
 ## Current State
 

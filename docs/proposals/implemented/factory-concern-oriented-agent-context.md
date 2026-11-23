@@ -5,7 +5,7 @@ status: implemented
 owner: Matthias Daues
 created: 2026-09-08
 updated: 2026-09-08
-supersedes: docs/proposals/yaml-charter-lifecycle.md
+supersedes: docs/proposals/implemented/yaml-charter-lifecycle.md
 
 impact:
   scope: cross_project

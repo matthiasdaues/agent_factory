@@ -123,7 +123,7 @@ language-stack detection, CI detection, etc.
 
 ### Newcomer onboarding proposal (accepted 2026-08-28)
 
-`docs/proposals/newcomer-onboarding-and-incremental-brownfield.md` deferred:
+`docs/proposals/implemented/newcomer-onboarding-and-incremental-brownfield.md` deferred:
 
 - **Automatic newcomer detection**: checking for artifacts (a completed
   spike, a charter, prior playbook outputs) to offer the guided tour

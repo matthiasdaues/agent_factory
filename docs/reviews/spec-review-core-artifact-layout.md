@@ -25,7 +25,7 @@ Artifacts read:
 - [core-artifact-layout-qa-strategy.md](../spec/work/core-artifact-layout-qa-strategy.md)
 - [scope-map.md](../spec/scope-map.md): the 15 new rows
 - `git show d4a3c0b7 -- docs/spec/supplementary_specs`: changes to `entity-model.md`, `interface-contracts.md`, `state-machines.md`, and `validation-rules.md`
-- [core-artifact-layout.md](../proposals/core-artifact-layout.md): the accepted proposal, for traceability
+- [core-artifact-layout.md](../proposals/implemented/core-artifact-layout.md): the accepted proposal, for traceability
 - For checks: `newcomer-onboarding.feature`, `.pre-commit-config.yaml`, `docs/arc42/architecture.dsl`, and `packages/factory/scripts/spec-lint`
 
 `spec-lint` summary: `spec-lint: 0 error(s), 0 warning(s), 25 info across 26 spec file(s).`

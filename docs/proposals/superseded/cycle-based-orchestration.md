@@ -5,7 +5,7 @@ status: superseded
 owner: Matthias Daues
 created: 2026-09-13
 updated: 2026-09-14
-supersedes: docs/proposals/deterministic-factory-engine.md
+supersedes: docs/proposals/superseded/deterministic-factory-engine.md
 
 impact:
   scope: cross_component
@@ -29,7 +29,7 @@ impact:
     - packages/factory/rulebooks/schemas/research-brief.schema.json
     - packages/factory/rulebooks/templates/research-brief.md
     - packages/usage
-    - docs/proposals/deterministic-factory-engine.md
+    - docs/proposals/superseded/deterministic-factory-engine.md
     - docs/spec/architecture.dsl
     - docs/arc42/05_building_block_view.md
     - docs/arc42/06_runtime_view.md
@@ -85,7 +85,7 @@ This creates two problems:
    small, well-understood change receives the same pipeline as a
    system-level feature.
 
-The [user-experience review](../reviews/ux-review-2026-09-09-new-user-journey.md)
+The [user-experience review](../../reviews/ux-review-2026-09-09-new-user-journey.md)
 documented fixed workflow selection, disproportionate ceremony, and fragmented
 session state on 2026-09-09. Two days later, the deterministic-engine proposal
 prepared to extract the current linear playbook model into a reusable core.
@@ -179,7 +179,7 @@ The brownfield CONCEPT bootstrap produces these canonical concept objects:
 The LinkML file is the canonical entity model. Markdown and rendered Entity
 Relationship Diagram (ERD) files are derived projections. The canonical path
 resolves the location decision recorded in
-[T-0006](../spec/work/todo.md#t-0006--harmonize-the-canonical-erd-location-across-scenarios).
+[T-0006](../../spec/work/todo.md#t-0006--harmonize-the-canonical-erd-location-across-scenarios).
 
 The bootstrap assessment recommends feature delivery when all three objects
 exist, pass deterministic validation, and have no unresolved major review
@@ -396,11 +396,11 @@ schema_version: 1
 revision: 1
 workstream_id: cycle-based-orchestration
 topic: Replace playbook orchestration with adaptive cycles
-origin_ref: docs/proposals/cycle-based-orchestration.md
+origin_ref: docs/proposals/superseded/cycle-based-orchestration.md
 cycle: IDEA
 attempt: 1
 work:
-  - docs/proposals/cycle-based-orchestration.md
+  - docs/proposals/superseded/cycle-based-orchestration.md
 delegation:
   route:
     - CONCEPT

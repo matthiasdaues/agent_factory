@@ -3,7 +3,7 @@
 **Date:** 2026-09-03\
 **Reviewer:** spec-review-agent\
 **Specification:** `docs/spec/features/agent-context.feature` (10 Rules, 56 Scenarios)\
-**Proposal trace:** `docs/proposals/yaml-charter-lifecycle.md`
+**Proposal trace:** `docs/proposals/implemented/yaml-charter-lifecycle.md`
 
 ## Reviewed Specification
 
@@ -17,7 +17,7 @@ Artifacts read:
 - `docs/spec/interface-contracts.md` -- context-lint CLI contract
 - `docs/spec/state-machines.md` -- mode lifecycle state machine
 - `docs/spec/validation-rules.md` -- CX-\* validation rules
-- `docs/proposals/yaml-charter-lifecycle.md` -- accepted proposal (design origin)
+- `docs/proposals/implemented/yaml-charter-lifecycle.md` -- accepted proposal (design origin)
 - `docs/arc42/12_glossary.md` -- domain vocabulary
 
 `spec-lint` summary: 0 error(s), 8 warning(s), 27 info across 18 spec file(s). All warnings and info findings are pre-existing (BR-\* reference warnings from earlier specifications, unresolved todo items, and unreferenced BR definitions). No new errors introduced by the agent-context specification.

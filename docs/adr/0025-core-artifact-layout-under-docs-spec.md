@@ -25,7 +25,7 @@ The proposal [entity-model-as-dbml.md](../proposals/entity-model-as-dbml.md)
 needs one fixed path for its DBML file in every project. It builds on this
 layout, so the layout ships first (DEC-01).
 
-The accepted proposal [core-artifact-layout.md](../proposals/core-artifact-layout.md)
+The accepted proposal [core-artifact-layout.md](../proposals/implemented/core-artifact-layout.md)
 settles the options. The rejected options are:
 
 - **ADRs as core files.** ADRs record why a decision was made. Nothing

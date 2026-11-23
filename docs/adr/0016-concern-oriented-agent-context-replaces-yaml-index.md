@@ -41,7 +41,7 @@ frontmatter. `concern-lint` replaces `context-lint`, validating with
 This supersedes [ADR-0013](0013-yaml-agent-context-replaces-markdown-charter.md)
 and [ADR-0014](0014-two-layer-routing-with-two-mode-lifecycle.md).
 
-See the [concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
+See the [concern-oriented agent context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md).
 
 ## Consequences
 

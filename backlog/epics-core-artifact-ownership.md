@@ -4,7 +4,7 @@ scope: global
 
 # EPICs — Core Artifact Ownership
 
-Proposal trace: [core-artifact-ownership.md](../docs/proposals/core-artifact-ownership.md)
+Proposal trace: [core-artifact-ownership.md](../docs/proposals/implemented/core-artifact-ownership.md)
 Specification trace: [core-artifact-ownership.feature](../docs/spec/features/core-artifact-ownership.feature), [gaps report](../docs/spec/work/core-artifact-ownership-gaps.md), [interface-contracts.md § Core Artifact Ownership Contracts](../docs/spec/interface-contracts.md#core-artifact-ownership-contracts), [validation-rules.md § Ownership and spec-feedback reports](../docs/spec/validation-rules.md#ownership-and-spec-feedback-reports-core-artifact-ownership-br-056br-066)
 Architecture trace: [ADR-0027](../docs/adr/0027-split-the-requirements-agent-by-artifact-family.md), [ADR-0028](../docs/adr/0028-declared-review-and-core-list-check-ownership.md), [ADR-0029](../docs/adr/0029-per-story-drift-reports-block-the-wave-close.md), [arc42 § 8.17](../docs/arc42/08_crosscutting_concepts.md#817-artifact-ownership-one-producer-one-declared-review), [arc42 § 5.10](../docs/arc42/05_building_block_view.md#510-level-2-component-view----factory-agents), [arc42 § 6.11](../docs/arc42/06_runtime_view.md#611-specification-handoff-between-producers), [arc42 § 6.12](../docs/arc42/06_runtime_view.md#612-spec-feedback-and-wave-close), [ADR-0030](../docs/adr/0030-reconciliation-rows-return-through-the-documentation-update-playbook.md), [arc42 § 6.13](../docs/arc42/06_runtime_view.md#613-reconciliation-backfeed)
 QA strategy trace: [core-artifact-ownership-qa-strategy.md](../docs/spec/work/core-artifact-ownership-qa-strategy.md)
@@ -29,7 +29,7 @@ Every story regenerates `INDEX.yaml`, so the stories of one wave are developed i
 
 Every story carries `quality-gates: []` until ST-0359 ships and the factory is reinstalled with `update-factory`. The installed `premerge-check` ignores `testing.yaml`, and without the field it requires a mutation result that no script writes before ST-0365.
 
-The layout stories ST-0325 to ST-0345 are all `done`, so the order of [DEC-05](../docs/proposals/core-artifact-ownership.md#order-after-the-core-artifact-layout) no longer constrains this backlog. The first story ID is `ST-0346`. Phase 4 rescans `backlog/` before it writes the first story, because parallel sessions may take IDs in the meantime.
+The layout stories ST-0325 to ST-0345 are all `done`, so the order of [DEC-05](../docs/proposals/implemented/core-artifact-ownership.md#order-after-the-core-artifact-layout) no longer constrains this backlog. The first story ID is `ST-0346`. Phase 4 rescans `backlog/` before it writes the first story, because parallel sessions may take IDs in the meantime.
 
 ## Terms used in every EPIC
 
@@ -53,7 +53,7 @@ The layout stories ST-0325 to ST-0345 are all `done`, so the order of [DEC-05](.
 - No story plans the gates for `entity-model.md`, `schemas/*`, or `testing.yaml`, DBML, a blocking glossary gate, or eligibility on confirmed inputs. The proposal defers all four.
 - No Factory agent declares or writes a mutation tool's configuration file. It lives in the project's own files.
 - Tests carry `@pytest.mark.spec("CAO-NN")` and their layer marker. The first story with a test adds `CAO-*` to the `spec` marker description in `pyproject.toml`.
-- Completion criteria are numbered CC-01 to CC-31 in the order of the proposal's [Completion Criteria](../docs/proposals/core-artifact-ownership.md#completion-criteria).
+- Completion criteria are numbered CC-01 to CC-31 in the order of the proposal's [Completion Criteria](../docs/proposals/implemented/core-artifact-ownership.md#completion-criteria).
 
 ## Before the merge into dev
 

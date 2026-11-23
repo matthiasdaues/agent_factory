@@ -4,7 +4,7 @@ Generated from:
 
 - Feature spec: [counter-ids.feature](../features/counter-ids.feature)
 - Gaps report: [counter-ids-gaps.md](counter-ids-gaps.md)
-- Proposal: [counter-ids.md § Design](../../proposals/counter-ids.md#design) and [§ Completion Criteria](../../proposals/counter-ids.md#completion-criteria)
+- Proposal: [counter-ids.md § Design](../../proposals/implemented/counter-ids.md#design) and [§ Completion Criteria](../../proposals/implemented/counter-ids.md#completion-criteria)
 - Entity model: [entity-model.md § Counter IDs Entities](../entity-model.md#counter-ids-entities)
 - Interface contracts: [interface-contracts.md § Counter IDs Contracts](../interface-contracts.md#counter-ids-contracts)
 - Validation rules: [validation-rules.md § Counter IDs](../validation-rules.md#counter-ids-next-id-br-068br-078), BR-068 to BR-075
@@ -13,7 +13,7 @@ Generated from:
 
 ## Feature
 
-- Proposal trace: [counter-ids.md](../../proposals/counter-ids.md)
+- Proposal trace: [counter-ids.md](../../proposals/implemented/counter-ids.md)
 - Gherkin trace: [counter-ids.feature](../features/counter-ids.feature)
 - Summary: The highest risk is one ID handed out twice, because two branches then create two different files with the same name. A seed that overwrites a counter in use leads to the same result. So the lease tests on a local bare repository carry this feature: the race test, the create-only seed, and the claim that keeps the lines of the other prefixes. The second risk is a claim that fails but still prints an ID, or retries a refusal that will not go away. Integration tests force each refusal on a real bare repository and check the exit code, the standard output, and the number of pushes. The rule changes in the ID Producer files, the branching rules, and `rules.md` are text, so linter tests read that text.
 - Rules in scope, with their scope identifiers from the [gaps report](counter-ids-gaps.md#actor-goal-matrix):

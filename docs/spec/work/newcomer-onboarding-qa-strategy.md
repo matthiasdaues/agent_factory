@@ -8,7 +8,7 @@ Generated from:
 
 ## Feature
 
-- Proposal trace: `docs/proposals/newcomer-onboarding-and-incremental-brownfield.md`
+- Proposal trace: `docs/proposals/implemented/newcomer-onboarding-and-incremental-brownfield.md`
 - Gherkin trace: `docs/spec/features/newcomer-onboarding.feature`
 - Summary: This feature changes process artifacts (playbooks, agent definitions, CLI orientation, skill files) and introduces two new skills. The primary QA risk is behavioral regression in existing workflows: the session entrypoint must still route correctly, brownfield onboarding must still produce valid architecture artifacts, and feature-addition must still enforce its full pipeline when full spec artifacts are present. The secondary risk is that the adopt pattern breaks the stakeholder conversation by failing to fully assume an agent's boundaries.
 - Rules in scope:

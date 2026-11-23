@@ -32,7 +32,7 @@ Open items: none blocking. The two Minor findings are deferred to the requiremen
 - docs/spec/entity-model.md
 - docs/spec/interface-contracts.md
 - docs/spec/validation-rules.md
-- docs/proposals/test-design-skill.md
+- docs/proposals/implemented/test-design-skill.md
 - docs/handoffs/handoff-requirements-test-design-skill-2026-09-01.md
 
 ## Gate and verification evidence
@@ -42,7 +42,7 @@ Verification: Semantic inspection against Wiegers/INCOSE seven requirements-qual
 
 ## Next action
 
-Run the architecture agent against the accepted proposal at docs/proposals/test-design-skill.md. The proposal declares architecture_change: false — the architecture agent should verify this classification against the specification artifacts and produce any needed ADR amendments (ADR-0012 for test_design_verify gate) and Structurizr DSL updates if warranted.
+Run the architecture agent against the accepted proposal at docs/proposals/implemented/test-design-skill.md. The proposal declares architecture_change: false — the architecture agent should verify this classification against the specification artifacts and produce any needed ADR amendments (ADR-0012 for test_design_verify gate) and Structurizr DSL updates if warranted.
 
 ## Semantic review
 

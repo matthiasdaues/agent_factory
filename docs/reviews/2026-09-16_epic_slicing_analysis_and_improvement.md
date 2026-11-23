@@ -66,7 +66,7 @@ tests/factory/test_verify_base.py
 supersedes-
 linear-playbook-fsm.md, 0018-concept-internal-sequence-is-agent-owned.md
 
-• Ran sed -n '1,70p' docs/proposals/cycle-based-orchestration.md; printf '\\n\_\_EXISTENCE\_\_\\n'; for p in packages/factory/engine packages/factory/
+• Ran sed -n '1,70p' docs/proposals/superseded/cycle-based-orchestration.md; printf '\\n\_\_EXISTENCE\_\_\\n'; for p in packages/factory/engine packages/factory/
 │ scripts/cycle packages/factory/engine/models/delivery.yaml packages/factory/engine/schemas/cycle-model-v1.schema.json packages/factory/
 │ engine/schemas/cycle-state-v1.schema.json docs/spec/entity-model.yaml docs/spec/entity-model.md docs/assets/images/entity-model.svg; do if
 │ … +3 lines
@@ -499,7 +499,7 @@ Which shipped interface should manage delegation grants?
 
 • Edited .current-work/cycle-based-orchestration/epic-slicing-comparison/current-step.yml (+1 -0)
 12 - docs/testing.yaml
-13 + - docs/proposals/cycle-based-orchestration.md
+13 + - docs/proposals/superseded/cycle-based-orchestration.md
 14 - docs/adr/\*\*/\*.md
 
 • Explored
@@ -515,7 +515,7 @@ Read cycle-based-orchestration.md
 - The engine may execute a grant but cannot broaden it.
 - cycle select only specifies cycle and work arguments; no delegation argument or separate grant command is defined.
 
-See docs/proposals/cycle-based-orchestration.md:696 and the command replacement table at line 349 (docs/proposals/cycle-based-
+See docs/proposals/superseded/cycle-based-orchestration.md:696 and the command replacement table at line 349 (docs/proposals/cycle-based-
 orchestration.md:349).
 
 So the proposal confirms the gap: it defines semantics and YAML shape, but no shipped interface for grant management. Directly editing the state
@@ -557,8 +557,8 @@ View recommendations Automatically after reopening a workstream and at cycle exi
 ───────────────────────────────── ───────────────────────────────────────────────────────────────────────────────────────
 Manage delegation grants No interface specified
 
-The command definitions are in the compatibility table (docs/proposals/cycle-based-orchestration.md:341). Menu behavior appears under Session
-menu (docs/proposals/cycle-based-orchestration.md:516).
+The command definitions are in the compatibility table (docs/proposals/superseded/cycle-based-orchestration.md:341). Menu behavior appears under Session
+menu (docs/proposals/superseded/cycle-based-orchestration.md:516).
 
 The closest established pattern would be extending .agent-factory/factory/scripts/cycle, for example with a delegate subcommand. The proposal does not make
 that decision.
@@ -584,7 +584,7 @@ specification will need that split before Phase 2; I will not edit it during thi
 10 - - docs/~archive/spec/cycle-based-orchestration-gaps.md
 11 - - docs/~archive/spec/cycle-based-orchestration-qa-strategy.md
 12 - - docs/testing.yaml
-13 - - docs/proposals/cycle-based-orchestration.md
+13 - - docs/proposals/superseded/cycle-based-orchestration.md
 14 - - docs/adr/**/\*.md
 15 - - docs/arc42/**/*.md
 16 - - packages/factory/\*\*/*.md

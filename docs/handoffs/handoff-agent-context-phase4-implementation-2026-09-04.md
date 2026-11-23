@@ -76,7 +76,7 @@ From `.agent-factory/factory/config/model.conf` -- Claude Code has no explicit e
 
 | Artifact                              | Path                                                                 |
 | ------------------------------------- | -------------------------------------------------------------------- |
-| Proposal (accepted)                   | `docs/proposals/yaml-charter-lifecycle.md`                           |
+| Proposal (accepted)                   | `docs/proposals/implemented/yaml-charter-lifecycle.md`               |
 | Gherkin spec                          | `docs/spec/features/agent-context.feature`                           |
 | QA strategy with contract-owner table | `docs/spec/work/agent-context-qa-strategy.md`                        |
 | Gaps report                           | `docs/spec/work/agent-context-gaps.md`                               |

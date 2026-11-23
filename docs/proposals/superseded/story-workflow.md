@@ -25,8 +25,8 @@ impact:
     - packages/factory/scripts/premerge-check
     - packages/factory/rulebooks/conventions/report-format.md
     - docs/spec/areas/mechanized-dispatch.md
-    - docs/proposals/core-artifact-ownership.md
-    - docs/proposals/counter-ids.md
+    - docs/proposals/implemented/core-artifact-ownership.md
+    - docs/proposals/implemented/counter-ids.md
     - docs/proposals/crap-gate-setup.md
 
 governance:
@@ -45,7 +45,7 @@ estimate:
 
 # Feature Request: Story Workflow
 
-[run-lifecycle.md](run-lifecycle.md) replaces this proposal. The story workflow is one section of it.
+[run-lifecycle.md](../run-lifecycle.md) replaces this proposal. The story workflow is one section of it.
 
 ## Primer
 
@@ -69,9 +69,9 @@ Stories in an orchestrated run and stories driven by hand follow one workflow. S
 
 ## Motivation
 
-Today the Factory follows two different procedures for a story. In [implementation-agent.md](../../packages/factory/agents/implementation-agent.md), an orchestrated story goes from the developer agent's commit to the gate-check step and then to the merge. A story driven by hand gets a code review, but the developer agent does not commit. The human reviews and commits each change.
+Today the Factory follows two different procedures for a story. In [implementation-agent.md](../../../packages/factory/agents/implementation-agent.md), an orchestrated story goes from the developer agent's commit to the gate-check step and then to the merge. A story driven by hand gets a code review, but the developer agent does not commit. The human reviews and commits each change.
 
-The gates differ as well. In an orchestrated run, the implementation agent runs the gates, and `premerge-check` blocks the merge. By hand, an instruction from [core-artifact-ownership.md](core-artifact-ownership.md) says: "In manual mode, the developer agent runs the same gates before it hands the story back." An instruction leaves no trace. If the agent skips the gates, the human cannot see that from the branch. So a function with a CRAP score of 42 against a threshold of 30 can merge by hand, and the same function blocks the merge in an orchestrated run. This proposal replaces that instruction with the story workflow and the hooks of [Fast gates as pre-commit hooks](#fast-gates-as-pre-commit-hooks).
+The gates differ as well. In an orchestrated run, the implementation agent runs the gates, and `premerge-check` blocks the merge. By hand, an instruction from [core-artifact-ownership.md](../implemented/core-artifact-ownership.md) says: "In manual mode, the developer agent runs the same gates before it hands the story back." An instruction leaves no trace. If the agent skips the gates, the human cannot see that from the branch. So a function with a CRAP score of 42 against a threshold of 30 can merge by hand, and the same function blocks the merge in an orchestrated run. This proposal replaces that instruction with the story workflow and the hooks of [Fast gates as pre-commit hooks](#fast-gates-as-pre-commit-hooks).
 
 An orchestrated story gets no review until the end of the feature. A defect then reaches the merged code, and the next wave builds on it.
 
@@ -110,12 +110,12 @@ Every story goes through these steps on its own branch:
 1. Implement the story with TDD and commit.
 2. Run the code-review agent on the story's branch diff. Each finding becomes a file under `docs/findings/` with a `story` field, as [Findings name their story](#findings-name-their-story) describes.
 3. Fix each open finding, commit, and get a repeat review until no finding for the story is open.
-4. Run the gates of the [gate-check step](../../packages/factory/agents/implementation-agent.md#gate-check-step), fix what they report, and commit.
+4. Run the gates of the [gate-check step](../../../packages/factory/agents/implementation-agent.md#gate-check-step), fix what they report, and commit.
 5. Hand the branch over for the merge.
 
 The story is done when step 5 succeeds, not when the developer agent stops writing code.
 
-The gates are `dependency-check`, `test-design-verify` when the story has a Test Design or Prior Tests section, and the test guardrails that `docs/testing.yaml` enables, such as `crap-score` from [crap-gate-setup.md](crap-gate-setup.md). The story's `quality-gates` field can add a gate. The test-strategy agent owns the gates, their thresholds, and the mutation command.
+The gates are `dependency-check`, `test-design-verify` when the story has a Test Design or Prior Tests section, and the test guardrails that `docs/testing.yaml` enables, such as `crap-score` from [crap-gate-setup.md](../crap-gate-setup.md). The story's `quality-gates` field can add a gate. The test-strategy agent owns the gates, their thresholds, and the mutation command.
 
 ### Two ways to drive it
 
@@ -130,15 +130,15 @@ The gates are `dependency-check`, `test-design-verify` when the story has a Test
 | Merge                      | The implementation agent, through `dispatch merge-story`.                        | The human, after reviewing the branch.                              |
 | What stops a failing story | `premerge-check` refuses the merge.                                              | The human, who sees the output of `premerge-check` in the handback. |
 
-A human who drives by hand names the story branch. Either the human cuts it, or the implementation agent cuts it under that name. The implementation agent never chooses the name and never cuts a branch without one. The human checks the name in the handback, because the [git guardrail](#which-git-guardrail-checks-apply) cannot read the human's prompt. [branching-policy.md](../../packages/factory/rulebooks/conventions/branching-policy.md) states this rule in its own section.
+A human who drives by hand names the story branch. Either the human cuts it, or the implementation agent cuts it under that name. The implementation agent never chooses the name and never cuts a branch without one. The human checks the name in the handback, because the [git guardrail](#which-git-guardrail-checks-apply) cannot read the human's prompt. [branching-policy.md](../../../packages/factory/rulebooks/conventions/branching-policy.md) states this rule in its own section.
 
 The handback from the developer agent names the branch, its head commit, the findings and their resolution, and the output of `premerge-check`. The human can run `premerge-check` again before the merge.
 
 ### Findings name their story
 
-A finding file has a `story` field with the story ID, such as `story: ST-0350`. [finding-format.md](../../packages/factory/rulebooks/conventions/finding-format.md) defines the field. A review that runs outside a story leaves it empty.
+A finding file has a `story` field with the story ID, such as `story: ST-0350`. [finding-format.md](../../../packages/factory/rulebooks/conventions/finding-format.md) defines the field. A review that runs outside a story leaves it empty.
 
-The findings and the `done` status are committed on the story branch. Their IDs come from the central counter of [counter-ids.md](counter-ids.md), so a finding filed on a story branch cannot collide with one filed elsewhere.
+The findings and the `done` status are committed on the story branch. Their IDs come from the central counter of [counter-ids.md](../implemented/counter-ids.md), so a finding filed on a story branch cannot collide with one filed elsewhere.
 
 ### Fast gates as pre-commit hooks
 
@@ -154,15 +154,15 @@ The hooks run both ways, and the gate-check step runs the same gates again on th
 
 Every story passes one point, the merge, and `premerge-check` checks the branch head there. In an orchestrated run, `dispatch merge-story` runs it. The git guardrail then refuses a merge without a passing marker for the current head of the branch. By hand, the developer agent runs `premerge-check` as the last act before the handback. Besides the base, the size of the diff, and the scope, `premerge-check` checks three points:
 
-| Step                | What `premerge-check` checks at the branch head                                                                                                                                                                                              |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Code review ran     | A code-review report on the branch has `story` set to the story's ID, and its `branch_head` is an ancestor of the branch head. Both fields are defined in [report-format.md](../../packages/factory/rulebooks/conventions/report-format.md). |
-| Findings are closed | No file under `docs/findings/` has `story` set to the story's ID and `status: open`.                                                                                                                                                         |
-| Gates pass          | `premerge-check` runs the gates of [step 4](#the-story-workflow) on the branch head. It reads no stored result of these gates.                                                                                                               |
+| Step                | What `premerge-check` checks at the branch head                                                                                                                                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code review ran     | A code-review report on the branch has `story` set to the story's ID, and its `branch_head` is an ancestor of the branch head. Both fields are defined in [report-format.md](../../../packages/factory/rulebooks/conventions/report-format.md). |
+| Findings are closed | No file under `docs/findings/` has `story` set to the story's ID and `status: open`.                                                                                                                                                            |
+| Gates pass          | `premerge-check` runs the gates of [step 4](#the-story-workflow) on the branch head. It reads no stored result of these gates.                                                                                                                  |
 
 `premerge-check` runs in the checkout it is called from. In an orchestrated run, that is the checkout of the implementation agent, where the story branch is not checked out. So `premerge-check` reads the code-review report and the finding files from the branch head with git, not from the folder it runs in. It reruns the gates in the story's checkout: the story's worktree in an orchestrated run, and the primary checkout by hand.
 
-Each failed check names the story and the cause. `mutation-testing` keeps its stored result until [mutation-gate.md](mutation-gate.md) settles how it runs.
+Each failed check names the story and the cause. `mutation-testing` keeps its stored result until [mutation-gate.md](../mutation-gate.md) settles how it runs.
 
 `premerge-check` checks that a review ran and that its findings are closed. It cannot judge whether the review was good. Code that changes after the last review, such as a gate fix, is not reviewed again. A gate fix is usually small, and another review would cost a full agent run.
 
@@ -195,10 +195,10 @@ A dispatch runs while a `dispatch-ledger.yaml` exists under `.current-work/`. A 
 **Explicitly deferred (do NOT plan stories for these):**
 
 - **The rule that decides which findings must be fixed.** A separate proposal covers it for every review loop, with quantifiable measures such as a failure case and an expected cost.
-- **A limit on repeat reviews.** [review-loop-cap.md](review-loop-cap.md) owns it.
-- **The command that closes a whole dispatch.** It is tracked as [T-0014](../spec/work/todo.md) and concerns orchestrated runs.
+- **A limit on repeat reviews.** [review-loop-cap.md](../review-loop-cap.md) owns it.
+- **The command that closes a whole dispatch.** It is tracked as [T-0014](../../spec/work/todo.md) and concerns orchestrated runs.
 - **Gates for documents.** YAML and prose gates are a separate concern.
-- **Trusted gate results.** A receipt that lets a later step skip a gate is the subject of [gate-evidence.md](gate-evidence.md).
+- **Trusted gate results.** A receipt that lets a later step skip a gate is the subject of [gate-evidence.md](../gate-evidence.md).
 - **The code review at the end of a feature.** It stays as it is. It sees what a review per story cannot: how the stories fit together.
 
 ## Design Details

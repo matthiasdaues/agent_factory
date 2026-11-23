@@ -1,7 +1,7 @@
 # Gaps Report: counter-ids
 
 Generated: 2026-11-05
-Source: [counter-ids.md](../../proposals/counter-ids.md)
+Source: [counter-ids.md](../../proposals/implemented/counter-ids.md)
 
 This pass ran in full auto mode, without the stakeholder. Each point where the requirements agent would have asked the stakeholder is in [Choices made without the stakeholder](#choices-made-without-the-stakeholder), with its reason.
 

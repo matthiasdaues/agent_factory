@@ -20,7 +20,7 @@ branch.
 
 So the number must come from one place that every clone reaches, and that
 place must refuse a second claim of the same number. The accepted proposal
-[counter-ids.md](../proposals/counter-ids.md) weighed four sources against the
+[counter-ids.md](../proposals/implemented/counter-ids.md) weighed four sources against the
 scan:
 
 - **The counter service countapi.** Anyone who knows a key can set a counter

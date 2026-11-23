@@ -1,7 +1,7 @@
 # Gaps Report: test-design
 
 Generated: 2026-09-01
-Source: docs/proposals/test-design-skill.md
+Source: docs/proposals/implemented/test-design-skill.md
 
 ## Actor-Goal Matrix
 

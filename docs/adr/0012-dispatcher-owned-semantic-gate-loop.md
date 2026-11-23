@@ -58,7 +58,7 @@ Each fix iteration starts a fresh developer context. Gate output from a prior it
 ## Amended
 
 **Date**: 2026-08-28
-**Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/test-gate-presence-over-test-execution.md))
+**Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/implemented/test-gate-presence-over-test-execution.md))
 
 The dispatcher's three-gate quality sequence loses its second gate. `.agent-factory/factory/scripts/mutation-analysis` is deleted from the repository because it hardcodes mutmut with pytest internals and assumes the test runner is reachable on the host — the same boundary violation that motivated deleting `.agent-factory/factory/scripts/run-tests`.
 
@@ -77,7 +77,7 @@ Mutation testing is entirely the project's responsibility. If the project sets i
 ## Amended
 
 **Date**: 2026-09-01
-**Reason**: Configuration-driven gates and `test_design_verify` conditional gate ([proposal](../proposals/test-design-skill.md), ST-0189)
+**Reason**: Configuration-driven gates and `test_design_verify` conditional gate ([proposal](../proposals/implemented/test-design-skill.md), ST-0189)
 
 The dispatcher's gate list is no longer hardcoded. The dispatcher reads per-gate configuration from `docs/charter/testing.yaml`'s `gates` section. Each gate entry carries an `enabled` flag; gates where `enabled` is `false` are skipped. Gate-specific parameters (such as `crap_score.threshold`) are passed to the corresponding script at invocation time. ADR-0012 retains authority over gate execution ordering; `testing.yaml` provides per-gate configuration only.
 

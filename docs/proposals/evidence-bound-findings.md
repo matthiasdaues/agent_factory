@@ -72,7 +72,7 @@ The factory meets the uncertainty of agent work in three ways:
 
 Code review and the QA bug hunt are fences that agents run. Their findings block code like a failing gate, but nothing checks the judgment behind them, and nothing gauges the judges. This proposal puts a deterministic check in front of every blocking finding and gauges each judge on planted faults.
 
-[Finding Classification](finding-classification.md) made severity a fixed rule over recorded facts, so two reviewers who record the same facts agree. It does not ask whether the facts are true. Four gaps follow:
+[Finding Classification](implemented/finding-classification.md) made severity a fixed rule over recorded facts, so two reviewers who record the same facts agree. It does not ask whether the facts are true. Four gaps follow:
 
 - **The requirement is not named.** In the code class, `fails_purpose` means "behavior that the story or specification requires is missing or wrong" (`finding-classification.md`, Class: code). No field records which requirement. The reviewer's reading of the specification goes unchecked, and a misreading blocks the code like a real defect.
 - **A gap in the specification lands on the code.** When the specification leaves a choice open and the reviewer expects one answer, the finding is a code defect. The fix loop then makes the developer adopt the reviewer's reading. The gap in the specification stays.

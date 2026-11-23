@@ -6,7 +6,7 @@ status: open
 owner: agent-factory
 created: 2026-11-15
 updated: 2026-11-16
-supersedes: docs/proposals/story-workflow.md
+supersedes: docs/proposals/superseded/story-workflow.md
 
 impact:
   scope: cross_component
@@ -42,7 +42,7 @@ impact:
     - docs/adr/
     - docs/proposals/crap-gate-setup.md
     - docs/proposals/mutation-gate.md
-    - docs/proposals/counter-ids.md
+    - docs/proposals/implemented/counter-ids.md
 
 governance:
   assurance: elevated

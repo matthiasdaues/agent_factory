@@ -19,7 +19,7 @@ scope: git diff b411dc7d 5d31b0ba -- docs/spec, at commit 5d31b0bab45003623eb495
 - `docs/spec/work/core-artifact-ownership-gaps.md`, CAO-G32 and the Actor-Goal Matrix.
 - `docs/spec/work/core-artifact-ownership-qa-strategy.md`, the CAO-19 rows.
 - `docs/spec/scope-map.md`, the CAO-19 row.
-- `docs/proposals/core-artifact-ownership.md`, DEC-17, DEC-28, and DEC-35.
+- `docs/proposals/implemented/core-artifact-ownership.md`, DEC-17, DEC-28, and DEC-35.
 
 `spec-lint`: `0 error(s), 0 warning(s), 59 info across 29 spec file(s).` The installed copy is missing in this worktree, so the review ran `packages/factory/scripts/spec-lint`.
 

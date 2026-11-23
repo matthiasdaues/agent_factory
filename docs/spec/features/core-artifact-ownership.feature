@@ -16,7 +16,7 @@ Feature: Core artifact ownership
   is one concrete path that the entry's path pattern matches, such as
   docs/spec/entity-model.md or docs/spec/features/example.feature.
 
-  Proposal trace: docs/proposals/core-artifact-ownership.md
+  Proposal trace: docs/proposals/implemented/core-artifact-ownership.md
 
   Rule: Factory maintainer finds exactly one producer for every core and seam artifact
     # actor: Factory maintainer

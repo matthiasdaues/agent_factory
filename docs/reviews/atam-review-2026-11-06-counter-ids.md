@@ -26,7 +26,7 @@ No finding is critical or major, so planning may start. Next, the architecture a
 - `docs/spec/dependency-rules.dsl`, which the commit leaves unchanged.
 - ADR-0031 (one ref with leased pushes, Pugh matrix) and ADR-0032 (agents push the claim ref through `next-id`).
 - Sections 5.1, 5.5, 5.11, 6.15, 7.1, 8.18, chapter 9, QS-18, and the 10.2 row for QS-18.
-- Reference material: `docs/proposals/counter-ids.md` with its Decisions table, `docs/spec/features/counter-ids.feature`, BR-068 to BR-075 in `docs/spec/validation-rules.md`, the `next-id` contract in `docs/spec/interface-contracts.md`, the Claim Lifecycle in `docs/spec/state-machines.md`, the Counter IDs vocabulary in `docs/spec/glossary.md`, and `docs/spec/work/counter-ids-gaps.md`.
+- Reference material: `docs/proposals/implemented/counter-ids.md` with its Decisions table, `docs/spec/features/counter-ids.feature`, BR-068 to BR-075 in `docs/spec/validation-rules.md`, the `next-id` contract in `docs/spec/interface-contracts.md`, the Claim Lifecycle in `docs/spec/state-machines.md`, the Counter IDs vocabulary in `docs/spec/glossary.md`, and `docs/spec/work/counter-ids-gaps.md`.
 
 `.agent-factory/factory/scripts/arch-lint --docs-dir docs/arc42` found 0 errors, 1 warning, and 0 info, and exited 0. `.agent-factory/factory/scripts/structurizr validate` exited 0.
 

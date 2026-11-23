@@ -16,7 +16,7 @@ Generated from:
 ## Feature
 
 - Proposal trace:
-  [core-artifact-layout.md](../../proposals/core-artifact-layout.md)
+  [core-artifact-layout.md](../../proposals/implemented/core-artifact-layout.md)
 - Gherkin trace: [core-artifact-layout.feature](../features/core-artifact-layout.feature)
 - Summary: The highest risk is a migration that damages a project during a
   factory update. The tests check that `migrate-spec-layout` moves tracked files

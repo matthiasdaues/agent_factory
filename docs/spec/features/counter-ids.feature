@@ -25,7 +25,7 @@ Feature: Counter IDs
   scenarios, a local bare repository stands in for the remote, unless a
   scenario names GitHub.
 
-  Proposal trace: docs/proposals/counter-ids.md
+  Proposal trace: docs/proposals/implemented/counter-ids.md
 
   Rule: User seeds the counter once for a project
     # actor: User

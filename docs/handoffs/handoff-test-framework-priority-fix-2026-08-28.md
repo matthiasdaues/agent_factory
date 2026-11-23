@@ -15,7 +15,7 @@ Upstream: agent_factory/dev
 Upstream SHA: bc92ba14fbeb59281f4614f4bbb0582072ba3e40
 Ahead: 0
 Behind: 0
-Working tree: user-owned modifications to `docs/proposals/newcomer-onboarding-and-incremental-brownfield.md`, `docs/spec/supplementary_specs/entity-   model.md`, `docs/spec/validation-rules.md`, `docs/spec/work/todos.md`, and `docs/spec/traceability.json`; user-owned untracked files `docs/   spec/newcomer-onboarding-gaps.md`, `docs/spec/work/newcomer-onboarding-qa-strategy.md`, `docs/spec/features/newcomer-onboarding.feature`, and `docs/spec/scope-map.md`;
+Working tree: user-owned modifications to `docs/proposals/implemented/newcomer-onboarding-and-incremental-brownfield.md`, `docs/spec/supplementary_specs/entity-   model.md`, `docs/spec/validation-rules.md`, `docs/spec/work/todos.md`, and `docs/spec/traceability.json`; user-owned untracked files `docs/   spec/newcomer-onboarding-gaps.md`, `docs/spec/work/newcomer-onboarding-qa-strategy.md`, `docs/spec/features/newcomer-onboarding.feature`, and `docs/spec/scope-map.md`;
 this handoff is the only run-tests planning addition
 Retained work: sole worktree on `dev`; the listed specification changes are unrelated user work and must not be reverted, reformatted wholesale, staged, or
 committed with the run-tests change

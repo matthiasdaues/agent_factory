@@ -63,7 +63,7 @@ A gate checks the code and, on a pass, writes a file. A later step, such as the 
 | `.current-work/<gate>/<story-id>.json`                | `crap-score`, `dependency-check`, `test-design-verify`, `module-graph-check` | `premerge-check`                                                         | [premerge-check](../../packages/factory/scripts/premerge-check); [implementation-agent.md § Gate execution](../../packages/factory/agents/implementation-agent.md#gate-execution)                                                  |
 | `.current-work/<feature-branch>/dispatch-ledger.yaml` | the dispatcher agent                                                         | the next wave, the wave close, and the commit check in the git guardrail | [rules.md § Dispatch](../../packages/factory/rulebooks/rules.md#dispatch)                                                                                                                                                          |
 
-[story-workflow.md](story-workflow.md) first proposed one more receipt, a `story-gates` marker. That proposal now avoids the receipt provisionally: its `story-done-gate` hook reruns `story-gates` on the closing commit. It leaves the general question to this proposal (DEC-01). [agent-execution-isolation-and-distribution.md § Intended future boundary](agent-execution-isolation-and-distribution.md#intended-future-boundary) already states that an agent session cannot turn a repository-local marker into authority. It does not say what replaces the markers.
+[story-workflow.md](superseded/story-workflow.md) first proposed one more receipt, a `story-gates` marker. That proposal now avoids the receipt provisionally: its `story-done-gate` hook reruns `story-gates` on the closing commit. It leaves the general question to this proposal (DEC-01). [agent-execution-isolation-and-distribution.md § Intended future boundary](agent-execution-isolation-and-distribution.md#intended-future-boundary) already states that an agent session cannot turn a repository-local marker into authority. It does not say what replaces the markers.
 
 ## Design
 
@@ -101,9 +101,9 @@ Only the first two directions remove forgery. In both, the agent cannot produce 
 
 ## Decisions
 
-| ID     | Date       | Kind     | Decided by  | Decision                                                                                                              | Raised by                                                         |
-| ------ | ---------- | -------- | ----------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| DEC-01 | 2026-11-04 | decision | stakeholder | The receipt problem gets its own proposal; manual-mode-gates uses a provisional rerun until this proposal settles it. | [manual-mode-gates open item 1](story-workflow.md#open-questions) |
+| ID     | Date       | Kind     | Decided by  | Decision                                                                                                              | Raised by                                                                    |
+| ------ | ---------- | -------- | ----------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| DEC-01 | 2026-11-04 | decision | stakeholder | The receipt problem gets its own proposal; manual-mode-gates uses a provisional rerun until this proposal settles it. | [manual-mode-gates open item 1](superseded/story-workflow.md#open-questions) |
 
 ## Review findings
 

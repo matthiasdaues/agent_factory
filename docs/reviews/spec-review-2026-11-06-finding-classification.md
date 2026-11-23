@@ -6,7 +6,7 @@ status: defects
 reviewer: spec-review-agent
 findings_filed: 9
 story: finding-classification
-scope: The finding-classification specification at commit 26faacef12ce14c08ffc3c33442b0834c1f1a9b3 on dev, read against the accepted proposal docs/proposals/finding-classification.md (DEC-01 to DEC-54)
+scope: The finding-classification specification at commit 26faacef12ce14c08ffc3c33442b0834c1f1a9b3 on dev, read against the accepted proposal docs/proposals/implemented/finding-classification.md (DEC-01 to DEC-54)
 ---
 
 # Spec review of finding-classification, pass 1
@@ -28,7 +28,7 @@ The review applies the classification rules of the accepted proposal, as the bri
 - `docs/spec/interface-contracts.md`: § Finding Classification Contracts, § Child-result envelope, and the stop sentence of the `dispatch` contract.
 - `docs/spec/schemas/finding-basis.json`.
 - `docs/spec/work/term-candidates.md`.
-- `docs/proposals/finding-classification.md`, DEC-01 to DEC-54.
+- `docs/proposals/implemented/finding-classification.md`, DEC-01 to DEC-54.
 - For facts only: `docs/findings/BUG-0037.md`, the open finding files, and `docs/findings/register/`.
 
 `spec-lint`: `0 error(s), 0 warning(s), 58 info across 66 spec file(s).`
@@ -139,7 +139,7 @@ Pass 2 read the specification at commit `df5c5cc18da0dbd78c2bcd61ced2eb6d49d1e07
 - The finding-classification sections of the glossary, the entity model, the state machines, the validation rules (BR-079 to BR-095 and BR-109), and the interface contracts.
 - `docs/spec/schemas/finding-basis.json`, unchanged since pass 1.
 - `docs/spec/scope-map.md`, read only.
-- `docs/proposals/finding-classification.md`, DEC-55 to DEC-59 and the changed sections of § Design.
+- `docs/proposals/implemented/finding-classification.md`, DEC-55 to DEC-59 and the changed sections of § Design.
 
 `spec-lint`: `0 error(s), 0 warning(s), 58 info across 66 spec file(s).` The info lines are the four kinds that pass 1 dismissed, and none names BR-109 or a finding-classification file.
 

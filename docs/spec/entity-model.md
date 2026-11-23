@@ -297,7 +297,7 @@ erDiagram
 
 ### Notes
 
-- **GLOSSARY** has one table per section, and every table has the columns Term, Definition, and Avoid (DEC-12 of the proposal [core-artifact-layout.md](../proposals/core-artifact-layout.md#decisions)).
+- **GLOSSARY** has one table per section, and every table has the columns Term, Definition, and Avoid (DEC-12 of the proposal [core-artifact-layout.md](../proposals/implemented/core-artifact-layout.md#decisions)).
 - **GLOSSARY_SECTION** covers one bounded context or one topic (DEC-15). Which bounded contexts exist is a routing fact that `docs/agent-context.md` holds, not the glossary.
 - **GLOSSARY_SECTION.heading** comes from its source during the migration. A chapter 12 section keeps its heading. A table directly under the chapter 12 title becomes the section "Terms". The terms of a `CONTEXT.md` become a section named after that file's title. The terms of a per-context `CONTEXT.md` become that context's section.
 - **GLOSSARY_ROW.avoid** is empty for every row the migration takes from a two-column table. A row converted from the list form of `CONTEXT.md` takes its `_Avoid_:` entry.
@@ -618,7 +618,7 @@ erDiagram
 
 ## Value-First Onboarding Entities
 
-Proposal trace: [value-first-onboarding-journey.md](../proposals/value-first-onboarding-journey.md)
+Proposal trace: [value-first-onboarding-journey.md](../proposals/implemented/value-first-onboarding-journey.md)
 
 ```mermaid
 erDiagram

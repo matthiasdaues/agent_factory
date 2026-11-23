@@ -55,7 +55,7 @@ Links that work.
 
 - Proposal to proposal and proposal to ADR: full markdown links, required by `rulebooks/conventions/cross-reference-format.md`. About 25 proposals link to another proposal.
 - Finding to artifact: a frontmatter `artifact:` path with an anchor, and `traces:` listing IDs, for example `traces: [ADR-0026, DEC-06, DEC-17]` in `docs/findings/ATAM-0004.md`. Forty findings cite a proposal path.
-- Proposal body to Decisions table: the body cites "(DEC-07)" style IDs (template comment; `docs/proposals/core-artifact-ownership.md` lines 103-169). This is the closest the repo comes to claim-to-decision links.
+- Proposal body to Decisions table: the body cites "(DEC-07)" style IDs (template comment; `docs/proposals/implemented/core-artifact-ownership.md` lines 103-169). This is the closest the repo comes to claim-to-decision links.
 - Todo to source: a `- source:` line, mostly a link to a review report or a story ID (`docs/spec/work/todo.md`).
 - Proposal to proposal that replaced it: `supersedes:` frontmatter, set in 8 proposals.
 

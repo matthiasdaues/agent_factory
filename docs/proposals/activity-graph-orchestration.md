@@ -5,7 +5,7 @@ status: accepted
 owner: Matthias Daues
 created: 2026-09-16
 updated: 2026-09-17
-supersedes: docs/proposals/cycle-based-orchestration.md
+supersedes: docs/proposals/superseded/cycle-based-orchestration.md
 
 impact:
   scope: cross_component
@@ -22,7 +22,7 @@ impact:
     - packages/orchestrator
     - .agent-factory
     - .current-work
-    - docs/proposals/cycle-based-orchestration.md
+    - docs/proposals/superseded/cycle-based-orchestration.md
     - docs/
     - backlog/
     - .pre-commit-config.yaml

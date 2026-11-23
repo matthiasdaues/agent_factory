@@ -2,7 +2,7 @@
 """migrate-spec-layout — move a project's files into the core artifact layout.
 
 What: Moves the files of the path table in
-      docs/proposals/core-artifact-layout.md into the core artifact layout.
+      docs/proposals/implemented/core-artifact-layout.md into the core artifact layout.
       A tracked file moves with `git mv`, so git records a rename. An
       untracked or ignored file moves with a plain move. When
       docs/spec/<name>-qa-strategy.md and the same name in

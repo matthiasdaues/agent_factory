@@ -1,7 +1,7 @@
 # Gaps Report: core-artifact-layout
 
 Generated: 2026-11-02
-Source: [core-artifact-layout.md](../../proposals/core-artifact-layout.md)
+Source: [core-artifact-layout.md](../../proposals/implemented/core-artifact-layout.md)
 
 ## Actor-Goal Matrix
 

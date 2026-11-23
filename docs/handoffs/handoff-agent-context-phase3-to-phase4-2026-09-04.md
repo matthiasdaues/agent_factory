@@ -14,7 +14,7 @@ Phase 3 (planning) of the feature-addition playbook is complete. The planning-ag
 
 - `backlog/epics.md` -- 5 EPICs covering the full agent-context scope
 - `backlog/ST-0190.md` through `backlog/ST-0200.md` -- 11 stories, all `status: pending`
-- Proposal estimate reforecast at `docs/proposals/yaml-charter-lifecycle.md` (confidence raised from low to medium, basis updated to story-level decomposition)
+- Proposal estimate reforecast at `docs/proposals/implemented/yaml-charter-lifecycle.md` (confidence raised from low to medium, basis updated to story-level decomposition)
 
 All artifacts committed to `dev` at `a1b4f17`. `backlog-lint` reports 0 errors.
 
@@ -45,7 +45,7 @@ All artifacts committed to `dev` at `a1b4f17`. `backlog-lint` reports 0 errors.
 
 | Artifact                              | Path                                                                 |
 | ------------------------------------- | -------------------------------------------------------------------- |
-| Proposal (accepted)                   | `docs/proposals/yaml-charter-lifecycle.md`                           |
+| Proposal (accepted)                   | `docs/proposals/implemented/yaml-charter-lifecycle.md`               |
 | Gherkin spec                          | `docs/spec/features/agent-context.feature`                           |
 | Gaps report                           | `docs/spec/work/agent-context-gaps.md`                               |
 | QA strategy with contract-owner table | `docs/spec/work/agent-context-qa-strategy.md`                        |

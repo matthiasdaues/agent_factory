@@ -1203,7 +1203,7 @@ handles extended building-block views and filters diagram key files.
   probes, MoSCoW priorities, and a dependency order. ST-0240 and ST-0241
   are grilled and made concrete.
 - **Cycle-based orchestration proposal.** The new proposal at
-  `docs/proposals/cycle-based-orchestration.md` (status: open) has passed
+  `docs/proposals/superseded/cycle-based-orchestration.md` (status: open) has passed
   its first adversarial review.
 - **Scope map updated.** `docs/spec/scope-map.md` gains scope entries for
   local usage processing and analysis.
@@ -1297,7 +1297,7 @@ phase handoffs. All five are resolved, with regression tests.
 ### Documentation
 
 - **Deterministic Factory Engine proposal.** The draft proposal at
-  `docs/proposals/deterministic-factory-engine.md` moves flow-control
+  `docs/proposals/superseded/deterministic-factory-engine.md` moves flow-control
   logic into an engine package of its own. A consultative review produced
   four grilling findings (PROP-0021 through PROP-0024).
 - **Local Usage Processing and Analysis proposal accepted.**
@@ -1506,7 +1506,7 @@ deltas from existing code to specified capabilities.
 - **Writing rules.** The writing conventions add "international team
   English".
 - **Concern-oriented context proposal.** The full proposal at
-  `docs/proposals/factory-concern-oriented-agent-context.md` went through
+  `docs/proposals/implemented/factory-concern-oriented-agent-context.md` went through
   two review rounds, and all findings are resolved.
 
 ## 0.8.0 — 2026-09-08

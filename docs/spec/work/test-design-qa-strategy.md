@@ -10,7 +10,7 @@ Generated from:
 
 ## Feature
 
-- Proposal trace: `docs/proposals/test-design-skill.md`
+- Proposal trace: `docs/proposals/implemented/test-design-skill.md`
 - Gherkin trace: `docs/spec/features/test-design.feature`
 - Summary: The test-design feature introduces a planning-phase skill that assigns test ownership, classifies contracts by risk class, and writes prescribed failure scenarios before stories are cut. It also extends `testing.yaml` with `gates` and `risk_classes` schema sections, migrates the CRAP threshold, adds a `test-design-verify` gate script, and changes the developer-agent's RED phase to consume prescribed test-design output instead of inventing its own tests. The QA focus is on the ownership resolution algorithm, the risk-class precedence chain, the gate's trace-to-scenario resolution chain, and backward compatibility with stories that lack test-design output.
 - Rules in scope:

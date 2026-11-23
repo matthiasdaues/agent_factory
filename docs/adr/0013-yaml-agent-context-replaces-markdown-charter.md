@@ -9,7 +9,7 @@ evaluation: pugh-matrix
 > **Superseded.** The YAML agent-context format and its four index files were
 > replaced in 0.9.0 by concern-oriented agent context — a single markdown file
 > (`docs/agent-context.md`) with concern sections carrying `Read:` paths.
-> See the [concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
+> See the [concern-oriented agent context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md).
 
 ## Context
 

@@ -6,7 +6,7 @@ status: defects
 reviewer: spec-review-agent
 findings_filed: 20
 story: counter-ids
-scope: the counter-ids specification at commit 6cd2c11fb1f2b49a6265fa5b104cb307fc7b1f0a on dev, read against docs/proposals/counter-ids.md
+scope: the counter-ids specification at commit 6cd2c11fb1f2b49a6265fa5b104cb307fc7b1f0a on dev, read against docs/proposals/implemented/counter-ids.md
 ---
 
 # Spec review of counter-ids
@@ -24,7 +24,7 @@ The review ran in full auto mode, without the stakeholder, as the brief orders. 
 - the counter-ids rows of `docs/spec/work/term-candidates.md`
 - the counter-ids rows of `docs/spec/scope-map.md`, read only
 - `docs/spec/glossary.md`
-- `docs/proposals/counter-ids.md`, including the Decisions table DEC-01 to DEC-23
+- `docs/proposals/implemented/counter-ids.md`, including the Decisions table DEC-01 to DEC-23
 
 `spec-lint`: `0 error(s), 0 warning(s), 59 info across 53 spec file(s).`
 

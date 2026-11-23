@@ -12,7 +12,7 @@ Generated from:
 ## Feature
 
 - Proposal trace:
-  [value-first-onboarding-journey.md](../../proposals/value-first-onboarding-journey.md)
+  [value-first-onboarding-journey.md](../../proposals/implemented/value-first-onboarding-journey.md)
 - Gherkin trace:
   [value-first-onboarding-journey.feature](../features/value-first-onboarding-journey.feature)
 - Summary: Testing focuses on consent, integrity, rollback, read-only behavior,

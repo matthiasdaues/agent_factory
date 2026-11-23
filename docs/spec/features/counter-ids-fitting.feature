@@ -25,7 +25,7 @@ Feature: Counter IDs fitting
 
   In the scenarios, a local bare repository stands in for origin.
 
-  Proposal trace: docs/proposals/counter-ids-fitting.md
+  Proposal trace: docs/proposals/implemented/counter-ids-fitting.md
 
   Rule: User confirms the seed of the counter in a fitting step
     # actor: User

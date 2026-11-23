@@ -57,7 +57,7 @@ consume context without improving — or actively degrading — output quality?
 
 ## Motivation
 
-An [audit](../reviews/skill-agent-audit-2026-09-12.md) of the full collection
+An [audit](../../reviews/skill-agent-audit-2026-09-12.md) of the full collection
 (18 agents, 66 skills, 4 supplementary files, 1 story template) found that
 roughly a fifth of the total token budget is spent on three categories of
 waste:

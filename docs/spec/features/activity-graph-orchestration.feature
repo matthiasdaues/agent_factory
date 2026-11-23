@@ -532,10 +532,10 @@ Feature: Activity-graph orchestration
 
   Rule: Cycle-based orchestration proposal is superseded
     # actor: Factory maintainer
-    # @docs/proposals/cycle-based-orchestration.md
+    # @docs/proposals/superseded/cycle-based-orchestration.md
 
     Scenario: Superseded proposal carries status superseded
-      Given docs/proposals/cycle-based-orchestration.md exists
+      Given docs/proposals/superseded/cycle-based-orchestration.md exists
       When the activity-graph work completes
       Then the proposal frontmatter status is superseded
 

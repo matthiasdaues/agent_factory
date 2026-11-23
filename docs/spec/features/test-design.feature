@@ -7,7 +7,7 @@ Feature: Test Design Skill
   into backlog/epics.md. The developer-agent consumes this output as its
   prescribed RED phase instead of inventing its own tests.
 
-  Proposal trace: docs/proposals/test-design-skill.md
+  Proposal trace: docs/proposals/implemented/test-design-skill.md
 
   Rule: Planning Agent designs test scenarios from feature contracts
     # actor: Planning Agent

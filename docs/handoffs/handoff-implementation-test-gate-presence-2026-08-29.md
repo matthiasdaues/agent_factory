@@ -15,7 +15,7 @@ Upstream: agent_factory/dev
 Upstream SHA: bc92ba14fbeb59281f4614f4bbb0582072ba3e40
 Ahead: 16
 Behind: 0
-Working tree: modified `.agent-factory/factory/INDEX.yaml`, `.agent-factory/factory/config/AGENTS.md` (user-owned); untracked `backlog/ST-0147.md` through `backlog/ST-0158.md` (12 new story files, pending commit); untracked `docs/handoffs/handoff-merge-testing-initiatives-2026-08-28.md`, `docs/handoffs/handoff-test-framework-priority-fix-2026-08-28.md`, `docs/proposals/test-gate-presence-over-test-execution.md`
+Working tree: modified `.agent-factory/factory/INDEX.yaml`, `.agent-factory/factory/config/AGENTS.md` (user-owned); untracked `backlog/ST-0147.md` through `backlog/ST-0158.md` (12 new story files, pending commit); untracked `docs/handoffs/handoff-merge-testing-initiatives-2026-08-28.md`, `docs/handoffs/handoff-test-framework-priority-fix-2026-08-28.md`, `docs/proposals/implemented/test-gate-presence-over-test-execution.md`
 Retained work: worktree at `.current-work/worktrees/test-gate-presence-over-test-execution` on branch `test-gate-presence-over-test-execution` (HEAD ebf85c51543bc2b3fd497d4b5db0457390fbaf44, clean working tree); worktree at `.current-work/worktrees/feature/newcomer-onboarding-and-incremental-brownfield` (separate feature, do not touch)
 
 ## Decisions and open items
@@ -26,7 +26,7 @@ The feature merges two proposals:
 
 1. **Test Gate Presence over Test Execution** — Factory stops owning test execution. Deletes `.agent-factory/factory/scripts/run-tests` and `.agent-factory/factory/scripts/mutation-analysis`. Projects declare test commands in `docs/charter/testing.yaml`. Gates are exit-code-only. Proposal at `.current-work/worktrees/test-gate-presence-over-test-execution/docs/proposals/test-gate-presence-over-test-execution.md`.
 
-2. **Contract-Traced Testing Strategy** — superseded and folded into test-gate-presence. Wires qa-strategy-from-spec, kit-manager, developer-agent, and mutation-analysis skill into a closed loop where the charter is authority and the repo is ground truth. Proposal at `docs/proposals/contract-traced-testing-strategy.md` (status: superseded, committed on dev at b2a53cd).
+2. **Contract-Traced Testing Strategy** — superseded and folded into test-gate-presence. Wires qa-strategy-from-spec, kit-manager, developer-agent, and mutation-analysis skill into a closed loop where the charter is authority and the repo is ground truth. Proposal at `docs/proposals/superseded/contract-traced-testing-strategy.md` (status: superseded, committed on dev at b2a53cd).
 
 The specification work (feature file with 14 Rules and 49 Scenarios, gaps report, updates to UC-09, ADR-0003, ADR-0012, prd.md, UC-10, interface-contracts, validation-rules) is complete and committed on the feature branch at ebf85c5. Five proposal reviews resolved all 17 findings (PROP-01 through PROP-17).
 
@@ -81,7 +81,7 @@ Open items: the 12 new story files in `backlog/` are untracked — the incoming 
 - `.current-work/worktrees/test-gate-presence-over-test-execution/docs/proposals/test-gate-presence-over-test-execution.md`
 - `.current-work/worktrees/test-gate-presence-over-test-execution/docs/spec/test-gate-presence.feature`
 - `.current-work/worktrees/test-gate-presence-over-test-execution/docs/spec/test-gate-presence-gaps.md`
-- `docs/proposals/contract-traced-testing-strategy.md` (superseded)
+- `docs/proposals/superseded/contract-traced-testing-strategy.md` (superseded)
 - `backlog/ST-0147.md` through `backlog/ST-0158.md`
 - `docs/spec/use_cases/UC-09-run-tests-via-hook.md`
 - `docs/spec/work/prd.md`

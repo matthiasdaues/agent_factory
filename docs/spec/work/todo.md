@@ -54,7 +54,7 @@ The spec's `dispatch verify-story` uses `git cat-file -e` and `git branch --cont
 ## T-0006 — Harmonize the canonical ERD location across scenarios
 
 - status: resolved
-- source: discussion of [PROP-09](../../proposals/cycle-based-orchestration.md#review--2026-09-14) (proposal superseded)
+- source: discussion of [PROP-09](../../proposals/superseded/cycle-based-orchestration.md#review--2026-09-14) (proposal superseded)
 
 Multiple scenarios reference `docs/spec/entity-model.md` as a canonical
 artifact, while the [brownfield onboarding procedure](../../../.agent-factory/factory/playbooks/brownfield-onboarding.md#step-33--extract-entity-model)
@@ -102,7 +102,7 @@ A soundness check for the current pseudocode waits for this result.
 ## T-0008 — Merge `todo.md` and `todos.md`
 
 - status: open
-- source: [core-artifact-layout.md](../../proposals/core-artifact-layout.md) (DEC-09 there)
+- source: [core-artifact-layout.md](../../proposals/implemented/core-artifact-layout.md) (DEC-09 there)
 
 The factory keeps two todo lists with two ID schemes: `todo.md` (`T-0001`…)
 and `todos.md` (`T-01`…). Agents and skills refer to both names.
@@ -232,7 +232,7 @@ derived from `architecture.dsl` and the accepted proposals.
 ## T-0016 — No rule decides which review findings must be fixed
 
 - status: open
-- source: [review-scrapbook.md](../../../poc/workflow/review-scrapbook.md) BAD-04, and [story-workflow.md](../../proposals/story-workflow.md) DEC-06 (2026-11-03)
+- source: [review-scrapbook.md](../../../poc/workflow/review-scrapbook.md) BAD-04, and [story-workflow.md](../../proposals/superseded/story-workflow.md) DEC-06 (2026-11-03)
 
 Every review loop files each finding and loops back until none is open. No
 loop has a threshold below which a finding is recorded and left unfixed. So
@@ -240,7 +240,7 @@ late passes spend tokens on edge cases that an earlier fix created, and
 `story-gates` in manual mode blocks on every open finding.
 
 **Action:** two proposals answer this item.
-[finding-classification.md](../../proposals/finding-classification.md) defines
+[finding-classification.md](../../proposals/implemented/finding-classification.md) defines
 which finding blocks: a computed severity, a register for `minor` findings, and
 a human override. [review-loop-cap.md](../../proposals/review-loop-cap.md)
 applies that rule to every review loop and stops each loop after three passes.
@@ -249,7 +249,7 @@ Set this item to `resolved` when both proposals are `accepted`.
 ## T-0017 — The guardrail hook misses a push with git options before the subcommand
 
 - status: open
-- source: [counter-ids.md](../../proposals/counter-ids.md) PROP-09 and DEC-22 (2026-11-05)
+- source: [counter-ids.md](../../proposals/implemented/counter-ids.md) PROP-09 and DEC-22 (2026-11-05)
 - traces: `packages/factory/config/hooks/block-dangerous-git.sh`
 
 `block-dangerous-git.sh` matches the literal text `git push`. A command with a

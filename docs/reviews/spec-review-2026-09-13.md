@@ -17,7 +17,7 @@ The review compared the accepted [Local Usage Processing and Analysis proposal](
 - [state-machines.md](../spec/state-machines.md#usage-query-lifecycle)
 - [validation-rules.md](../spec/validation-rules.md#local-usage-processing-and-analysis)
 
-The review also compared the stakeholder-restored [agent-context.feature](../spec/features/agent-context.feature) with the implemented [Concern-Oriented Agent Context proposal](../proposals/factory-concern-oriented-agent-context.md) and the current [concern-lint interface contract](../spec/interface-contracts.md#agent-factoryfactoryscriptsconcern-lint).
+The review also compared the stakeholder-restored [agent-context.feature](../spec/features/agent-context.feature) with the implemented [Concern-Oriented Agent Context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md) and the current [concern-lint interface contract](../spec/interface-contracts.md#agent-factoryfactoryscriptsconcern-lint).
 
 `.agent-factory/factory/scripts/spec-lint --spec-dir docs/spec` reported 0 errors, 0 warnings, and 27 information findings across 18 files.
 
@@ -69,7 +69,7 @@ No Critical or Minor semantic finding was identified. The local-usage scope cont
 
 The local-usage feature maps all nine accepted actor goals to one Rule each. Its scope-map additions repeat those nine Rules with `specified` status, and the proposal's 20 completion criteria have corresponding behavioral or supplementary statements. No local-usage Rule is orphaned.
 
-Traceability is not clean overall. The restored [agent-context.feature](../spec/features/agent-context.feature) adds ten `specified` scope-map rows for behavior that the implemented [Concern-Oriented Agent Context proposal](../proposals/factory-concern-oriented-agent-context.md) superseded. Those rows are misleading rather than missing. The local-usage gaps report also states that no wording is ambiguous, but [SPEC-0016](../findings/SPEC-0016.md) and [SPEC-0017](../findings/SPEC-0017.md) identify unresolved accounting and query-contract ambiguity.
+Traceability is not clean overall. The restored [agent-context.feature](../spec/features/agent-context.feature) adds ten `specified` scope-map rows for behavior that the implemented [Concern-Oriented Agent Context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md) superseded. Those rows are misleading rather than missing. The local-usage gaps report also states that no wording is ambiguous, but [SPEC-0016](../findings/SPEC-0016.md) and [SPEC-0017](../findings/SPEC-0017.md) identify unresolved accounting and query-contract ambiguity.
 
 The deterministic BR cross-reference notices are pre-existing and informational. None of the local-usage additions introduces an undefined BR reference.
 

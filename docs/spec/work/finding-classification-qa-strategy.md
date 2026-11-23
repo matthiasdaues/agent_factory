@@ -4,7 +4,7 @@ Generated from:
 
 - Feature spec: [finding-classification.feature](../features/finding-classification.feature), 21 Rules and 150 Scenarios
 - Gaps report: [finding-classification-gaps.md](finding-classification-gaps.md)
-- Proposal: [finding-classification.md § Design](../../proposals/finding-classification.md#design), [§ Completion Criteria](../../proposals/finding-classification.md#completion-criteria), and the decisions DEC-49 to DEC-63
+- Proposal: [finding-classification.md § Design](../../proposals/implemented/finding-classification.md#design), [§ Completion Criteria](../../proposals/implemented/finding-classification.md#completion-criteria), and the decisions DEC-49 to DEC-63
 - Architecture decisions: [ADR-0034](../../adr/0034-one-register-file-per-minor-finding.md) (one register file per `minor` finding), [ADR-0035](../../adr/0035-guard-human-fields-in-every-cli.md) (the guard in every CLI), and [ADR-0036](../../adr/0036-typescript-tests-run-as-a-node-test-suite.md) (the `node:test` suite)
 - Entity model: [entity-model.md § Finding Classification Entities](../entity-model.md#finding-classification-entities)
 - Interface contracts: [interface-contracts.md § Finding Classification Contracts](../interface-contracts.md#finding-classification-contracts)
@@ -17,7 +17,7 @@ Generated from:
 
 ## Feature
 
-- Proposal trace: [finding-classification.md](../../proposals/finding-classification.md)
+- Proposal trace: [finding-classification.md](../../proposals/implemented/finding-classification.md)
 - Gherkin trace: [finding-classification.feature](../features/finding-classification.feature)
 - Summary: The highest risk is a stop that does not fire. A reviewer on a feature branch answers `in_use: false` for lines that are already on `dev`, the lint accepts it, and the run keeps merging, as with BUG-0037. So the git check of `in_use` carries this feature. It runs only on real git repositories with local and remote-tracking branches, tags, renames, moves, and an installed copy in the main checkout. The second risk is a stop that does not hold: one `dispatch` subcommand that still merges, a `premerge-check` that writes its marker anyway, or a stop that ends before both confirmation fields hold text. A change in the working tree must not end a stop either: a new status, a lower severity, or a removed file. So the scripts read each finding file in the working tree and at `HEAD`. Integration tests run both scripts against both versions and run the guardrail hook after a refused `premerge-check`. The third risk is a human field that an agent can write, because then a headless run confirms its own stop or lowers a filed finding out of the loop. `finding-lint` compares each filed finding with its `HEAD` version, so a lowering without the override fields fails. The guard runs in five CLIs, and each CLI passes its calls in its own format, so each format gets its own test. Pi and OpenCode block a call when the guard script is missing, so their entries get a test of that case too. The computation of the severity from the basis is pure logic, so contract tests own every table of the Scenario Outlines. The rulebook, the skills, the agents, and the playbooks are text, so linter tests read that text. Two parts are not tests: the one-time migration of the open findings and the agreement check. [One-time checks](#one-time-checks) describes how their stories show completion.
 - Rules in scope, with their scope identifiers from the [gaps report](finding-classification-gaps.md#actor-goal-matrix):

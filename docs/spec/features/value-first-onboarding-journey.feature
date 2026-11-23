@@ -6,7 +6,7 @@ Feature: Value-first onboarding journey
   project-specific insight, and completes one isolated task before advanced
   configuration. Every change requires explicit consent and remains reversible.
 
-  Proposal trace: docs/proposals/value-first-onboarding-journey.md
+  Proposal trace: docs/proposals/implemented/value-first-onboarding-journey.md
 
   Rule: Release maintainer publishes reproducible installation assets
     # actor: Release maintainer

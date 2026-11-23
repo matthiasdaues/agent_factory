@@ -17,7 +17,7 @@ has nowhere to go, and every claim fails. So the project cannot create a
 story, a finding, a todo entry, or an ADR until someone adds `origin`.
 
 The accepted proposal
-[counter-ids-fitting.md](../proposals/counter-ids-fitting.md) settles where
+[counter-ids-fitting.md](../proposals/implemented/counter-ids-fitting.md) settles where
 the counter lives without `origin`: in the project's own repository, not in a
 separate or a named repository (DEC-05). Every worktree of a repository shares
 its `.git`, and a local clone has the project's path as its `origin`. So one

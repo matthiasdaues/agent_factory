@@ -4,7 +4,7 @@ scope: global
 
 # EPICs — Counter IDs
 
-Proposal trace: [counter-ids.md](../docs/proposals/counter-ids.md)
+Proposal trace: [counter-ids.md](../docs/proposals/implemented/counter-ids.md)
 Specification trace: [counter-ids.feature](../docs/spec/features/counter-ids.feature), [gaps report](../docs/spec/work/counter-ids-gaps.md), [interface-contracts.md § Counter IDs Contracts](../docs/spec/interface-contracts.md#counter-ids-contracts), [validation-rules.md § Counter IDs](../docs/spec/validation-rules.md#counter-ids-next-id-br-068br-078), [state-machines.md § Claim Lifecycle](../docs/spec/state-machines.md#claim-lifecycle)
 Architecture trace: [ADR-0031](../docs/adr/0031-ids-come-from-one-git-ref-with-leased-pushes.md), [ADR-0032](../docs/adr/0032-agents-push-the-claim-ref-through-next-id.md), [arc42 § 5.11](../docs/arc42/05_building_block_view.md#511-level-2-component-view----id-allocation), [arc42 § 6.15](../docs/arc42/06_runtime_view.md#615-id-claim-with-a-stale-lease), [arc42 § 8.18](../docs/arc42/08_crosscutting_concepts.md#818-id-allocation), [QS-18 to QS-21](../docs/arc42/10_quality_requirements.md#qs-18-no-id-is-handed-out-twice)
 QA strategy trace: [counter-ids-qa-strategy.md](../docs/spec/work/counter-ids-qa-strategy.md)

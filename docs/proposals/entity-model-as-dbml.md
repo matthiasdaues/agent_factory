@@ -104,7 +104,7 @@ entity model still hold together after this commit?
 
 The first release covers the tooling and the factory's agents and playbooks.
 It builds on the layout of
-[core-artifact-layout.md](core-artifact-layout.md), which ships first. A pilot
+[core-artifact-layout.md](implemented/core-artifact-layout.md), which ships first. A pilot
 runs the tools on a pinned copy of Gigacron's full model.
 
 ## Motivation
@@ -318,7 +318,7 @@ The slices run in this order (DEC-02, DEC-19):
 **Explicitly deferred (do NOT plan stories for these):**
 
 - **The core artifact layout and its migration.** They belong to
-  [core-artifact-layout.md](core-artifact-layout.md), which ships first.
+  [core-artifact-layout.md](implemented/core-artifact-layout.md), which ships first.
 
 - **E10, CHECK expressions.** It needs an SQL expression parser. No
   permissively licensed one has been tested.

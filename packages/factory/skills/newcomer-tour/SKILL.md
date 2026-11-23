@@ -78,4 +78,4 @@ Show newcomers around the factory, and keep the tour short.
 ## References
 
 - [Factory Guide — Getting Started section](../../docs/factory-guide.md)
-- [Newcomer Tour Proposal](../../../../docs/proposals/newcomer-tour-as-portable-skill.md)
+- [Newcomer Tour Proposal](../../../../docs/proposals/implemented/newcomer-tour-as-portable-skill.md)

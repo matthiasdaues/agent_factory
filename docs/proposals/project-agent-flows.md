@@ -24,8 +24,8 @@ impact:
     - docs/proposals/activity-graph-orchestration.md
     - docs/proposals/factory-orchestration.md
     - docs/proposals/external-artifact-sync.md
-    - docs/proposals/counter-ids.md
-    - docs/proposals/finding-classification.md
+    - docs/proposals/implemented/counter-ids.md
+    - docs/proposals/implemented/finding-classification.md
     - docs/proposals/review-loop-cap.md
 
 governance:
@@ -300,7 +300,7 @@ platform machine, next to the platform credentials.
 `ST-0343`. The adapter stores the platform ID beside it, such as GitHub `#812`
 or Jira `FAC-812`. The Factory never uses a platform ID as a key. When the adapter
 creates an item, it gets the Factory ID from `next-id`, as the
-[Counter IDs proposal](counter-ids.md#the-script-next-id) defines. So every
+[Counter IDs proposal](implemented/counter-ids.md#the-script-next-id) defines. So every
 ticket adapter and every CLI session draw from the same counter (DEC-08). The platform
 machine has no clone, so the adapter passes the project's remote with
 `next-id --remote <url>`.
@@ -362,7 +362,7 @@ mapping file changes.
   the proposal is accepted, the ticket records the commit SHA of the design
   text.
 - **A finding** is a `finding` item with the fields of
-  [finding-classification.md](finding-classification.md). The register of
+  [finding-classification.md](implemented/finding-classification.md). The register of
   `minor` findings is a list of `finding` items (DEC-16).
 - **A review** is a `review` item that holds the passes table of
   [review-loop-cap.md](review-loop-cap.md) and the verdict. Quality scenarios

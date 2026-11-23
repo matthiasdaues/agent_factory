@@ -165,7 +165,7 @@ single markdown file (`docs/agent-context.md`) where agents discover project
 knowledge through concern sections carrying `Read:` paths. The four YAML index
 files and their format-detection chain no longer exist. `concern-lint` replaced
 `context-lint`, validating structure with `CTX-*` finding codes. See the
-[concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
+[concern-oriented agent context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md).
 
 ### Local Usage Analysis
 

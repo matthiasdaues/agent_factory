@@ -3,7 +3,7 @@ title: Consult Review — Deterministic Factory Engine Proposal
 date: 2026-09-11
 reviewer: proposal-review-agent
 reviewed_commit: ef844121a41212b9256183673c4f13e42266575c
-proposal: docs/proposals/deterministic-factory-engine.md
+proposal: docs/proposals/superseded/deterministic-factory-engine.md
 disposition: findings
 stance: consult (draft proposal)
 ---

@@ -1,7 +1,7 @@
 # Gaps Report: finding-classification
 
 Generated: 2026-11-06, updated 2026-11-07
-Source: [finding-classification.md](../../proposals/finding-classification.md)
+Source: [finding-classification.md](../../proposals/implemented/finding-classification.md)
 
 The requirements agent ran this pass as a child agent, without the stakeholder. Each point where it would have asked the stakeholder is a question in [Questions for the Stakeholder](#questions-for-the-stakeholder) or a choice in [Choices made without the stakeholder](#choices-made-without-the-stakeholder).
 

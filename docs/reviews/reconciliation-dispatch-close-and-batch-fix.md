@@ -2,7 +2,7 @@
 
 Branch: `impl/st-0212-st-0213-st-0215`
 Date: 2026-09-08
-Proposal: `docs/proposals/factory-dispatch-close-and-batch-fix.md`
+Proposal: `docs/proposals/implemented/factory-dispatch-close-and-batch-fix.md`
 
 ## Proposal Completion Criteria
 

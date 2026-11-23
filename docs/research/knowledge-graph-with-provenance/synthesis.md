@@ -120,7 +120,7 @@ links:
 decisions:
   - outcome: accepted
     by: stakeholder
-    evidence: docs/proposals/counter-ids.md#decisions (DEC-14)
+    evidence: docs/proposals/implemented/counter-ids.md#decisions (DEC-14)
     replaces: null
 ```
 

@@ -11,7 +11,7 @@ Generated from:
 
 ## Feature
 
-- Proposal trace: [core-artifact-ownership.md](../../proposals/core-artifact-ownership.md)
+- Proposal trace: [core-artifact-ownership.md](../../proposals/implemented/core-artifact-ownership.md)
 - Gherkin trace: [core-artifact-ownership.feature](../features/core-artifact-ownership.feature)
 - Summary: The highest risk is a core artifact that silently keeps a second writer or loses its review, because then the rule of one producer holds only on paper. So the producer and review contract test and the `index-lint` reviewer check carry the weight of this feature. Both read declarations, so they belong to contract tests on fixture catalogs and to one linter check on the factory's real `INDEX.yaml`. The second risk is a wave that closes with an unhandled drift row, or never closes because a row cannot reach `confirmed`. `dispatch close-wave` therefore gets integration tests on temporary ledgers and reports. Most other Rules change agent and skill text. A linter test checks that the text states the rule; it cannot check that an agent follows it. The first real run of each new agent checks the behaviour.
 - Rules in scope, with their scope identifiers:

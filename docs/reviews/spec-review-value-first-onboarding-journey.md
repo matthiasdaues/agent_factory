@@ -20,7 +20,7 @@ Artifacts read:
 - [scope-map.md](../spec/scope-map.md) -- traceability rows for all 9 Rules
 - [interface-contracts.md](../spec/interface-contracts.md) -- Value-First Onboarding Contracts section
 - [entity-model.md](../spec/entity-model.md) -- Value-First Onboarding Entities section
-- [value-first-onboarding-journey.md](../proposals/value-first-onboarding-journey.md) -- accepted proposal (design origin)
+- [value-first-onboarding-journey.md](../proposals/implemented/value-first-onboarding-journey.md) -- accepted proposal (design origin)
 
 `spec-lint` summary: 0 error(s), 0 warning(s), 24 info across 24 spec file(s).
 

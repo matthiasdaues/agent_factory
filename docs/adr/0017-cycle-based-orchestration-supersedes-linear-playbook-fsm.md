@@ -10,7 +10,7 @@ evaluation: pugh-matrix
 
 Factory Flow Control routes delivery work through ordered phases using a finite state machine (FSM). Each playbook defines a linear sequence of states with entry conditions, halt conditions, and `phase advance`/`phase retry` commands. `transition-lint` blocks staged files outside the current phase's output globs. The FSM enforces the declared order mechanically.
 
-This model has three structural limitations that the accepted [cycle-based orchestration proposal](../proposals/cycle-based-orchestration.md) addresses:
+This model has three structural limitations that the accepted [cycle-based orchestration proposal](../proposals/superseded/cycle-based-orchestration.md) addresses:
 
 1. **No non-linear routing.** A feature that needs only implementation and not architecture must still traverse every intermediate phase. Skipping, repeating, or branching requires a different playbook definition, not a runtime decision.
 2. **Single workstream per checkout.** The playbook state marker (`.current-work/playbook-state.yml`) is a singleton. Two features cannot be in different phases simultaneously.

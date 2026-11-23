@@ -81,9 +81,9 @@ duplicated or embedded in executable files, so new callers must reuse command
 implementation details.
 
 The current test seam can select the wrong source. The shared fixture in
-[`tests/conftest.py`](../../tests/conftest.py) loads scripts from the ignored,
+[`tests/conftest.py`](../../../tests/conftest.py) loads scripts from the ignored,
 installed `.agent-factory/factory/scripts/` tree rather than tracked
-[`packages/factory/scripts/`](../../packages/factory/scripts). At review time,
+[`packages/factory/scripts/`](../../../packages/factory/scripts). At review time,
 these installed files differed from tracked source:
 
 - `backlog-lint`
@@ -134,7 +134,7 @@ The first implementation file is
 shared helper and asserts that the resolved module file is exactly
 `REPO_ROOT / "packages" / "factory" / "scripts" / "phase"`.
 
-Make that test pass by changing [`tests/conftest.py`](../../tests/conftest.py):
+Make that test pass by changing [`tests/conftest.py`](../../../tests/conftest.py):
 
 ```python
 TRACKED_FACTORY_ROOT = REPO_ROOT / "packages" / "factory"
@@ -153,7 +153,7 @@ uv run pytest --tb=short --quiet tests/factory
 ```
 
 The repository completion command remains the project-declared command from
-[`docs/testing.yaml`](../testing.yaml):
+[`docs/testing.yaml`](../../testing.yaml):
 
 ```text
 uv run pytest --tb=short --quiet
@@ -277,7 +277,7 @@ The extraction supports exactly the syntax both scripts implement today:
 The canonical domain keys and lifecycle remain documented by
 `greenfield-development.fsm.yml`
 and
-[`state-machines.md`](../spec/state-machines.md). Tests feed
+[`state-machines.md`](../../spec/state-machines.md). Tests feed
 the same fixtures through both old adapter contracts and the extracted codec
 before duplicate parsers are deleted.
 
@@ -343,7 +343,7 @@ first root token and cannot distinguish sibling paths below `packages`.
 ### 8. Preserve Factory ownership while enabling automation
 
 The extraction preserves
-[`ADR-0002`](../adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md#decision).
+[`ADR-0002`](../../adr/0002-factory-owns-flow-control-orchestrator-is-a-trigger.md#decision).
 The marker, FSM, and deterministic gates remain the authority. A human, the
 `run-step` skill, or an orchestrator is a peer trigger of the same model.
 
@@ -397,18 +397,18 @@ The dead-command findings are a standalone cleanup concern, not a dependency
 or completion condition of this proposal. File a separate cleanup story
 covering these exact active sources:
 
-- [`feature-addition.md`](../../packages/factory/playbooks/feature-addition.md),
-  [`greenfield-development.md`](../../packages/factory/playbooks/greenfield-development.md),
+- [`feature-addition.md`](../../../packages/factory/playbooks/feature-addition.md),
+  [`greenfield-development.md`](../../../packages/factory/playbooks/greenfield-development.md),
   and
-  [`brownfield-onboarding.md`](../../packages/factory/playbooks/brownfield-onboarding.md)
+  [`brownfield-onboarding.md`](../../../packages/factory/playbooks/brownfield-onboarding.md)
   call the deleted `.agent-factory/factory/scripts/charter-lint`;
-- [`interface-contracts.md`](../spec/interface-contracts.md)
+- [`interface-contracts.md`](../../spec/interface-contracts.md)
   still publishes the deleted `charter-lint` command;
-- [`scope-map.md`](../spec/scope-map.md) assigns a feature to the deleted
+- [`scope-map.md`](../../spec/scope-map.md) assigns a feature to the deleted
   `.agent-factory/factory/scripts/run-tests` command;
-- [`factory-guide.md`](../../packages/factory/docs/factory-guide.md) advertises
+- [`factory-guide.md`](../../../packages/factory/docs/factory-guide.md) advertises
   the nonexistent `.agent-factory/factory/scripts/mutation-testing` command; and
-- [`STRUCTURIZR.md`](../../packages/factory/skills/scaffold-arc42/STRUCTURIZR.md)
+- [`STRUCTURIZR.md`](../../../packages/factory/skills/scaffold-arc42/STRUCTURIZR.md)
   advertises the unsupported `.agent-factory/factory/scripts/structurizr export-png` command.
 
 The cleanup must preserve historical proposals, ADR amendments, findings, and
@@ -555,12 +555,12 @@ Stance: consultative (draft)
 
 ### Filed Findings
 
-| ID                                    | Severity | Area      | Summary                                                       |
-| ------------------------------------- | -------- | --------- | ------------------------------------------------------------- |
-| [PROP-0021](../findings/PROP-0021.md) | major    | estimate  | Decomposition basis with all-unknown ranges is contradictory  |
-| [PROP-0022](../findings/PROP-0022.md) | major    | Design §2 | 23 existing in-process tests have no specified migration path |
-| [PROP-0023](../findings/PROP-0023.md) | major    | Design §3 | `assess_staged_paths` FlowResult semantics undefined          |
-| [PROP-0024](../findings/PROP-0024.md) | major    | Design §3 | `StateMachine` model omits per-state `outputs` globs          |
+| ID                                       | Severity | Area      | Summary                                                       |
+| ---------------------------------------- | -------- | --------- | ------------------------------------------------------------- |
+| [PROP-0021](../../findings/PROP-0021.md) | major    | estimate  | Decomposition basis with all-unknown ranges is contradictory  |
+| [PROP-0022](../../findings/PROP-0022.md) | major    | Design §2 | 23 existing in-process tests have no specified migration path |
+| [PROP-0023](../../findings/PROP-0023.md) | major    | Design §3 | `assess_staged_paths` FlowResult semantics undefined          |
+| [PROP-0024](../../findings/PROP-0024.md) | major    | Design §3 | `StateMachine` model omits per-state `outputs` globs          |
 
 ### Observations
 
@@ -574,4 +574,4 @@ Stance: consultative (draft)
 
 ### Summary
 
-The proposal is thorough and well-structured for a draft. Motivation is grounded, scope boundaries are sharp, ADR-0002 alignment holds, and the extraction order with entry conditions prevents premature scope creep. Four gaps need closing before this is ready for `open`: the estimate contradiction, the existing test migration path, the `check_staged` FlowResult semantics, and the missing `outputs` field in the StateMachine model. Full review at [`docs/reviews/proposal-review-2026-09-11-deterministic-factory-engine.md`](../reviews/proposal-review-2026-09-11-deterministic-factory-engine.md).
+The proposal is thorough and well-structured for a draft. Motivation is grounded, scope boundaries are sharp, ADR-0002 alignment holds, and the extraction order with entry conditions prevents premature scope creep. Four gaps need closing before this is ready for `open`: the estimate contradiction, the existing test migration path, the `check_staged` FlowResult semantics, and the missing `outputs` field in the StateMachine model. Full review at [`docs/reviews/proposal-review-2026-09-11-deterministic-factory-engine.md`](../../reviews/proposal-review-2026-09-11-deterministic-factory-engine.md).

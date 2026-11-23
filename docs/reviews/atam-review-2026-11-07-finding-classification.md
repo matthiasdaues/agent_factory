@@ -18,7 +18,7 @@ The register file per finding keeps QS-26 without a merge driver. The stop check
 
 One `minor` risk went to `docs/findings/register/architecture.jsonl` (ATAM-0020). The notes below are four sensitivity points, three non-risks, four tradeoff points, and five notes on the documents. Next, the architecture agent fixes ATAM-0018 and ATAM-0019, and the stakeholder confirms the consent class of `finding-lint` that ATAM-0019 asks for.
 
-Every finding uses the architecture class of the accepted proposal `docs/proposals/finding-classification.md`, as the brief requires. Priority 1 in section 10.2 gives importance `high`, and priority 2 gives `medium`.
+Every finding uses the architecture class of the accepted proposal `docs/proposals/implemented/finding-classification.md`, as the brief requires. Priority 1 in section 10.2 gives importance `high`, and priority 2 gives `medium`.
 
 ## Reviewed architecture
 

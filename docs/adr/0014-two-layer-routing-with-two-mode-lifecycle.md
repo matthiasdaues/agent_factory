@@ -9,11 +9,11 @@ evaluation: none
 > **Superseded.** The two-layer routing and two-mode lifecycle were replaced
 > in 0.9.0 by concern-oriented agent context — a single markdown file
 > (`docs/agent-context.md`). The four YAML index files no longer exist.
-> See the [concern-oriented agent context proposal](../proposals/factory-concern-oriented-agent-context.md).
+> See the [concern-oriented agent context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md).
 
 ## Context
 
-The accepted proposal for agent context ([yaml-charter-lifecycle.md](../proposals/yaml-charter-lifecycle.md)) introduced two structural mechanisms on top of the YAML format decision ([ADR-0013](0013-yaml-agent-context-replaces-markdown-charter.md)):
+The accepted proposal for agent context ([yaml-charter-lifecycle.md](../proposals/implemented/yaml-charter-lifecycle.md)) introduced two structural mechanisms on top of the YAML format decision ([ADR-0013](0013-yaml-agent-context-replaces-markdown-charter.md)):
 
 1. **Two routing layers.** The initial design (September 2, 2026) used a single layer of index files keyed by decision domain (stack, workflow, governance). A separate `agent-context.md` file routed by work type (backend, frontend, testing). Maintaining two independent routing tables over one document tree created two places to drift. The revision unified them: Layer 1 (`reading-guides.yaml`) routes by work-type concern to sections in Layer 2 index files. Sources are maintained in exactly one place (the index files). The reading guide references index sections, never source documents directly.
 

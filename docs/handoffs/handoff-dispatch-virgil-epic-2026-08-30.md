@@ -12,7 +12,7 @@ Dispatch 13 stories (ST-0169 through ST-0181) comprising the VIRGIL Unified Sess
 
 ## Proposal
 
-`docs/proposals/newcomer-tour-as-portable-skill.md` — full design rationale and scope.
+`docs/proposals/implemented/newcomer-tour-as-portable-skill.md` — full design rationale and scope.
 
 ## Backlog files
 

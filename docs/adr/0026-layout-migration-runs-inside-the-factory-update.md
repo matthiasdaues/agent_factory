@@ -22,7 +22,7 @@ delegate: after it applies the staged tree, it runs the new version's
 `init-factory`, and it rolls back the factory tree when `init-factory` exits
 non-zero. The layout migration builds on this step.
 
-The accepted proposal [core-artifact-layout.md](../proposals/core-artifact-layout.md)
+The accepted proposal [core-artifact-layout.md](../proposals/implemented/core-artifact-layout.md)
 settles the options. The rejected options are:
 
 - **A separate confirmation for the move.** The developer would approve the

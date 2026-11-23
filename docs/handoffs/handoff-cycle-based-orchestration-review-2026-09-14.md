@@ -6,7 +6,7 @@
 
 ## Current State
 
-The proposal at `docs/proposals/cycle-based-orchestration.md` has passed
+The proposal at `docs/proposals/superseded/cycle-based-orchestration.md` has passed
 adversarial review. Disposition: **clean**. All eight checks pass. All twelve
 findings (PROP-01 through PROP-12) are resolved.
 
@@ -40,8 +40,8 @@ Per the proposal-review-agent handoff rules:
 
 ## Key Artifacts
 
-- **Proposal:** `docs/proposals/cycle-based-orchestration.md`
-- **Superseded proposal:** `docs/proposals/deterministic-factory-engine.md`
+- **Proposal:** `docs/proposals/superseded/cycle-based-orchestration.md`
+- **Superseded proposal:** `docs/proposals/superseded/deterministic-factory-engine.md`
 - **UX review (timing driver):** `docs/reviews/ux-review-2026-09-09-new-user-journey.md`
 - **Proposal template:** `.agent-factory/factory/rulebooks/templates/proposal.md`
 - **Boundary list:** 22 paths under `packages/factory`, `packages/usage`,

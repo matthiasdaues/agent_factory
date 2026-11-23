@@ -89,7 +89,7 @@ server-side protected-branch or required-CI gate, which is outside this ADR.
 ## Amended
 
 **Date**: 2026-08-28
-**Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/test-gate-presence-over-test-execution.md))
+**Reason**: Test Gate Presence over Test Execution ([proposal](../proposals/implemented/test-gate-presence-over-test-execution.md))
 
 Factory stops owning test execution entirely. The `.agent-factory/factory/scripts/run-tests` script is deleted from the repository, along with `.agent-factory/factory/scripts/mutation-analysis`. The boundary violation that motivated this change: `run-tests` detects framework markers and constructs host-side test commands, breaking projects with their own test topology (the reproducing case is a project whose tests require a Compose environment with proxied database connections).
 

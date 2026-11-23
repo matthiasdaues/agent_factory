@@ -6,7 +6,7 @@ directed graph. Artifact state drives transition recommendations. Humans
 drive routing decisions. The system recommends what comes next. The human
 selects a cycle or delegates that choice.
 
-Proposal trace: docs/proposals/cycle-based-orchestration.md
+Proposal trace: docs/proposals/superseded/cycle-based-orchestration.md
 
 Rule: Human operator starts a new workstream
 \# actor: Human operator

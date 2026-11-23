@@ -145,7 +145,7 @@ path, and the `grilling` and `domain-modeling` skills name the other. Two
 files route agents: `agent-context.md` and `CONTEXT-MAP.md`. The factory
 keeps two todo lists, `todo.md` and `todos.md`, with two ID schemes.
 
-The proposal [entity-model-as-dbml.md](entity-model-as-dbml.md) needs one
+The proposal [entity-model-as-dbml.md](../entity-model-as-dbml.md) needs one
 fixed path for its DBML file in every project (todo T-0006). It builds on
 this layout, which ships first (DEC-01).
 
@@ -400,7 +400,7 @@ downgrade to a warning. `capture-context` gains the mode `--fold-context-map`
 **Explicitly deferred (do NOT plan stories for these):**
 
 - **DBML and its gates.** They belong to
-  [entity-model-as-dbml.md](entity-model-as-dbml.md), which builds on this
+  [entity-model-as-dbml.md](../entity-model-as-dbml.md), which builds on this
   layout.
 - **A blocking gate for `glossary.md`.** `GLOSS001` stays an `info` finding;
   no blocking check for a glossary has been designed.

@@ -67,7 +67,7 @@ The reconciliation-agent should:
 - Update `docs/spec/features/agent-context.feature` to reflect the concern model
 - Update `docs/spec/work/agent-context-qa-strategy.md` for the concern model
 - Verify `docs/agent-context.md` is consistent with all agent definitions
-- Check that the proposal (`docs/proposals/factory-concern-oriented-agent-context.md`) reflects the implementation
+- Check that the proposal (`docs/proposals/implemented/factory-concern-oriented-agent-context.md`) reflects the implementation
 
 ## Suggested Skills
 

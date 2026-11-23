@@ -4,7 +4,7 @@ scope: global
 
 # EPICs — Counter IDs Fitting
 
-Proposal trace: [counter-ids-fitting.md](../docs/proposals/counter-ids-fitting.md)
+Proposal trace: [counter-ids-fitting.md](../docs/proposals/implemented/counter-ids-fitting.md)
 Specification trace: [counter-ids-fitting.feature](../docs/spec/features/counter-ids-fitting.feature), [gaps report](../docs/spec/work/counter-ids-fitting-gaps.md), [interface-contracts.md § Counter IDs Contracts](../docs/spec/interface-contracts.md#counter-ids-contracts), [validation-rules.md § Counter IDs fitting](../docs/spec/validation-rules.md#counter-ids-fitting-br-096br-108), [state-machines.md § Move Lifecycle](../docs/spec/state-machines.md#move-lifecycle), [entity-model.md § Counter IDs Fitting Entities](../docs/spec/entity-model.md#counter-ids-fitting-entities)
 Architecture trace: [ADR-0033](../docs/adr/0033-the-projects-own-repository-holds-the-counter-until-origin-exists.md), [arc42 § 5.11](../docs/arc42/05_building_block_view.md#511-level-2-component-view----id-allocation), [arc42 § 6.16](../docs/arc42/06_runtime_view.md#616-move-of-a-local-counter-to-origin), [arc42 § 8.18](../docs/arc42/08_crosscutting_concepts.md#818-id-allocation), [QS-22](../docs/arc42/10_quality_requirements.md#qs-22-a-move-hands-out-no-id-twice), [QS-23](../docs/arc42/10_quality_requirements.md#qs-23-a-second-counter-on-origin-shows-at-the-move)
 QA strategy trace: [counter-ids-fitting-qa-strategy.md](../docs/spec/work/counter-ids-fitting-qa-strategy.md)
@@ -373,7 +373,7 @@ None. E3 changes only Factory text and its text tests.
 
 - New convention: `packages/factory/rulebooks/conventions/id-prefixes.md`
 - Rulebooks: `packages/factory/rulebooks/rules.md`, `rulebooks/conventions/branching-policy.md`, `rulebooks/conventions/finding-format.md`, `rulebooks/conventions/todo-format.md`
-- ID producers: the files of the proposal's [§ Each requestor names its prefix](../docs/proposals/counter-ids-fitting.md#each-requestor-names-its-prefix) and every file that points to `todo-format.md` at a step that adds an entry
+- ID producers: the files of the proposal's [§ Each requestor names its prefix](../docs/proposals/implemented/counter-ids-fitting.md#each-requestor-names-its-prefix) and every file that points to `todo-format.md` at a step that adds an entry
 - Contract: [interface-contracts.md § `id-prefixes.md` table](../docs/spec/interface-contracts.md#id-prefixesmd-table)
 - Rules: BR-107, BR-108
 - Catalog: `packages/factory/INDEX.yaml`

@@ -6,14 +6,14 @@ status: defects
 reviewer: spec-review-agent
 findings_filed: 12
 story: counter-ids-fitting
-scope: The counter-ids-fitting specification at commit 38eba9ce28d006a1bf87b53d427757699c574ee9 on dev, read against the accepted proposal docs/proposals/counter-ids-fitting.md (DEC-01 to DEC-13)
+scope: The counter-ids-fitting specification at commit 38eba9ce28d006a1bf87b53d427757699c574ee9 on dev, read against the accepted proposal docs/proposals/implemented/counter-ids-fitting.md (DEC-01 to DEC-13)
 ---
 
 # Spec review of counter-ids-fitting, pass 1
 
 The specification of counter-ids-fitting is complete in its Rules and follows the proposal closely. Two major findings block the next step. Ten minor findings go to the register, and seven notes stay in this report.
 
-The review applies the accepted proposal [finding-classification.md](../proposals/finding-classification.md) already, as the stakeholder decided. So a `major` finding is a file in `docs/findings/`, a `minor` finding is a line in `docs/findings/register/document.jsonl`, and a note stays here. The stakeholder was not present. The review filed the findings without the pause point, and the stakeholder sees them before any fix.
+The review applies the accepted proposal [finding-classification.md](../proposals/implemented/finding-classification.md) already, as the stakeholder decided. So a `major` finding is a file in `docs/findings/`, a `minor` finding is a line in `docs/findings/register/document.jsonl`, and a note stays here. The stakeholder was not present. The review filed the findings without the pause point, and the stakeholder sees them before any fix.
 
 ## Reviewed specification
 
@@ -27,7 +27,7 @@ The review applies the accepted proposal [finding-classification.md](../proposal
 - `docs/spec/state-machines.md`: Claim Lifecycle and Move Lifecycle.
 - `docs/spec/glossary.md` § Counter IDs Vocabulary: the six confirmed terms.
 - `docs/spec/work/counter-ids-fitting-qa-strategy.md`.
-- `docs/proposals/counter-ids-fitting.md`, DEC-01 to DEC-13.
+- `docs/proposals/implemented/counter-ids-fitting.md`, DEC-01 to DEC-13.
 - The code that the contracts must fit: `packages/factory/scripts/next-id`, `packages/factory/scripts/init-factory` (`_derive_fitting_keys`, `_fitting_status`, `_reconcile_project_context`, `check_counter`), `packages/factory/agents/virgil.md` § Fitting, and the tests `tests/factory/test_counter_ids_text.py` and `tests/factory/test_next_id.py`.
 
 `spec-lint`: `0 error(s), 0 warning(s), 58 info across 60 spec file(s).`

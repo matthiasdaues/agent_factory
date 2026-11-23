@@ -32,7 +32,7 @@ Open items: [SPEC-0015](../findings/SPEC-0015.md), [SPEC-0016](../findings/SPEC-
 - docs/findings/SPEC-0017.md
 - docs/findings/SPEC-0018.md
 - docs/findings/SPEC-0019.md
-- docs/proposals/factory-concern-oriented-agent-context.md
+- docs/proposals/implemented/factory-concern-oriented-agent-context.md
 - docs/proposals/usage-processing-and-storage.md
 - docs/spec/features/agent-context.feature
 - docs/spec/features/local-usage-processing-and-analysis.feature

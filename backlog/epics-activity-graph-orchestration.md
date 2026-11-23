@@ -468,7 +468,7 @@ Factory-delivered content is spread across three top-level directories (`factory
 4. Inspect `.current-work/`: worktrees, dispatch ledgers, and verification markers are unchanged.
 5. Verify that `packages/orchestrator/` does not exist. Search documentation and backlog — no file references the orchestrator package.
 6. Run characterization tests: every standard check retains its command name, triggers, result format, and exit behavior. `verify-base` and `premerge-check` retain their contracts. Every indexed agent and skill name from the acceptance commit still exists.
-7. Inspect `docs/proposals/cycle-based-orchestration.md`: frontmatter `status` is `superseded`.
+7. Inspect `docs/proposals/superseded/cycle-based-orchestration.md`: frontmatter `status` is `superseded`.
 
 ### Scope
 
@@ -481,7 +481,7 @@ Factory-delivered content is spread across three top-level directories (`factory
 - Keep `.current-work/` unchanged for worktrees, dispatch ledgers, and verification markers
 - Delete `packages/orchestrator/` directory; remove all references from documentation, backlog, and CI configuration
 - Migrate still-needed tests from `packages/orchestrator/` to `packages/factory/engine/` or the appropriate package
-- Set `status: superseded` on `docs/proposals/cycle-based-orchestration.md` frontmatter
+- Set `status: superseded` on `docs/proposals/superseded/cycle-based-orchestration.md` frontmatter
 - Write characterization tests verifying: standard check command contracts, branch safety command contracts, and indexed agent/skill name preservation
 
 **Out:**
@@ -502,7 +502,7 @@ None. This EPIC can proceed in parallel with EPICs 1-5. Path references in agent
 - All skills in `packages/factory/skills/*/SKILL.md` (path reference updates)
 - Config: `.gitignore` (update ignore patterns)
 - Package: `packages/orchestrator/` (delete)
-- Proposal: `docs/proposals/cycle-based-orchestration.md` (status change)
+- Proposal: `docs/proposals/superseded/cycle-based-orchestration.md` (status change)
 - Tests: `packages/factory/engine/` or `tests/` (characterization tests, migrated tests)
 
 ### Domain Rules

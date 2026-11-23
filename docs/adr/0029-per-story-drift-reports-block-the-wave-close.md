@@ -22,7 +22,7 @@ every concurrent assignment its own output path. So a single report per wave
 would have several concurrent writers.
 
 The accepted proposal
-[core-artifact-ownership.md](../proposals/core-artifact-ownership.md) settles
+[core-artifact-ownership.md](../proposals/implemented/core-artifact-ownership.md) settles
 the handling (DEC-17 to DEC-19, DEC-27, DEC-28, DEC-35), and the
 [gaps report](../spec/work/core-artifact-ownership-gaps.md) settles the row
 columns and the edge cases (CAO-G02 to CAO-G04, CAO-G13). The rejected options

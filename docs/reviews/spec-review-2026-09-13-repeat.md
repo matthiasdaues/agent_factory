@@ -8,7 +8,7 @@ Disposition: **Fail** — three open Major defects block Architecture.
 
 ## Reviewed specification
 
-The repeat review verified the remediation against the accepted [Local Usage Processing and Analysis proposal](../proposals/implemented/usage-processing-and-storage.md), the implemented [Concern-Oriented Agent Context proposal](../proposals/factory-concern-oriented-agent-context.md), and the complete changed specification set:
+The repeat review verified the remediation against the accepted [Local Usage Processing and Analysis proposal](../proposals/implemented/usage-processing-and-storage.md), the implemented [Concern-Oriented Agent Context proposal](../proposals/implemented/factory-concern-oriented-agent-context.md), and the complete changed specification set:
 
 - [agent-context.feature](../spec/features/agent-context.feature)
 - [local-usage-processing-and-analysis.feature](../spec/features/local-usage-processing-and-analysis.feature)

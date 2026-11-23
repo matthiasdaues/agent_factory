@@ -4,7 +4,7 @@ Generated from:
 
 - Feature spec: [counter-ids-fitting.feature](../features/counter-ids-fitting.feature)
 - Gaps report: [counter-ids-fitting-gaps.md](counter-ids-fitting-gaps.md)
-- Proposal: [counter-ids-fitting.md § Design](../../proposals/counter-ids-fitting.md#design) and [§ Completion Criteria](../../proposals/counter-ids-fitting.md#completion-criteria)
+- Proposal: [counter-ids-fitting.md § Design](../../proposals/implemented/counter-ids-fitting.md#design) and [§ Completion Criteria](../../proposals/implemented/counter-ids-fitting.md#completion-criteria)
 - Entity model: [entity-model.md § Counter IDs Entities](../entity-model.md#counter-ids-entities)
 - Interface contracts: [interface-contracts.md § Counter IDs Contracts](../interface-contracts.md#counter-ids-contracts)
 - Charter layer bindings: [testing.yaml](../../testing.yaml)
@@ -14,7 +14,7 @@ The domain-modeling agent writes the sections for this feature in parallel. When
 
 ## Feature
 
-- Proposal trace: [counter-ids-fitting.md](../../proposals/counter-ids-fitting.md)
+- Proposal trace: [counter-ids-fitting.md](../../proposals/implemented/counter-ids-fitting.md)
 - Gherkin trace: [counter-ids-fitting.feature](../features/counter-ids-fitting.feature)
 - Summary: The highest risk is a number handed out twice during the move. A claim that lands between the read of the local counter and the marker must not reach `origin` unnoticed, because two branches would then create two files with one name. The second risk is a seed too low: `--plan-seed` that misses an ID in use, or counts an example in body text, starts a sequence on a number that exists. The third risk is a seed or a move that overwrites a counter in use. So the tests of `next-id` run against local bare repositories and local clones in `tmp_path`, force the move's race inside the test, and compare the refs before and after each call. The remaining Rules are text: the fitting step in `virgil.md`, the four orientation files, the ID producers, and `id-prefixes.md`. VIRGIL is agent text, so a text test checks what `virgil.md` tells VIRGIL to do. The behaviour that the step relies on is tested in `next-id` and `init-factory`.
 - Rules in scope, with their scope identifiers from the [gaps report](counter-ids-fitting-gaps.md#actor-goal-matrix):

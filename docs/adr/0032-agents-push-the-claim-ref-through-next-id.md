@@ -17,7 +17,7 @@ pushes a new claim commit to `refs/ids/counters` on the remote
 held for the claim, the review would stop at every finding and wait for the
 human to push. A reader of `rules.md` would expect the rule to hold here too.
 
-The accepted proposal [counter-ids.md](../proposals/counter-ids.md) settles the
+The accepted proposal [counter-ids.md](../proposals/implemented/counter-ids.md) settles the
 question in DEC-16 and DEC-22. No open alternative is left to weigh, so
 `evaluation: none`.
 

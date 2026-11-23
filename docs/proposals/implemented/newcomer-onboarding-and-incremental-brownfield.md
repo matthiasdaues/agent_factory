@@ -365,15 +365,15 @@ Disposition: findings
 
 ### Findings
 
-| ID                                    | Severity | Check | Status   | Finding                                                                                                                                                                                             |
-| ------------------------------------- | -------- | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [PROP-0013](../findings/PROP-0013.md) | major    | 01    | resolved | CC-3 omits CONTEXT.md from brownfield-lite exit condition; contradicts Scope section which lists it as a prerequisite for feature-addition.                                                         |
-| [PROP-0014](../findings/PROP-0014.md) | major    | 03    | resolved | Design Section 3 (Stage 1) says scope-map.md is "populated with existing Rules" but does not state that Stage 1 invokes the reverse-map skill (Section 4). Planning must re-derive this dependency. |
-| [PROP-0015](../findings/PROP-0015.md) | minor    | 06    | resolved | Open Question 3 is stale — resolved by Design Section 4 (reverse-map skill).                                                                                                                        |
-| [PROP-0016](../findings/PROP-0016.md) | minor    | 05    | resolved | `.claude/CLAUDE.md` affected by entrypoint revision but not listed in impact.boundaries.                                                                                                            |
-| [PROP-0017](../findings/PROP-0017.md) | minor    | 08    | resolved | estimated_consumption.min of 80,000 inconsistent with normalized_tokens.min (8,000) x overhead_multiplier (15) = 120,000.                                                                           |
-| [PROP-0018](../findings/PROP-0018.md) | minor    | 01    | resolved | CC-4 "optionally deepens the DSL" is not testable — no criterion distinguishes success from failure on deepening.                                                                                   |
-| [PROP-0019](../findings/PROP-0019.md) | minor    | 03    | resolved | Factory glossary stub has no output path; Planning needs a file location.                                                                                                                           |
+| ID                                       | Severity | Check | Status   | Finding                                                                                                                                                                                             |
+| ---------------------------------------- | -------- | ----- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PROP-0013](../../findings/PROP-0013.md) | major    | 01    | resolved | CC-3 omits CONTEXT.md from brownfield-lite exit condition; contradicts Scope section which lists it as a prerequisite for feature-addition.                                                         |
+| [PROP-0014](../../findings/PROP-0014.md) | major    | 03    | resolved | Design Section 3 (Stage 1) says scope-map.md is "populated with existing Rules" but does not state that Stage 1 invokes the reverse-map skill (Section 4). Planning must re-derive this dependency. |
+| [PROP-0015](../../findings/PROP-0015.md) | minor    | 06    | resolved | Open Question 3 is stale — resolved by Design Section 4 (reverse-map skill).                                                                                                                        |
+| [PROP-0016](../../findings/PROP-0016.md) | minor    | 05    | resolved | `.claude/CLAUDE.md` affected by entrypoint revision but not listed in impact.boundaries.                                                                                                            |
+| [PROP-0017](../../findings/PROP-0017.md) | minor    | 08    | resolved | estimated_consumption.min of 80,000 inconsistent with normalized_tokens.min (8,000) x overhead_multiplier (15) = 120,000.                                                                           |
+| [PROP-0018](../../findings/PROP-0018.md) | minor    | 01    | resolved | CC-4 "optionally deepens the DSL" is not testable — no criterion distinguishes success from failure on deepening.                                                                                   |
+| [PROP-0019](../../findings/PROP-0019.md) | minor    | 03    | resolved | Factory glossary stub has no output path; Planning needs a file location.                                                                                                                           |
 
 ### Check Results
 
@@ -417,9 +417,9 @@ All seven findings from the initial review have been verified as resolved:
 
 ### Findings
 
-| ID                                    | Severity | Check | Status | Finding                                                                                                                                                                                                              |
-| ------------------------------------- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [PROP-0020](../findings/PROP-0020.md) | minor    | 05    | open   | `.agent-factory/factory/skills/reverse-map/SKILL.md` listed in `impact.boundaries` but does not exist at the reviewed commit. The skill is a new artifact created by this proposal, not an existing file to inspect. |
+| ID                                       | Severity | Check | Status | Finding                                                                                                                                                                                                              |
+| ---------------------------------------- | -------- | ----- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [PROP-0020](../../findings/PROP-0020.md) | minor    | 05    | open   | `.agent-factory/factory/skills/reverse-map/SKILL.md` listed in `impact.boundaries` but does not exist at the reviewed commit. The skill is a new artifact created by this proposal, not an existing file to inspect. |
 
 ### Check Results
 

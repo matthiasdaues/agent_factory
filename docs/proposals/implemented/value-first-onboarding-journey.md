@@ -65,7 +65,7 @@ first completed task.
 ## Motivation
 
 The
-[onboarding journey review](../reviews/ux-review-2026-09-21-onboarding-journey.md)
+[onboarding journey review](../../reviews/ux-review-2026-09-21-onboarding-journey.md)
 found that the Factory asks for commitment and Factory knowledge before it
 delivers value. The public install command is not ready to copy. Installation
 guidance also contradicts the Factory's safety rules. Fitting and menu choices
@@ -84,7 +84,7 @@ A paired installation with a new user on 2026-09-23 exposed a second gap. The
 fitting presented a hook inventory before it demonstrated why the hooks matter.
 It also presented two hooks that cannot run because their matching files are
 gitignored. The defect is recorded in
-[`BUG-0029`](../findings/BUG-0029.md).
+[`BUG-0029`](../../findings/BUG-0029.md).
 
 ## Core Principles
 
@@ -149,7 +149,7 @@ consent.
 
 ### 1. Public bootstrap
 
-The [root README](../../README.md) will provide one inspectable command per
+The [root README](../../../README.md) will provide one inspectable command per
 approved distribution remote. Each command will download the latest stable
 bootstrap script. The command will save the script instead of executing
 downloaded content through a shell pipe. The same section will show how to
@@ -338,7 +338,7 @@ the dependent action, not during general orientation.
 
 When the journey reaches context capture, it will not announce only "Now
 populate agent context." It will explain the activity before invoking the
-[`capture-context` skill](../../packages/factory/skills/capture-context/SKILL.md).
+[`capture-context` skill](../../../packages/factory/skills/capture-context/SKILL.md).
 The explanation will state that the skill will:
 
 - scan the repository for the stack, test setup, documentation, and scope;
@@ -415,7 +415,7 @@ For a repository without a commit, the Factory will create a plain sandbox at
 the same path. The task will run only inside the sandbox in both cases.
 
 The first task will use the
-[`poc-spike` workflow](../../packages/factory/playbooks/poc-spike.md). The
+[`poc-spike` workflow](../../../packages/factory/playbooks/poc-spike.md). The
 result will be runnable or otherwise directly inspectable. The user will see
 what the Factory created, which checks ran, and how to remove the result.
 
@@ -543,7 +543,7 @@ None.
 
 ## Completion Criteria
 
-- The [root README](../../README.md) contains an inspectable bootstrap command
+- The [root README](../../../README.md) contains an inspectable bootstrap command
   for each approved distribution remote.
 - One release build produces the bootstrap, Factory archive, and checksum
   manifest required by the release-base layout. Repeated builds from the same
@@ -685,16 +685,16 @@ Disposition: findings
 
 ### Fresh inspection
 
-| #   | Check                            | Result | Detail                                                                                                                                                                                      |
-| --- | -------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 01  | Completion criteria testable     | pass   | Each criterion names an observable outcome or measurement. Usability criteria define protocol-recorded evidence.                                                                            |
-| 02  | Scope boundary sharp             | pass   | The In and Deferred lists partition the space. Confirmed fixes versus automatic installation is clean. No item reads as either.                                                             |
-| 03  | Design decomposable              | pass   | All nine design subsections support INVEST story decomposition, including the expanded update flow. One gap in Planned artifacts inventory (see PROP-04).                                   |
-| 04  | Impact classification consistent | pass   | Cross-component scope, architecture change, and external contract change match the design: new distribution system, area vocabulary rename, hook reconfiguration, public install contract.  |
-| 05  | Boundary references exist        | pass   | All 34 paths in `impact.boundaries` resolve at the reviewed commit. Planned artifacts correctly list six files that do not yet exist.                                                       |
-| 06  | Open questions genuine           | pass   | "None" is defensible after grilling and the first review pass. No unresolved questions hide in the design.                                                                                  |
-| 07  | Motivation justifies timing      | pass   | A traceable UX review, a broken install command, a safety-rule contradiction, and a paired-installation finding ([BUG-0029](../findings/BUG-0029.md)) distinguish this from a backlog item. |
-| 08  | Estimate plausible               | pass   | `unknown` at low confidence with judgment basis is honest for a cross-component proposal with 34 boundary files. The template endorses `unknown` over fabricated precision.                 |
+| #   | Check                            | Result | Detail                                                                                                                                                                                         |
+| --- | -------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01  | Completion criteria testable     | pass   | Each criterion names an observable outcome or measurement. Usability criteria define protocol-recorded evidence.                                                                               |
+| 02  | Scope boundary sharp             | pass   | The In and Deferred lists partition the space. Confirmed fixes versus automatic installation is clean. No item reads as either.                                                                |
+| 03  | Design decomposable              | pass   | All nine design subsections support INVEST story decomposition, including the expanded update flow. One gap in Planned artifacts inventory (see PROP-04).                                      |
+| 04  | Impact classification consistent | pass   | Cross-component scope, architecture change, and external contract change match the design: new distribution system, area vocabulary rename, hook reconfiguration, public install contract.     |
+| 05  | Boundary references exist        | pass   | All 34 paths in `impact.boundaries` resolve at the reviewed commit. Planned artifacts correctly list six files that do not yet exist.                                                          |
+| 06  | Open questions genuine           | pass   | "None" is defensible after grilling and the first review pass. No unresolved questions hide in the design.                                                                                     |
+| 07  | Motivation justifies timing      | pass   | A traceable UX review, a broken install command, a safety-rule contradiction, and a paired-installation finding ([BUG-0029](../../findings/BUG-0029.md)) distinguish this from a backlog item. |
+| 08  | Estimate plausible               | pass   | `unknown` at low confidence with judgment basis is honest for a cross-component proposal with 34 boundary files. The template endorses `unknown` over fabricated precision.                    |
 
 ### New findings
 

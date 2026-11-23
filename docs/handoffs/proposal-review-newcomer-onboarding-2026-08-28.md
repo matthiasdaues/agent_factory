@@ -18,16 +18,16 @@ proposal. No findings have been addressed yet.
 
 ## Artifacts
 
-| Artifact          | Path                                                               | State                              |
-| ----------------- | ------------------------------------------------------------------ | ---------------------------------- |
-| Proposal          | `docs/proposals/newcomer-onboarding-and-incremental-brownfield.md` | Review section appended; untracked |
-| Finding PROP-0013 | `docs/findings/PROP-0013.md`                                       | open, major                        |
-| Finding PROP-0014 | `docs/findings/PROP-0014.md`                                       | open, major                        |
-| Finding PROP-0015 | `docs/findings/PROP-0015.md`                                       | open, minor                        |
-| Finding PROP-0016 | `docs/findings/PROP-0016.md`                                       | open, minor                        |
-| Finding PROP-0017 | `docs/findings/PROP-0017.md`                                       | open, minor                        |
-| Finding PROP-0018 | `docs/findings/PROP-0018.md`                                       | open, minor                        |
-| Finding PROP-0019 | `docs/findings/PROP-0019.md`                                       | open, minor                        |
+| Artifact          | Path                                                                           | State                              |
+| ----------------- | ------------------------------------------------------------------------------ | ---------------------------------- |
+| Proposal          | `docs/proposals/implemented/newcomer-onboarding-and-incremental-brownfield.md` | Review section appended; untracked |
+| Finding PROP-0013 | `docs/findings/PROP-0013.md`                                                   | open, major                        |
+| Finding PROP-0014 | `docs/findings/PROP-0014.md`                                                   | open, major                        |
+| Finding PROP-0015 | `docs/findings/PROP-0015.md`                                                   | open, minor                        |
+| Finding PROP-0016 | `docs/findings/PROP-0016.md`                                                   | open, minor                        |
+| Finding PROP-0017 | `docs/findings/PROP-0017.md`                                                   | open, minor                        |
+| Finding PROP-0018 | `docs/findings/PROP-0018.md`                                                   | open, minor                        |
+| Finding PROP-0019 | `docs/findings/PROP-0019.md`                                                   | open, minor                        |
 
 ## What the Next Session Must Do
 

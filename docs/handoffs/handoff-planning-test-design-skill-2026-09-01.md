@@ -26,7 +26,7 @@ Open items: Spec review F1 (missing suites-absent prerequisite scenario) and F2 
 
 ## Artifacts
 
-- docs/proposals/test-design-skill.md
+- docs/proposals/implemented/test-design-skill.md
 - docs/spec/features/test-design.feature
 - docs/spec/work/test-design-gaps.md
 - docs/spec/work/test-design-qa-strategy.md

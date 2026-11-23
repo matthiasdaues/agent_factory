@@ -4,7 +4,7 @@ scope: global
 
 # EPICs — Finding Classification
 
-Proposal trace: [finding-classification.md](../docs/proposals/finding-classification.md), accepted at `74e036f1`, with DEC-01 to DEC-64
+Proposal trace: [finding-classification.md](../docs/proposals/implemented/finding-classification.md), accepted at `74e036f1`, with DEC-01 to DEC-64
 Specification trace: [finding-classification.feature](../docs/spec/features/finding-classification.feature), [gaps report](../docs/spec/work/finding-classification-gaps.md), [validation-rules.md § Finding classification](../docs/spec/validation-rules.md#finding-classification-br-079br-095), [interface-contracts.md § Finding Classification Contracts](../docs/spec/interface-contracts.md#finding-classification-contracts), [state-machines.md § Finding Lifecycle](../docs/spec/state-machines.md#finding-lifecycle), [schemas/finding-basis.json](../docs/spec/schemas/finding-basis.json)
 Architecture trace: [ADR-0034](../docs/adr/0034-one-register-file-per-minor-finding.md), [ADR-0035](../docs/adr/0035-guard-human-fields-in-every-cli.md), [ADR-0036](../docs/adr/0036-typescript-tests-run-as-a-node-test-suite.md), [arc42 § 5.12](../docs/arc42/05_building_block_view.md#512-level-2-component-view----finding-classification), [arc42 § 6.17 to § 6.21](../docs/arc42/06_runtime_view.md#617-a-critical-finding-stops-the-run), [arc42 § 8.19](../docs/arc42/08_crosscutting_concepts.md#819-finding-classification), [QS-24](../docs/arc42/10_quality_requirements.md#qs-24-a-critical-finding-stops-every-dispatch-and-merge), [QS-25](../docs/arc42/10_quality_requirements.md#qs-25-no-agent-writes-a-human-field)
 QA strategy trace: [finding-classification-qa-strategy.md](../docs/spec/work/finding-classification-qa-strategy.md), 111 contract-owner rows
@@ -28,7 +28,7 @@ Every story carries `quality-gates: []`, because `docs/testing.yaml` disables bo
 
 ## Terms used in every EPIC
 
-The proposal's [§ Design](../docs/proposals/finding-classification.md#design) defines each term. A short reminder:
+The proposal's [§ Design](../docs/proposals/implemented/finding-classification.md#design) defines each term. A short reminder:
 
 - **Finding file.** `docs/findings/<ID>.md`, the record of a `critical` or `major` finding.
 - **Review class.** The rule that classifies a finding: `document`, `code`, `security`, `architecture`, or `runtime`. The reviewed material decides it, not the review.

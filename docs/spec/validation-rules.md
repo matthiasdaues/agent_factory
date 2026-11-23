@@ -443,7 +443,7 @@ Feature trace: [opencode-cli-integration.feature](features/opencode-cli-integrat
 
 ## Value-First Onboarding Validation Rules
 
-Proposal trace: [value-first-onboarding-journey.md](../proposals/value-first-onboarding-journey.md).
+Proposal trace: [value-first-onboarding-journey.md](../proposals/implemented/value-first-onboarding-journey.md).
 Feature trace: [value-first-onboarding-journey.feature](features/value-first-onboarding-journey.feature).
 
 ### Release and source validation
@@ -608,7 +608,7 @@ continue the rules of [§ Counter IDs](#counter-ids-next-id-br-068br-078).
 `next-id` checks BR-096 to BR-103. VIRGIL follows BR-104 and BR-106, and
 `init-factory` follows BR-105. The text test for ID producers checks BR-107
 and BR-108. A decision of the proposal
-[counter-ids-fitting.md](../proposals/counter-ids-fitting.md) carries its
+[counter-ids-fitting.md](../proposals/implemented/counter-ids-fitting.md) carries its
 identifier. A case the proposal leaves open carries the identifier of its gap
 in [counter-ids-fitting-gaps.md](work/counter-ids-fitting-gaps.md).
 
