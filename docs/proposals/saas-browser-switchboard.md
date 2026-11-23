@@ -1,4 +1,5 @@
 ---
+scope: global
 schema_version: 2
 title: SaaS Browser Switchboard
 status: draft
