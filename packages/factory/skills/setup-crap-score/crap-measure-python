@@ -95,8 +95,9 @@ Test command
   GATE_CHANGED_FILES appended; otherwise it runs TEST_COMMAND (DEC-85).
 
   Every Python process of the test run sets PYTEST_ADDOPTS before it
-  starts: it appends --basetemp with a folder of its own process ID below
-  this command's work folder, and -p no:cacheprovider. So a pytest that
+  starts: it replaces an inherited --basetemp with a folder of its own
+  process ID below this command's work folder, and passes
+  -p no:cacheprovider once (BUG-0141). So a pytest that
   any test command starts leaves no pytest temp folder and no
   .pytest_cache behind, and a pytest that a test starts cannot clear the
   temp folder of the pytest that runs that test (DEC-85).
