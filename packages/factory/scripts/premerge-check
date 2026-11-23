@@ -810,15 +810,21 @@ _YAML_PARSE_ERRORS = (ValueError,) if yaml is None else (ValueError, yaml.YAMLEr
 def _parse_testing_yaml(text: str) -> dict:
     """Return the text of docs/testing.yaml as a mapping.
 
-    Raise BrokenTestingYaml when the text is not valid YAML, is empty, or is no
-    mapping. A reader never gets a traceback for a broken file (BUG-0137).
+    Raise BrokenTestingYaml when the text is not valid YAML, is empty, is no
+    mapping, or has a `gates` section that is no mapping. A reader never gets a
+    traceback for a broken file, and a broken `gates` never reads as "no gates"
+    (BUG-0137, DEC-83).
     """
     try:
-        return _load_yaml(text)
+        data = _load_yaml(text)
     except TypeError as exc:
         raise BrokenTestingYaml(f"is empty or no mapping ({exc})") from exc
     except _YAML_PARSE_ERRORS as exc:
         raise BrokenTestingYaml("is not valid YAML") from exc
+    gates = data.get("gates")
+    if gates is not None and not isinstance(gates, dict):
+        raise BrokenTestingYaml("has a gates section that is no mapping")
+    return data
 
 
 def _crap_score_is_broken(data: dict) -> bool:

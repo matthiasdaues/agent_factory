@@ -777,11 +777,15 @@ DEV_BROKEN = [
     pytest.param("", id="empty"),
     pytest.param("- crap-score\n", id="list"),
     pytest.param(CRAP_SCALAR, id="crap-score-not-a-mapping"),
+    pytest.param("gates:\n  - crap-score\n", id="gates-list"),
+    pytest.param("gates: true\n", id="gates-scalar"),
 ]
 HEAD_BROKEN = [
     pytest.param("gates: [unclosed\n", id="unparseable"),
     pytest.param("", id="empty"),
     pytest.param("- crap-score\n", id="list"),
+    pytest.param("gates:\n  - crap-score\n", id="gates-list"),
+    pytest.param("gates: true\n", id="gates-scalar"),
 ]
 
 
