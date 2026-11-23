@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Changes
+
+- **The new script `move-docs` moves files and rewrites every reference to
+  them.** Run `move-docs [--dry-run] OLD NEW [OLD NEW ...]`. It rewrites each
+  Markdown link to a moved file and rebases the relative links inside a moved
+  file. It also replaces each full path from the project root, such as
+  `docs/proposals/a.md` in front matter, YAML, or prose, in every text file.
+  Tracked files move with `git mv`. The content edits stay unstaged for
+  review, and a failed move undoes every change.
+- **`migrate-spec-layout` and `move-docs` share the link rewrite.** It moved
+  into the new module `_link_rewrite.py`. The behaviour of
+  `migrate-spec-layout` stays the same.
+
 ## 1.11.1 — 2026-11-20
 
 This release adds five working rules from the retrospective of the
