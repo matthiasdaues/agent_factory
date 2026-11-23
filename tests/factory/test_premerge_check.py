@@ -211,6 +211,13 @@ def _build_repo(
     (repo / ".gitignore").write_text(".agent-factory/\n.current-work/\n")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "init")
+    if testing_yaml is not None:
+        # dev holds the trusted docs/testing.yaml, which decides whether the CRAP gate runs (DEC-80).
+        _git(repo, "checkout", "-q", "-b", "dev")
+        (repo / "docs").mkdir(exist_ok=True)
+        (repo / "docs" / "testing.yaml").write_text(testing_yaml)
+        _git(repo, "add", "-A")
+        _git(repo, "commit", "-q", "-m", "dev")
     _git(repo, "checkout", "-q", "-b", BRANCH)
     (repo / "backlog").mkdir()
     (repo / "backlog" / f"{STORY_ID}.md").write_text(story)
@@ -306,6 +313,16 @@ def _write(top: Path, rel: str, text: str) -> None:
     path.write_text(text)
 
 
+def _dev_holds(top: Path) -> None:
+    """Make *top* a repository whose dev commit holds the files as they are now (DEC-80)."""
+    _git(top, "init", "-q", "-b", "dev")
+    _git(top, "config", "user.email", "fixture@example.com")
+    _git(top, "config", "user.name", "Fixture")
+    _git(top, "config", "commit.gpgsign", "false")
+    _git(top, "add", "-A")
+    _git(top, "commit", "-q", "-m", "dev")
+
+
 TEST_DESIGN_BODY = "\n## Test Design\n\n#### Failure scenarios\n\n- one\n"
 PRIOR_TESTS_BODY = "\n## Inputs\n\n#### Prior Tests\n\n- tests/test_x.py\n"
 
@@ -344,6 +361,7 @@ class TestSt0359ResolveGates:
         _write(tmp_path, f"backlog/{STORY_ID}.md", _story(field, body))
         if testing_yaml is not None:
             _write(tmp_path, "docs/testing.yaml", testing_yaml)
+        _dev_holds(tmp_path)
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == expected
         assert warnings == []
@@ -356,6 +374,7 @@ class TestSt0359ResolveGates:
             f"backlog/{STORY_ID}.md",
             _story("[crap-score, mutation-testing, dependency-check]"),
         )
+        _dev_holds(tmp_path)
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == ["crap-score", "mutation-testing"]
         assert warnings == []
@@ -372,6 +391,7 @@ class TestSt0359ResolveGates:
     def test_st_0359_gate_list_with_a_rules_file(self, tmp_path, field, expected):
         _write(tmp_path, f"backlog/{STORY_ID}.md", _story(field))
         _write(tmp_path, DEPENDENCY_RULES, DEPENDENCY_RULE)
+        _dev_holds(tmp_path)
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == expected
         assert warnings == []
@@ -384,6 +404,7 @@ class TestSt0359ResolveGates:
             "docs/charter/house-rules.md",
             "default_quality_gates: [mutation-testing]\n",
         )
+        _dev_holds(tmp_path)
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == ["crap-score"]
         assert len(warnings) == 1
@@ -448,6 +469,7 @@ class TestSt0415GateList:
         _write(tmp_path, f"backlog/{STORY_ID}.md", _story(None, TEST_DESIGN_BODY))
         _write(tmp_path, "docs/testing.yaml", _gates("  crap-score:\n    enabled: true\n"))
         _write(tmp_path, DEPENDENCY_RULES, DEPENDENCY_RULE)
+        _dev_holds(tmp_path)
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert sorted(gates) == ["crap-score", "dependency-check", "test-design-verify"]
         assert warnings == []
@@ -463,6 +485,7 @@ class TestSt0415GateList:
                 "  mutation-testing:\n    enabled: false\n    command: mutmut run\n"
             ),
         )
+        _dev_holds(tmp_path)
         gates, _ = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == ["crap-score", "mutation-testing"]
 
@@ -477,6 +500,7 @@ class TestSt0415GateList:
                 "  mutation-testing:\n    enabled: false\n"
             ),
         )
+        _dev_holds(tmp_path)
         gates, _ = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == ["license-check"]
 
@@ -487,6 +511,7 @@ class TestSt0415GateList:
             "docs/testing.yaml",
             _gates("  crap_score:\n    enabled: true\n  mutation_testing:\n    enabled: true\n"),
         )
+        _dev_holds(tmp_path)
         gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
         assert gates == ["crap-score", "mutation-testing"]
         assert warnings == []
@@ -577,6 +602,7 @@ def test_st_0415_with_both_keys_the_key_with_hyphens_wins_with_a_warning(tmp_pat
             "  crap-score:\n    enabled: true\n    threshold: 8\n"
         ),
     )
+    _dev_holds(tmp_path)
     gates, warnings = pm.resolve_gates(tmp_path, STORY_ID)
     assert gates == ["crap-score"]
     assert len(warnings) == 1

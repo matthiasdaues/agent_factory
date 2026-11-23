@@ -75,11 +75,12 @@ def _env(tmp_path: Path) -> dict[str, str]:
 
 
 def _build_repo(
-    tmp_path: Path, testing_yaml: str, field: str = ""
+    tmp_path: Path, testing_yaml: str, field: str = "", dev_testing: str | None = None
 ) -> tuple[Path, dict[str, str], Path]:
     """A story branch whose docs/testing.yaml is *testing_yaml*, with recording stubs.
 
     *field* is the story's front-matter line `quality-gates`, or empty.
+    *dev_testing* is the docs/testing.yaml that dev holds, or None for no file.
     """
     env = _env(tmp_path)
     repo = tmp_path / "repo"
@@ -93,13 +94,18 @@ def _build_repo(
     _git(repo, env, "add", "-A")
     _git(repo, env, "commit", "-q", "-m", "init")
     _git(repo, env, "checkout", "-q", "-b", "dev")
+    if dev_testing is not None:
+        (repo / "docs").mkdir()
+        (repo / "docs" / "testing.yaml").write_text(dev_testing)
+        _git(repo, env, "add", "-A")
+        _git(repo, env, "commit", "-q", "-m", "dev")
     _git(repo, env, "checkout", "-q", "-b", TARGET)
     _git(repo, env, "checkout", "-q", "-b", BRANCH)
     (repo / "backlog").mkdir()
     (repo / "backlog" / f"{STORY_ID}.md").write_text(
         f"---\nid: {STORY_ID}\ntitle: Log in\n{field}---\n\n# Log in\n"
     )
-    (repo / "docs").mkdir()
+    (repo / "docs").mkdir(exist_ok=True)
     (repo / "docs" / "testing.yaml").write_text(testing_yaml)
     write_review_report(repo, STORY_ID)
     _git(repo, env, "add", "-A")
@@ -497,7 +503,8 @@ def _build_ready_repo(
     the marker that the test suite writes.
     """
     marker = tmp_path / "suite-ran"
-    repo, env, log = _build_repo(tmp_path, _ready_yaml(marker, enabled, timeout), field)
+    ready_yaml = _ready_yaml(marker, enabled, timeout)
+    repo, env, log = _build_repo(tmp_path, ready_yaml, field, dev_testing=ready_yaml)
     _executable(
         repo / BACKEND_READY,
         ready.format(log=tmp_path / "ready.log", pidfile=tmp_path / "child.pid"),
@@ -633,7 +640,7 @@ def test_cg_08_the_refusal_names_the_failing_functions_from_the_report_after_exi
 @pytest.mark.spec("CG-08-IT-09")
 def test_cg_08_the_exit_code_of_crap_score_alone_decides_at_the_merge(tmp_path):
     """Scenario: The exit code of crap-score alone decides at the merge."""
-    repo, env, log = _build_repo(tmp_path, CRAP_ENABLED)
+    repo, env, log = _build_repo(tmp_path, CRAP_ENABLED, dev_testing=CRAP_ENABLED)
     earlier = repo / ".current-work" / "crap-score" / f"{STORY_ID}.json"
     earlier.parent.mkdir(parents=True)
     earlier.write_text(json.dumps([
@@ -710,3 +717,52 @@ def test_cg_08_a_gate_that_cannot_measure_beside_another_failed_check_keeps_the_
     assert CANNOT_MEASURE not in result.stdout
     assert _entry(run).status.value == "dispatched"
     assert _lifecycle_git(run["repo"], "rev-parse", TARGET) == tip
+
+
+# --- SEC-0011: dev decides whether the CRAP gate runs (DEC-80, DEC-82) ---
+
+CRAP_TRUE = 'test_command: "true"\ngates:\n  crap-score:\n    enabled: true\n'
+CRAP_FALSE = 'test_command: "true"\ngates:\n  crap-score:\n    enabled: false\n'
+CRAP_PASSED_LINE = "PASS semantic-gates: crap-score passed"
+
+
+def test_sec_0011_dev_enabled_gate_runs_when_the_story_disables_it(tmp_path):
+    repo, env, log = _build_repo(tmp_path, CRAP_ONLY, dev_testing=CRAP_TRUE)
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "crap-score" in _called(log)
+    assert CRAP_PASSED_LINE in proc.stdout
+
+
+def test_sec_0011_dev_enabled_gate_runs_when_the_story_removes_its_entry(tmp_path):
+    repo, env, log = _build_repo(tmp_path, NO_GATES, dev_testing=CRAP_TRUE)
+    proc = _run(repo, env)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    # The gate runs and refuses without the entry at the story head, before it measures.
+    assert "crap-score (no entry gates.crap-score" in proc.stdout
+    assert _called(log) == []
+
+
+def test_sec_0011_story_cannot_switch_on_a_gate_that_dev_disables(tmp_path):
+    repo, env, log = _build_repo(tmp_path, CRAP_TRUE, dev_testing=CRAP_FALSE)
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "crap-score" not in _called(log)
+
+
+def test_sec_0011_no_dev_with_a_head_entry_cannot_measure(tmp_path):
+    repo, env, log = _build_repo(tmp_path, CRAP_TRUE)
+    _git(repo, env, "update-ref", "-d", "refs/heads/dev")
+    proc = _run(repo, env)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert CANNOT_MEASURE in proc.stdout
+    assert _called(log) == []
+
+
+def test_sec_0011_no_dev_without_a_head_entry_runs_no_crap_score(tmp_path):
+    repo, env, log = _build_repo(tmp_path, NO_GATES)
+    _git(repo, env, "update-ref", "-d", "refs/heads/dev")
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "crap-score" not in _called(log)
+    assert CANNOT_MEASURE not in proc.stdout
