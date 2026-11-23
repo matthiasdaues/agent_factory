@@ -70,12 +70,12 @@ This is **preventive validation**, not reactive. The agent never sees test outpu
 
 Testing is project-owned infrastructure. Factory does not detect frameworks, construct test commands, or own test execution. The project declares its test commands in `testing.yaml` (at `docs/testing.yaml`):
 
-| Field                  | Purpose                                                          | Used By                                   |
-| ---------------------- | ---------------------------------------------------------------- | ----------------------------------------- |
-| `test_command`         | Full test suite command (required)                               | Eligibility precondition, agent allowlist |
-| `test_staged_command`  | Fast TDD iteration on staged files (optional)                    | Agent allowlist                           |
-| `test_changed_command` | Tests of the changed files; gets the changed paths (optional)    | Story merge, agent allowlist              |
-| `layers`               | Layer bindings mapping Factory layer names to tooling (optional) | QA strategy grounding                     |
+| Field                  | Purpose                                                          | Used By                                 |
+| ---------------------- | ---------------------------------------------------------------- | --------------------------------------- |
+| `test_command`         | Full test suite command (required)                               | Eligibility precondition, feature merge |
+| `test_staged_command`  | Fast TDD iteration on staged files (optional)                    | No reader                               |
+| `test_changed_command` | Tests of the changed files; gets the changed paths (optional)    | Story merge, agent allowlist            |
+| `layers`               | Layer bindings mapping Factory layer names to tooling (optional) | QA strategy grounding                   |
 
 **Zero-install**: Factory does not install test frameworks. It reads the test configuration and executes the declared command as-is. If `testing.yaml` is absent or `test_command` is missing, the precondition evaluator reports the gap.
 

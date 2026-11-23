@@ -84,7 +84,7 @@ ______________________________________________________________________
 - **FR-I1** — Every project (including Factory) declares its test commands in `docs/testing.yaml`: `test_command` (required, full suite), `test_staged_command` (optional, agent TDD iteration), `test_changed_command` (optional, fast feedback on changed files).
 - **FR-I2** — The precondition evaluator resolves `test_command` from `docs/testing.yaml` when an agent declares it as a required input. If the configuration is absent or `test_command` is missing, the evaluator reports the gap.
 - **FR-I3** — The gate contract is exit-code-only: zero means pass, nonzero means fail. Factory does not parse structured test output; test counts and reporting are the project's concern.
-- **FR-I4** — `block-dangerous-git.sh` reads `docs/testing.yaml` and allowlists all declared command fields (`test_command`, `test_staged_command`, `test_changed_command`) with exact-string matching. Bare test commands remain blocked for agents.
+- **FR-I4** — `block-dangerous-git.sh` reads `docs/testing.yaml` and allowlists only `test_changed_command`, as the declared string or followed by path arguments. Bare test commands, `test_command` and `test_staged_command` remain blocked for agents.
 - **FR-I5** — Factory does not inject test hooks into `.pre-commit-config.yaml`. Test hooks are project-owned infrastructure: the project decides when and how tests trigger on commit, push, or other events.
 - **FR-I6** — During onboarding, the `detect-test-regime` skill scans for existing test entrypoints and records the result in `docs/testing.yaml`. When multiple entrypoints are detected, Factory asks for disambiguation instead of guessing.
 

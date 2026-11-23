@@ -33,7 +33,7 @@ Ask the user: _"Does this analysis look right before I start coding?"_
 
 ## Step 2 — Agree seams
 
-Read `testing.yaml` (at `docs/testing.yaml`) to identify which suite targets the code under test — use its `root`, `pattern`, and `run_all` command. Read the document referenced by `testing_strategy:` for cluster assignment and test budget.
+Read `testing.yaml` (at `docs/testing.yaml`) to identify which suite targets the code under test — use its `root`, `pattern`, and `run_file` command. Run single test files with `run_file`, and the tests of your changes with `test_changed_command` followed by the changed paths. The agent guard blocks `test_command` and `run_all`; the feature merge runs the whole suite. Read the document referenced by `testing_strategy:` for cluster assignment and test budget.
 
 Identify the **seams** — public boundaries where tests observe behaviour. Prefer existing, highest-level seams; fewer seams overall is better.
 
@@ -54,7 +54,7 @@ For each slice:
 
 Do not refactor during the loop — that belongs to review.
 
-**Completion**: all planned scenarios from step 1 have passing tests, all existing tests still pass.
+**Completion**: all planned scenarios from step 1 have passing tests, and `test_changed_command` passes for the changed paths.
 
 ## Step 4 — Commit
 

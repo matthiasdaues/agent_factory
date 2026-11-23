@@ -167,9 +167,10 @@ Tests run through gates, not agents:
 
 Projects declare test commands in `docs/testing.yaml`:
 
-- `test_command` — full suite (gates, pre-push)
-- `test_staged_command` — staged files (agent TDD loop)
+- `test_command` — full suite (gates, feature merge); agents cannot run it
+- `test_staged_command` — staged files; agents cannot run it
 - `test_changed_command` — the tests of the changed files; a story merge
-  appends the changed paths (falls back to `test_command`)
+  appends the changed paths (falls back to `test_command`); agents may run
+  it with their changed paths
 
 See [ADR-0003](../../docs/adr/0003-test-execution-via-hooks.md).

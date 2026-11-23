@@ -60,13 +60,10 @@ ledger_lists_branch() {
   return 1
 }
 
-# BR-024 (ST-0150): Allow agent test commands declared in the project's
-# testing.yaml, instead of a single hardcoded command.
-# test_command, test_staged_command, and test_changed_command are each
-# allowlisted when present, matched exactly against the full command string
-# (no prefix matching). When no testing.yaml exists at either location, no
-# agent test commands are allowed — bare test invocations fall through to
-# the deny patterns below, same as before.
+# BR-024 (ST-0150): Allow the agent test command declared in the project's
+# testing.yaml, instead of a single hardcoded command. When no testing.yaml
+# exists at either location, no agent test command is allowed — bare test
+# invocations fall through to the deny patterns below, same as before.
 resolve_testing_yaml() {
   local root="$1"
   if [ -f "$root/docs/testing.yaml" ]; then
@@ -77,15 +74,27 @@ resolve_testing_yaml() {
     echo "$root/docs/charter/testing.yaml"
   fi
 }
+#
+# Only test_changed_command is allowed, so an agent never runs the whole
+# suite through test_command or test_staged_command. The agent may append
+# changed paths: each argument is a path of letters, digits, `_`, `.`, `/`
+# and `-`, that starts with no `-` and holds no `..`. No shell operator, quote
+# or `$` can follow the command.
+CHANGED_PATH_RE='^( [A-Za-z0-9_./][A-Za-z0-9_./-]*)+$'
 CHARTER=$(resolve_testing_yaml "$TOP")
 if [ -n "$TOP" ] && [ -n "$CHARTER" ] && [ -f "$CHARTER" ]; then
-  for field in test_command test_staged_command test_changed_command; do
-    ALLOWED_CMD=$(grep "^${field}:" "$CHARTER" | head -1 \
-      | sed -E "s/^${field}:[[:space:]]*//" | sed -E 's/^"(.*)"$/\1/' | sed -E "s/^'(.*)'$/\1/")
-    if [ -n "$ALLOWED_CMD" ] && [ "$COMMAND" = "$ALLOWED_CMD" ]; then
+  ALLOWED_CMD=$(grep "^test_changed_command:" "$CHARTER" | head -1 \
+    | sed -E "s/^test_changed_command:[[:space:]]*//" | sed -E 's/^"(.*)"$/\1/' | sed -E "s/^'(.*)'$/\1/")
+  if [ -n "$ALLOWED_CMD" ]; then
+    if [ "$COMMAND" = "$ALLOWED_CMD" ]; then
       exit 0
     fi
-  done
+    CHANGED_ARGS="${COMMAND#"$ALLOWED_CMD"}"
+    if [ "$CHANGED_ARGS" != "$COMMAND" ] && [[ "$CHANGED_ARGS" =~ $CHANGED_PATH_RE ]] \
+       && [[ "$CHANGED_ARGS" != *..* ]]; then
+      exit 0
+    fi
+  fi
 fi
 
 # BR-024: an agent may run named test files under tests/, so a red or green

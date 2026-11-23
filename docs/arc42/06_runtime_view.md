@@ -77,10 +77,10 @@ sequenceDiagram
     participant BDG as block-dangerous-git.sh
     participant C as docs/testing.yaml
 
-    A->>BDG: Attempt: uv run pytest --tb=short --quiet
-    BDG->>C: Read test_command, test_staged_command, test_changed_command
-    C-->>BDG: test_command: "uv run pytest --tb=short --quiet"
-    BDG->>BDG: Exact match against charter-declared command
+    A->>BDG: Attempt: python3 tests/select_tests.py --run src/login.py
+    BDG->>C: Read test_changed_command
+    C-->>BDG: test_changed_command: "python3 tests/select_tests.py --run"
+    BDG->>BDG: Declared command plus path arguments only
     BDG-->>A: Allow (exit 0)
     Note over A: Command executes normally
 ```

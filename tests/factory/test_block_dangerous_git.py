@@ -175,32 +175,77 @@ class TestTestingYamlResolution:
     """resolve_testing_yaml finds docs/testing.yaml at the canonical path."""
 
     def test_docs_testing_yaml_allows_declared_command(self, tmp_path):
-        """Test command declared in docs/testing.yaml is allowed."""
+        """test_changed_command declared in docs/testing.yaml is allowed."""
         main = tmp_path / "main"
         _init_repo(main)
         testing_yaml = main / "docs" / "testing.yaml"
         testing_yaml.parent.mkdir(parents=True, exist_ok=True)
-        testing_yaml.write_text('test_command: "echo test-ok"\n')
+        testing_yaml.write_text('test_changed_command: "uv run pytest -q"\n')
 
-        result = _run_hook("echo test-ok", cwd=main)
-        assert result.returncode == 0
+        result = _run_hook("uv run pytest -q", cwd=main)
+        assert result.returncode == 0, result.stderr
 
     def test_docs_testing_yaml_takes_precedence(self, tmp_path):
         """docs/testing.yaml is preferred over docs/agent-context/testing.yaml."""
         main = tmp_path / "main"
         _init_repo(main)
-        # Write canonical path with one command
         canonical = main / "docs" / "testing.yaml"
         canonical.parent.mkdir(parents=True, exist_ok=True)
-        canonical.write_text('test_command: "echo canonical"\n')
-        # Write legacy path with a different command
+        canonical.write_text('test_changed_command: "uv run pytest -q"\n')
         legacy = main / "docs" / "agent-context" / "testing.yaml"
         legacy.parent.mkdir(parents=True, exist_ok=True)
-        legacy.write_text('test_command: "echo legacy"\n')
+        legacy.write_text('test_changed_command: "uv run pytest -x"\n')
 
-        # Canonical command should be allowed
-        result = _run_hook("echo canonical", cwd=main)
-        assert result.returncode == 0
+        assert _run_hook("uv run pytest -q", cwd=main).returncode == 0
+        assert _run_hook("uv run pytest -x", cwd=main).returncode == 2
+
+
+class TestChangedFilesCommand:
+    """BR-024: an agent may run test_changed_command with changed paths, and
+    never test_command or test_staged_command."""
+
+    TESTING_YAML = (
+        'test_command: "uv run pytest"\n'
+        'test_staged_command: "uv run pytest --tb=short"\n'
+        'test_changed_command: "uv run pytest -q"\n'
+    )
+
+    def _repo(self, tmp_path: Path) -> Path:
+        main = tmp_path / "main"
+        _init_repo(main)
+        (main / "docs").mkdir()
+        (main / "docs" / "testing.yaml").write_text(self.TESTING_YAML)
+        return main
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "uv run pytest -q",
+            "uv run pytest -q packages/factory/scripts/dispatch",
+            "uv run pytest -q src/a.py docs/b-c.md tests/x_y.py",
+        ],
+    )
+    def test_the_changed_files_command_with_paths_is_allowed(self, tmp_path, command):
+        result = _run_hook(command, cwd=self._repo(tmp_path))
+        assert result.returncode == 0, result.stderr
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "uv run pytest",
+            "uv run pytest --tb=short",
+            "uv run pytest -qq",
+            "uv run pytest -q ../x.py",
+            "uv run pytest -q src/a.py; rm -rf /tmp/y",
+            "uv run pytest -q src/a.py && uv run pytest",
+            "uv run pytest -q $(echo x)",
+            "uv run pytest -q 'a b'",
+            "uv run pytest -q --lf",
+        ],
+    )
+    def test_the_full_suite_and_other_arguments_are_blocked(self, tmp_path, command):
+        result = _run_hook(command, cwd=self._repo(tmp_path))
+        assert result.returncode == 2
 
 
 class TestScopedTestRuns:

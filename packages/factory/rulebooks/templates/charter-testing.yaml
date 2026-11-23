@@ -13,15 +13,15 @@
 test_command: "uv run pytest --tb=short --quiet"
 
 # Optional: Test command for staged files only.
-# Used by agents during TDD iteration on Git-staged changes.
-# When omitted, agents cannot run staged-only test workflows.
+# The agent guard does not allow it, so agents cannot run it.
 test_staged_command: "uv run pytest --tb=short --quiet"
 
 # Optional: Test command for changed files only.
 # premerge-check runs it on a story merge and appends the paths the story
 # changed as arguments. The command must run the tests those paths affect,
 # and pass when no test is affected. When omitted, the story merge runs
-# test_command. The feature merge always runs test_command.
+# test_command. The feature merge always runs test_command. Agents may run
+# it, as declared or followed by changed paths.
 # test_changed_command: "npx jest --findRelatedTests --passWithNoTests"
 
 # Optional: Detailed layer configuration.
