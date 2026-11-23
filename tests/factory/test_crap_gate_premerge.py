@@ -827,3 +827,50 @@ def test_bug_0137_broken_story_settings_refuse_and_name_the_file(
         for line in proc.stdout.splitlines()
     ), proc.stdout
     assert _called(log) == []
+
+
+# BUG-0138: the feature merge reads test_command from the feature branch, so a broken
+# docs/testing.yaml of the feature branch must refuse with BLOCK testing-yaml and exit 1
+# without a traceback, as DEC-83 requires for the story merge.
+FEATURE_BROKEN = [
+    pytest.param('test_command: "true"\ngates: []\n', id="gates-list"),
+    pytest.param('test_command: "true"\ngates: [unclosed\n', id="unparseable"),
+]
+
+
+def _build_feature_repo(tmp_path: Path, feature_testing: str) -> tuple[Path, dict[str, str]]:
+    """A repository whose feature branch holds docs/testing.yaml *feature_testing*."""
+    env = _env(tmp_path)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, env, "init", "-q", "-b", "main")
+    _git(repo, env, "config", "user.email", "fixture@example.com")
+    _git(repo, env, "config", "user.name", "Fixture")
+    _git(repo, env, "config", "commit.gpgsign", "false")
+    (repo / "README.md").write_text("fixture\n")
+    (repo / ".gitignore").write_text(".agent-factory/\n.current-work/\n")
+    _git(repo, env, "add", "-A")
+    _git(repo, env, "commit", "-q", "-m", "init")
+    _git(repo, env, "checkout", "-q", "-b", "dev")
+    _git(repo, env, "checkout", "-q", "-b", TARGET)
+    (repo / "docs").mkdir()
+    (repo / "docs" / "testing.yaml").write_text(feature_testing)
+    _git(repo, env, "add", "-A")
+    _git(repo, env, "commit", "-q", "-m", "feature")
+    _git(repo, env, "checkout", "-q", "dev")
+    return repo, env
+
+
+@pytest.mark.parametrize("feature_testing", FEATURE_BROKEN)
+def test_bug_0138_broken_feature_settings_refuse_without_traceback(tmp_path, feature_testing):
+    repo, env = _build_feature_repo(tmp_path, feature_testing)
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "dev", TARGET],
+        cwd=repo, env=env, capture_output=True, text=True, check=False,
+    )
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "Traceback" not in proc.stdout + proc.stderr
+    assert any(
+        line.startswith("BLOCK testing-yaml:") and "docs/testing.yaml" in line and TARGET in line
+        for line in proc.stdout.splitlines()
+    ), proc.stdout
