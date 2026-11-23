@@ -283,5 +283,7 @@ collapsed runs had dropped.
 
 - Why does the capture runtime keep its execute bits while the analysis
   environment loses them?
-- Why do 581 captures record no tokens? The newest Claude Code record in
-  gigacron, from 2026-11-11, is one of them.
+- Why do 581 captures record no tokens? All 581 are `claude-code` records
+  of a Copilot session: the Claude Code hook also runs on a Copilot stop and
+  hands the Copilot transcript to the Claude Code normalizer. BUG-0143
+  tracks the fix and the open question of why Copilot runs that hook.
