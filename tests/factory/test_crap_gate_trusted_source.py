@@ -609,7 +609,7 @@ def test_cg_14_settings_from_folder_without_dev_judges_with_the_folder_settings(
     """
     _without_dev(repo)
     _plant_and_commit_folder_settings(repo)
-    proc = repo.run("--all", "--story-id", STORY_ID, "--report-dir", ".current-work/crap-score/", "--settings-from-folder")
+    proc = repo.run(*GATE_CALL, "--settings-from-folder")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert [row["file"] for row in repo.report()] == [APP]
     assert f"crap-score: {FROM_FOLDER}, because the call passes --settings-from-folder" in proc.stdout.splitlines()
