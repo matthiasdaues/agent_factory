@@ -310,14 +310,22 @@ repos:
         types: [yaml]
         exclude: ^(tests/fixtures/|\.claude/worktrees/|\.current-work/)
 
-      # Run the test suite when factory scripts or tests change, in
-      # parallel and without the container renders.
+      # Run the tests that the staged factory scripts and tests affect, in
+      # parallel and without the container renders. tests/select_tests.py
+      # picks the test files; a change to conftest.py, pyproject.toml or
+      # uv.lock runs the whole suite. With no affected test, the hook passes.
+      # Run the whole suite by hand with:
+      #   pre-commit run run-tests --all-files
       - id: run-tests
-        name: run-tests
-        entry: uv run pytest --tb=short --quiet -n auto -m "not container"
+        name: run-tests (affected tests only)
+        entry: >-
+          bash -c 'selected=$(python3 tests/select_tests.py "$@") || exit 1;
+          [ -n "$selected" ] || { echo "run-tests: no affected tests"; exit 0; };
+          exec uv run pytest --tb=short --quiet -n auto -m "not container"
+          $selected' --
         language: system
-        pass_filenames: false
-        files: ^(packages/factory/scripts/|tests?/)
+        require_serial: true
+        files: ^(packages/factory/scripts/|tests/|pyproject\.toml$|uv\.lock$)
 
       # Run the container renders on demand, before a release or after a
       # change to publish-docs:
