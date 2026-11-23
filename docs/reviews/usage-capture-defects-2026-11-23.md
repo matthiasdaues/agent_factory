@@ -200,7 +200,8 @@ record file to a temporary file and renames it into place. A crash then
 leaves either the old file or the new file, never a mix. The migration
 deletes the older copies only after the rename has succeeded.
 
-A dry run over gigacron gave this result:
+The first dry run over gigacron counted plain and structured chains apart.
+It gave this result:
 
 |                                   | Plain copies | Structured copies |
 | --------------------------------- | ------------ | ----------------- |
@@ -216,18 +217,71 @@ The migration must handle three cases:
   A sort by time alone interleaves the chains and breaks the prefix check.
   The first dry run, which sorted by time only, found 192 such breaks.
 - **Chains that mix agents.** Some chains contain copies from different
-  agents. The cause is not known. The migration should group by session
-  and agent first, report each mixed case, and leave it unchanged.
+  agents. Copilot and Codex hand a child hook the main transcript, so a
+  child record of these CLIs points at a copy of the main transcript. A
+  chain is one transcript, not one agent. The migration matches copies by
+  content alone and reports each session with such a chain.
+- **Rewritten main transcripts.** A copy without an agent that fits no
+  chain is the main transcript after the CLI rewrote it. The capture keeps
+  such a transcript as one chain and starts a new generation file, so the
+  migration does the same. The analysis then counts the main transcript
+  once.
 - **Empty copies.** 581 copies are empty. Their records show zero tokens
   and `usage_capability: unavailable`. They have no text and get no span.
 
 The migration must hold the same locks as a capture and must not run while
 captures are pending.
 
+## Implementation
+
+The fixes are BUG-0139, BUG-0140, and BUG-0142. Three points differ from the
+proposal above.
+
+- **The record names its chain.** The analysis keeps the latest snapshot per
+  `(cli, session_id, record_id)`. Every record in gigacron ends in `-0001`,
+  so all captures of a session collapse into one run, and the subagent
+  records drop out. A stable session key would make each cumulative
+  snapshot its own run instead. The record therefore gets the field
+  `chain`, and the analysis keeps the latest snapshot per
+  `(cli, session_id, chain)`. The capture lifecycle passes the stem of the
+  CLI's transcript file as the chain name, because the staged copy has a
+  random name.
+- **The session lock is a file lock.** The capture had no lock before. It
+  reserved a record by creating its copy exclusively. The reservation now
+  takes a file lock on `transcripts/<session-key>/.lock` and holds it until
+  the record is written.
+- **The migration links before it deletes.** `migrate-usage-transcripts`
+  hard-links each newest copy to its chain file path, renames the new record
+  file into place, and only then deletes the old files. A crash leaves the
+  references of either the old or the new layout valid. The default is a dry
+  run, and `--apply` changes files.
+
+## Dry run and test apply on 2026-11-23
+
+The dry run over gigacron took 30 seconds:
+
+|                             | Result              |
+| --------------------------- | ------------------- |
+| Sessions                    | 202, all migratable |
+| Records                     | 2,105               |
+| Chains                      | 221, in 307 files   |
+| Captures without text       | 289                 |
+| Transcript bytes            | 9.40 GB to 0.55 GB  |
+| Sessions with a mixed chain | 11, all Copilot     |
+
+The apply step then ran on a hard-link copy of the gigacron usage folder. An
+independent check compared every migrated span with the untouched original
+copy. All 2,536 non-empty copies equal bytes 0 to `end` of their chain file.
+The usage analysis reads all 2,105 records without a failure.
+
+The session totals of Codex, Copilot, and Pi stay the same. The Claude Code
+total rises from 4,395,068 to 11,129,587 tokens. The main chains add up to
+the old 4,395,068. The subagent chains add the 6,734,519 tokens that the
+collapsed runs had dropped.
+
 ## Open questions
 
 - Why does the capture runtime keep its execute bits while the analysis
   environment loses them?
-- Why do some chains contain copies from different agents?
 - Why do 581 captures record no tokens? The newest Claude Code record in
   gigacron, from 2026-11-11, is one of them.

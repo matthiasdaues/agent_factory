@@ -1,0 +1,580 @@
+#!/usr/bin/env python3
+"""migrate-usage-transcripts — turn stored transcript copies into chain files.
+
+Before BUG-0139 and BUG-0142, each capture stored the full cumulative
+transcript again and opened a new record file, because the session key held
+the capture time. This script rewrites one installation to the new layout,
+one session at a time:
+
+- All records of a session move into one record file, the one of the first
+  capture, in capture order. Their sequence numbers count up from 0001.
+- The copies of each transcript form a chain. The newest copy of a chain
+  becomes its chain file. Each record gets the half-open byte range of its
+  own turn and the name of its chain.
+- The older copies are deleted.
+
+A copy belongs to a chain when the chain's text so far is a byte prefix of
+the copy, or the copy is a prefix of it. A copy that fits no chain starts a
+new one. A chain is one transcript, so its records can name different
+agents: Copilot and Codex hand a child hook the main transcript. The report
+counts such sessions.
+
+The default is a dry run: the script reads every copy, plans every chain,
+checks every planned span against the copy it replaces, and reports. Only
+``--apply`` changes files. The apply step refuses to run while captures are
+pending, and it holds the session lock of the capture.
+
+Usage:
+    migrate-usage-transcripts [--apply] [--session ID] [--verbose] [TARGET]
+
+TARGET is the project root and defaults to the current directory.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - not POSIX
+    fcntl = None  # type: ignore[assignment]
+
+_FILE_MODE = 0o600
+_KEY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_")
+_TEMP_SUFFIX = ".migrate-tmp"
+
+
+def _load_capture_module():
+    """Load the sibling usage-capture script for its naming rules."""
+    path = Path(__file__).resolve().parent / "usage-capture"
+    loader = importlib.machinery.SourceFileLoader("usage_capture_for_migration", str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[loader.name] = module  # dataclasses look the module up here
+    loader.exec_module(module)
+    return module
+
+
+uc = _load_capture_module()
+
+
+# ── Reading ──────────────────────────────────────────────────────────────
+
+
+@dataclass
+class Capture:
+    """One stored record and the copies it points at."""
+
+    source_file: Path
+    line: int
+    record: dict
+    plain: Optional[Path]
+    structured: Optional[Path]
+
+    @property
+    def agent(self) -> Optional[str]:
+        return self.record.get("agent")
+
+    @property
+    def omitted(self) -> bool:
+        ref = self.record.get("transcript_ref") or {}
+        return ref.get("span") == "content-omitted"
+
+
+def _read(path: Optional[Path]) -> Optional[bytes]:
+    """Return the bytes of *path*, or ``None`` when it is missing or empty."""
+    if path is None:
+        return None
+    try:
+        data = path.read_bytes()
+    except FileNotFoundError:
+        return None
+    return data or None
+
+
+def _structured_of(plain: Path) -> Path:
+    return plain.with_name(plain.name[: -len(".jsonl")] + ".structured.jsonl")
+
+
+def load_groups(usage: Path) -> tuple[dict[tuple, list[Capture]], dict[tuple, str]]:
+    """Group the stored records by ``(cli, session_id)``.
+
+    Returns the groups and, for groups that cannot be migrated, the reason.
+    """
+    transcripts = (usage / "transcripts").resolve()
+    groups: dict[tuple, list[Capture]] = {}
+    skipped: dict[tuple, str] = {}
+    files_of: dict[Path, set] = {}
+    for path in sorted(usage.glob("*.jsonl")):
+        for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if not raw.strip():
+                continue
+            try:
+                record = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(record, dict):
+                continue
+            key = (record.get("cli"), record.get("session_id"))
+            files_of.setdefault(path, set()).add(key)
+            ref = record.get("transcript_ref") or {}
+            plain = Path(ref["path"]) if ref.get("path") else None
+            if plain is not None and transcripts not in plain.resolve().parents:
+                skipped.setdefault(key, "a record points outside the transcripts folder")
+            structured = _structured_of(plain) if plain is not None else None
+            if "chain" in record:
+                skipped.setdefault(key, "a record already names its chain")
+            groups.setdefault(key, []).append(
+                Capture(path, number, record, plain, structured)
+            )
+    for keys in files_of.values():
+        if len(keys) > 1:
+            for key in keys:
+                skipped.setdefault(key, "a record file holds more than one session")
+    for captures in groups.values():
+        captures.sort(
+            key=lambda c: (c.record.get("recorded_at") or "", c.source_file.name, c.line)
+        )
+    return groups, skipped
+
+
+# ── Planning ─────────────────────────────────────────────────────────────
+
+
+@dataclass
+class Generation:
+    """One planned chain file: the newest copy of one unbroken run of copies."""
+
+    kind: str  # "plain" or "structured"
+    index: int
+    source: Path
+    length: int
+    data: bytes
+    members: list[tuple[int, str]] = field(default_factory=list)  # (end, sha256)
+    path: Optional[Path] = None
+
+
+@dataclass
+class Chain:
+    """The copies of one transcript. A chain is a transcript, not an agent.
+
+    Copilot and Codex hand a child hook the main transcript, so the records
+    of one chain can name different agents.
+    """
+
+    agent: Optional[str]
+    agents: set = field(default_factory=set)
+    generations: dict[str, list[Generation]] = field(
+        default_factory=lambda: {"plain": [], "structured": []}
+    )
+    captures: list[int] = field(default_factory=list)
+    name: str = ""
+
+    def current(self, kind: str) -> Optional[Generation]:
+        gens = self.generations[kind]
+        return gens[-1] if gens else None
+
+
+def _relation(chain: Chain, plain: Optional[bytes], structured: Optional[bytes]) -> Optional[str]:
+    """How a copy relates to a chain: ``extends``, ``within``, or ``None``."""
+    for kind, data in (("structured", structured), ("plain", plain)):
+        current = chain.current(kind)
+        if data is None or current is None:
+            continue
+        if data.startswith(current.data):
+            return "extends"
+        if current.data.startswith(data):
+            return "within"
+        return None
+    return None
+
+
+@dataclass
+class SessionPlan:
+    key: tuple
+    session_key: str
+    captures: list[Capture]
+    chains: list[Chain] = field(default_factory=list)
+    new_records: list[dict] = field(default_factory=list)
+    mixed: list[str] = field(default_factory=list)
+    empty: int = 0
+    omitted: int = 0
+    bytes_before: int = 0
+    bytes_after: int = 0
+
+
+def _place(gens: list[Generation], kind: str, data: bytes, source: Path) -> tuple[Generation, dict]:
+    """Add one copy to the generations of one kind and return its span."""
+    current = gens[-1] if gens else None
+    sha = hashlib.sha256(data).hexdigest()
+    if current is not None and data.startswith(current.data):
+        start = current.length
+        current.data, current.length, current.source = data, len(data), source
+        current.members.append((len(data), sha))
+        return current, {"start": start, "end": len(data)}
+    if current is not None and current.data.startswith(data):
+        start = max((end for end, _ in current.members if end <= len(data)), default=0)
+        current.members.append((len(data), sha))
+        return current, {"start": start, "end": len(data)}
+    if current is not None:
+        current.data = b""  # only the newest generation is compared again
+    generation = Generation(kind, len(gens) + 1, source, len(data), data, [(len(data), sha)])
+    gens.append(generation)
+    return generation, {"start": 0, "end": len(data)}
+
+
+def plan_session(key: tuple, captures: list[Capture], usage: Path) -> SessionPlan:
+    cli, session_id = key
+    session_key = min(c.source_file.name[: -len(".jsonl")] for c in captures)
+    plan = SessionPlan(key, session_key, captures)
+    placements: list[tuple[Optional[Chain], dict]] = []
+    for index, capture in enumerate(captures):
+        for path in (capture.plain, capture.structured):
+            if path is not None and path.exists():
+                plan.bytes_before += path.stat().st_size
+        if capture.omitted:
+            plan.omitted += 1
+            placements.append((None, {}))
+            continue
+        plain = _read(capture.plain)
+        structured = _read(capture.structured)
+        if plain is None and structured is None:
+            plan.empty += 1
+            placements.append((None, {}))
+            continue
+        chain = None
+        for relation in ("extends", "within"):
+            fits = [c for c in plan.chains if _relation(c, plain, structured) == relation]
+            if fits:
+                same_agent = [c for c in fits if capture.agent in c.agents]
+                chain = (same_agent or fits)[-1]
+                break
+        if chain is None and capture.agent is None:
+            # The main transcript has one file for the whole session. A copy
+            # without an agent that fits no chain is that transcript after
+            # the CLI rewrote it, as the capture sees it: a new generation.
+            chain = next((c for c in plan.chains if None in c.agents), None)
+        if chain is None:
+            chain = Chain(capture.agent)
+            plan.chains.append(chain)
+        elif capture.agent not in chain.agents:
+            plan.mixed.append(
+                f"{capture.record.get('record_id')} (agent {capture.agent!r}) continues"
+                f" a chain of agent {sorted(chain.agents, key=str)[0]!r}"
+            )
+        chain.agents.add(capture.agent)
+        chain.captures.append(index)
+        spans: dict = {}
+        for kind, data, path in (
+            ("plain", plain, capture.plain),
+            ("structured", structured, capture.structured),
+        ):
+            if data is None:
+                continue
+            generation, span = _place(chain.generations[kind], kind, data, path)
+            spans[kind] = (generation, span)
+        placements.append((chain, spans))
+    for chain in plan.chains:
+        for gens in chain.generations.values():
+            for generation in gens:
+                generation.data = b""  # keep memory bounded across sessions
+    _name_chains(plan, session_id)
+    transcript_dir = usage.resolve() / "transcripts" / session_key
+    for chain in plan.chains:
+        for kind, gens in chain.generations.items():
+            for generation in gens:
+                generation.path = transcript_dir / _chain_file_name(
+                    chain.name, generation.index, kind == "structured"
+                )
+                plan.bytes_after += generation.length
+    _build_records(plan, placements, transcript_dir)
+    return plan
+
+
+def _chain_file_name(chain: str, generation: int, structured: bool) -> str:
+    """The file name rule of ``UsageStoragePaths.chain_path``."""
+    stem = uc.filesystem_key(chain)
+    if generation > 1:
+        stem = f"{stem}.{generation}"
+    return stem + (".structured.jsonl" if structured else ".jsonl")
+
+
+def _name_chains(plan: SessionPlan, session_id: Optional[str]) -> None:
+    """Name the chains the way the capture names them.
+
+    The capture names the main chain after the CLI's transcript file, which
+    carries the session ID. The chain without an agent that has the most
+    captures is the main chain. Subagent transcripts carry an agent ID that
+    the old records do not hold, so their chains are named after the agent.
+    """
+    unnamed = [c for c in plan.chains if None in c.agents]
+    root = max(unnamed, key=lambda c: len(c.captures), default=None)
+    counts: dict[str, int] = {}
+    for chain in plan.chains:
+        if chain is root and session_id:
+            chain.name = str(session_id)
+            continue
+        named = sorted(a for a in chain.agents if a is not None)
+        base = named[0] if named else "unnamed"
+        counts[base] = counts.get(base, 0) + 1
+        chain.name = f"{base}-{counts[base]}"
+
+
+def _build_records(plan: SessionPlan, placements, transcript_dir: Path) -> None:
+    cli, session_id = plan.key
+    empty_number = 0
+    for sequence, (capture, (chain, spans)) in enumerate(
+        zip(plan.captures, placements), 1
+    ):
+        record = dict(capture.record)
+        old_id = str(record.get("record_id", ""))
+        if session_id and re.fullmatch(re.escape(str(session_id)) + r"-\d{4}", old_id):
+            record["record_id"] = f"{session_id}-{sequence:04d}"
+        if chain is None:
+            if capture.omitted:
+                name = str(session_id) if capture.agent is None and session_id else (
+                    capture.agent or "unnamed"
+                )
+            else:
+                empty_number += 1
+                name = f"empty-capture-{empty_number}"
+            record["chain"] = name
+            if record.get("transcript_ref") is not None:
+                record["transcript_ref"] = {
+                    "path": str(transcript_dir / f"{uc.filesystem_key(name)}.jsonl"),
+                    "span": "content-omitted" if capture.omitted else None,
+                    "byte_range": None,
+                    "structured_path": None,
+                    "structured_byte_range": None,
+                }
+            plan.new_records.append(record)
+            continue
+        record["chain"] = chain.name
+        plain = spans.get("plain")
+        structured = spans.get("structured")
+        plain_path = plain[0].path if plain else transcript_dir / (
+            f"{uc.filesystem_key(chain.name)}.jsonl"
+        )
+        record["transcript_ref"] = {
+            "path": str(plain_path),
+            "span": None,
+            "byte_range": plain[1] if plain else None,
+            "structured_path": str(structured[0].path) if structured else None,
+            "structured_byte_range": structured[1] if structured else None,
+        }
+        plan.new_records.append(record)
+
+
+# ── Checking ─────────────────────────────────────────────────────────────
+
+
+def verify_plan(plan: SessionPlan) -> list[str]:
+    """Check that each planned span reproduces the copy it replaces.
+
+    Each copy of a generation must equal the bytes from 0 to its end in the
+    generation's source file. The check hashes the source file once.
+    """
+    problems = []
+    for chain in plan.chains:
+        for gens in chain.generations.values():
+            for generation in gens:
+                data = generation.source.read_bytes()
+                if len(data) != generation.length:
+                    problems.append(f"{generation.source}: length changed during the run")
+                    continue
+                digest = hashlib.sha256()
+                done = 0
+                for end, sha in sorted(set(generation.members)):
+                    digest.update(data[done:end])
+                    done = end
+                    if digest.copy().hexdigest() != sha:
+                        problems.append(
+                            f"{generation.source}: bytes 0 to {end} differ from a copy"
+                        )
+    return problems
+
+
+# ── Applying ─────────────────────────────────────────────────────────────
+
+
+def _pending_captures(usage: Path) -> list[str]:
+    pending = usage / "control" / "pending"
+    try:
+        return sorted(os.listdir(pending))
+    except FileNotFoundError:
+        return []
+
+
+def _lock(transcript_dir: Path) -> int:
+    transcript_dir.mkdir(mode=0o700, exist_ok=True)
+    fd = os.open(transcript_dir / ".lock", os.O_CREAT | os.O_RDWR, _FILE_MODE)
+    if fcntl is not None:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+    return fd
+
+
+def apply_plan(plan: SessionPlan, usage: Path) -> None:
+    """Write the plan so that a crash leaves either the old or the new layout.
+
+    1. Hard-link each generation's source copy to its chain file path.
+    2. Write the new record file next to the old one and rename it into place.
+    3. Delete the other record files, the old copies, and empty folders.
+    """
+    transcript_dir = usage.resolve() / "transcripts" / plan.session_key
+    lock_fd = _lock(transcript_dir)
+    try:
+        targets = []
+        for chain in plan.chains:
+            for gens in chain.generations.values():
+                for generation in gens:
+                    if generation.path.exists():
+                        raise FileExistsError(f"chain file exists: {generation.path}")
+                    targets.append(generation)
+        for generation in targets:
+            os.link(generation.source, generation.path)
+        record_file = usage / f"{plan.session_key}.jsonl"
+        temporary = usage / f"{plan.session_key}.jsonl{_TEMP_SUFFIX}"
+        fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, _FILE_MODE)
+        try:
+            payload = "".join(json.dumps(r) + "\n" for r in plan.new_records)
+            uc._write_all(fd, payload.encode("utf-8"))
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        os.replace(temporary, record_file)
+        for path in sorted({c.source_file for c in plan.captures}):
+            if path != record_file:
+                path.unlink(missing_ok=True)
+        keep = {generation.path for generation in targets}
+        folders = set()
+        for capture in plan.captures:
+            for path in (capture.plain, capture.structured):
+                if path is not None and path not in keep:
+                    path.unlink(missing_ok=True)
+                    folders.add(path.parent)
+        for folder in folders:
+            if folder != transcript_dir:
+                try:
+                    (folder / ".lock").unlink(missing_ok=True)
+                    folder.rmdir()
+                except OSError:
+                    pass
+    finally:
+        if fcntl is not None:
+            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        os.close(lock_fd)
+
+
+# ── Command line ─────────────────────────────────────────────────────────
+
+
+def _gb(n: int) -> str:
+    return f"{n / 1e9:.2f} GB"
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Turn stored usage transcript copies into chain files with turn spans."
+    )
+    parser.add_argument("target", nargs="?", default=".", help="project root")
+    parser.add_argument("--apply", action="store_true", help="change files; default is a dry run")
+    parser.add_argument("--session", help="migrate only this session ID")
+    parser.add_argument("--verbose", action="store_true", help="print one line per session")
+    args = parser.parse_args(argv)
+
+    usage = Path(args.target) / ".agent-factory" / "usage"
+    if not usage.is_dir():
+        print(f"migrate-usage-transcripts: no usage folder at {usage}", file=sys.stderr)
+        return 2
+    if args.apply:
+        pending = _pending_captures(usage)
+        if pending:
+            print(
+                f"migrate-usage-transcripts: {len(pending)} captures are pending in"
+                f" {usage / 'control' / 'pending'}; run again when they are done",
+                file=sys.stderr,
+            )
+            return 2
+
+    groups, skipped = load_groups(usage)
+    if args.session:
+        groups = {k: v for k, v in groups.items() if k[1] == args.session}
+    mode = "apply" if args.apply else "dry run"
+    print(f"migrate-usage-transcripts ({mode}): {len(groups)} sessions in {usage}")
+
+    totals = {
+        "migrated": 0, "records": 0, "chains": 0, "generations": 0,
+        "empty": 0, "omitted": 0, "before": 0, "after": 0,
+    }
+    reasons: dict[str, list[str]] = {}
+    mixed: list[str] = []
+    failures = 0
+    for key in sorted(groups, key=lambda k: (str(k[0]), str(k[1]))):
+        label = f"{key[0]}/{key[1]}"
+        if key in skipped:
+            reasons.setdefault(skipped[key], []).append(label)
+            continue
+        plan = plan_session(key, groups[key], usage)
+        if plan.mixed:
+            mixed.append(f"{label}: {plan.mixed[0]}")
+        problems = verify_plan(plan)
+        if problems:
+            failures += 1
+            reasons.setdefault("a planned span does not reproduce its copy", []).append(
+                f"{label}: {problems[0]}"
+            )
+            continue
+        if args.apply:
+            try:
+                apply_plan(plan, usage)
+            except OSError as exc:
+                failures += 1
+                reasons.setdefault("the apply step failed", []).append(f"{label}: {exc}")
+                continue
+        generations = sum(len(g) for c in plan.chains for g in c.generations.values())
+        totals["migrated"] += 1
+        totals["records"] += len(plan.captures)
+        totals["chains"] += len(plan.chains)
+        totals["generations"] += generations
+        totals["empty"] += plan.empty
+        totals["omitted"] += plan.omitted
+        totals["before"] += plan.bytes_before
+        totals["after"] += plan.bytes_after
+        if args.verbose:
+            print(
+                f"  {label}: {len(plan.captures)} records, {len(plan.chains)} chains,"
+                f" {generations} chain files, {_gb(plan.bytes_before)} -> {_gb(plan.bytes_after)}"
+            )
+
+    verb = "migrated" if args.apply else "can be migrated"
+    print(f"Sessions {verb}: {totals['migrated']}")
+    print(f"  Records: {totals['records']}")
+    print(f"  Chains: {totals['chains']}, chain files: {totals['generations']}")
+    print(f"  Captures without text: {totals['empty']}, with omitted text: {totals['omitted']}")
+    print(f"  Transcript bytes: {_gb(totals['before'])} before, {_gb(totals['after'])} after")
+    print(f"  Sessions with a chain whose records name different agents: {len(mixed)}")
+    if args.verbose:
+        for label in mixed:
+            print(f"    {label}")
+    print("  Every planned span was checked against the copy it replaces.")
+    skipped_count = sum(len(v) for v in reasons.values())
+    print(f"Sessions left unchanged: {skipped_count}")
+    for reason, labels in sorted(reasons.items()):
+        print(f"  {reason}: {len(labels)}")
+        for label in labels:
+            print(f"    {label}")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
