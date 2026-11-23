@@ -1,0 +1,139 @@
+% title: Setting up testing with the factory
+% topic: testing-setup
+% date: 2026-11-23
+% lang: en
+```grid 40x10
+
+
+   **SETTING UP TESTING**
+   **WITH THE FACTORY**
+
+   %%Fewer full suites,%%
+   %%the same check at the end.%%
+```
+---
+```grid 99x25
+
+
+    **WHERE THE TESTS RUN**
+
+
+    ~~Where~~               ~~What runs~~                         ~~Command in docs/testing.yaml~~
+    ────────────────────────────────────────────────────────────────────────────────────────
+    **Pre-commit**          The project's own hook decides    —
+
+    **Story merge**         Tests of the story's files        test_changed_command
+
+    **Agent**               Tests of its own changes          test_changed_command
+
+    **Feature merge**       The whole suite                   test_command
+
+
+    The whole suite runs once per feature, at the feature merge.
+    Without test_changed_command, every story merge runs the whole suite.
+    The factory installs no test hook for pre-commit.
+```
+@footer setting up testing with the factory
+---
+```grid 80x24
+
+  **THE CONTRACT**
+
+  ~~docs/testing.yaml~~
+  test_command: "uv run pytest"                  ~~# the whole suite~~
+  test_changed_command: "<your command>"         ~~# the tests of changed files~~
+
+  ~~A story merge runs, at the root of a temporary worktree:~~
+  <your command> src/login.py docs/login.md tests/test_login.py
+
+  - The paths are relative to the repository root.
+  - The list holds every changed path: code, docs, config, deleted files.
+  - Exit 0 passes. Any other exit code blocks the merge.
+  - **With no affected test, the command must exit 0.**
+  - An agent may run the command with its own changed paths.
+    A path holds only letters, digits, _ . / and -.
+```
+@footer setting up testing with the factory
+---
+```grid 80x24
+
+  **FOUR WAYS IN**
+
+
+  **1**   The framework selects the tests         ~~Jest, Vitest~~
+
+  **2**   The project writes a selector           ~~pytest and others~~
+
+  **3**   A wrapper splits the paths              ~~several suites~~
+
+  **4**   The whole suite runs per story          ~~leave the key out~~
+
+
+  The project's testing strategy decides which way fits.
+  The factory only reads the exit code.
+```
+@footer setting up testing with the factory
+---
+```grid 80x24
+
+  **1  THE FRAMEWORK SELECTS THE TESTS**
+
+  test_changed_command: "npx vitest related --run --passWithNoTests"
+  test_changed_command: "npx jest --findRelatedTests --passWithNoTests"
+
+  ~~Not yet checked: how each tool treats a path that is no source file.~~
+
+
+  **2  THE PROJECT WRITES A SELECTOR**
+
+  test_changed_command: "python3 tests/select_tests.py --run"
+  ~~This is the Agent Factory repository's selector. The factory ships none.~~
+
+  The testing strategy sets the rules of the script:
+  - A source file selects its test file by naming convention.
+  - A shared config file, such as conftest.py, selects the whole suite.
+  - A path with no matching test selects nothing.
+  - Tests the strategy always wants join every selection.
+```
+@footer setting up testing with the factory
+---
+```grid 99x25
+
+
+    **3  A WRAPPER SPLITS THE PATHS**
+
+
+                                    ┌───> backend/...   ───> pytest selector
+    changed paths ───> wrapper ─────┤
+                                    └───> frontend/...  ───> vitest related
+
+
+    The wrapper sorts the paths by suite root and calls each suite's command.
+    It fails when one suite fails.
+    Two commands joined with && do not work: only the last one gets the paths.
+
+
+
+    **4  THE WHOLE SUITE RUNS PER STORY**
+
+    Some strategies demand a full run per story, for example where a
+    missed regression is expensive. That project leaves the key out.
+    Then every story merge runs test_command, as before.
+```
+@footer setting up testing with the factory
+---
+```grid 62x14
+
+  **SETTING IT UP**
+
+  1. Run update-factory.
+  2. Ask the test-strategy agent to run
+     detect-test-regime.
+  3. For one Jest or Vitest suite, it proposes
+     a command. Confirm it.
+  4. Otherwise, write the command into
+     docs/testing.yaml by hand.
+  5. Run the command once with a source path
+     and once with a docs path. Both must pass.
+```
+@footer setting up testing with the factory
