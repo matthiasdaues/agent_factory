@@ -86,9 +86,11 @@ Checks
          `.current-work/mutation-testing/<story-id>.json` of the folder it
          runs in, and the rule `judge` of the `mutation-testing` script
          decides (BR-066, RL-G25).
-       - The test suite: `test_command` of `docs/testing.yaml`. A non-zero
-         exit fails and names the test suite. Without `test_command`,
-         premerge-check prints the skip.
+       - The test suite: `test_changed_command` of `docs/testing.yaml`, with
+         the paths of `git diff --name-only <target>...<branch>` as
+         arguments. Without that key, `test_command` runs with no
+         arguments. A non-zero exit fails and names the command. Without
+         either key, premerge-check prints the skip.
      Before the gates and the test suite, premerge-check runs the `ready`
      command of every measure of each gate that the merge runs, in the
      worktree. A gate with `enabled: false` that the story names counts
@@ -145,6 +147,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -1502,13 +1505,56 @@ def check_story_gates(
     # crap-score returns one. So the gate that could not measure stands in
     # failed_gates exactly once, and every other entry is a failed check.
     others_passed = len(failed_gates) == (0 if unmeasured is None else 1)
-    return [(others_passed, line), check_test_suite(worktree, story_id)], unmeasured
+    return [
+        (others_passed, line), check_story_tests(worktree, story_id, target, branch),
+    ], unmeasured
 
 
-def read_test_command(top: Path) -> str | None:
-    """Return `test_command` of docs/testing.yaml, or None without one."""
-    command = _read_testing_yaml(top).get("test_command")
+def read_test_command(top: Path, key: str = "test_command") -> str | None:
+    """Return *key* of docs/testing.yaml, or None without one."""
+    command = _read_testing_yaml(top).get(key)
     return command.strip() if isinstance(command, str) and command.strip() else None
+
+
+def check_story_tests(
+    worktree: Path, story_id: str, target: str, branch: str
+) -> tuple[bool, str]:
+    """Run the tests of the files that the story changed.
+
+    With `test_changed_command`, the command gets the paths of
+    `git diff <target>...<branch>` as arguments, and `test_command` does not
+    run. Without the key, the story merge runs `test_command` as before. The
+    feature merge always runs `test_command`.
+    """
+    try:
+        command = read_test_command(worktree, "test_changed_command")
+    except BrokenTestingYaml:
+        command = None
+    if command is None:
+        return check_test_suite(worktree, story_id)
+    status, files, err = changed_files(target, branch)
+    if status != 0:
+        return False, (
+            f"BLOCK test-suite: cannot list the changed files of {story_id}: {err.strip()}"
+        )
+    full = " ".join([command, *(shlex.quote(path) for path in files)])
+    try:
+        result = subprocess.run(
+            full, shell=True, cwd=worktree, env=_worktree_environment(),
+            capture_output=True, text=True, check=False,
+        )
+    except OSError as exc:
+        return False, f"BLOCK test-suite: cannot run {command!r}: {exc}"
+    if result.returncode != 0:
+        lines = (result.stdout + result.stderr).strip().splitlines()
+        tail = f": {lines[-1]}" if lines else ""
+        return False, (
+            f"BLOCK test-suite: the tests of the changed files {command!r} exited "
+            f"{result.returncode} for {story_id}{tail}"
+        )
+    return True, (
+        f"PASS test-suite: the tests of the changed files {command!r} passed for {story_id}"
+    )
 
 
 def check_test_suite(

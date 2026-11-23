@@ -100,3 +100,18 @@ def test_a_script_no_test_names_selects_only_the_sweep_tests(tmp_path: Path) -> 
 def test_a_path_outside_scripts_and_tests_selects_nothing(tmp_path: Path) -> None:
     _layout(tmp_path)
     assert _select(tmp_path, "docs/README.md") == []
+
+
+def test_a_deleted_test_file_is_not_selected(tmp_path: Path) -> None:
+    _layout(tmp_path)
+    assert _select(tmp_path, "tests/factory/test_gone.py") == []
+
+
+def test_run_with_no_affected_test_passes_without_running_pytest(tmp_path: Path) -> None:
+    _layout(tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(SELECTOR), "--root", str(tmp_path), "--run", "docs/README.md"],
+        capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0
+    assert result.stdout == "run-tests: no affected tests\n"

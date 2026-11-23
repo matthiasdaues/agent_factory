@@ -78,7 +78,7 @@ Four gates enforce semantic code quality. The implementation agent runs them in 
 
 - `test_command` (required) -- full test suite command, used by precondition evaluation
 - `test_staged_command` (optional) -- command for TDD iteration on staged files, allowlisted for agents
-- `test_changed_command` (optional) -- command for fast feedback on changed files
+- `test_changed_command` (optional) -- command that runs the tests of the changed files; the story merge of premerge-check appends the changed paths and runs it instead of `test_command`
 - `layers` (optional) -- layer bindings mapping Factory layer names to project-specific tooling, infrastructure, entry points, anti-patterns, and fidelity declarations
 
 **Gate contract**: exit-code-only. Zero means pass, nonzero means fail. Factory does not parse structured test output (BR-027).

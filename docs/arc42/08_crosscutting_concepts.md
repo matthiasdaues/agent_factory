@@ -74,7 +74,7 @@ Testing is project-owned infrastructure. Factory does not detect frameworks, con
 | ---------------------- | ---------------------------------------------------------------- | ----------------------------------------- |
 | `test_command`         | Full test suite command (required)                               | Eligibility precondition, agent allowlist |
 | `test_staged_command`  | Fast TDD iteration on staged files (optional)                    | Agent allowlist                           |
-| `test_changed_command` | Fast feedback on changed files (optional)                        | Agent allowlist                           |
+| `test_changed_command` | Tests of the changed files; gets the changed paths (optional)    | Story merge, agent allowlist              |
 | `layers`               | Layer bindings mapping Factory layer names to tooling (optional) | QA strategy grounding                     |
 
 **Zero-install**: Factory does not install test frameworks. It reads the test configuration and executes the declared command as-is. If `testing.yaml` is absent or `test_command` is missing, the precondition evaluator reports the gap.

@@ -9,6 +9,9 @@ test_all: 'uv run pytest --tb=short --quiet -n auto -m "not container and not op
 # Compatibility commands consumed by the repository's test-command guard.
 test_command: 'uv run pytest --tb=short --quiet -n auto -m "not container and not opencode_session"'
 test_staged_command: 'uv run pytest --tb=short --quiet -n auto -m "not container and not opencode_session"'
+# The story merge of premerge-check appends the changed paths. The selector
+# runs only the test files those paths affect.
+test_changed_command: "python3 tests/select_tests.py --run"
 
 suites:
   - name: default

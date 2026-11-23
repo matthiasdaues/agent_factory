@@ -19,20 +19,30 @@ The rules, in order:
 - Any changed script also selects the test files that list the whole
   scripts folder.
 
+With `--run`, the selector runs pytest on the selection, in parallel and
+without the container renders, instead of printing it. The run-tests hook
+and `test_changed_command` of `docs/testing.yaml` both use `--run`.
+
 A name counts only as a whole token: `dispatch` does not match
 `dispatch_lib` or `dispatch-ledger`. A test that reaches a script by a
-computed name is not found. The full suite at push time covers that gap.
+computed name is not found. The full suite of the feature merge covers that
+gap.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from pathlib import Path
 
 SCRIPTS = "packages/factory/scripts/"
 FIXTURES = "tests/fixtures/"
 WHOLE_SUITE = {"tests/conftest.py", "pyproject.toml", "uv.lock"}
+PYTEST = [
+    "uv", "run", "pytest", "--tb=short", "--quiet", "-n", "auto",
+    "-m", "not container and not opencode_session",
+]
 SWEEP_RE = re.compile(r"SCRIPTS\w*\.(iterdir|r?glob)\(")
 
 
@@ -69,7 +79,8 @@ def select(root: Path, paths: list[str]) -> list[str]:
     for path in paths:
         name = Path(path).name
         if path.startswith("tests/") and name.startswith("test_") and name.endswith(".py"):
-            selected.add(path)
+            if (root / path).is_file():
+                selected.add(path)
         elif path.startswith(FIXTURES):
             names.add(path[len(FIXTURES):].split("/", 1)[0])
         elif path.startswith("tests/") and name.endswith(".py"):
@@ -89,11 +100,19 @@ def select(root: Path, paths: list[str]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=Path.cwd(), help="repository root")
+    parser.add_argument("--run", action="store_true", help="run pytest on the selection")
     parser.add_argument("paths", nargs="*", help="changed paths, relative to the root")
     args = parser.parse_args()
-    for test in select(args.root.resolve(), args.paths):
-        print(test)
-    return 0
+    selected = select(args.root.resolve(), args.paths)
+    if not args.run:
+        for test in selected:
+            print(test)
+        return 0
+    if not selected:
+        print("run-tests: no affected tests")
+        return 0
+    os.chdir(args.root)
+    os.execvp(PYTEST[0], [*PYTEST, *selected])
 
 
 if __name__ == "__main__":

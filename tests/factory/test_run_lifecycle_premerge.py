@@ -449,6 +449,43 @@ def test_RL_08_IT_17_an_untracked_test_file_takes_no_part_in_the_test_suite(tmp_
     assert untracked.read_text() == "exit 1\n"
 
 
+RUN_CHANGED = """#!/bin/sh
+for path in "$@"; do echo "$path"; done > {log}
+"""
+CHANGED_SUITE_YAML = (
+    'test_command: "exit 1"\n'
+    'test_changed_command: "sh scripts/run-changed.sh"\n'
+)
+
+
+@pytest.mark.spec("RL-08-IT-17")
+def test_RL_08_IT_17_a_story_merge_runs_the_tests_of_the_changed_files(tmp_path):
+    """With test_changed_command, a story merge runs it with the paths the
+    story changed, and does not run test_command."""
+    log = tmp_path / "changed.log"
+    run = _build_wave_repo(
+        tmp_path,
+        {
+            "docs/testing.yaml": CHANGED_SUITE_YAML,
+            "scripts/run-changed.sh": RUN_CHANGED.format(log=log),
+        },
+    )
+    repo = run["repo"]
+    _work_and_review(repo, run["ledger"], run["base"], "ST-0350")
+
+    result = _premerge(repo)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (
+        "PASS test-suite: the tests of the changed files 'sh scripts/run-changed.sh' "
+        "passed for ST-0350"
+    ) in result.stdout
+    assert log.read_text().splitlines() == [
+        f"docs/reviews/code-review-ST-0350-{REVIEW_DAY}.md",
+        "src/ST-0350.txt",
+    ]
+
+
 # --- ST-0413: no merge without a review report or with an open blocking finding ---
 
 FINDING = """---
@@ -1222,6 +1259,23 @@ def test_RL_13_IT_04_the_suite_runs_in_a_temporary_worktree(tmp_path):
     assert _git(repo, "stash", "list") == ""
     assert not (repo / FEATURE_PREMERGE).exists()
     assert str(repo / FEATURE_PREMERGE) not in _worktrees(repo)
+
+
+@pytest.mark.spec("RL-13-IT-04")
+def test_RL_13_IT_04_the_feature_merge_ignores_test_changed_command(tmp_path):
+    """The feature merge runs test_command even when test_changed_command is set."""
+    run = _feature_run(tmp_path)
+    feature = run["feature"]
+    (feature / "docs" / "testing.yaml").write_text(
+        'test_command: "sh tests/suite.sh"\ntest_changed_command: "exit 1"\n'
+    )
+    _git(feature, "add", "-A")
+    _git(feature, "commit", "-qm", "docs: tests of the changed files")
+
+    result = _premerge_dev(run["repo"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert run["log"].read_text().strip() == str(run["repo"] / FEATURE_PREMERGE)
 
 
 # --- ST-0423: the mutation gate at the story merge (BR-066, RL-G25) ---
