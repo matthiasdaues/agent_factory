@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# ///
 """trigger — resolve an agent or playbook step from .agent-factory/factory/INDEX.yaml's
 source data and invoke it via a CLI, interactive or background.
 
