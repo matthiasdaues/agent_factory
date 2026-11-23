@@ -421,6 +421,35 @@ svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
 ---
 ```grid 99x25
 
+    **WISSENSFLUSS**
+    %%nach vorn wächst die Festlegung, nach hinten korrigiert der Code die Annahmen%%
+
+   **FLUSS NACH VORN**    ungewiss ──────────────────────────────────────────────────────► ~~spezifisch~~
+   ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+   │   PROPOSAL    │─►│ SPEZIFIKATION │─►│  ARCHITEKTUR  │─►│    PLANUNG    │─►│     BAUEN     │
+   │ was, für wen  │  │   Verhalten   │  │ Form, Grenzen │  │    Stories    │  │  Code, Tests  │
+   └───────────────┘  └───────────────┘  └───────────────┘  └───────────────┘  └───────────────┘
+           ▲                  ▲                  ▲                  ▲                  │
+           │                  │                  │                  │                  │
+           └──────────────────┴──────────────────┼──────────────────┘                  │
+             ~~Befunde an den Eigentümer~~           │                                     ▼
+                                        ┌────────────────┐  ┌───────────────┐  ┌───────────────┐
+    **FLUSS NACH HINTEN**                   │ RECONCILIATION │  │      QA       │  │  CODE-REVIEW  │
+    Der gebaute Code prüft die          │   Doku gegen   │◄─│    prüfen,    │◄─│   das ganze   │
+    „halbfesten Annahmen“.              │    den Code    │  │ Fehler jagen  │  │    Feature    │
+                                        └────────────────┘  └───────────────┘  └───────────────┘
+
+    **Nach vorn legt jede Stufe fest, was die vorige offen ließ.**
+    Jede Festlegung ruht auf Annahmen. Sie sind fest genug zum Weiterbauen,
+    aber erst der Code zeigt, ob sie halten.
+
+    **Hält eine Annahme nicht, korrigiert der Eigentümer sein Dokument, nicht nur den Code.**
+
+```
+@footer agent factory · schritt für schritt
+---
+```grid 99x25
+
     **WAS DIE MASCHINEN PRÜFEN**
     %%bevor Sie hinsehen, fängt ein Gate den Fehler%%
 

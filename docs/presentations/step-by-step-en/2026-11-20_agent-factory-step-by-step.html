@@ -421,6 +421,35 @@ svg.cell line { stroke: var(--red); stroke-width: 5; stroke-linecap: butt; }
 ---
 ```grid 99x25
 
+    **KNOWLEDGE FLOW**
+    %%forward, the decisions get firmer; backward, the code corrects the assumptions%%
+
+   **FORWARD FLOW**       uncertain ─────────────────────────────────────────────────────► ~~specific~~
+   ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+   │   PROPOSAL    │─►│ SPECIFICATION │─►│ ARCHITECTURE  │─►│   PLANNING    │─►│   BUILDING    │
+   │ who needs it  │  │   behaviour   │  │ shape, bounds │  │    stories    │  │  code, tests  │
+   └───────────────┘  └───────────────┘  └───────────────┘  └───────────────┘  └───────────────┘
+           ▲                  ▲                  ▲                  ▲                  │
+           │                  │                  │                  │                  │
+           └──────────────────┴──────────────────┼──────────────────┘                  │
+             ~~findings go to the owner~~            │                                     ▼
+                                        ┌────────────────┐  ┌───────────────┐  ┌───────────────┐
+    **BACKWARD FLOW**                       │ RECONCILIATION │  │      QA       │  │  CODE REVIEW  │
+    The code as built tests the         │  docs against  │◄─│    review,    │◄─│   the whole   │
+    "half-firm assumptions".            │    the code    │  │   hunt bugs   │  │    feature    │
+                                        └────────────────┘  └───────────────┘  └───────────────┘
+
+    **Going forward, each stage settles what the stage before left open.**
+    Each decision rests on assumptions. They are firm enough to build on,
+    but only the code shows whether they hold.
+
+    **When an assumption fails, its owner corrects the document, not only the code.**
+
+```
+@footer agent factory · step by step
+---
+```grid 99x25
+
     **WHAT THE MACHINES CHECK**
     %%a gate catches the mistake before you look%%
 

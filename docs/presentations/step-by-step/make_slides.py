@@ -369,6 +369,43 @@ c.put(6, 20, "Code-Fehler an den Developer, Doku-Drift an den Autor des Dokument
 text(c, 4, 22, "Keine offenen Befunde mehr: fertig. Das Projekt ist bereit für das nächste Feature.", "**")
 slides.append(slide(c))
 
+# 12b. Wissensfluss -----------------------------------------------------------------------------------------
+c = Canvas(99, 25)
+title(c, "WISSENSFLUSS", "nach vorn wächst die Festlegung, nach hinten korrigiert der Code die Annahmen")
+text(c, 3, 4, "FLUSS NACH VORN", "**")
+c.put(22, 4, "ungewiss ")
+c.hline(31, 85, 4, "►")
+text(c, 87, 4, "spezifisch", "~~")
+forward = [("PROPOSAL", "was, für wen"), ("SPEZIFIKATION", "Verhalten"),
+           ("ARCHITEKTUR", "Form, Grenzen"), ("PLANUNG", "Stories"), ("BAUEN", "Code, Tests")]
+for i, (name, line) in enumerate(forward):
+    x = 3 + i * 19
+    c.box(x, 5, 17, 4, [name, line])
+    if i < 4:
+        c.put(x + 17, 6, "─►")
+# Rückkanal: von der Reconciliation hinauf zu jeder Stufe, die Annahmen festlegt
+for x in (11, 30, 49, 68):
+    c.put(x, 9, "▲")
+    c.put(x, 10, "│")
+c.hline(11, 68, 11)
+c.put(11, 11, "└"); c.put(30, 11, "┴"); c.put(49, 11, "┼"); c.put(68, 11, "┘")
+c.put(49, 12, "│")
+text(c, 13, 12, "Befunde an den Eigentümer", "~~")
+c.vline(87, 9, 12, "▼")
+c.box(79, 13, 17, 5, ["CODE-REVIEW", "das ganze", "Feature"])
+c.hline(77, 78, 15, "◄")
+c.box(60, 13, 17, 5, ["QA", "prüfen,", "Fehler jagen"])
+c.hline(58, 59, 15, "◄")
+c.box(40, 13, 18, 5, ["RECONCILIATION", "Doku gegen", "den Code"])
+text(c, 4, 14, "FLUSS NACH HINTEN", "**")
+c.put(4, 15, "Der gebaute Code prüft die")
+c.put(4, 16, "„halbfesten Annahmen“.")
+text(c, 4, 19, "Nach vorn legt jede Stufe fest, was die vorige offen ließ.", "**")
+c.put(4, 20, "Jede Festlegung ruht auf Annahmen. Sie sind fest genug zum Weiterbauen,")
+c.put(4, 21, "aber erst der Code zeigt, ob sie halten.")
+text(c, 4, 23, "Hält eine Annahme nicht, korrigiert der Eigentümer sein Dokument, nicht nur den Code.", "**")
+slides.append(slide(c))
+
 # 13. Gates ------------------------------------------------------------------------------------------------
 c = Canvas(99, 25)
 title(c, "WAS DIE MASCHINEN PRÜFEN", "bevor Sie hinsehen, fängt ein Gate den Fehler")
