@@ -85,6 +85,10 @@ Test command
   `python` runs the project's interpreter. Such an environment is a folder
   with pyvenv.cfg under uv's cache folder.
 
+  SELECT_COMMAND must run a subset of the tests that TEST_COMMAND runs,
+  because the gate's promise to fail wrongly but never pass wrongly rests
+  on it.
+
   SELECT_COMMAND below may hold a command that runs only the tests of the
   paths appended to it. With GATE_SCOPE=changed and a filled
   SELECT_COMMAND, the command runs SELECT_COMMAND with every path of
@@ -319,12 +323,24 @@ def test_command(changed: set[str] | None) -> list[str]:
     return TEST_COMMAND
 
 
+def include_pattern(path: Path) -> str:
+    """The coverage.py include pattern that matches *path* and nearly only it.
+
+    coverage.py reads each item of `include` as a file pattern, and it
+    splits the list at commas. So *, ? and [ go into a character class, and
+    a comma or ] becomes ?, which matches one character, because coverage.py
+    cannot write either one in a pattern.
+    """
+    escaped = {"*": "[*]", "?": "[?]", "[": "[[]", ",": "?", "]": "?"}
+    return "".join(escaped.get(char, char) for char in str(path))
+
+
 def coverage_config(root: Path, data_file: Path, traced: list[Path] | None) -> str:
     """The coverage.py settings: trace every file below *root*, or only *traced*."""
     if traced is None:
         where = f"source = {root}\n"
     else:
-        where = "include =\n" + "".join(f"    {path}\n" for path in traced)
+        where = "include =\n" + "".join(f"    {include_pattern(path)}\n" for path in traced)
     # include_namespace_packages lets coverage report an untested file in a
     # folder without __init__.py as 0 % covered.
     return (

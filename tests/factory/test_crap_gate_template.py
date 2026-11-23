@@ -803,6 +803,26 @@ exec {python} -m pytest -q -p no:cacheprovider tests
 """
 
 
+TRACE_CONFTEST = """\
+import os
+
+import coverage
+
+
+def pytest_sessionfinish(session):
+    current = coverage.Coverage.current()
+    if current is not None and "TRACE_LOG" in os.environ:
+        with open(os.environ["TRACE_LOG"], "w") as log:
+            log.write("\\n".join(sorted(current.get_data().measured_files())))
+"""
+
+
+def _traced(root: Path, log: Path) -> set[str]:
+    """The files that coverage traced in the test run, relative to *root*."""
+    base = root.resolve()
+    return {str(Path(line).resolve().relative_to(base)) for line in log.read_text().splitlines()}
+
+
 @pytest.mark.spec("CG-03-IT-09")
 def test_cg_03_with_changed_the_template_runs_the_select_command_with_the_changed_paths(
     tmp_path: Path,
@@ -815,16 +835,21 @@ def test_cg_03_with_changed_the_template_runs_the_select_command_with_the_change
     selector.chmod(0o755)
     _write_project(root, select_command=[str(selector), "--run"])
     log = tmp_path / "select.log"
+    trace_log = tmp_path / "trace.log"
+    (root / "tests" / "conftest.py").write_text(TRACE_CONFTEST)
 
     changed = _run(
         root, GATE_SCOPE="changed", GATE_CHANGED_FILES="src/parser.py\ntests/test_parser.py",
-        SELECT_LOG=str(log),
+        SELECT_LOG=str(log), TRACE_LOG=str(trace_log),
     )
 
     assert changed.returncode == 0, changed.stderr
     assert log.read_text().splitlines() == ["--run", "src/parser.py", "tests/test_parser.py"]
-    # The template traces only the changed files that the measure keeps.
     assert _files(root) == {"src/parser.py", "tests/test_parser.py"}
+    # The template traces only the changed files that the measure keeps. The
+    # test imports scripts/import-orders, so a template that traces every
+    # file records it, and the files of the rows cannot show that.
+    assert _traced(root, trace_log) == {"src/parser.py", "tests/test_parser.py"}
     log.unlink()
 
     every = _run(root, GATE_SCOPE="all", GATE_CHANGED_FILES="", SELECT_LOG=str(log))
@@ -910,3 +935,45 @@ def test_cg_03_a_pytest_that_a_test_starts_keeps_the_temp_folder_of_its_caller(t
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert not (tmp_path / ".pytest_cache").exists()
+
+
+ODD_NAMES_TEST = """\
+import importlib.util
+from pathlib import Path
+
+SRC = Path(__file__).resolve().parents[1] / "src"
+
+
+def _load(name):
+    spec = importlib.util.spec_from_file_location("odd", SRC / name)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_odd_names():
+    for name in ("a,b.py", "a[1].py", "a]b.py", "a*b.py"):
+        module = _load(name)
+        assert module.f(1) == 1
+        assert module.f(0) == 2
+"""
+
+ODD_NAMES = ("a,b.py", "a[1].py", "a]b.py", "a*b.py")
+
+
+@pytest.mark.spec("CG-03-IT-09")
+def test_cg_03_with_changed_the_template_traces_a_path_with_a_comma_or_a_bracket(tmp_path: Path) -> None:
+    """IMPL-0103: coverage.py splits `include` at commas and reads brackets as patterns."""
+    _write_project(tmp_path)
+    for name in ODD_NAMES:
+        (tmp_path / "src" / name).write_text("def f(a):\n    if a:\n        return 1\n    return 2\n")
+    (tmp_path / "tests" / "test_odd.py").write_text(ODD_NAMES_TEST)
+
+    result = _run(
+        tmp_path, GATE_SCOPE="changed", GATE_FILES="src/*",
+        GATE_CHANGED_FILES="\n".join(f"src/{name}" for name in ODD_NAMES),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert _files(tmp_path) == {f"src/{name}" for name in ODD_NAMES}
+    assert {row["coverage_pct"] for row in _rows(tmp_path)} == {100.0}
