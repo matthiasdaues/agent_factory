@@ -138,7 +138,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
             # Project source, configuration, and documentation that Factory changes only through defined contracts
             projectFilesystem = container "Project Filesystem" "The project's source, configuration and docs" "Filesystem" "Storage"
-            # Project-owned commands that gates.crap-score.measures names: each ready command answers whether its measuring command can run now; each measuring command writes one JSON array of rows to the path in GATE_OUTPUT, or exits non-zero and names the cause when it cannot measure; they refer to nothing under .agent-factory/
+            # Project-owned commands that gates.crap-score.measures names: each ready command answers whether its measuring command can run now; each measuring command reads GATE_SCOPE and GATE_CHANGED_FILES, may run only the tests that the changed paths affect, writes one JSON array of rows to the path in GATE_OUTPUT, or exits non-zero and names the cause when it cannot measure; they refer to nothing under .agent-factory/
             measuringCommands = container "Measuring Commands" "The project's commands that measure its code" "Project scripts" "Project-owned"
             # The core files under docs/spec/ and the seam files docs/agent-context.md and docs/testing.yaml
             coreArtifacts = container "Core Artifacts" "docs/spec/, docs/agent-context.md, docs/testing.yaml" "Markdown/DSL/YAML files" "Storage"
@@ -399,7 +399,7 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         mutationTesting -> coreArtifacts "Reads its command and time limit"
         # Reads gates.crap-score in the folder it runs in: timeout_minutes and the measures; takes threshold, files and exclude from there only with --settings-from-folder, when the file or gates.crap-score is missing on the integration branch, or with --all when the ref of the default dev is missing, and prints which values it read from where
         crapScore -> coreArtifacts "Reads gates.crap-score"
-        # Runs the ready command and then the measuring command of each measure, in list order, with GATE_OUTPUT set, within timeout_minutes for the whole run
+        # Runs the ready command and then the measuring command of each measure, in list order, with GATE_OUTPUT set, within timeout_minutes for the whole run; with --base it also sets GATE_CHANGED_FILES to the paths of the judged diff, one repository-relative path per line, and GATE_SCOPE to changed; with --all, GATE_SCOPE is all and GATE_CHANGED_FILES is empty (DEC-84)
         crapScore -> measuringCommands "Runs ready and measuring commands"
         # Writes one JSON array of rows to the path in GATE_OUTPUT; exits non-zero when it cannot measure, which crap-score turns into exit 2
         measuringCommands -> crapScore "Writes rows to GATE_OUTPUT"
