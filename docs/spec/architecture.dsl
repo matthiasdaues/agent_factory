@@ -8,10 +8,12 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
     model {
         # External actors
         humanOperator = person "Human Operator" "Person driving Agent Factory by hand"
-        cliAgent = person "CLI-Invoked Agent" "A Claude Code, Codex, Copilot CLI, pi, or OpenCode session under a scoped allowlist" "Agent"
+        # A Claude Code, Codex, Copilot CLI, pi, or OpenCode session under a scoped allowlist
+        cliAgent = person "CLI-Invoked Agent" "An agent session in one of five CLIs" "Agent"
         newcomer = person "Newcomer" "Person installing and using Agent Factory for the first time"
         releaseMaintainer = person "Release Maintainer" "Person who builds and publishes Factory release assets"
-        stakeholder = person "Stakeholder" "Person who owns the domain; confirms the scope map, every glossary term as the second glossary review, docs/agent-context.md, and every change to docs/testing.yaml"
+        # Person who owns the domain; confirms the scope map, every glossary term as the second glossary review, docs/agent-context.md, and every change to docs/testing.yaml
+        stakeholder = person "Stakeholder" "Owns the domain and confirms its artifacts"
 
         # Git as supporting actor
         git = softwareSystem "Git / pre-commit" "Version control and hook execution" "External"
@@ -33,7 +35,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
 
             # Eligibility Engine — pure domain logic, returns immutable decisions, never writes state
             eligibilityEngine = container "Eligibility Engine" "Evaluates agent preconditions against the repository, derives per-agent readiness, and classifies agents by eligibility; returns immutable decisions without writing state" "Python 3.10+" {
-                intentCli = component "intent" "CLI entry point with two subcommands: select (list agents with precondition evidence) and assess (validate governed artifacts); calls evaluate_all and load_agent_definitions" "Python"
+                # CLI entry point with two subcommands: select (list agents with precondition evidence) and assess (validate governed artifacts); calls evaluate_all and load_agent_definitions
+                intentCli = component "intent" "Lists agents and assesses artifacts" "Python"
                 agentLoader = component "Agent Loader" "Loads agent definitions from YAML frontmatter in the agents directory" "Python"
                 preconditionEvaluator = component "Precondition Evaluator" "Evaluates each agent's inputs.required declarations against the filesystem: resolves path patterns, checks frontmatter conditions, runs validator scripts" "Python"
                 readinessEvaluator = component "Readiness Evaluator" "Accepts evaluation evidence from the precondition evaluator and derives per-agent AgentReadiness verdicts with eligible/unsatisfied/warnings" "Python"
@@ -44,37 +47,61 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
 
             # Validator — deterministic gates and validators
             validator = container "Validator" "Enforces gates, permissions, project-declared test gate presence, agent-context structure, and semantic quality checks" "Bash/Python" {
-                blockDangerousGit = component "block-dangerous-git.sh" "The one git guardrail of all five agent tools: refuses an agent destructive and remote git commands, gate bypasses, unchecked merges, and dispatch return-story and close --drop" "Bash"
-                gitGuardPi = component "block-dangerous-git.ts" "pi's guardrail entry: passes each bash command to block-dangerous-git.sh and returns its answer" "TypeScript/Pi"
-                concernLint = component "concern-lint" "Validates concern-oriented agent context: category headings, Read/Boundary path resolution, story concern vocabulary, and absence of legacy YAML files (CTX-* codes)" "Python"
-                schemaValidate = component "schema-validate" "Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order" "Python"
-                policyValidate = component "policy-validate" "Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure" "Python"
-                crapScore = component "crap-score" "crap-score (--base <revision> | --all): runs the project's measuring commands, scores each kept function, and judges the changed ones against gates.crap-score.threshold; reads the threshold, the files pattern and the exclude list of each measure, and the exceptions register through one reader, the trusted gate source, whose only backend is the git ref of the integration branch; exits 0 on a pass, 1 when code fails, and 2 when it cannot measure; on exit 0 or 1 writes <report-dir>/<story-id>.json" "Python"
-                gateSetupProof = component "gate-setup-proof" "gate-setup-proof --measure <name> --plant <folder>: runs crap-score in a temporary worktree of its own on planted code and checks four results before a person enables the gate; exits 0 when all checks pass, 1 when one fails, and 2 on a wrong call or wrong planted code" "Python"
-                dependencyCheck = component "dependency-check" "Checks Python imports against docs/spec/dependency-rules.dsl; also runs as a pre-commit hook" "Bash/Python"
-                testDesignVerify = component "test-design-verify" "Checks that every owned contract in the story's traces has a test assertion" "Python"
-                mutationTesting = component "mutation-testing" "Runs gates.mutation-testing.command within its time limit and writes its result file" "Python"
-                moduleGraphCheck = component "module-graph-check" "Derives module map from architecture.dsl, compares against concept outputs to determine architecture routing" "Bash/Python"
-                fenceRunner = component "Fence Runner" "Deterministic output validation after agent activity; snapshots declared output patterns, compares post-activity filesystem state, and stores fence evidence" "Python"
-                proposalValidator = component "Proposal Validator" "Checks proposal file existence, format, and required fields; returns the shared validator result shape" "Python"
-                findingLint = component "finding-lint" "packages/factory/scripts/finding-lint [--staged]: reads each finding file that carries review_class or whose HEAD version carries it, and every register file; recomputes the severity from the basis, runs schema-validate on each register file with the schema of its folder, compares each file with its HEAD version for a lowering, a removal, or a lost review_class, and runs the git check of in_use when a code, runtime, or security finding is new or its basis or artifact changed; writes nothing and exits 1 on any violation" "Python" "Finding Classification"
-                guardHumanFields = component "guard-human-fields" "packages/factory/config/hooks/guard-human-fields: reads one tool call as its CLI passes it and, for a write, the current content of the target; refuses a call that sets a human field in docs/findings/*.md, docs/findings/register/**/*.json, or the Appendix tables of docs/proposals/*.md, and every call that writes docs/findings/exceptions.md; for a patch call, apply_patch in Codex, Copilot CLI, and Pi or patch in OpenCode, reads the paths and lines from the patch text and refuses a patch it cannot parse when the raw text names a guarded path; exits 0 to pass and 2 to refuse; an agent that hides the field name, such as by building it from pieces in a script, passes it" "Hook script" "Finding Classification"
-                guardClaudeCode = component "guard entry: Claude Code" "PreToolUse entries in .claude/settings.json for Edit, MultiEdit, Write, NotebookEdit, and Bash that run guard-human-fields" "Hook configuration" "Finding Classification"
-                guardCodex = component "guard entry: Codex" "PreToolUse entries in .codex/hooks.json for Edit, Write, apply_patch, and Bash that run guard-human-fields" "Hook configuration" "Finding Classification"
-                guardCopilot = component "guard entry: Copilot CLI" "preToolUse entries in a hook file under .github/hooks/, as step-guard.json has them, for edit, apply_patch, write_file, create, and bash; run guard-human-fields" "Hook configuration" "Finding Classification"
-                guardPi = component "guard entry: Pi extension" "tool_call event of a project-local Pi extension for edit, write, write_file, create, apply_patch, and bash; runs guard-human-fields and blocks the call when the guard script is missing, unlike step-guard.ts" "TypeScript/Pi" "Finding Classification"
-                premergeCheck = component "premerge-check" "Checks a branch head at every merge: the stop, the base, the scope, the reviews and findings, and every gate, rerun in a temporary worktree" "Python" "Finding Classification"
-                mainCheckout = component "Primary Checkout Locator" "packages/factory/scripts/_main_checkout.py: finds the primary checkout from a linked worktree, so finding-lint blames the installed copy .agent-factory/factory/ of the primary checkout" "Python" "Finding Classification"
-                ownershipContractTest = component "Ownership Contract Test" "Reads the core list and INDEX.yaml; fails when an entry's sample path matches no producing output pattern or more than one, or when the producer's declaration has no reviewed_by list; skips declarations with edits: wording" "pytest"
+                # The one git guardrail of all five agent tools: refuses an agent destructive and remote git commands, gate bypasses, unchecked merges, and dispatch return-story and close --drop
+                blockDangerousGit = component "block-dangerous-git.sh" "The git guardrail of all five CLIs" "Bash"
+                # pi's guardrail entry: passes each bash command to block-dangerous-git.sh and returns its answer
+                gitGuardPi = component "block-dangerous-git.ts" "Passes pi's bash commands to the guardrail" "TypeScript/Pi"
+                # Validates concern-oriented agent context: category headings, Read/Boundary path resolution, story concern vocabulary, and absence of legacy YAML files (CTX-* codes)
+                concernLint = component "concern-lint" "Validates the concern-based agent context" "Python"
+                # Deterministic JSON-Schema validator for research artifacts: stage 1 of the schema->policy->semantic validation order
+                schemaValidate = component "schema-validate" "Validates research artifacts against schemas" "Python"
+                # Deterministic research-policy validator: stage 2; --pipeline runs schema then policy in order, stopping at the first failure
+                policyValidate = component "policy-validate" "Validates research artifacts against policy" "Python"
+                # crap-score (--base <revision> | --all): runs the project's measuring commands, scores each kept function, and judges the changed ones against gates.crap-score.threshold; reads the threshold, the files pattern and the exclude list of each measure, and the exceptions register through one reader, the trusted gate source, whose only backend is the git ref of the integration branch; exits 0 on a pass, 1 when code fails, and 2 when it cannot measure; on exit 0 or 1 writes <report-dir>/<story-id>.json
+                crapScore = component "crap-score" "Measures and judges the changed functions" "Python"
+                # gate-setup-proof --measure <name> --plant <folder>: runs crap-score in a temporary worktree of its own on planted code and checks four results before a person enables the gate; exits 0 when all checks pass, 1 when one fails, and 2 on a wrong call or wrong planted code
+                gateSetupProof = component "gate-setup-proof" "Proves the gate on planted code" "Python"
+                # Checks Python imports against docs/spec/dependency-rules.dsl; also runs as a pre-commit hook
+                dependencyCheck = component "dependency-check" "Checks imports against the dependency rules" "Bash/Python"
+                # Checks that every owned contract in the story's traces has a test assertion
+                testDesignVerify = component "test-design-verify" "Checks that each owned contract has a test" "Python"
+                # Runs gates.mutation-testing.command within its time limit and writes its result file
+                mutationTesting = component "mutation-testing" "Runs the mutation-testing command" "Python"
+                # Derives module map from architecture.dsl, compares against concept outputs to determine architecture routing
+                moduleGraphCheck = component "module-graph-check" "Derives modules and routes architecture work" "Bash/Python"
+                # Deterministic output validation after agent activity; snapshots declared output patterns, compares post-activity filesystem state, and stores fence evidence
+                fenceRunner = component "Fence Runner" "Validates agent output against declared patterns" "Python"
+                # Checks proposal file existence, format, and required fields; returns the shared validator result shape
+                proposalValidator = component "Proposal Validator" "Checks proposal files" "Python"
+                # packages/factory/scripts/finding-lint [--staged]: reads each finding file that carries review_class or whose HEAD version carries it, and every register file; recomputes the severity from the basis, runs schema-validate on each register file with the schema of its folder, compares each file with its HEAD version for a lowering, a removal, or a lost review_class, and runs the git check of in_use when a code, runtime, or security finding is new or its basis or artifact changed; writes nothing and exits 1 on any violation
+                findingLint = component "finding-lint" "Checks finding files and register files" "Python" "Finding Classification"
+                # packages/factory/config/hooks/guard-human-fields: reads one tool call as its CLI passes it and, for a write, the current content of the target; refuses a call that sets a human field in docs/findings/*.md, docs/findings/register/**/*.json, or the Appendix tables of docs/proposals/*.md, and every call that writes docs/findings/exceptions.md; for a patch call, apply_patch in Codex, Copilot CLI, and Pi or patch in OpenCode, reads the paths and lines from the patch text and refuses a patch it cannot parse when the raw text names a guarded path; exits 0 to pass and 2 to refuse; an agent that hides the field name, such as by building it from pieces in a script, passes it
+                guardHumanFields = component "guard-human-fields" "Refuses agent writes to human fields" "Hook script" "Finding Classification"
+                # PreToolUse entries in .claude/settings.json for Edit, MultiEdit, Write, NotebookEdit, and Bash that run guard-human-fields
+                guardClaudeCode = component "guard entry: Claude Code" "PreToolUse entries in .claude/settings.json" "Hook configuration" "Finding Classification"
+                # PreToolUse entries in .codex/hooks.json for Edit, Write, apply_patch, and Bash that run guard-human-fields
+                guardCodex = component "guard entry: Codex" "PreToolUse entries in .codex/hooks.json" "Hook configuration" "Finding Classification"
+                # preToolUse entries in a hook file under .github/hooks/, as step-guard.json has them, for edit, apply_patch, write_file, create, and bash; run guard-human-fields
+                guardCopilot = component "guard entry: Copilot CLI" "preToolUse entries under .github/hooks/" "Hook configuration" "Finding Classification"
+                # tool_call event of a project-local Pi extension for edit, write, write_file, create, apply_patch, and bash; runs guard-human-fields and blocks the call when the guard script is missing, unlike step-guard.ts
+                guardPi = component "guard entry: Pi extension" "tool_call handler of a Pi extension" "TypeScript/Pi" "Finding Classification"
+                # Checks a branch head at every merge: the stop, the base, the scope, the reviews and findings, and every gate, rerun in a temporary worktree
+                premergeCheck = component "premerge-check" "Checks a branch head before each merge" "Python" "Finding Classification"
+                # packages/factory/scripts/_main_checkout.py: finds the primary checkout from a linked worktree, so finding-lint blames the installed copy .agent-factory/factory/ of the primary checkout
+                mainCheckout = component "Primary Checkout Locator" "Finds the primary checkout from a worktree" "Python" "Finding Classification"
+                # Reads the core list and INDEX.yaml; fails when an entry's sample path matches no producing output pattern or more than one, or when the producer's declaration has no reviewed_by list; skips declarations with edits: wording
+                ownershipContractTest = component "Ownership Contract Test" "Checks the core list against INDEX.yaml" "pytest"
             }
 
             # Dispatcher — agent and model resolution, CLI session spawning
             dispatcher = container "Dispatcher" "Resolves agents/models and spawns CLI sessions" "Bash/Python" {
                 trigger = component "trigger" "Dispatches named agent or playbook step to CLI" "Bash"
                 indexLint = component "index-lint" "Generates INDEX.yaml from frontmatter and carries reviewed_by and edits of every output declaration; fails on a reviewer that is not an agent or stakeholder, or that lacks the artifact as a required or context input" "Python"
-                dispatchCli = component "dispatch" "The run CLI on both ways: starts the run, moves each unit of work through the ledger, merges, and closes waves and the run" "Python"
+                # The run CLI on both ways: starts the run, moves each unit of work through the ledger, merges, and closes waves and the run
+                dispatchCli = component "dispatch" "The run CLI" "Python"
                 dispatchLedger = component "Ledger" "dispatch_lib.py: the ledger model and the transition table of the Ledger Entry Lifecycle" "Python"
-                stopCheck = component "Stop Check" "Prints the stop notice and makes its caller exit 1 while a critical finding is unconfirmed" "Python" "Finding Classification"
+                # Prints the stop notice and makes its caller exit 1 while a critical finding is unconfirmed
+                stopCheck = component "Stop Check" "Stops on an unconfirmed critical finding" "Python" "Finding Classification"
                 runAgent = component "run-agent (Pi extension)" "Pi model-callable tool: spawns a separate pi session to run one factory agent" "TypeScript/Pi"
                 dispatchWave = component "dispatch-wave (Pi extension)" "Pi model-callable tool: runs a parallel wave of factory agents, each in its own git worktree, integrating premerge-check before merging" "TypeScript/Pi"
                 openrouterDiscover = component "openrouter-discover" "Operator aid: queries OpenRouter catalog to curate/validate pi.* tier rows in model.conf (offline of the runtime path)" "Python"
@@ -87,8 +114,10 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
 
             # Distribution — component lifecycle and onboarding
             distribution = container "Distribution" "Installs, updates, removes, and reports opt-in Factory components; provides the value-first onboarding bootstrap, release building, and gate demonstration" "Bash/Python" {
-                initFactory = component "init-factory" "Installs, updates, or removes the usage component and maintains the install manifest; on an update from a version before the layout release runs migrate-spec-layout as its last step and writes the new factory_version only after the script succeeds" "Python"
-                updateFactory = component "update-factory" "Full update transaction: check mode, approval, verified staging, atomic application with rollback, local-change policy, source-boundary consent, and receipt" "Python"
+                # Installs, updates, or removes the usage component and maintains the install manifest; on an update from a version before the layout release runs migrate-spec-layout as its last step and writes the new factory_version only after the script succeeds
+                initFactory = component "init-factory" "Installs and wires the Factory" "Python"
+                # Full update transaction: check mode, approval, verified staging, atomic application with rollback, local-change policy, source-boundary consent, and receipt
+                updateFactory = component "update-factory" "Updates the Factory in one transaction" "Python"
                 migrateSpecLayout = component "migrate-spec-layout" "Moves an installed project into the core artifact layout with git mv for tracked files and a plain move for untracked and ignored files, rewrites Markdown links, the factory hook block, and the DSL theme line, moves glossary terms into docs/spec/glossary.md, and undoes its own changes when it fails partway" "Python"
                 removeFactory = component "remove-factory" "Performs complete Factory removal, including analysis and raw usage data" "Python"
                 installAgentFactory = component "install-agent-factory" "Bootstrap script: read-only preflight, confirmed prerequisite fixes, release verification, installation preview, consent, and receipt with one next command" "Bash/Python"
@@ -99,53 +128,70 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
             # Storage
             workstreamState = container "Workstream State" "Immutable workstream identity records under .agent-factory/workstreams/; each records schema_version, workstream_id, topic, and origin_ref" "YAML files" "Storage"
             sessionBindings = container "Session Bindings" "Session-to-workstream mapping under .agent-factory/workstreams/sessions/<session-id>.yaml; records session_id, workstream_id, and bound_at" "YAML files" "Storage"
-            stateFiles = container "State Files" "Git-ignored run state under .current-work/: ledgers, gate results, markers, briefs, and step manifests" "YAML/JSON files" "Storage"
-            runWorktrees = container "Run Worktrees" "Git worktrees under .current-work/<feature-branch>/: the feature and story worktrees of an orchestrated run, and the temporary worktrees of premerge-check under premerge/" "git worktrees" "Storage"
+            # Git-ignored run state under .current-work/: ledgers, gate results, markers, briefs, and step manifests
+            stateFiles = container "State Files" "Run state under .current-work/" "YAML/JSON files" "Storage"
+            # Git worktrees under .current-work/<feature-branch>/: the feature and story worktrees of an orchestrated run, and the temporary worktrees of premerge-check under premerge/
+            runWorktrees = container "Run Worktrees" "Worktrees under .current-work/" "git worktrees" "Storage"
             catalog = container "Catalog" "Generated INDEX.yaml of agents/skills/playbooks" "YAML file" "Storage"
             usageRecordContract = container "Usage Record Contract" "Factory-owned JSON Schema Draft 2020-12 and compatibility manifest; v1 schema includes optional workstream_id and workstream_origin fields" "JSON Schema/YAML" "Storage"
             rawUsageSpool = container "Raw Usage Spool" "Authoritative append-only top-level JSONL records under .agent-factory/usage/" "JSONL files" "Storage"
             installManifest = container "Install Manifest" "Records installed CLI integrations and opt-in components" "JSON file" "Storage"
-            projectFilesystem = container "Project Filesystem" "Project source, configuration, and documentation that Factory changes only through defined contracts" "Filesystem" "Storage"
-            measuringCommands = container "Measuring Commands" "Project-owned commands that gates.crap-score.measures names: each ready command answers whether its measuring command can run now; each measuring command writes one JSON array of rows to the path in GATE_OUTPUT, or exits non-zero and names the cause when it cannot measure; they refer to nothing under .agent-factory/" "Project scripts" "Project-owned"
-            coreArtifacts = container "Core Artifacts" "The core files under docs/spec/ and the seam files docs/agent-context.md and docs/testing.yaml" "Markdown/DSL/YAML files" "Storage"
-            workingOutput = container "Working Output" "Reports, QA strategies, and finding files under docs/spec/work/, docs/reviews/, and docs/findings/" "Markdown files" "Storage"
-            findingRegisters = container "Finding Registers" "The folders docs/findings/register/<class>/, one per review class: one JSON register file <ID>.json per minor finding, with status open, resolved, or waived; a missing folder is an empty register" "JSON files" "Storage,Finding Classification"
-            findingSchemas = container "Finding Schemas" "packages/factory/rulebooks/schemas/finding-register-<class>.schema.json, one per review class, each with the basis shape of its class from docs/spec/schemas/finding-basis.json" "JSON Schema" "Storage,Finding Classification"
-            factorySettings = container "Factory Settings" "docs/factory-settings.yaml, tracked in git: the list release_tag_patterns names the git tags that count as releases for the in_use check, and the key integration_branch names the branch that the trusted gate source of crap-score reads, dev when the key is missing; the project writes it, and init-factory and update-factory never do" "YAML file" "Storage,Finding Classification"
-            coreList = container "Core List" "rulebooks/core-artifacts.yaml under the Factory root, packages/factory/ in this repository and .agent-factory/factory/ in an installed project: every core and seam artifact with path_pattern, sample_path, family, and optional" "YAML file" "Storage"
+            # Project source, configuration, and documentation that Factory changes only through defined contracts
+            projectFilesystem = container "Project Filesystem" "The project's source, configuration and docs" "Filesystem" "Storage"
+            # Project-owned commands that gates.crap-score.measures names: each ready command answers whether its measuring command can run now; each measuring command writes one JSON array of rows to the path in GATE_OUTPUT, or exits non-zero and names the cause when it cannot measure; they refer to nothing under .agent-factory/
+            measuringCommands = container "Measuring Commands" "The project's commands that measure its code" "Project scripts" "Project-owned"
+            # The core files under docs/spec/ and the seam files docs/agent-context.md and docs/testing.yaml
+            coreArtifacts = container "Core Artifacts" "docs/spec/, docs/agent-context.md, docs/testing.yaml" "Markdown/DSL/YAML files" "Storage"
+            # Reports, QA strategies, and finding files under docs/spec/work/, docs/reviews/, and docs/findings/
+            workingOutput = container "Working Output" "Reports, QA strategies and finding files" "Markdown files" "Storage"
+            # The folders docs/findings/register/<class>/, one per review class: one JSON register file <ID>.json per minor finding, with status open, resolved, or waived; a missing folder is an empty register
+            findingRegisters = container "Finding Registers" "One JSON file per minor finding" "JSON files" "Storage,Finding Classification"
+            # packages/factory/rulebooks/schemas/finding-register-<class>.schema.json, one per review class, each with the basis shape of its class from docs/spec/schemas/finding-basis.json
+            findingSchemas = container "Finding Schemas" "One register schema per review class" "JSON Schema" "Storage,Finding Classification"
+            # docs/factory-settings.yaml, tracked in git: the list release_tag_patterns names the git tags that count as releases for the in_use check, and the key integration_branch names the branch that the trusted gate source of crap-score reads, dev when the key is missing; the project writes it, and init-factory and update-factory never do
+            factorySettings = container "Factory Settings" "docs/factory-settings.yaml" "YAML file" "Storage,Finding Classification"
+            # rulebooks/core-artifacts.yaml under the Factory root, packages/factory/ in this repository and .agent-factory/factory/ in an installed project: every core and seam artifact with path_pattern, sample_path, family, and optional
+            coreList = container "Core List" "rulebooks/core-artifacts.yaml" "YAML file" "Storage"
 
             # Factory Agents — agent definitions run by a CLI session; each frontmatter declares tier, skills, inputs, and outputs
             factoryAgents = container "Factory Agents" "Agent definitions under packages/factory/agents/; a CLI session runs one definition and writes only the outputs it declares" "Markdown with YAML frontmatter" {
                 requirementsAgent = component "requirements-agent" "Produces scope and behaviour: the scope map, the feature files, and the area specs; writes gaps reports and term candidates; hands off to the domain-modeling agent" "Agent definition, strong tier"
                 domainModelingAgent = component "domain-modeling-agent" "Produces domain structure: the glossary, the entity model, state machines, validation rules, interface contracts, and schemas; moves confirmed term candidates into the glossary" "Agent definition, strong tier"
                 architectureAgent = component "architecture-agent" "Produces architecture.dsl and dependency-rules.dsl; reads the entity model and state machines as context and files ARCH findings on a contradiction" "Agent definition, strong tier"
-                testStrategyAgent = component "test-strategy-agent" "Produces docs/testing.yaml and the QA strategies; chooses the test guardrails and their thresholds; sets the CRAP gate up with the skill setup-crap-score; resolves QA findings it owns" "Agent definition, strong tier"
+                # Produces docs/testing.yaml and the QA strategies; chooses the test guardrails and their thresholds; sets the CRAP gate up with the skill setup-crap-score; resolves QA findings it owns
+                testStrategyAgent = component "test-strategy-agent" "Owns docs/testing.yaml and the QA strategies" "Agent definition, strong tier"
                 virgil = component "virgil" "Produces docs/agent-context.md with capture-context during the fitting; seeds the ID counter in fitting step 4 and offers the move of a local counter to origin at the session start" "Agent definition"
                 specReviewAgent = component "spec-review-agent" "Reviews the feature files, the glossary, the structure files, the area specs, and the schemas in a session separate from their producers; shares the glossary review with the stakeholder" "Agent definition"
                 architectureReviewAgent = component "architecture-review-agent" "Reviews architecture.dsl and dependency-rules.dsl in a session separate from the architecture agent" "Agent definition"
                 developerAgent = component "developer-agent" "Implements one unit of work test first and commits on its story branch; fixes one finding or one gate failure per spawn" "Agent definition"
-                implementationAgent = component "implementation-agent" "Drives a run on both ways: runs dispatch, spawns the developer and code-review agents, and runs the gate-check step; by hand, waits for the User's go" "Agent definition"
+                # Drives a run on both ways: runs dispatch, spawns the developer and code-review agents, and runs the gate-check step; by hand, waits for the User's go
+                implementationAgent = component "implementation-agent" "Drives a run" "Agent definition"
                 codeReviewAgent = component "code-review-agent" "Reviews one story branch, or the whole feature after the last wave, and files its findings" "Agent definition"
                 qaAgent = component "qa-agent" "Writes the Fagan, security, and bug-hunt reports on the feature and files findings with run set" "Agent definition"
-                migrationAgent = component "Migration Agent" "The role of the agent session that runs the one-time migration of every open finding without review_class: classifies each one with the rulebook, rewrites its artifact, fills Possible damage for a critical result, and changes files only after the stakeholder's pause point" "Agent session" "Finding Classification"
+                # The role of the agent session that runs the one-time migration of every open finding without review_class: classifies each one with the rulebook, rewrites its artifact, fills Possible damage for a critical result, and changes files only after the stakeholder's pause point
+                migrationAgent = component "Migration Agent" "Classifies old open findings once" "Agent session" "Finding Classification"
                 reconciliationAgent = component "reconciliation-agent" "Compares the core with the code and writes one reconciliation report per run, one row per drift with the artifact's owner; edits no core file" "Agent definition"
             }
 
             # OpenCode Plugin — V2 plugin adapter for OpenCode CLI
-            opencodePlugin = container "OpenCode Plugin" "V2 plugin adapter mapping Factory safety controls to OpenCode session hooks, tool restrictions, and worktree isolation" "TypeScript/OpenCode V2 Plugin API" {
+            # V2 plugin adapter mapping Factory safety controls to OpenCode session hooks, tool restrictions, and worktree isolation
+            opencodePlugin = container "OpenCode Plugin" "Maps Factory controls to OpenCode hooks" "TypeScript/OpenCode V2 Plugin API" {
                 permissionEnforcer = component "Permission Enforcer" "Evaluates ordered allow/ask/deny rules and enforces step-manifest read/write boundaries through execute.before hooks" "TypeScript"
                 toolRestrictor = component "Tool Restrictor" "Removes tools not in the active agent's declared set via session.hook context; enforces read-only for review agents" "TypeScript"
                 usageObserver = component "Usage Observer" "Captures completed root and child session usage via execute.after hooks without double-counting child tokens" "TypeScript"
                 worktreeStrategyComponent = component "Worktree Strategy" "Registers a Factory worktree strategy through ctx.worktree.transform; delegates branch and path creation to Factory scripts" "TypeScript"
                 orientationInjector = component "Orientation Injector" "Injects AGENTS.opencode.md into session context via session.hook context; describes OpenCode tool names and session-start procedure" "TypeScript"
-                guardOpenCode = component "guard entry: OpenCode plugin" "execute.before of packages/factory/config/plugins/agent-factory.ts for the tools edit, write, patch, shell, and execute: runs guard-human-fields, which checks the JavaScript of an execute call as the text of a shell call, and blocks the call when the guard script is missing; the first version of the plugin holds only this component, and the OpenCode CLI feature adds the others to the same file" "TypeScript" "Finding Classification"
-                gitGuardOpenCode = component "git guardrail entry: OpenCode plugin" "OpenCode's guardrail entry: passes each shell command and the JavaScript of each execute call to block-dangerous-git.sh" "TypeScript"
+                # execute.before of packages/factory/config/plugins/agent-factory.ts for the tools edit, write, patch, shell, and execute: runs guard-human-fields, which checks the JavaScript of an execute call as the text of a shell call, and blocks the call when the guard script is missing; the first version of the plugin holds only this component, and the OpenCode CLI feature adds the others to the same file
+                guardOpenCode = component "guard entry: OpenCode plugin" "execute.before handler of the OpenCode plugin" "TypeScript" "Finding Classification"
+                # OpenCode's guardrail entry: passes each shell command and the JavaScript of each execute call to block-dangerous-git.sh
+                gitGuardOpenCode = component "git guardrail entry: OpenCode plugin" "Passes OpenCode's commands to the guardrail" "TypeScript"
                 pluginHealthMonitor = component "Health Monitor" "Tracks plugin health lifecycle; fails closed on initialization, manifest, permission, or worktree failures with named recovery actions" "TypeScript"
             }
 
             # ID Allocation — claims the number of every new indexed artifact on the counter's remote
             idAllocation = container "ID Allocation" "Claims the number of every new story, finding, todo entry, and ADR as a leased push of refs/ids/counters on the counter's remote: the Project Git Remote, or the Local Counter while the project has no origin; plans the seed and moves a local counter to origin" "Script, git CLI" {
-                nextId = component "next-id" "packages/factory/scripts/next-id: checks the prefix against its fixed prefix list, or the seed arguments; finds the remote from --remote, then agent-factory.counterRemote, then origin; calls the counter port; with --plan-seed counts the IDs in use on every local and remote-tracking branch and prints the seed command; with --move-to-origin moves the local counter and removes agent-factory.counterRemote; prints the ID or the seed lines on standard output. The only caller of the counter port" "Script"
+                # packages/factory/scripts/next-id: checks the prefix against its fixed prefix list, or the seed arguments; finds the remote from --remote, then agent-factory.counterRemote, then origin; calls the counter port; with --plan-seed counts the IDs in use on every local and remote-tracking branch and prints the seed command; with --move-to-origin moves the local counter and removes agent-factory.counterRemote; prints the ID or the seed lines on standard output. The only caller of the counter port
+                nextId = component "next-id" "Hands out the next ID of a prefix" "Script"
                 counterPort = component "Counter Port" "Four operations: claim <prefix> returns the next number of the prefix that no other caller holds; seed <number> [<PREFIX>=<n> ...] creates the counter and refuses when it exists; inspect reports whether the counter is missing, in use, or a marker commit; move <remote> carries the claim commit of the local counter to a remote without a counter" "Interface"
                 gitRefAdapter = component "Git-Ref Adapter" "Implements the counter port on refs/ids/counters: works in a throwaway bare repository, writes a parentless claim commit with a new token, pushes it with a lease on the old SHA, and retries only on a stale lease, at most ten times in a row; for a move, sets the marker commit, a child of the claim commit, under a lease on the claim commit before it pushes with the create-only lease; finishes a stopped move from the marker's parent" "Script, git CLI"
             }
@@ -237,10 +283,14 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         # Relationships — Validator
         # ================================================================
-        blockDangerousGit -> cliAgent "Refuses with exit 2 and names the reason, or allows with exit 0"
-        cliAgent -> concernLint "Validate skill or pre-commit hook invokes concern-lint on agent-context files"
-        cliAgent -> schemaValidate "Research skills/agents validate an artifact against its schema (stage 1)"
-        cliAgent -> policyValidate "Research skills/agents validate artifacts against enforceable policy (stage 2)"
+        # Refuses with exit 2 and names the reason, or allows with exit 0
+        blockDangerousGit -> cliAgent "Refuses or allows the command"
+        # Validate skill or pre-commit hook invokes concern-lint on agent-context files
+        cliAgent -> concernLint "Runs concern-lint"
+        # Research skills/agents validate an artifact against its schema (stage 1)
+        cliAgent -> schemaValidate "Validates against the schema"
+        # Research skills/agents validate artifacts against enforceable policy (stage 2)
+        cliAgent -> policyValidate "Validates against the policy"
         policyValidate -> schemaValidate "Chains stage 1 in --pipeline mode"
 
         # ================================================================
@@ -274,9 +324,11 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         updateFactory -> distributionRemote "Downloads and verifies release assets for update"
         updateFactory -> humanOperator "Presents update preview for approval"
         updateFactory -> updateFactory "Stages, applies, and rolls back verified replacement"
-        updateFactory -> initFactory "Runs the new version's init-factory after applying the staged replacement"
+        # Runs the new version's init-factory after applying the staged replacement
+        updateFactory -> initFactory "Runs the new init-factory"
         initFactory -> migrateSpecLayout "Runs as its last step on an update from a version before the layout release"
-        initFactory -> projectFilesystem "Lists old layout paths on a first install without moving them"
+        # Lists old layout paths on a first install without moving them
+        initFactory -> projectFilesystem "Lists old layout paths"
         initFactory -> humanOperator "Reports a failed layout migration and names the fix: run the update again"
         humanOperator -> migrateSpecLayout "Runs by hand, optionally with --dry-run"
         migrateSpecLayout -> git "Moves tracked files with git mv and removes tracked files with git rm"
@@ -303,13 +355,15 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         newcomer -> cliAgent "Opens first Factory session via the installation receipt command"
         cliAgent -> hookDemo "Runs gate demonstration during first session"
-        cliAgent -> git "Creates or removes detached worktree for the first-task sandbox"
+        # Creates or removes detached worktree for the first-task sandbox
+        cliAgent -> git "Manages the sandbox worktree"
         cliAgent -> dispatcher "Dispatches poc-spike inside the first-task sandbox"
         cliAgent -> workstreamState "Creates or selects production workstream for handoff"
         cliAgent -> sessionBindings "Creates session binding for production workstream"
         cliAgent -> newcomer "Presents evidence, previews, and results during onboarding"
         cliAgent -> installManifest "Reads installation state during first session"
-        cliAgent -> projectFilesystem "Scans project files, copies retained artifacts to poc/spikes/, and runs capture-context --fold-context-map, which folds the context map into domain concerns of docs/agent-context.md"
+        # Scans project files, copies retained artifacts to poc/spikes/, and runs capture-context --fold-context-map, which folds the context map into domain concerns of docs/agent-context.md
+        cliAgent -> projectFilesystem "Scans and copies project files"
 
         # ================================================================
         # Relationships — Usage Analysis
@@ -329,28 +383,46 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         # Relationships — Semantic Quality Gates (dispatcher-invoked)
         # ================================================================
-        implementationAgent -> crapScore "Runs crap-score --base <feature-branch> in the gate-check step as a background job; on exit 2 spawns no developer agent and runs mark-blocked"
-        implementationAgent -> dependencyCheck "Runs in the gate-check step, when the rules file exists"
-        implementationAgent -> testDesignVerify "Runs in the gate-check step, when the story has a Test Design"
-        implementationAgent -> mutationTesting "Runs in the gate-check step, when the gate is enabled"
-        crapScore -> stateFiles "Writes its report on exit 0 or 1, and no report on exit 2"
+        # Runs crap-score --base <feature-branch> in the gate-check step as a background job; on exit 2 spawns no developer agent and runs mark-blocked
+        implementationAgent -> crapScore "Runs crap-score --base"
+        # Runs in the gate-check step, when the rules file exists
+        implementationAgent -> dependencyCheck "Runs in the gate-check step"
+        # Runs in the gate-check step, when the story has a Test Design
+        implementationAgent -> testDesignVerify "Runs in the gate-check step"
+        # Runs in the gate-check step, when the gate is enabled
+        implementationAgent -> mutationTesting "Runs in the gate-check step"
+        # Writes its report on exit 0 or 1, and no report on exit 2
+        crapScore -> stateFiles "Writes its report"
         dependencyCheck -> stateFiles "Writes its result file"
         testDesignVerify -> stateFiles "Writes its result file"
         mutationTesting -> stateFiles "Writes its result file"
         mutationTesting -> coreArtifacts "Reads its command and time limit"
-        crapScore -> coreArtifacts "Reads gates.crap-score in the folder it runs in: timeout_minutes and the measures; takes threshold, files and exclude from there only with --settings-from-folder, or when the file or gates.crap-score is missing on the integration branch or the ref of the default dev is missing, and prints which values it read from where"
-        crapScore -> measuringCommands "Runs the ready command and then the measuring command of each measure, in list order, with GATE_OUTPUT set, within timeout_minutes for the whole run"
-        measuringCommands -> crapScore "Writes one JSON array of rows to the path in GATE_OUTPUT; exits non-zero when it cannot measure, which crap-score turns into exit 2"
-        crapScore -> git "Resolves --base once, a local branch winning over a tag of the same name, and reads the diff from the merge base of that commit to HEAD"
-        crapScore -> git "Reads through the trusted gate source, from the tip commit of the local branch refs/heads/<integration_branch>: the section CRAP score of docs/findings/exceptions.md, and threshold and the files pattern and the exclude list of each measure from gates.crap-score of docs/testing.yaml; exits 2 when a measure that the branch names is missing at the story head, when integration_branch is not a non-empty string or not a local branch name, when the branch it names does not exist or its tip is the judged HEAD, or when docs/testing.yaml on the branch cannot be parsed or its gates.crap-score has no threshold"
-        crapScore -> factorySettings "Reads integration_branch from the tree of the resolved --base commit, and from the folder only with --all or --settings-from-folder; uses dev when the file or the key is missing"
-        crapScore -> git "Holds an operating-system file lock on crap-score/<measure>.lock under the git common directory for each measure with ready commands, from the ready commands through the measuring command; waits for it within timeout_minutes; the lock ends with the process"
-        testStrategyAgent -> gateSetupProof "Runs the proof in setup-crap-score steps 5 and 7, before the person enables the gate"
-        testStrategyAgent -> crapScore "Runs crap-score --all in setup-crap-score step 6 and reports the failing functions and the run time"
-        testStrategyAgent -> measuringCommands "Writes the measuring commands and ready commands into the project in setup-crap-score, after the person confirms"
-        gateSetupProof -> coreArtifacts "Reads the threshold and the measure from gates.crap-score, also with enabled: false"
-        gateSetupProof -> git "Adds a temporary worktree at a fixed path under .current-work/gate-setup-proof/ with two commits of planted code, after it removes one that a crashed run left, and removes it afterwards; no branch of the project moves"
-        gateSetupProof -> crapScore "Runs crap-score --base <start> --settings-from-folder in its worktree, whose first commit holds docs/factory-settings.yaml of the working tree, so the threshold, the files pattern and the exclude list come from the values the User has not committed yet, and compares the exit codes and the rows"
+        # Reads gates.crap-score in the folder it runs in: timeout_minutes and the measures; takes threshold, files and exclude from there only with --settings-from-folder, when the file or gates.crap-score is missing on the integration branch, or with --all when the ref of the default dev is missing, and prints which values it read from where
+        crapScore -> coreArtifacts "Reads gates.crap-score"
+        # Runs the ready command and then the measuring command of each measure, in list order, with GATE_OUTPUT set, within timeout_minutes for the whole run
+        crapScore -> measuringCommands "Runs ready and measuring commands"
+        # Writes one JSON array of rows to the path in GATE_OUTPUT; exits non-zero when it cannot measure, which crap-score turns into exit 2
+        measuringCommands -> crapScore "Writes rows to GATE_OUTPUT"
+        # Resolves --base once, a local branch winning over a tag of the same name, and reads the diff from the merge base of that commit to HEAD
+        crapScore -> git "Reads the diff from --base"
+        # Reads through the trusted gate source, from the tip commit of the local branch refs/heads/<integration_branch>: the section CRAP score of docs/findings/exceptions.md, and threshold and the files pattern and the exclude list of each measure from gates.crap-score of docs/testing.yaml; exits 2 when a measure that the branch names is missing at the story head, when integration_branch is not a non-empty string or not a local branch name, when the branch it names does not exist, when --base runs without the ref of the default dev, when, with --base, the tip of the named branch is the judged HEAD, or when docs/testing.yaml on the branch cannot be parsed or its gates.crap-score has no threshold
+        crapScore -> git "Reads the trusted values"
+        # Reads integration_branch from the tree of the resolved --base commit, and from the folder only with --all or --settings-from-folder; uses dev when the file or the key is missing
+        crapScore -> factorySettings "Reads integration_branch"
+        # Holds an operating-system file lock on crap-score/<measure>.lock under the git common directory for each measure with ready commands, from the ready commands through the measuring command; waits for it within timeout_minutes; the lock ends with the process
+        crapScore -> git "Holds a lock per measure"
+        # Runs the proof in setup-crap-score steps 5 and 7, before the person enables the gate
+        testStrategyAgent -> gateSetupProof "Runs the proof"
+        # Runs crap-score --all in setup-crap-score step 6 and reports the failing functions and the run time
+        testStrategyAgent -> crapScore "Runs crap-score --all"
+        # Writes the measuring commands and ready commands into the project in setup-crap-score, after the person confirms
+        testStrategyAgent -> measuringCommands "Writes the commands"
+        # Reads the threshold and the measure from gates.crap-score, also with enabled: false
+        gateSetupProof -> coreArtifacts "Reads gates.crap-score"
+        # Adds a temporary worktree at a fixed path under .current-work/gate-setup-proof/ with two commits of planted code, after it removes one that a crashed run left, and removes it afterwards; no branch of the project moves
+        gateSetupProof -> git "Adds a temporary worktree"
+        # Runs crap-score --base <start> --settings-from-folder in its worktree, whose first commit holds docs/factory-settings.yaml of the working tree, so the threshold, the files pattern and the exclude list come from the values the User has not committed yet, and compares the exit codes and the rows
+        gateSetupProof -> crapScore "Runs crap-score --settings-from-folder"
 
         # ================================================================
         # Relationships — Fence Runner and Proposal Validator
@@ -385,7 +457,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         # ================================================================
         # Relationships — CLI Agent hooks
         # ================================================================
-        cliAgent -> blockDangerousGit "Claude Code, Codex, Copilot CLI: each shell command fires the native hook"
+        # Claude Code, Codex, Copilot CLI: each shell command fires the native hook
+        cliAgent -> blockDangerousGit "Fires the hook per shell command"
 
         # ================================================================
         # Relationships — Core artifact ownership
@@ -415,115 +488,162 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         implementationAgent -> requirementsAgent "Spawns as the owner of a drift row at the wave close"
         implementationAgent -> domainModelingAgent "Spawns as the owner of a drift row at the wave close"
         implementationAgent -> architectureAgent "Spawns as the owner of a drift row at the wave close"
-        implementationAgent -> testStrategyAgent "Spawns as the owner of a drift row at the wave close, and for each open QA finding with owner test-strategy-agent"
+        # Spawns as the owner of a drift row at the wave close, and for each open QA finding with owner test-strategy-agent
+        implementationAgent -> testStrategyAgent "Spawns as owner of a row or finding"
         implementationAgent -> specReviewAgent "Spawns as the reviewer of a fixed row at the wave close"
         implementationAgent -> architectureReviewAgent "Spawns as the reviewer of a fixed row at the wave close"
-        implementationAgent -> dispatchCli "Runs every subcommand except return-story, close, and close --drop"
+        # Runs every subcommand except return-story, close, and close --drop
+        implementationAgent -> dispatchCli "Runs the agent subcommands"
         reconciliationAgent -> coreArtifacts "Reads the core to compare it with the code"
         reconciliationAgent -> workingOutput "Writes one reconciliation report per run"
         cliAgent -> reconciliationAgent "Dispatches the reconciliation run as orchestrator of the documentation-update playbook"
-        cliAgent -> workingOutput "Reads every reconciliation report; sets the status of a row the stakeholder reviewed"
-        cliAgent -> coreList "Reads the core list to tell rows on core artifacts from the others"
+        # Reads every reconciliation report; sets the status of a row the stakeholder reviewed
+        cliAgent -> workingOutput "Reads reports, sets row status"
+        # Reads the core list to tell rows on core artifacts from the others
+        cliAgent -> coreList "Reads the core list"
         cliAgent -> requirementsAgent "Dispatches as the owner of an open reconciliation row"
         cliAgent -> domainModelingAgent "Dispatches as the owner of an open reconciliation row"
         cliAgent -> architectureAgent "Dispatches as the owner of an open reconciliation row"
-        cliAgent -> testStrategyAgent "Dispatches as the owner of an open reconciliation row"
+        # Dispatches as the owner of an open reconciliation row
+        cliAgent -> testStrategyAgent "Dispatches as row owner"
         cliAgent -> virgil "Dispatches as the owner of an open reconciliation row"
         cliAgent -> specReviewAgent "Dispatches as the reviewer of a fixed reconciliation row"
         cliAgent -> architectureReviewAgent "Dispatches as the reviewer of a fixed reconciliation row"
-        cliAgent -> stakeholder "Presents the fix of a row whose declared reviewer is the stakeholder"
-        dispatchCli -> workingOutput "Reads spec-feedback reports and finding files; sets resolved at a merge"
+        # Presents the fix of a row whose declared reviewer is the stakeholder
+        cliAgent -> stakeholder "Presents a row's fix"
+        # Reads spec-feedback reports and finding files; sets resolved at a merge
+        dispatchCli -> workingOutput "Reads reports and findings"
         dispatchCli -> coreList "Reads the core list"
         dispatchCli -> dispatchLedger "Loads the ledger and changes states through the transition table"
         dispatchCli -> dispatchLedger "resume-gates sets a blocked entry with the reason gate cannot measure: crap-score back to dispatched, with its attempts and branch"
         dispatchLedger -> stateFiles "Reads and writes the ledger of the run"
-        dispatchCli -> stateFiles "Writes step manifests; removes the state of the run at close"
+        # Writes step manifests; removes the state of the run at close
+        dispatchCli -> stateFiles "Writes and removes run state"
         indexLint -> coreList "Reads sample paths for the reviewer check"
         indexLint -> factoryAgents "Reads output declarations with reviewed_by and edits"
         ownershipContractTest -> coreList "Reads every entry and its sample path"
-        ownershipContractTest -> catalog "Counts the producing output patterns that match each sample path"
+        # Counts the producing output patterns that match each sample path
+        ownershipContractTest -> catalog "Counts matching output patterns"
         dependencyCheck -> coreArtifacts "Reads the dependency rules"
 
         # ================================================================
         # Relationships — Counter IDs
         # ================================================================
-        cliAgent -> nextId "Runs next-id <PREFIX> at the step of an ID producer that creates an indexed artifact, with the prefix of that artifact's kind"
+        # Runs next-id <PREFIX> at the step of an ID producer that creates an indexed artifact, with the prefix of that artifact's kind
+        cliAgent -> nextId "Runs next-id <PREFIX>"
         humanOperator -> nextId "Runs next-id --seed <number> by hand, when the project skipped the seed step"
         virgil -> nextId "Runs next-id --plan-seed and the printed seed command in fitting step 4, and next-id --move-to-origin at the session start, each after the User confirms"
         virgil -> localCounter "Sets agent-factory.counterRemote to the path of the main repository in fitting step 4, when the project has no origin"
         nextId -> counterPort "Calls claim <prefix>, seed, inspect, or move"
-        nextId -> git "Lists file names, register id fields, and todo headings on every local and remote-tracking branch for --plan-seed; never reads body text"
-        nextId -> findingRegisters "Counts the file name of each register file docs/findings/register/**/*.json on every local and remote-tracking branch as an ID in use for --plan-seed; cross-feature dependency of counter-ids-fitting BR-099 on DEC-60" "" "Finding Classification,Cross-feature"
+        # Lists file names, register id fields, and todo headings on every local and remote-tracking branch for --plan-seed; never reads body text
+        nextId -> git "Lists used IDs on every branch"
+        # Counts the file name of each register file docs/findings/register/**/*.json on every local and remote-tracking branch as an ID in use for --plan-seed; cross-feature dependency of counter-ids-fitting BR-099 on DEC-60
+        nextId -> findingRegisters "Counts register IDs" "" "Finding Classification,Cross-feature"
         nextId -> localCounter "Reads agent-factory.counterRemote; removes it after a move succeeds"
         gitRefAdapter -> counterPort "Implements claim, seed, inspect, and move; returns the claimed number or the state of the counter"
         gitRefAdapter -> projectRemote "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease; on a move, pushes the claim commit with the create-only lease"
         gitRefAdapter -> localCounter "Fetches refs/ids/counters and pushes a claim commit with --force-with-lease; on a move, sets the marker commit under a lease on the claim commit and never removes it"
-        nextId -> cliAgent "Prints the ID on standard output, or exits non-zero and names the reason"
+        # Prints the ID on standard output, or exits non-zero and names the reason
+        nextId -> cliAgent "Prints the ID or the reason"
         initFactory -> projectRemote "Asks origin whether refs/ids/counters exists, when agent-factory.counterRemote is not set; derives fitting.counter_seeded from the answer; never seeds"
         # ================================================================
         # Relationships — Finding Classification
         # ================================================================
         # The stop
-        dispatchCli -> stopCheck "Calls it before each subcommand that moves the run" "" "Finding Classification"
+        # Calls it before each subcommand that moves the run
+        dispatchCli -> stopCheck "Calls it before each move" "" "Finding Classification"
         premergeCheck -> stopCheck "Calls it before any other check" "" "Finding Classification"
         stopCheck -> workingOutput "Reads every finding file in the working tree" "" "Finding Classification"
         stopCheck -> git "Reads the HEAD version of each finding file" "" "Finding Classification"
         stopCheck -> cliAgent "Prints the stop notice; its caller exits 1" "" "Finding Classification"
         cliAgent -> premergeCheck "Runs it before each merge" "" "Finding Classification"
-        premergeCheck -> stateFiles "Writes the premerge-check-ok marker on a pass; reads the mutation-testing result" "" "Finding Classification"
+        # Writes the premerge-check-ok marker on a pass; reads the mutation-testing result
+        premergeCheck -> stateFiles "Writes the pass marker" "" "Finding Classification"
         blockDangerousGit -> stateFiles "Reads the markers and the ledgers" "" "Finding Classification"
         cliAgent -> dispatchCli "Runs a dispatch subcommand" "" "Finding Classification"
-        stakeholder -> workingOutput "Writes the human fields of a finding file in an editor or with a ! command: confirms a stop, waives a finding, or lowers it" "" "Finding Classification"
-        stakeholder -> workingOutput "Writes the exceptions register docs/findings/exceptions.md on dev: accepts a function above the CRAP threshold with its score and a reason"
-        stakeholder -> findingRegisters "Writes the human fields of a register file in an editor or with a ! command: waives a minor finding, or writes the register file that replaces a lowered finding file" "" "Finding Classification"
+        # Writes the human fields of a finding file in an editor or with a ! command: confirms a stop, waives a finding, or lowers it
+        stakeholder -> workingOutput "Writes human fields of findings" "" "Finding Classification"
+        # Writes the exceptions register docs/findings/exceptions.md on dev: accepts a function above the CRAP threshold with its score and a reason
+        stakeholder -> workingOutput "Writes the exceptions register"
+        # Writes the human fields of a register file in an editor or with a ! command: waives a minor finding, or writes the register file that replaces a lowered finding file
+        stakeholder -> findingRegisters "Writes human fields of registers" "" "Finding Classification"
 
         # The guard
-        cliAgent -> guardClaudeCode "Claude Code: an Edit, MultiEdit, Write, NotebookEdit, or Bash call fires PreToolUse" "" "Finding Classification"
-        cliAgent -> guardCodex "Codex: an Edit, Write, apply_patch, or Bash call fires PreToolUse" "" "Finding Classification"
-        cliAgent -> guardCopilot "Copilot CLI: an edit, apply_patch, write_file, create, or bash call fires preToolUse" "" "Finding Classification"
-        cliAgent -> guardPi "Pi: an edit, write, write_file, create, apply_patch, or bash call fires tool_call" "" "Finding Classification"
-        cliAgent -> guardOpenCode "OpenCode: an edit, write, patch, shell, or execute call fires execute.before" "" "Finding Classification"
+        # Claude Code: an Edit, MultiEdit, Write, NotebookEdit, or Bash call fires PreToolUse
+        cliAgent -> guardClaudeCode "Fires PreToolUse" "" "Finding Classification"
+        # Codex: an Edit, Write, apply_patch, or Bash call fires PreToolUse
+        cliAgent -> guardCodex "Fires PreToolUse" "" "Finding Classification"
+        # Copilot CLI: an edit, apply_patch, write_file, create, or bash call fires preToolUse
+        cliAgent -> guardCopilot "Fires preToolUse" "" "Finding Classification"
+        # Pi: an edit, write, write_file, create, apply_patch, or bash call fires tool_call
+        cliAgent -> guardPi "Fires tool_call" "" "Finding Classification"
+        # OpenCode: an edit, write, patch, shell, or execute call fires execute.before
+        cliAgent -> guardOpenCode "Fires execute.before" "" "Finding Classification"
         guardClaudeCode -> guardHumanFields "Runs with the tool call on standard input" "" "Finding Classification"
         guardCodex -> guardHumanFields "Runs with the tool call on standard input" "" "Finding Classification"
         guardCopilot -> guardHumanFields "Runs with the tool call on standard input" "" "Finding Classification"
-        guardPi -> guardHumanFields "Runs with the tool call; blocks the call when the script is missing" "" "Finding Classification"
-        guardOpenCode -> guardHumanFields "Runs with the tool call; blocks the call when the script is missing" "" "Finding Classification"
-        guardHumanFields -> workingOutput "Reads the current content of a guarded finding file for a write" "" "Finding Classification"
-        guardHumanFields -> findingRegisters "Reads the current content of a guarded register file for a write" "" "Finding Classification"
-        guardHumanFields -> projectFilesystem "Reads the current content of a proposal docs/proposals/*.md for a write" "" "Finding Classification"
-        guardHumanFields -> cliAgent "Refuses a call that sets a human field with exit 2 and names the file, the field, and the stakeholder's way to write it" "" "Finding Classification"
-        guardOpenCode -> cliAgent "Blocks the call through the plugin API when the guard refuses it or the guard script is missing" "" "Finding Classification"
-        guardPi -> cliAgent "Blocks the call through the extension API when the guard refuses it or the guard script is missing" "" "Finding Classification"
-        initFactory -> guardClaudeCode "Writes the PreToolUse entries for Edit, MultiEdit, Write, NotebookEdit, and Bash into .claude/settings.json beside the step-guard entries; update-factory runs it after each update, so an earlier install gets the missing entries" "" "Finding Classification"
-        initFactory -> guardCodex "Writes the PreToolUse entries for Edit, Write, apply_patch, and Bash into .codex/hooks.json beside the step-guard entries" "" "Finding Classification"
-        initFactory -> guardCopilot "Writes the preToolUse entries for edit, apply_patch, write_file, create, and bash into a hook file under .github/hooks/, beside step-guard.json" "" "Finding Classification"
+        # Runs with the tool call; blocks the call when the script is missing
+        guardPi -> guardHumanFields "Runs with each tool call" "" "Finding Classification"
+        # Runs with the tool call; blocks the call when the script is missing
+        guardOpenCode -> guardHumanFields "Runs with each tool call" "" "Finding Classification"
+        # Reads the current content of a guarded finding file for a write
+        guardHumanFields -> workingOutput "Reads the guarded finding file" "" "Finding Classification"
+        # Reads the current content of a guarded register file for a write
+        guardHumanFields -> findingRegisters "Reads the guarded register file" "" "Finding Classification"
+        # Reads the current content of a proposal docs/proposals/*.md for a write
+        guardHumanFields -> projectFilesystem "Reads the guarded proposal" "" "Finding Classification"
+        # Refuses a call that sets a human field with exit 2 and names the file, the field, and the stakeholder's way to write it
+        guardHumanFields -> cliAgent "Refuses a human-field write" "" "Finding Classification"
+        # Blocks the call through the plugin API when the guard refuses it or the guard script is missing
+        guardOpenCode -> cliAgent "Blocks the call" "" "Finding Classification"
+        # Blocks the call through the extension API when the guard refuses it or the guard script is missing
+        guardPi -> cliAgent "Blocks the call" "" "Finding Classification"
+        # Writes the PreToolUse entries for Edit, MultiEdit, Write, NotebookEdit, and Bash into .claude/settings.json beside the step-guard entries; update-factory runs it after each update, so an earlier install gets the missing entries
+        initFactory -> guardClaudeCode "Writes the PreToolUse entries" "" "Finding Classification"
+        # Writes the PreToolUse entries for Edit, Write, apply_patch, and Bash into .codex/hooks.json beside the step-guard entries
+        initFactory -> guardCodex "Writes the PreToolUse entries" "" "Finding Classification"
+        # Writes the preToolUse entries for edit, apply_patch, write_file, create, and bash into a hook file under .github/hooks/, beside step-guard.json
+        initFactory -> guardCopilot "Writes the preToolUse entries" "" "Finding Classification"
         initFactory -> guardPi "Links the project-local guard extension beside step-guard.ts" "" "Finding Classification"
-        initFactory -> projectFilesystem "Splices the factory hook block into .pre-commit-config.yaml; the block holds agent_factory_hook-finding-lint, which hook-metadata.yaml marks trade_off none and availability always, so fitting includes it without asking" "" "Finding Classification"
-        updateFactory -> projectFilesystem "Re-splices the agent_factory_hook-* block of .pre-commit-config.yaml from the template of the new release with merge-precommit-config --update, so an earlier install gets agent_factory_hook-finding-lint; shows the diff and writes on yes" "" "Finding Classification"
-        initFactory -> opencodePlugin "With --cli opencode, links .agent-factory/factory/config/plugins/agent-factory.ts into .opencode/plugins/; the OpenCode CLI feature extends the same plugin file" "" "Finding Classification,Cross-feature"
+        # Splices the factory hook block into .pre-commit-config.yaml; the block holds agent_factory_hook-finding-lint, which hook-metadata.yaml marks trade_off none and availability always, so fitting includes it without asking
+        initFactory -> projectFilesystem "Splices the factory hook block" "" "Finding Classification"
+        # Re-splices the agent_factory_hook-* block of .pre-commit-config.yaml from the template of the new release with merge-precommit-config --update, so an earlier install gets agent_factory_hook-finding-lint; shows the diff and writes on yes
+        updateFactory -> projectFilesystem "Re-splices the factory hook block" "" "Finding Classification"
+        # With --cli opencode, links .agent-factory/factory/config/plugins/agent-factory.ts into .opencode/plugins/; the OpenCode CLI feature extends the same plugin file
+        initFactory -> opencodePlugin "Links the plugin" "" "Finding Classification,Cross-feature"
 
         # The lint and its git check
         git -> findingLint "Fires pre-commit with --staged" "" "Finding Classification"
-        cliAgent -> findingLint "The validate skill runs finding-lint on the working tree" "" "Finding Classification"
-        findingLint -> workingOutput "Reads each finding file that carries review_class, or whose HEAD version carries it" "" "Finding Classification"
+        # The validate skill runs finding-lint on the working tree
+        cliAgent -> findingLint "Runs finding-lint" "" "Finding Classification"
+        # Reads each finding file that carries review_class, or whose HEAD version carries it
+        findingLint -> workingOutput "Reads classified finding files" "" "Finding Classification"
         findingLint -> findingRegisters "Reads every register file" "" "Finding Classification"
-        findingLint -> schemaValidate "Runs schema-validate on each register file with the schema of its folder" "" "Finding Classification"
+        # Runs schema-validate on each register file with the schema of its folder
+        findingLint -> schemaValidate "Validates each register file" "" "Finding Classification"
         schemaValidate -> findingSchemas "Reads the register schema of the class" "" "Finding Classification"
-        findingLint -> git "Reads the HEAD version of each file; blames the artifact range on the reviewed branch, on dev, main, origin/dev, origin/main, and each release tag" "" "Finding Classification"
-        findingLint -> factorySettings "Reads release_tag_patterns when a git check is due; exits 1 and names the file and the key when either is missing" "" "Finding Classification"
+        # Reads the HEAD version of each file; blames the artifact range on the reviewed branch, on dev, main, origin/dev, origin/main, and each release tag
+        findingLint -> git "Reads HEAD versions and blames" "" "Finding Classification"
+        # Reads release_tag_patterns when a git check is due; exits 1 and names the file and the key when either is missing
+        findingLint -> factorySettings "Reads release_tag_patterns" "" "Finding Classification"
         findingLint -> mainCheckout "Finds the primary checkout from a linked worktree" "" "Finding Classification"
-        findingLint -> projectFilesystem "Blames the installed copy .agent-factory/factory/ with git blame --contents, when packages/factory/ exists" "" "Finding Classification"
+        # Blames the installed copy .agent-factory/factory/ with git blame --contents, when packages/factory/ exists
+        findingLint -> projectFilesystem "Blames the installed copy" "" "Finding Classification"
 
         # The reviews
-        cliAgent -> findingRegisters "A review skill records each minor finding as a register file with status open; the commit that fixes the finding sets resolved" "" "Finding Classification"
+        # A review skill records each minor finding as a register file with status open; the commit that fixes the finding sets resolved
+        cliAgent -> findingRegisters "Records minor findings" "" "Finding Classification"
         specReviewAgent -> findingRegisters "Records each minor finding as a register file of its class" "" "Finding Classification"
         architectureReviewAgent -> findingRegisters "Records each minor finding as a register file of its class" "" "Finding Classification"
 
         # The migration
         cliAgent -> migrationAgent "Runs the one-time migration after docs/factory-settings.yaml is committed" "" "Finding Classification"
-        migrationAgent -> workingOutput "Classifies every open finding file without review_class; after the pause point, writes review_class, basis, and the Why this severity line, removes each minor result, and sets deferred on a result without an artifact" "" "Finding Classification"
-        migrationAgent -> stakeholder "Presents every result at one pause point before any file changes" "" "Finding Classification"
-        migrationAgent -> findingRegisters "Writes one register file with status open for each minor result and for each line of the old .jsonl registers, then removes the three .jsonl files" "" "Finding Classification"
+        # Classifies every open finding file without review_class; after the pause point, writes review_class, basis, and the Why this severity line, removes each minor result, and sets deferred on a result without an artifact
+        migrationAgent -> workingOutput "Classifies open finding files" "" "Finding Classification"
+        # Presents every result at one pause point before any file changes
+        migrationAgent -> stakeholder "Presents the results" "" "Finding Classification"
+        # Writes one register file with status open for each minor result and for each line of the old .jsonl registers, then removes the three .jsonl files
+        migrationAgent -> findingRegisters "Writes register files" "" "Finding Classification"
         migrationAgent -> git "Commits the migration, which fires finding-lint with --staged" "" "Finding Classification"
 
         # ================================================================
@@ -542,23 +662,34 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         cliAgent -> qaAgent "Runs QA on the feature"
         developerAgent -> git "Commits on the story branch"
         implementationAgent -> stateFiles "Reads gate results; writes the list mutants"
-        implementationAgent -> workingOutput "Files a QA finding for a surviving mutant; routes QA findings at the wave close"
+        # Files a QA finding for a surviving mutant; routes QA findings at the wave close
+        implementationAgent -> workingOutput "Files and routes QA findings"
         implementationAgent -> premergeCheck "Runs the feature merge check"
 
         # dispatch
-        dispatchCli -> git "Cuts and merges branches, moves the feature branch back on a red suite, deletes merged branches"
-        dispatchCli -> runWorktrees "Creates the worktrees of an orchestrated run; removes them at close"
-        dispatchCli -> projectFilesystem "By hand, checks out the story branch, and the feature branch after premerge-check passes"
-        dispatchCli -> coreArtifacts "Reads the test command, the attempt limits, and refuse_dirty_feature_worktree"
-        dispatchCli -> premergeCheck "merge-story runs it first and merges only on exit 0; on exit 3 sets the entry blocked with the reason gate cannot measure: crap-score"
-        dispatchCli -> measuringCommands "init runs the ready command of every measure of an enabled gate in the primary checkout, before it cuts a branch or writes the ledger"
+        # Cuts and merges branches, moves the feature branch back on a red suite, deletes merged branches
+        dispatchCli -> git "Cuts, merges and deletes branches"
+        # Creates the worktrees of an orchestrated run; removes them at close
+        dispatchCli -> runWorktrees "Creates and removes worktrees"
+        # By hand, checks out the story branch, and the feature branch after premerge-check passes
+        dispatchCli -> projectFilesystem "Checks out branches by hand"
+        # Reads the test command, the attempt limits, and refuse_dirty_feature_worktree
+        dispatchCli -> coreArtifacts "Reads the run settings"
+        # merge-story runs it first and merges only on exit 0; on exit 3 sets the entry blocked with the reason gate cannot measure: crap-score
+        dispatchCli -> premergeCheck "Runs it before each merge"
+        # init runs the ready command of every measure of an enabled gate in the primary checkout, before it cuts a branch or writes the ledger
+        dispatchCli -> measuringCommands "Runs the ready commands at init"
 
         # premerge-check
-        premergeCheck -> git "Checks the base, diff size, and scope, and reads reviews and findings at the head"
-        premergeCheck -> runWorktrees "Removes a leftover worktree at its path under premerge/, adds a new one, and reruns the gates there"
+        # Checks the base, diff size, and scope, and reads reviews and findings at the head
+        premergeCheck -> git "Checks base, diff and scope"
+        # Removes a leftover worktree at its path under premerge/, adds a new one, and reruns the gates there
+        premergeCheck -> runWorktrees "Reruns the gates in a worktree"
         premergeCheck -> dependencyCheck "Reruns it in the temporary worktree"
-        premergeCheck -> crapScore "Calls crap-score --base <target> in the temporary worktree, with the report in the primary checkout; exit 2 gives exit 3 when every other check that ran passed"
-        premergeCheck -> measuringCommands "Runs the ready command of every measure of an enabled gate in the temporary worktree, before the test suite; a failure gives exit 3 at once"
+        # Calls crap-score --base <target> in the temporary worktree, with the report in the primary checkout; exit 2 gives exit 3 when every other check that ran passed
+        premergeCheck -> crapScore "Runs crap-score --base <target>"
+        # Runs the ready command of every measure of an enabled gate in the temporary worktree, before the test suite; a failure gives exit 3 at once
+        premergeCheck -> measuringCommands "Runs the ready commands"
         premergeCheck -> testDesignVerify "Reruns it in the temporary worktree"
         premergeCheck -> coreArtifacts "Reads the gates and the test command"
 
@@ -572,7 +703,8 @@ workspace "Agent Factory" "Precondition-based agent eligibility, dispatch, valid
         blockDangerousGit -> coreArtifacts "Reads the test commands for the allowlist"
 
         # The pre-commit hook
-        git -> dependencyCheck "Fires pre-commit when a commit stages a .py file"
+        # Fires pre-commit when a commit stages a .py file
+        git -> dependencyCheck "Fires pre-commit on a .py commit"
 
         initFactory -> localCounter "Asks the local counter whether refs/ids/counters exists, when agent-factory.counterRemote is set; derives fitting.counter_seeded from the answer; never seeds"
     }

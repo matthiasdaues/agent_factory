@@ -59,15 +59,19 @@ Trusted gate source
   dev without the file or the key (DEC-68). With --base the file comes from
   the tree of that revision, with --all or --settings-from-folder from the
   folder (DEC-73, DEC-77). A value
-  that git does not accept as a branch name exits 2 (DEC-77). enabled, timeout_minutes, and the
-  name, command and ready of each measure stay at the story head (DEC-75).
+  that git does not accept as a branch name exits 2 (DEC-77). A named branch
+  that git does not hold exits 2, and so, with --base, does one whose tip is
+  HEAD (DEC-76, DEC-79). timeout_minutes and the name, command and ready of
+  each measure stay at the story head (DEC-75); premerge-check reads enabled
+  from dev (DEC-80).
   A measure that the branch does not name takes its patterns from the
   folder, and the output names it as not yet trusted (DEC-69). A measure
-  that the branch names and the folder lacks exits 2 (DEC-70). Without the
-  ref of the default dev, with --base, exits 2 and names the branch dev
-  (DEC-81). With --all, without that ref, or without docs/testing.yaml on
-  the branch, or without gates.crap-score there, the values come from the
-  folder, and the output names the cause (DEC-13, DEC-69, DEC-81). --settings-from-folder takes the
+  that the branch names and the folder lacks exits 2 (DEC-70). Without
+  docs/testing.yaml on the branch, or without gates.crap-score there, the
+  values come from the folder, and the output names the cause (DEC-69).
+  Without the ref of the default dev, --base exits 2 and names the branch
+  dev; --all and --settings-from-folder take the values from the folder
+  and name the cause (DEC-13, DEC-81). --settings-from-folder takes the
   threshold and the patterns from the folder and reads no docs/testing.yaml
   from the branch; only gate-setup-proof passes it (DEC-71, DEC-73).
 
@@ -76,8 +80,9 @@ Exceptions
   read from the integration branch through git. A function above the
   threshold gets `accepted` when a row names its file and qualified name and
   its rounded score is at or below the row's accepted score. The output
-  names the reason of each `accepted` row. Without a branch dev, the output
-  says that no register was read (BR-132).
+  names the reason of each `accepted` row. Without the default branch dev,
+  --base exits 2 before it reads the register, and --all and
+  --settings-from-folder read none and say so (BR-132, DEC-81).
 
 Exit codes
   0  every judged function passes or is accepted, also when none is judged

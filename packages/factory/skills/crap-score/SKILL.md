@@ -16,7 +16,7 @@ The project measures, and the Factory judges. `crap-score` holds no code of a la
 .agent-factory/factory/scripts/crap-score (--base <revision> | --all) [--story-id <id>] [--report-dir <folder>] [--settings-from-folder]
 ```
 
-- `--base <revision>` judges the functions whose lines changed in the diff from the merge base of the revision and `HEAD` to `HEAD`. The revision is a branch or a commit. The gate-check step passes the feature branch.
+- `--base <revision>` judges the functions whose lines changed in the diff from the merge base of the revision and `HEAD` to `HEAD`. The revision is a branch or a commit, and a local branch wins over a tag of the same name. The gate-check step passes the feature branch.
 - `--all` judges every measured function. Setup step 6 uses it.
 - A call needs exactly one of `--base` and `--all`. A call with neither or both exits `2`.
 - `--story-id` names the report. Without it, the name is `STORY_ID`, then the ID in the current branch name, such as `ST-0350` in `story/ST-0350`, then `adhoc`.
@@ -57,8 +57,9 @@ A story cannot decide what counts as accepted. So the gate reads `threshold`, th
 - `enabled`, `timeout_minutes`, and the `name`, `command` and `ready` of each measure come from the folder, the story head. The folder still needs all three required values.
 - A measure joins its entry on the branch by `name`. A measure that the branch does not name yet takes `files` and `exclude` from the folder, and the output names it as not yet trusted.
 - A measure that the branch names and the folder lacks makes the gate exit `2`. Remove a measure on the integration branch first.
-- Without the ref of the default `dev`, without `docs/testing.yaml` on the branch, or without `gates.crap-score` there, `threshold`, `files` and `exclude` come from the folder. The output then names the cause, so the first setup keeps working.
-- A `docs/testing.yaml` on the branch that cannot be parsed, or an entry there without `threshold`, makes the gate exit `2`. So do an `integration_branch` that is not a non-empty string or that `git check-ref-format --branch` refuses, a named branch that git does not hold, and a named branch whose tip is `HEAD`, the commit under judgement.
+- Without `docs/testing.yaml` on the branch, or without `gates.crap-score` there, `threshold`, `files` and `exclude` come from the folder. The output then names the cause, so the first setup keeps working.
+- Without the ref of the default `dev`, the call decides. With `--all` or `--settings-from-folder`, the values come from the folder, the gate reads no register, and the output names the cause. With `--base` alone, the gate exits `2`, because a story agent could otherwise delete `dev` and be judged by its own values.
+- A `docs/testing.yaml` on the branch that cannot be parsed, or an entry there without `threshold`, makes the gate exit `2`. So do an `integration_branch` that is not a non-empty string or that `git check-ref-format --branch` refuses, a named branch that git does not hold, and, with `--base`, a named branch whose tip is `HEAD`, the commit under judgement. With `--all`, setup step 6 runs on the checked-out integration branch, whose tip is `HEAD` by design.
 
 ## Measurement format
 
