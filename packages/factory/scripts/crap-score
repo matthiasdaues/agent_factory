@@ -643,9 +643,19 @@ def check_duplicates(measure: Measure, rows: list[dict], owners: dict[tuple[str,
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
+def git_argv(*args: str) -> list[str]:
+    """The argument vector of one git call (SEC-0009).
+
+    --no-replace-objects makes git read the true objects, so a replace ref
+    under refs/replace/ cannot stand in for a blob or tree of the branch.
+    Every git call of this script goes through this function.
+    """
+    return ["git", "--no-replace-objects", *args]
+
+
 def git(root: Path, *args: str, errors: str = "strict") -> str:
     """Run git and decode its output as UTF-8; *errors* is the decoder's error handler."""
-    proc = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
+    proc = subprocess.run(git_argv(*args), cwd=root, capture_output=True, check=False)
     if proc.returncode != 0:
         stderr = proc.stderr.decode("utf-8", errors="replace").strip()
         raise GateError(f"git {' '.join(args)} failed: {stderr}")
@@ -941,7 +951,7 @@ def _is_branch_name(root: Path, value: str) -> bool:
     before, so a value counts only when git prints it back unchanged.
     """
     proc = subprocess.run(
-        ["git", "check-ref-format", "--branch", value],
+        git_argv("check-ref-format", "--branch", value),
         cwd=root, capture_output=True, text=True, check=False,
     )
     return proc.returncode == 0 and proc.stdout.strip() == value
@@ -1059,7 +1069,7 @@ def apply_trusted(folder: Settings, values: TrustedValues) -> Settings:
 def _resolve(root: Path, revision: str) -> str | None:
     """The commit of *revision*, or None when git names none, also outside a git repository."""
     proc = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", revision],
+        git_argv("rev-parse", "--verify", "--quiet", revision),
         cwd=root, capture_output=True, text=True, check=False,
     )
     return proc.stdout.strip() if proc.returncode == 0 else None
@@ -1072,7 +1082,7 @@ def _branch_tip(root: Path, branch: str) -> str | None:
     no tag, no remote ref and no revision expression.
     """
     proc = subprocess.run(
-        ["git", "show-ref", "--verify", "--hash", f"refs/heads/{branch}"],
+        git_argv("show-ref", "--verify", "--hash", f"refs/heads/{branch}"),
         cwd=root, capture_output=True, text=True, check=False,
     )
     return proc.stdout.strip() if proc.returncode == 0 else None
@@ -1233,7 +1243,7 @@ def current_branch() -> str | None:
     """The name of the current branch, or None when git names none."""
     try:
         proc = subprocess.run(
-            ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
+            git_argv("symbolic-ref", "--quiet", "--short", "HEAD"),
             capture_output=True, text=True, check=False,
         )
     except OSError:

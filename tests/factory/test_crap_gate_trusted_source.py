@@ -838,6 +838,54 @@ def test_cg_04_two_runs_on_one_head_with_dev_fixed_give_the_same_verdict(repo):
     assert first.stdout == second.stdout
 
 
+# --- SEC-0009: replace refs on dev do not change what the gate reads -------
+
+
+def _git_raw(repo: Repo, *args: str, data: str | None = None, index: Path | None = None) -> str:
+    """Run git on the fixture repository, with its environment and, for a tree, a private index."""
+    env = {**repo.env, "GIT_INDEX_FILE": str(index)} if index else repo.env
+    return subprocess.run(
+        ["git", *args], cwd=repo.root, env=env, input=data, check=True, capture_output=True, text=True,
+    ).stdout.strip()
+
+
+def _forged_docs_tree(repo: Repo, docs: str, register_text: str) -> str:
+    """The tree of docs at dev with a register added, written as a new tree object."""
+    index = repo.tmp / "forged-docs-index"
+    _git_raw(repo, "read-tree", docs, index=index)
+    blob = _git_raw(repo, "hash-object", "-w", "--stdin", data=register_text, index=index)
+    _git_raw(repo, "update-index", "--add", "--cacheinfo", f"100644,{blob},findings/exceptions.md", index=index)
+    return _git_raw(repo, "write-tree", index=index)
+
+
+@pytest.mark.spec("CG-14-IT-01")
+def test_cg_14_a_replace_ref_on_the_settings_blob_of_dev_does_not_raise_the_threshold(repo):
+    """SEC-0009: git replace of docs/testing.yaml on dev with a raised threshold; the gate reads dev's true value."""
+    commit_on(repo, "dev", {"docs/testing.yaml": gate_yaml(8)})
+    change_tree(repo)
+    real = _git_raw(repo, "rev-parse", "dev:docs/testing.yaml")
+    forged = _git_raw(repo, "hash-object", "-w", "--stdin", data=gate_yaml(30))
+    _git_raw(repo, "replace", real, forged)
+    proc = repo.run(*GATE_CALL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert "above the threshold 8" in proc.stderr
+
+
+@pytest.mark.spec("CG-04-IT-17")
+def test_cg_04_a_replace_ref_on_the_docs_tree_of_dev_adds_no_register_row(repo):
+    """SEC-0009: git replace of the docs tree of dev with a forged register row; the gate reads dev's true register."""
+    commit_on(repo, "dev", {"docs/testing.yaml": gate_yaml(8)})
+    change_tree(repo)
+    docs = _git_raw(repo, "rev-parse", "dev:docs")
+    forged = _forged_docs_tree(repo, docs, register((FINDING_LINT, "tree_severity", "9")))
+    _git_raw(repo, "replace", docs, forged)
+    proc = repo.run(*GATE_CALL)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert f"FAIL {FINDING_LINT} tree_severity 9.00" in proc.stdout
+    assert "ACCEPTED" not in proc.stdout
+
+
 # --- CG-14-LN-01: the texts of the caller and the skill --------------------
 
 FACTORY = REPO_ROOT / "packages" / "factory"
