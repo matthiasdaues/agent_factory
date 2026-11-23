@@ -937,6 +937,72 @@ def test_cg_03_a_pytest_that_a_test_starts_keeps_the_temp_folder_of_its_caller(t
     assert not (tmp_path / ".pytest_cache").exists()
 
 
+DEEP_TEST = """\
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+LEVELS = {levels!r}
+
+
+def test_level(tmp_path):
+    with open(os.environ["TMP_LOG"], "a") as log:
+        log.write(str(tmp_path) + "\\n")
+    (tmp_path / "mark").write_text("x")
+    if LEVELS:
+        # The next pytest starts inside tmp_path, below the --basetemp of this one.
+        source = Path(__file__).read_text().replace("LEVELS = " + repr(LEVELS), "LEVELS = " + repr(LEVELS - 1))
+        (tmp_path / "test_level.py").write_text(source)
+        subprocess.run([sys.executable, "-m", "pytest", "-q", "test_level.py"], cwd=tmp_path, check=True)
+    assert (tmp_path / "mark").exists()
+"""
+
+
+@pytest.mark.spec("CG-03-IT-10")
+def test_bug_0141_a_pytest_two_levels_deep_keeps_its_own_tmp_path(tmp_path: Path) -> None:
+    """BUG-0141: the options of the parents pile up, and one --basetemp lies above the working folder of the inner pytest."""
+    root = tmp_path / "project"
+    root.mkdir()
+    _write_project(root, test_command=[sys.executable, "-m", "pytest", "-q", "tests"])
+    (root / "tests" / "test_deep.py").write_text(DEEP_TEST.format(levels=2))
+    log = tmp_path / "tmp-path.log"
+
+    result = _run(root, TMP_LOG=str(log))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    used = log.read_text().splitlines()
+    assert len(used) == 3, used
+    assert len(set(used)) == 3, f"two levels share a tmp_path: {used}"
+    assert not any(Path(path).exists() for path in used)
+
+
+ADDOPTS_TEST = """\
+import os
+
+
+def test_options():
+    with open(os.environ["ADDOPTS_LOG"], "w") as log:
+        log.write(os.environ["PYTEST_ADDOPTS"])
+"""
+
+
+@pytest.mark.spec("CG-03-IT-10")
+def test_bug_0141_a_project_option_of_pytest_addopts_survives_the_template(tmp_path: Path) -> None:
+    """BUG-0141: the template replaces only its own two options and keeps the others."""
+    _write_project(tmp_path, test_command=[sys.executable, "-m", "pytest", "-q", "tests"])
+    (tmp_path / "tests" / "test_addopts.py").write_text(ADDOPTS_TEST)
+    log = tmp_path / "addopts.log"
+
+    result = _run(tmp_path, PYTEST_ADDOPTS="--strict-markers", ADDOPTS_LOG=str(log))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    options = log.read_text().split()
+    assert "--strict-markers" in options
+    assert len([o for o in options if o.startswith("--basetemp")]) == 1
+    assert options.count("no:cacheprovider") == 1
+
+
 ODD_NAMES_TEST = """\
 import importlib.util
 from pathlib import Path
