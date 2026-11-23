@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0095",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "structure",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/crap-score:944-976",
+  "story": "ST-0450",
+  "finding": "branch_values repeats four checks of _measures for the measures of the branch entry: a missing name or files, an exclude that is no list of patterns, a pattern with a line break, and a name that appears twice. The two copies already differ. _measures says 'measure 2 of gates.crap-score.measures is no mapping' for an item that is no mapping, and branch_values says 'has no name' for the same item. _measures names the field of a pattern with a line break, and branch_values does not. radon gives branch_values a cyclomatic complexity of 19 and join_values 11. Both lie above the threshold 8 of this repository's docs/testing.yaml even at full coverage, so every later story that changes a line in either function fails the gate once ST-0449 enables it. Fix: move the checks of one measure item into one helper in crap-score that takes the item, its position and the place for the message, and returns the name and the Patterns. Let _measures and branch_values call it, and keep the checks of command and ready in _measures alone.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on story/ST-0450. Every malformed branch entry still exits 2, and every valid one gives the right patterns (no to fails_purpose). A change to the rules of a measure must still be made in two places, and both functions score above the repository's threshold.",
+  "commit": "60e39fe12c4341a15b47ae82721f361c4757a021",
+  "status": "open"
+}

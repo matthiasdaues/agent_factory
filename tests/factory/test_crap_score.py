@@ -94,6 +94,7 @@ class TestCg04ThresholdKeys:
         (repo / "src" / "module").write_text("".join(f"line {n}\n" for n in range(1, 11)))
         git("add", "-A")
         git("commit", "-q", "-m", "init")
+        git("branch", "-q", "dev")
         git("checkout", "-q", "-b", "feature/login")
         git("checkout", "-q", "-b", "story/ST-0350")
         (repo / "src" / "module").write_text(

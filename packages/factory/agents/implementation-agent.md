@@ -266,7 +266,7 @@ Gate-specific parameters are read from `testing.yaml` at execution time. `crap-s
 
 #### Gate execution
 
-For each gate in the resolved list, call its CLI script directly from `<gate-folder>`: the story's worktree in an orchestrated run, and the primary checkout with the story branch checked out in a run by hand. Pass each script the arguments below. `crap-score` takes no setting as an argument, because it reads its threshold and its measures from `gates.crap-score` itself:
+For each gate in the resolved list, call its CLI script directly from `<gate-folder>`: the story's worktree in an orchestrated run, and the primary checkout with the story branch checked out in a run by hand. Pass each script the arguments below. `crap-score` takes no setting as an argument, because it reads them from `gates.crap-score` itself, through the trusted gate source: `threshold`, `files` and `exclude` from the integration branch, and the measures from the story head:
 
 ```
 .agent-factory/factory/scripts/crap-score         --base <feature-branch> --story-id <story-id> --report-dir <gate-folder>/.current-work/crap-score

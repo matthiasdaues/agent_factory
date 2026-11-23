@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0099",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "suggestion",
+  "type": "test",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/crap-score:950-1092",
+  "story": null,
+  "finding": "Twelve causes of exit 2 that the specification now names have no test, and no row of the QA strategy owns them. The wave close folded them into BR-128, BR-127 and § Trusted gate source after the code was written. Untested in branch_values: a gates.crap-score on the branch that is no mapping, a threshold that is no number, a measures value that is no list, a branch measure without name or without files, an exclude that is no list of patterns, a pattern with a line break, and a measure name twice. Untested elsewhere: a docs/factory-settings.yaml that is no valid YAML, and one that is no mapping (integration_branch), a docs/testing.yaml on the branch that is no mapping (_gate_entry), and a --base that names no commit (resolve_base, DEC-78). No test file asserts any of these messages. Fix: add contract tests to tests/factory/test_crap_gate_trusted_source.py that call branch_values, integration_branch and resolve_base with each broken value and assert the exit cause, and add one row for them to the Contract Owners of docs/spec/work/crap-gate-setup-qa-strategy.md.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on feature/crap-gate-trusted-source. Each check works when read, and the Scenarios of CG-14 that the QA strategy owns all have tests (no to fails_purpose). The fix of IMPL-0095 merges branch_values with _measures, and without these tests a check that the merge drops goes unnoticed.",
+  "commit": "83ff431982f16c67e39a7db390c3594c8ce3a212",
+  "status": "open"
+}

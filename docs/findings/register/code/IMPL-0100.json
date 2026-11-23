@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0100",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/premerge-check:997-1022",
+  "story": "BUG-0138",
+  "finding": "A story merge still ends in a traceback when the story's own code rewrites docs/testing.yaml in the premerge worktree while premerge-check runs. story_testing_yaml_refusal checks the file once, before any command runs. Then the ready commands, the gates and the test suite run, and each is code of the story head (DEC-75). After them, premerge-check parses the file again: gate_entries in crap_cannot_measure after the test suite (line 1014), and gate_entries in check_semantic_gates after the ready commands (line 1340). Since BUG-0137, a broken file makes these reads raise BrokenTestingYaml; before, they returned no gates. Neither call catches BrokenTestingYaml. A scratch run reproduces both. A test_command that runs printf 'gates: [x' > docs/testing.yaml ends in BrokenTestingYaml: is not valid YAML with a traceback and exit 1, and so does a ready command that runs the same printf. The merge still stops, so no story merges this way. Fix: in main, parse docs/testing.yaml of the worktree once, right after story_testing_yaml_refusal, and pass the entries and test_command to resolve_gates, not_set_up_notice, check_story_gates and crap_cannot_measure, so no later read depends on what a command left in the folder. A smaller fix catches BrokenTestingYaml around the semantic block in main and turns it into the BLOCK testing-yaml refusal. Add a test whose test_command rewrites the file.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on the feature branch. The merge still stops with exit 1, and only code of the story itself can rewrite the file during the run (no to fails_purpose). Whoever reads the refusal gets a traceback in place of a line that names the file, and must find out which command changed it.",
+  "commit": "04484745ecf28cc57c4f50fd76db61e944c6f74d",
+  "status": "open"
+}

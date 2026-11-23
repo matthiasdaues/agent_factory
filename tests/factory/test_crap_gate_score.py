@@ -324,12 +324,22 @@ def test_cg_04_report_dir_names_the_folder_of_the_report(repo):
 
 @pytest.mark.spec("CG-04-IT-10")
 def test_cg_04_a_linked_worktree_reads_its_own_testing_yaml(repo):
-    """Scenario Outline: The gate-check step runs crap-score in the folder of the story."""
+    """Scenario Outline: The gate-check step runs crap-score in the folder of the story.
+
+    The threshold comes from dev (DEC-67), so the folder shows through a value
+    that stays at the story head: the worktree's measure names its own
+    command, which writes rows with the complexity 5. The command of the
+    primary checkout writes rows with the complexity 9, which fail.
+    """
     repo.git("checkout", "-q", TARGET)
     worktree = repo.tmp / "worktree"
     repo.git("worktree", "add", "-q", str(worktree), BRANCH)
-    repo.write("docs/testing.yaml", TESTING_YAML.replace("threshold: 8", "threshold: 9"), worktree)
-    repo.commit("threshold 9", cwd=worktree)
+    own = "scripts/crap-measure-worktree"
+    rows = json.dumps([_row("tree_severity", 10, 30, complexity=5), _row("bug_bar_level", 32, 50, complexity=5)])
+    repo.write("docs/testing.yaml", TESTING_YAML.replace(STUB, own), worktree)
+    repo.write(own, f"#!/bin/sh\necho '{rows}' > \"$GATE_OUTPUT\"\n", worktree)
+    (worktree / own).chmod((worktree / own).stat().st_mode | stat.S_IXUSR)
+    repo.commit("the measuring command of the worktree", cwd=worktree)
     proc = repo.run("--all", "--story-id", STORY_ID, cwd=worktree)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert {row["pass_fail"] for row in repo.report(root=worktree)} == {"pass"}
@@ -623,16 +633,20 @@ def test_cg_05_a_project_without_the_register_has_no_exceptions(repo):
 
 
 @pytest.mark.spec("CG-05-IT-01")
-def test_cg_05_a_repository_without_dev_has_no_exceptions(repo):
-    """Scenario: A repository without a branch dev has no exceptions (DEC-13, DEC-25)."""
+def test_cg_05_a_repository_without_dev_refuses_with_base_and_writes_no_report(repo):
+    """Scenario: A repository without a branch dev has no exceptions (DEC-13, DEC-25), narrowed by DEC-81.
+
+    With --base the missing dev is an error: the run exits 2, names the branch, and writes no report.
+    """
     _commit_register(repo, "dev")
     repo.git("merge", "-q", "--no-edit", "dev")
     repo.git("branch", "-q", "-D", "dev")
     _change_tree(repo)
     proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
-    assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert NO_DEV_LINE in proc.stdout
-    assert repo.report()[0]["pass_fail"] == "fail"
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "git holds no branch dev" in proc.stderr
+    assert NO_DEV_LINE not in proc.stdout
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
 
 
 @pytest.mark.spec("CG-05-IT-01")
@@ -702,9 +716,10 @@ def test_cg_05_only_a_remote_branch_dev_gives_no_register(repo):
     repo.git("branch", "-q", "-D", "dev")
     _change_tree(repo)
     proc = repo.run("--base", TARGET, "--story-id", STORY_ID)
-    assert proc.returncode == 1, proc.stdout + proc.stderr
-    assert NO_DEV_LINE in proc.stdout
-    assert repo.report()[0]["pass_fail"] == "fail"
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "git holds no branch dev" in proc.stderr
+    assert NO_DEV_LINE not in proc.stdout
+    assert not (repo.root / ".current-work" / "crap-score" / f"{STORY_ID}.json").exists()
 
 
 @pytest.mark.spec("CG-05-IT-02")

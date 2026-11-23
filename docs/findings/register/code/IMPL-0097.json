@@ -1,0 +1,20 @@
+{
+  "id": "IMPL-0097",
+  "source": "code-review-agent",
+  "review_class": "code",
+  "category": "defect",
+  "type": "checking",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/crap-score:1081-1091",
+  "story": "ST-0450",
+  "finding": "resolve_base tries refs/heads/<base> before the revision itself, also when --base is a full commit SHA. git rev-parse does the opposite. For 40 hex characters it takes the commit and only warns that a ref of that name exists. So a branch named like a SHA now stands in for that commit. gate-setup-proof passes --base <start> with the full SHA of HEAD, and the setup agent knows that SHA before the proof runs. A scratch repository shows it. With --base set to the SHA of feature/x, the planted function fails with exit 1. After update-ref refs/heads/<that SHA> HEAD, the same call judges 0 functions and exits 0. Git itself creates no ref that ends in 40 hex characters, and its warning calls such a ref a mistake. Fix: in resolve_base, take a --base of 40 or 64 hex characters that names a commit as that commit, and look up refs/heads/<base> first only for any other value. Add a row with a branch named like the SHA to CG-14-IT-08.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "The code exists only on story/ST-0450. The merge path passes a branch name, never a SHA, and a ref named like 40 hex characters arises only by mistake or on purpose in the setup, which the User attends (no to fails_purpose). Whoever meets such a ref must find out why the proof judged the wrong diff.",
+  "commit": "6ef878b0082f86e0a8eb321b0ed5943f2eb7e2df",
+  "status": "open"
+}

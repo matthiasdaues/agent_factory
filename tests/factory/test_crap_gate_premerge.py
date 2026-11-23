@@ -75,11 +75,16 @@ def _env(tmp_path: Path) -> dict[str, str]:
 
 
 def _build_repo(
-    tmp_path: Path, testing_yaml: str, field: str = ""
+    tmp_path: Path,
+    testing_yaml: str | bytes,
+    field: str = "",
+    dev_testing: str | None = None,
 ) -> tuple[Path, dict[str, str], Path]:
     """A story branch whose docs/testing.yaml is *testing_yaml*, with recording stubs.
 
     *field* is the story's front-matter line `quality-gates`, or empty.
+    *dev_testing* is the docs/testing.yaml that dev holds, or None for no file.
+    *testing_yaml* is bytes when the file must hold bytes that are not text.
     """
     env = _env(tmp_path)
     repo = tmp_path / "repo"
@@ -93,14 +98,23 @@ def _build_repo(
     _git(repo, env, "add", "-A")
     _git(repo, env, "commit", "-q", "-m", "init")
     _git(repo, env, "checkout", "-q", "-b", "dev")
+    if dev_testing is not None:
+        (repo / "docs").mkdir()
+        (repo / "docs" / "testing.yaml").write_text(dev_testing)
+        _git(repo, env, "add", "-A")
+        _git(repo, env, "commit", "-q", "-m", "dev")
     _git(repo, env, "checkout", "-q", "-b", TARGET)
     _git(repo, env, "checkout", "-q", "-b", BRANCH)
     (repo / "backlog").mkdir()
     (repo / "backlog" / f"{STORY_ID}.md").write_text(
         f"---\nid: {STORY_ID}\ntitle: Log in\n{field}---\n\n# Log in\n"
     )
-    (repo / "docs").mkdir()
-    (repo / "docs" / "testing.yaml").write_text(testing_yaml)
+    (repo / "docs").mkdir(exist_ok=True)
+    story_testing = repo / "docs" / "testing.yaml"
+    if isinstance(testing_yaml, bytes):
+        story_testing.write_bytes(testing_yaml)
+    else:
+        story_testing.write_text(testing_yaml)
     write_review_report(repo, STORY_ID)
     _git(repo, env, "add", "-A")
     _git(repo, env, "commit", "-q", "-m", "story")
@@ -497,7 +511,8 @@ def _build_ready_repo(
     the marker that the test suite writes.
     """
     marker = tmp_path / "suite-ran"
-    repo, env, log = _build_repo(tmp_path, _ready_yaml(marker, enabled, timeout), field)
+    ready_yaml = _ready_yaml(marker, enabled, timeout)
+    repo, env, log = _build_repo(tmp_path, ready_yaml, field, dev_testing=ready_yaml)
     _executable(
         repo / BACKEND_READY,
         ready.format(log=tmp_path / "ready.log", pidfile=tmp_path / "child.pid"),
@@ -633,7 +648,7 @@ def test_cg_08_the_refusal_names_the_failing_functions_from_the_report_after_exi
 @pytest.mark.spec("CG-08-IT-09")
 def test_cg_08_the_exit_code_of_crap_score_alone_decides_at_the_merge(tmp_path):
     """Scenario: The exit code of crap-score alone decides at the merge."""
-    repo, env, log = _build_repo(tmp_path, CRAP_ENABLED)
+    repo, env, log = _build_repo(tmp_path, CRAP_ENABLED, dev_testing=CRAP_ENABLED)
     earlier = repo / ".current-work" / "crap-score" / f"{STORY_ID}.json"
     earlier.parent.mkdir(parents=True)
     earlier.write_text(json.dumps([
@@ -710,3 +725,152 @@ def test_cg_08_a_gate_that_cannot_measure_beside_another_failed_check_keeps_the_
     assert CANNOT_MEASURE not in result.stdout
     assert _entry(run).status.value == "dispatched"
     assert _lifecycle_git(run["repo"], "rev-parse", TARGET) == tip
+
+
+# --- SEC-0011: dev decides whether the CRAP gate runs (DEC-80, DEC-82) ---
+
+CRAP_TRUE = 'test_command: "true"\ngates:\n  crap-score:\n    enabled: true\n'
+CRAP_FALSE = 'test_command: "true"\ngates:\n  crap-score:\n    enabled: false\n'
+CRAP_PASSED_LINE = "PASS semantic-gates: crap-score passed"
+
+
+def test_sec_0011_dev_enabled_gate_runs_when_the_story_disables_it(tmp_path):
+    repo, env, log = _build_repo(tmp_path, CRAP_ONLY, dev_testing=CRAP_TRUE)
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "crap-score" in _called(log)
+    assert CRAP_PASSED_LINE in proc.stdout
+
+
+def test_sec_0011_dev_enabled_gate_runs_when_the_story_removes_its_entry(tmp_path):
+    repo, env, log = _build_repo(tmp_path, NO_GATES, dev_testing=CRAP_TRUE)
+    proc = _run(repo, env)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    # The gate runs and refuses without the entry at the story head, before it measures.
+    assert "crap-score (no entry gates.crap-score" in proc.stdout
+    assert _called(log) == []
+
+
+def test_sec_0011_story_cannot_switch_on_a_gate_that_dev_disables(tmp_path):
+    repo, env, log = _build_repo(tmp_path, CRAP_TRUE, dev_testing=CRAP_FALSE)
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "crap-score" not in _called(log)
+
+
+def test_sec_0011_no_dev_with_a_head_entry_cannot_measure(tmp_path):
+    repo, env, log = _build_repo(tmp_path, CRAP_TRUE)
+    _git(repo, env, "update-ref", "-d", "refs/heads/dev")
+    proc = _run(repo, env)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert CANNOT_MEASURE in proc.stdout
+    assert _called(log) == []
+
+
+def test_sec_0011_no_dev_without_a_head_entry_runs_no_crap_score(tmp_path):
+    repo, env, log = _build_repo(tmp_path, NO_GATES)
+    _git(repo, env, "update-ref", "-d", "refs/heads/dev")
+    proc = _run(repo, env)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "crap-score" not in _called(log)
+    assert CANNOT_MEASURE not in proc.stdout
+
+
+# BUG-0137: a docs/testing.yaml that is not valid YAML, empty, a list, or has a
+# gates.crap-score that is no mapping. On dev it cannot measure (BR-136, DEC-83);
+# at the story head it refuses with exit 1 and names the file (DEC-83).
+CRAP_SCALAR = 'test_command: "true"\ngates:\n  crap-score: true\n'
+DEV_BROKEN = [
+    pytest.param("gates: [unclosed\n", id="unparseable"),
+    pytest.param("", id="empty"),
+    pytest.param("- crap-score\n", id="list"),
+    pytest.param(CRAP_SCALAR, id="crap-score-not-a-mapping"),
+    pytest.param("gates:\n  - crap-score\n", id="gates-list"),
+    pytest.param("gates: true\n", id="gates-scalar"),
+]
+HEAD_BROKEN = [
+    pytest.param("gates: [unclosed\n", id="unparseable"),
+    pytest.param("", id="empty"),
+    pytest.param("- crap-score\n", id="list"),
+    pytest.param("gates:\n  - crap-score\n", id="gates-list"),
+    pytest.param("gates: true\n", id="gates-scalar"),
+    pytest.param(b'gates:\n  crap-score: "\xff"\n', id="not-utf8"),
+    pytest.param("gates:\n  crap-score: 5\n", id="crap-score-not-a-mapping"),
+    pytest.param('gates:\n  crap_score: "on"\n', id="crap_score-not-a-mapping"),
+]
+
+
+@pytest.mark.parametrize("dev_testing", DEV_BROKEN)
+def test_bug_0137_broken_dev_settings_cannot_measure_without_traceback(tmp_path, dev_testing):
+    repo, env, log = _build_repo(tmp_path, CRAP_ONLY, dev_testing=dev_testing)
+    proc = _run(repo, env)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert "Traceback" not in proc.stdout + proc.stderr
+    assert CANNOT_MEASURE in proc.stdout
+    message = proc.stdout.split(CANNOT_MEASURE, 1)[1].splitlines()[1]
+    assert "docs/testing.yaml" in message
+    assert "dev" in message
+    assert "crap-score" not in _called(log)
+
+
+@pytest.mark.parametrize("dev_testing", [None, CRAP_ONLY], ids=["no-dev", "dev"])
+@pytest.mark.parametrize("head_testing", HEAD_BROKEN)
+def test_bug_0137_broken_story_settings_refuse_and_name_the_file(
+    tmp_path, head_testing, dev_testing
+):
+    repo, env, log = _build_repo(tmp_path, head_testing, dev_testing=dev_testing)
+    proc = _run(repo, env)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "Traceback" not in proc.stdout + proc.stderr
+    assert any(
+        line.startswith("BLOCK") and "docs/testing.yaml" in line
+        for line in proc.stdout.splitlines()
+    ), proc.stdout
+    assert _called(log) == []
+
+
+# BUG-0138: the feature merge reads test_command from the feature branch, so a broken
+# docs/testing.yaml of the feature branch must refuse with BLOCK testing-yaml and exit 1
+# without a traceback, as DEC-83 requires for the story merge.
+FEATURE_BROKEN = [
+    pytest.param('test_command: "true"\ngates: []\n', id="gates-list"),
+    pytest.param('test_command: "true"\ngates: [unclosed\n', id="unparseable"),
+]
+
+
+def _build_feature_repo(tmp_path: Path, feature_testing: str) -> tuple[Path, dict[str, str]]:
+    """A repository whose feature branch holds docs/testing.yaml *feature_testing*."""
+    env = _env(tmp_path)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, env, "init", "-q", "-b", "main")
+    _git(repo, env, "config", "user.email", "fixture@example.com")
+    _git(repo, env, "config", "user.name", "Fixture")
+    _git(repo, env, "config", "commit.gpgsign", "false")
+    (repo / "README.md").write_text("fixture\n")
+    (repo / ".gitignore").write_text(".agent-factory/\n.current-work/\n")
+    _git(repo, env, "add", "-A")
+    _git(repo, env, "commit", "-q", "-m", "init")
+    _git(repo, env, "checkout", "-q", "-b", "dev")
+    _git(repo, env, "checkout", "-q", "-b", TARGET)
+    (repo / "docs").mkdir()
+    (repo / "docs" / "testing.yaml").write_text(feature_testing)
+    _git(repo, env, "add", "-A")
+    _git(repo, env, "commit", "-q", "-m", "feature")
+    _git(repo, env, "checkout", "-q", "dev")
+    return repo, env
+
+
+@pytest.mark.parametrize("feature_testing", FEATURE_BROKEN)
+def test_bug_0138_broken_feature_settings_refuse_without_traceback(tmp_path, feature_testing):
+    repo, env = _build_feature_repo(tmp_path, feature_testing)
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT), "dev", TARGET],
+        cwd=repo, env=env, capture_output=True, text=True, check=False,
+    )
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "Traceback" not in proc.stdout + proc.stderr
+    assert any(
+        line.startswith("BLOCK testing-yaml:") and "docs/testing.yaml" in line and TARGET in line
+        for line in proc.stdout.splitlines()
+    ), proc.stdout

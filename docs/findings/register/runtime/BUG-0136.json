@@ -1,0 +1,20 @@
+{
+  "id": "BUG-0136",
+  "source": "bug-hunt",
+  "review_class": "runtime",
+  "category": "defect",
+  "type": "usability",
+  "severity": "minor",
+  "artifact": "packages/factory/scripts/crap-score:1127-1137",
+  "story": null,
+  "finding": "With --base, the two refusals of GitRefSource send the reader to the wrong file. The key integration_branch comes from the tree of the --base revision (DEC-77), but the messages say only `the key integration_branch in docs/factory-settings.yaml names the branch <branch>, and git holds no branch <branch>` and `... whose tip is HEAD`. The other refusals of the key say `in docs/factory-settings.yaml at the revision <commit>`, as _settings_text builds it. A reader opens docs/factory-settings.yaml of the folder, which is the story head, and finds another value or no file. The scratch script /tmp/claude-1000/-home-matthiasdaues-Documents-datenschoenheit-agent-factory/89fd1670-49e4-4a59-97db-e1035150aa04/scratchpad/qa/probe-keys.sh commits integration_branch: v1.10.0 on feature/login only. The story head holds no docs/factory-settings.yaml, and the message still names that file without a revision. Fix: in crap-score, pass the `where` text of _settings_text through integration_branch and open_source to GitRefSource, and use it in both messages, so they name the revision as the other refusals do.",
+  "basis": {
+    "in_use": false,
+    "harms_downstream": false,
+    "fails_purpose": false,
+    "raises_cost": true
+  },
+  "why_this_severity": "Each case still exits 2 and names the key and the branch, as CG-14 requires, so the merge stops (no to fails_purpose). The reader must find out that the value comes from the base revision before fixing it. The code exists only on feature/crap-gate-trusted-source.",
+  "commit": "a3c7b47edf8bed9692a7cf4e61d6221b92b387e4",
+  "status": "open"
+}

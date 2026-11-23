@@ -13,7 +13,7 @@ The project measures, and the Factory judges. `crap-score` holds no code of a la
 ## Call
 
 ```bash
-.agent-factory/factory/scripts/crap-score (--base <revision> | --all) [--story-id <id>] [--report-dir <folder>]
+.agent-factory/factory/scripts/crap-score (--base <revision> | --all) [--story-id <id>] [--report-dir <folder>] [--settings-from-folder]
 ```
 
 - `--base <revision>` judges the functions whose lines changed in the diff from the merge base of the revision and `HEAD` to `HEAD`. The revision is a branch or a commit. The gate-check step passes the feature branch.
@@ -21,6 +21,7 @@ The project measures, and the Factory judges. `crap-score` holds no code of a la
 - A call needs exactly one of `--base` and `--all`. A call with neither or both exits `2`.
 - `--story-id` names the report. Without it, the name is `STORY_ID`, then the ID in the current branch name, such as `ST-0350` in `story/ST-0350`, then `adhoc`.
 - `--report-dir` names the folder of the report. The default is `.current-work/crap-score/`.
+- `--settings-from-folder` takes `threshold`, `files` and `exclude` from `docs/testing.yaml` of the folder, because the setup checks values that are not committed yet. The exceptions register still comes from the integration branch. Only `gate-setup-proof` passes it. The gate-check step, `premerge-check` and `dispatch` never pass it.
 
 The gate takes no threshold and no list of files as an argument. It reads its settings from `docs/testing.yaml`.
 
@@ -48,6 +49,16 @@ gates:
 - The test-strategy agent proposes each value, and a person decides it.
 - `files` and `exclude` are glob patterns relative to the repository root. `*` matches within one path segment, and `**` matches any number of segments. The gate judges only the rows whose file matches `files` and no `exclude` pattern.
 - The old key `crap_score` still counts. With both keys, the key with hyphens wins, and the gate prints a warning that names the old key.
+
+## Trusted gate source
+
+A story cannot decide what counts as accepted. So the gate reads `threshold`, the `files` and `exclude` of each measure, and the exceptions register from the integration branch, through one reader, the trusted gate source. The integration branch is the key `integration_branch` in `docs/factory-settings.yaml`, and `dev` by default, when the file or the key is missing. With `--base <revision>`, the gate reads that file from the tree of the revision, so a story cannot name its own branch or one of its own commits. With `--all` or `--settings-from-folder`, it reads the file in the folder. The gate reads only the tip of the local branch `refs/heads/<integration branch>`, never a tag, a remote branch or a revision expression such as `~1`. So a story that raises its threshold or adds an `exclude` pattern gets the same verdict as without that change.
+
+- `enabled`, `timeout_minutes`, and the `name`, `command` and `ready` of each measure come from the folder, the story head. The folder still needs all three required values.
+- A measure joins its entry on the branch by `name`. A measure that the branch does not name yet takes `files` and `exclude` from the folder, and the output names it as not yet trusted.
+- A measure that the branch names and the folder lacks makes the gate exit `2`. Remove a measure on the integration branch first.
+- Without the ref of the default `dev`, without `docs/testing.yaml` on the branch, or without `gates.crap-score` there, `threshold`, `files` and `exclude` come from the folder. The output then names the cause, so the first setup keeps working.
+- A `docs/testing.yaml` on the branch that cannot be parsed, or an entry there without `threshold`, makes the gate exit `2`. So do an `integration_branch` that is not a non-empty string or that `git check-ref-format --branch` refuses, a named branch that git does not hold, and a named branch whose tip is `HEAD`, the commit under judgement.
 
 ## Measurement format
 
@@ -105,7 +116,7 @@ A person reads the report. The verdict is the exit code alone. After exit `1`, `
 
 ## Exceptions register
 
-A person can accept a function above the threshold in the section `## CRAP score` of `docs/findings/exceptions.md`. The gate reads that section on the branch `dev`. A row names the file, the function, and the accepted score. A judged function above the threshold and at or below its accepted score gets `accepted`, which counts as a pass. Only the stakeholder writes the register, and agents never write it.
+A person can accept a function above the threshold in the section `## CRAP score` of `docs/findings/exceptions.md`. The gate reads that section from the integration branch, `dev` by default, never from the folder. A row names the file, the function, and the accepted score. A judged function above the threshold and at or below its accepted score gets `accepted`, which counts as a pass. Only the stakeholder writes the register, and agents never write it.
 
 ## Where the gate runs
 

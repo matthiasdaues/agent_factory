@@ -1081,7 +1081,7 @@ erDiagram
     }
     FACTORY_SETTINGS {
         string path "docs/factory-settings.yaml, tracked"
-        string integration_branch "nullable, the branch that the trusted gate source reads, dev when missing"
+        string integration_branch "nullable, the local branch that the trusted gate source reads, dev when missing"
     }
     RELEASE_TAG_PATTERN {
         string glob "such as v[0-9]*"
@@ -1108,7 +1108,7 @@ erDiagram
 - **REGISTER_FILE** has the status `open`, `resolved`, or `waived`. The commit that fixes the finding sets `resolved`, and the file may stay as the record. Only the stakeholder sets `waived`, with text in `override_by` and `override_reason`, when nobody will fix the finding (BR-110, DEC-63). An `open` register file that `HEAD` holds is removed only when a finding file with the same ID replaces it (BR-110). A register file that replaces a finding file holds `override_by` and `override_reason`, because only the stakeholder lowers a filed finding (BR-109). A `story` of `null` marks a review that ran before a backlog existed, such as a spec review.
 - **REGISTER** folders exist only for a class that has recorded a `minor` finding. A missing folder is an empty register. Each finding is its own file, so parallel reviews merge without a merge driver (DEC-60). An ID names a finding file or a register file, never both, and at most one register file (DEC-53, BR-090).
 - **LINE_IDENTITY** comes from `git blame -M -C --porcelain`. Two lines are the same line when commit, original line number, and original file name all match (BR-088). The lint blames the `artifact` path and its rename and copy sources, not `original_path`, because that path may no longer exist (DEC-49).
-- **FACTORY_SETTINGS** holds the keys `release_tag_patterns` and `integration_branch`. `finding-lint` reads `release_tag_patterns` (BR-089). `crap-score` reads `integration_branch` from the folder it runs in and uses `dev` when the file or the key is missing (BR-128, DEC-68). The project writes the file. `init-factory` and `update-factory` never write it.
+- **FACTORY_SETTINGS** holds the keys `release_tag_patterns` and `integration_branch`. `finding-lint` reads `release_tag_patterns` (BR-089). `crap-score` reads `integration_branch` from the tree of the `--base` commit, from the folder only with `--all` or `--settings-from-folder`, and uses `dev` when the file or the key is missing (BR-128, DEC-68, DEC-77). The project writes the file. `init-factory` and `update-factory` never write it.
 - **PROPOSAL_REVIEW_ROW** is no finding file. `finding-lint` does not read it, and its rules are in BR-094.
 - A **question** is no entity of this model. It becomes an entry in `docs/spec/work/todo.md` only (BR-085). A **note** stays in the review report.
 
